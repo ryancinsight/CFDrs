@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-20 [major] - Type transient composition control metrics
-  (IN PROGRESS 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   transient composition events, timing/control configuration, snapshots,
   callers, tests, design note, and synchronized PM artifacts).** Composition
   event timestamps, hematocrit, flow overrides, pressure overrides, simulation
@@ -43,7 +43,10 @@
   are non-goals for this slice because their representations need separate
   dimensionless-storage and equation-dependent classifications. Acceptance is
   a public-contract residue audit, value-semantic transient regressions,
-  focused cfd-1d checks, and no compatibility facade.
+  focused cfd-1d checks, and no compatibility facade. The cfd-1d test-target
+  check passes; composition parity passes 21/21; droplet parity passes 9/9;
+  literature validation passes 5/5; and the typed-control regression passes.
+  Mixture fraction storage remains a separately tracked representation gap.
 
 - **CFDRS-AEQ-MET-19 [major] - Type transient droplet physical metrics
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`

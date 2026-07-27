@@ -5,11 +5,11 @@ use super::types::{
 };
 use crate::domain::network::{Network, NodeType};
 use crate::scalar::Cfd1dScalar;
-use crate::solver::core::NetworkSolveScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
+use crate::solver::core::NetworkSolveScalar;
 use aequitas::systems::si::quantities::{Dimensionless, Time, Volume, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -182,7 +182,8 @@ impl TransientDropletSimulator {
 
         composition_states.sort_by(|a, b| {
             a.time
-                .partial_cmp(&b.time)
+                .into_base()
+                .partial_cmp(&b.time.into_base())
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
@@ -196,18 +197,16 @@ impl TransientDropletSimulator {
         let mut active: HashMap<i32, ActiveDroplet<T>> = HashMap::new();
         let mut output = Vec::with_capacity(composition_states.len());
 
-        let first_time = composition_states[0].time;
+        let first_time = composition_states[0].time.into_base();
         let mut previous_time = first_time;
         let mut state_network = network.clone();
 
         for state in &composition_states {
-            let dt = (state.time - previous_time).max(T::zero());
-            previous_time = state.time;
+            let state_time = state.time.into_base();
+            let dt = (state_time - previous_time).max(T::zero());
+            previous_time = state_time;
             for (edge_idx, flow_rate) in &state.edge_flow_rates {
-                state_network.set_flow_rate(
-                    EdgeIndex::new(*edge_idx),
-                    VolumetricFlowRate::from_base(*flow_rate),
-                );
+                state_network.set_flow_rate(EdgeIndex::new(*edge_idx), *flow_rate);
             }
 
             for injection in &injections_sorted {
@@ -217,7 +216,7 @@ impl TransientDropletSimulator {
                 });
 
                 if entry.state == DropletState::Injection
-                    && state.time >= injection.injection_time.into_base()
+                    && state_time >= injection.injection_time.into_base()
                 {
                     entry.state = DropletState::Network;
                     entry.branches = vec![DropletBranch {
@@ -298,7 +297,7 @@ impl TransientDropletSimulator {
             }
 
             output.push(DropletTrackingState {
-                time: Time::from_base(state.time),
+                time: Time::from_base(state_time),
                 droplets: snapshots,
             });
         }
@@ -313,7 +312,11 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let area = p.area.into_base();
-            if area > T::zero() { area } else { one }
+            if area > T::zero() {
+                area
+            } else {
+                one
+            }
         })
     }
 
@@ -324,7 +327,11 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let length = p.length.into_base();
-            if length > T::zero() { length } else { one }
+            if length > T::zero() {
+                length
+            } else {
+                one
+            }
         })
     }
 

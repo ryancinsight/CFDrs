@@ -1,5 +1,5 @@
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
+    Area, Dimensionless, HydraulicResistance, Length, Pressure, Time, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy};
 use cfd_1d::pries_phase_separation;
@@ -18,12 +18,28 @@ fn mixture(pairs: &[(i32, f64)]) -> MixtureComposition<f64> {
     MixtureComposition::new(map)
 }
 
+fn fraction(value: f64) -> Dimensionless<f64> {
+    Dimensionless::from_base(value)
+}
+
+fn time(value: f64) -> Time<f64> {
+    Time::from_base(value)
+}
+
+fn flow(value: f64) -> VolumetricFlowRate<f64> {
+    VolumetricFlowRate::from_base(value)
+}
+
+fn pressure(value: f64) -> Pressure<f64> {
+    Pressure::from_base(value)
+}
+
 fn cstr_relaxation(previous: f64, inlet: f64, dt: f64, tau: f64) -> f64 {
     inlet + (previous - inlet) * (-(dt / tau)).exp()
 }
 
 fn segmented_transport_config() -> BloodEdgeTransportConfig<f64> {
-    BloodEdgeTransportConfig::new(4, 1.0)
+    BloodEdgeTransportConfig::new(4, fraction(1.0))
 }
 
 #[test]
@@ -40,12 +56,12 @@ fn switches_inlet_mixture_over_time() {
 
     let events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
             mixture: mixture(&[(1, 1.0)]),
         },
         InletCompositionEvent {
-            time: 2.0,
+            time: time(2.0),
             node_index: inlet.index(),
             mixture: mixture(&[(2, 1.0)]),
         },
@@ -85,12 +101,12 @@ fn mixes_two_inlet_streams_at_junction() {
 
     let events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
             mixture: mixture(&[(10, 1.0)]),
         },
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
             mixture: mixture(&[(20, 1.0)]),
         },
@@ -112,7 +128,7 @@ fn mixes_two_inlet_streams_at_junction() {
 
 #[test]
 fn timing_config_generates_expected_result_timepoints() {
-    let config = SimulationTimeConfig::<f64>::new(1.0, 0.4, 0.1);
+    let config = SimulationTimeConfig::<f64>::new(time(1.0), time(0.4), time(0.1));
     let points = config.result_timepoints().expect("result points");
 
     assert_eq!(points.len(), 4);
@@ -120,6 +136,33 @@ fn timing_config_generates_expected_result_timepoints() {
     assert!((points[1] - 0.4).abs() < 1e-12);
     assert!((points[2] - 0.8).abs() < 1e-12);
     assert!((points[3] - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn typed_composition_control_metrics_preserve_values() {
+    let timing = SimulationTimeConfig::new(time(2.0), time(0.5), time(0.1));
+    let hematocrit_event = InletHematocritEvent {
+        time: time(0.25),
+        node_index: 0,
+        hematocrit: fraction(0.45),
+    };
+    let flow_event = EdgeFlowEvent {
+        time: time(0.5),
+        edge_index: 1,
+        flow_rate: flow(2.5),
+    };
+    let pressure_event = PressureBoundaryEvent {
+        time: time(0.75),
+        node_index: 0,
+        pressure: pressure(12.0),
+    };
+    let transport = BloodEdgeTransportConfig::new(4, fraction(0.8));
+
+    assert_eq!(timing.duration.into_base(), 2.0);
+    assert_eq!(hematocrit_event.hematocrit.into_base(), 0.45);
+    assert_eq!(flow_event.flow_rate.into_base(), 2.5);
+    assert_eq!(pressure_event.pressure.into_base(), 12.0);
+    assert_eq!(transport.max_courant_number.into_base(), 0.8);
 }
 
 #[test]
@@ -136,27 +179,27 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
 
     let events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
             mixture: mixture(&[(1, 1.0)]),
         },
         InletCompositionEvent {
-            time: 0.5,
+            time: time(0.5),
             node_index: inlet.index(),
             mixture: mixture(&[(2, 1.0)]),
         },
     ];
 
-    let timing = SimulationTimeConfig::new(1.0, 0.25, 0.1);
+    let timing = SimulationTimeConfig::new(time(1.0), time(0.25), time(0.1));
     let states = TransientCompositionSimulator::simulate_with_time_config(&network, events, timing)
         .expect("simulate");
 
     assert_eq!(states.len(), 5);
-    assert!((states[0].time - 0.0).abs() < 1e-12);
-    assert!((states[1].time - 0.25).abs() < 1e-12);
-    assert!((states[2].time - 0.5).abs() < 1e-12);
-    assert!((states[3].time - 0.75).abs() < 1e-12);
-    assert!((states[4].time - 1.0).abs() < 1e-12);
+    assert!((states[0].time.into_base() - 0.0).abs() < 1e-12);
+    assert!((states[1].time.into_base() - 0.25).abs() < 1e-12);
+    assert!((states[2].time.into_base() - 0.5).abs() < 1e-12);
+    assert!((states[3].time.into_base() - 0.75).abs() < 1e-12);
+    assert!((states[4].time.into_base() - 1.0).abs() < 1e-12);
 
     let before_switch = states[1]
         .edge_mixtures
@@ -184,9 +227,9 @@ fn duplicate_requested_timepoints_are_sampled_consistently() {
     network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![InletHematocritEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
-        hematocrit: 0.45,
+        hematocrit: fraction(0.45),
     }];
 
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
@@ -197,8 +240,8 @@ fn duplicate_requested_timepoints_are_sampled_consistently() {
     .expect("simulate duplicate timepoints");
 
     assert_eq!(states.len(), 4);
-    assert!((states[1].time - 0.5).abs() < 1.0e-12);
-    assert!((states[2].time - 0.5).abs() < 1.0e-12);
+    assert!((states[1].time.into_base() - 0.5).abs() < 1.0e-12);
+    assert!((states[2].time.into_base() - 0.5).abs() < 1.0e-12);
 
     let hct_1 = states[1].edge_hematocrit(edge.index()).expect("edge hct");
     let hct_2 = states[2].edge_hematocrit(edge.index()).expect("edge hct");
@@ -226,12 +269,12 @@ fn edge_average_concentrations_query_matches_snapshot_mixture() {
 
     let events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
             mixture: mixture(&[(10, 1.0)]),
         },
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
             mixture: mixture(&[(20, 1.0)]),
         },
@@ -260,7 +303,7 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
     network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: mixture(&[(1, 1.0)]),
     }];
@@ -293,12 +336,12 @@ fn scheduled_flow_events_update_mixture_distribution_over_time() {
 
     let composition_events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
             mixture: mixture(&[(10, 1.0)]),
         },
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
             mixture: mixture(&[(20, 1.0)]),
         },
@@ -306,19 +349,19 @@ fn scheduled_flow_events_update_mixture_distribution_over_time() {
 
     let flow_events = vec![
         EdgeFlowEvent {
-            time: 1.0,
+            time: time(1.0),
             edge_index: e1.index(),
-            flow_rate: 1.0,
+            flow_rate: flow(1.0),
         },
         EdgeFlowEvent {
-            time: 1.0,
+            time: time(1.0),
             edge_index: e2.index(),
-            flow_rate: 3.0,
+            flow_rate: flow(3.0),
         },
         EdgeFlowEvent {
-            time: 1.0,
+            time: time(1.0),
             edge_index: e3.index(),
-            flow_rate: 4.0,
+            flow_rate: flow(4.0),
         },
     ];
 
@@ -363,12 +406,12 @@ fn scheduled_pressure_events_resolve_flows_and_update_mixture_distribution() {
 
     let composition_events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
             mixture: mixture(&[(10, 1.0)]),
         },
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
             mixture: mixture(&[(20, 1.0)]),
         },
@@ -376,24 +419,24 @@ fn scheduled_pressure_events_resolve_flows_and_update_mixture_distribution() {
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in1.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in2.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
     ];
 
@@ -432,14 +475,14 @@ fn blood_hematocrit_switches_over_time() {
 
     let events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 2.0,
+            time: time(2.0),
             node_index: inlet.index(),
-            hematocrit: 0.20,
+            hematocrit: fraction(0.20),
         },
     ];
 
@@ -475,14 +518,14 @@ fn blood_hematocrit_mixes_two_inlets_at_junction() {
 
     let events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.15,
+            hematocrit: fraction(0.15),
         },
     ];
 
@@ -515,37 +558,37 @@ fn pressure_event_blood_hematocrit_tracks_flow_redistribution() {
 
     let hematocrit_events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.15,
+            hematocrit: fraction(0.15),
         },
     ];
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in1.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in2.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
     ];
 
@@ -619,27 +662,27 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
 
     let hematocrit_events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.10,
+            hematocrit: fraction(0.10),
         },
     ];
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 0.02,
+            pressure: pressure(0.02),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 0.02,
+            pressure: pressure(0.02),
         },
     ];
 
@@ -666,21 +709,25 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
         .edge_flow_rates
         .get(&e1.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("uncoupled branch 1 flow");
     let uncoupled_q2 = uncoupled[0]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("uncoupled branch 2 flow");
     let coupled_q1 = coupled[0]
         .edge_flow_rates
         .get(&e1.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("coupled branch 1 flow");
     let coupled_q2 = coupled[0]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("coupled branch 2 flow");
     let coupled_h1 = coupled[0].edge_hematocrit(e1.index()).unwrap_or(-1.0);
     let coupled_h2 = coupled[0].edge_hematocrit(e2.index()).unwrap_or(-1.0);
@@ -734,9 +781,9 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     );
 
     let events = vec![InletHematocritEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
-        hematocrit: 0.45,
+        hematocrit: fraction(0.45),
     }];
 
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
@@ -816,14 +863,14 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
 
     let events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.15,
+            hematocrit: fraction(0.15),
         },
     ];
 
@@ -888,36 +935,36 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
 
     let hematocrit_events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.15,
+            hematocrit: fraction(0.15),
         },
     ];
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in1.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: in2.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
     ];
 
@@ -945,6 +992,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
             .edge_flow_rates
             .get(&e3.index())
             .copied()
+            .map(|q| q.into_base())
             .unwrap_or(1.0)
             .abs();
     let tau_t1 = 1.0
@@ -952,6 +1000,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
             .edge_flow_rates
             .get(&e3.index())
             .copied()
+            .map(|q| q.into_base())
             .unwrap_or(1.0)
             .abs();
     let expected_t10 = cstr_relaxation(0.0, instant_t0, 1.0, tau_t0);
@@ -1005,9 +1054,9 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
         TransientCompositionSimulator::simulate_blood_hematocrit_with_segmented_edge_transport(
             &network,
             vec![InletHematocritEvent {
-                time: 0.0,
+                time: time(0.0),
                 node_index: inlet.index(),
-                hematocrit: 0.45,
+                hematocrit: fraction(0.45),
             }],
             vec![0.0, 0.25, 0.50, 0.75, 1.0],
             segmented_transport_config(),
@@ -1075,14 +1124,14 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
 
     let events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.15,
+            hematocrit: fraction(0.15),
         },
     ];
 
@@ -1167,12 +1216,12 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
         TransientCompositionSimulator::simulate_blood_hematocrit_with_segmented_edge_transport(
             &network,
             vec![InletHematocritEvent {
-                time: 0.0,
+                time: time(0.0),
                 node_index: inlet.index(),
-                hematocrit: 0.45,
+                hematocrit: fraction(0.45),
             }],
             vec![0.0, 0.25],
-            BloodEdgeTransportConfig::new(1, 1.0),
+            BloodEdgeTransportConfig::new(1, fraction(1.0)),
         )
         .expect("simulate bifurcation segmented transport");
 
@@ -1242,26 +1291,26 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
 
     let hematocrit_events = vec![
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            hematocrit: 0.45,
+            hematocrit: fraction(0.45),
         },
         InletHematocritEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            hematocrit: 0.10,
+            hematocrit: fraction(0.10),
         },
     ];
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 2.5,
+            pressure: pressure(2.5),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
     ];
 
@@ -1281,11 +1330,13 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
         .edge_flow_rates
         .get(&e1.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("branch 1 flow");
     let t1_q2 = states[1]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
+        .map(|q| q.into_base())
         .expect("branch 2 flow");
     let t1_h1 = states[1].edge_hematocrit(e1.index()).unwrap_or(-1.0);
     let t1_h2 = states[1].edge_hematocrit(e2.index()).unwrap_or(-1.0);

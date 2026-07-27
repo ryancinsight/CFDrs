@@ -32,9 +32,10 @@ because the public contract must migrate atomically.
 
 ## Verification
 
-- `cargo check -p cfd-1d --tests --offline` passed before the peer cfd-math
-  graph shifted.
-- Direct rustfmt and targeted `git diff --check` pass.
-- The focused Nextest command is currently blocked by the peer-owned
-  `cfd-math::BlockDiagonalPreconditioner` and `SimplePreconditioner`
-  `apply_to` return-type mismatch (`LetoError` versus `cfd_core::error::Error`).
+- `cargo check -p cfd-1d --tests --offline` passes.
+- `cargo nextest run -p cfd-1d --test transient_droplet_parity --offline`
+  passes 9/9.
+- `cargo nextest run -p cfd-1d --test transient_literature_validation --offline`
+  passes 5/5.
+- Direct rustfmt and targeted `git diff --check` pass. The peer cfd-math
+  `apply_to` error-contract mismatch is repaired forward in `32be436b`.

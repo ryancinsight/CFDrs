@@ -11,7 +11,7 @@
 //! These tests validate transient implementations against analytical expectations.
 
 use aequitas::systems::si::quantities::{
-    Dimensionless, HydraulicResistance, Pressure, Time, Volume,
+    Dimensionless, HydraulicResistance, Pressure, Time, Volume, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
@@ -26,6 +26,14 @@ fn fraction(value: f64) -> Dimensionless<f64> {
 
 fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
+}
+
+fn flow(value: f64) -> VolumetricFlowRate<f64> {
+    VolumetricFlowRate::from_base(value)
+}
+
+fn pressure(value: f64) -> Pressure<f64> {
+    Pressure::from_base(value)
 }
 
 fn volume(value: f64) -> Volume<f64> {
@@ -51,21 +59,21 @@ fn pressure_event_flow_ratio_matches_hagen_poiseuille_scaling() {
     network.set_pressure(outlet, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            pressure: 1000.0,
+            pressure: pressure(1000.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: inlet.index(),
-            pressure: 2000.0,
+            pressure: pressure(2000.0),
         },
     ];
 
@@ -77,8 +85,8 @@ fn pressure_event_flow_ratio_matches_hagen_poiseuille_scaling() {
     )
     .expect("transient composition");
 
-    let q0 = states[0].edge_flow_rates[&edge.index()].abs();
-    let q1 = states[1].edge_flow_rates[&edge.index()].abs();
+    let q0 = states[0].edge_flow_rates[&edge.index()].into_base().abs();
+    let q1 = states[1].edge_flow_rates[&edge.index()].into_base().abs();
     assert!((q1 / q0 - 2.0).abs() < 1e-9);
 }
 
@@ -101,12 +109,12 @@ fn junction_mixing_matches_flow_weighted_mass_conservation() {
 
     let composition_events = vec![
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
             mixture: pure(10),
         },
         InletCompositionEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
             mixture: pure(20),
         },
@@ -116,14 +124,14 @@ fn junction_mixing_matches_flow_weighted_mass_conservation() {
     // streams entering junction and produce analytical 4:1 flow split.
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in1.index(),
-            pressure: 3.0,
+            pressure: pressure(3.0),
         },
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: in2.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
     ];
 
@@ -155,15 +163,15 @@ fn droplet_advection_matches_velocity_relation_dx_equals_q_over_a_dt() {
     let network = Network::new(graph, fluid);
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
 
     let flow_events = vec![EdgeFlowEvent {
-        time: 0.0,
+        time: time(0.0),
         edge_index: edge.index(),
-        flow_rate: 0.5,
+        flow_rate: flow(0.5),
     }];
 
     let injections = vec![DropletInjection {
@@ -212,21 +220,21 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
     }
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            pressure: 1000.0,
+            pressure: pressure(1000.0),
         },
         PressureBoundaryEvent {
-            time: 1.0,
+            time: time(1.0),
             node_index: inlet.index(),
-            pressure: 2000.0,
+            pressure: pressure(2000.0),
         },
     ];
 
@@ -242,7 +250,7 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
     let area = std::f64::consts::PI * (diameter / 2.0_f64).powi(2);
 
     for state in &states {
-        let q = state.edge_flow_rates[&edge.index()].abs();
+        let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
         let re = fluid.density * velocity * diameter / fluid.viscosity;
         assert!(re < 2300.0, "Re={} should remain laminar", re);
@@ -262,21 +270,21 @@ fn flow_event_validation_operates_in_laminar_reynolds_range() {
     let network = Network::new(graph, fluid.clone());
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
 
     let flow_events = vec![
         EdgeFlowEvent {
-            time: 0.0,
+            time: time(0.0),
             edge_index: edge.index(),
-            flow_rate: 1.0e-9,
+            flow_rate: flow(1.0e-9),
         },
         EdgeFlowEvent {
-            time: 1.0,
+            time: time(1.0),
             edge_index: edge.index(),
-            flow_rate: 2.0e-9,
+            flow_rate: flow(2.0e-9),
         },
     ];
 
@@ -292,7 +300,7 @@ fn flow_event_validation_operates_in_laminar_reynolds_range() {
     let area = std::f64::consts::PI * (diameter / 2.0_f64).powi(2);
 
     for state in &states {
-        let q = state.edge_flow_rates[&edge.index()].abs();
+        let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
         let re = fluid.density * velocity * diameter / fluid.viscosity;
         assert!(re < 2300.0, "Re={} should remain laminar", re);

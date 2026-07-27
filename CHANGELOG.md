@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type transient composition event time, hematocrit, flow,
+  pressure, CFL, and snapshot time/flow contracts with Aequitas. Mixture
+  fraction storage remains a separate dimensionless-representation item.
+
 - **Breaking**: Type transient droplet volume, time, normalized position,
   occupancy, and split-policy metrics with Aequitas quantities. Composition
   event/time contracts remain a separate transient audit item.

@@ -14,18 +14,20 @@
       9/9 and literature validation passes 5/5 after the forward cfd-math
       error-contract repair in `32be436b`.
 
-## Owner: Codex — CFDRS-AEQ-MET-20 transient composition control metrics [major] — in progress 2026-07-27
+## Owner: Codex — CFDRS-AEQ-MET-20 transient composition control metrics [major] — verified 2026-07-27
 
-- [ ] Confirm the live composition events, timing/control configuration, and
+- [x] Confirm the live composition events, timing/control configuration, and
       snapshot state expose time, hematocrit/fraction, flow, pressure, and CFL
       as raw scalar contracts; verify no peer edits overlap the composition
       scope.
-- [ ] Type the public temporal/control contracts with Aequitas and migrate all
+- [x] Type the public temporal/control contracts with Aequitas and migrate all
       simulator and test callers without a compatibility facade; keep scalar
       extraction at transport, solver, and timestep formulas.
-- [ ] Add value-semantic time, flow, pressure, hematocrit, and CFL regressions;
+- [x] Add value-semantic time, flow, pressure, hematocrit, and CFL regressions;
       run focused cfd-1d checks and synchronize the design note, gap audit,
-      backlog, checklist, and changelog.
+      backlog, checklist, and changelog. The composition parity lane passes
+      21/21; droplet parity passes 9/9; literature validation passes 5/5.
+      Mixture fraction storage remains a separately tracked representation gap.
 
 ## Owner: Codex — CFDRS-AEQ-MET-18 typed node and network metadata metrics [major] — verified 2026-07-27
 

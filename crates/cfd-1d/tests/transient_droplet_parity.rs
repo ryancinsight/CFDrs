@@ -17,6 +17,14 @@ fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
 }
 
+fn flow(value: f64) -> VolumetricFlowRate<f64> {
+    VolumetricFlowRate::from_base(value)
+}
+
+fn pressure(value: f64) -> Pressure<f64> {
+    Pressure::from_base(value)
+}
+
 fn volume(value: f64) -> Volume<f64> {
     Volume::from_base(value)
 }
@@ -33,7 +41,7 @@ fn composition_over_times(
     times: Vec<f64>,
 ) -> Vec<CompositionState<f64>> {
     let events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet_node,
         mixture: pure(1),
     }];
@@ -271,21 +279,21 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
     network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
 
     let pressure_events = vec![
         PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            pressure: 1.0,
+            pressure: pressure(1.0),
         },
         PressureBoundaryEvent {
-            time: 0.5,
+            time: time(0.5),
             node_index: inlet.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         },
     ];
 
@@ -346,7 +354,7 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
     network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
@@ -367,9 +375,9 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
         composition_events.clone(),
         timepoints.clone(),
         vec![PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            pressure: 1.0,
+            pressure: pressure(1.0),
         }],
     )
     .expect("low pressure run");
@@ -380,9 +388,9 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
         composition_events,
         timepoints,
         vec![PressureBoundaryEvent {
-            time: 0.0,
+            time: time(0.0),
             node_index: inlet.index(),
-            pressure: 2.0,
+            pressure: pressure(2.0),
         }],
     )
     .expect("high pressure run");
@@ -414,20 +422,20 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
     network.set_flow_rate(e0, VolumetricFlowRate::from_base(1.0));
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
     let flow_events = vec![
         EdgeFlowEvent {
-            time: 0.0,
+            time: time(0.0),
             edge_index: e0.index(),
-            flow_rate: 1.0,
+            flow_rate: flow(1.0),
         },
         EdgeFlowEvent {
-            time: 0.5,
+            time: time(0.5),
             edge_index: e0.index(),
-            flow_rate: 2.0,
+            flow_rate: flow(2.0),
         },
     ];
     let timepoints = vec![0.0, 0.2, 0.6];
@@ -494,25 +502,25 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
     network.set_flow_rate(e2, VolumetricFlowRate::from_base(0.1));
 
     let composition_events = vec![InletCompositionEvent {
-        time: 0.0,
+        time: time(0.0),
         node_index: inlet.index(),
         mixture: pure(1),
     }];
     let flow_events = vec![
         EdgeFlowEvent {
-            time: 0.3,
+            time: time(0.3),
             edge_index: e1.index(),
-            flow_rate: 1.0,
+            flow_rate: flow(1.0),
         },
         EdgeFlowEvent {
-            time: 0.3,
+            time: time(0.3),
             edge_index: e2.index(),
-            flow_rate: 1.0,
+            flow_rate: flow(1.0),
         },
         EdgeFlowEvent {
-            time: 0.3,
+            time: time(0.3),
             edge_index: e0.index(),
-            flow_rate: 2.0,
+            flow_rate: flow(2.0),
         },
     ];
 
