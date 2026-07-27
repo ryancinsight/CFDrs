@@ -4,7 +4,8 @@ use cfd_core::error::{Error, Result};
 use leto::{Array1, Array2};
 use leto_ops::{solve as leto_lu_solve, CsrMatrix as LetoCsrMatrix, RealScalar as LetoRealScalar};
 
-pub(super) fn solve_leto_csr_with_leto_dense_array<T>(
+/// Solve a CSR system by bridging its right-hand side through a dense Leto array.
+pub fn solve_leto_csr_with_leto_dense_array<T>(
     matrix: &LetoCsrMatrix<T>,
     rhs: &Array1<T>,
 ) -> Result<Array1<T>>

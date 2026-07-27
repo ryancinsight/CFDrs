@@ -1,9 +1,9 @@
 //! Core types for Incomplete LU factorization
 
 use crate::linear_solver::Preconditioner;
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use eunomia::{NumericElement, RealField};
-use leto::Array1;
+use leto::{Array1, LetoError};
 use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
 use super::ilu0;
@@ -15,12 +15,10 @@ fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
 
-fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> Result<()> {
+fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> std::result::Result<(), LetoError> {
     let actual = vector_len(vector);
     if actual != expected {
-        return Err(Error::InvalidConfiguration(format!(
-            "{name} length mismatch: expected {expected}, got {actual}"
-        )));
+        return Err(LetoError::InvalidInput(format!("{name} length mismatch: expected {expected}, got {actual}")));
     }
     Ok(())
 }
@@ -91,7 +89,7 @@ impl<T: RealField + Copy + LetoScalar> IncompleteLU<T> {
 }
 
 impl<T: RealField + Copy + NumericElement + LetoScalar> Preconditioner<T> for IncompleteLU<T> {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
         let n = self.lu_factor.nrows();
         validate_vector_len("ILU residual", r, n)?;
         validate_vector_len("ILU output", z, n)?;

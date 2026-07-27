@@ -18,6 +18,7 @@
 //! 3. Murphy, Golub & Wathen (2000): "A Note on Preconditioning for Indefinite Linear Systems"
 
 use crate::linear_solver::Preconditioner;
+use leto::LetoError;
 use crate::sparse::SparseMatrix;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -45,10 +46,10 @@ fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
 
-fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> Result<()> {
+fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> std::result::Result<(), LetoError> {
     let actual = vector_len(vector);
     if actual != expected {
-        return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+        return Err(LetoError::InvalidInput(format!(
             "{name} length mismatch: expected {expected}, got {actual}"
         )));
     }
@@ -474,7 +475,7 @@ impl<T> Preconditioner<T> for BlockDiagonalPreconditioner<T>
 where
     T: RealField + FloatElement + Copy + LetoScalar,
 {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
         validate_vector_len(
             "block diagonal preconditioner input",
             r,
@@ -496,9 +497,9 @@ impl<T> Preconditioner<T> for SimplePreconditioner<T>
 where
     T: RealField + FloatElement + Copy + LetoScalar,
 {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
         validate_vector_len("SIMPLE preconditioner output", z, vector_len(r))?;
-        let result = self.apply(r)?;
+        let result = self.apply(r).map_err(|e| LetoError::InvalidInput(e.to_string()))?;
         for idx in 0..vector_len(z) {
             z[idx] = result[idx];
         }
