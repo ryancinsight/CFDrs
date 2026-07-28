@@ -63,6 +63,18 @@ dependency path. The all-targets Clippy command remains blocked by 47
 pre-existing diagnostics in peer-edited cfd-3d validation/test modules; this
 is verification debt, not a metric residual, and no peer WIP was modified.
 
+## Solver runtime refresh (2026-07-28)
+
+The focused reproduction of `venturi::validation::tests::test_venturi_blood_flow`
+still exceeds the committed 30-second Nextest budget on the unchanged FEM
+solver path: the established restart-200 setting terminates at 30.107 seconds.
+A bounded restart-128 experiment terminates at 30.053 seconds and is rejected;
+it does not close the budget and changes no production setting. The broad
+cfd-3d validation result remains 291/292 with the same Venturi timeout at
+30.663 seconds. The runtime row remains `CFDRS-RUNTIME-001`; it is a solver
+performance residual, not an untyped Aequitas metric. The concurrent cfd-math
+module-tree edits and 47 all-target Clippy diagnostics remain untouched.
+
 ## Aequitas public metric gap audit (2026-07-24)
 
 ### Verification refresh (2026-07-27, CFDRS-AEQ-MET-23)
