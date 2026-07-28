@@ -47,6 +47,19 @@
   83/83; the standalone lock/provider identity residual is recorded separately
   in `gap_audit.md`.
 
+- **CFDRS-AEQ-MET-25 [major] - Type shared cavitation primitives
+  (IN PROGRESS; owner=Codex; claimed 2026-07-28; scope=`cfd-core` cavitation
+  public physical structs and direct cfd-3d/cfd-1d callers/tests).** The
+  follow-up source audit found raw public Rayleigh-Plesset, Venturi,
+  cavitation-number, nuclei-transport, and mass-transfer model fields for
+  radius, pressure, density, velocity, time, viscosity, surface tension, and
+  number density. Carry declared physical values through Aequitas and retain
+  scalar extraction only in analytical formula kernels; dimensionless model
+  coefficients, fractions, probabilities, and damage indices remain scalar.
+  Acceptance is a residue-free source audit, value-semantic primitive and
+  consumer regressions, focused cfd-core/cfd-3d gates, and synchronized audit
+  evidence without a scalar compatibility facade.
+
 - **CFDRS-AEQ-MET-23 [major] - Type cell-separation physical metrics
   (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation
   public family and direct callers, cascade and three-population callers/tests,
