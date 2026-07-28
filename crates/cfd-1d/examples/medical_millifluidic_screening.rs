@@ -22,7 +22,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example medical_millifluidic_screening`
 
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_1d::BloodShearLimits;
@@ -229,12 +229,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let local_p = (p_src + p_dst) / 2.0;
 
             let cav = CavitationNumber {
-                reference_pressure: local_p,
-                vapor_pressure,
-                density: blood.density,
-                velocity,
+                reference_pressure: Pressure::from_base(local_p),
+                vapor_pressure: Pressure::from_base(vapor_pressure),
+                density: MassDensity::from_base(blood.density),
+                velocity: Velocity::from_base(velocity),
             };
-            let sigma = cav.calculate();
+            let sigma = cav.calculate().into_base();
 
             // FDA check
             if wall_shear > fda_limits.max_wall_shear_stress_pa.into_base() {

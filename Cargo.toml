@@ -39,7 +39,7 @@ aequitas = { path = "../aequitas", version = "0.1.0", default-features = false, 
 proteus = { path = "../proteus", version = "0.1.0" }
 hyperion = { path = "../hyperion", version = "0.1.0", default-features = false, features = ["std"] }
 tyche-core = { path = "../tyche/crates/tyche-core", version = "0.1.0" }
-eunomia = { path = "../eunomia/crates/eunomia", default-features = false, features = ["std"] }
+eunomia = { version = "0.7.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 iris = { path = "../iris", version = "0.1.0" }
 approx = "0.5"
 bytemuck = "1.14"
@@ -75,7 +75,7 @@ cfd-io = { path = "crates/cfd-io" }
 # Shared crates consumed from their canonical remotes (default branch = latest).
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
 # publish changes there (commit + push), then `cargo update -p <crate>`.
-cfd-mesh = { path = "../gaia", package = "gaia" }
+cfd-mesh = { path = "../gaia", package = "gaia", features = ["cfdrs-integration"] }
 apollo-fft = { path = "../apollo/crates/apollo-fft" }
 apollo-nufft = { path = "../apollo/crates/apollo-nufft" }
 leto = { path = "../leto/crates/leto", default-features = false, features = ["std"] }

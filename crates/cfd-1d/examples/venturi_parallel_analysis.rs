@@ -20,7 +20,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example venturi_parallel_analysis`
 
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{Angle, Length, MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator, VenturiModel};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
@@ -232,22 +232,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // VenturiCavitation analysis
             let venturi = VenturiCavitation {
-                inlet_diameter: inlet_d,
-                throat_diameter: throat_d,
-                outlet_diameter: outlet_d,
-                convergent_angle: 0.2618, // ~15°
-                divergent_angle: 0.1222,  // ~7°
-                inlet_pressure: p_up,
-                inlet_velocity: v_inlet,
-                density: rho,
-                vapor_pressure: p_vapor,
+                inlet_diameter: Length::from_base(inlet_d),
+                throat_diameter: Length::from_base(throat_d),
+                outlet_diameter: Length::from_base(outlet_d),
+                convergent_angle: Angle::from_base(0.2618), // ~15°
+                divergent_angle: Angle::from_base(0.1222),  // ~7°
+                inlet_pressure: Pressure::from_base(p_up),
+                inlet_velocity: Velocity::from_base(v_inlet),
+                density: MassDensity::from_base(rho),
+                vapor_pressure: Pressure::from_base(p_vapor),
             };
 
-            let sigma = venturi.cavitation_number();
-            let v_throat = venturi.throat_velocity();
-            let p_throat = venturi.throat_pressure();
+            let sigma = venturi.cavitation_number().into_base();
+            let v_throat = venturi.throat_velocity().into_base();
+            let p_throat = venturi.throat_pressure().into_base();
             let is_cav = venturi.is_cavitating();
-            let cavity_len = venturi.cavity_length(sigma);
+            let cavity_len = venturi.cavity_length(venturi.cavitation_number()).into_base();
 
             // Venturi-specific resistance via 1D model
             let venturi_model = VenturiModel::millifluidic(inlet_d, throat_d, length);

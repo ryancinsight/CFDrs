@@ -139,8 +139,8 @@ pub mod multigrid {
     pub use crate::linear_solver::preconditioners::multigrid::*;
 }
 pub mod diagnostics;
-pub mod differentiation;
 pub mod error;
+pub mod fd_extensions;
 pub mod high_order;
 pub mod iterators;
 pub mod nonlinear_solver;
@@ -237,7 +237,8 @@ pub mod quadrature_rules {
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        differentiation::FiniteDifference,
+        fd::{FiniteDifference, FiniteDifferenceScheme},
+        fd_extensions::{compute_gradient_2d, compute_gradient_3d, Gradient},
         iterative::ConjugateGradient,
         sparse::{SparseMatrix, SparseMatrixBuilder},
     };

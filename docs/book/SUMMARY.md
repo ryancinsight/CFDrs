@@ -49,6 +49,7 @@
   - [Example: medical_millifluidic_screening](examples/medical_millifluidic_screening.md)
   - [Example: hemolysis_serpentine_analysis](examples/hemolysis_serpentine_analysis.md)
   - [Example: serpentine_mixing_comprehensive](examples/serpentine_mixing_comprehensive.md)
+  - [Example: venturi_parallel_analysis](examples/venturi_parallel_analysis.md)
 
 ---
 
@@ -136,7 +137,17 @@
 
 - [A. Atlas Crate Dependency Map](appendix_dependencies.md)
 - [B. Atlas Stack Reference (leto/hephaestus/coeus backends)](appendix_migration.md)
-- [C. Glossary](appendix_glossary.md)
-- [D. Changelog](appendix_changelog.md)
-- [E. Book Organization](BOOK_ORGANIZATION.md)
-- [F. Parity Artefacts Archive (CI Gate Evidence)](../../../parity_artefacts/INDEX.md)
+- [C. Atlas Migration Guide](migration_overview.md)
+  - [Eunomia: Numeric Traits](migration_eunomia.md)
+  - [Leto: Arrays and Linalg](migration_arrays.md)
+  - [Leto: Geometry](migration_geometry.md)
+  - [Hermes: SIMD Lanes](migration_simd.md)
+  - [Mnemosyne and Themis: Memory](migration_memory.md)
+  - [Moirai: Concurrency](migration_concurrency.md)
+  - [Apollo: FFT](migration_fft.md)
+  - [Leto: GAT Tiling](migration_gat_tiles.md)
+  - [Migration Validation](migration_validation.md)
+- [D. Glossary](appendix_glossary.md)
+- [E. Changelog](appendix_changelog.md)
+- [F. Book Organization](BOOK_ORGANIZATION.md)
+- [G. Parity Artefacts Archive (CI Gate Evidence)](parity_archive.md)

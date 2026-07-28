@@ -7,8 +7,9 @@ mod time_integration;
 
 pub use time_integration::*;
 
+use leto_ops::legendre_poly;
 use super::{
-    legendre_poly, matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
+    matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
     vector_zeros, DGOperator,
 };
 use crate::error::Result;

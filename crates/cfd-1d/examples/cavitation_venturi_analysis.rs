@@ -14,7 +14,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example cavitation_venturi_analysis`
 
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -193,12 +193,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let local_pressure = (p_src + p_dst) / 2.0;
 
             let cav_num = CavitationNumber {
-                reference_pressure: local_pressure,
-                vapor_pressure: vapor_pressure_25c,
-                density: 997.0,
-                velocity,
+                reference_pressure: Pressure::from_base(local_pressure),
+                vapor_pressure: Pressure::from_base(vapor_pressure_25c),
+                density: MassDensity::from_base(997.0),
+                velocity: Velocity::from_base(velocity),
             };
-            let sigma = cav_num.calculate();
+            let sigma = cav_num.calculate().into_base();
 
             // Classify regime by sigma thresholds (from literature):
             // σ > 1.5: no cavitation, 0.5 < σ < 1.5: inception, σ < 0.5: developed

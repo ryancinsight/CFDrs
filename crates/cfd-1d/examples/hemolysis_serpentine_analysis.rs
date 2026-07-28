@@ -14,7 +14,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example hemolysis_serpentine_analysis`
 
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -204,17 +204,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Cavitation number: σ = (p - p_v) / (0.5 · ρ · v²)
             // For blood at 37°C, vapor pressure ≈ 6.3 kPa
             let cav_num = CavitationNumber {
-                reference_pressure: inlet_pressure_pa,
-                vapor_pressure: 6300.0,
-                density: blood.density,
-                velocity,
+                reference_pressure: Pressure::from_base(inlet_pressure_pa),
+                vapor_pressure: Pressure::from_base(6300.0),
+                density: MassDensity::from_base(blood.density),
+                velocity: Velocity::from_base(velocity),
             };
             let sigma = cav_num.calculate();
 
             edge_hemolysis.insert(chan_id, hi);
             edge_shear.insert(chan_id, wall_shear);
             // Store inverse cavitation number → higher = more risk
-            edge_cavitation.insert(chan_id, 1.0 / sigma);
+            edge_cavitation.insert(chan_id, 1.0 / sigma.into_base());
 
             max_hemolysis = max_hemolysis.max(hi);
             max_shear = max_shear.max(wall_shear);

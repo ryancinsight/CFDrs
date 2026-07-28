@@ -23,3 +23,12 @@ default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ryancinsight/CFDrs"
 edit-url-template = "https://github.com/ryancinsight/CFDrs/edit/main/docs/book/{path}"
+
+[output.linkcheck]
+# Check internal mdBook links during build. External web links are not followed
+# so the build remains deterministic and network-independent.
+follow-web-links = false
+# Ignore "potential incomplete link" warnings caused by bracketed prose such as
+# `[T]`, `[0, 1]`, `[f]`, or `[\`moirai::Executor\`]`.
+warning-policy = "ignore"
+exclude = ["^\\.\\./", "SUMMARY\\.md"]
