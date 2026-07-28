@@ -82,16 +82,18 @@
   recorded under `CFDRS-RUNTIME-001`.
 
 - **CFDRS-AEQ-MET-23 [major] - Type cell-separation physical metrics
-  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation
+  (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation
   public family and direct callers, cascade and three-population callers/tests,
   and synchronized PM artifacts).** The public cell-separation family exposed
   equilibrium position/force, fluid properties, channel geometry,
   Fahraeus/CFL/rheology metrics, plasma-skimming diameters, and cross-junction
-  geometry/flow as unit-suffixed scalars. Add the provider-owned `Force`/`Newton`
-  quantity, carry typed dimensional values through the public model, migrate
-  callers without a compatibility facade, and keep scalar extraction at
-  formula boundaries. Equation-independent normalized positions and fractions
-  remain dimensionless.
+  geometry/flow as unit-suffixed scalars. The provider-owned `Force`/`Newton`
+  quantity now carries typed dimensional values through the public model;
+  callers migrated without a compatibility facade and scalar extraction remains
+  at formula boundaries. Equation-independent normalized positions and
+  fractions remain dimensionless. The cfd-1d package gate passes 736/736 with
+  three skips, focused cfd-validation cell-separation coverage passes 57/57,
+  doctests pass 8/8 with three ignored, and warning-denied cfd-1d Clippy passes.
 
 - **CFDRS-AEQ-MET-22 [major] - Type transient mixture fractions
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
@@ -185,8 +187,8 @@
   deletion outside this metric slice.
 
 - **CFDRS-RUNTIME-001 [perf] - Close solver-heavy validation runtime budget
-  residual (IN PROGRESS; owner=Codex; claimed 2026-07-25; scope=`cfd-3d`
-  and `cfd-validation` solver/validation production paths, focused tests, and
+  residual (IN PROGRESS; owner=Codex; claimed 2026-07-25; scope=`cfd-3d`,
+  `cfd-validation`, and the cfd-math linear-solver chain, focused tests, and
   CFDrs PM artifacts).** The audit reproduced the eight named residuals and
   retained verified production fixes: cfd-2d momentum warm starts and pressure
   CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE

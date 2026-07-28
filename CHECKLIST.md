@@ -1,19 +1,22 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-23 cell-separation force metrics [major] — in progress 2026-07-27
+## Owner: Codex — CFDRS-AEQ-MET-23 cell-separation force metrics [major] — verified 2026-07-27
 
-- [ ] Add and verify the Aequitas `Force`/`Newton` provider seam before
+- [x] Add and verify the Aequitas `Force`/`Newton` provider seam before
       migrating CFDrs result fields.
-- [ ] Replace unit-suffixed scalar equilibrium position/force fields, direct
+- [x] Replace unit-suffixed scalar equilibrium position/force fields, direct
       margination/cell-interaction inputs, Fahraeus/CFL/rheology metrics,
       plasma-skimming diameters, cross-junction geometry/flow, and model
       geometry with typed Aequitas quantities; migrate all in-tree callers
       with no compatibility facade and retain scalar extraction only in
       formulas.
-- [ ] Add value-semantic force/position regressions and run the focused cfd-1d
-      package gates.
-- [ ] Synchronize the design note, gap audit, backlog, checklist, and changelog;
-      commit and push the verified slice.
+- [x] Add value-semantic force/position regressions and run the focused cfd-1d
+      package gates. cfd-1d Nextest passes 736/736 with three skips; focused
+      cfd-validation coverage passes 57/57; doctests pass 8/8 with three
+      ignored; and warning-denied cfd-1d Clippy passes.
+- [x] Synchronize the design note, gap audit, backlog, checklist, and changelog;
+      commit and push the verified slice. The remaining solver-runtime and
+      peer-owned lint rows are tracked separately.
 
 ## Owner: Codex — CFDRS-AEQ-MET-22 transient mixture fractions [major] — verified 2026-07-27
 
@@ -107,6 +110,10 @@
 - [x] Commit and push the verified fixups, preserving peer-owned dirt.
 
 ## Owner: Codex — CFDRS-RUNTIME-001 solver-heavy validation runtime [perf] — in progress 2026-07-25
+
+The active production scope includes the cfd-math linear-solver chain used by
+the cfd-3d Picard path; peer-owned cfd-math module-tree edits remain outside
+this item.
 
 - [x] Reproduce the broad cfd-3d/cfd-validation gate and record the eight
       exact tests exceeding the committed 30-second nextest budget.
