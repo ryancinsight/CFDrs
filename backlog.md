@@ -48,7 +48,7 @@
   in `gap_audit.md`.
 
 - **CFDRS-AEQ-MET-25 [major] - Type shared cavitation primitives
-  (IN PROGRESS; owner=Codex; claimed 2026-07-28; scope=`cfd-core` cavitation
+  (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-core` cavitation
   public physical structs and direct cfd-3d/cfd-1d callers/tests).** The
   follow-up source audit found raw public Rayleigh-Plesset, Venturi,
   cavitation-number, nuclei-transport, and mass-transfer model fields for
@@ -58,7 +58,10 @@
   coefficients, fractions, probabilities, and damage indices remain scalar.
   Acceptance is a residue-free source audit, value-semantic primitive and
   consumer regressions, focused cfd-core/cfd-3d gates, and synchronized audit
-  evidence without a scalar compatibility facade.
+  evidence without a scalar compatibility facade. cfd-core Nextest passes
+  202/202, cfd-3d test-target compilation passes, and the broad cfd-3d run
+  passes 291/292 with the separate 30.663-second Venturi runtime timeout
+  recorded under `CFDRS-RUNTIME-001`.
 
 - **CFDRS-AEQ-MET-23 [major] - Type cell-separation physical metrics
   (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation

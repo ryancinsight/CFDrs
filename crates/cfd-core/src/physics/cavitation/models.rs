@@ -1,5 +1,8 @@
 //! Cavitation models for mass transfer rate calculations.
 
+use aequitas::systems::si::quantities::{
+    Dimensionless, Length, MassDensity, MassDensityRate, NumberDensity, Pressure,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -7,19 +10,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy)]
 pub struct ZgbParams<T: FloatElement + Copy> {
     /// Pressure field value
-    pub pressure: T,
+    pub pressure: Pressure<T>,
     /// Vapor pressure
-    pub vapor_pressure: T,
+    pub vapor_pressure: Pressure<T>,
     /// Void fraction
     pub void_fraction: T,
     /// Liquid density
-    pub density_liquid: T,
+    pub density_liquid: MassDensity<T>,
     /// Vapor density
-    pub density_vapor: T,
+    pub density_vapor: MassDensity<T>,
     /// Nucleation site volume fraction
-    pub nucleation_fraction: T,
+    pub nucleation_fraction: Dimensionless<T>,
     /// Bubble radius
-    pub bubble_radius: T,
+    pub bubble_radius: Length<T>,
     /// Vaporization coefficient
     pub f_vap: T,
     /// Condensation coefficient
@@ -39,16 +42,16 @@ pub enum CavitationModel<T: FloatElement + Copy> {
     /// Schnerr-Sauer model (2001)
     SchnerrSauer {
         /// Bubble number density (#/m³)
-        bubble_density: T,
+        bubble_density: NumberDensity<T>,
         /// Initial bubble radius (m)
-        initial_radius: T,
+        initial_radius: Length<T>,
     },
     /// Zwart-Gerber-Belamri model (2004)
     ZGB {
         /// Nucleation site volume fraction
-        nucleation_fraction: T,
+        nucleation_fraction: Dimensionless<T>,
         /// Bubble radius (m)
-        bubble_radius: T,
+        bubble_radius: Length<T>,
         /// Vaporization coefficient
         f_vap: T,
         /// Condensation coefficient
@@ -60,13 +63,17 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
     /// Calculate mass transfer rate (kg/m³/s)
     pub fn mass_transfer_rate(
         &self,
-        pressure: T,
-        vapor_pressure: T,
+        pressure: Pressure<T>,
+        vapor_pressure: Pressure<T>,
         void_fraction: T,
-        density_liquid: T,
-        density_vapor: T,
-    ) -> T {
-        match self {
+        density_liquid: MassDensity<T>,
+        density_vapor: MassDensity<T>,
+    ) -> MassDensityRate<T> {
+        let pressure = pressure.into_base();
+        let vapor_pressure = vapor_pressure.into_base();
+        let density_liquid = density_liquid.into_base();
+        let density_vapor = density_vapor.into_base();
+        let rate = match self {
             CavitationModel::Kunz {
                 vaporization_coeff,
                 condensation_coeff,
@@ -89,7 +96,7 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
                 void_fraction,
                 density_liquid,
                 density_vapor,
-                *bubble_density,
+                bubble_density.into_base(),
             ),
 
             CavitationModel::ZGB {
@@ -98,17 +105,18 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
                 f_vap,
                 f_cond,
             } => Self::zgb_model(ZgbParams {
-                pressure,
-                vapor_pressure,
+                pressure: Pressure::from_base(pressure),
+                vapor_pressure: Pressure::from_base(vapor_pressure),
                 void_fraction,
-                density_liquid,
-                density_vapor,
+                density_liquid: MassDensity::from_base(density_liquid),
+                density_vapor: MassDensity::from_base(density_vapor),
                 nucleation_fraction: *nucleation_fraction,
                 bubble_radius: *bubble_radius,
                 f_vap: *f_vap,
                 f_cond: *f_cond,
             }),
-        }
+        };
+        MassDensityRate::from_base(rate)
     }
 
     fn kunz_model(
@@ -191,12 +199,12 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
     }
 
     fn zgb_model(params: ZgbParams<T>) -> T {
-        let pressure_diff = params.pressure - params.vapor_pressure;
+        let pressure_diff = params.pressure.into_base() - params.vapor_pressure.into_base();
         let three = <T as FloatElement>::from_f64(3.0);
         let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
         let epsilon = <T as FloatElement>::from_f64(1e-12);
 
-        if params.bubble_radius < epsilon {
+        if params.bubble_radius.into_base() < epsilon {
             return <T as NumericElement>::ZERO;
         }
 
@@ -204,17 +212,18 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
             // Vaporization
             params.f_vap
                 * three
-                * params.nucleation_fraction
+                * params.nucleation_fraction.into_base()
                 * (<T as NumericElement>::ONE
                     - params
                         .void_fraction
                         .max_scalar(<T as NumericElement>::ZERO)
                         .min_scalar(<T as NumericElement>::ONE))
-                * params.density_vapor
+                * params.density_vapor.into_base()
                 * <T as NumericElement>::sqrt(
-                    two_thirds * <T as NumericElement>::abs(pressure_diff) / params.density_liquid,
+                    two_thirds * <T as NumericElement>::abs(pressure_diff)
+                        / params.density_liquid.into_base(),
                 )
-                / params.bubble_radius
+                / params.bubble_radius.into_base()
         } else {
             // Condensation
             let rate = params.f_cond
@@ -223,12 +232,12 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
                     .void_fraction
                     .max_scalar(<T as NumericElement>::ZERO)
                     .min_scalar(<T as NumericElement>::ONE)
-                * params.density_vapor
+                * params.density_vapor.into_base()
                 * <T as NumericElement>::sqrt(
                     two_thirds * pressure_diff.max_scalar(<T as NumericElement>::ZERO)
-                        / params.density_liquid,
+                        / params.density_liquid.into_base(),
                 )
-                / params.bubble_radius;
+                / params.bubble_radius.into_base();
             <T as NumericElement>::ZERO - rate
         }
     }
@@ -242,12 +251,12 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
                 condensation_coeff: <T as FloatElement>::from_f64(100.0),
             }),
             "schnerr_sauer" => Some(CavitationModel::SchnerrSauer {
-                bubble_density: <T as FloatElement>::from_f64(1e13), // #/m³
-                initial_radius: <T as FloatElement>::from_f64(1e-6), // m
+                bubble_density: NumberDensity::from_base(<T as FloatElement>::from_f64(1e13)),
+                initial_radius: Length::from_base(<T as FloatElement>::from_f64(1e-6)),
             }),
             "zgb" => Some(CavitationModel::ZGB {
-                nucleation_fraction: <T as FloatElement>::from_f64(5e-4),
-                bubble_radius: <T as FloatElement>::from_f64(1e-6), // m
+                nucleation_fraction: Dimensionless::from_base(<T as FloatElement>::from_f64(5e-4)),
+                bubble_radius: Length::from_base(<T as FloatElement>::from_f64(1e-6)),
                 f_vap: <T as FloatElement>::from_f64(50.0),
                 f_cond: <T as FloatElement>::from_f64(0.01),
             }),
@@ -259,6 +268,9 @@ impl<T: FloatElement + Copy> CavitationModel<T> {
 #[cfg(test)]
 mod tests {
     use super::CavitationModel;
+    use aequitas::systems::si::quantities::{
+        Dimensionless, Length, MassDensity, NumberDensity, Pressure,
+    };
 
     #[test]
     fn kunz_model_vaporizes_below_vapor_pressure_and_condenses_above() {
@@ -267,8 +279,24 @@ mod tests {
             condensation_coeff: 3.0,
         };
 
-        let vaporization = model.mass_transfer_rate(90.0, 100.0, 0.25, 1_000.0, 1.0);
-        let condensation = model.mass_transfer_rate(110.0, 100.0, 0.25, 1_000.0, 1.0);
+        let vaporization = model
+            .mass_transfer_rate(
+                Pressure::from_base(90.0),
+                Pressure::from_base(100.0),
+                0.25,
+                MassDensity::from_base(1_000.0),
+                MassDensity::from_base(1.0),
+            )
+            .into_base();
+        let condensation = model
+            .mass_transfer_rate(
+                Pressure::from_base(110.0),
+                Pressure::from_base(100.0),
+                0.25,
+                MassDensity::from_base(1_000.0),
+                MassDensity::from_base(1.0),
+            )
+            .into_base();
 
         assert!((vaporization - 0.03).abs() <= 1.0e-14);
         assert!((condensation + 0.015).abs() <= 1.0e-14);
@@ -277,12 +305,20 @@ mod tests {
     #[test]
     fn schnerr_sauer_zero_bubble_density_has_zero_rate() {
         let model = CavitationModel::<f64>::SchnerrSauer {
-            bubble_density: 0.0,
-            initial_radius: 1.0e-6,
+            bubble_density: NumberDensity::from_base(0.0),
+            initial_radius: Length::from_base(1.0e-6),
         };
 
         assert_eq!(
-            model.mass_transfer_rate(90.0, 100.0, 0.5, 1_000.0, 1.0),
+            model
+                .mass_transfer_rate(
+                    Pressure::from_base(90.0),
+                    Pressure::from_base(100.0),
+                    0.5,
+                    MassDensity::from_base(1_000.0),
+                    MassDensity::from_base(1.0),
+                )
+                .into_base(),
             0.0
         );
     }
@@ -290,14 +326,22 @@ mod tests {
     #[test]
     fn zgb_rejects_degenerate_bubble_radius() {
         let model = CavitationModel::<f64>::ZGB {
-            nucleation_fraction: 5.0e-4,
-            bubble_radius: 1.0e-14,
+            nucleation_fraction: Dimensionless::from_base(5.0e-4),
+            bubble_radius: Length::from_base(1.0e-14),
             f_vap: 50.0,
             f_cond: 0.01,
         };
 
         assert_eq!(
-            model.mass_transfer_rate(90.0, 100.0, 0.5, 1_000.0, 1.0),
+            model
+                .mass_transfer_rate(
+                    Pressure::from_base(90.0),
+                    Pressure::from_base(100.0),
+                    0.5,
+                    MassDensity::from_base(1_000.0),
+                    MassDensity::from_base(1.0),
+                )
+                .into_base(),
             0.0
         );
     }

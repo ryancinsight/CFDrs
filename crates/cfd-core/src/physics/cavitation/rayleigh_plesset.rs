@@ -34,6 +34,10 @@
 //! - Plesset, M. S. & Prosperetti, A. (1977). "Bubble dynamics and cavitation."
 //!   *Ann. Rev. Fluid Mech.* 9:145–185.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Energy, Length, MassDensity, Pressure, SurfaceTension,
+    ThermodynamicTemperature,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -54,15 +58,15 @@ const REFERENCE_FAR_FIELD_PRESSURE_PA: f64 = 101_325.0;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct RayleighPlesset<T: FloatElement + Copy> {
     /// Initial bubble radius (m)
-    pub initial_radius: T,
+    pub initial_radius: Length<T>,
     /// Liquid density (kg/m³)
-    pub liquid_density: T,
+    pub liquid_density: MassDensity<T>,
     /// Liquid viscosity (Pa·s)
-    pub liquid_viscosity: T,
+    pub liquid_viscosity: DynamicViscosity<T>,
     /// Surface tension (N/m)
-    pub surface_tension: T,
+    pub surface_tension: SurfaceTension<T>,
     /// Vapor pressure (Pa)
-    pub vapor_pressure: T,
+    pub vapor_pressure: Pressure<T>,
     /// Polytropic index for gas content
     pub polytropic_index: T,
 }
@@ -71,11 +75,11 @@ pub struct RayleighPlesset<T: FloatElement + Copy> {
 #[allow(missing_docs)]
 pub struct SonoluminescenceEstimate<T: FloatElement + Copy> {
     #[allow(missing_docs)]
-    pub peak_temperature: T,
+    pub peak_temperature: ThermodynamicTemperature<T>,
     #[allow(missing_docs)]
-    pub peak_pressure: T,
+    pub peak_pressure: Pressure<T>,
     #[allow(missing_docs)]
-    pub radiated_energy: T,
+    pub radiated_energy: Energy<T>,
 }
 
 impl<T: FloatElement + Copy> RayleighPlesset<T> {
@@ -100,6 +104,11 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
     ///
     /// **References**: Plesset & Prosperetti (1977), Brennen (1995) §2.2.
     pub fn bubble_acceleration(&self, radius: T, velocity: T, ambient_pressure: T) -> T {
+        let initial_radius = self.initial_radius.into_base();
+        let liquid_density = self.liquid_density.into_base();
+        let liquid_viscosity = self.liquid_viscosity.into_base();
+        let surface_tension = self.surface_tension.into_base();
+        let vapor_pressure = self.vapor_pressure.into_base();
         if radius <= <T as NumericElement>::ZERO {
             return <T as NumericElement>::ZERO;
         }
@@ -114,29 +123,28 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         // A fixed far-field reference keeps the initial bubble state from
         // re-equilibrating itself to the instantaneous ambient pressure.
         let reference_pressure = <T as FloatElement>::from_f64(REFERENCE_FAR_FIELD_PRESSURE_PA);
-        let p_g0 = (reference_pressure - self.vapor_pressure
-            + two * self.surface_tension / self.initial_radius)
+        let p_g0 = (reference_pressure - vapor_pressure + two * surface_tension / initial_radius)
             .max_scalar(<T as NumericElement>::ZERO);
 
         // Polytropic gas contribution: p_g = p_g0 · (R_0/R)^{3κ}
-        let ratio = self.initial_radius / radius;
+        let ratio = initial_radius / radius;
         let exponent = three * self.polytropic_index;
         let p_gas = p_g0 * <T as FloatElement>::powf(ratio, exponent);
 
         // Internal bubble pressure: p_B(R) = p_v + p_gas
-        let p_bubble = self.vapor_pressure + p_gas;
+        let p_bubble = vapor_pressure + p_gas;
 
         // Pressure difference: p_B − p_∞
         let pressure_diff = p_bubble - ambient_pressure;
 
         // Rayleigh-Plesset equation terms:
         //   R̈ = (p_B − p_∞)/(ρR) − (3/2)Ṙ²/R − 4μṘ/(ρR²) − 2σ/(ρR²)
-        let term1 = pressure_diff / (self.liquid_density * radius);
+        let term1 = pressure_diff / (liquid_density * radius);
         let term2 = <T as NumericElement>::ZERO - three_halves * velocity * velocity / radius;
         let term3 = <T as NumericElement>::ZERO
-            - four * self.liquid_viscosity * velocity / (self.liquid_density * radius * radius);
+            - four * liquid_viscosity * velocity / (liquid_density * radius * radius);
         let term4 = <T as NumericElement>::ZERO
-            - two * self.surface_tension / (self.liquid_density * radius * radius);
+            - two * surface_tension / (liquid_density * radius * radius);
 
         term1 + term2 + term3 + term4
     }
@@ -194,7 +202,8 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         emissivity: T,
         flash_duration: T,
     ) -> Result<SonoluminescenceEstimate<T>> {
-        if self.initial_radius <= <T as NumericElement>::ZERO {
+        let initial_radius = self.initial_radius.into_base();
+        if initial_radius <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Initial bubble radius must be positive".to_string(),
             ));
@@ -204,7 +213,7 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
                 "Collapse radius must be positive".to_string(),
             ));
         }
-        if collapse_radius > self.initial_radius {
+        if collapse_radius > initial_radius {
             return Err(Error::InvalidConfiguration(
                 "Collapse radius must not exceed initial radius".to_string(),
             ));
@@ -250,7 +259,7 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         let four = <T as FloatElement>::from_f64(4.0);
         let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
 
-        let ratio = self.initial_radius / collapse_radius;
+        let ratio = initial_radius / collapse_radius;
         if !<T as NumericElement>::is_finite(ratio) || ratio < <T as NumericElement>::ONE {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Invalid radius ratio for sonoluminescence estimate".to_string(),
@@ -296,16 +305,16 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         }
 
         Ok(SonoluminescenceEstimate {
-            peak_temperature,
-            peak_pressure,
-            radiated_energy,
+            peak_temperature: ThermodynamicTemperature::from_base(peak_temperature),
+            peak_pressure: Pressure::from_base(peak_pressure),
+            radiated_energy: Energy::from_base(radiated_energy),
         })
     }
 
     /// Calculate bubble growth rate for inviscid case
     /// Based on Rayleigh (1917) equation for bubble growth without viscosity
     pub fn growth_rate_inviscid(&self, _radius: T, ambient_pressure: T) -> T {
-        let pressure_difference = self.vapor_pressure - ambient_pressure;
+        let pressure_difference = self.vapor_pressure.into_base() - ambient_pressure;
 
         if pressure_difference <= <T as NumericElement>::ZERO {
             return <T as NumericElement>::ZERO; // No growth if ambient pressure exceeds vapor pressure
@@ -314,7 +323,9 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         // Rayleigh equation for inviscid growth: dR/dt = sqrt(2/3 * Δp/ρ)
         // This is the exact solution for constant pressure difference
         let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
-        <T as NumericElement>::sqrt(two_thirds * pressure_difference / self.liquid_density)
+        <T as NumericElement>::sqrt(
+            two_thirds * pressure_difference / self.liquid_density.into_base(),
+        )
     }
 
     /// Calculate collapse time from Rayleigh collapse formula
@@ -325,7 +336,7 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         if pressure_difference > <T as NumericElement>::ZERO {
             coefficient
                 * initial_radius
-                * <T as NumericElement>::sqrt(self.liquid_density / pressure_difference)
+                * <T as NumericElement>::sqrt(self.liquid_density.into_base() / pressure_difference)
         } else {
             <T as FloatElement>::from_f64(1e10) // Very large time for no pressure difference
         }
@@ -336,7 +347,7 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         // R_max/R_0 = (p_∞/p_v)^(1/3γ) for isothermal growth
         let exponent = <T as NumericElement>::ONE
             / (<T as FloatElement>::from_f64(3.0) * self.polytropic_index);
-        self.initial_radius * <T as FloatElement>::powf(pressure_ratio, exponent)
+        self.initial_radius.into_base() * <T as FloatElement>::powf(pressure_ratio, exponent)
     }
 
     /// Calculate bubble natural frequency
@@ -348,10 +359,10 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         // ω_0 = 1/R * sqrt(3γ(p_0 - p_v)/ρ)
         let three = <T as FloatElement>::from_f64(3.0);
         let pressure_term =
-            three * self.polytropic_index * (ambient_pressure - self.vapor_pressure);
+            three * self.polytropic_index * (ambient_pressure - self.vapor_pressure.into_base());
 
         if pressure_term > <T as NumericElement>::ZERO {
-            <T as NumericElement>::sqrt(pressure_term / self.liquid_density) / radius
+            <T as NumericElement>::sqrt(pressure_term / self.liquid_density.into_base()) / radius
         } else {
             <T as NumericElement>::ZERO
         }
@@ -364,9 +375,9 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
             <T as FloatElement>::from_f64(super::constants::BLAKE_CRITICAL_COEFFICIENT);
         let two = <T as FloatElement>::from_f64(2.0);
 
-        let pressure_diff = ambient_pressure - self.vapor_pressure;
+        let pressure_diff = ambient_pressure - self.vapor_pressure.into_base();
         if pressure_diff > <T as NumericElement>::ZERO {
-            coefficient * two * self.surface_tension / pressure_diff
+            coefficient * two * self.surface_tension.into_base() / pressure_diff
         } else {
             <T as FloatElement>::from_f64(1e10) // Very large radius
         }
@@ -377,16 +388,20 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
 mod tests {
     use super::*;
 
+    fn test_model(initial_radius: f64) -> RayleighPlesset<f64> {
+        RayleighPlesset {
+            initial_radius: Length::from_base(initial_radius),
+            liquid_density: MassDensity::from_base(998.0),
+            liquid_viscosity: DynamicViscosity::from_base(1.002e-3),
+            surface_tension: SurfaceTension::from_base(0.0728),
+            vapor_pressure: Pressure::from_base(2339.0),
+            polytropic_index: 1.4,
+        }
+    }
+
     #[test]
     fn step_semi_implicit_preserves_positive_radius() {
-        let rp = RayleighPlesset::<f64> {
-            initial_radius: 1e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let rp = test_model(1e-6);
 
         let (r1, v1) = rp.step_semi_implicit(1e-6, 0.0, 1.0e5, 1e-7).unwrap();
         assert!(r1 > 0.0);
@@ -395,14 +410,7 @@ mod tests {
 
     #[test]
     fn step_semi_implicit_responds_to_ambient_pressure() {
-        let rp = RayleighPlesset::<f64> {
-            initial_radius: 1e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let rp = test_model(1e-6);
 
         let (low_r, _) = rp.step_semi_implicit(1e-6, 0.0, 5.0e4, 1e-7).unwrap();
         let (high_r, _) = rp.step_semi_implicit(1e-6, 0.0, 1.5e5, 1e-7).unwrap();
@@ -415,14 +423,7 @@ mod tests {
 
     #[test]
     fn step_semi_implicit_treats_collapsed_bubble_as_absorbing_state() {
-        let rp = RayleighPlesset::<f64> {
-            initial_radius: 1e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let rp = test_model(1e-6);
 
         let (r1, v1) = rp.step_semi_implicit(0.0, 0.0, 1.0e5, 1e-7).unwrap();
         assert_eq!(r1, 0.0);
@@ -431,14 +432,7 @@ mod tests {
 
     #[test]
     fn sonoluminescence_energy_increases_with_stronger_collapse() {
-        let rp = RayleighPlesset::<f64> {
-            initial_radius: 10e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let rp = test_model(10e-6);
 
         let ambient_pressure = 1.0e5;
         let ambient_temperature = 293.15;
@@ -467,6 +461,6 @@ mod tests {
             .unwrap()
             .radiated_energy;
 
-        assert!(e_strong > e_weak);
+        assert!(e_strong.into_base() > e_weak.into_base());
     }
 }

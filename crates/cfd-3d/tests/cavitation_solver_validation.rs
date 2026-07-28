@@ -8,7 +8,7 @@
 //! - Conservation properties
 
 use aequitas::systems::si::quantities::{
-    Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
+    Dimensionless, Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
 };
 use cfd_3d::vof::{
     AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig, CavitationVofSolver,
@@ -16,7 +16,7 @@ use cfd_3d::vof::{
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use cfd_core::physics::fluid::BloodModel;
-use leto::{Array2, geometry::Vector3};
+use leto::{geometry::Vector3, Array2};
 
 fn length(value: f64) -> Length<f64> {
     Length::from_base(value)
@@ -106,10 +106,10 @@ fn test_damage_accumulation() {
     println!("Testing cavitation damage accumulation...");
 
     let damage_model = CavitationDamage {
-        yield_strength: 200e6,
-        ultimate_strength: 500e6,
-        hardness: 200e6,
-        fatigue_strength: 150e6,
+        yield_strength: pressure(200e6),
+        ultimate_strength: pressure(500e6),
+        hardness: pressure(200e6),
+        fatigue_strength: pressure(150e6),
         cycles: 0,
     };
 
@@ -125,8 +125,8 @@ fn test_damage_accumulation() {
             enable_compression: false,
         },
         cavitation_model: CavitationModel::ZGB {
-            nucleation_fraction: 5e-4,
-            bubble_radius: 1e-6,
+            nucleation_fraction: Dimensionless::from_base(5e-4),
+            bubble_radius: length(1e-6),
             f_vap: 50.0,
             f_cond: 0.0,
         },
@@ -268,8 +268,8 @@ fn test_mass_conservation() {
             enable_compression: false,
         },
         cavitation_model: CavitationModel::SchnerrSauer {
-            bubble_density: 1e13,
-            initial_radius: 1e-6,
+            bubble_density: number_density(1e13),
+            initial_radius: length(1e-6),
         },
         damage_model: None,
         bubble_dynamics: None,
@@ -355,8 +355,8 @@ fn test_bubble_dynamics_integration() {
             enable_compression: false,
         },
         cavitation_model: CavitationModel::ZGB {
-            nucleation_fraction: 5e-4,
-            bubble_radius: 2e-6,
+            nucleation_fraction: Dimensionless::from_base(5e-4),
+            bubble_radius: length(2e-6),
             f_vap: 50.0,
             f_cond: 0.01,
         },
@@ -522,15 +522,15 @@ fn test_cavitation_model_comparison() {
         (
             "Schnerr-Sauer",
             CavitationModel::SchnerrSauer {
-                bubble_density: 1e13,
-                initial_radius: 1e-6,
+                bubble_density: number_density(1e13),
+                initial_radius: length(1e-6),
             },
         ),
         (
             "ZGB",
             CavitationModel::ZGB {
-                nucleation_fraction: 5e-4,
-                bubble_radius: 1e-6,
+                nucleation_fraction: Dimensionless::from_base(5e-4),
+                bubble_radius: length(1e-6),
                 f_vap: 50.0,
                 f_cond: 0.01,
             },

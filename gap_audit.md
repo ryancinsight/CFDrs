@@ -70,6 +70,35 @@ CFDrs lock remains dirty in peer-owned work and the ordinary child build still
 resolves duplicate local/git provider identities; those are integration
 residuals, not metric gaps.
 
+### Verification refresh (2026-07-28, CFDRS-AEQ-MET-25)
+
+The follow-up cfd-core scan found a shared cavitation boundary that MET-24 did
+not cover. Rayleigh-Plesset, Venturi, cavitation-number, nuclei-transport,
+phase-transfer, damage, biological-damage, and regime-analysis contracts now
+carry Aequitas `Length`, `MassDensity`, `DynamicViscosity`, `SurfaceTension`,
+`Pressure`, `Velocity`, `Frequency`, `Time`, `Angle`, `Volume`,
+`ThermalDiffusivity`, `MassDensityRate`, `ThermodynamicTemperature`, `Energy`,
+and `Dimensionless` quantities where the metric has a declared physical
+dimension. Scalar extraction remains at analytical equations, dense fields,
+mesh/GPU storage, and model-specific dimensionless coefficients, fractions,
+probabilities, and indices. The public cfd-3d closure seam no longer contains
+raw pressure/density scalars or zero-valued collapse-rate placeholders: it now
+delegates to the cfd-core Rayleigh-Plesset and Schnerr-Sauer models and returns
+typed errors for invalid closure inputs.
+
+The cfd-core test-target check passes through the command-line local-provider
+overlay, and cfd-core Nextest passes 202/202 with no skips. The cfd-3d
+test-target check also passes through the same overlay. The broad cfd-3d
+validation run passes 291/292; the sole timeout is the pre-existing
+`venturi::validation::tests::test_venturi_blood_flow` runtime residual at
+30.663 seconds against the committed 30-second budget. All cavitation, VOF,
+closure, robustness, and validation tests in that run pass; the timeout is
+tracked under `CFDRS-RUNTIME-001`, not this metric contract. Touched files pass
+direct rustfmt and `git diff --check`. The peer-owned CFDrs lock and the
+ordinary standalone duplicate local/git provider identity remain integration
+residuals until the shared provider graph is reconciled; they are not metric
+gaps.
+
 ### Verification refresh (2026-07-26)
 
 The former Coeus and missing-cutile path blockers are stale: CFDrs has no

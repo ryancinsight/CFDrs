@@ -41,6 +41,16 @@ All notable changes to this project will be documented in this file.
   dimensionless cavitation statistics remain scalar. See
   [`cavitation-vof-physical-metrics.md`](docs/atlas-migration/cavitation-vof-physical-metrics.md).
 
+- **Breaking**: Type the shared cfd-core cavitation contracts with Aequitas
+  `DynamicViscosity`, `ThermodynamicTemperature`, `Energy`, `Dimensionless`,
+  `Frequency`, `Angle`, `Volume`, `ThermalDiffusivity`, and
+  `MassDensityRate` alongside the existing pressure, density, velocity,
+  length, and surface-tension quantities. Replace the public cfd-3d cavitation
+  closure placeholders with Rayleigh-Plesset and Schnerr-Sauer calculations;
+  invalid closure values now return typed errors. Scalar extraction remains at
+  analytical, dense-field, mesh, GPU, and serialization boundaries. See
+  [`cavitation-vof-physical-metrics.md`](docs/atlas-migration/cavitation-vof-physical-metrics.md).
+
 - **Breaking**: Type the cell-separation public family, including equilibrium
   position/force, direct fluid and geometry inputs, Fahraeus/CFL/rheology
   metrics, plasma-skimming diameters, and cross-junction geometry/flow with

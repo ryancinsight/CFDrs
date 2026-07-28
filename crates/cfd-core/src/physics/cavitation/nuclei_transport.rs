@@ -18,6 +18,7 @@
 //! the parcel. The exponential decay model for dissolution assumes nuclei dissolve linearly proportional to their
 //! concentration at a rate scaled by the characteristic relaxation time $\tau_{diss}$.
 
+use aequitas::systems::si::quantities::{Dimensionless, Pressure, ThermalDiffusivity, Time};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -39,30 +40,32 @@ pub const NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION: f64 = 10_000.0;
 /// monotonically for nonnegative nuclei fractions.
 #[must_use]
 pub fn nuclei_adjusted_vapor_pressure<T: FloatElement + Copy>(
-    vapor_pressure_pa: T,
-    nuclei_fraction: T,
-) -> T {
+    vapor_pressure: Pressure<T>,
+    nuclei_fraction: Dimensionless<T>,
+) -> Pressure<T> {
     let boost = <T as FloatElement>::from_f64(NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION);
-    vapor_pressure_pa + nuclei_fraction * boost
+    Pressure::from_base(vapor_pressure.into_base() + nuclei_fraction.into_base() * boost)
 }
 
 /// Configuration parameters for the Nuclei Transport model
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NucleiTransportConfig<T: FloatElement + Copy> {
     /// Characteristic dissolution time \[s] ($\tau_{diss}$)
-    pub dissolution_time_s: T,
+    pub dissolution_time: Time<T>,
     /// Proportional generation factor from active cavitation events
     pub generation_rate_factor: T,
     /// Diffusion coefficient for the scalar field [m^2/s]
-    pub diffusion_coefficient: T,
+    pub diffusion_coefficient: ThermalDiffusivity<T>,
 }
 
 impl<T: FloatElement + Copy> Default for NucleiTransportConfig<T> {
     fn default() -> Self {
         Self {
-            dissolution_time_s: <T as FloatElement>::from_f64(0.05), // default 50ms
+            dissolution_time: Time::from_base(<T as FloatElement>::from_f64(0.05)), // default 50ms
             generation_rate_factor: <T as NumericElement>::ONE,
-            diffusion_coefficient: <T as FloatElement>::from_f64(1e-6),
+            diffusion_coefficient: ThermalDiffusivity::from_base(<T as FloatElement>::from_f64(
+                1e-6,
+            )),
         }
     }
 }
@@ -86,7 +89,7 @@ impl<T: FloatElement + Copy> NucleiTransport<T> {
     /// The diffusion coefficient is a model parameter and must be interpreted as
     /// a scalar diffusivity in the advection-diffusion equation.
     #[must_use]
-    pub fn diffusion_coefficient(&self) -> T {
+    pub fn diffusion_coefficient(&self) -> ThermalDiffusivity<T> {
         self.config.diffusion_coefficient
     }
 
@@ -94,8 +97,9 @@ impl<T: FloatElement + Copy> NucleiTransport<T> {
     /// Returns the rate of change ($dn/dt$).
     #[must_use]
     pub fn calculate_dissolution_rate(&self, current_nuclei_fraction: T) -> T {
-        if self.config.dissolution_time_s > <T as NumericElement>::ZERO {
-            <T as NumericElement>::ZERO - current_nuclei_fraction / self.config.dissolution_time_s
+        let dissolution_time = self.config.dissolution_time.into_base();
+        if dissolution_time > <T as NumericElement>::ZERO {
+            <T as NumericElement>::ZERO - current_nuclei_fraction / dissolution_time
         } else {
             <T as NumericElement>::ZERO
         }
@@ -130,9 +134,9 @@ impl<T: FloatElement + Copy> NucleiTransport<T> {
     /// $n(t + \Delta t) = n(t) \exp(-\Delta t / \tau_{diss})$
     #[must_use]
     pub fn advect_1d_dissolution(&self, upstream_nuclei: T, transit_time: T) -> T {
-        if self.config.dissolution_time_s > <T as NumericElement>::ZERO {
-            let exponent =
-                <T as NumericElement>::ZERO - transit_time / self.config.dissolution_time_s;
+        let dissolution_time = self.config.dissolution_time.into_base();
+        if dissolution_time > <T as NumericElement>::ZERO {
+            let exponent = <T as NumericElement>::ZERO - transit_time / dissolution_time;
             upstream_nuclei * <T as FloatElement>::exp(exponent)
         } else {
             upstream_nuclei
@@ -143,16 +147,35 @@ impl<T: FloatElement + Copy> NucleiTransport<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{Dimensionless, Pressure, ThermalDiffusivity, Time};
     use eunomia::assert_relative_eq;
 
     #[test]
     fn test_nuclei_adjusted_vapor_pressure_scales_linearly() {
         let base = 3170.0;
 
-        assert_relative_eq!(nuclei_adjusted_vapor_pressure(base, 0.0), base);
-        assert_relative_eq!(nuclei_adjusted_vapor_pressure(base, 0.25), base + 2_500.0);
         assert_relative_eq!(
-            nuclei_adjusted_vapor_pressure(base, 1.0),
+            nuclei_adjusted_vapor_pressure(
+                Pressure::from_base(base),
+                Dimensionless::from_base(0.0)
+            )
+            .into_base(),
+            base
+        );
+        assert_relative_eq!(
+            nuclei_adjusted_vapor_pressure(
+                Pressure::from_base(base),
+                Dimensionless::from_base(0.25)
+            )
+            .into_base(),
+            base + 2_500.0
+        );
+        assert_relative_eq!(
+            nuclei_adjusted_vapor_pressure(
+                Pressure::from_base(base),
+                Dimensionless::from_base(1.0)
+            )
+            .into_base(),
             base + NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION
         );
     }
@@ -160,9 +183,9 @@ mod tests {
     #[test]
     fn test_dissolution_rate() {
         let config = NucleiTransportConfig {
-            dissolution_time_s: 0.1, // 100ms
+            dissolution_time: Time::from_base(0.1), // 100ms
             generation_rate_factor: 1.0,
-            diffusion_coefficient: 1e-6,
+            diffusion_coefficient: ThermalDiffusivity::from_base(1e-6),
         };
         let transport = NucleiTransport::new(config);
 
@@ -174,9 +197,9 @@ mod tests {
     #[test]
     fn test_advect_1d_dissolution() {
         let config = NucleiTransportConfig {
-            dissolution_time_s: 0.05, // 50ms
+            dissolution_time: Time::from_base(0.05), // 50ms
             generation_rate_factor: 1.0,
-            diffusion_coefficient: 1e-6,
+            diffusion_coefficient: ThermalDiffusivity::from_base(1e-6),
         };
         let transport = NucleiTransport::new(config);
 
@@ -188,12 +211,12 @@ mod tests {
     #[test]
     fn test_diffusion_coefficient_accessor_returns_configured_value() {
         let config = NucleiTransportConfig {
-            dissolution_time_s: 0.05,
+            dissolution_time: Time::from_base(0.05),
             generation_rate_factor: 1.0,
-            diffusion_coefficient: 2.5e-6,
+            diffusion_coefficient: ThermalDiffusivity::from_base(2.5e-6),
         };
         let transport = NucleiTransport::new(config);
 
-        assert_relative_eq!(transport.diffusion_coefficient(), 2.5e-6);
+        assert_relative_eq!(transport.diffusion_coefficient().into_base(), 2.5e-6);
     }
 }

@@ -8,10 +8,30 @@
 
 #[cfg(test)]
 mod tests {
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension,
+    };
     use cfd_core::physics::cavitation::{
         CavitationRegime, CavitationRegimeClassifier, RayleighPlesset,
     };
     use cfd_core::physics::hemolysis::{HemolysisCalculator, HemolysisModel};
+
+    fn bubble_model(
+        initial_radius: f64,
+        liquid_density: f64,
+        liquid_viscosity: f64,
+        surface_tension: f64,
+        vapor_pressure: f64,
+    ) -> RayleighPlesset<f64> {
+        RayleighPlesset {
+            initial_radius: Length::from_base(initial_radius),
+            liquid_density: MassDensity::from_base(liquid_density),
+            liquid_viscosity: DynamicViscosity::from_base(liquid_viscosity),
+            surface_tension: SurfaceTension::from_base(surface_tension),
+            vapor_pressure: Pressure::from_base(vapor_pressure),
+            polytropic_index: 1.4,
+        }
+    }
 
     /// Test cavitation regime identification in venturi throat
     #[test]
@@ -20,17 +40,15 @@ mod tests {
         let throat_pressure = 2000.0; // Severe cavitation
         let vapor_pressure = 2339.0; // Water at 20°C
 
-        let bubble_model = RayleighPlesset {
-            initial_radius: 10e-6, // 10 μm nuclei
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure,
-            polytropic_index: 1.4,
-        };
+        let bubble_model = bubble_model(10e-6, 998.0, 1.002e-3, 0.0728, vapor_pressure);
 
         // Simulate hydrodynamic cavitation (no acoustic field)
-        let classifier = CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
+        let classifier = CavitationRegimeClassifier::new(
+            bubble_model,
+            Pressure::from_base(throat_pressure),
+            None,
+            None,
+        );
 
         let analysis = classifier.analyze().unwrap();
 
@@ -44,7 +62,7 @@ mod tests {
 
         // Blake threshold should be exceeded
         assert!(
-            throat_pressure < analysis.blake_threshold,
+            throat_pressure < analysis.blake_threshold.into_base(),
             "Pressure below Blake threshold indicates cavitation inception"
         );
 
@@ -68,21 +86,19 @@ mod tests {
     #[test]
     fn test_stable_to_inertial_transition() {
         let vapor_pressure = 2339.0;
-        let bubble_model = RayleighPlesset {
-            initial_radius: 5e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure,
-            polytropic_index: 1.4,
-        };
+        let bubble_model = bubble_model(5e-6, 998.0, 1.002e-3, 0.0728, vapor_pressure);
 
         // Test pressure sweep
         let pressures = vec![80e3, 50e3, 20e3, 5e3, 2e3]; // Pa
 
         let mut regimes = Vec::new();
         for &pressure in &pressures {
-            let classifier = CavitationRegimeClassifier::new(bubble_model, pressure, None, None);
+            let classifier = CavitationRegimeClassifier::new(
+                bubble_model,
+                Pressure::from_base(pressure),
+                None,
+                None,
+            );
             regimes.push(classifier.classify_regime());
         }
 
@@ -220,14 +236,7 @@ mod tests {
     /// Test sonoluminescence energy estimation in venturi
     #[test]
     fn test_sonoluminescence_in_venturi() {
-        let bubble_model = RayleighPlesset {
-            initial_radius: 50e-6, // Larger bubble for SBSL
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let bubble_model = bubble_model(50e-6, 998.0, 1.002e-3, 0.0728, 2339.0);
 
         // Venturi conditions causing strong collapse
         let ambient_pressure = 101325.0; // Pa
@@ -247,34 +256,49 @@ mod tests {
             .unwrap();
 
         println!("\nSonoluminescence Estimation:");
-        println!("  Initial radius: {} μm", bubble_model.initial_radius * 1e6);
+        println!(
+            "  Initial radius: {} μm",
+            bubble_model.initial_radius.into_base() * 1e6
+        );
         println!("  Collapse radius: {} μm", collapse_radius * 1e6);
         println!(
             "  Compression ratio: {:.0}×",
-            bubble_model.initial_radius / collapse_radius
+            bubble_model.initial_radius.into_base() / collapse_radius
         );
-        println!("  Peak temperature: {:.0} K", estimate.peak_temperature);
-        println!("  Peak pressure: {:.1} GPa", estimate.peak_pressure / 1e9);
-        println!("  Radiated energy: {:.2e} J", estimate.radiated_energy);
+        println!(
+            "  Peak temperature: {:.0} K",
+            estimate.peak_temperature.into_base()
+        );
+        println!(
+            "  Peak pressure: {:.1} GPa",
+            estimate.peak_pressure.into_base() / 1e9
+        );
+        println!(
+            "  Radiated energy: {:.2e} J",
+            estimate.radiated_energy.into_base()
+        );
         println!(
             "  Radiated power: {:.2e} W",
-            estimate.radiated_energy / flash_duration
+            (estimate.radiated_energy / flash_duration).into_base()
         );
 
         // Sanity checks
         assert!(
-            estimate.peak_temperature > ambient_temperature,
+            estimate.peak_temperature.into_base() > ambient_temperature,
             "Peak temperature should exceed ambient"
         );
         assert!(
-            estimate.peak_pressure > ambient_pressure,
+            estimate.peak_pressure.into_base() > ambient_pressure,
             "Peak pressure should exceed ambient"
         );
-        assert!(estimate.radiated_energy > 0.0, "Must radiate some energy");
+        assert!(
+            estimate.radiated_energy.into_base() > 0.0,
+            "Must radiate some energy"
+        );
 
         // For strong collapse (50× compression), expect temperatures > 1000 K
         assert!(
-            estimate.peak_temperature > 1000.0,
+            estimate.peak_temperature.into_base() > 1000.0,
             "Strong collapse should produce high temperatures"
         );
     }
@@ -284,14 +308,7 @@ mod tests {
     fn test_cavitation_damage_scaling() {
         // Test that damage scales appropriately with flow conditions
 
-        let bubble_model = RayleighPlesset {
-            initial_radius: 10e-6,
-            liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
-            surface_tension: 0.0728,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let bubble_model = bubble_model(10e-6, 998.0, 1.002e-3, 0.0728, 2339.0);
 
         // Test at different velocities (pressure scales as U²)
         let velocities = vec![5.0, 10.0, 20.0]; // m/s
@@ -301,8 +318,12 @@ mod tests {
             let dynamic_pressure: f64 = 0.5 * 998.0 * velocity * velocity;
             let throat_pressure: f64 = (101325.0 - dynamic_pressure).max(2339.0);
 
-            let classifier =
-                CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
+            let classifier = CavitationRegimeClassifier::new(
+                bubble_model,
+                Pressure::from_base(throat_pressure),
+                None,
+                None,
+            );
             let analysis = classifier.analyze().unwrap();
 
             println!("  U = {} m/s:", velocity);
@@ -315,13 +336,13 @@ mod tests {
         // Higher velocity should produce more cavitation damage
         let low_v_classifier = CavitationRegimeClassifier::new(
             bubble_model,
-            101325.0 - 0.5 * 998.0 * 5.0 * 5.0,
+            Pressure::from_base(101325.0 - 0.5 * 998.0 * 5.0 * 5.0),
             None,
             None,
         );
         let high_v_classifier = CavitationRegimeClassifier::new(
             bubble_model,
-            (101325.0_f64 - 0.5 * 998.0 * 20.0 * 20.0).max(2339.0),
+            Pressure::from_base((101325.0_f64 - 0.5 * 998.0 * 20.0 * 20.0).max(2339.0)),
             None,
             None,
         );
@@ -370,16 +391,14 @@ mod tests {
         println!("  Throat pressure: {:.1} kPa", throat_pressure / 1e3);
 
         // Cavitation analysis
-        let bubble_model = RayleighPlesset {
-            initial_radius: 10e-6,
-            liquid_density: 1060.0,
-            liquid_viscosity: 0.0035,
-            surface_tension: 0.056,
-            vapor_pressure: 2339.0,
-            polytropic_index: 1.4,
-        };
+        let bubble_model = bubble_model(10e-6, 1060.0, 0.0035, 0.056, 2339.0);
 
-        let classifier = CavitationRegimeClassifier::new(bubble_model, throat_pressure, None, None);
+        let classifier = CavitationRegimeClassifier::new(
+            bubble_model,
+            Pressure::from_base(throat_pressure),
+            None,
+            None,
+        );
         let cav_analysis = classifier.analyze().unwrap();
 
         println!("\n{}", cav_analysis);

@@ -1,10 +1,12 @@
 //! Physical constants for cavitation.
 
+use aequitas::systems::si::quantities::{NumberDensity, Pressure, SurfaceTension};
+
 /// Surface tension of water at 20°C (N/m)
-pub const SURFACE_TENSION_WATER: f64 = 0.0728;
+pub const SURFACE_TENSION_WATER: SurfaceTension = SurfaceTension::from_base(0.0728);
 
 /// Vapor pressure of water at 20°C (Pa)
-pub const VAPOR_PRESSURE_WATER_20C: f64 = 2339.0;
+pub const VAPOR_PRESSURE_WATER_20C: Pressure = Pressure::from_base(2339.0);
 
 /// Saturation pressure ratio threshold for inception
 pub const CAVITATION_INCEPTION_THRESHOLD: f64 = 0.9;
@@ -16,10 +18,10 @@ pub const BLAKE_CRITICAL_COEFFICIENT: f64 = 0.85;
 pub const MAX_VOID_FRACTION: f64 = 0.999;
 
 /// Nucleation site density in clean water (#/m³)
-pub const NUCLEATION_DENSITY_CLEAN: f64 = 1e6;
+pub const NUCLEATION_DENSITY_CLEAN: NumberDensity = NumberDensity::from_base(1e6);
 
 /// Nucleation site density in technical water (#/m³)
-pub const NUCLEATION_DENSITY_TECHNICAL: f64 = 1e8;
+pub const NUCLEATION_DENSITY_TECHNICAL: NumberDensity = NumberDensity::from_base(1e8);
 
 /// Nurick correlation coefficient for cavity length
 pub const NURICK_K_COEFFICIENT: f64 = 0.88;

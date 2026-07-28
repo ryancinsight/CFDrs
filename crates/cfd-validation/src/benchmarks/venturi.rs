@@ -7,6 +7,7 @@ use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::{Geometry2D, Point2D, Venturi2D};
 use crate::scalar;
 use crate::scalar::ValidationScalar;
+use aequitas::systems::si::quantities::{Angle, Length, MassDensity, Pressure, Velocity};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
@@ -107,31 +108,31 @@ where
 
         // Calculate analytical reference for comparison in metadata
         let analytic = VenturiCavitation::<T> {
-            inlet_diameter: self.geometry.inlet_width, // 2D approximation width ≈ diameter
-            throat_diameter: self.geometry.throat_width,
-            outlet_diameter: self.geometry.outlet_width,
-            convergent_angle: FloatElement::atan2(
+            inlet_diameter: Length::from_base(self.geometry.inlet_width),
+            throat_diameter: Length::from_base(self.geometry.throat_width),
+            outlet_diameter: Length::from_base(self.geometry.outlet_width),
+            convergent_angle: Angle::from_base(FloatElement::atan2(
                 self.geometry.inlet_width - self.geometry.throat_width,
                 self.geometry.l_converge,
-            ),
-            divergent_angle: FloatElement::atan2(
+            )),
+            divergent_angle: Angle::from_base(FloatElement::atan2(
                 self.geometry.outlet_width - self.geometry.throat_width,
                 self.geometry.l_diverge,
-            ),
-            inlet_pressure: scalar::from_f64(101325.0), // Atmospheric inlet
-            inlet_velocity: scalar::from_f64(1.0),      // Unit inlet velocity
-            density: rho,
-            vapor_pressure: scalar::from_f64(2339.0), // Water at 20C approx
+            )),
+            inlet_pressure: Pressure::from_base(scalar::from_f64(101325.0)),
+            inlet_velocity: Velocity::from_base(scalar::from_f64(1.0)),
+            density: MassDensity::from_base(rho),
+            vapor_pressure: Pressure::from_base(scalar::from_f64(2339.0)),
         };
 
         let mut metadata = HashMap::new();
         metadata.insert(
             "throat_velocity_analytic".to_string(),
-            format!("{:e}", analytic.throat_velocity()),
+            format!("{:e}", analytic.throat_velocity().into_base()),
         );
         metadata.insert(
             "cavitation_number".to_string(),
-            format!("{:e}", analytic.cavitation_number()),
+            format!("{:e}", analytic.cavitation_number().into_base()),
         );
 
         let mut result = BenchmarkResult::new(&self.name);

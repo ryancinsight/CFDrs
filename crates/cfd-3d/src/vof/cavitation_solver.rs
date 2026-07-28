@@ -71,10 +71,12 @@ const INCEPTION_COUNT_THRESHOLD: f64 = 0.5;
 use super::bubble_dynamics::BubbleDynamicsSolver;
 use super::cavitation_types::{CavitationStatistics, CavitationVofConfig};
 use crate::vof::solver::VofSolver;
-use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, Time};
+use aequitas::systems::si::quantities::{
+    Dimensionless, DynamicViscosity, Frequency, Length, MassDensity, Pressure, Time,
+};
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
-use leto::{Array2, geometry::Vector3};
+use leto::{geometry::Vector3, Array2};
 
 /// Dense row-major cavitation scalar field with logical shape `[nx, ny * nz]`.
 pub type CavitationField = Array2<f64>;
@@ -150,7 +152,7 @@ impl CavitationVofSolver {
             ));
         }
         if let Some(nuclei) = &config.nuclei_transport {
-            if nuclei.diffusion_coefficient < 0.0 {
+            if nuclei.diffusion_coefficient.into_base() < 0.0 {
                 return Err(cfd_core::error::Error::InvalidConfiguration(
                     "nuclei diffusion coefficient must be nonnegative".to_string(),
                 ));
@@ -344,7 +346,7 @@ impl CavitationVofSolver {
             ));
         }
 
-        let diffusion_coefficient = transport.diffusion_coefficient();
+        let diffusion_coefficient = transport.diffusion_coefficient().into_base();
         let inv_dx2 = if dx > 0.0 { 1.0 / (dx * dx) } else { 0.0 };
         let inv_dy2 = if dy > 0.0 { 1.0 / (dy * dy) } else { 0.0 };
         let inv_dz2 = if dz > 0.0 { 1.0 / (dz * dz) } else { 0.0 };
@@ -587,10 +589,12 @@ impl CavitationVofSolver {
 
                     // Cascade effect: modify vapor pressure assumption if pre-existing nuclei are advected.
                     if let Some(nuclei) = nuclei_field {
-                        vapor_pressure = cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
-                            vapor_pressure,
-                            nuclei[[i, col]],
-                        );
+                        vapor_pressure = cfd_core::physics::cavitation::nuclei_transport::
+                            nuclei_adjusted_vapor_pressure(
+                                Pressure::from_base(vapor_pressure),
+                                Dimensionless::from_base(nuclei[[i, col]]),
+                            )
+                            .into_base();
                     }
 
                     // Calculate cavitation number (relative to vapor pressure).
@@ -607,14 +611,14 @@ impl CavitationVofSolver {
                     }
 
                     let mass_transfer = self.cavitation_model.mass_transfer_rate(
-                        pressure,
-                        vapor_pressure,
+                        Pressure::from_base(pressure),
+                        Pressure::from_base(vapor_pressure),
                         void_fraction,
-                        density_liquid,
-                        vapor_density,
+                        MassDensity::from_base(density_liquid),
+                        MassDensity::from_base(vapor_density),
                     );
 
-                    let alpha_source = mass_transfer / vapor_density;
+                    let alpha_source = mass_transfer.into_base() / vapor_density;
                     let relaxed_rate = alpha_source * dt / (dt + relaxation_time);
 
                     source_data[field_idx] = relaxed_rate;
@@ -767,9 +771,12 @@ impl CavitationVofSolver {
                             .into_base()
                             * bubble_population;
 
-                        let erosion_rate =
-                            damage_model.mdpr(impact_pressure.into_base(), impact_frequency, dt);
-                        damage_data[field_idx] += erosion_rate * void_fraction;
+                        let erosion_rate = damage_model.mdpr(
+                            impact_pressure,
+                            Frequency::from_base(impact_frequency),
+                            Time::from_base(dt),
+                        );
+                        damage_data[field_idx] += erosion_rate.into_base() * void_fraction;
                     }
                 }
             }
@@ -870,11 +877,13 @@ impl CavitationVofSolver {
         let mut energy = CavitationField::zeros([nx, ny * nz]);
 
         let rp = RayleighPlesset::<f64> {
-            initial_radius: bubble_cfg.initial_radius.into_base(),
-            liquid_density: self.config.liquid_density.into_base(),
-            liquid_viscosity: self.config.liquid_blood_model.viscosity(0.0),
-            surface_tension: bubble_cfg.surface_tension.into_base(),
-            vapor_pressure: self.config.vapor_pressure.into_base(),
+            initial_radius: bubble_cfg.initial_radius,
+            liquid_density: self.config.liquid_density,
+            liquid_viscosity: DynamicViscosity::from_base(
+                self.config.liquid_blood_model.viscosity(0.0),
+            ),
+            surface_tension: bubble_cfg.surface_tension,
+            vapor_pressure: self.config.vapor_pressure,
             polytropic_index: bubble_cfg.polytropic_exponent,
         };
         let bubble_population = self.bubble_population_weight();
@@ -894,7 +903,7 @@ impl CavitationVofSolver {
                         emissivity,
                         flash_duration,
                     )?;
-                    energy[[i, col]] = estimate.radiated_energy * bubble_population;
+                    energy[[i, col]] = estimate.radiated_energy.into_base() * bubble_population;
                 }
             }
         }
@@ -932,10 +941,11 @@ impl CavitationVofSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vof::BubbleDynamicsConfig;
     use crate::vof::config::VofConfig;
+    use crate::vof::BubbleDynamicsConfig;
     use aequitas::systems::si::quantities::{
-        Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
+        Length, MassDensity, NumberDensity, Pressure, SurfaceTension, ThermalDiffusivity, Time,
+        Velocity,
     };
     use cfd_core::physics::cavitation::damage::CavitationDamage;
     use cfd_core::physics::cavitation::models::CavitationModel;
@@ -1069,10 +1079,10 @@ mod tests {
     fn cavitation_solver_rejects_damage_without_bubble_dynamics() {
         let mut config = make_config();
         config.damage_model = Some(CavitationDamage {
-            yield_strength: 1.0e6,
-            ultimate_strength: 2.0e6,
-            hardness: 3.0e6,
-            fatigue_strength: 4.0e5,
+            yield_strength: Pressure::from_base(1.0e6),
+            ultimate_strength: Pressure::from_base(2.0e6),
+            hardness: Pressure::from_base(3.0e6),
+            fatigue_strength: Pressure::from_base(4.0e5),
             cycles: 1,
         });
 
@@ -1087,9 +1097,9 @@ mod tests {
         let mut config = make_config();
         config.nuclei_transport = Some(
             cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig {
-                dissolution_time_s: f64::INFINITY,
+                dissolution_time: Time::from_base(f64::INFINITY),
                 generation_rate_factor: 0.0,
-                diffusion_coefficient: 1.0e-4,
+                diffusion_coefficient: ThermalDiffusivity::from_base(1.0e-4),
             },
         );
 
@@ -1124,9 +1134,9 @@ mod tests {
         let mut config = make_config();
         config.nuclei_transport = Some(
             cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig {
-                dissolution_time_s: f64::INFINITY,
+                dissolution_time: Time::from_base(f64::INFINITY),
                 generation_rate_factor: 1.0,
-                diffusion_coefficient: 0.0,
+                diffusion_coefficient: ThermalDiffusivity::from_base(0.0),
             },
         );
 
@@ -1316,10 +1326,10 @@ mod tests {
     fn damage_accumulates_below_previous_void_fraction_floor() {
         let mut config = make_config();
         config.damage_model = Some(CavitationDamage {
-            yield_strength: 1.0e6,
-            ultimate_strength: 2.0e6,
-            hardness: 3.0e6,
-            fatigue_strength: 4.0e5,
+            yield_strength: Pressure::from_base(1.0e6),
+            ultimate_strength: Pressure::from_base(2.0e6),
+            hardness: Pressure::from_base(3.0e6),
+            fatigue_strength: Pressure::from_base(4.0e5),
             cycles: 1,
         });
         config.bubble_dynamics = Some(BubbleDynamicsConfig {
@@ -1368,10 +1378,10 @@ mod tests {
     fn update_damage_rejects_pressure_dimension_mismatch() {
         let mut config = make_config();
         config.damage_model = Some(CavitationDamage {
-            yield_strength: 1.0e6,
-            ultimate_strength: 2.0e6,
-            hardness: 3.0e6,
-            fatigue_strength: 4.0e5,
+            yield_strength: Pressure::from_base(1.0e6),
+            ultimate_strength: Pressure::from_base(2.0e6),
+            hardness: Pressure::from_base(3.0e6),
+            fatigue_strength: Pressure::from_base(4.0e5),
             cycles: 1,
         });
         config.bubble_dynamics = Some(BubbleDynamicsConfig {

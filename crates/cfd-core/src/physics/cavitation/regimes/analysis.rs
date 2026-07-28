@@ -1,5 +1,6 @@
 //! Cavitation regime analysis results and reporting.
 
+use aequitas::systems::si::quantities::{Dimensionless, Length, Pressure};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -14,15 +15,15 @@ pub struct CavitationRegimeAnalysis<T: FloatElement + Copy> {
     /// Identified regime
     pub regime: CavitationRegime,
     /// Blake threshold pressure (Pa)
-    pub blake_threshold: T,
+    pub blake_threshold: Pressure<T>,
     /// Inertial threshold pressure amplitude (Pa)
-    pub inertial_threshold: T,
+    pub inertial_threshold: Pressure<T>,
     /// Cavitation number
-    pub cavitation_number: T,
+    pub cavitation_number: Dimensionless<T>,
     /// Mechanical index (for acoustic cavitation)
     pub mechanical_index: T,
     /// Estimated maximum bubble radius (m)
-    pub max_bubble_radius: T,
+    pub max_bubble_radius: Length<T>,
     /// Sonoluminescence probability (0-1)
     pub sonoluminescence_probability: T,
     /// Material damage potential (0-1)
@@ -38,15 +39,16 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
         let blake_threshold = self.blake_threshold();
         let inertial_threshold = self.inertial_threshold();
 
+        let ambient_pressure = self.ambient_pressure.into_base();
         let current_pressure = if let Some(p_ac) = self.acoustic_pressure {
-            self.ambient_pressure - p_ac
+            ambient_pressure - p_ac.into_base()
         } else {
-            self.ambient_pressure
+            ambient_pressure
         };
 
         let two = <T as FloatElement>::from_f64(2.0);
-        let v_sq =
-            (self.ambient_pressure - current_pressure) * two / self.bubble_model.liquid_density;
+        let v_sq = (ambient_pressure - current_pressure) * two
+            / self.bubble_model.liquid_density.into_base();
         let current_velocity = if v_sq > <T as NumericElement>::ZERO {
             <T as NumericElement>::sqrt(v_sq)
         } else {
@@ -89,11 +91,11 @@ impl<T: FloatElement + Copy + std::fmt::Display> std::fmt::Display for Cavitatio
              Damage Potential: {:.1}%\n\
              Hemolysis Risk: {:.1}%",
             self.regime,
-            self.blake_threshold,
-            self.inertial_threshold,
-            self.cavitation_number,
+            self.blake_threshold.into_base(),
+            self.inertial_threshold.into_base(),
+            self.cavitation_number.into_base(),
             self.mechanical_index,
-            self.max_bubble_radius,
+            self.max_bubble_radius.into_base(),
             self.sonoluminescence_probability,
             self.damage_potential,
             self.hemolysis_risk,

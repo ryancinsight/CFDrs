@@ -4,6 +4,7 @@
 //! characteristics, and flow conditions using Blake and Apfel–Holland
 //! thresholds.
 
+use aequitas::systems::si::quantities::{Dimensionless, Frequency, Length, Pressure};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -18,20 +19,20 @@ pub struct CavitationRegimeClassifier<T: FloatElement + Copy> {
     /// Rayleigh-Plesset bubble model
     pub(super) bubble_model: RayleighPlesset<T>,
     /// Ambient pressure (Pa)
-    pub(super) ambient_pressure: T,
+    pub(super) ambient_pressure: Pressure<T>,
     /// Acoustic pressure amplitude (Pa), if applicable
-    pub(super) acoustic_pressure: Option<T>,
+    pub(super) acoustic_pressure: Option<Pressure<T>>,
     /// Acoustic frequency (Hz), if applicable
-    pub(super) acoustic_frequency: Option<T>,
+    pub(super) acoustic_frequency: Option<Frequency<T>>,
 }
 
 impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
     /// Create new cavitation regime classifier
     pub fn new(
         bubble_model: RayleighPlesset<T>,
-        ambient_pressure: T,
-        acoustic_pressure: Option<T>,
-        acoustic_frequency: Option<T>,
+        ambient_pressure: Pressure<T>,
+        acoustic_pressure: Option<Pressure<T>>,
+        acoustic_frequency: Option<Frequency<T>>,
     ) -> Self {
         Self {
             bubble_model,
@@ -45,28 +46,29 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
     pub fn classify_regime(&self) -> CavitationRegime {
         let blake_threshold = self.blake_threshold();
 
+        let ambient_pressure = self.ambient_pressure.into_base();
         let min_pressure = if let Some(p_ac) = self.acoustic_pressure {
-            self.ambient_pressure - p_ac
+            ambient_pressure - p_ac.into_base()
         } else {
-            self.ambient_pressure
+            ambient_pressure
         };
 
-        if min_pressure >= blake_threshold {
+        if min_pressure >= blake_threshold.into_base() {
             return CavitationRegime::None;
         }
 
         let inertial_threshold = self.inertial_threshold();
 
         if let Some(p_ac) = self.acoustic_pressure {
-            if p_ac > inertial_threshold {
+            if p_ac.into_base() > inertial_threshold.into_base() {
                 CavitationRegime::Inertial
             } else {
                 CavitationRegime::Stable
             }
         } else {
             let two = <T as FloatElement>::from_f64(2.0);
-            let v_sq =
-                (self.ambient_pressure - min_pressure) * two / self.bubble_model.liquid_density;
+            let v_sq = (ambient_pressure - min_pressure) * two
+                / self.bubble_model.liquid_density.into_base();
             let current_velocity = if v_sq > <T as NumericElement>::ZERO {
                 <T as NumericElement>::sqrt(v_sq)
             } else {
@@ -78,9 +80,9 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
             let one_half = <T as FloatElement>::from_f64(0.5);
             let one_and_half = <T as FloatElement>::from_f64(1.5);
 
-            if sigma > one_and_half {
+            if sigma.into_base() > one_and_half {
                 CavitationRegime::None
-            } else if sigma > one_half {
+            } else if sigma.into_base() > one_half {
                 CavitationRegime::Stable
             } else {
                 CavitationRegime::Inertial
@@ -89,61 +91,66 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
     }
 
     /// Calculate Blake threshold pressure
-    pub fn blake_threshold(&self) -> T {
+    pub fn blake_threshold(&self) -> Pressure<T> {
         let four_thirds = <T as FloatElement>::from_f64(4.0 / 3.0);
         let r_critical = self
             .bubble_model
-            .blake_critical_radius(self.ambient_pressure);
+            .blake_critical_radius(self.ambient_pressure.into_base());
 
-        self.bubble_model.vapor_pressure
-            + four_thirds * self.bubble_model.surface_tension / r_critical
+        Pressure::from_base(
+            self.bubble_model.vapor_pressure.into_base()
+                + four_thirds * self.bubble_model.surface_tension.into_base() / r_critical,
+        )
     }
 
     /// Calculate inertial cavitation threshold (Apfel & Holland 1991)
-    pub fn inertial_threshold(&self) -> T {
+    pub fn inertial_threshold(&self) -> Pressure<T> {
         let two = <T as FloatElement>::from_f64(2.0);
         let three = <T as FloatElement>::from_f64(3.0);
         let eight = <T as FloatElement>::from_f64(8.0);
 
-        let r0 = self.bubble_model.initial_radius;
-        let sigma = self.bubble_model.surface_tension;
-        let p_inf = self.ambient_pressure;
+        let r0 = self.bubble_model.initial_radius.into_base();
+        let sigma = self.bubble_model.surface_tension.into_base();
+        let p_inf = self.ambient_pressure.into_base();
 
         let inner = (eight * sigma) / (three * r0) * (p_inf + two * sigma / r0);
         if inner > <T as NumericElement>::ZERO {
-            <T as NumericElement>::sqrt(inner)
+            Pressure::from_base(<T as NumericElement>::sqrt(inner))
         } else {
-            <T as NumericElement>::ZERO
+            Pressure::from_base(<T as NumericElement>::ZERO)
         }
     }
 
     /// Estimate maximum bubble radius for a given cavitation regime
-    pub(super) fn estimate_max_radius(&self, regime: CavitationRegime) -> T {
+    pub(super) fn estimate_max_radius(&self, regime: CavitationRegime) -> Length<T> {
         match regime {
             CavitationRegime::None => self.bubble_model.initial_radius,
             CavitationRegime::Stable => {
                 let two = <T as FloatElement>::from_f64(2.0);
-                two * self.bubble_model.initial_radius
+                Length::from_base(two * self.bubble_model.initial_radius.into_base())
             }
             CavitationRegime::Inertial => {
                 let fifty = <T as FloatElement>::from_f64(50.0);
-                fifty * self.bubble_model.initial_radius
+                Length::from_base(fifty * self.bubble_model.initial_radius.into_base())
             }
             CavitationRegime::Mixed => {
                 let ten = <T as FloatElement>::from_f64(10.0);
-                ten * self.bubble_model.initial_radius
+                Length::from_base(ten * self.bubble_model.initial_radius.into_base())
             }
         }
     }
 
     /// Calculate cavitation number σ = (P - P_v) / (0.5 ρ v²)
-    pub(super) fn cavitation_number(&self, local_pressure: T, velocity: T) -> T {
+    pub(super) fn cavitation_number(&self, local_pressure: T, velocity: T) -> Dimensionless<T> {
         let half = <T as FloatElement>::from_f64(0.5);
-        let dynamic_pressure = half * self.bubble_model.liquid_density * velocity * velocity;
+        let dynamic_pressure =
+            half * self.bubble_model.liquid_density.into_base() * velocity * velocity;
         if dynamic_pressure > <T as FloatElement>::from_f64(f64::EPSILON) {
-            (local_pressure - self.bubble_model.vapor_pressure) / dynamic_pressure
+            Dimensionless::from_base(
+                (local_pressure - self.bubble_model.vapor_pressure.into_base()) / dynamic_pressure,
+            )
         } else {
-            <T as FloatElement>::from_f64(1e10)
+            Dimensionless::from_base(<T as FloatElement>::from_f64(1e10))
         }
     }
 
@@ -157,10 +164,10 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
         };
 
         let mhz = <T as FloatElement>::from_f64(1e6);
-        let freq_mhz = freq / mhz;
+        let freq_mhz = freq.into_base() / mhz;
 
         if freq_mhz > <T as NumericElement>::ZERO {
-            Ok(p_ac / <T as NumericElement>::sqrt(freq_mhz))
+            Ok(p_ac.into_base() / <T as NumericElement>::sqrt(freq_mhz))
         } else {
             Ok(<T as NumericElement>::ZERO)
         }
@@ -200,9 +207,9 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
             CavitationRegime::Stable => <T as FloatElement>::from_f64(0.05),
             CavitationRegime::Inertial => {
                 if let Some(p_ac) = self.acoustic_pressure {
-                    let threshold = self.inertial_threshold();
+                    let threshold = self.inertial_threshold().into_base();
                     if threshold > <T as NumericElement>::ZERO {
-                        (p_ac / threshold).min_scalar(<T as NumericElement>::ONE)
+                        (p_ac.into_base() / threshold).min_scalar(<T as NumericElement>::ONE)
                     } else {
                         damage
                     }

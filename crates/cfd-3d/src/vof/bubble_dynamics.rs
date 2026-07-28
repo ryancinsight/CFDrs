@@ -42,7 +42,8 @@
 //! for non-Newtonian fluids like blood during the Rayleigh-Plesset integration.
 
 use aequitas::systems::si::quantities::{
-    Frequency, Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
+    DynamicViscosity, Frequency, Length, MassDensity, NumberDensity, Pressure, SurfaceTension,
+    Time, Velocity,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
@@ -99,11 +100,11 @@ impl BubbleDynamicsSolver {
     ) -> Self {
         let initial_viscosity = blood_model.viscosity(0.0);
         let rp = RayleighPlesset {
-            initial_radius: config.initial_radius.into_base(),
-            liquid_density: liquid_density.into_base(),
-            liquid_viscosity: initial_viscosity,
-            surface_tension: config.surface_tension.into_base(),
-            vapor_pressure: vapor_pressure.into_base(),
+            initial_radius: config.initial_radius,
+            liquid_density,
+            liquid_viscosity: DynamicViscosity::from_base(initial_viscosity),
+            surface_tension: config.surface_tension,
+            vapor_pressure,
             polytropic_index: config.polytropic_exponent,
         };
         let len = nx * ny * nz;
@@ -155,10 +156,10 @@ impl BubbleDynamicsSolver {
         let config = &mut self.configs[idx];
         let radius = self.radii[idx];
         let velocity = self.velocities[idx];
-        config.liquid_density = density;
+        config.liquid_density = MassDensity::from_base(density);
 
         if radius <= 0.0 {
-            config.liquid_viscosity = base_viscosity;
+            config.liquid_viscosity = DynamicViscosity::from_base(base_viscosity);
             self.radii[idx] = 0.0;
             self.velocities[idx] = 0.0;
             return Ok(Length::from_base(0.0));
@@ -168,7 +169,8 @@ impl BubbleDynamicsSolver {
         // theorem: The shear rate at a spherical bubble wall expanding/collapsing radially
         // is given by γ̇_wall = √12 |Ṙ / R|.
         let shear_rate = 12.0_f64.sqrt() * (velocity.abs() / radius);
-        config.liquid_viscosity = self.blood_model.viscosity(shear_rate);
+        config.liquid_viscosity =
+            DynamicViscosity::from_base(self.blood_model.viscosity(shear_rate));
 
         let (new_radius, new_velocity) =
             config.step_semi_implicit(radius, velocity, pressure.into_base(), dt.into_base())?;
@@ -191,7 +193,7 @@ impl BubbleDynamicsSolver {
         let idx = self.index(i, j, k);
         let config = &self.configs[idx];
         let radius = self.radii[idx];
-        let initial_radius = config.initial_radius;
+        let initial_radius = config.initial_radius.into_base();
 
         if radius > 0.0 {
             // Impact pressure scales with (R_max / R_collapse)
@@ -319,8 +321,8 @@ mod tests {
             low < high,
             "lower liquid density must yield a stronger collapse response"
         );
-        assert_relative_eq!(low_density.configs[0].liquid_density, 800.0);
-        assert_relative_eq!(high_density.configs[0].liquid_density, 1600.0);
+        assert_relative_eq!(low_density.configs[0].liquid_density.into_base(), 800.0);
+        assert_relative_eq!(high_density.configs[0].liquid_density.into_base(), 1600.0);
 
         let mut invalid_density = make_solver();
         let err = invalid_density

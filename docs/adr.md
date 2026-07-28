@@ -12,7 +12,7 @@
 | **Aequitas-owned channel and network geometry metrics** | 2026-07-24 | Public channel cross-sections, lengths, edge areas, and hydraulic diameters documented SI units but remained raw scalars across the network boundary | Length and Area remain typed through cross-sections, channel geometry, edges, blueprint conversion, analyzers, and transient transport | Breaking change for external network constructors and property implementors |
 | **Aequitas-owned component geometry and volume metrics** | 2026-07-24 | Public component geometry and volume contracts documented SI units but stored lengths, areas, roughness, and volumes as raw scalars | Length, Area, and Volume remain typed through channels, membranes, organs, and network channel properties | Breaking change for external component constructors and `Component` implementors |
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
-| **Aequitas-owned cavitation-VOF physical metrics** | 2026-07-28 | cfd-3d VOF cavitation configuration and bubble-dynamics contracts exposed unit-bearing scalars for surface tension, radius, number density, time, pressure, density, and sound speed | SurfaceTension, Length, NumberDensity, Time, Pressure, MassDensity, and Velocity remain typed through public configuration and step contracts; formula and dense-field boundaries extract explicitly | Breaking change for external cavitation constructors and callers |
+| **Aequitas-owned cavitation physical metrics** | 2026-07-28 | cfd-3d VOF and shared cfd-core cavitation contracts exposed unit-bearing scalars for surface tension, radius, number density, time, pressure, density, sound speed, viscosity, frequency, and derived outputs | SurfaceTension, Length, NumberDensity, Time, Pressure, MassDensity, Velocity, DynamicViscosity, Frequency, Angle, Volume, ThermalDiffusivity, MassDensityRate, ThermodynamicTemperature, Energy, and Dimensionless remain typed through public contracts; formula and dense-field boundaries extract explicitly | Breaking change for external cavitation constructors and callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -200,30 +200,42 @@ water-air tension, advancing/receding angles, and adhesion energy. Locked
 package checks and focused validation gates are recorded in the child gap
 audit.
 
-### 2026-07-28: Aequitas owns cavitation-VOF physical quantities [major] [arch]
+### 2026-07-28: Aequitas owns cavitation physical quantities [major] [arch]
 
-Context: `cfd-3d` VOF cavitation configuration and bubble-dynamics contracts
-documented SI units but exposed raw surface tension, bubble radius, nuclei
-number density, relaxation time, vapor pressure, liquid/vapor density, and
-sound-speed values. The public cavitation step also accepted an untyped time
-step.
+Context: `cfd-3d` VOF and shared `cfd-core` cavitation contracts documented SI
+units but exposed raw surface tension, bubble radius, nuclei number density,
+relaxation time, vapor pressure, liquid/vapor density, sound speed, viscosity,
+frequency, and derived physical outputs. The public cavitation step also
+accepted an untyped time step, and the standalone cfd-3d closure seam contained
+zero-valued collapse-rate placeholders.
 
-Decision: carry `SurfaceTension`, `Length`, `NumberDensity`, `Time`, `Pressure`,
-`MassDensity`, and `Velocity` through the public configuration and bubble
-solver contracts. Extract base scalars only at Rayleigh-Plesset, damage, mesh,
-and dense-field numerical boundaries. Keep dimensionless inception, void, and
-damage statistics scalar because they have no single SI dimension.
+Decision: carry Aequitas `SurfaceTension`, `Length`, `NumberDensity`, `Time`,
+`Pressure`, `MassDensity`, `Velocity`, `DynamicViscosity`, `Frequency`, `Angle`,
+`Volume`, `ThermalDiffusivity`, `MassDensityRate`,
+`ThermodynamicTemperature`, `Energy`, and `Dimensionless` through the public
+configuration, shared cavitation models, and closure contracts. Extract base
+scalars only where the numerical formulas, mesh spacing, GPU buffers, or dense
+fields require them. Keep model-specific coefficients, fractions,
+probabilities, and damage indices scalar because they have no declared SI
+dimension. Delegate standalone closure calculations to the cfd-core
+Rayleigh-Plesset and Schnerr-Sauer implementations rather than retaining
+placeholders.
 
 Rejected alternative: retaining scalar fields with unit comments or adding
 typed accessors beside them would preserve dimensional ambiguity and duplicate
 the metric owner. Both alternatives are rejected.
 
-Consequences: external cavitation constructors and the public step call are
-breaking; all in-tree callers are migrated without a compatibility facade.
+Consequences: external cavitation constructors, shared cavitation model
+constructors, and the public closure/step calls are breaking; all in-tree
+callers are migrated without a compatibility facade.
 
-Verification: cfd-3d test-target compilation passes through the command-line
-local-provider overlay, and the focused cavitation, robustness, and VOF
-Nextest targets pass 83/83. See
+Verification: cfd-core and cfd-3d test-target compilation passes through the
+command-line local-provider overlay. cfd-core Nextest passes 202/202 with no
+skips, and the broad cfd-3d gate passes 291/292: all cavitation, VOF, closure,
+robustness, and validation tests pass. The sole timeout is the pre-existing
+30.663-second `test_venturi_blood_flow` runtime residual against the committed
+30-second budget, tracked under `CFDRS-RUNTIME-001` and outside this metric
+contract. See
 [`cavitation-vof-physical-metrics.md`](atlas-migration/cavitation-vof-physical-metrics.md).
 
 ### 2026-07-22: Preserve native schematic output paths [major] [arch]

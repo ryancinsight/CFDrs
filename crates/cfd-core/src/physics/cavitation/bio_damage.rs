@@ -51,6 +51,9 @@
 //! cavitation-induced overpressure above ambient, so ambient-only conditions
 //! produce zero induced strain and therefore preserve the fully healthy state.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -68,11 +71,11 @@ const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellularMembraneMechanics<T: FloatElement + Copy> {
     /// Nominal radius of the cell \[m].
-    pub cell_radius_m: T,
+    pub cell_radius_m: Length<T>,
     /// Thickness of the cellular membrane \[m].
-    pub membrane_thickness_m: T,
+    pub membrane_thickness_m: Length<T>,
     /// Elastic modulus of the cellular membrane \[Pa].
-    pub membrane_elastic_modulus_pa: T,
+    pub membrane_elastic_modulus_pa: Pressure<T>,
     /// Areal strain threshold inducing reversible or irreversible cell membrane pores.
     pub critical_areal_strain_permeabilization: T,
     /// Areal strain threshold inducing cell death without complete fragmentation.
@@ -98,9 +101,9 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
     /// Validates the strictly monotonic ordering of cellular injury thresholds and positive dimensions.
     pub fn is_valid(&self) -> bool {
         let zero = <T as NumericElement>::ZERO;
-        self.cell_radius_m > zero
-            && self.membrane_thickness_m > zero
-            && self.membrane_elastic_modulus_pa > zero
+        self.cell_radius_m.into_base() > zero
+            && self.membrane_thickness_m.into_base() > zero
+            && self.membrane_elastic_modulus_pa.into_base() > zero
             && self.critical_areal_strain_permeabilization > zero
             && self.critical_areal_strain_permeabilization < self.critical_areal_strain_necrosis
             && self.critical_areal_strain_necrosis < self.critical_areal_strain_lysis
@@ -112,16 +115,20 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
     /// Stress is derived using thin-walled pressure vessel approximation.
     pub fn evaluate_spatial_injury(
         &self,
-        collapse_pressure_pa: T,
-        bubble_radius_m: T,
-        standoff_distance_m: T,
-        ambient_pressure_pa: T,
+        collapse_pressure: Pressure<T>,
+        bubble_radius: Length<T>,
+        standoff_distance: Length<T>,
+        ambient_pressure: Pressure<T>,
     ) -> CellularInjuryProfile<T> {
         let zero = <T as NumericElement>::ZERO;
         let one = <T as NumericElement>::ONE;
         let reference_duration = <T as FloatElement>::from_f64(REFERENCE_LOADING_DURATION_S);
         let blood_density = <T as FloatElement>::from_f64(BLOOD_DENSITY_KG_M3);
 
+        let collapse_pressure_pa = collapse_pressure.into_base();
+        let bubble_radius_m = bubble_radius.into_base();
+        let standoff_distance_m = standoff_distance.into_base();
+        let ambient_pressure_pa = ambient_pressure.into_base();
         let r_impact = standoff_distance_m.max_scalar(bubble_radius_m);
         // Acoustic radiation decay P(r) = P_inf + R/r * (P_c - P_inf)
         // Bounded mathematically to ensure P(r) does not exceed collapse pressure
@@ -140,11 +147,11 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
         // zero induced strain.
         let two = one + one;
         let impact_overpressure = (p_r - ambient_pressure_pa).max_scalar(zero);
-        let membrane_stress =
-            (impact_overpressure * self.cell_radius_m) / (two * self.membrane_thickness_m);
+        let membrane_stress = (impact_overpressure * self.cell_radius_m.into_base())
+            / (two * self.membrane_thickness_m.into_base());
 
         // Areal strain approx for Hookean membrane
-        let strain = membrane_stress / self.membrane_elastic_modulus_pa;
+        let strain = membrane_stress / self.membrane_elastic_modulus_pa.into_base();
         let rate_factor = if loading_duration > zero {
             <T as NumericElement>::sqrt(reference_duration / loading_duration)
         } else {
@@ -210,11 +217,11 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
         }
 
         let bubble = RayleighPlesset {
-            initial_radius: bubble_radius_m,
-            liquid_density: blood_density,
-            liquid_viscosity: <T as NumericElement>::ZERO,
-            surface_tension: <T as NumericElement>::ZERO,
-            vapor_pressure: <T as NumericElement>::ZERO,
+            initial_radius: Length::from_base(bubble_radius_m),
+            liquid_density: MassDensity::from_base(blood_density),
+            liquid_viscosity: DynamicViscosity::from_base(<T as NumericElement>::ZERO),
+            surface_tension: SurfaceTension::from_base(<T as NumericElement>::ZERO),
+            vapor_pressure: Pressure::from_base(<T as NumericElement>::ZERO),
             polytropic_index: <T as FloatElement>::from_f64(1.4),
         };
 
@@ -247,9 +254,9 @@ mod tests {
             e_lysis in 0.35_f64..0.8
         ) {
             let mechanics = CellularMembraneMechanics::<f64> {
-                cell_radius_m: radius,
-                membrane_thickness_m: thickness,
-                membrane_elastic_modulus_pa: modulus,
+                cell_radius_m: Length::from_base(radius),
+                membrane_thickness_m: Length::from_base(thickness),
+                membrane_elastic_modulus_pa: Pressure::from_base(modulus),
                 critical_areal_strain_permeabilization: e_perm,
                 critical_areal_strain_necrosis: e_necro,
                 critical_areal_strain_lysis: e_lysis,
@@ -260,7 +267,12 @@ mod tests {
             let bubble_radius = 5e-6;
             let ambient = 101_325.0;
 
-            let profile = mechanics.evaluate_spatial_injury(collapse_pressure, bubble_radius, standoff_distance, ambient);
+            let profile = mechanics.evaluate_spatial_injury(
+                Pressure::from_base(collapse_pressure),
+                Length::from_base(bubble_radius),
+                Length::from_base(standoff_distance),
+                Pressure::from_base(ambient),
+            );
 
             let eps = 1e-12;
             let total = profile.fraction_healthy + profile.fraction_permeabilized + profile.fraction_necrotic + profile.fraction_lysed;
@@ -279,9 +291,9 @@ mod tests {
             e_lysis in 0.35_f64..0.8
         ) {
             let mechanics = CellularMembraneMechanics::<f64> {
-                cell_radius_m: 10e-6,
-                membrane_thickness_m: 50e-9,
-                membrane_elastic_modulus_pa: 100_000.0,
+                cell_radius_m: Length::from_base(10e-6),
+                membrane_thickness_m: Length::from_base(50e-9),
+                membrane_elastic_modulus_pa: Pressure::from_base(100_000.0),
                 critical_areal_strain_permeabilization: e_perm,
                 critical_areal_strain_necrosis: e_necro,
                 critical_areal_strain_lysis: e_lysis,
@@ -290,7 +302,12 @@ mod tests {
 
             let ambient = 101_325.0;
             // No overpressure means no impact stress
-            let profile = mechanics.evaluate_spatial_injury(ambient, 5e-6, 10e-6, ambient);
+            let profile = mechanics.evaluate_spatial_injury(
+                Pressure::from_base(ambient),
+                Length::from_base(5e-6),
+                Length::from_base(10e-6),
+                Pressure::from_base(ambient),
+            );
             prop_assert_eq!(profile.fraction_healthy, 1.0);
             prop_assert_eq!(profile.fraction_lysed, 0.0);
         }
@@ -299,16 +316,26 @@ mod tests {
     #[test]
     fn injury_increases_monotonically_with_collapse_overpressure() {
         let mechanics = CellularMembraneMechanics::<f64> {
-            cell_radius_m: 10e-6,
-            membrane_thickness_m: 50e-9,
-            membrane_elastic_modulus_pa: 100_000.0,
+            cell_radius_m: Length::from_base(10e-6),
+            membrane_thickness_m: Length::from_base(50e-9),
+            membrane_elastic_modulus_pa: Pressure::from_base(100_000.0),
             critical_areal_strain_permeabilization: 0.05,
             critical_areal_strain_necrosis: 0.2,
             critical_areal_strain_lysis: 0.45,
         };
         let ambient = 101_325.0;
-        let mild = mechanics.evaluate_spatial_injury(ambient + 10_000.0, 5e-6, 10e-6, ambient);
-        let severe = mechanics.evaluate_spatial_injury(ambient + 2_000_000.0, 5e-6, 10e-6, ambient);
+        let mild = mechanics.evaluate_spatial_injury(
+            Pressure::from_base(ambient + 10_000.0),
+            Length::from_base(5e-6),
+            Length::from_base(10e-6),
+            Pressure::from_base(ambient),
+        );
+        let severe = mechanics.evaluate_spatial_injury(
+            Pressure::from_base(ambient + 2_000_000.0),
+            Length::from_base(5e-6),
+            Length::from_base(10e-6),
+            Pressure::from_base(ambient),
+        );
 
         assert!(severe.fraction_lysed >= mild.fraction_lysed);
         assert!(severe.fraction_healthy <= mild.fraction_healthy);
@@ -317,9 +344,9 @@ mod tests {
     #[test]
     fn longer_loading_duration_decreases_healthy_fraction_at_fixed_peak_strain() {
         let mechanics = CellularMembraneMechanics::<f64> {
-            cell_radius_m: 10e-6,
-            membrane_thickness_m: 50e-9,
-            membrane_elastic_modulus_pa: 10_000_000.0,
+            cell_radius_m: Length::from_base(10e-6),
+            membrane_thickness_m: Length::from_base(50e-9),
+            membrane_elastic_modulus_pa: Pressure::from_base(10_000_000.0),
             critical_areal_strain_permeabilization: 0.5,
             critical_areal_strain_necrosis: 2.0,
             critical_areal_strain_lysis: 4.5,
@@ -327,10 +354,18 @@ mod tests {
         let ambient = 101_325.0;
         let collapse_pressure = ambient + 30_000_000.0;
 
-        let short_bubble =
-            mechanics.evaluate_spatial_injury(collapse_pressure, 5e-6, 5e-6, ambient);
-        let long_bubble =
-            mechanics.evaluate_spatial_injury(collapse_pressure, 50e-6, 50e-6, ambient);
+        let short_bubble = mechanics.evaluate_spatial_injury(
+            Pressure::from_base(collapse_pressure),
+            Length::from_base(5e-6),
+            Length::from_base(5e-6),
+            Pressure::from_base(ambient),
+        );
+        let long_bubble = mechanics.evaluate_spatial_injury(
+            Pressure::from_base(collapse_pressure),
+            Length::from_base(50e-6),
+            Length::from_base(50e-6),
+            Pressure::from_base(ambient),
+        );
 
         assert!(
             long_bubble.fraction_healthy <= short_bubble.fraction_healthy,

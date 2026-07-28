@@ -31,7 +31,7 @@
 
 use crate::physics::resistance::models::VenturiModel;
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, Length, MassDensity, Pressure, Velocity,
+    Dimensionless, DynamicViscosity, Length, MassDensity, Pressure, Velocity,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::{
@@ -607,9 +607,10 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
 
     let effective_vapor_pressure_pa =
         cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
-            input.vapor_pressure_pa.into_base(),
-            input.upstream_nuclei_fraction,
-        );
+            input.vapor_pressure_pa,
+            Dimensionless::from_base(input.upstream_nuclei_fraction),
+        )
+        .into_base();
 
     if input.throat_velocity_m_s.into_base() == 0.0 {
         return Ok(zero_velocity_screening_result(

@@ -1,5 +1,6 @@
 //! Cavitation number calculations.
 
+use aequitas::systems::si::quantities::{Dimensionless, Length, MassDensity, Pressure, Velocity};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -8,52 +9,64 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CavitationNumber<T: FloatElement + Copy> {
     /// Reference pressure (Pa)
-    pub reference_pressure: T,
+    pub reference_pressure: Pressure<T>,
     /// Vapor pressure (Pa)
-    pub vapor_pressure: T,
+    pub vapor_pressure: Pressure<T>,
     /// Reference density (kg/m³)
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Reference velocity (m/s)
-    pub velocity: T,
+    pub velocity: Velocity<T>,
 }
 
 impl<T: FloatElement + Copy> CavitationNumber<T> {
     /// Calculate cavitation number
-    pub fn calculate(&self) -> T {
+    pub fn calculate(&self) -> Dimensionless<T> {
         let half = <T as FloatElement>::from_f64(0.5);
-        let dynamic_pressure = half * self.density * self.velocity * self.velocity;
+        let density = self.density.into_base();
+        let velocity = self.velocity.into_base();
+        let dynamic_pressure = half * density * velocity * velocity;
 
         if dynamic_pressure > <T as FloatElement>::from_f64(1e-10) {
-            (self.reference_pressure - self.vapor_pressure) / dynamic_pressure
+            Dimensionless::from_base(
+                (self.reference_pressure.into_base() - self.vapor_pressure.into_base())
+                    / dynamic_pressure,
+            )
         } else {
             // Large value for zero velocity.
-            <T as FloatElement>::from_f64(1e10)
+            Dimensionless::from_base(<T as FloatElement>::from_f64(1e10))
         }
     }
 
     /// Check if cavitation is likely to occur
     pub fn is_cavitating(&self) -> bool {
-        let sigma = self.calculate();
+        let sigma = self.calculate().into_base();
         let threshold =
             <T as FloatElement>::from_f64(super::constants::CAVITATION_INCEPTION_THRESHOLD);
         sigma < threshold
     }
 
     /// Calculate incipient cavitation index (Thoma number)
-    pub fn thoma_number(&self, head: T) -> T {
+    pub fn thoma_number(&self, head: Length<T>) -> Dimensionless<T> {
         let g = <T as FloatElement>::from_f64(9.81);
-        (self.reference_pressure - self.vapor_pressure) / (self.density * g * head)
+        Dimensionless::from_base(
+            (self.reference_pressure.into_base() - self.vapor_pressure.into_base())
+                / (self.density.into_base() * g * head.into_base()),
+        )
     }
 
     /// Calculate pressure recovery coefficient
-    pub fn pressure_recovery(&self, downstream_pressure: T) -> T {
+    pub fn pressure_recovery(&self, downstream_pressure: Pressure<T>) -> Dimensionless<T> {
         let half = <T as FloatElement>::from_f64(0.5);
-        let dynamic_pressure = half * self.density * self.velocity * self.velocity;
+        let dynamic_pressure =
+            half * self.density.into_base() * self.velocity.into_base() * self.velocity.into_base();
 
         if dynamic_pressure > <T as FloatElement>::from_f64(1e-10) {
-            (downstream_pressure - self.reference_pressure) / dynamic_pressure
+            Dimensionless::from_base(
+                (downstream_pressure.into_base() - self.reference_pressure.into_base())
+                    / dynamic_pressure,
+            )
         } else {
-            <T as NumericElement>::ZERO
+            Dimensionless::from_base(<T as NumericElement>::ZERO)
         }
     }
 }
@@ -61,19 +74,20 @@ impl<T: FloatElement + Copy> CavitationNumber<T> {
 #[cfg(test)]
 mod tests {
     use super::CavitationNumber;
+    use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
 
     fn representative_number() -> CavitationNumber<f64> {
         CavitationNumber {
-            reference_pressure: 101_325.0,
-            vapor_pressure: 2_339.0,
-            density: 1_000.0,
-            velocity: 10.0,
+            reference_pressure: Pressure::from_base(101_325.0),
+            vapor_pressure: Pressure::from_base(2_339.0),
+            density: MassDensity::from_base(1_000.0),
+            velocity: Velocity::from_base(10.0),
         }
     }
 
     #[test]
     fn cavitation_number_matches_definition() {
-        let sigma = representative_number().calculate();
+        let sigma = representative_number().calculate().into_base();
         let expected = (101_325.0 - 2_339.0) / (0.5 * 1_000.0 * 10.0 * 10.0);
 
         assert!((sigma - expected).abs() <= 1.0e-12);
@@ -82,17 +96,20 @@ mod tests {
     #[test]
     fn zero_velocity_returns_large_non_cavitating_index() {
         let sigma = CavitationNumber {
-            velocity: 0.0,
+            velocity: Velocity::from_base(0.0),
             ..representative_number()
         }
-        .calculate();
+        .calculate()
+        .into_base();
 
         assert_eq!(sigma, 1.0e10);
     }
 
     #[test]
     fn pressure_recovery_matches_dynamic_pressure_scaling() {
-        let recovery = representative_number().pressure_recovery(120_000.0);
+        let recovery = representative_number()
+            .pressure_recovery(Pressure::from_base(120_000.0))
+            .into_base();
         let expected = (120_000.0 - 101_325.0) / (0.5 * 1_000.0 * 10.0 * 10.0);
 
         assert!((recovery - expected).abs() <= 1.0e-12);
