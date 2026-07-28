@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type cfd-3d blueprint cross-fidelity configuration and channel
+  or node traces with Aequitas `MassDensity`, `DynamicViscosity`,
+  `VolumetricFlowRate`, `Volume`, `Pressure`, and `Velocity`. Scalar extraction
+  remains at cfd-1d/cfd-2d solver adapters and mesh serialization boundaries;
+  dimensionless errors and normalized coefficients remain scalar.
+
 - **Breaking**: Type cfd-3d VOF cavitation configuration and bubble-dynamics
   contracts with Aequitas `SurfaceTension`, `Length`, `NumberDensity`,
   `Time`, `Pressure`, `MassDensity`, and `Velocity`. Scalar extraction remains

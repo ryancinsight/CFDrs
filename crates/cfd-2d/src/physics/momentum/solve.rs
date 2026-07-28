@@ -2,8 +2,8 @@ use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
+use cfd_math::iterative::IterativeLinearSolver;
 use cfd_math::iterative::preconditioners::SORPreconditioner;
-use cfd_math::iterative::{IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
@@ -134,12 +134,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                 "Momentum SOR preconditioner construction failed for {component:?}: {error}"
             ))
         })?;
-        let solve_result: cfd_core::error::Result<()> =
-            self.linear_solver
-                .solve(matrix, rhs, &mut solution, Some(&preconditioner))
-                .map(|_| ()).map_err(cfd_core::error::Error::from);
+        let solve_result: cfd_core::error::Result<()> = self
+            .linear_solver
+            .solve(matrix, rhs, &mut solution, Some(&preconditioner))
+            .map(|_| ())
+            .map_err(cfd_core::error::Error::from);
         match solve_result {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
             )) => {

@@ -28,12 +28,12 @@ use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
+use cfd_math::iterative::IterativeLinearSolver;
 use cfd_math::iterative::preconditioners::IdentityPreconditioner;
 use cfd_math::multigrid::AlgebraicMultigrid;
-use cfd_math::iterative::IterativeLinearSolver;
 use eunomia::FloatElement;
 use leto::Array1;
-use leto_ops::{norm_l2, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, norm_l2};
 use std::fmt::Debug;
 
 /// Largest pressure system for which default AMG setup stays within the
@@ -97,15 +97,18 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                 } else {
                     self.cg_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                }.map(|_| ()).map_err(cfd_core::error::Error::from);
+                }
+                .map(|_| ())
+                .map_err(cfd_core::error::Error::from);
                 match result {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
                     )) if amg_preconditioner.is_some() => self
                         .cg_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                         .map(|_| ()).map_err(cfd_core::error::Error::from),
+                        .map(|_| ())
+                        .map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }
@@ -119,15 +122,18 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                         solution,
                         None::<&IdentityPreconditioner>,
                     )
-                }.map(|_| ()).map_err(cfd_core::error::Error::from);
+                }
+                .map(|_| ())
+                .map_err(cfd_core::error::Error::from);
                 match result {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
                     )) if amg_preconditioner.is_some() => self
                         .bicgstab_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                         .map(|_| ()).map_err(cfd_core::error::Error::from),
+                        .map(|_| ())
+                        .map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }
@@ -141,14 +147,17 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                     solver.solve(matrix, rhs, solution, Some(amg))
                 } else {
                     solver.solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                }.map(|_| ()).map_err(cfd_core::error::Error::from);
+                }
+                .map(|_| ())
+                .map_err(cfd_core::error::Error::from);
                 match result {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
                     )) if amg_preconditioner.is_some() => solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                         .map(|_| ()).map_err(cfd_core::error::Error::from),
+                        .map(|_| ())
+                        .map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }

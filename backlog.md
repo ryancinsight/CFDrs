@@ -31,6 +31,24 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-26 [major] - Type blueprint cross-fidelity trace metrics
+  (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` blueprint
+  integration configuration and public channel/node trace contracts, their
+  tests, and synchronized audit artifacts).** The residual source audit found
+  raw public density, dynamic viscosity, flow, volume, pressure, and velocity
+  metrics in the blueprint-to-cfd-1d/cfd-2d trace. Carry them through
+  Aequitas, extract only at solver and mesh boundaries, and migrate all
+  callers without a compatibility facade. Percent errors, normalized
+  coefficients, tolerances, and structural counts remain dimensionless or
+  non-physical. Acceptance is a residue-free public-field scan, typed
+  value-semantic blueprint regressions, focused cfd-3d gates, and synchronized
+  audit/ADR/changelog evidence. The focused blueprint integration suite passes
+  6/6; package test-check passes; the warning-denied library Clippy gate is
+  clean after fixing the blocking unit-result, return-binding, and `map_or`
+  diagnostics in the cfd-2d/cfd-3d/cfd-validation dependency path. The
+  all-targets gate remains blocked by 47 pre-existing diagnostics in peer-edited
+  cfd-3d validation/test modules and is recorded in `gap_audit.md`.
+
 - **CFDRS-AEQ-MET-24 [major] - Type cavitation-VOF physical metrics
   (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` VOF and
   cavitation configuration/bubble-dynamics public contracts, their in-tree

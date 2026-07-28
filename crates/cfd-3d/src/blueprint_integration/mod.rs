@@ -2,7 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, Pressure, Velocity, Volume, VolumetricFlowRate,
+};
+use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_mesh::application::pipeline::TopologyClass;
@@ -18,11 +21,11 @@ pub struct Blueprint3dProcessingConfig {
     /// Mesh-pipeline configuration used for `cfd-mesh` conversion.
     pub mesh: PipelineConfig,
     /// Fluid density used for cfd-1d/cfd-2d reference solves [kg/m^3].
-    pub density_kg_m3: f64,
+    pub density: MassDensity,
     /// Dynamic viscosity used for cfd-1d/cfd-2d reference solves [Pa·s].
-    pub viscosity_pa_s: f64,
+    pub viscosity: DynamicViscosity,
     /// Target total inlet flow rate for scaled cross-fidelity references [m^3/s].
-    pub total_flow_rate_m3_s: f64,
+    pub total_flow_rate: VolumetricFlowRate,
     /// Structured-grid X resolution for optional cfd-2d comparison.
     pub two_d_grid_nx: usize,
     /// Structured-grid Y resolution for optional cfd-2d comparison.
@@ -37,9 +40,9 @@ impl Default for Blueprint3dProcessingConfig {
     fn default() -> Self {
         Self {
             mesh: PipelineConfig::default(),
-            density_kg_m3: 1060.0,
-            viscosity_pa_s: 3.5e-3,
-            total_flow_rate_m3_s: 1.0e-9,
+            density: MassDensity::from_base(1060.0),
+            viscosity: DynamicViscosity::from_base(3.5e-3),
+            total_flow_rate: VolumetricFlowRate::from_base(1.0e-9),
             two_d_grid_nx: 32,
             two_d_grid_ny: 12,
             two_d_tolerance: 1e-6,
@@ -57,24 +60,24 @@ pub struct ChannelCrossFidelityTrace {
     pub from_node_id: String,
     /// Downstream blueprint node identifier.
     pub to_node_id: String,
-    /// Schematic volume carried by this channel [mm^3].
-    pub schematic_volume_mm3: f64,
-    /// Meshed 3D path volume for this channel [mm^3].
-    pub meshed_volume_mm3: f64,
+    /// Schematic volume carried by this channel [m^3].
+    pub schematic_volume: Volume,
+    /// Meshed 3D path volume for this channel [m^3].
+    pub meshed_volume: Volume,
     /// Relative 3D meshed volume error against the schematic contract [%].
     pub mesh_volume_error_pct: f64,
     /// Authoritative cfd-1d reference flow rate [m^3/s].
-    pub reference_flow_rate_m3_s: f64,
+    pub reference_flow_rate: VolumetricFlowRate,
     /// Authoritative cfd-1d pressure drop \[Pa].
-    pub reference_pressure_drop_pa: f64,
+    pub reference_pressure_drop: Pressure,
     /// Authoritative cfd-1d pressure-drop coefficient normalized by the blueprint inlet dynamic pressure.
     pub reference_pressure_drop_coefficient: f64,
     /// Authoritative cfd-1d mean velocity \[m/s].
-    pub reference_mean_velocity_m_s: f64,
+    pub reference_mean_velocity: Velocity,
     /// cfd-2d outlet-flow error against the cfd-1d reference [%], when computed.
     pub two_d_outlet_flow_error_pct: Option<f64>,
     /// Mean wall shear extracted from the cfd-2d field \[Pa], when computed.
-    pub two_d_field_wall_shear_mean_pa: Option<f64>,
+    pub two_d_field_wall_shear_mean: Option<Pressure>,
     /// Eulerian-Lagrangian separation efficiency over the solved 2D field [%], when computed.
     pub two_d_field_separation_efficiency_pct: Option<f64>,
     /// Whether the cfd-2d solve converged for this channel, when computed.
@@ -89,15 +92,15 @@ pub struct NodeCrossFidelityTrace {
     /// Blueprint node classification.
     pub node_kind: NodeKind,
     /// Reference nodal pressure \[Pa].
-    pub pressure_pa: f64,
+    pub pressure: Pressure,
     /// Sum of incoming flow rates [m^3/s].
-    pub incoming_flow_m3_s: f64,
+    pub incoming_flow: VolumetricFlowRate,
     /// Sum of outgoing flow rates [m^3/s].
-    pub outgoing_flow_m3_s: f64,
+    pub outgoing_flow: VolumetricFlowRate,
     /// Prescribed boundary source or sink [m^3/s].
-    pub prescribed_boundary_flow_m3_s: f64,
+    pub prescribed_boundary_flow: VolumetricFlowRate,
     /// Continuity residual [m^3/s].
-    pub continuity_residual_m3_s: f64,
+    pub continuity_residual: VolumetricFlowRate,
 }
 
 /// Full blueprint-processing trace for the 3D pipeline entry point.
@@ -140,9 +143,9 @@ pub fn process_blueprint_with_reference_trace(
 
     let reference_trace = solve_reference_trace::<f64>(
         blueprint,
-        config.density_kg_m3,
-        config.viscosity_pa_s,
-        config.total_flow_rate_m3_s,
+        config.density.into_base(),
+        config.viscosity.into_base(),
+        config.total_flow_rate.into_base(),
     )?;
     let reference_by_channel_id: HashMap<&str, _> = reference_trace
         .channel_traces
@@ -167,7 +170,7 @@ pub fn process_blueprint_with_reference_trace(
         0.0
     };
     let inlet_dynamic_pressure_pa = 0.5
-        * config.density_kg_m3
+        * config.density.into_base()
         * inlet_mean_velocity_m_s.abs().max(1.0e-30)
         * inlet_mean_velocity_m_s.abs().max(1.0e-30);
 
@@ -176,8 +179,8 @@ pub fn process_blueprint_with_reference_trace(
             BloodModel::CarreauYasuda(
                 cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood(),
             ),
-            config.density_kg_m3,
-            config.total_flow_rate_m3_s,
+            config.density.into_base(),
+            config.total_flow_rate.into_base(),
             config.two_d_grid_nx,
             config.two_d_grid_ny,
         );
@@ -219,18 +222,18 @@ pub fn process_blueprint_with_reference_trace(
                 channel_id: mesh_trace.channel_id.clone(),
                 from_node_id: mesh_trace.from_node_id.clone(),
                 to_node_id: mesh_trace.to_node_id.clone(),
-                schematic_volume_mm3: mesh_trace.schematic_volume_mm3,
-                meshed_volume_mm3: mesh_trace.meshed_volume_mm3,
+                schematic_volume: Volume::from_base(mesh_trace.schematic_volume_mm3 * 1.0e-9),
+                meshed_volume: Volume::from_base(mesh_trace.meshed_volume_mm3 * 1.0e-9),
                 mesh_volume_error_pct: mesh_trace.volume_error_pct,
-                reference_flow_rate_m3_s: reference.flow_rate_m3_s,
-                reference_pressure_drop_pa: reference.pressure_drop_pa,
+                reference_flow_rate: VolumetricFlowRate::from_base(reference.flow_rate_m3_s),
+                reference_pressure_drop: Pressure::from_base(reference.pressure_drop_pa),
                 reference_pressure_drop_coefficient: reference.pressure_drop_pa
                     / inlet_dynamic_pressure_pa,
-                reference_mean_velocity_m_s: reference.mean_velocity_m_s,
+                reference_mean_velocity: Velocity::from_base(reference.mean_velocity_m_s),
                 two_d_outlet_flow_error_pct: two_d
                     .map(|channel| channel.field_outlet_flow_error_pct),
-                two_d_field_wall_shear_mean_pa: two_d
-                    .map(|channel| channel.field_wall_shear_mean_pa),
+                two_d_field_wall_shear_mean: two_d
+                    .map(|channel| Pressure::from_base(channel.field_wall_shear_mean_pa)),
                 two_d_field_separation_efficiency_pct: two_d
                     .and_then(|channel| channel.field_separation_efficiency_pct),
                 two_d_converged: two_d.map(|channel| channel.solve_result.converged),
@@ -244,11 +247,13 @@ pub fn process_blueprint_with_reference_trace(
         .map(|trace| NodeCrossFidelityTrace {
             node_id: trace.node_id.clone(),
             node_kind: trace.node_kind,
-            pressure_pa: trace.pressure_pa,
-            incoming_flow_m3_s: trace.incoming_flow_m3_s,
-            outgoing_flow_m3_s: trace.outgoing_flow_m3_s,
-            prescribed_boundary_flow_m3_s: trace.prescribed_boundary_flow_m3_s,
-            continuity_residual_m3_s: trace.continuity_residual_m3_s,
+            pressure: Pressure::from_base(trace.pressure_pa),
+            incoming_flow: VolumetricFlowRate::from_base(trace.incoming_flow_m3_s),
+            outgoing_flow: VolumetricFlowRate::from_base(trace.outgoing_flow_m3_s),
+            prescribed_boundary_flow: VolumetricFlowRate::from_base(
+                trace.prescribed_boundary_flow_m3_s,
+            ),
+            continuity_residual: VolumetricFlowRate::from_base(trace.continuity_residual_m3_s),
         })
         .collect();
 

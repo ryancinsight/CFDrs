@@ -11,8 +11,9 @@
 
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar::{self, ValidationScalar};
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, Pressure,
-    VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
+};
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
     ChannelGeometry,
@@ -161,16 +162,14 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
                 .flow_rates
                 .get(e1.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero()),
+                .map_or(T::zero(), VolumetricFlowRate::into_base),
         );
         let q3 = scalar::abs(
             solution
                 .flow_rates
                 .get(e3.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero()),
+                .map_or(T::zero(), VolumetricFlowRate::into_base),
         );
         let q_err = scalar::abs(q1 - q3);
 
@@ -179,8 +178,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
                 - solution.pressures[n1.index()].into_base(),
         );
         let dp3 = scalar::abs(
-            solution.pressures[n2.index()].into_base()
-                - solution.pressures[n3.index()].into_base(),
+            solution.pressures[n2.index()].into_base() - solution.pressures[n3.index()].into_base(),
         );
 
         let grad1 = dp1 / l_wide;
@@ -351,10 +349,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
         network.update_resistances()?;
 
         // Low pressure for laminar flow
-        network.set_pressure(
-            n_inlet,
-            Pressure::from_base(scalar::from_f64::<T>(10.0)),
-        );
+        network.set_pressure(n_inlet, Pressure::from_base(scalar::from_f64::<T>(10.0)));
         network.set_pressure(n_out1, Pressure::from_base(T::zero()));
         network.set_pressure(n_out2, Pressure::from_base(T::zero()));
 
@@ -372,24 +367,21 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
                 .flow_rates
                 .get(e_parent.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero()),
+                .map_or(T::zero(), VolumetricFlowRate::into_base),
         );
         let q_b1 = scalar::abs(
             solution
                 .flow_rates
                 .get(e_branch1.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero()),
+                .map_or(T::zero(), VolumetricFlowRate::into_base),
         );
         let q_b2 = scalar::abs(
             solution
                 .flow_rates
                 .get(e_branch2.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero()),
+                .map_or(T::zero(), VolumetricFlowRate::into_base),
         );
 
         // 1. Mass Conservation

@@ -5,7 +5,7 @@
 //! satisfy the 500-line Module Size Rule.
 
 use crate::fem::solver::extract_vertex_indices;
-use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
+use crate::linalg::{Matrix3, matrix3x4_from_columns, symmetric_part, vector3_from_indexed};
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::VertexId;
 use eunomia::FloatElement;
@@ -147,8 +147,7 @@ where
                 inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
             }
         }
-        let shear = (2.0_f64 * inner_prod).sqrt();
-        shear
+        (2.0_f64 * inner_prod).sqrt()
     }
 
     /// Print element-wise velocity divergence statistics.

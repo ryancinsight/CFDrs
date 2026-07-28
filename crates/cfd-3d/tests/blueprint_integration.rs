@@ -1,5 +1,6 @@
+use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_3d::blueprint_integration::{
-    process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
+    Blueprint3dProcessingConfig, process_blueprint_with_reference_trace,
 };
 use cfd_schematics::interface::presets::{
     bifurcation_serpentine_rect, double_bifurcation_serpentine_rect, serpentine_chain,
@@ -15,7 +16,8 @@ fn reference_flow(
         .iter()
         .find(|channel| channel.channel_id == channel_id)
         .unwrap_or_else(|| panic!("missing channel trace for '{channel_id}'"))
-        .reference_flow_rate_m3_s
+        .reference_flow_rate
+        .into_base()
 }
 
 fn continuity_residual(
@@ -27,7 +29,8 @@ fn continuity_residual(
         .iter()
         .find(|node| node.node_id == node_id)
         .unwrap_or_else(|| panic!("missing node trace for '{node_id}'"))
-        .continuity_residual_m3_s
+        .continuity_residual
+        .into_base()
 }
 
 fn reference_pressure_coefficient(
@@ -48,7 +51,7 @@ fn no_chip_trace_config() -> Blueprint3dProcessingConfig {
             include_chip_body: false,
             ..Default::default()
         },
-        total_flow_rate_m3_s: 1.0e-9,
+        total_flow_rate: VolumetricFlowRate::from_base(1.0e-9),
         run_2d_reference: false,
         ..Default::default()
     }
@@ -71,10 +74,19 @@ fn blueprint_trace_captures_mesh_and_reference_contract() {
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.node_traces.len(), blueprint.nodes.len());
     assert!(trace.volume_trace.fluid_mesh_volume_mm3 > 0.0);
-    assert!(trace
-        .channel_traces
-        .iter()
-        .all(|channel| channel.reference_flow_rate_m3_s.abs() > 0.0));
+    assert!(
+        trace
+            .channel_traces
+            .iter()
+            .all(|channel| channel.schematic_volume.into_base() > 0.0
+                && channel.meshed_volume.into_base() > 0.0)
+    );
+    assert!(
+        trace
+            .channel_traces
+            .iter()
+            .all(|channel| channel.reference_flow_rate.into_base().abs() > 0.0)
+    );
 }
 
 #[test]
@@ -88,7 +100,7 @@ fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
         );
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
-        total_flow_rate_m3_s: flow_rate,
+        total_flow_rate: VolumetricFlowRate::from_base(flow_rate),
         ..no_chip_trace_config()
     };
 
@@ -96,19 +108,24 @@ fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
         .expect("3D blueprint trace should preserve serpentine connector diagnostics");
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
-    assert!(trace
-        .layout_segments
-        .iter()
-        .any(|segment| segment.is_synthetic_connector));
+    assert!(
+        trace
+            .layout_segments
+            .iter()
+            .any(|segment| segment.is_synthetic_connector)
+    );
     assert!(trace.volume_trace.synthetic_connector_volume_mm3 > 0.0);
-    assert!(trace
-        .layout_segments
-        .iter()
-        .all(|segment| { !segment.is_synthetic_connector || segment.source_channel_id.is_none() }));
-    assert!(trace
-        .node_traces
-        .iter()
-        .all(|node| node.continuity_residual_m3_s.abs() < flow_rate * 1.0e-6));
+    assert!(
+        trace.layout_segments.iter().all(|segment| {
+            !segment.is_synthetic_connector || segment.source_channel_id.is_none()
+        })
+    );
+    assert!(
+        trace
+            .node_traces
+            .iter()
+            .all(|node| node.continuity_residual.into_base().abs() < flow_rate * 1.0e-6)
+    );
 }
 
 #[test]
@@ -122,7 +139,7 @@ fn blueprint_trace_balances_bifurcation_serpentine_arms() {
         );
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
-        total_flow_rate_m3_s: flow_rate,
+        total_flow_rate: VolumetricFlowRate::from_base(flow_rate),
         ..no_chip_trace_config()
     };
 
@@ -151,7 +168,7 @@ fn blueprint_trace_balances_double_bifurcation_serpentine_arms() {
         );
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
-        total_flow_rate_m3_s: flow_rate,
+        total_flow_rate: VolumetricFlowRate::from_base(flow_rate),
         ..no_chip_trace_config()
     };
 
@@ -181,7 +198,7 @@ fn blueprint_trace_balances_trifurcation_serpentine_arms() {
         );
     let flow_rate = 1.0e-9;
     let config = Blueprint3dProcessingConfig {
-        total_flow_rate_m3_s: flow_rate,
+        total_flow_rate: VolumetricFlowRate::from_base(flow_rate),
         ..no_chip_trace_config()
     };
 
@@ -216,7 +233,7 @@ fn blueprint_trace_can_attach_two_d_comparison() {
         two_d_grid_nx: 12,
         two_d_grid_ny: 6,
         two_d_tolerance: 1.0e-4,
-        total_flow_rate_m3_s: 1.0e-9,
+        total_flow_rate: VolumetricFlowRate::from_base(1.0e-9),
         ..Default::default()
     };
 

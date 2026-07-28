@@ -31,6 +31,38 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Eunomia complex compatibility refresh (2026-07-28)
+
+CFDrs uses Eunomia `Complex<T>` inside Womersley/Bessel and spectral stability
+formulas, but the audited public physical contracts carry real Aequitas
+quantities and return real observables. No public complex pressure, impedance,
+or other phasor quantity remains untyped, so no Aequitas complex-unit provider
+extension is required in CFDrs. The imaginary component is formula data at the
+existing numerical boundary, not a missing SI dimension.
+
+## Blueprint cross-fidelity trace refresh (2026-07-28)
+
+The residual public boundary audit found `cfd-3d::blueprint_integration`
+exposed reference density, dynamic viscosity, total flow, channel volume,
+pressure drop, velocity, nodal pressure, and nodal flow residuals as raw
+`f64` values. Those fields are public computational metrics, not private
+solver storage. They now use Aequitas `MassDensity`, `DynamicViscosity`,
+`VolumetricFlowRate`, `Volume`, `Pressure`, and `Velocity`; scalar extraction
+is limited to the cfd-1d/cfd-2d solver adapters and the existing millimetre
+mesh trace boundary. Percent errors, normalized pressure-drop coefficients,
+grid sizes, and solver tolerances remain dimensionless or structural values.
+
+The public field names no longer encode units, and all in-tree blueprint
+integration tests construct and assert the typed contracts. This closes the
+last raw dimensional metric family found by the current CFDrs source audit.
+
+The focused value gate is `blueprint_integration` Nextest 6/6 and the package
+test-check is green. Library-only warning-denied Clippy is green after fixing
+the unit-result, return-binding, and `map_or` diagnostics encountered in the
+dependency path. The all-targets Clippy command remains blocked by 47
+pre-existing diagnostics in peer-edited cfd-3d validation/test modules; this
+is verification debt, not a metric residual, and no peer WIP was modified.
+
 ## Aequitas public metric gap audit (2026-07-24)
 
 ### Verification refresh (2026-07-27, CFDRS-AEQ-MET-23)
