@@ -4,6 +4,7 @@
 //! cavitation statistics.
 
 use crate::vof::config::VofConfig;
+use aequitas::systems::si::quantities::{MassDensity, Pressure, Time, Velocity};
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 
 use super::bubble_dynamics::BubbleDynamicsConfig;
@@ -28,17 +29,17 @@ pub struct CavitationVofConfig {
     /// Maximum void fraction allowed
     pub max_void_fraction: f64,
     /// Cavitation relaxation time (for numerical stability)
-    pub relaxation_time: f64,
+    pub relaxation_time: Time<f64>,
     /// Vapor pressure (Pa)
-    pub vapor_pressure: f64,
+    pub vapor_pressure: Pressure<f64>,
     /// Liquid density (kg/m³)
-    pub liquid_density: f64,
+    pub liquid_density: MassDensity<f64>,
     /// Liquid blood rheology model
     pub liquid_blood_model: BloodModel<f64>,
     /// Vapor density (kg/m³)
-    pub vapor_density: f64,
+    pub vapor_density: MassDensity<f64>,
     /// Speed of sound in liquid (m/s)
-    pub sound_speed: f64,
+    pub sound_speed: Velocity<f64>,
 }
 
 /// Cavitation statistics

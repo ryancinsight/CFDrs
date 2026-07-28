@@ -41,6 +41,9 @@
 //! This local shear rate dictates the apparent dynamic viscosity $\mu(\dot{\gamma})$
 //! for non-Newtonian fluids like blood during the Rayleigh-Plesset integration.
 
+use aequitas::systems::si::quantities::{
+    Frequency, Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
+};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
 use cfd_core::physics::fluid::BloodModel;
@@ -50,17 +53,17 @@ use leto::geometry::Vector3;
 #[derive(Debug, Clone)]
 pub struct BubbleDynamicsConfig {
     /// Initial bubble radius (m)
-    pub initial_radius: f64,
+    pub initial_radius: Length<f64>,
     /// Bubble number density (1/m³)
     ///
     /// This is converted to an expected bubble population per cell using the
     /// control-volume size so the per-cell damage and sonoluminescence outputs
     /// remain consistent with the modeled nuclei density.
-    pub number_density: f64,
+    pub number_density: NumberDensity<f64>,
     /// Polytropic exponent for gas compression
     pub polytropic_exponent: f64,
     /// Surface tension coefficient (N/m)
-    pub surface_tension: f64,
+    pub surface_tension: SurfaceTension<f64>,
 }
 
 /// Bubble dynamics solver for Rayleigh-Plesset equation
@@ -87,30 +90,31 @@ impl BubbleDynamicsSolver {
         nx: usize,
         ny: usize,
         nz: usize,
-        dx: f64,
-        dy: f64,
-        dz: f64,
-        liquid_density: f64,
+        dx: Length<f64>,
+        dy: Length<f64>,
+        dz: Length<f64>,
+        liquid_density: MassDensity<f64>,
         blood_model: BloodModel<f64>,
-        vapor_pressure: f64,
+        vapor_pressure: Pressure<f64>,
     ) -> Self {
         let initial_viscosity = blood_model.viscosity(0.0);
         let rp = RayleighPlesset {
-            initial_radius: config.initial_radius,
-            liquid_density,
+            initial_radius: config.initial_radius.into_base(),
+            liquid_density: liquid_density.into_base(),
             liquid_viscosity: initial_viscosity,
-            surface_tension: config.surface_tension,
-            vapor_pressure,
+            surface_tension: config.surface_tension.into_base(),
+            vapor_pressure: vapor_pressure.into_base(),
             polytropic_index: config.polytropic_exponent,
         };
         let len = nx * ny * nz;
-        let bubble_population_weight = config.number_density * dx * dy * dz;
+        let bubble_population_weight =
+            config.number_density.into_base() * dx.into_base() * dy.into_base() * dz.into_base();
 
         Self {
             nx,
             ny,
             configs: vec![rp; len],
-            radii: vec![config.initial_radius; len],
+            radii: vec![config.initial_radius.into_base(); len],
             velocities: vec![0.0; len],
             bubble_population_weight,
             blood_model,
@@ -134,11 +138,12 @@ impl BubbleDynamicsSolver {
         i: usize,
         j: usize,
         k: usize,
-        pressure: f64,
+        pressure: Pressure<f64>,
         _velocity: Vector3<f64>,
-        density: f64,
-        dt: f64,
-    ) -> Result<f64> {
+        density: MassDensity<f64>,
+        dt: Time<f64>,
+    ) -> Result<Length<f64>> {
+        let density = density.into_base();
         if !density.is_finite() || density <= 0.0 {
             return Err(Error::InvalidConfiguration(
                 "local liquid density must be finite and positive".to_string(),
@@ -156,7 +161,7 @@ impl BubbleDynamicsSolver {
             config.liquid_viscosity = base_viscosity;
             self.radii[idx] = 0.0;
             self.velocities[idx] = 0.0;
-            return Ok(0.0);
+            return Ok(Length::from_base(0.0));
         }
 
         // Calculate apparent viscosity at the bubble wall.
@@ -166,12 +171,12 @@ impl BubbleDynamicsSolver {
         config.liquid_viscosity = self.blood_model.viscosity(shear_rate);
 
         let (new_radius, new_velocity) =
-            config.step_semi_implicit(radius, velocity, pressure, dt)?;
+            config.step_semi_implicit(radius, velocity, pressure.into_base(), dt.into_base())?;
 
         self.radii[idx] = new_radius;
         self.velocities[idx] = new_velocity;
 
-        Ok(new_radius)
+        Ok(Length::from_base(new_radius))
     }
 
     /// Get collapse pressure for damage calculation
@@ -180,9 +185,9 @@ impl BubbleDynamicsSolver {
         i: usize,
         j: usize,
         k: usize,
-        liquid_density: f64,
-        sound_speed: f64,
-    ) -> f64 {
+        liquid_density: MassDensity<f64>,
+        sound_speed: Velocity<f64>,
+    ) -> Pressure<f64> {
         let idx = self.index(i, j, k);
         let config = &self.configs[idx];
         let radius = self.radii[idx];
@@ -190,20 +195,31 @@ impl BubbleDynamicsSolver {
 
         if radius > 0.0 {
             // Impact pressure scales with (R_max / R_collapse)
-            liquid_density * sound_speed * sound_speed * (initial_radius / radius)
+            Pressure::from_base(
+                liquid_density.into_base()
+                    * sound_speed.into_base()
+                    * sound_speed.into_base()
+                    * (initial_radius / radius),
+            )
         } else {
-            0.0
+            Pressure::from_base(0.0)
         }
     }
 
     /// Get bubble natural frequency (Hz) for impact frequency estimation
-    pub fn get_bubble_frequency(&self, i: usize, j: usize, k: usize, ambient_pressure: f64) -> f64 {
+    pub fn get_bubble_frequency(
+        &self,
+        i: usize,
+        j: usize,
+        k: usize,
+        ambient_pressure: Pressure<f64>,
+    ) -> Frequency<f64> {
         let idx = self.index(i, j, k);
         let config = &self.configs[idx];
         let radius = self.radii[idx];
 
-        let omega = config.natural_frequency(radius, ambient_pressure);
-        omega / (2.0 * std::f64::consts::PI)
+        let omega = config.natural_frequency(radius, ambient_pressure.into_base());
+        Frequency::from_base(omega / (2.0 * std::f64::consts::PI))
     }
 }
 
@@ -215,38 +231,44 @@ mod tests {
     #[test]
     fn collapse_pressure_and_frequency_use_initialized_bubble_state() {
         let config = BubbleDynamicsConfig {
-            initial_radius: 2.0e-6,
-            number_density: 1.0e12,
+            initial_radius: Length::from_base(2.0e-6),
+            number_density: NumberDensity::from_base(1.0e12),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: SurfaceTension::from_base(0.072),
         };
         let solver = BubbleDynamicsSolver::new(
             &config,
             1,
             1,
             1,
-            1.0,
-            1.0,
-            1.0,
-            1000.0,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
             BloodModel::Newtonian(1.0e-3),
-            2300.0,
+            Pressure::from_base(2300.0),
         );
 
-        let collapse_pressure = solver.collapse_pressure(0, 0, 0, 1000.0, 1500.0);
-        let frequency = solver.get_bubble_frequency(0, 0, 0, 2500.0);
+        let collapse_pressure = solver.collapse_pressure(
+            0,
+            0,
+            0,
+            MassDensity::from_base(1000.0),
+            Velocity::from_base(1500.0),
+        );
+        let frequency = solver.get_bubble_frequency(0, 0, 0, Pressure::from_base(2500.0));
 
-        assert!(collapse_pressure > 0.0);
-        assert!(frequency > 0.0);
+        assert!(collapse_pressure.into_base() > 0.0);
+        assert!(frequency.into_base() > 0.0);
     }
 
     #[test]
     fn update_bubble_uses_local_liquid_density_and_rejects_nonphysical_inputs() {
         let config = BubbleDynamicsConfig {
-            initial_radius: 2.0e-6,
-            number_density: 1.0e12,
+            initial_radius: Length::from_base(2.0e-6),
+            number_density: NumberDensity::from_base(1.0e12),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: SurfaceTension::from_base(0.072),
         };
 
         let make_solver = || {
@@ -255,12 +277,12 @@ mod tests {
                 1,
                 1,
                 1,
-                1.0,
-                1.0,
-                1.0,
-                1000.0,
+                Length::from_base(1.0),
+                Length::from_base(1.0),
+                Length::from_base(1.0),
+                MassDensity::from_base(1000.0),
                 BloodModel::Newtonian(1.0e-3),
-                2300.0,
+                Pressure::from_base(2300.0),
             )
         };
 
@@ -271,10 +293,26 @@ mod tests {
         high_density.radii[0] = 4.0e-6;
 
         let low = low_density
-            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 800.0, 1.0e-7)
+            .update_bubble(
+                0,
+                0,
+                0,
+                Pressure::from_base(1.0e5),
+                Vector3::zeros(),
+                MassDensity::from_base(800.0),
+                Time::from_base(1.0e-7),
+            )
             .expect("low-density update");
         let high = high_density
-            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 1600.0, 1.0e-7)
+            .update_bubble(
+                0,
+                0,
+                0,
+                Pressure::from_base(1.0e5),
+                Vector3::zeros(),
+                MassDensity::from_base(1600.0),
+                Time::from_base(1.0e-7),
+            )
             .expect("high-density update");
 
         assert!(
@@ -286,7 +324,15 @@ mod tests {
 
         let mut invalid_density = make_solver();
         let err = invalid_density
-            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 0.0, 1.0e-7)
+            .update_bubble(
+                0,
+                0,
+                0,
+                Pressure::from_base(1.0e5),
+                Vector3::zeros(),
+                MassDensity::from_base(0.0),
+                Time::from_base(1.0e-7),
+            )
             .unwrap_err();
         match err {
             Error::InvalidConfiguration(message) => {
@@ -299,57 +345,65 @@ mod tests {
     #[test]
     fn population_weight_reflects_cell_volume() {
         let config = BubbleDynamicsConfig {
-            initial_radius: 2.0e-6,
-            number_density: 2.5e12,
+            initial_radius: Length::from_base(2.0e-6),
+            number_density: NumberDensity::from_base(2.5e12),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: SurfaceTension::from_base(0.072),
         };
         let solver = BubbleDynamicsSolver::new(
             &config,
             2,
             2,
             2,
-            0.01,
-            0.02,
-            0.03,
-            1000.0,
+            Length::from_base(0.01),
+            Length::from_base(0.02),
+            Length::from_base(0.03),
+            MassDensity::from_base(1000.0),
             BloodModel::Newtonian(1.0e-3),
-            2300.0,
+            Pressure::from_base(2300.0),
         );
 
-        let expected = config.number_density * 0.01 * 0.02 * 0.03;
+        let expected = config.number_density.into_base() * 0.01 * 0.02 * 0.03;
         assert!((solver.population_weight() - expected).abs() < 1e-12 * expected.max(1.0));
     }
 
     #[test]
     fn collapsed_bubble_state_remains_absorbing_during_update() {
         let config = BubbleDynamicsConfig {
-            initial_radius: 2.0e-6,
-            number_density: 1.0e12,
+            initial_radius: Length::from_base(2.0e-6),
+            number_density: NumberDensity::from_base(1.0e12),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: SurfaceTension::from_base(0.072),
         };
         let mut solver = BubbleDynamicsSolver::new(
             &config,
             1,
             1,
             1,
-            1.0,
-            1.0,
-            1.0,
-            1000.0,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
             BloodModel::Newtonian(1.0e-3),
-            2300.0,
+            Pressure::from_base(2300.0),
         );
 
         solver.radii[0] = 0.0;
         solver.velocities[0] = 0.0;
 
         let radius = solver
-            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 1000.0, 1.0e-7)
+            .update_bubble(
+                0,
+                0,
+                0,
+                Pressure::from_base(1.0e5),
+                Vector3::zeros(),
+                MassDensity::from_base(1000.0),
+                Time::from_base(1.0e-7),
+            )
             .unwrap();
 
-        assert_eq!(radius, 0.0);
+        assert_eq!(radius.into_base(), 0.0);
         assert_eq!(solver.radii[0], 0.0);
         assert_eq!(solver.velocities[0], 0.0);
     }

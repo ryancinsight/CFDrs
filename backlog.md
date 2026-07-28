@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-24 [major] - Type cavitation-VOF physical metrics
-  (IN PROGRESS; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` VOF and
+  (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` VOF and
   cavitation configuration/bubble-dynamics public contracts, their in-tree
   callers/tests, and synchronized Aequitas audit artifacts).** The live gap
   audit found raw public surface tension, bubble radius/number density,
@@ -42,7 +42,10 @@
   dimensionless inception/void/damage statistics, and migrate callers without
   a scalar compatibility facade. Acceptance is a residue-free source audit,
   value-semantic cavitation regressions, focused cfd-3d/cfd-validation gates,
-  and synchronized gap-audit/ADR evidence.
+  and synchronized gap-audit/ADR evidence. The command-line local-provider
+  overlay compiles the cfd-3d test targets and focused cfd-3d Nextest passes
+  83/83; the standalone lock/provider identity residual is recorded separately
+  in `gap_audit.md`.
 
 - **CFDRS-AEQ-MET-23 [major] - Type cell-separation physical metrics
   (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation

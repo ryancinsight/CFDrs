@@ -7,13 +7,44 @@
 //! - Bubble dynamics integration
 //! - Conservation properties
 
+use aequitas::systems::si::quantities::{
+    Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
+};
 use cfd_3d::vof::{
     AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig, CavitationVofSolver,
     InterfaceReconstruction, VofConfig,
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use cfd_core::physics::fluid::BloodModel;
-use leto::{geometry::Vector3, Array2};
+use leto::{Array2, geometry::Vector3};
+
+fn length(value: f64) -> Length<f64> {
+    Length::from_base(value)
+}
+
+fn mass_density(value: f64) -> MassDensity<f64> {
+    MassDensity::from_base(value)
+}
+
+fn number_density(value: f64) -> NumberDensity<f64> {
+    NumberDensity::from_base(value)
+}
+
+fn pressure(value: f64) -> Pressure<f64> {
+    Pressure::from_base(value)
+}
+
+fn surface_tension(value: f64) -> SurfaceTension<f64> {
+    SurfaceTension::from_base(value)
+}
+
+fn time(value: f64) -> Time<f64> {
+    Time::from_base(value)
+}
+
+fn velocity(value: f64) -> Velocity<f64> {
+    Velocity::from_base(value)
+}
 
 #[test]
 fn test_cavitation_inception() {
@@ -22,7 +53,7 @@ fn test_cavitation_inception() {
     // Create solver with low inception threshold
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -39,12 +70,12 @@ fn test_cavitation_inception() {
         bubble_dynamics: None,
         inception_threshold: 0.5, // Low threshold
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(1e-6),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -57,7 +88,7 @@ fn test_cavitation_inception() {
 
     // Step simulation
     solver
-        .step(1e-5, &velocity_field, &pressure_field, &density_field)
+        .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
         .unwrap();
 
     // Check that cavitation was detected
@@ -84,7 +115,7 @@ fn test_damage_accumulation() {
 
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -101,19 +132,19 @@ fn test_damage_accumulation() {
         },
         damage_model: Some(damage_model),
         bubble_dynamics: Some(BubbleDynamicsConfig {
-            initial_radius: 1e-4,
-            number_density: 1e13,
+            initial_radius: length(1e-4),
+            number_density: number_density(1e13),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: surface_tension(0.072),
         }),
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 0.1,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(0.1),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -137,7 +168,7 @@ fn test_damage_accumulation() {
         let p_val = if i % 2 == 0 { 1000.0 } else { 50000.0 };
         let pressure_field = Array2::from_elem([10, 100], p_val);
         solver
-            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
             .unwrap();
     }
 
@@ -160,7 +191,7 @@ fn test_damage_accumulation() {
 fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -175,19 +206,19 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         },
         damage_model: None,
         bubble_dynamics: Some(BubbleDynamicsConfig {
-            initial_radius: 1e-6,
-            number_density: 1e13,
+            initial_radius: length(1e-6),
+            number_density: number_density(1e13),
             polytropic_exponent: 1.4,
-            surface_tension: 0.072,
+            surface_tension: surface_tension(0.072),
         }),
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(1e-6),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -198,7 +229,12 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
     let density_field = Array2::from_elem([6, 4 * 3], 998.0);
 
     solver
-        .step(1e-12, &velocity_field, &pressure_field, &density_field)
+        .step(
+            time(1e-12),
+            &velocity_field,
+            &pressure_field,
+            &density_field,
+        )
         .unwrap();
 
     let energy = solver
@@ -222,7 +258,7 @@ fn test_mass_conservation() {
 
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -239,12 +275,12 @@ fn test_mass_conservation() {
         bubble_dynamics: None,
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 0.1,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(0.1),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -274,7 +310,7 @@ fn test_mass_conservation() {
     // Run simulation steps
     for _ in 0..50 {
         solver
-            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
             .unwrap();
     }
 
@@ -300,16 +336,16 @@ fn test_bubble_dynamics_integration() {
     println!("Testing bubble dynamics integration...");
 
     let bubble_config = BubbleDynamicsConfig {
-        initial_radius: 2e-6, // Larger initial bubble
-        number_density: 1e12,
+        initial_radius: length(2e-6), // Larger initial bubble
+        number_density: number_density(1e12),
         polytropic_exponent: 1.4,
-        surface_tension: 0.072,
+        surface_tension: surface_tension(0.072),
     };
-    let bubble_initial_radius = bubble_config.initial_radius;
+    let bubble_initial_radius = bubble_config.initial_radius.into_base();
 
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -328,12 +364,12 @@ fn test_bubble_dynamics_integration() {
         bubble_dynamics: Some(bubble_config),
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 0.1,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(0.1),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -358,7 +394,7 @@ fn test_bubble_dynamics_integration() {
 
         let density_field = Array2::from_elem([5, 25], 998.0);
         solver
-            .step(1e-6, &velocity_field, &pressure_field, &density_field)
+            .step(time(1e-6), &velocity_field, &pressure_field, &density_field)
             .unwrap();
 
         // Check that bubble radii are updated
@@ -389,7 +425,7 @@ fn test_cavitation_statistics() {
 
     let config = CavitationVofConfig {
         vof_config: VofConfig {
-            surface_tension_coefficient: 0.072,
+            surface_tension_coefficient: surface_tension(0.072),
             interface_compression: 0.1,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,
@@ -406,12 +442,12 @@ fn test_cavitation_statistics() {
         bubble_dynamics: None,
         inception_threshold: 0.5,
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
-        vapor_pressure: 2330.0,
-        liquid_density: 998.0,
+        relaxation_time: time(1e-6),
+        vapor_pressure: pressure(2330.0),
+        liquid_density: mass_density(998.0),
         liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-        vapor_density: 0.023,
-        sound_speed: 1500.0,
+        vapor_density: mass_density(0.023),
+        sound_speed: velocity(1500.0),
         nuclei_transport: None,
     };
 
@@ -449,7 +485,7 @@ fn test_cavitation_statistics() {
     }
 
     solver
-        .step(1e-5, &velocity_field, &pressure_field, &density_field)
+        .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
         .unwrap();
 
     let stats = solver.cavitation_statistics();
@@ -504,7 +540,7 @@ fn test_cavitation_model_comparison() {
     for (name, model) in models {
         let config = CavitationVofConfig {
             vof_config: VofConfig {
-                surface_tension_coefficient: 0.072,
+                surface_tension_coefficient: surface_tension(0.072),
                 interface_compression: 0.1,
                 reconstruction_method: InterfaceReconstruction::PLIC,
                 advection_method: AdvectionMethod::Geometric,
@@ -518,12 +554,12 @@ fn test_cavitation_model_comparison() {
             bubble_dynamics: None,
             inception_threshold: 0.3,
             max_void_fraction: 0.8,
-            relaxation_time: 1e-6,
-            vapor_pressure: 2330.0,
-            liquid_density: 998.0,
+            relaxation_time: time(1e-6),
+            vapor_pressure: pressure(2330.0),
+            liquid_density: mass_density(998.0),
             liquid_blood_model: BloodModel::Newtonian(1.002e-3),
-            vapor_density: 0.023,
-            sound_speed: 1500.0,
+            vapor_density: mass_density(0.023),
+            sound_speed: velocity(1500.0),
             nuclei_transport: None,
         };
 
@@ -535,7 +571,7 @@ fn test_cavitation_model_comparison() {
         let density_field = Array2::from_elem([5, 25], 998.0);
 
         solver
-            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
             .unwrap();
 
         let stats = solver.cavitation_statistics();

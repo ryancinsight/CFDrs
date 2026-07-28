@@ -52,6 +52,24 @@ and cfd-1d doctests pass 8/8 with three ignored. Warning-denied cfd-1d
 Clippy is green. Shared Atlas patch and `profile.test.env` warnings are
 environmental and do not affect these gates.
 
+### Verification refresh (2026-07-28, CFDRS-AEQ-MET-24)
+
+The live cfd-3d VOF audit found a real residual after MET-08: public
+cavitation configuration and bubble-dynamics contracts exposed surface
+tension, bubble radius, nuclei number density, relaxation time, vapor and
+liquid density, vapor pressure, and sound speed as raw SI scalars. The
+contracts now carry Aequitas `SurfaceTension`, `Length`, `NumberDensity`,
+`Time`, `MassDensity`, `Pressure`, and `Velocity`. The public cavitation step
+accepts `Time`; scalar extraction is confined to Rayleigh-Plesset and damage
+formula kernels, mesh spacing, and dense pressure/density field boundaries.
+Dimensionless inception, void-fraction, and damage statistics remain scalar
+because their contracts are not dimensional quantities. No scalar facade was
+added. The focused cfd-3d check passes through a command-line local-provider
+overlay, and the affected cfd-3d Nextest targets pass 83/83. The standalone
+CFDrs lock remains dirty in peer-owned work and the ordinary child build still
+resolves duplicate local/git provider identities; those are integration
+residuals, not metric gaps.
+
 ### Verification refresh (2026-07-26)
 
 The former Coeus and missing-cutile path blockers are stale: CFDrs has no

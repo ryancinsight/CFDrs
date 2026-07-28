@@ -2,6 +2,7 @@
 
 use super::advection::AdvectionMethod;
 use super::reconstruction::InterfaceReconstruction;
+use aequitas::systems::si::quantities::SurfaceTension;
 use serde::{Deserialize, Serialize};
 
 // Named constants for VOF - SSOT principle
@@ -31,7 +32,7 @@ pub struct VofConfig {
     /// CFL number for time stepping
     pub cfl_number: f64,
     /// Surface tension coefficient (σ) [N/m]
-    pub surface_tension_coefficient: f64,
+    pub surface_tension_coefficient: SurfaceTension<f64>,
     /// Interface compression factor in [0, 1].
     ///
     /// `0` disables compression; `1` applies the full configured compression
@@ -51,7 +52,7 @@ impl Default for VofConfig {
             max_iterations: DEFAULT_MAX_ITERATIONS,
             tolerance: DEFAULT_TOLERANCE,
             cfl_number: DEFAULT_CFL_NUMBER,
-            surface_tension_coefficient: 0.072, // Water-Air at 20°C
+            surface_tension_coefficient: SurfaceTension::from_base(0.072), // Water-Air at 20°C
             interface_compression: 0.0,
             reconstruction_method: InterfaceReconstruction::PLIC,
             advection_method: AdvectionMethod::Geometric,

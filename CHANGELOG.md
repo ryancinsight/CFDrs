@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type cfd-3d VOF cavitation configuration and bubble-dynamics
+  contracts with Aequitas `SurfaceTension`, `Length`, `NumberDensity`,
+  `Time`, `Pressure`, `MassDensity`, and `Velocity`. Scalar extraction remains
+  at Rayleigh-Plesset, damage, mesh, and dense-field formula boundaries;
+  dimensionless cavitation statistics remain scalar. See
+  [`cavitation-vof-physical-metrics.md`](docs/atlas-migration/cavitation-vof-physical-metrics.md).
+
 - **Breaking**: Type the cell-separation public family, including equilibrium
   position/force, direct fluid and geometry inputs, Fahraeus/CFL/rheology
   metrics, plasma-skimming diameters, and cross-junction geometry/flow with

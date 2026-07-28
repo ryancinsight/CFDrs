@@ -6,11 +6,16 @@
 //! stabilisation-parameter limits, quadrature exactness, and
 //! shape-function gradient completeness.
 
+use aequitas::systems::si::quantities::SurfaceTension;
 use eunomia::assert_relative_eq;
 use leto::{FixedMatrix, Vector3};
 
 type Matrix3<T> = FixedMatrix<T, 3, 3>;
 type Matrix3x4<T> = FixedMatrix<T, 3, 4>;
+
+fn surface_tension(value: f64) -> SurfaceTension<f64> {
+    SurfaceTension::from_base(value)
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  P2 Shape Functions — Partition of Unity / Kronecker Delta
@@ -427,7 +432,7 @@ fn test_vof_geometric_vs_algebraic_zero_velocity_conservation() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let base = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -463,7 +468,7 @@ fn test_vof_alpha_bounds_after_advection() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -506,7 +511,7 @@ fn test_vof_copy_boundaries_no_panic() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -528,7 +533,7 @@ fn test_vof_set_volume_fraction_wrong_size() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -549,7 +554,7 @@ fn test_vof_set_velocity_field_wrong_size() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -569,7 +574,7 @@ fn test_vof_total_volume_consistency() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
@@ -598,7 +603,7 @@ fn test_vof_reconstructed_normals_unit() {
     use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 
     let cfg = VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,

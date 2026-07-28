@@ -9,9 +9,14 @@
 //! | Adversarial  | NaN velocity, Inf velocity, α outside [0,1] input                |
 //! | Property     | α ∈ [0,1] invariant, volume monotone, curvature sign            |
 
+use aequitas::systems::si::quantities::SurfaceTension;
 use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
 use eunomia::assert_relative_eq;
 use leto::geometry::Vector3;
+
+fn surface_tension(value: f64) -> SurfaceTension<f64> {
+    SurfaceTension::from_base(value)
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -19,7 +24,7 @@ use leto::geometry::Vector3;
 
 fn default_config() -> VofConfig {
     VofConfig {
-        surface_tension_coefficient: 0.072,
+        surface_tension_coefficient: surface_tension(0.072),
         interface_compression: 0.0,
         reconstruction_method: InterfaceReconstruction::PLIC,
         advection_method: AdvectionMethod::Geometric,
