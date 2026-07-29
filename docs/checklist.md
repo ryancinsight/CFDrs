@@ -1,3 +1,27 @@
+# Sprint 1.96.168 Checklist: typed 2D cell-tracking metrics
+**Goal**: Carry the public cell-tracking physical contract through Aequitas
+without changing the real-valued particle model.
+
+**Success Criteria**:
+- [x] `VelocityFieldInterpolator`, cell state, trajectory samples, tracker
+      configuration, and bifurcation geometry use typed Aequitas quantities.
+- [x] Routing fractions and lift coefficients remain dimensionless, and
+      scalar extraction is confined to interpolation and numerical formulas.
+- [x] Eunomia complex compatibility is documented as not applicable to this
+      real-valued contract.
+- [x] Focused `cargo check -p cfd-2d --tests --offline` passes.
+- [x] Cell-tracking Nextest passes 5/5 (593 tests skipped by the filter);
+      run ID `bd8e2be6-da1b-49db-85d5-5715fbdb5638`.
+- [x] `cargo test --doc -p cfd-2d --offline` passes 1 doctest with 2 ignored.
+
+**Closure**: Implemented and focused-verified on 2026-07-29. Workspace-wide
+runtime remains separately tracked. Warning-denied Clippy is blocked by the
+peer-owned unused import at `crates/cfd-2d/src/physics/momentum/solve.rs:6`;
+no peer-owned files were modified.
+See [`cell-tracking-physical-metrics.md`](atlas-migration/cell-tracking-physical-metrics.md).
+
+---
+
 # Sprint 1.96.167 Checklist: cfd-math native sparse-LU result ownership
 **Goal**: Consume the provider-owned native array view/result boundary from
 the direct solver without redundant consumer-side allocations.

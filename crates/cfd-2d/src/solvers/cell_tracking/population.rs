@@ -1,65 +1,75 @@
+use aequitas::systems::si::quantities::{Dimensionless, Length, MassDensity, Time, Velocity};
 use serde::{Deserialize, Serialize};
 
 /// Cell population type, matching the 1D model's three-population framework.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CellPopulation {
-    /// Circulating tumor cell (diameter 10-15 um, stiff).
+    /// Circulating tumor cell.
     CTC,
-    /// White blood cell (diameter 10-12 um, moderate stiffness).
+    /// White blood cell.
     WBC,
-    /// Red blood cell (diameter ~8 um, highly deformable).
+    /// Red blood cell.
     RBC,
 }
 
 impl CellPopulation {
-    /// Characteristic diameter \[m].
+    /// Return the characteristic cell diameter.
     #[must_use]
-    pub fn diameter_m(self) -> f64 {
-        match self {
+    pub fn diameter(self) -> Length {
+        Length::from_base(match self {
             Self::CTC => 12.5e-6,
             Self::WBC => 11.0e-6,
             Self::RBC => 8.0e-6,
-        }
+        })
     }
 
-    /// Cell density [kg/m3].
+    /// Return the cell mass density.
     #[must_use]
-    pub fn density_kg_m3(self) -> f64 {
-        match self {
+    pub fn density(self) -> MassDensity {
+        MassDensity::from_base(match self {
             Self::CTC => 1068.0,
             Self::WBC => 1070.0,
             Self::RBC => 1100.0,
-        }
+        })
     }
 
-    /// Di Carlo (2009) inertial lift coefficient.
-    /// Stiffer cells experience stronger lift toward equilibrium positions.
-    /// These values are for kappa = a/D_h ~ 0.05-0.15 (millifluidic range).
+    /// Return the dimensionless Di Carlo inertial lift coefficient.
     #[must_use]
-    pub fn lift_coefficient(self) -> f64 {
-        match self {
-            Self::CTC => 0.5,  // stiff, strong focusing
-            Self::WBC => 0.35, // moderate deformability
-            Self::RBC => 0.15, // high deformability, weaker focusing
-        }
+    pub fn lift_coefficient(self) -> Dimensionless {
+        Dimensionless::from_base(match self {
+            Self::CTC => 0.5,
+            Self::WBC => 0.35,
+            Self::RBC => 0.15,
+        })
     }
 }
 
-/// A single tracked cell with position, velocity, and identity.
+/// A single tracked cell with physical position, velocity, and identity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackedCell {
-    /// The specific cell type (CTC, WBC, RBC).
+    /// The specific cell type.
     pub population: CellPopulation,
-    /// X coordinate position \[m].
-    pub x: f64,
-    /// Y coordinate position \[m].
-    pub y: f64,
-    /// Velocity in X direction \[m/s].
-    pub vx: f64,
-    /// Velocity in Y direction \[m/s].
-    pub vy: f64,
+    /// X-coordinate position.
+    pub x: Length,
+    /// Y-coordinate position.
+    pub y: Length,
+    /// Velocity in the X direction.
+    pub vx: Velocity,
+    /// Velocity in the Y direction.
+    pub vy: Velocity,
     /// Unique identifier for the cell.
     pub id: usize,
+}
+
+/// One physical sample in a cell trajectory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackedPosition {
+    /// X-coordinate position.
+    pub x: Length,
+    /// Y-coordinate position.
+    pub y: Length,
+    /// Elapsed trajectory time.
+    pub time: Time,
 }
 
 /// Trajectory record.
@@ -69,8 +79,8 @@ pub struct CellTrajectory {
     pub cell_id: usize,
     /// The cell population category.
     pub population: CellPopulation,
-    /// Tracked positions over time [x, y, t].
-    pub positions: Vec<[f64; 3]>,
+    /// Physical positions sampled over the trajectory.
+    pub positions: Vec<TrackedPosition>,
     /// Classification of the outlet region through which the cell exited.
     pub exit_outlet: Option<String>,
 }
@@ -78,14 +88,14 @@ pub struct CellTrajectory {
 /// Outlet zone definition for classifying cell exit positions.
 #[derive(Debug, Clone)]
 pub struct OutletZone {
-    /// Zone identifier (e.g. "center", "peripheral").
+    /// Zone identifier (for example, `center` or `peripheral`).
     pub name: String,
-    /// x range: cell exits when x >= x_min.
-    pub x_min: f64,
-    /// Lower y bound for this outlet.
-    pub y_lo: f64,
-    /// Upper y bound for this outlet.
-    pub y_hi: f64,
+    /// Minimum X-coordinate at which a cell can exit.
+    pub x_min: Length,
+    /// Lower Y bound for this outlet.
+    pub y_lo: Length,
+    /// Upper Y bound for this outlet.
+    pub y_hi: Length,
 }
 
 /// Summary of cell routing at outlets.
@@ -104,7 +114,7 @@ pub struct CellRoutingSummary {
     /// Total number of RBCs that exited through the center.
     pub rbc_center: usize,
     /// Fraction of CTCs routed toward the desired outlet.
-    pub cancer_center_fraction: f64,
-    /// Multiplicative metric representing total separation efficiency.
-    pub separation_efficiency: f64,
+    pub cancer_center_fraction: Dimensionless,
+    /// Dimensionless total separation efficiency.
+    pub separation_efficiency: Dimensionless,
 }

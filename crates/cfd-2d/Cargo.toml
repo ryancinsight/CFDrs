@@ -24,7 +24,7 @@ eunomia.workspace = true
 leto.workspace = true
 leto-ops.workspace = true
 tracing.workspace = true
-aequitas.workspace = true
+aequitas = { workspace = true, features = ["serde"] }
 
 [features]
 gpu = ["cfd-core/gpu"]

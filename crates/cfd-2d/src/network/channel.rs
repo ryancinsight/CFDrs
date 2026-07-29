@@ -1,4 +1,5 @@
 use crate::scalar::Cfd2dScalar;
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity};
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::domain::model::CrossSectionSpec;
@@ -10,11 +11,11 @@ use crate::solvers::cell_tracking::population::{CellPopulation, TrackedCell};
 use crate::solvers::cell_tracking::tracker::CellTracker;
 use crate::solvers::ns_fvm::SolveResult;
 
+use super::ChannelReferenceTrace;
 use super::postprocess::{
     extract_field_inlet_outlet_pressure, extract_field_outlet_flow_rate, extract_field_wall_shear,
 };
 use super::types::{Channel2dEntry, Channel2dResult};
-use super::ChannelReferenceTrace;
 
 const MIN_CROSS_SECTION_AREA_M2: f64 = 1e-18;
 const MIN_FLOW_RATE_M3_S: f64 = 1e-30;
@@ -108,17 +109,20 @@ where
                 && matches!(entry.cross_section, CrossSectionSpec::Rectangular { .. })
             {
                 let cnf = CellTrackerConfig {
-                    viscosity: entry.viscosity_pa_s,
-                    fluid_density: 1060.0,
-                    hydraulic_diameter_m: entry.cross_section.hydraulic_diameter(),
-                    u_max: u_mean.abs(),
+                    viscosity: DynamicViscosity::from_base(entry.viscosity_pa_s),
+                    fluid_density: MassDensity::from_base(1060.0),
+                    hydraulic_diameter: Length::from_base(entry.cross_section.hydraulic_diameter()),
+                    u_max: Velocity::from_base(u_mean.abs()),
                     ..Default::default()
                 };
                 let tracker = CellTracker::new(&entry.solver, cnf);
 
                 let n_per_pop = 50usize;
                 let mut cells = Vec::with_capacity(n_per_pop * 2);
-                let (x_min, _, y_min, y_max) = entry.solver.bounds();
+                let (x_min_q, _, y_min_q, y_max_q) = entry.solver.bounds();
+                let x_min = x_min_q.into_base();
+                let y_min = y_min_q.into_base();
+                let y_max = y_max_q.into_base();
                 let h_bounds = y_max - y_min;
 
                 for i in 0..n_per_pop {
@@ -127,23 +131,23 @@ where
                         + h_bounds * 0.9 * (i as f64 / (n_per_pop - 1) as f64);
                     cells.push(TrackedCell {
                         population: CellPopulation::CTC,
-                        x: x_min + 1e-6,
-                        y,
-                        vx: u_mean.abs(),
-                        vy: 0.0,
+                        x: Length::from_base(x_min + 1e-6),
+                        y: Length::from_base(y),
+                        vx: Velocity::from_base(u_mean.abs()),
+                        vy: Velocity::from_base(0.0),
                         id: i,
                     });
                     cells.push(TrackedCell {
                         population: CellPopulation::RBC,
-                        x: x_min + 1e-6,
-                        y,
-                        vx: u_mean.abs(),
-                        vy: 0.0,
+                        x: Length::from_base(x_min + 1e-6),
+                        y: Length::from_base(y),
+                        vx: Velocity::from_base(u_mean.abs()),
+                        vy: Velocity::from_base(0.0),
                         id: n_per_pop + i,
                     });
                 }
 
-                let trajectories = tracker.trace_cells(&cells, 1e-5, 5_000_000);
+                let trajectories = tracker.trace_cells(&cells, Time::from_base(1e-5), 5_000_000);
                 let mut sum_y_ctc = 0.0;
                 let mut count_ctc = 0usize;
                 let mut sum_y_rbc = 0.0;
@@ -151,7 +155,7 @@ where
 
                 for traj in &trajectories {
                     if let Some(pos) = traj.positions.last() {
-                        let y_tilde = (pos[1] - y_min) / h_bounds.max(1e-12);
+                        let y_tilde = (pos.y.into_base() - y_min) / h_bounds.max(1e-12);
                         match traj.population {
                             CellPopulation::CTC => {
                                 sum_y_ctc += y_tilde;

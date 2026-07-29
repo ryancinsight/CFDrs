@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-27 [major] - Type 2D cell-tracking physical metrics
-  (in-progress; owner=current Codex session; claimed 2026-07-29; scope=
+  (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29; scope=
   `cfd-2d` cell-tracking public contracts, direct callers/tests, and
   synchronized audit/design/changelog artifacts).** The current source audit
   found an unrecorded public physical boundary: cell positions, trajectory
@@ -43,7 +43,13 @@
   dimensionless. Acceptance is a residue-free public-field scan, value-
   semantic trajectory/routing regressions, focused cfd-2d gates, and
   synchronized gap-audit/design/changelog evidence. Eunomia complex values do
-  not enter this real-valued particle-tracking contract.
+  not enter this real-valued particle-tracking contract. Evidence: cfd-2d test
+  target check passed; cell-tracking Nextest passed 5/5 (run
+  `bd8e2be6-da1b-49db-85d5-5715fbdb5638`); one cfd-2d doctest passed with two
+  ignored; rustfmt, metadata, and diff checks passed. Workspace-wide runtime
+  and peer-owned warning residuals remain outside this metric closure. The
+  package-wide warning-denied Clippy gate is red only on the peer-owned unused
+  import at `crates/cfd-2d/src/physics/momentum/solve.rs:6`.
 
 - **CFDRS-AEQ-MET-26 [major] - Type blueprint cross-fidelity trace metrics
   (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` blueprint

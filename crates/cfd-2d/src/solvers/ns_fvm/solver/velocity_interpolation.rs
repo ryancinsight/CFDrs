@@ -21,6 +21,7 @@ use super::NavierStokesSolver2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
 use crate::solvers::cell_tracking::physics::VelocityFieldInterpolator;
+use aequitas::systems::si::quantities::{Length, Velocity};
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
@@ -225,29 +226,36 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
 impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VelocityFieldInterpolator
     for NavierStokesSolver2D<T>
 {
-    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
-        let x_t: T = scalar::from_f64(x);
-        let y_t: T = scalar::from_f64(y);
+    fn velocity_at(&self, x: Length, y: Length) -> (Velocity, Velocity) {
+        let x_t: T = scalar::from_f64(x.into_base());
+        let y_t: T = scalar::from_f64(y.into_base());
 
         let u = self.interpolate_u_component(x_t, y_t);
         let v = self.interpolate_v_component(x_t, y_t);
 
         (
-            <T as NumericElement>::to_f64(u),
-            <T as NumericElement>::to_f64(v),
+            Velocity::from_base(<T as NumericElement>::to_f64(u)),
+            Velocity::from_base(<T as NumericElement>::to_f64(v)),
         )
     }
 
-    fn is_fluid(&self, x: f64, y: f64) -> bool {
+    fn is_fluid(&self, x: Length, y: Length) -> bool {
         let lx_f64 = <T as NumericElement>::to_f64(self.grid.lx);
         let ly_f64 = <T as NumericElement>::to_f64(self.grid.ly);
+        let x = x.into_base();
+        let y = y.into_base();
         x >= 0.0 && x <= lx_f64 && y >= 0.0 && y <= ly_f64
     }
 
-    fn bounds(&self) -> (f64, f64, f64, f64) {
+    fn bounds(&self) -> (Length, Length, Length, Length) {
         let lx_f64 = <T as NumericElement>::to_f64(self.grid.lx);
         let ly_f64 = <T as NumericElement>::to_f64(self.grid.ly);
-        (0.0, lx_f64, 0.0, ly_f64)
+        (
+            Length::from_base(0.0),
+            Length::from_base(lx_f64),
+            Length::from_base(0.0),
+            Length::from_base(ly_f64),
+        )
     }
 }
 
@@ -283,10 +291,10 @@ mod tests {
 
         let x = 0.73;
         let y = 0.41;
-        let (u, v) = solver.velocity_at(x, y);
+        let (u, v) = solver.velocity_at(Length::from_base(x), Length::from_base(y));
 
-        assert_relative_eq!(u, 1.25 + 2.0 * x + 3.0 * y, epsilon = 1e-12);
-        assert_relative_eq!(v, -0.75 - x + 4.0 * y, epsilon = 1e-12);
+        assert_relative_eq!(u.into_base(), 1.25 + 2.0 * x + 3.0 * y, epsilon = 1e-12);
+        assert_relative_eq!(v.into_base(), -0.75 - x + 4.0 * y, epsilon = 1e-12);
     }
 
     #[test]
@@ -311,10 +319,10 @@ mod tests {
             }
         }
 
-        let (u, v) = solver.velocity_at(-0.2, 1.4);
-        assert!(u.is_finite() && v.is_finite());
-        let (u_edge, v_edge) = solver.velocity_at(0.0, 1.0);
-        assert_relative_eq!(u, u_edge, epsilon = 1e-12);
-        assert_relative_eq!(v, v_edge, epsilon = 1e-12);
+        let (u, v) = solver.velocity_at(Length::from_base(-0.2), Length::from_base(1.4));
+        assert!(u.into_base().is_finite() && v.into_base().is_finite());
+        let (u_edge, v_edge) = solver.velocity_at(Length::from_base(0.0), Length::from_base(1.0));
+        assert_relative_eq!(u.into_base(), u_edge.into_base(), epsilon = 1e-12);
+        assert_relative_eq!(v.into_base(), v_edge.into_base(), epsilon = 1e-12);
     }
 }

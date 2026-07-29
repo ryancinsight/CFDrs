@@ -11,5 +11,7 @@ pub use physics::{
     AsymmetricBifurcationFlow, CellTrackerConfig, PoiseuilleFlow2D, PsmBifurcationParams,
     VelocityFieldInterpolator,
 };
-pub use population::{CellPopulation, CellRoutingSummary, CellTrajectory, OutletZone, TrackedCell};
+pub use population::{
+    CellPopulation, CellRoutingSummary, CellTrajectory, OutletZone, TrackedCell, TrackedPosition,
+};
 pub use tracker::CellTracker;

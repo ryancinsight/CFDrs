@@ -1,52 +1,55 @@
+use aequitas::systems::si::quantities::{
+    Dimensionless, DynamicViscosity, Length, MassDensity, Velocity,
+};
+
 use super::population::OutletZone;
 
 /// Velocity field interface for the cell tracker.
 pub trait VelocityFieldInterpolator {
-    /// Interpolate velocity at (x, y).  Returns (u, v) in m/s.
-    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64);
+    /// Interpolate velocity at a physical position.
+    fn velocity_at(&self, x: Length, y: Length) -> (Velocity, Velocity);
 
-    /// Check if (x, y) is inside the fluid domain.
-    fn is_fluid(&self, x: f64, y: f64) -> bool;
+    /// Check if a physical position is inside the fluid domain.
+    fn is_fluid(&self, x: Length, y: Length) -> bool;
 
-    /// Domain bounding box: (x_min, x_max, y_min, y_max) in meters.
-    fn bounds(&self) -> (f64, f64, f64, f64);
+    /// Return the physical domain bounding box.
+    fn bounds(&self) -> (Length, Length, Length, Length);
 }
 
 /// Configuration for the Lagrangian tracker.
 #[derive(Debug, Clone)]
 pub struct CellTrackerConfig {
-    /// Fluid viscosity [Pa.s].  Default: 3.5e-3 (blood).
-    pub viscosity: f64,
-    /// Fluid density [kg/m3].  Default: 1025.0 (plasma).
-    pub fluid_density: f64,
-    /// Hydraulic diameter of the parent channel \[m], used for lift scaling.
-    pub hydraulic_diameter_m: f64,
-    /// Max streamwise velocity \[m/s] for lift scaling.  If zero, estimated
-    /// from the velocity field at the inlet centerline.
-    pub u_max: f64,
-    /// Outlet zones for classifying exits.  If empty, a default center/peripheral
-    /// split at y_mid +/- 25% is used.
+    /// Fluid dynamic viscosity.
+    pub viscosity: DynamicViscosity,
+    /// Fluid mass density.
+    pub fluid_density: MassDensity,
+    /// Hydraulic diameter of the parent channel used for lift scaling.
+    pub hydraulic_diameter: Length,
+    /// Maximum streamwise velocity used for lift scaling. If zero, it is
+    /// estimated from the velocity field at the inlet centerline.
+    pub u_max: Velocity,
+    /// Outlet zones for classifying exits. If empty, a default center/
+    /// peripheral split at the midpoint is used.
     pub outlet_zones: Vec<OutletZone>,
-    /// X-coordinate of the bifurcation split plane \[m].  Set to 0 to disable
-    /// the junction routing correction.
-    pub split_x: f64,
-    /// Y-coordinate of the dividing streamline at the split plane \[m].
-    pub dividing_streamline_y: f64,
+    /// X-coordinate of the bifurcation split plane. Zero disables the
+    /// junction routing correction.
+    pub split_x: Length,
+    /// Y-coordinate of the dividing streamline at the split plane.
+    pub dividing_streamline_y: Length,
     /// Pries Phase Separation Model parameters for the bifurcation.
-    /// If None, the junction routing correction is disabled.
     pub psm_params: Option<PsmBifurcationParams>,
 }
 
 impl Default for CellTrackerConfig {
     fn default() -> Self {
         Self {
-            viscosity: 3.5e-3,
-            fluid_density: 1025.0,
-            hydraulic_diameter_m: 1.0e-3,
-            u_max: 0.0,
+            viscosity: DynamicViscosity::from_base(3.5e-3),
+            fluid_density: MassDensity::from_base(1025.0),
+            hydraulic_diameter: Length::from_base(1.0e-3),
+            u_max: Velocity::from_base(0.0),
             outlet_zones: Vec::new(),
-            split_x: 0.0,
-            dividing_streamline_y: 0.0,
+            split_x: Length::from_base(0.0),
+            dividing_streamline_y: Length::from_base(0.0),
             psm_params: None,
         }
     }
@@ -56,76 +59,84 @@ impl Default for CellTrackerConfig {
 #[derive(Debug, Clone)]
 pub struct PsmBifurcationParams {
     /// Fractional blood flow into the wide (center) daughter.
-    pub flow_fraction_wide: f64,
-    /// Hydraulic diameter of the wide daughter \[m].
-    pub wide_daughter_dh: f64,
-    /// Hydraulic diameter of the narrow daughter \[m].
-    pub narrow_daughter_dh: f64,
+    pub flow_fraction_wide: Dimensionless,
+    /// Hydraulic diameter of the wide daughter.
+    pub wide_daughter_diameter: Length,
+    /// Hydraulic diameter of the narrow daughter.
+    pub narrow_daughter_diameter: Length,
     /// Feed hematocrit.
-    pub feed_hematocrit: f64,
+    pub feed_hematocrit: Dimensionless,
 }
 
-/// Poiseuille flow in a 2D channel: u(y) = U_max * (1 - (2y/H - 1)^2).
-/// Used for unit testing the cell tracker against known analytical solutions.
+/// Poiseuille flow in a 2D channel used by analytical cell-tracking tests.
 pub struct PoiseuilleFlow2D {
-    /// Maximum center-line velocity \[m/s].
-    pub u_max: f64,
-    /// Channel extent along X axis \[m].
-    pub width: f64,
-    /// Channel extent along Y axis (height) \[m].
-    pub height: f64,
+    /// Maximum center-line velocity.
+    pub u_max: Velocity,
+    /// Channel extent along the X axis.
+    pub width: Length,
+    /// Channel extent along the Y axis.
+    pub height: Length,
 }
 
 impl VelocityFieldInterpolator for PoiseuilleFlow2D {
-    fn velocity_at(&self, _x: f64, y: f64) -> (f64, f64) {
-        let s = (2.0 * y / self.height - 1.0).clamp(-1.0, 1.0);
-        (self.u_max * (1.0 - s * s), 0.0)
+    fn velocity_at(&self, _x: Length, y: Length) -> (Velocity, Velocity) {
+        let y = y.into_base();
+        let height = self.height.into_base();
+        let s = (2.0 * y / height - 1.0).clamp(-1.0, 1.0);
+        (
+            Velocity::from_base(self.u_max.into_base() * (1.0 - s * s)),
+            Velocity::from_base(0.0),
+        )
     }
-    fn is_fluid(&self, x: f64, y: f64) -> bool {
-        x >= 0.0 && x <= self.width && y >= 0.0 && y <= self.height
+
+    fn is_fluid(&self, x: Length, y: Length) -> bool {
+        let x = x.into_base();
+        let y = y.into_base();
+        x >= 0.0 && x <= self.width.into_base() && y >= 0.0 && y <= self.height.into_base()
     }
-    fn bounds(&self) -> (f64, f64, f64, f64) {
-        (0.0, self.width, 0.0, self.height)
+
+    fn bounds(&self) -> (Length, Length, Length, Length) {
+        (
+            Length::from_base(0.0),
+            self.width,
+            Length::from_base(0.0),
+            self.height,
+        )
     }
 }
 
-/// Asymmetric bifurcation flow: parent channel splits into a wide and narrow
-/// daughter at x = x_split.  The wide daughter gets more flow (proportional
-/// to width^3 per Hagen-Poiseuille).
+/// Asymmetric bifurcation flow with a wide and a narrow daughter.
 pub struct AsymmetricBifurcationFlow {
-    /// The width of the parent channel \[m].
-    pub parent_width_m: f64,
-    /// The height of the parent channel \[m].
-    pub parent_height_m: f64,
-    /// The width of the wide daughter channel \[m].
-    pub wide_daughter_width_m: f64,
-    /// The width of the narrow daughter channel \[m].
-    pub narrow_daughter_width_m: f64,
-    /// Length of the domain \[m].
-    pub length_m: f64,
-    /// Input velocity profile scale \[m/s].
-    pub u_inlet: f64,
-    /// The x-coordinate of the split point \[m].
-    pub x_split: f64,
+    /// Width of the parent channel.
+    pub parent_width: Length,
+    /// Height of the parent channel.
+    pub parent_height: Length,
+    /// Width of the wide daughter channel.
+    pub wide_daughter_width: Length,
+    /// Width of the narrow daughter channel.
+    pub narrow_daughter_width: Length,
+    /// Length of the flow domain.
+    pub length: Length,
+    /// Input velocity profile scale.
+    pub u_inlet: Velocity,
+    /// X-coordinate of the split point.
+    pub x_split: Length,
 }
 
 impl AsymmetricBifurcationFlow {
-    /// Flow fraction to the wide daughter (Q_wide / Q_total).
-    /// HP scaling: Q proportional to w^3 for equal height/length.
-    pub fn flow_fraction_wide(&self) -> f64 {
-        let q_wide = self.wide_daughter_width_m.powi(3);
-        let q_narrow = self.narrow_daughter_width_m.powi(3);
-        q_wide / (q_wide + q_narrow)
+    /// Return the flow fraction entering the wide daughter.
+    pub fn flow_fraction_wide(&self) -> Dimensionless {
+        let q_wide = self.wide_daughter_width.into_base().powi(3);
+        let q_narrow = self.narrow_daughter_width.into_base().powi(3);
+        Dimensionless::from_base(q_wide / (q_wide + q_narrow))
     }
 
-    /// The dividing streamline y-position at the split plane.
-    /// In the parent, the flow above this line goes to the wide daughter
-    /// and below goes to the narrow daughter. For a Poiseuille profile,
-    /// the exact cumulative flow fraction above x = y/H is
-    /// `F_above(x) = 1 - 3x^2 + 2x^3`; this method inverts that relation
-    /// so the split line matches the requested wide-daughter flow fraction.
-    pub fn dividing_streamline_y(&self) -> f64 {
-        self.parent_height_m * inverse_poiseuille_flow_fraction_above(self.flow_fraction_wide())
+    /// Return the dividing streamline position at the split plane.
+    pub fn dividing_streamline_y(&self) -> Length {
+        Length::from_base(
+            self.parent_height.into_base()
+                * inverse_poiseuille_flow_fraction_above(self.flow_fraction_wide().into_base()),
+        )
     }
 }
 
@@ -145,93 +156,92 @@ fn inverse_poiseuille_flow_fraction_above(flow_fraction_above: f64) -> f64 {
 }
 
 impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
-    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
-        let h = self.parent_height_m;
-        let f_wide = self.flow_fraction_wide();
-        let y_div = self.dividing_streamline_y();
+    fn velocity_at(&self, x: Length, y: Length) -> (Velocity, Velocity) {
+        let x = x.into_base();
+        let y = y.into_base();
+        let h = self.parent_height.into_base();
+        let f_wide = self.flow_fraction_wide().into_base();
+        let y_div = self.dividing_streamline_y().into_base();
+        let u_inlet = self.u_inlet.into_base();
+        let x_split = self.x_split.into_base();
 
-        if x < self.x_split {
-            // Parent: Poiseuille profile + cross-stream steering near split.
+        let (u, v) = if x < x_split {
             let s = (2.0 * y / h - 1.0).clamp(-1.0, 1.0);
-            let u = self.u_inlet * (1.0 - s * s);
+            let u = u_inlet * (1.0 - s * s);
 
-            // Near the split plane, add cross-stream velocity that redirects
-            // streamlines toward their destination daughter channel.
-            // Cells above the dividing streamline get pushed toward the wide
-            // daughter (upper region); cells below get pushed to narrow (lower).
-            let approach_factor = ((x - self.x_split + h * 0.5) / (h * 0.5)).clamp(0.0, 1.0);
+            let approach_factor = ((x - x_split + h * 0.5) / (h * 0.5)).clamp(0.0, 1.0);
             let v = if approach_factor > 0.0 {
                 let target_y = if y > y_div {
-                    // Going to wide daughter: steer toward center of wide region
                     (y_div + h) * 0.5
                 } else {
-                    // Going to narrow daughter: steer toward center of narrow
                     y_div * 0.5
                 };
-                let steering = (target_y - y) * approach_factor * 2.0 * self.u_inlet / h;
-                steering.clamp(-self.u_inlet * 0.3, self.u_inlet * 0.3)
+                let steering = (target_y - y) * approach_factor * 2.0 * u_inlet / h;
+                steering.clamp(-u_inlet * 0.3, u_inlet * 0.3)
             } else {
                 0.0
             };
 
             (u, v)
-        } else {
-            // Daughters: Poiseuille in each sub-channel.
-            // Wide daughter: y in [y_div, H].
-            // Narrow daughter: y in [0, y_div].
-            if y >= y_div {
-                let dh = h - y_div;
-                if dh < 1e-12 {
-                    return (0.0, 0.0);
-                }
-                let s = (2.0 * (y - y_div) / dh - 1.0).clamp(-1.0, 1.0);
-                // U_max = (3/2) * Q / A.  Q = f_wide * Q_parent.
-                // Q_parent = (2/3) * u_inlet * H (Poiseuille integral).
-                // U_max_daughter = (3/2) * f_wide * (2/3) * u_inlet * H / dh
-                //                = f_wide * u_inlet * H / dh
-                let u_d = f_wide * self.u_inlet * h / dh;
-                (u_d * (1.0 - s * s), 0.0)
-            } else {
-                if y_div < 1e-12 {
-                    return (0.0, 0.0);
-                }
-                let s = (2.0 * y / y_div - 1.0).clamp(-1.0, 1.0);
-                let u_d = (1.0 - f_wide) * self.u_inlet * h / y_div;
-                (u_d * (1.0 - s * s), 0.0)
+        } else if y >= y_div {
+            let dh = h - y_div;
+            if dh < 1e-12 {
+                return (Velocity::from_base(0.0), Velocity::from_base(0.0));
             }
-        }
+            let s = (2.0 * (y - y_div) / dh - 1.0).clamp(-1.0, 1.0);
+            let u_d = f_wide * u_inlet * h / dh;
+            (u_d * (1.0 - s * s), 0.0)
+        } else {
+            if y_div < 1e-12 {
+                return (Velocity::from_base(0.0), Velocity::from_base(0.0));
+            }
+            let s = (2.0 * y / y_div - 1.0).clamp(-1.0, 1.0);
+            let u_d = (1.0 - f_wide) * u_inlet * h / y_div;
+            (u_d * (1.0 - s * s), 0.0)
+        };
+
+        (Velocity::from_base(u), Velocity::from_base(v))
     }
 
-    fn is_fluid(&self, x: f64, y: f64) -> bool {
-        x >= 0.0 && x <= self.length_m && y >= 0.0 && y <= self.parent_height_m
+    fn is_fluid(&self, x: Length, y: Length) -> bool {
+        let x = x.into_base();
+        let y = y.into_base();
+        x >= 0.0 && x <= self.length.into_base() && y >= 0.0 && y <= self.parent_height.into_base()
     }
 
-    fn bounds(&self) -> (f64, f64, f64, f64) {
-        (0.0, self.length_m, 0.0, self.parent_height_m)
+    fn bounds(&self) -> (Length, Length, Length, Length) {
+        (
+            Length::from_base(0.0),
+            self.length,
+            Length::from_base(0.0),
+            self.parent_height,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{inverse_poiseuille_flow_fraction_above, AsymmetricBifurcationFlow};
+    use aequitas::systems::si::quantities::{Length, Velocity};
+
+    use super::{AsymmetricBifurcationFlow, inverse_poiseuille_flow_fraction_above};
 
     #[test]
     fn dividing_streamline_inverts_poiseuille_cdf() {
         let flow = AsymmetricBifurcationFlow {
-            parent_width_m: 2.0e-3,
-            parent_height_m: 2.0e-3,
-            wide_daughter_width_m: 1.1e-3,
-            narrow_daughter_width_m: 0.9e-3,
-            length_m: 0.015,
-            u_inlet: 0.05,
-            x_split: 0.005,
+            parent_width: Length::from_base(2.0e-3),
+            parent_height: Length::from_base(2.0e-3),
+            wide_daughter_width: Length::from_base(1.1e-3),
+            narrow_daughter_width: Length::from_base(0.9e-3),
+            length: Length::from_base(0.015),
+            u_inlet: Velocity::from_base(0.05),
+            x_split: Length::from_base(0.005),
         };
 
-        let y_div = flow.dividing_streamline_y();
-        let x = y_div / flow.parent_height_m;
+        let y_div = flow.dividing_streamline_y().into_base();
+        let x = y_div / flow.parent_height.into_base();
         let flow_above = 1.0 - 3.0 * x * x + 2.0 * x * x * x;
 
-        assert!((flow_above - flow.flow_fraction_wide()).abs() < 1.0e-12);
+        assert!((flow_above - flow.flow_fraction_wide().into_base()).abs() < 1.0e-12);
         assert!(x > 0.0 && x < 1.0);
     }
 

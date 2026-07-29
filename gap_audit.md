@@ -53,8 +53,9 @@ mesh trace boundary. Percent errors, normalized pressure-drop coefficients,
 grid sizes, and solver tolerances remain dimensionless or structural values.
 
 The public field names no longer encode units, and all in-tree blueprint
-integration tests construct and assert the typed contracts. This closes the
-last raw dimensional metric family found by the current CFDrs source audit.
+integration tests construct and assert the typed contracts. A follow-up scan
+of the separate cfd-2d cell-tracking surface found one additional public
+physical family; it is recorded and closed by CFDRS-AEQ-MET-27 below.
 
 The focused value gate is `blueprint_integration` Nextest 6/6 and the package
 test-check is green. Library-only warning-denied Clippy is green after fixing
@@ -62,6 +63,31 @@ the unit-result, return-binding, and `map_or` diagnostics encountered in the
 dependency path. The all-targets Clippy command remains blocked by 47
 pre-existing diagnostics in peer-edited cfd-3d validation/test modules; this
 is verification debt, not a metric residual, and no peer WIP was modified.
+
+## 2D cell-tracking metric refresh (2026-07-29, CFDRS-AEQ-MET-27)
+
+The follow-up public-surface scan found that `cfd-2d::solvers::cell_tracking`
+still exposed cell positions, trajectory time, velocity-field coordinates and
+velocities, cell diameter/density, fluid viscosity/density, hydraulic geometry,
+and bifurcation geometry as raw scalars. These are physical API contracts, not
+dense solver storage or dimensionless routing results.
+
+The closure carries `Length`, `Velocity`, `Time`, `MassDensity`, and
+`DynamicViscosity` through the public tracker, and represents routing fractions
+and lift coefficients with `Dimensionless`. `TrackedPosition` replaces the
+heterogeneous `[x, y, t]` array. Scalar extraction is confined to staggered
+grid interpolation, particle-force/integration formulas, and the Pries
+formula boundary. Eunomia complex values do not enter this real-valued model,
+so no imaginary-unit or complex Aequitas extension is required.
+
+The focused `cargo check -p cfd-2d --tests --offline` gate passed. Cell-tracking
+Nextest run `bd8e2be6-da1b-49db-85d5-5715fbdb5638` passed 5/5 tests, with 593
+tests skipped by the filter. `cargo test --doc -p cfd-2d --offline` passed 1
+doctest with 2 ignored. Warning-denied Clippy is not clean because the
+peer-owned `crates/cfd-2d/src/physics/momentum/solve.rs:6` retains an unused
+`cfd_math::iterative::IterativeLinearSolver` import. The remaining cfd-math
+peer edits and the separate cfd-3d runtime residual are not part of this metric
+closure.
 
 ## Solver runtime refresh (2026-07-28)
 
@@ -281,6 +307,7 @@ ignored. No compatibility facade was added.
 
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-27` | `cfd-2d::solvers::cell_tracking` exposed physical positions, velocities, time, cell/material properties, and bifurcation geometry as raw scalars. | **IMPLEMENTED in this increment.** Public contracts use Aequitas `Length`, `Velocity`, `Time`, `MassDensity`, and `DynamicViscosity`; dimensionless routing uses `Dimensionless`; scalar extraction remains at interpolation, numerical, and Pries formula boundaries. Focused cfd-2d checks and cell-tracking Nextest provide the value-semantic gate. See [`cell-tracking-physical-metrics.md`](docs/atlas-migration/cell-tracking-physical-metrics.md). |
 | `CFDRS-AEQ-MET-21` | Public transient composition and droplet simulation APIs accepted requested, calculated, and returned timepoints as `Vec<T>` after event/configuration time had been typed. | **IMPLEMENTED and package-verified.** Public timepoint vectors and timing accessors now use `Time<T>`; scalar conversion is private to sorting, tolerance, and solver boundaries. Test-target check passes; cfd-1d Nextest passes 736/736 with 3 skips; warning-denied all-target Clippy passes; no compatibility facade exists. Mixture fraction storage remains separately tracked as dimensionless representation. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
 | `CFDRS-AEQ-MET-22` | Public transient mixture fraction storage, blood-hematocrit construction/accessors, weighted blends, tolerances, and node/edge concentration queries still exposed raw dimensionless scalars. | **IMPLEMENTED and package-verified.** Public maps, constructors, accessors, blends, and tolerances now use `Dimensionless<T>`; scalar extraction is limited to normalization, arithmetic, transport, and assertions. Test-target check passes; cfd-1d Nextest passes 736/736 with 3 skips; warning-denied all-target Clippy passes; doctests pass 8/8 with 3 ignored. No compatibility facade exists. Solver residuals remain equation-dependent. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
 | `CFDRS-AEQ-MET-20` | Transient composition events, timing/control configuration, and snapshots exposed activation time, hematocrit, flow, pressure, CFL, and snapshot flow/time as raw scalars. | **IMPLEMENTED and focused-verified.** Public contracts now carry Aequitas `Time`, `Dimensionless`, `VolumetricFlowRate`, and `Pressure`; simulator conversion is confined to numerical boundaries. The cfd-1d test-target check passes; composition parity passes 21/21; droplet parity passes 9/9; literature validation passes 5/5; and the typed control regression proves value preservation. Solver residuals remain a separate equation-dependent classification; no compatibility facade exists. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |

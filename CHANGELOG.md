@@ -34,6 +34,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-2d` cell-tracking contract with Aequitas
+  `Length`, `Velocity`, `Time`, `MassDensity`, and `DynamicViscosity`, and
+  represent routing fractions with `Dimensionless`. Trajectory samples now use
+  named typed positions instead of heterogeneous scalar arrays; scalar
+  extraction remains at grid interpolation, numerical formula, and Pries
+  boundaries. See
+  [`cell-tracking-physical-metrics.md`](docs/atlas-migration/cell-tracking-physical-metrics.md).
+
 - **Breaking**: Type cfd-3d blueprint cross-fidelity configuration and channel
   or node traces with Aequitas `MassDensity`, `DynamicViscosity`,
   `VolumetricFlowRate`, `Volume`, `Pressure`, and `Velocity`. Scalar extraction
