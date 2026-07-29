@@ -31,6 +31,21 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-30 [major] - Type shared FluidProperties and constant fluid storage
+  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  scope=`cfd-core::physics::fluid::FluidProperties`,
+  `ConstantPropertyFluid`, their direct constructors/callers/tests, and
+  synchronized audit/design/changelog artifacts).** The post-MET-29 residue
+  scan shows the older property block and constant-fluid model still store
+  density, viscosity, heat capacity, conductivity, and sound speed as raw
+  scalars even though `FluidState` is typed. Carry those physical values
+  through Aequitas and keep extraction at formula and solver boundaries.
+  Preserve dimensionless results and the existing real-valued Eunomia
+  contract. Acceptance is a public-field residue scan, value-semantic
+  property regressions, focused cfd-core and dependent package gates, and
+  synchronized audit/ADR/changelog evidence. Temperature-dependent and
+  rheology model coefficients remain separate formula-parameter slices.
+
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidState`, its cfd-core producers,

@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-AEQ-MET-30 shared fluid properties [major] — in progress 2026-07-29
+
+- [ ] Type `FluidProperties` and `ConstantPropertyFluid` physical storage
+      with Aequitas quantities; retain dimensionless results and real-valued
+      Eunomia boundaries.
+- [ ] Migrate direct constructors, formulas, serialization, and tests without
+      compatibility fields or forwarding shims; extract only at formula and
+      solver boundaries.
+- [ ] Add value-semantic regressions and run cfd-core plus dependent package
+      checks, Nextest, doctests, and warning-denied Clippy where applicable.
+- [ ] Synchronize the gap audit, ADR, changelog, design note, and backlog;
+      commit and push the verified slice. Temperature-dependent and rheology
+      model coefficients remain separately tracked.
+
 ## Owner: current Codex session — CFDRS-AEQ-MET-29 FluidState metrics [major] — verified 2026-07-29
 
 - [x] Audit the public `FluidState` and provider seams; classify formula,
