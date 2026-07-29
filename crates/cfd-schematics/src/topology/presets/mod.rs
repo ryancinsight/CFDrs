@@ -17,7 +17,7 @@
 //! | 2 — Venturi Cavitation | + `with_venturi_placements()` | Throat geometry, channel targeting |
 //! | 3 — GA Refinement | + `with_serpentine()` / `with_dean_venturi()` | Serpentine insertion, Dean placement |
 
-mod helpers;
+mod plate_presets;
 mod milestone12;
 mod modifiers;
 mod parallel;
@@ -158,3 +158,4 @@ mod tests {
         assert!(spec.has_serpentine());
     }
 }
+

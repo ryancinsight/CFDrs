@@ -11,7 +11,7 @@ use eunomia::{NumericElement, RealField};
 use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 use std::collections::HashMap;
 
-use super::utils;
+use super::csr_search;
 
 /// Perform ILU(k) factorization with level-k fill
 ///

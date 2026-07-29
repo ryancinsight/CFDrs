@@ -1,7 +1,7 @@
 use super::super::model::{
     BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
 };
-use super::helpers::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 
 mod build;
 mod catalog;

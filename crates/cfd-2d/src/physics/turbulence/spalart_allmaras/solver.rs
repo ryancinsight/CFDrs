@@ -1,6 +1,6 @@
 //! Update and trait-impl methods for `SpalartAllmaras`.
 
-use super::helpers::wall_distance_field_2d;
+use super::wall_distance::wall_distance_field_2d;
 use super::SpalartAllmaras;
 use cfd_core::{error::Result, physics::constants::mathematical::numeric::TWO};
 use eunomia::RealField;

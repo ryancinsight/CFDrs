@@ -4,7 +4,7 @@ use super::super::model::{
     BlueprintTopologySpec, SerpentineSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiConfig, VenturiPlacementMode, VenturiPlacementSpec,
 };
-use super::helpers::VENTURI_HALF_ANGLE_DEG;
+use super::plate_presets::VENTURI_HALF_ANGLE_DEG;
 
 fn resolved_venturi_geometry(
     spec: &BlueprintTopologySpec,

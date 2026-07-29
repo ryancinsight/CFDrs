@@ -37,9 +37,9 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Math and numerical
-aequitas = { path = "../aequitas", version = "0.1.0", default-features = false, features = ["std"] }
-proteus = { path = "../proteus", version = "0.1.0" }
-hyperion = { path = "../hyperion", version = "0.1.0", default-features = false, features = ["std"] }
+aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", default-features = false, features = ["std"] }
+proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
+hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
 tyche-core = { path = "../tyche/crates/tyche-core", version = "0.1.0" }
 eunomia = { version = "0.7.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 iris = { path = "../iris", version = "0.1.0" }
@@ -77,24 +77,24 @@ cfd-io = { path = "crates/cfd-io" }
 # Shared crates consumed from their canonical remotes (default branch = latest).
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
 # publish changes there (commit + push), then `cargo update -p <crate>`.
-cfd-mesh = { path = "../gaia", package = "gaia" }
-apollo-fft = { path = "../apollo/crates/apollo-fft" }
-apollo-nufft = { path = "../apollo/crates/apollo-nufft" }
-leto = { path = "../leto/crates/leto", default-features = false, features = ["std"] }
-leto-ops = { path = "../leto/crates/leto-ops", default-features = false, features = ["std"] }
+cfd-mesh = { version = "0.3.0", git = "https://github.com/ryancinsight/gaia", package = "gaia" }
+apollo-fft = { version = "0.25.0", git = "https://github.com/ryancinsight/apollo" }
+apollo-nufft = { version = "0.7.0", git = "https://github.com/ryancinsight/apollo" }
+leto = { version = "0.40.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
+leto-ops = { version = "0.40.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
 # consus: pure-Rust scientific storage formats (HDF5 etc.). Consumed by cfd-io
 # behind the `hdf5` feature for real HDF5 output.
-consus-core = { path = "../consus/crates/consus-core", default-features = false }
-consus-hdf5 = { path = "../consus/crates/consus-hdf5" }
+consus-core = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git", default-features = false }
+consus-hdf5 = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
 ritk-vtk = { path = "../ritk/crates/ritk-vtk" }
 # hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
 # SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
-hermes-simd = { path = "../hermes/crates/hermes-simd" }
+hermes-simd = { version = "0.5.0", git = "https://github.com/ryancinsight/hermes.git" }
 # moirai: unified concurrency runtime replacing tokio + rayon. Moirai's parallel,
 # Mnemosyne, and Melinoe surfaces are enabled for the CFDrs workspace.
-moirai = { path = "../moirai/moirai", default-features = false, features = ["parallel", "mnemosyne", "melinoe"] }
+moirai = { version = "0.4.0", git = "https://github.com/ryancinsight/Moirai", default-features = false, features = ["parallel", "mnemosyne", "melinoe"] }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
 hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }

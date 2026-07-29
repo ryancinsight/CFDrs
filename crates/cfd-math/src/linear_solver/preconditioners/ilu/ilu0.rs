@@ -6,7 +6,7 @@ use cfd_core::error::{Error, NumericalErrorKind, Result};
 use eunomia::RealField;
 use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
-use super::utils;
+use super::csr_search;
 
 /// Perform ILU(0) factorization (original algorithm, optimized)
 ///

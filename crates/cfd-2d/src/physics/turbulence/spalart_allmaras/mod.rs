@@ -226,10 +226,10 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-mod helpers;
+mod wall_distance;
 mod solver;
 
-use self::helpers::cbrt;
+use self::wall_distance::cbrt;
 use super::constants::{
     EPSILON_MIN, SA_CB1, SA_CB2, SA_CT1, SA_CT2, SA_CT3, SA_CT4, SA_CV1, SA_CV2, SA_CW1, SA_CW2,
     SA_CW3, SA_KAPPA_SQ, SA_SIGMA,
@@ -446,7 +446,7 @@ impl<T: RealField> SpalartAllmaras<T> {
     /// boundary manager and the SA wall-damping terms.
     #[instrument(skip(self, dx, dy))]
     pub fn wall_distance_field(&self, dx: T, dy: T) -> Vec<T> {
-        helpers::wall_distance_field_2d(self.nx, self.ny, dx, dy)
+        wall_distance::wall_distance_field_2d(self.nx, self.ny, dx, dy)
     }
 
     /// Apply boundary conditions
@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn test_cbrt_function() {
         // Test cube root computation via helper
-        use super::helpers::cbrt;
+        use super::wall_distance::cbrt;
         assert_relative_eq!(cbrt(8.0), 2.0, epsilon = 1e-8);
         assert_relative_eq!(cbrt(27.0), 3.0, epsilon = 1e-8);
         assert_relative_eq!(cbrt(1.0), 1.0, epsilon = 1e-8);
@@ -601,3 +601,4 @@ mod tests {
         assert_eq!(trip, 0.0);
     }
 }
+

@@ -6,7 +6,7 @@ use super::super::model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, SplitKind, SplitStageSpec,
     TreatmentActuationMode,
 };
-use super::helpers::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 
 /// Create an N-level asymmetric split tree spec (Option 1 seed).
 ///

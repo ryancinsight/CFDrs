@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 mod blueprint;
-mod common;
+mod flow_metadata;
 mod schematic;
 mod therapy;
 
-pub use self::{blueprint::*, common::*, schematic::*, therapy::*};
+pub use self::{blueprint::*, flow_metadata::*, schematic::*, therapy::*};
 
 /// Base trait for all metadata types.
 pub trait Metadata: Any + Debug + Send + Sync {
@@ -174,3 +174,4 @@ mod tests {
         assert_eq!(container.len(), 2);
     }
 }
+
