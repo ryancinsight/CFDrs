@@ -378,3 +378,30 @@ mod tests {
         assert_eq!(RestartWidth::covering(10_000), RestartWidth::W256);
     }
 }
+
+/// Report only a converged solve, logging any other outcome.
+///
+/// A fallback chain treats every non-convergence the same way — move to the
+/// next tier — so the distinction between a stalled solve, a breakdown, and a
+/// hard failure belongs in the log rather than in each tier's control flow.
+/// Athena reports the first two value-semantically, which is why this cannot
+/// just be an `ok()`.
+pub fn converged_or_none<T>(context: &str, outcome: KrylovResult<T>) -> Option<SolveReport<T>>
+where
+    T: RealField + Copy,
+{
+    match interpret(context, outcome) {
+        Ok(SolveOutcome::Converged(report)) => Some(report),
+        Ok(other) => {
+            tracing::warn!(
+                "{context}: did not converge ({:?})",
+                other.report().termination
+            );
+            None
+        }
+        Err(error) => {
+            tracing::warn!("{context}: {error}");
+            None
+        }
+    }
+}

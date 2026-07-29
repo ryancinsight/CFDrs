@@ -604,3 +604,41 @@ mod tests {
         assert!(simple.apply(&wrong).is_err());
     }
 }
+
+impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoScalar + leto_ops::RealScalar,
+{
+    /// Block-diagonal apply straight over the borrowed views.
+    ///
+    /// The velocity and pressure blocks are contiguous index ranges, so this
+    /// needs no scratch and no copy.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let expected = self.n_velocity + self.n_pressure;
+        if residual.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: residual.shape()[0],
+                right: expected,
+            });
+        }
+        if output.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: output.shape()[0],
+                right: expected,
+            });
+        }
+        for index in 0..self.n_velocity {
+            output[index] = residual[index] * self.momentum_preconditioner.diag_inv[index];
+        }
+        for index in 0..self.n_pressure {
+            let offset = self.n_velocity + index;
+            output[offset] = residual[offset] * self.pressure_preconditioner.diag_inv[index];
+        }
+        Ok(())
+    }
+}

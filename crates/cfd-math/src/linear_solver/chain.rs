@@ -32,11 +32,13 @@
 //! - Benzi, M., Golub, G.H. & Liesen, J. (2005). "Numerical solution of
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
+use crate::linear_solver::krylov::{self, SolveOutcome};
 use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
 use crate::linear_solver::{
-    AMGConfig, AlgebraicMultigrid, BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver,
-    IncompleteLU, IterativeSolverConfig, GMRES,
+    AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, DirectSparseSolver,
+    IterativeSolverConfig,
 };
+use athena_leto::IncompleteLu;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
@@ -173,47 +175,50 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         }
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
-        let solver = GMRES::new(self.config, restart);
 
         // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
         // AMG is exceptionally fast for Poisson and SPD systems (like pressure correction
         // in fractional step algorithms). For saddle-point systems it may fail setup or diverge,
         // safely falling back to block preconditioning.
         match AlgebraicMultigrid::new(matrix, AMGConfig::default()) {
-            Ok(amg) => match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
-                Ok(monitor) => {
+            Ok(amg) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain: GMRES+AMG",
+                    krylov::gmres_preconditioned(matrix, rhs, &amg, &mut x, &self.config, restart),
+                ) {
                     tracing::debug!(
                         "LinearSolverChain: GMRES+AMG converged in {} iters",
-                        monitor.iteration
+                        report.iterations
                     );
                     return Ok(x);
                 }
-                Err(e) => {
-                    tracing::warn!("LinearSolverChain: GMRES+AMG failed ({e})");
-                }
-            },
+            }
             Err(e) => {
                 tracing::debug!("LinearSolverChain: AMG setup skipped/failed ({e})");
             }
         }
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
-        let solver = GMRES::new(self.config, restart);
 
         // ── Tier 3: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
             Ok(block_precond) => {
-                match solver.solve_preconditioned(matrix, rhs, &block_precond, &mut x) {
-                    Ok(monitor) => {
-                        tracing::debug!(
-                            "LinearSolverChain: GMRES+BlockDiag converged in {} iters",
-                            monitor.iteration
-                        );
-                        return Ok(x);
-                    }
-                    Err(e) => {
-                        tracing::warn!("LinearSolverChain: GMRES+BlockDiag failed ({e})");
-                    }
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain: GMRES+BlockDiag",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &block_precond,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain: GMRES+BlockDiag converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
                 }
             }
             Err(e) => {
@@ -223,34 +228,32 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 4: GMRES unpreconditioned ────────────────────────────────────
         x.fill(<T as NumericElement>::ZERO);
-        match solver.solve_unpreconditioned(matrix, rhs, &mut x) {
-            Ok(monitor) => {
-                tracing::debug!(
-                    "LinearSolverChain: GMRES (unpreconditioned) converged in {} iters",
-                    monitor.iteration
-                );
-                return Ok(x);
-            }
-            Err(e) => {
-                tracing::warn!("LinearSolverChain: GMRES unpreconditioned failed ({e})");
-            }
+        if let Some(report) = krylov::converged_or_none(
+            "LinearSolverChain: GMRES unpreconditioned",
+            krylov::gmres(matrix, rhs, &mut x, &self.config, restart),
+        ) {
+            tracing::debug!(
+                "LinearSolverChain: GMRES (unpreconditioned) converged in {} iters",
+                report.iterations
+            );
+            return Ok(x);
         }
 
         // ── Tier 5: GMRES + ILU preconditioner ───────────────────────────────
         x.fill(<T as NumericElement>::ZERO);
-        match IncompleteLU::new(matrix) {
-            Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
-                Ok(monitor) => {
+        match IncompleteLu::from_csr(matrix) {
+            Ok(ilu) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain: GMRES+ILU",
+                    krylov::gmres_preconditioned(matrix, rhs, &ilu, &mut x, &self.config, restart),
+                ) {
                     tracing::debug!(
                         "LinearSolverChain: GMRES+ILU converged in {} iters",
-                        monitor.iteration
+                        report.iterations
                     );
                     return Ok(x);
                 }
-                Err(e) => {
-                    tracing::warn!("LinearSolverChain: GMRES+ILU failed ({e})");
-                }
-            },
+            }
             Err(e) => {
                 tracing::warn!("LinearSolverChain: ILU construction failed ({e})");
             }
@@ -258,14 +261,19 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 6: BiCGSTAB (last resort) ────────────────────────────────────
         x.fill(<T as NumericElement>::ZERO);
-        let bicg = BiCGSTAB::new(self.config);
-        bicg.solve_unpreconditioned(matrix, rhs, &mut x)
-            .map_err(|e| {
-                Error::Solver(format!(
-                    "LinearSolverChain: all solver tiers failed. \
-                         Final BiCGSTAB error: {e}"
-                ))
-            })?;
+        // Last resort: unlike the tiers above this has nowhere to fall through
+        // to, so a non-convergence fails the chain. The specific outcome is
+        // logged by `converged_or_none`.
+        if krylov::converged_or_none(
+            "LinearSolverChain: BiCGSTAB (last resort)",
+            krylov::bicgstab(matrix, rhs, &mut x, &self.config),
+        )
+        .is_none()
+        {
+            return Err(Error::Solver(
+                "LinearSolverChain: all solver tiers failed".to_string(),
+            ));
+        }
 
         tracing::debug!("LinearSolverChain: BiCGSTAB (last resort) converged");
         Ok(x)
@@ -339,7 +347,6 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         }
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
-        let solver = GMRES::new(self.config, restart);
 
         // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
         let cached_hierarchy = state
@@ -371,19 +378,17 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
                     row_ptr: matrix.row_ptr().to_vec(),
                     col_indices: matrix.col_indices().to_vec(),
                 });
-                match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
-                    Ok(monitor) => {
-                        tracing::debug!(
-                            "LinearSolverChain(warm): GMRES+AMG converged in {} iters",
-                            monitor.iteration
-                        );
-                        return Ok(x);
-                    }
-                    Err(e) => {
-                        tracing::warn!("LinearSolverChain(warm): GMRES+AMG failed ({e})");
-                        reset(&mut x);
-                    }
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain(warm): GMRES+AMG",
+                    krylov::gmres_preconditioned(matrix, rhs, &amg, &mut x, &self.config, restart),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+AMG converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
                 }
+                reset(&mut x);
             }
             Err(e) => {
                 tracing::debug!("LinearSolverChain(warm): AMG setup skipped/failed ({e})");
@@ -391,26 +396,30 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         }
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
-        let solver = GMRES::new(self.config, restart);
         let mut block_precond_constructed = false;
 
         // ── Tier 3: GMRES + BlockDiagonal preconditioner ──────────────────────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
             Ok(block_precond) => {
                 block_precond_constructed = true;
-                match solver.solve_preconditioned(matrix, rhs, &block_precond, &mut x) {
-                    Ok(monitor) => {
-                        tracing::debug!(
-                            "LinearSolverChain(warm): GMRES+BlockDiag converged in {} iters",
-                            monitor.iteration
-                        );
-                        return Ok(x);
-                    }
-                    Err(e) => {
-                        tracing::warn!("LinearSolverChain(warm): GMRES+BlockDiag failed ({e})");
-                        reset(&mut x);
-                    }
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain(warm): GMRES+BlockDiag",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &block_precond,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+BlockDiag converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
                 }
+                reset(&mut x);
             }
             Err(e) => {
                 tracing::warn!("LinearSolverChain(warm): BlockDiag construction failed ({e})");
@@ -421,36 +430,34 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         // Skip if block preconditioner was built but GMRES stagnated — for
         // saddle-point systems, unpreconditioned will be strictly worse.
         if !block_precond_constructed {
-            match solver.solve_unpreconditioned(matrix, rhs, &mut x) {
-                Ok(monitor) => {
-                    tracing::debug!(
-                        "LinearSolverChain(warm): GMRES unpreconditioned converged in {} iters",
-                        monitor.iteration
-                    );
-                    return Ok(x);
-                }
-                Err(e) => {
-                    tracing::warn!("LinearSolverChain(warm): GMRES unpreconditioned failed ({e})");
-                    reset(&mut x);
-                }
+            if let Some(report) = krylov::converged_or_none(
+                "LinearSolverChain(warm): GMRES unpreconditioned",
+                krylov::gmres(matrix, rhs, &mut x, &self.config, restart),
+            ) {
+                tracing::debug!(
+                    "LinearSolverChain(warm): GMRES unpreconditioned converged in {} iters",
+                    report.iterations
+                );
+                return Ok(x);
             }
+            reset(&mut x);
         }
 
         // ── Tier 5: GMRES + ILU preconditioner ───────────────────────────────
         reset(&mut x);
-        match IncompleteLU::new(matrix) {
-            Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
-                Ok(monitor) => {
+        match IncompleteLu::from_csr(matrix) {
+            Ok(ilu) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChainwarm): GMRES+ILU",
+                    krylov::gmres_preconditioned(matrix, rhs, &ilu, &mut x, &self.config, restart),
+                ) {
                     tracing::debug!(
                         "LinearSolverChain(warm): GMRES+ILU converged in {} iters",
-                        monitor.iteration
+                        report.iterations
                     );
                     return Ok(x);
                 }
-                Err(e) => {
-                    tracing::warn!("LinearSolverChain(warm): GMRES+ILU failed ({e})");
-                }
-            },
+            }
             Err(e) => {
                 tracing::warn!("LinearSolverChain(warm): ILU construction failed ({e})");
             }
@@ -458,14 +465,19 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 6: BiCGSTAB (last resort) ────────────────────────────────────
         reset(&mut x);
-        let bicg = BiCGSTAB::new(self.config);
-        bicg.solve_unpreconditioned(matrix, rhs, &mut x)
-            .map_err(|e| {
-                Error::Solver(format!(
-                    "LinearSolverChain: all solver tiers failed. \
-                         Final BiCGSTAB error: {e}"
-                ))
-            })?;
+        // Last resort: unlike the tiers above this has nowhere to fall through
+        // to, so a non-convergence fails the chain. The specific outcome is
+        // logged by `converged_or_none`.
+        if krylov::converged_or_none(
+            "LinearSolverChain: BiCGSTAB (last resort)",
+            krylov::bicgstab(matrix, rhs, &mut x, &self.config),
+        )
+        .is_none()
+        {
+            return Err(Error::Solver(
+                "LinearSolverChain: all solver tiers failed".to_string(),
+            ));
+        }
 
         tracing::debug!("LinearSolverChain(warm): BiCGSTAB (last resort) converged");
         Ok(x)
