@@ -1,0 +1,44 @@
+[package]
+name = "cfd-schematic-mesh"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+description = "Millifluidic schematic-to-mesh bridge: converts a CFDrs network blueprint into watertight surface meshes."
+keywords = ["cfd", "mesh", "millifluidic", "geometry", "simulation"]
+
+[dependencies]
+# The bridge sits on both sides it connects: the schematic vocabulary it reads
+# and the geometry substrate it writes into. It lives here rather than in the
+# geometry provider so the dependency stays one-way (CFDrs -> gaia).
+cfd-schematics.workspace = true
+cfd-mesh = { workspace = true, features = ["millifluidic"] }
+
+# Supplied by gaia while the pipeline lived there; now declared directly.
+hashbrown.workspace = true
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+cfd-io.workspace = true
+
+[[example]]
+name = "schematic_to_3d_mesh"
+path = "examples/schematic_to_3d_mesh.rs"
+
+[[example]]
+name = "schematic_to_mesh_demo"
+path = "examples/schematic_to_mesh_demo.rs"
+
+[[example]]
+name = "schematic_to_openfoam"
+path = "examples/schematic_to_openfoam.rs"
+
+[[example]]
+name = "millifluidic_shell_tpms"
+path = "examples/millifluidic_shell_tpms.rs"

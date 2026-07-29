@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
 
-use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
+use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig};
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 use cfd_schematics::serpentine_rect;
 

@@ -5,7 +5,7 @@
 //! instead of an unimplemented ad hoc CSG stub.
 
 use cfd_1d::{assess_venturi_screening, evaluate_venturi_screening, VenturiScreeningInput};
-use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
+use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig};
 use cfd_schematics::venturi_rect;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

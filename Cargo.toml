@@ -4,6 +4,7 @@ members = [
     "crates/cfd-math",
     "crates/cfd-io",
     "crates/cfd-schematics",
+    "crates/cfd-schematic-mesh",
     "crates/cfd-1d",
     "crates/cfd-2d",
     "crates/cfd-3d",
@@ -30,6 +31,7 @@ categories = ["science", "simulation"]
 [workspace.dependencies]
 # Core dependencies
 thiserror = "1.0"
+hashbrown = "0.15"
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
@@ -75,7 +77,7 @@ cfd-io = { path = "crates/cfd-io" }
 # Shared crates consumed from their canonical remotes (default branch = latest).
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
 # publish changes there (commit + push), then `cargo update -p <crate>`.
-cfd-mesh = { path = "../gaia", package = "gaia", features = ["cfdrs-integration"] }
+cfd-mesh = { path = "../gaia", package = "gaia" }
 apollo-fft = { path = "../apollo/crates/apollo-fft" }
 apollo-nufft = { path = "../apollo/crates/apollo-nufft" }
 leto = { path = "../leto/crates/leto", default-features = false, features = ["std"] }
@@ -101,6 +103,7 @@ hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
 athena-core = { path = "../athena/crates/athena-core" }
 athena-leto = { path = "../athena/crates/athena-leto" }
 cfd-schematics = { path = "crates/cfd-schematics" }
+cfd-schematic-mesh = { path = "crates/cfd-schematic-mesh" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }
 cfd-3d = { path = "crates/cfd-3d" }

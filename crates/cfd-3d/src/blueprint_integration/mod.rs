@@ -8,8 +8,8 @@ use aequitas::systems::si::quantities::{
 use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::BloodModel;
-use cfd_mesh::application::pipeline::TopologyClass;
-use cfd_mesh::application::pipeline::{
+use cfd_schematic_mesh::TopologyClass;
+use cfd_schematic_mesh::{
     BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace, SegmentCenterline,
 };
 use cfd_schematics::application::ports::GraphSink;
