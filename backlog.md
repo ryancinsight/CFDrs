@@ -31,6 +31,22 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
+  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  scope=`cfd-core::physics::fluid::FluidState`, its cfd-core producers,
+  direct metric consumers/tests, and synchronized audit/design/changelog
+  artifacts).** The live audit found that public `FluidState` fields for
+  density, dynamic viscosity, specific heat, thermal conductivity, and sound
+  speed remain raw scalars; kinematic viscosity, thermal diffusivity, and
+  Reynolds/Prandtl/Peclet/Mach results also erase their dimensions. Carry
+  those values through Aequitas, keeping scalar extraction at numerical
+  formula and Proteus boundaries. Acceptance is a residue-free `FluidState`
+  scan, value-semantic producer and derived-number regressions, focused
+  cfd-core gates, and synchronized audit/ADR/changelog evidence. The broader
+  model-property storage and `FluidProperties` constructor family is outside
+  this increment and remains separately tracked. Eunomia complex values do
+  not enter this real-valued fluid-state contract.
+
 - **CFDRS-AEQ-MET-28 [major] - Type cfd-core solid material metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core` solid-material public contracts, direct implementation/tests,
