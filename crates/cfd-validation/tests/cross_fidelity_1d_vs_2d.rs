@@ -624,7 +624,7 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
 /// Zweifach-Fung approximation against the 2D inertial-lift physics.
 #[test]
 fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
-    use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
+    use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity, VolumetricFlowRate};
     use cfd_1d::cascade_junction_separation;
     use cfd_2d::solvers::cell_tracking::{
         AsymmetricBifurcationFlow, CellPopulation, CellTracker, CellTrackerConfig, OutletZone,
@@ -652,31 +652,31 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
 
     // ── 2D prediction ──
     let flow = AsymmetricBifurcationFlow {
-        parent_width_m: parent_w,
-        parent_height_m: parent_w,
-        wide_daughter_width_m: center_w,
-        narrow_daughter_width_m: periph_w,
-        length_m: 0.015,
-        u_inlet: 0.05,
-        x_split: 0.005,
+        parent_width: Length::from_base(parent_w),
+        parent_height: Length::from_base(parent_w),
+        wide_daughter_width: Length::from_base(center_w),
+        narrow_daughter_width: Length::from_base(periph_w),
+        length: Length::from_base(0.015),
+        u_inlet: Velocity::from_base(0.05),
+        x_split: Length::from_base(0.005),
     };
     let y_div = flow.dividing_streamline_y();
     let config = CellTrackerConfig {
-        viscosity: VISCOSITY,
-        fluid_density: DENSITY,
-        hydraulic_diameter_m: parent_w,
-        u_max: 0.05,
+        viscosity: DynamicViscosity::from_base(VISCOSITY),
+        fluid_density: MassDensity::from_base(DENSITY),
+        hydraulic_diameter: Length::from_base(parent_w),
+        u_max: Velocity::from_base(0.05),
         outlet_zones: vec![
             OutletZone {
                 name: "center".to_string(),
-                x_min: 0.014,
+                x_min: Length::from_base(0.014),
                 y_lo: y_div,
-                y_hi: parent_w,
+                y_hi: Length::from_base(parent_w),
             },
             OutletZone {
                 name: "peripheral".to_string(),
-                x_min: 0.014,
-                y_lo: 0.0,
+                x_min: Length::from_base(0.014),
+                y_lo: Length::from_base(0.0),
                 y_hi: y_div,
             },
         ],
@@ -699,18 +699,18 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
         {
             cells.push(TrackedCell {
                 population: *pop,
-                x: 1e-4,
-                y,
-                vx: 0.03,
-                vy: 0.0,
+                x: Length::from_base(1e-4),
+                y: Length::from_base(y),
+                vx: Velocity::from_base(0.03),
+                vy: Velocity::from_base(0.0),
                 id: i * 3 + pop_idx,
             });
         }
     }
 
-    let trajectories = tracker.trace_cells(&cells, 2e-6, 1_000_000);
+    let trajectories = tracker.trace_cells(&cells, Time::from_base(2e-6), 1_000_000);
     let routing_2d = tracker.classify_routing(&trajectories);
-    let ccf_2d = routing_2d.cancer_center_fraction;
+    let ccf_2d = routing_2d.cancer_center_fraction.into_base();
     let rbc_periph_2d = if routing_2d.rbc_total > 0 {
         1.0 - routing_2d.rbc_center as f64 / routing_2d.rbc_total as f64
     } else {
@@ -719,8 +719,9 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
 
     eprintln!("=== Cross-fidelity cell routing validation ===");
     eprintln!(
-        "Geometry: {parent_w:.1e} m parent, {:.0}% center, y_div = {y_div:.6} m",
-        center_frac * 100.0
+        "Geometry: {parent_w:.1e} m parent, {:.0}% center, y_div = {:.6} m",
+        center_frac * 100.0,
+        y_div.into_base()
     );
     eprintln!(
         "1D Zweifach-Fung:  cancer_center = {ccf_1d:.3}, rbc_peripheral = {rbc_periph_1d:.3}"

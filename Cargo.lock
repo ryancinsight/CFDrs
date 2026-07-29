@@ -452,6 +452,7 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "anyhow",
+ "athena-leto",
  "cfd-1d",
  "cfd-core",
  "cfd-io",
@@ -4234,42 +4235,6 @@ dependencies = [
 ]
 
 [[patch.unused]]
-name = "horae"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "asclepius"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "asclepius-coeus"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "hephaestus-cuda"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "hephaestus-metal"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "hephaestus-rocm"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "consus-npy"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "ritk-core"
 version = "0.9.0"
 
@@ -4284,3 +4249,39 @@ version = "0.2.0"
 [[patch.unused]]
 name = "ritk-registration"
 version = "0.53.0"
+
+[[patch.unused]]
+name = "asclepius"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "asclepius-coeus"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-npy"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-onnx"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-zarr"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "horae"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "hephaestus-cuda"
+version = "0.18.0"
+
+[[patch.unused]]
+name = "hephaestus-metal"
+version = "0.18.0"
+
+[[patch.unused]]
+name = "hephaestus-rocm"
+version = "0.18.0"
