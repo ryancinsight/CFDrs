@@ -37,7 +37,7 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
 }
 
 fn bench_cg_small_spd(c: &mut Criterion) {
-    use cfd_math::iterative::{preconditioners::IdentityPreconditioner, ConjugateGradient, IterativeSolverConfig, }};
+    use cfd_math::iterative::{preconditioners::IdentityPreconditioner, ConjugateGradient, IterativeSolverConfig};
     use leto_ops::CsrMatrix;
 
     fn spd(n: usize) -> CsrMatrix<f64> {

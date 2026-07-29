@@ -9,6 +9,7 @@ pub mod block_preconditioner;
 pub mod chain;
 pub mod dense_bridge;
 pub mod direct_solver;
+pub mod krylov;
 pub mod preconditioners;
 
 // Re-export the SSOT `Preconditioner` trait so internal sub-modules can use
@@ -20,8 +21,10 @@ pub use crate::iterative::IterativeSolverConfig;
 
 // Re-export solver types for convenience
 pub use crate::iterative::{BiCGSTAB, GMRES};
-pub use block_preconditioner::{BlockDiagonalPreconditioner, DiagonalPreconditioner, SimplePreconditioner};
-pub use direct_solver::DirectSparseSolver;
-pub use preconditioners::{AlgebraicMultigrid, IncompleteLU};
-pub use preconditioners::multigrid::AMGConfig;
+pub use block_preconditioner::{
+    BlockDiagonalPreconditioner, DiagonalPreconditioner, SimplePreconditioner,
+};
 pub use chain::{LinearSolverChain, LinearSolverState};
+pub use direct_solver::DirectSparseSolver;
+pub use preconditioners::multigrid::AMGConfig;
+pub use preconditioners::{AlgebraicMultigrid, IncompleteLU};

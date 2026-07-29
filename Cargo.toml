@@ -96,6 +96,10 @@ moirai = { path = "../moirai/moirai", default-features = false, features = ["par
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
 hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
+# athena: backend-neutral Krylov solver suite (athena-core = contracts,
+# athena-leto = Leto CPU backend). Used by cfd-math/linear_solver/krylov.rs.
+athena-core = { path = "../athena/crates/athena-core" }
+athena-leto = { path = "../athena/crates/athena-leto" }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }

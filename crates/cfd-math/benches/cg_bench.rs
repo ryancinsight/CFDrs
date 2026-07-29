@@ -1,4 +1,4 @@
-use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig}};
+use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use leto::Array1;
 use leto_ops::CsrMatrix;

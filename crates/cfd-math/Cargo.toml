@@ -22,6 +22,8 @@ serde = { workspace = true, features = ["derive"] }
 bytemuck.workspace = true
 futures = { version = "0.3", optional = true }
 rand.workspace = true
+athena-core.workspace = true
+athena-leto.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
