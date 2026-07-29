@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-27 [major] - Type 2D cell-tracking physical metrics
+  (in-progress; owner=current Codex session; claimed 2026-07-29; scope=
+  `cfd-2d` cell-tracking public contracts, direct callers/tests, and
+  synchronized audit/design/changelog artifacts).** The current source audit
+  found an unrecorded public physical boundary: cell positions, trajectory
+  time, velocity-field coordinates/velocities, cell diameter/density, fluid
+  viscosity/density, hydraulic geometry, and bifurcation geometry still use
+  raw scalars. Carry those values through Aequitas, extract only at the
+  numerical formula and solver-storage boundaries, and keep routing fractions
+  dimensionless. Acceptance is a residue-free public-field scan, value-
+  semantic trajectory/routing regressions, focused cfd-2d gates, and
+  synchronized gap-audit/design/changelog evidence. Eunomia complex values do
+  not enter this real-valued particle-tracking contract.
+
 - **CFDRS-AEQ-MET-26 [major] - Type blueprint cross-fidelity trace metrics
   (VERIFIED 2026-07-28; owner=Codex; claimed 2026-07-28; scope=`cfd-3d` blueprint
   integration configuration and public channel/node trace contracts, their
