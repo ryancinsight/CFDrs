@@ -2,8 +2,8 @@ use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::iterative::IterativeLinearSolver;
-use cfd_math::iterative::preconditioners::SORPreconditioner;
+use athena_leto::SuccessiveOverRelaxation;
+use cfd_math::linear_solver::krylov;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
@@ -129,36 +129,48 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         // between SIMPLE corrections.  ω=1 is the Gauss–Seidel preconditioner;
         // it requires no problem-specific relaxation estimate and is stable for
         // the positive diagonal momentum operator.
-        let preconditioner = SORPreconditioner::new(matrix.clone(), T::one()).map_err(|error| {
-            cfd_core::error::Error::Solver(format!(
-                "Momentum SOR preconditioner construction failed for {component:?}: {error}"
-            ))
-        })?;
-        let solve_result: cfd_core::error::Result<()> = self
-            .linear_solver
-            .solve(matrix, rhs, &mut solution, Some(&preconditioner))
-            .map(|_| ())
-            .map_err(cfd_core::error::Error::from);
-        match solve_result {
-            Ok(()) => {}
-            Err(cfd_core::error::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
-            )) => {
+        // Athena's SOR borrows the matrix where the former preconditioner took
+        // ownership, so rebuilding it per coefficient update no longer copies
+        // the operator.
+        let preconditioner =
+            // Momentum assembly omits the diagonal of rows carrying no
+            // self-coupling, which the strict constructor rejects. The
+            // former preconditioner defaulted those to a unit pivot
+            // silently; here that is opted into.
+            SuccessiveOverRelaxation::from_csr_with_identity_rows(matrix, T::one()).map_err(
+                |error| {
+                    cfd_core::error::Error::Solver(format!(
+                        "Momentum SOR preconditioner construction failed for {component:?}: {error}"
+                    ))
+                },
+            )?;
+        let outcome = krylov::interpret(
+            "momentum",
+            krylov::gmres_preconditioned(
+                matrix,
+                rhs,
+                &preconditioner,
+                &mut solution,
+                &self.linear_solver_config,
+                super::solver::MOMENTUM_RESTART,
+            ),
+        )?;
+        match outcome {
+            krylov::SolveOutcome::Converged(_) => {}
+            krylov::SolveOutcome::Stalled(report) => {
+                let max = report.iterations;
                 tracing::warn!(
                     component = ?component,
                     max_iterations = max,
                     "Momentum iterative solve stalled; keeping last iterate as approximate solution"
                 );
             }
-            Err(cfd_core::error::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Breakdown,
-            )) => {
+            krylov::SolveOutcome::BrokenDown(_) => {
                 tracing::warn!(
                     component = ?component,
                     "Momentum iterative solve broke down; keeping last iterate as approximate solution"
                 );
             }
-            Err(error) => return Err(error),
         }
 
         // Update velocity field

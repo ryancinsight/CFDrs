@@ -10,6 +10,7 @@ description = "2D CFD solvers including FDM, FVM, and LBM implementations"
 
 [dependencies]
 cfd-core.workspace = true
+athena-leto.workspace = true
 cfd-math.workspace = true
 cfd-mesh.workspace = true
 cfd-io.workspace = true

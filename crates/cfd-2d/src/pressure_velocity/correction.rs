@@ -28,12 +28,12 @@ use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::iterative::IterativeLinearSolver;
 use cfd_math::iterative::preconditioners::IdentityPreconditioner;
+use cfd_math::iterative::IterativeLinearSolver;
 use cfd_math::multigrid::AlgebraicMultigrid;
 use eunomia::FloatElement;
 use leto::Array1;
-use leto_ops::{Scalar as LetoScalar, norm_l2};
+use leto_ops::{norm_l2, Scalar as LetoScalar};
 use std::fmt::Debug;
 
 /// Largest pressure system for which default AMG setup stays within the

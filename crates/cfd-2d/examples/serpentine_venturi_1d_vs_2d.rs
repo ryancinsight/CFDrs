@@ -32,8 +32,8 @@
 
 #![allow(clippy::cast_precision_loss)]
 
-use std::fs;
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use std::fs;
 use std::path::PathBuf;
 
 // ── cfd-schematics ──────────────────────────────────────────────────────────

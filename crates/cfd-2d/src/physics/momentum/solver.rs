@@ -16,7 +16,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::{IterativeSolverConfig, GMRES};
+use cfd_math::iterative::IterativeSolverConfig;
 
 use crate::scalar::Cfd2dScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
@@ -33,14 +33,24 @@ pub enum MomentumComponent {
     V,
 }
 
+/// GMRES restart width for the momentum operator.
+///
+/// Thirty is the width the former stateful solver was constructed with; the
+/// Athena ladder rounds it to the next instantiation.
+pub(crate) const MOMENTUM_RESTART: usize = 30;
+
 /// Momentum equation solver for 2D incompressible flow
 pub struct MomentumSolver<T: Cfd2dScalar + Copy> {
     /// Grid reference for boundary condition calculations
     pub(crate) grid: StructuredGrid2D<T>,
     /// Boundary conditions
     pub(crate) boundary_conditions: HashMap<String, BoundaryCondition<T>>,
-    /// Linear solver
-    pub(crate) linear_solver: GMRES<T>,
+    /// Linear solver configuration.
+    ///
+    /// Athena solvers are stateless markers with caller-owned workspaces, so
+    /// the solver is no longer an object to hold: the configuration is the
+    /// state, and each solve constructs its own workspace.
+    pub(crate) linear_solver_config: IterativeSolverConfig<T>,
 
     /// Convection discretization scheme
     pub(crate) convection_scheme: ConvectionScheme,
@@ -68,12 +78,12 @@ pub struct MomentumSolver<T: Cfd2dScalar + Copy> {
 impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
     /// Create new momentum solver with default deferred correction scheme
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
-        let linear_solver = GMRES::new(Self::linear_solver_config(), 30);
+        let linear_solver_config = Self::linear_solver_config();
 
         Self {
             grid: grid.clone(),
             boundary_conditions: HashMap::new(),
-            linear_solver,
+            linear_solver_config,
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: <T as FloatElement>::from_f64(0.7),
             turbulence_model: None,
@@ -112,12 +122,12 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
 
     /// Create new momentum solver with specified convection scheme
     pub fn with_convection_scheme(grid: &StructuredGrid2D<T>, scheme: ConvectionScheme) -> Self {
-        let linear_solver = GMRES::new(Self::linear_solver_config(), 30);
+        let linear_solver_config = Self::linear_solver_config();
 
         Self {
             grid: grid.clone(),
             boundary_conditions: HashMap::new(),
-            linear_solver,
+            linear_solver_config,
             convection_scheme: scheme,
             velocity_relaxation: <T as FloatElement>::from_f64(0.7),
             turbulence_model: None,
@@ -207,11 +217,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
     }
 
     fn linear_solver_config() -> IterativeSolverConfig<T> {
-        IterativeSolverConfig::new(
-            <T as FloatElement>::from_f64(crate::constants::solver::DEFAULT_TOLERANCE),
-        ).with_max_iterations(crate::constants::solver::DEFAULT_MAX_ITERATIONS)
-
-
+        IterativeSolverConfig::new(<T as FloatElement>::from_f64(
+            crate::constants::solver::DEFAULT_TOLERANCE,
+        ))
+        .with_max_iterations(crate::constants::solver::DEFAULT_MAX_ITERATIONS)
     }
 
     /// Set the linear tolerance used by the SIMPLE outer iteration.
@@ -221,9 +230,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
     /// spends work without improving the outer fixed point.  The caller owns
     /// the tolerance derivation from its pressure-velocity configuration.
     pub(crate) fn set_linear_solver_tolerance(&mut self, tolerance: T) {
-        let mut config = Self::linear_solver_config();
-        config.tolerance = tolerance;
-        self.linear_solver = GMRES::new(config, 30);
+        self.linear_solver_config.tolerance = tolerance;
     }
 
     /// Get the last computed A_p and A_p_consistent coefficients for both velocity components
@@ -356,7 +363,7 @@ mod tests {
     use crate::grid::StructuredGrid2D;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
     use cfd_math::iterative::preconditioners::IdentityPreconditioner;
-    use cfd_math::iterative::{IterativeLinearSolver};
+    use cfd_math::iterative::IterativeLinearSolver;
     use leto::geometry::Vector3;
     use leto::Array1;
 
@@ -431,27 +438,17 @@ mod tests {
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);
-        solver
-            .linear_solver
-            .solve(
-                matrix,
-                rhs,
-                &mut gmres_solution,
-                None::<&IdentityPreconditioner>,
-            )
-            .expect("GMRES solve should succeed");
+        cfd_math::linear_solver::krylov::gmres(
+            matrix,
+            rhs,
+            &mut gmres_solution,
+            &solver.linear_solver_config,
+            MOMENTUM_RESTART,
+        )
+        .expect("GMRES solve should succeed");
         assert!(
             gmres_solution[row] > 0.0,
             "GMRES solve should produce a positive interior response"
         );
-
-
-
-
-
-
-
-
-}
-
+    }
 }

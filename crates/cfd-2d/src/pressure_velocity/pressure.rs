@@ -20,8 +20,8 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, GMRES};
+use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;
 use leto::{geometry::Vector2, Array1};
@@ -58,8 +58,9 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
         grid: StructuredGrid2D<T>,
         solver_type: PressureLinearSolver,
     ) -> cfd_core::error::Result<Self> {
-        let config = cfd_math::iterative::IterativeSolverConfig::new(
-            <T as FloatElement>::from_f64(1e-3)).with_max_iterations(200);
+        let config =
+            cfd_math::iterative::IterativeSolverConfig::new(<T as FloatElement>::from_f64(1e-3))
+                .with_max_iterations(200);
 
         let gmres_solver = match solver_type {
             PressureLinearSolver::GMRES { restart_dim } => Some(GMRES::new(config, restart_dim)),

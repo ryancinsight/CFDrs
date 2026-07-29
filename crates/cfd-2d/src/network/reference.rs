@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use aequitas::systems::si::quantities::Pressure;
 use crate::scalar::Cfd2dScalar;
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::BoundaryCondition;
 use cfd_1d::{

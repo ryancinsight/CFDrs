@@ -12,8 +12,8 @@
 //! ladder is safe, and only trades memory for a slightly deeper subspace.
 
 use athena_core::{
-    BiCgStab, BiCgStabWorkspace, ConvergencePolicy, Gmres, GmresWorkspace, Identity,
-    LinearOperator, Preconditioner, SolveError, SolveReport,
+    BiCgStab, BiCgStabWorkspace, Cg, CgWorkspace, ConvergencePolicy, Gmres, GmresWorkspace,
+    Identity, LinearOperator, Preconditioner, SolveError, SolveReport, Termination,
 };
 use athena_leto::{BorrowedCsrOperator, LetoBackend, LetoBackendError};
 use eunomia::{FloatElement, RealField};
@@ -193,6 +193,127 @@ where
         &mut workspace,
         policy,
     )
+}
+
+/// Solve `A·x = b` with preconditioned conjugate gradients.
+///
+/// The operator must be symmetric positive definite; CG has no contract for
+/// anything else and reports non-positive curvature rather than converging.
+///
+/// # Errors
+///
+/// See [`gmres_preconditioned`].
+pub fn cg_preconditioned<T, P>(
+    matrix: &CsrMatrix<T>,
+    right_hand_side: &Array1<T>,
+    preconditioner: &P,
+    solution: &mut Array1<T>,
+    config: &IterativeSolverConfig<T>,
+) -> KrylovResult<T>
+where
+    T: RealScalar + RealField + FloatElement,
+    P: Preconditioner<LetoBackend<T>>,
+{
+    let backend = LetoBackend::<T>::default();
+    let operator = BorrowedCsrOperator::new(matrix).map_err(SolveError::Backend)?;
+    let policy = convergence_policy(config)?;
+    let mut workspace = CgWorkspace::new(&backend, LinearOperator::dimension(&operator))
+        .map_err(SolveError::Backend)?;
+    Cg::<LetoBackend<T>>::solve_into(
+        &backend,
+        &operator,
+        preconditioner,
+        right_hand_side,
+        solution,
+        &mut workspace,
+        policy,
+    )
+}
+
+/// Solve `A·x = b` with conjugate gradients and no preconditioner.
+///
+/// # Errors
+///
+/// See [`gmres_preconditioned`].
+pub fn cg<T>(
+    matrix: &CsrMatrix<T>,
+    right_hand_side: &Array1<T>,
+    solution: &mut Array1<T>,
+    config: &IterativeSolverConfig<T>,
+) -> KrylovResult<T>
+where
+    T: RealScalar + RealField + FloatElement,
+{
+    cg_preconditioned(matrix, right_hand_side, &Identity, solution, config)
+}
+
+/// Interpret an Athena solve outcome in CFD terms.
+///
+/// Athena reports numerical termination value-semantically in its
+/// [`SolveReport`] rather than as an error, so an exhausted budget arrives as
+/// `Ok`. CFD callers treat a stalled solve as a recoverable condition — the
+/// last iterate is still a usable approximation inside an outer nonlinear
+/// loop — while a genuine breakdown is not, so the two are separated here
+/// instead of at each of the call sites.
+///
+/// # Errors
+///
+/// Returns [`cfd_core::error::Error::Solver`] for a dimension, backend, or
+/// numerical-breakdown outcome, naming `context`.
+pub fn interpret<T>(
+    context: &str,
+    outcome: KrylovResult<T>,
+) -> Result<SolveOutcome<T>, cfd_core::error::Error>
+where
+    T: RealField + Copy,
+{
+    let report = outcome.map_err(|error| {
+        cfd_core::error::Error::Solver(format!("{context}: linear solve failed: {error}"))
+    })?;
+    match report.termination {
+        Termination::Converged | Termination::InitialResidual | Termination::NormalEquations => {
+            Ok(SolveOutcome::Converged(report))
+        }
+        Termination::MaxIterations => Ok(SolveOutcome::Stalled(report)),
+        // Breakdown leaves the last iterate intact. Whether that is usable is
+        // the caller's judgement — an outer nonlinear loop can often continue
+        // from it — so it is reported rather than raised.
+        Termination::Breakdown | Termination::NonPositiveCurvature => {
+            Ok(SolveOutcome::BrokenDown(report))
+        }
+        other => Err(cfd_core::error::Error::Solver(format!(
+            "{context}: linear solve terminated as {other:?}"
+        ))),
+    }
+}
+
+/// Outcome of an interpreted CFD linear solve.
+#[derive(Clone, Copy, Debug)]
+pub enum SolveOutcome<T> {
+    /// The solve met its convergence policy.
+    Converged(SolveReport<T>),
+    /// The iteration budget was exhausted. The last iterate remains a usable
+    /// approximation for an outer nonlinear iteration.
+    Stalled(SolveReport<T>),
+    /// The recurrence broke down. The last iterate is still present; whether
+    /// it is usable is the caller's judgement.
+    BrokenDown(SolveReport<T>),
+}
+
+impl<T> SolveOutcome<T> {
+    /// The report, whichever way the solve ended.
+    #[must_use]
+    pub const fn report(&self) -> &SolveReport<T> {
+        match self {
+            Self::Converged(report) | Self::Stalled(report) | Self::BrokenDown(report) => report,
+        }
+    }
+
+    /// Whether the solve met its convergence policy.
+    #[must_use]
+    pub const fn converged(&self) -> bool {
+        matches!(self, Self::Converged(_))
+    }
 }
 
 #[cfg(test)]
