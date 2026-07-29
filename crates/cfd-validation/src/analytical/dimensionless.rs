@@ -1,4 +1,8 @@
-//! Utility functions for analytical solutions
+//! Dimensionless flow numbers and aerodynamic force coefficients.
+//!
+//! Provides standard non-dimensional parameters used in analytical solutions
+//! and solution validation: Reynolds, Peclet, Strouhal, Froude, Mach numbers
+//! and drag/lift/pressure/friction coefficients.
 
 use crate::scalar;
 use eunomia::FloatElement;

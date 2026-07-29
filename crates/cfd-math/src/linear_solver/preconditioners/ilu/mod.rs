@@ -7,7 +7,7 @@ mod ilu0;
 mod iluk;
 mod triangular;
 mod types;
-mod utils;
+mod csr_search;
 
 pub use types::IncompleteLU;
 

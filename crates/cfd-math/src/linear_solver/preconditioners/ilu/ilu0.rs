@@ -22,7 +22,7 @@ pub fn factorize<T: RealField + Copy + LetoScalar>(a: &CsrMatrix<T>) -> Result<C
 
     // ILU(0) factorization
     for k in 0..n - 1 {
-        let diag_idx = utils::find_diagonal_index(&lu_offsets, &lu_indices, k)?;
+        let diag_idx = csr_search::find_diagonal_index(&lu_offsets, &lu_indices, k)?;
         let a_kk = lu_vals[diag_idx];
 
         if a_kk.abs() <= <T as RealField>::EPSILON {

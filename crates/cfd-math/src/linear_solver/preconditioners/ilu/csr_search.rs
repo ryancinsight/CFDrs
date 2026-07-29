@@ -1,4 +1,4 @@
-//! Utility functions for ILU factorization
+//! CSR diagonal-index search for ILU factorization.
 
 use cfd_core::error::{Error, Result};
 
