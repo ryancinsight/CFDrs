@@ -144,6 +144,7 @@ pub mod fd_extensions;
 pub mod high_order;
 pub mod iterators;
 pub mod nonlinear_solver;
+pub mod optimization;
 pub mod pressure_velocity;
 pub mod simd;
 pub mod sparse;
