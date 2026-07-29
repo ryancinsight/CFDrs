@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-28 [major] - Type cfd-core solid material metrics
-  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core` solid-material public contracts, direct implementation/tests,
   and synchronized audit/design/changelog artifacts).** The current source audit
   found an unrecorded public physical boundary: `SolidProperties` and
@@ -43,7 +43,12 @@
   residue-free solid-contract scan, typed steel/aluminum value regressions,
   focused cfd-core gates, and synchronized audit/ADR/changelog evidence.
   Eunomia complex values do not enter this real-valued isotropic-material
-  contract; complex constitutive data remains outside this item.
+  contract; complex constitutive data remains outside this item. The pinned
+  cfd-core test-target check passes; material Nextest passes 4/4 with 255
+  skipped (`9976af5f-f4c8-4415-bb47-04f5fc01cb1a`); cfd-core doctests pass
+  3/3; targeted rustfmt, diff, residue scan, and warning-denied Clippy pass.
+  The broader fluid `FluidState`/`FluidProperties` raw metric family remains
+  open as the next dependency-ordered item.
 
 - **CFDRS-AEQ-MET-27 [major] - Type 2D cell-tracking physical metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29; scope=

@@ -31,6 +31,28 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Solid material metric refresh (2026-07-29, CFDRS-AEQ-MET-28)
+
+The source audit found a public cfd-core material family that was not present
+in the earlier Aequitas rows: `SolidProperties` and `ElasticSolid` exposed
+density, Young's modulus, thermal conductivity, specific heat capacity, and
+thermal expansion as raw scalars. The closure carries `MassDensity`,
+`Pressure`, `ThermalConductivity`, `SpecificHeatCapacity`, and
+`ReciprocalTemperature` through the public contract. Poisson's ratio and the
+derived shear-modulus ratio remain `Dimensionless`; the shear-modulus result
+is a typed `Pressure`.
+
+This is a real-valued isotropic-material contract (`T: FloatElement + Copy`),
+so Eunomia `Complex<T>` and an imaginary-unit Aequitas quantity are not
+applicable. Complex constitutive data, if introduced later, requires a
+separate provider-backed contract rather than widening this real trait.
+
+The focused cfd-core check and material tests are the acceptance gates. The
+broader fluid `FluidState`/`FluidProperties` and remaining constitutive model
+fields still expose raw SI scalars across many implementors; they remain the
+next dependency-ordered Aequitas item and are not misreported as closed by
+this solid-material increment.
+
 ## Eunomia complex compatibility refresh (2026-07-28)
 
 CFDrs uses Eunomia `Complex<T>` inside Womersley/Bessel and spectral stability

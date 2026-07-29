@@ -14,6 +14,7 @@
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
 | **Aequitas-owned cavitation physical metrics** | 2026-07-28 | cfd-3d VOF and shared cfd-core cavitation contracts exposed unit-bearing scalars for surface tension, radius, number density, time, pressure, density, sound speed, viscosity, frequency, and derived outputs | SurfaceTension, Length, NumberDensity, Time, Pressure, MassDensity, Velocity, DynamicViscosity, Frequency, Angle, Volume, ThermalDiffusivity, MassDensityRate, ThermodynamicTemperature, Energy, and Dimensionless remain typed through public contracts; formula and dense-field boundaries extract explicitly | Breaking change for external cavitation constructors and callers |
 | **Aequitas-owned blueprint cross-fidelity metrics** | 2026-07-28 | cfd-3d blueprint traces exposed reference density, viscosity, flow, volume, pressure, velocity, and nodal flow residuals as public raw scalars | MassDensity, DynamicViscosity, VolumetricFlowRate, Volume, Pressure, and Velocity remain typed through blueprint configuration and channel/node traces; cfd-1d/cfd-2d adapters and millimetre mesh DTOs are explicit scalar boundaries | Breaking change for external blueprint trace consumers |
+| **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -82,6 +83,31 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-29: Aequitas owns cfd-core solid material metrics [major] [arch]
+
+Context: `cfd-core::physics::material` documented density, Young's modulus,
+thermal conductivity, specific heat capacity, and thermal expansion in SI
+units but exposed raw scalar fields and trait results.
+
+Decision: carry `MassDensity`, `Pressure`, `ThermalConductivity`,
+`SpecificHeatCapacity`, and `ReciprocalTemperature` through `SolidProperties`
+and `ElasticSolid`. Keep Poisson's ratio and the derived shear-modulus ratio
+dimensionless. The shear-modulus implementation retains the typed pressure
+operation; scalar extraction is not needed at this formula boundary.
+
+Rejected alternative: retaining scalar fields or adding typed accessors beside
+them would preserve dimensional ambiguity and duplicate the material owner.
+
+Consequences: external solid-property implementors and `ElasticSolid` field
+initializers require an explicit Aequitas quantity. This contract remains
+real-valued because the trait requires Eunomia `FloatElement`; complex
+constitutive values are not silently admitted as an imaginary-unit metric.
+
+Verification: the cfd-core test-target check, focused material Nextest,
+doctest, and warning-denied Clippy gates are required by
+`CFDRS-AEQ-MET-28`. See
+[`solid-material-metrics.md`](atlas-migration/solid-material-metrics.md).
 
 ### 2026-07-24: Aequitas owns vascular metrics [major] [arch]
 

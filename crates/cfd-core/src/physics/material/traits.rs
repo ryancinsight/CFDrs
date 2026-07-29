@@ -3,34 +3,38 @@
 //! This module provides abstractions for non-fluid material properties
 //! used in Fluid-Structure Interaction (FSI) and multi-phase simulations.
 
-use aequitas::systems::si::quantities::{Angle, EnergyPerArea, SurfaceTension};
+use aequitas::systems::si::quantities::{
+    Angle, Dimensionless, EnergyPerArea, MassDensity, Pressure, ReciprocalTemperature,
+    SpecificHeatCapacity, SurfaceTension, ThermalConductivity,
+};
 use eunomia::{FloatElement, NumericElement};
 
 /// Solid properties abstraction for structural and thermal analysis
 pub trait SolidProperties<T: FloatElement + Copy>: Send + Sync {
     /// Get density [kg/m³]
-    fn density(&self) -> T;
+    fn density(&self) -> MassDensity<T>;
 
     /// Get Young's modulus \[Pa]
-    fn youngs_modulus(&self) -> T;
+    fn youngs_modulus(&self) -> Pressure<T>;
 
     /// Get Poisson's ratio [-]
-    fn poissons_ratio(&self) -> T;
+    fn poissons_ratio(&self) -> Dimensionless<T>;
 
     /// Get shear modulus \[Pa]
-    fn shear_modulus(&self) -> T {
-        let two = <T as NumericElement>::ONE + <T as NumericElement>::ONE;
-        self.youngs_modulus() / (two * (<T as NumericElement>::ONE + self.poissons_ratio()))
+    fn shear_modulus(&self) -> Pressure<T> {
+        let two = Dimensionless::from_base(<T as NumericElement>::ONE + <T as NumericElement>::ONE);
+        let one = Dimensionless::from_base(<T as NumericElement>::ONE);
+        self.youngs_modulus() / (two * (one + self.poissons_ratio()))
     }
 
     /// Get thermal conductivity [W/(m·K)]
-    fn thermal_conductivity(&self) -> T;
+    fn thermal_conductivity(&self) -> ThermalConductivity<T>;
 
     /// Get specific heat capacity [J/(kg·K)]
-    fn specific_heat(&self) -> T;
+    fn specific_heat(&self) -> SpecificHeatCapacity<T>;
 
     /// Get thermal expansion coefficient [1/K]
-    fn thermal_expansion(&self) -> T;
+    fn thermal_expansion(&self) -> ReciprocalTemperature<T>;
 }
 
 /// Interface properties for multi-phase and surface physics

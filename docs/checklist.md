@@ -22,6 +22,29 @@ See [`cell-tracking-physical-metrics.md`](atlas-migration/cell-tracking-physical
 
 ---
 
+# Sprint 1.96.169 Checklist: typed cfd-core solid material metrics
+
+**Goal**: Carry the public isotropic solid-material contract through Aequitas.
+
+**Success Criteria**:
+- [x] `SolidProperties` and `ElasticSolid` use typed density, modulus,
+      conductivity, heat capacity, and expansion metrics.
+- [x] Poisson's ratio and derived ratios remain `Dimensionless`, and no
+      compatibility accessors retain the raw public contract.
+- [x] Eunomia complex compatibility is documented as not applicable to this
+      real-valued material trait.
+- [x] Focused cfd-core check, material Nextest, doctest, and warning-denied
+      Clippy gates pass.
+
+**Closure**: Implemented and focused-verified on 2026-07-29. The pinned
+cfd-core test-target check passes; material Nextest passes 4/4 with 255
+skipped (run `9976af5f-f4c8-4415-bb47-04f5fc01cb1a`); doctests pass 3/3; and
+targeted rustfmt, residue, and warning-denied Clippy gates pass. The broader
+fluid property family remains a separate follow-up item. See
+[`solid-material-metrics.md`](atlas-migration/solid-material-metrics.md).
+
+---
+
 # Sprint 1.96.167 Checklist: cfd-math native sparse-LU result ownership
 **Goal**: Consume the provider-owned native array view/result boundary from
 the direct solver without redundant consumer-side allocations.

@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public cfd-core solid-material contract with Aequitas
+  `MassDensity`, `Pressure`, `ThermalConductivity`, `SpecificHeatCapacity`,
+  `ReciprocalTemperature`, and `Dimensionless` for Poisson's ratio. Solid
+  material implementations and consumers now use typed values without a
+  compatibility facade; the real-valued Eunomia contract remains explicit.
+  See [`solid-material-metrics.md`](docs/atlas-migration/solid-material-metrics.md).
+
 - **Breaking**: Type the public `cfd-2d` cell-tracking contract with Aequitas
   `Length`, `Velocity`, `Time`, `MassDensity`, and `DynamicViscosity`, and
   represent routing fractions with `Dimensionless`. Trajectory samples now use
