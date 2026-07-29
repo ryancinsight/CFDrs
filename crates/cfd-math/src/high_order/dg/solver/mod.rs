@@ -7,14 +7,14 @@ mod time_integration;
 
 pub use time_integration::*;
 
-use leto_ops::legendre_poly;
 use super::{
-    matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
-    vector_zeros, DGOperator,
+    matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element, vector_zeros,
+    DGOperator,
 };
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};
+use leto_ops::legendre_poly;
 use std::time::Instant;
 
 /// Solver for time-dependent PDEs using DG methods

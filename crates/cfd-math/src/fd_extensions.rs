@@ -129,7 +129,11 @@ pub fn laplacian_2d<T: RealField + FloatElement + Copy>(
 ///
 /// # Errors
 /// Returns an error if the input array has fewer than 2 points.
-pub fn first_derivative_simd(values: &[f32], spacing: f32, scheme: FiniteDifferenceScheme) -> Result<Vec<f32>> {
+pub fn first_derivative_simd(
+    values: &[f32],
+    spacing: f32,
+    scheme: FiniteDifferenceScheme,
+) -> Result<Vec<f32>> {
     if values.len() < 2 {
         return Err(Error::InvalidConfiguration(
             "Need at least 2 points for differentiation".to_string(),
@@ -142,7 +146,10 @@ pub fn first_derivative_simd(values: &[f32], spacing: f32, scheme: FiniteDiffere
 
     if scheme != FiniteDifferenceScheme::Central {
         let fd = FiniteDifference::new(scheme, spacing);
-        return fd.first_derivative(values).map_err(Error::from).map(|arr| arr.iter().copied().collect());
+        return fd
+            .first_derivative(values)
+            .map_err(Error::from)
+            .map(|arr| arr.iter().copied().collect());
     }
 
     if n > 2 {

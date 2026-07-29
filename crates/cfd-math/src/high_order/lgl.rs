@@ -154,7 +154,11 @@ mod tests {
                 } else {
                     0.0
                 };
-                let integral: f64 = nodes.iter().zip(weights.iter()).map(|(&x, &w)| w * x.powi(d as i32)).sum();
+                let integral: f64 = nodes
+                    .iter()
+                    .zip(weights.iter())
+                    .map(|(&x, &w)| w * x.powi(d as i32))
+                    .sum();
                 assert!(
                     (integral - exact).abs() < 1e-10,
                     "LGL order={order} n_pts={n_pts} degree={d}: got {integral}, expected {exact}"

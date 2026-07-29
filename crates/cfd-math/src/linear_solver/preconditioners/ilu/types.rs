@@ -15,10 +15,16 @@ fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
 
-fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> std::result::Result<(), LetoError> {
+fn validate_vector_len<T>(
+    name: &str,
+    vector: &Array1<T>,
+    expected: usize,
+) -> std::result::Result<(), LetoError> {
     let actual = vector_len(vector);
     if actual != expected {
-        return Err(LetoError::InvalidInput(format!("{name} length mismatch: expected {expected}, got {actual}")));
+        return Err(LetoError::InvalidInput(format!(
+            "{name} length mismatch: expected {expected}, got {actual}"
+        )));
     }
     Ok(())
 }

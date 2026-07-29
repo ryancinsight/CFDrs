@@ -109,8 +109,7 @@ fn test_bicgstab_solver_validation() {
     let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let solver = BiCGSTAB::new(config);
     let preconditioner_matrix = basic_preconditioner_matrix(&a);
-    let jacobi =
-        JacobiPreconditioner::from_matrix(&preconditioner_matrix);
+    let jacobi = JacobiPreconditioner::from_matrix(&preconditioner_matrix);
 
     solver
         .solve(&a, &b, &mut x, Some(&jacobi))
@@ -219,8 +218,7 @@ fn test_solver_convergence_matrix_conditions() {
         let mut x = Array1::zeros([4]);
 
         // ✅ Test robustness across condition numbers
-        let config =
-            cfd_math::iterative::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
+        let config = cfd_math::iterative::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
         let solver = BiCGSTAB::new(config);
 
         solver

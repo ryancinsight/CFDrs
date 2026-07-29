@@ -187,13 +187,11 @@ pub mod iterative {
     /// Preconditioner implementations (Identity, Jacobi, ILU, SOR, SSOR).
     pub mod preconditioners {
         pub use leto_ops::{
-            ILUPreconditioner, IdentityPreconditioner, JacobiPreconditioner,
-            SORPreconditioner, SSORPreconditioner,
+            ILUPreconditioner, IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
+            SSORPreconditioner,
         };
     }
 }
-
-
 
 /// Re-export the SSOT interpolation types from `leto-ops`.
 ///

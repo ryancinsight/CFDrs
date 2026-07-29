@@ -18,11 +18,11 @@
 //! 3. Murphy, Golub & Wathen (2000): "A Note on Preconditioning for Indefinite Linear Systems"
 
 use crate::linear_solver::Preconditioner;
-use leto::LetoError;
 use crate::sparse::SparseMatrix;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
+use leto::LetoError;
 use leto_ops::Scalar as LetoScalar;
 
 #[inline]
@@ -46,7 +46,11 @@ fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
 
-fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> std::result::Result<(), LetoError> {
+fn validate_vector_len<T>(
+    name: &str,
+    vector: &Array1<T>,
+    expected: usize,
+) -> std::result::Result<(), LetoError> {
     let actual = vector_len(vector);
     if actual != expected {
         return Err(LetoError::InvalidInput(format!(
@@ -499,7 +503,9 @@ where
 {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
         validate_vector_len("SIMPLE preconditioner output", z, vector_len(r))?;
-        let result = self.apply(r).map_err(|e| LetoError::InvalidInput(e.to_string()))?;
+        let result = self
+            .apply(r)
+            .map_err(|e| LetoError::InvalidInput(e.to_string()))?;
         for idx in 0..vector_len(z) {
             z[idx] = result[idx];
         }

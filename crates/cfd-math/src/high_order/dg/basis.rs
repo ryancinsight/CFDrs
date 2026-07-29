@@ -234,10 +234,10 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(Array1<f64>, Array1<f64>)> 
     let order = n - 1;
     let (nodes_vec, weights_vec) = lgl::lgl_nodes_and_weights(order)
         .context("computing LGL nodes/weights for Gauss-Lobatto quadrature")?;
-    let nodes = Array1::from_shape_vec([n], nodes_vec)
-        .expect("invariant: LGL returns exactly n nodes");
-    let weights = Array1::from_shape_vec([n], weights_vec)
-        .expect("invariant: LGL returns exactly n weights");
+    let nodes =
+        Array1::from_shape_vec([n], nodes_vec).expect("invariant: LGL returns exactly n nodes");
+    let weights =
+        Array1::from_shape_vec([n], weights_vec).expect("invariant: LGL returns exactly n weights");
     Ok((nodes, weights))
 }
 

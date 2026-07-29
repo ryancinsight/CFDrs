@@ -7,4 +7,3 @@ fn test_undecided_points() {}
 #[ignore]
 #[test]
 fn test_island_points() {}
-

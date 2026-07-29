@@ -192,6 +192,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "athena-core"
+version = "0.1.0"
+dependencies = [
+ "eunomia",
+]
+
+[[package]]
+name = "athena-leto"
+version = "0.1.0"
+dependencies = [
+ "athena-core",
+ "eunomia",
+ "leto",
+ "leto-ops",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -537,6 +554,8 @@ name = "cfd-math"
 version = "0.3.0"
 dependencies = [
  "aequitas",
+ "athena-core",
+ "athena-leto",
  "bytemuck",
  "cfd-core",
  "criterion",
@@ -4215,6 +4234,18 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "horae"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "asclepius"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "asclepius-coeus"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "hephaestus-cuda"
 version = "0.18.0"
 
@@ -4227,15 +4258,15 @@ name = "hephaestus-rocm"
 version = "0.18.0"
 
 [[patch.unused]]
-name = "athena-core"
+name = "consus-npy"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "asclepius"
+name = "consus-onnx"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "asclepius-coeus"
+name = "consus-zarr"
 version = "0.1.0"
 
 [[patch.unused]]
@@ -4253,19 +4284,3 @@ version = "0.2.0"
 [[patch.unused]]
 name = "ritk-registration"
 version = "0.53.0"
-
-[[patch.unused]]
-name = "consus-npy"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "horae"
-version = "0.1.0"

@@ -80,11 +80,7 @@ pub(super) fn add_scaled_in_place<T: Scalar>(lhs: &mut Array1<T>, rhs: &Array1<T
         vector_len(rhs),
         "invariant: scaled vector update requires equal lengths"
     );
-    T::axpy_slice(
-        scale,
-        rhs.as_slice().unwrap(),
-        lhs.as_slice_mut().unwrap(),
-    );
+    T::axpy_slice(scale, rhs.as_slice().unwrap(), lhs.as_slice_mut().unwrap());
 }
 
 #[inline]
