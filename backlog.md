@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-28 [major] - Type cfd-core solid material metrics
+  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  scope=`cfd-core` solid-material public contracts, direct implementation/tests,
+  and synchronized audit/design/changelog artifacts).** The current source audit
+  found an unrecorded public physical boundary: `SolidProperties` and
+  `ElasticSolid` expose density, Young's modulus, thermal conductivity,
+  specific heat capacity, and thermal expansion as raw scalars. Carry these
+  metrics through Aequitas, keep Poisson's ratio dimensionless, and extract
+  scalar values only at the shear-modulus formula boundary. Acceptance is a
+  residue-free solid-contract scan, typed steel/aluminum value regressions,
+  focused cfd-core gates, and synchronized audit/ADR/changelog evidence.
+  Eunomia complex values do not enter this real-valued isotropic-material
+  contract; complex constitutive data remains outside this item.
+
 - **CFDRS-AEQ-MET-27 [major] - Type 2D cell-tracking physical metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29; scope=
   `cfd-2d` cell-tracking public contracts, direct callers/tests, and
