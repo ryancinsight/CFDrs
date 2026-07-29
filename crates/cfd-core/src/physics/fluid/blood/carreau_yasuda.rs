@@ -1,6 +1,9 @@
 use super::constants;
 use crate::error::Error;
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -193,11 +196,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasudaBlood<T>
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: apparent_viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -208,14 +211,21 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasudaBlood<T>
     /// Return shear-rate-dependent viscosity via the Carreau-Yasuda model.
     /// This override ensures correct non-Newtonian apparent viscosity
     /// when called through the unified `Fluid::viscosity_at_shear` interface.
-    fn viscosity_at_shear(&self, shear_rate: T, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.apparent_viscosity(shear_rate))
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<DynamicViscosity<T>, Error> {
+        Ok(DynamicViscosity::from_base(
+            self.apparent_viscosity(shear_rate),
+        ))
     }
 }
 
 impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CarreauYasudaBlood<T> {
-    fn apparent_viscosity(&self, shear_rate: T) -> T {
-        CarreauYasudaBlood::apparent_viscosity(self, shear_rate)
+    fn apparent_viscosity(&self, shear_rate: T) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(CarreauYasudaBlood::apparent_viscosity(self, shear_rate))
     }
 }
 

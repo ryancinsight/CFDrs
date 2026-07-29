@@ -83,7 +83,7 @@
 //! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor in turbulent pipe flow."
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -143,11 +143,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
-                q
-            } else {
-                -q
-            }
+            if q >= T::zero() { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
@@ -164,7 +160,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
         let area = self.area;
 
         let velocity = if let Some(v) = conditions.velocity {
@@ -192,8 +188,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         } else {
             scalar_from_f64::<T>(8.0) * v_abs / self.hydraulic_diameter
         };
-        let viscosity =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         // Auto-compute Reynolds number when not explicitly provided.
         // Re = ρ·V·D_h / μ   (derived from velocity or flow_rate)

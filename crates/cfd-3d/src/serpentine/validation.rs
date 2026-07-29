@@ -115,11 +115,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
             let mut msg = String::new();
             if !strictly_dissipative {
                 use std::fmt::Write;
-                let _ = write!(msg, "Pressure drop analytically bounded below Straight limit: Actual {dp_actual:?} vs Minimum {exact_straight_dp:?}; ");
+                let _ = write!(
+                    msg,
+                    "Pressure drop analytically bounded below Straight limit: Actual {dp_actual:?} vs Minimum {exact_straight_dp:?}; "
+                );
             }
             if !de_valid {
                 use std::fmt::Write;
-                let _ = write!(msg, "Dean number analytical deviation failure: Solver {de_calc:?} vs Exact Max {de_exact_max:?}; ");
+                let _ = write!(
+                    msg,
+                    "Dean number analytical deviation failure: Solver {de_calc:?} vs Exact Max {de_exact_max:?}; "
+                );
             }
             result.error_message = Some(msg);
         }
@@ -190,8 +196,8 @@ mod tests {
             .validate_flow(
                 &solution,
                 &config,
-                fluid_props.density,
-                fluid_props.dynamic_viscosity,
+                fluid_props.density.into_base(),
+                fluid_props.dynamic_viscosity.into_base(),
             )
             .expect("Validation failed");
 

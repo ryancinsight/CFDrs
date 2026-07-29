@@ -27,7 +27,7 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
-use super::traits::{scalar_from_f64, ResistanceScalar};
+use super::traits::{ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -46,7 +46,8 @@ where
 
     let density = fluid
         .properties_at(local_conditions.temperature, local_conditions.pressure)?
-        .density;
+        .density
+        .into_base();
 
     let velocity = if let Some(v) = local_conditions.velocity {
         v
@@ -81,11 +82,13 @@ where
     } else {
         scalar_from_f64::<T>(8.0) * velocity_abs / dh
     };
-    let apparent_viscosity = fluid.viscosity_at_shear(
-        shear_rate,
-        local_conditions.temperature,
-        local_conditions.pressure,
-    )?;
+    let apparent_viscosity = fluid
+        .viscosity_at_shear(
+            shear_rate,
+            local_conditions.temperature,
+            local_conditions.pressure,
+        )?
+        .into_base();
     if apparent_viscosity <= T::zero() {
         return Err(Error::InvalidConfiguration(
             "Viscosity must be positive to compute Reynolds number".to_string(),
@@ -372,8 +375,8 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
-    use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use cfd_core::physics::fluid::ConstantFluid;
+    use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use eunomia::assert_relative_eq;
 
     #[test]
@@ -416,7 +419,7 @@ mod tests {
         // Compute Reynolds number based on hydraulic diameter and set it
         let dh = 2.0 * model.width * model.height / (model.width + model.height);
         let density = fluid.density;
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = conditions.velocity.unwrap();
         let re = density * velocity * dh / viscosity;
         conditions.reynolds_number = Some(re);
@@ -519,7 +522,7 @@ mod tests {
         // Provide Reynolds number for rectangular geometry
         let dh = 2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6);
         let density = fluid.density;
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = conditions.velocity.unwrap();
         let re = density * velocity * dh / viscosity;
         conditions.reynolds_number = Some(re);
@@ -541,14 +544,19 @@ mod tests {
         };
         let fluid_state = fluid.properties_at(293.15, 101_325.0)?;
         let target_reference_re = 2400.0;
-        let flow_rate =
-            target_reference_re * std::f64::consts::PI * 0.04 * fluid_state.dynamic_viscosity
-                / (4.0 * fluid_state.density);
+        let flow_rate = target_reference_re
+            * std::f64::consts::PI
+            * 0.04
+            * fluid_state.dynamic_viscosity.into_base()
+            / (4.0 * fluid_state.density.into_base());
         let area = circular.cross_sectional_area()?;
         let velocity = flow_rate / area;
         let shear_rate = 8.0 * velocity.abs() / 0.04;
-        let apparent_viscosity = fluid.viscosity_at_shear(shear_rate, 293.15, 101_325.0)?;
-        let shear_aware_re = fluid_state.density * velocity.abs() * 0.04 / apparent_viscosity;
+        let apparent_viscosity = fluid
+            .viscosity_at_shear(shear_rate, 293.15, 101_325.0)?
+            .into_base();
+        let shear_aware_re =
+            fluid_state.density.into_base() * velocity.abs() * 0.04 / apparent_viscosity;
 
         assert!(target_reference_re > 2300.0);
         assert!(

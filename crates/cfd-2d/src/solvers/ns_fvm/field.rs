@@ -111,18 +111,25 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FlowField2D<T> {
         blood: &BloodModel<T>,
         alpha_mu: T,
     ) {
+        self.update_shear_rate(grid);
         let one: T = scalar::one();
         for i in 0..grid.nx {
             for j in 0..grid.ny {
-                let dy_j = grid.dy_at(j);
-                let gamma = self.compute_shear_rate(i, j, grid.dx, dy_j);
-                self.gamma_dot[(i, j)] = gamma;
                 let mu_computed = match blood {
-                    BloodModel::Casson(m) => m.apparent_viscosity(gamma),
-                    BloodModel::CarreauYasuda(m) => m.apparent_viscosity(gamma),
+                    BloodModel::Casson(m) => m.apparent_viscosity(self.gamma_dot[(i, j)]),
+                    BloodModel::CarreauYasuda(m) => m.apparent_viscosity(self.gamma_dot[(i, j)]),
                     BloodModel::Newtonian(mu) => *mu,
                 };
                 self.mu[(i, j)] = self.mu[(i, j)] * (one - alpha_mu) + mu_computed * alpha_mu;
+            }
+        }
+    }
+
+    /// Recompute the strain-rate invariant without changing viscosity.
+    pub fn update_shear_rate(&mut self, grid: &StaggeredGrid2D<T>) {
+        for i in 0..grid.nx {
+            for j in 0..grid.ny {
+                self.gamma_dot[(i, j)] = self.compute_shear_rate(i, j, grid.dx, grid.dy_at(j));
             }
         }
     }

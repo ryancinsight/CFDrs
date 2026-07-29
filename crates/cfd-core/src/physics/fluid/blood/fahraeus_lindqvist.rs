@@ -111,7 +111,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     fn compute_mu_45(&self) -> (T, T) {
         let zero = <T as NumericElement>::ZERO;
         let mut d_um = self.diameter * scalar::<T>(1e6); // Convert to μm
-                                                         // Fahraeus-Lindqvist scales back to bulk viscosity above 300μm
+        // Fahraeus-Lindqvist scales back to bulk viscosity above 300μm
         let d_max = scalar::<T>(300.0);
         if d_um > d_max {
             d_um = d_max;

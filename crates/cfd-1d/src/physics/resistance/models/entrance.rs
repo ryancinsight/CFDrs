@@ -77,7 +77,7 @@
 //!   *Journal of Applied Mechanics*, 9(2), A55-A58.
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use serde::{Deserialize, Serialize};
@@ -154,11 +154,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
-                q
-            } else {
-                -q
-            }
+            if q >= T::zero() { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.downstream_area
@@ -189,7 +185,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
         })?;
 
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let rho = state.density;
+        let rho = state.density.into_base();
 
         let area_ratio = self.upstream_area / self.downstream_area;
 

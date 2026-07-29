@@ -62,7 +62,7 @@
 //! - Truskey, G. A., Yuan, F., & Deen, D. F. (2010).
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
         self.validate_invariants(fluid, conditions)?;
 
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let mu = state.dynamic_viscosity;
+        let mu = state.dynamic_viscosity.into_base();
 
         let area = self.width * self.height;
         let denom = self.porosity * area * self.pore_radius * self.pore_radius;

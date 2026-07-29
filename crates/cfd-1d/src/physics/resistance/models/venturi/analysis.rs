@@ -28,7 +28,7 @@
 //! the scalar resistance coefficients for a symmetric venturi.
 
 use super::model::VenturiModel;
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -71,7 +71,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<VenturiAnalysis<T>> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
 
         let a_inlet = self.inlet_area();
         let a_throat = self.throat_area();
@@ -97,19 +97,23 @@ impl<T: ResistanceScalar> VenturiModel<T> {
         let one = T::one();
 
         let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
-        let viscosity = fluid.viscosity_at_shear(
-            shear_rate_throat,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity = fluid
+            .viscosity_at_shear(
+                shear_rate_throat,
+                conditions.temperature,
+                conditions.pressure,
+            )?
+            .into_base();
 
         let re_throat = density * v_throat_abs * self.throat_diameter / viscosity;
 
-        let viscosity_inlet = fluid.viscosity_at_shear(
-            eight * v_inlet_abs / self.inlet_diameter,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity_inlet = fluid
+            .viscosity_at_shear(
+                eight * v_inlet_abs / self.inlet_diameter,
+                conditions.temperature,
+                conditions.pressure,
+            )?
+            .into_base();
         let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;
 
         let beta_sq = self.beta_squared();

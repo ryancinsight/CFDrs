@@ -23,24 +23,24 @@
 //! `cargo run -p cfd-1d --example medical_millifluidic_screening`
 
 use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
+use cfd_1d::BloodShearLimits;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
-use cfd_1d::BloodShearLimits;
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::CavitationNumber;
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::config::presets::smooth_serpentine;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::plot_geometry;
+use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
-use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -194,10 +194,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .hydraulic_diameter
                 .map(|d| 8.0 * velocity / d.into_base())
                 .unwrap_or(0.0);
-            let viscosity = blood
-                .viscosity_at_shear(shear_rate, 310.15, 101_325.0)
-                .unwrap_or(3.5e-3);
-            let wall_shear = viscosity * shear_rate;
+            let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
+            let wall_shear = (viscosity * shear_rate).into_base();
 
             // Hemolysis
             let exposure_time = if velocity > 1e-12 {

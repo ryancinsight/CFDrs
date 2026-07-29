@@ -95,7 +95,7 @@ where
         // Compare pressure drops
         // In 1D, we compute ΔP = (128μQL) / (πD⁴)
         let props = fluid.properties_at(scalar::from_f64::<T>(310.0), p_parent)?;
-        let mu = props.dynamic_viscosity;
+        let mu = props.dynamic_viscosity.into_base();
         let pi = scalar::from_f64::<T>(std::f64::consts::PI);
 
         let dp_parent_1d = (scalar::from_f64::<T>(128.0) * mu * q_parent * self.geometry.l_parent)

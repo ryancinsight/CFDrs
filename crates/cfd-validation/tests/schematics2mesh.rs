@@ -3,10 +3,10 @@ fn test_schematics2mesh_stl_output() {
     use cfd_mesh::application::channel::sweep::SweepMesher;
     use cfd_mesh::domain::core::index::RegionId;
     use cfd_mesh::domain::mesh::IndexedMesh;
-    use cfd_mesh::infrastructure::io::scheme;
     use cfd_mesh::infrastructure::io::stl::write_stl_binary;
+    use cfd_schematic_mesh::scheme_io;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-    use cfd_schematics::geometry::{generator::create_geometry, SplitType};
+    use cfd_schematics::geometry::{SplitType, generator::create_geometry};
     use std::fs::File;
     use std::path::PathBuf;
 
@@ -28,7 +28,7 @@ fn test_schematics2mesh_stl_output() {
     // 2. Convert to 3D Schematic representation
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
-    let schematic3d = scheme::from_blueprint(&system, substrate_height, segments).unwrap();
+    let schematic3d = scheme_io::from_blueprint(&system, substrate_height, segments).unwrap();
 
     // 3. Sweep and collect into an IndexedMesh
     let mesher = SweepMesher::new();

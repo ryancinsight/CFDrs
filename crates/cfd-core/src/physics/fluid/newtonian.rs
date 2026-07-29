@@ -3,6 +3,9 @@
 use super::thermophysical;
 use super::traits::{ConstantFluid, Fluid as FluidTrait, FluidState};
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -127,11 +130,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
 impl<T: RealField + Copy> FluidTrait<T> for ConstantPropertyFluid<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: self.viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(self.viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -141,24 +144,24 @@ impl<T: RealField + Copy> FluidTrait<T> for ConstantPropertyFluid<T> {
 }
 
 impl<T: RealField + Copy> ConstantFluid<T> for ConstantPropertyFluid<T> {
-    fn density(&self) -> T {
-        self.density
+    fn density(&self) -> MassDensity<T> {
+        MassDensity::from_base(self.density)
     }
 
-    fn dynamic_viscosity(&self) -> T {
-        self.viscosity
+    fn dynamic_viscosity(&self) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(self.viscosity)
     }
 
-    fn specific_heat(&self) -> T {
-        self.specific_heat
+    fn specific_heat(&self) -> SpecificHeatCapacity<T> {
+        SpecificHeatCapacity::from_base(self.specific_heat)
     }
 
-    fn thermal_conductivity(&self) -> T {
-        self.thermal_conductivity
+    fn thermal_conductivity(&self) -> ThermalConductivity<T> {
+        ThermalConductivity::from_base(self.thermal_conductivity)
     }
 
-    fn speed_of_sound(&self) -> T {
-        self.speed_of_sound
+    fn speed_of_sound(&self) -> Velocity<T> {
+        Velocity::from_base(self.speed_of_sound)
     }
 }
 
@@ -253,11 +256,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for IdealGas<T> {
         let speed_of_sound = <T as NumericElement>::sqrt(gamma * self.gas_constant * temperature);
 
         Ok(FluidState {
-            density,
-            dynamic_viscosity: viscosity,
-            specific_heat: self.cp,
-            thermal_conductivity,
-            speed_of_sound,
+            density: MassDensity::from_base(density),
+            dynamic_viscosity: DynamicViscosity::from_base(viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.cp),
+            thermal_conductivity: ThermalConductivity::from_base(thermal_conductivity),
+            speed_of_sound: Velocity::from_base(speed_of_sound),
         })
     }
 

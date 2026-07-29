@@ -46,7 +46,7 @@
 //! - Khodabandeh, E. et al. (2020). "Pressure drop and heat transfer in
 //!   T-junction microchannels." *Int. J. Heat Mass Transfer*, 154, 119689.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
@@ -185,7 +185,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for JunctionLossModel {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
 
         // Estimate velocity from flow conditions for shear rate.
         let area = scalar_from_f64::<T>(self.branch_area_m2);
@@ -213,8 +213,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for JunctionLossModel {
             eight * v_abs / d
         };
 
-        let mu =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let mu = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         let l = scalar_from_f64::<T>(self.junction_length_m);
 

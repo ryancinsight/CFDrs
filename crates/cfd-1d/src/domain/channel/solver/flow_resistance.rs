@@ -103,8 +103,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
 
         let kn_opt = if dh > T::zero() {
             let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
-            let lam =
-                fluid.dynamic_viscosity() * sqrt_half_pi / (fluid.density * fluid.speed_of_sound);
+            let lam = fluid.dynamic_viscosity().into_base() * sqrt_half_pi
+                / (fluid.density * fluid.speed_of_sound);
             if lam > T::zero() {
                 Some(lam / dh)
             } else {
@@ -157,8 +157,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
         let area = self.geometry.area().into_base();
         let dh = self.geometry.hydraulic_diameter().into_base();
         let po = poiseuille_number(&self.geometry.cross_section);
-        let resistance = po * fluid.dynamic_viscosity() * self.geometry.length.into_base()
-            / ((T::one() + T::one()) * area * dh * dh);
+        let resistance =
+            po * fluid.dynamic_viscosity().into_base() * self.geometry.length.into_base()
+                / ((T::one() + T::one()) * area * dh * dh);
         Ok(resistance)
     }
 
@@ -198,7 +199,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
         let area = self.geometry.area().into_base();
         let dh = self.geometry.hydraulic_diameter().into_base();
         let density = fluid.density;
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = (re * viscosity) / (density * dh);
         let model = DarcyWeisbachModel::new(
             dh,
@@ -273,7 +274,7 @@ mod tests {
 
         let d = chan.geometry.hydraulic_diameter().into_base();
         let area = chan.geometry.area().into_base();
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.dynamic_viscosity().into_base();
         let density = fluid.density;
         let velocity = (10_000.0 * viscosity) / (density * d);
         let mut conditions = FlowConditions::new(velocity);

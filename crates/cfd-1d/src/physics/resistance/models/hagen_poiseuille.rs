@@ -62,7 +62,7 @@
 //!   l'Académie Royale des Sciences de l'Institut de France*, 9, 433-544.
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use serde::{Deserialize, Serialize};
@@ -126,8 +126,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
             scalar_from_f64::<T>(8.0) * v_abs / self.diameter
         };
 
-        let viscosity =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         let pi = T::pi();
 
@@ -279,13 +280,17 @@ mod tests {
         assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());
 
         let zero_diam = HagenPoiseuilleModel::new(0.0_f64, 0.01_f64);
-        assert!(zero_diam
-            .validate_invariants(&water(), &conditions)
-            .is_err());
+        assert!(
+            zero_diam
+                .validate_invariants(&water(), &conditions)
+                .is_err()
+        );
 
         let neg_length = HagenPoiseuilleModel::new(0.001_f64, -0.01_f64);
-        assert!(neg_length
-            .validate_invariants(&water(), &conditions)
-            .is_err());
+        assert!(
+            neg_length
+                .validate_invariants(&water(), &conditions)
+                .is_err()
+        );
     }
 }

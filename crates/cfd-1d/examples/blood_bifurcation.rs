@@ -17,12 +17,12 @@
 //! - Inlet Flow: 5 mL/s (pulsatile average)
 //! - Outlet Pressure: 100 mmHg = 13332.2 Pa
 
-use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -173,12 +173,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101325.0)?;
-        let wall_shear = viscosity * shear_rate;
+        let wall_shear = (viscosity * shear_rate).into_base();
 
         println!("  {}: {:.4} mL/s", e.id, q * 1e6);
         println!("     Velocity: {:.2} cm/s", v * 100.0);
         println!("     Shear Rate: {:.1} 1/s", shear_rate);
-        println!("     Apparent Viscosity: {:.2} mPa·s", viscosity * 1000.0);
+        println!(
+            "     Apparent Viscosity: {:.2} mPa·s",
+            viscosity.into_base() * 1000.0
+        );
         println!("     Wall Shear Stress: {:.2} Pa", wall_shear);
 
         edge_flow_rates.insert(idx.index(), q.abs());

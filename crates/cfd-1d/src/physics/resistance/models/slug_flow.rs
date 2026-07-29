@@ -43,7 +43,7 @@
 //! - Kreutzer, M. T. et al. (2005). "Inertial and interfacial effects on pressure
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
@@ -93,7 +93,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
 
         let shear_rate = if let Some(sr) = conditions.shear_rate {
             sr
@@ -111,8 +111,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
             scalar_from_f64::<T>(8.0) * v / self.diameter
         };
 
-        let viscosity =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         // Proof: Re/Ca = (ρ D σ) / (μ²)
         let re_over_ca = (density * self.diameter * self.surface_tension) / (viscosity * viscosity);

@@ -4,6 +4,9 @@
 
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -77,11 +80,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for BinghamPlastic<T> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: apparent_viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -91,15 +94,15 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for BinghamPlastic<T> {
 }
 
 impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for BinghamPlastic<T> {
-    fn apparent_viscosity(&self, shear_rate: T) -> T {
-        BinghamPlastic::apparent_viscosity(self, shear_rate)
+    fn apparent_viscosity(&self, shear_rate: T) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(BinghamPlastic::apparent_viscosity(self, shear_rate))
     }
 
     fn has_yield_stress(&self) -> bool {
         true
     }
 
-    fn yield_stress(&self) -> Option<T> {
-        Some(self.yield_stress)
+    fn yield_stress(&self) -> Option<Pressure<T>> {
+        Some(Pressure::from_base(self.yield_stress))
     }
 }

@@ -3,6 +3,9 @@
 use super::thermophysical::linear_density_at;
 use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -77,11 +80,11 @@ impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity
         let viscosity = self.calculate_viscosity(temperature);
 
         Ok(FluidState {
-            density,
-            dynamic_viscosity: viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(density),
+            dynamic_viscosity: DynamicViscosity::from_base(viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -93,8 +96,10 @@ impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity
         true
     }
 
-    fn reference_temperature(&self) -> Option<T> {
-        Some(self.t_ref)
+    fn reference_temperature(
+        &self,
+    ) -> Option<aequitas::systems::si::quantities::ThermodynamicTemperature<T>> {
+        Some(aequitas::systems::si::quantities::ThermodynamicTemperature::from_base(self.t_ref))
     }
 }
 
@@ -139,11 +144,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for ArrheniusViscosity<T>
         let viscosity = self.calculate_viscosity(temperature)?;
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -200,11 +205,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for AndradeViscosity<T> {
         let viscosity = self.calculate_viscosity(temperature)?;
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -264,11 +269,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for SutherlandViscosity<T
         let viscosity = self.calculate_viscosity(temperature);
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 

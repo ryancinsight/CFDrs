@@ -4,6 +4,9 @@
 
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -95,11 +98,11 @@ impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasuda<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: self.viscosity_zero,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(self.viscosity_zero),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -107,13 +110,20 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasuda<T> {
         &self.name
     }
 
-    fn viscosity_at_shear(&self, shear_rate: T, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.apparent_viscosity(shear_rate))
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<DynamicViscosity<T>, Error> {
+        Ok(DynamicViscosity::from_base(
+            self.apparent_viscosity(shear_rate),
+        ))
     }
 }
 
 impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CarreauYasuda<T> {
-    fn apparent_viscosity(&self, shear_rate: T) -> T {
-        CarreauYasuda::apparent_viscosity(self, shear_rate)
+    fn apparent_viscosity(&self, shear_rate: T) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(CarreauYasuda::apparent_viscosity(self, shear_rate))
     }
 }

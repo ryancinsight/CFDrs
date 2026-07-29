@@ -34,11 +34,11 @@ mod momentum;
 mod pressure;
 mod velocity_interpolation;
 
+use super::BloodModel;
 use super::boundary::BoundaryCondition;
 use super::config::{SIMPLEConfig, SolveResult};
 use super::field::FlowField2D;
 use super::grid::StaggeredGrid2D;
-use super::BloodModel;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
@@ -194,10 +194,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
 
     /// Compute separate L2-norm residuals for convergence assessment.
     ///
-    /// Returns (res_continuity, res_u_momentum, res_max_pointwise):
+    /// Returns (res_continuity_rms, res_continuity_l1, res_max_pointwise):
     /// - `res_continuity`: RMS mass imbalance across all cells
-    /// - `res_u_momentum`: RMS of the u-velocity change from the last iteration
-    ///   (approximated by the pressure correction magnitude)
+    /// - `res_continuity_l1`: mean absolute mass imbalance across all cells
     /// - `res_max_pointwise`: L-infinity norm (maximum pointwise continuity error)
     ///
     /// The separate residuals allow distinguishing between:
@@ -205,6 +204,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// - Globally poor convergence (both high)
     /// - Localized divergence (high res_max, low res_continuity)
     pub fn compute_residuals(&self) -> (T, T, T) {
+        self.compute_residuals_inner()
+    }
+
+    fn compute_residuals_inner(&self) -> (T, T, T) {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;
@@ -337,6 +340,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             BoundaryCondition::velocity_inlet(leto::geometry::Vector3::new(u_inlet, zero, zero));
         let bc_outlet = BoundaryCondition::pressure_outlet(zero);
         let bc_wall_noslip = BoundaryCondition::wall_no_slip();
+        let newtonian_blood = matches!(&self.blood, BloodModel::Newtonian(_));
 
         for iteration in 0..self.config.max_iterations {
             self.solve_u_momentum(&bc_inlet, &bc_outlet, u_inlet)?;
@@ -405,13 +409,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
 
             // Update viscosity with under-relaxation (alpha_mu) to prevent
             // oscillation in non-Newtonian SIMPLE iterations.
-            if iteration % self.config.viscosity_update_interval == 0 {
+            if !newtonian_blood && iteration % self.config.viscosity_update_interval == 0 {
                 self.field
                     .update_viscosity(&self.grid, &self.blood, self.config.alpha_mu);
             }
 
-            let (res_cont, res_pcorr, res_max) = self.compute_residuals();
-            last_residual = res_cont.max_scalar(res_pcorr);
+            let (res_cont, res_cont_l1, res_max) = self.compute_residuals_inner();
+            last_residual = res_cont.max_scalar(res_cont_l1);
 
             if tracing::enabled!(tracing::Level::DEBUG) {
                 let mut max_u: T = scalar::zero();
@@ -445,7 +449,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
                 tracing::debug!(
                     iteration,
                     cont = <T as NumericElement>::to_f64(res_cont),
-                    pcorr = <T as NumericElement>::to_f64(res_pcorr),
+                    cont_l1 = <T as NumericElement>::to_f64(res_cont_l1),
                     max_pointwise = <T as NumericElement>::to_f64(res_max),
                     max_u = <T as NumericElement>::to_f64(max_u),
                     max_v = <T as NumericElement>::to_f64(max_v),
@@ -454,7 +458,6 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
                 );
             }
 
-            // Divergence guard: detect NaN/Inf or residual growth.
             if self.check_divergence() || !<T as NumericElement>::is_finite(last_residual) {
                 return Err(Error::Solver(
                     "SIMPLE solver diverged: NaN or Inf detected in velocity field".to_string(),
@@ -475,6 +478,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             }
 
             if last_residual < self.config.tolerance {
+                if newtonian_blood {
+                    self.field.update_shear_rate(&self.grid);
+                }
                 return Ok(SolveResult {
                     iterations: iteration + 1,
                     residual: last_residual,
@@ -483,6 +489,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             }
         }
 
+        if newtonian_blood {
+            self.field.update_shear_rate(&self.grid);
+        }
         Ok(SolveResult {
             iterations: self.config.max_iterations,
             residual: last_residual,

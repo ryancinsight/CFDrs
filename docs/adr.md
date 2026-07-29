@@ -14,6 +14,7 @@
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
 | **Aequitas-owned cavitation physical metrics** | 2026-07-28 | cfd-3d VOF and shared cfd-core cavitation contracts exposed unit-bearing scalars for surface tension, radius, number density, time, pressure, density, sound speed, viscosity, frequency, and derived outputs | SurfaceTension, Length, NumberDensity, Time, Pressure, MassDensity, Velocity, DynamicViscosity, Frequency, Angle, Volume, ThermalDiffusivity, MassDensityRate, ThermodynamicTemperature, Energy, and Dimensionless remain typed through public contracts; formula and dense-field boundaries extract explicitly | Breaking change for external cavitation constructors and callers |
 | **Aequitas-owned blueprint cross-fidelity metrics** | 2026-07-28 | cfd-3d blueprint traces exposed reference density, viscosity, flow, volume, pressure, velocity, and nodal flow residuals as public raw scalars | MassDensity, DynamicViscosity, VolumetricFlowRate, Volume, Pressure, and Velocity remain typed through blueprint configuration and channel/node traces; cfd-1d/cfd-2d adapters and millimetre mesh DTOs are explicit scalar boundaries | Breaking change for external blueprint trace consumers |
+| **Aequitas-owned cfd-core FluidState metrics** | 2026-07-29 | FluidState and provider seams exposed real physical state and derived numbers as raw scalars, and the 2D adapter masked solver/hemolysis failures with reference values | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless derived numbers remain typed; scalar extraction is confined to formula and infrastructure boundaries | Breaking change for fluid-state implementors and constructors; broader FluidProperties raw storage remains a separate boundary |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
@@ -83,6 +84,39 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-29: Aequitas owns cfd-core FluidState metrics [major] [arch]
+
+Context: `cfd-core::physics::fluid::FluidState` and its provider seams exposed
+density, viscosity, heat capacity, conductivity, sound speed, and derived
+dimensionless numbers as raw scalar contracts. The 2D channel adapter also
+substituted reference-trace metrics when a field solve failed and suppressed
+hemolysis validation errors.
+
+Decision: carry the real fluid state and derived metrics through Aequitas
+`MassDensity`, `DynamicViscosity`, `SpecificHeatCapacity`,
+`ThermalConductivity`, `Velocity`, `KinematicViscosity`,
+`ThermalDiffusivity`, and `Dimensionless`. Delegate thermal diffusivity to
+Proteus through its typed quantity constructor. Extract scalars only at
+formula, mesh, FEM/GPU, or explicit serialization boundaries. Propagate
+solver and hemolysis errors. For reverse directed channel flow, solve the
+magnitude under the field solver's fixed geometric boundary orientation and
+restore the sign only on the field-derived flow metric.
+
+Rejected alternative: retain raw public fields, add parallel typed accessors,
+or fall back to the reference trace after a failed field solve. Each option
+would preserve dimensional ambiguity or mask a failed computation.
+
+Consequences: fluid-state implementors and constructors require explicit
+Aequitas quantities. `ConstantPropertyFluid` and the older `FluidProperties`
+raw storage remain a separately tracked boundary. This contract is real-valued
+under Eunomia `RealField`; Eunomia `Complex<T>` remains formula/storage data
+for phasor and spectral consumers rather than an imaginary SI state quantity.
+
+Verification: cfd-core test-target check, Nextest 259/259, doctests 3/3,
+warning-denied cfd-core and cfd-2d Clippy, cfd-2d Nextest 571/571 with 27
+skips, and dependent cfd-1d/cfd-3d/cfd-validation test-target checks pass. See
+[`fluid-state-metrics.md`](atlas-migration/fluid-state-metrics.md).
 
 ### 2026-07-29: Aequitas owns cfd-core solid material metrics [major] [arch]
 

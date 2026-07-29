@@ -18,7 +18,7 @@ fn test_circular_shape_factor_is_64() {
     // R = 128 μ L / (π D⁴)
     let d = 0.001_f64;
     let l = 0.01_f64;
-    let mu = cfd_core::physics::fluid::ConstantFluid::dynamic_viscosity(&fluid);
+    let mu = cfd_core::physics::fluid::ConstantFluid::dynamic_viscosity(&fluid).into_base();
     let expected = 128.0 * mu * l / (std::f64::consts::PI * d.powi(4));
     assert_relative_eq!(r, expected, epsilon = 1e-6);
 }
@@ -62,7 +62,7 @@ fn test_square_channel_shape_factor_approx_56_9() {
     let h = 0.001_f64;
     let a = w * h;
     let dh = 4.0 * a / (2.0 * (w + h));
-    let mu = cfd_core::physics::fluid::ConstantFluid::dynamic_viscosity(&fluid);
+    let mu = cfd_core::physics::fluid::ConstantFluid::dynamic_viscosity(&fluid).into_base();
     let l = 0.01_f64;
     let po = r * 2.0 * a * dh * dh / (mu * l);
     assert_relative_eq!(po, 56.908, epsilon = 0.1);

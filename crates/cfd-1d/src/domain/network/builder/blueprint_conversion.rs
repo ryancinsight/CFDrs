@@ -4,17 +4,16 @@
 //! [`Network`] with physically refined resistance coefficients.
 
 use super::super::{
+    Edge, EdgeProperties, Node, ResistanceUpdatePolicy,
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
-    ResistanceUpdatePolicy,
+    junction_losses::apply_blueprint_junction_losses,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance,
-    VolumetricFlowRate,
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
@@ -25,8 +24,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 
 use crate::domain::network::wrapper::{
-    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
-    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    blood_microchannel_apparent_viscosity,
 };
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -215,7 +214,8 @@ where
         T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM),
     )?;
     let default_hematocrit = T::from_f64_or_zero(0.45);
-    let default_plasma_viscosity = blood_state.dynamic_viscosity / T::from_f64_or_one(3.2);
+    let default_plasma_viscosity =
+        blood_state.dynamic_viscosity.into_base() / T::from_f64_or_one(3.2);
 
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
@@ -371,7 +371,8 @@ where
                                 conds.temperature,
                                 conds.pressure,
                             )
-                            .unwrap_or(blood_state.dynamic_viscosity);
+                            .map(|value| value.into_base())
+                            .unwrap_or(default_plasma_viscosity);
                         if local_mu > T::default_epsilon() {
                             resistance_scale *= target_mu / local_mu;
                         }
@@ -539,7 +540,8 @@ where
                     network.set_pressure(node_idx, pressure);
                 }
                 BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
-                    let flow_rate = VolumetricFlowRate::from_base(T::from_f64_or_zero(flow_rate_m3_s));
+                    let flow_rate =
+                        VolumetricFlowRate::from_base(T::from_f64_or_zero(flow_rate_m3_s));
                     network.set_neumann_flow(node_idx, flow_rate);
                 }
             }

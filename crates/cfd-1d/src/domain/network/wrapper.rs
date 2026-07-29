@@ -15,9 +15,9 @@ use cfd_core::{
 };
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
+use petgraph::Direction;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
@@ -470,6 +470,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                     conditions.pressure,
                 )?;
                 conditions.shear_rate = Some(shear_rate);
+                let apparent_viscosity_local = apparent_viscosity_local.into_base();
                 apparent_viscosity = Some(apparent_viscosity_local);
                 if apparent_viscosity_local > epsilon {
                     conditions.reynolds_number =
@@ -493,15 +494,15 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             epsilon,
             is_blood_like: self.fluid.name().to_ascii_lowercase().contains("blood"),
             t_std,
-            density: state.density,
-            viscosity: state.dynamic_viscosity,
+            density: state.density.into_base(),
+            viscosity: state.dynamic_viscosity.into_base(),
             durst_limit: T::from_f64_or_one(50.0),
             durst_offset: T::from_f64_or_one(2.28),
             sixty_four: T::from_f64_or_one(64.0),
             eight: T::from_f64_or_one(8.0),
             microchannel_limit: T::from_f64_or_one(300.0e-6),
             default_hematocrit: T::from_f64_or_zero(0.45),
-            default_plasma_viscosity: state.dynamic_viscosity / T::from_f64_or_one(3.2),
+            default_plasma_viscosity: state.dynamic_viscosity.into_base() / T::from_f64_or_one(3.2),
             tiny: T::from_f64_or(epsilon.to_f64().max(1.0e-7), epsilon),
         })
     }

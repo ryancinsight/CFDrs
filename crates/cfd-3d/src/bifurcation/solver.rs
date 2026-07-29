@@ -254,11 +254,11 @@ where
         // 3. Set up FEM Problem with f64 precision (build_surface produces f64 mesh)
         let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Iteration Basis".to_string(),
-            density: scalar::to_f64(fluid_props.density),
-            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
-            specific_heat: scalar::to_f64(fluid_props.specific_heat),
-            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
-            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
+            density: scalar::to_f64(fluid_props.density.into_base()),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat.into_base()),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity.into_base()),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound.into_base()),
         };
 
         // Convert boundary conditions from T -> f64 via manual variant mapping
@@ -351,7 +351,7 @@ where
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities: Vec<f64> =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -416,7 +416,7 @@ where
                     scalar::from_f64::<T>(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let new_visc = scalar::to_f64(new_visc_t);
+                let new_visc = scalar::to_f64(new_visc_t.into_base());
 
                 let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
@@ -502,7 +502,7 @@ where
             scalar::abs(solution.q_parent - (solution.q_daughter1 + solution.q_daughter2));
 
         // Calculate wall shear stresses using analytical Poiseuille formula: τ_w = 8*μ*u_mean/R
-        let mu = fluid_props.dynamic_viscosity;
+        let mu = fluid_props.dynamic_viscosity.into_base();
         let r_parent = self.geometry.d_parent / scalar::from_f64::<T>(2.0);
         let r_daughter1 = self.geometry.d_daughter1 / scalar::from_f64::<T>(2.0);
         let r_daughter2 = self.geometry.d_daughter2 / scalar::from_f64::<T>(2.0);
@@ -546,7 +546,7 @@ where
                 * self.geometry.d_parent
                 * self.geometry.d_parent);
 
-        let re = (props.density * u * self.geometry.d_parent) / props.dynamic_viscosity;
+        let re = (props.density * u * self.geometry.d_parent / props.dynamic_viscosity).into_base();
         Ok(re)
     }
 

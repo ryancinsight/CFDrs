@@ -1,5 +1,23 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-AEQ-MET-29 FluidState metrics [major] — verified 2026-07-29
+
+- [x] Audit the public `FluidState` and provider seams; classify formula,
+      Proteus, mesh, FEM/GPU, serialization, and Eunomia complex boundaries.
+- [x] Carry real fluid-state and derived metrics through Aequitas; migrate
+      cfd-1d/cfd-3d consumers without compatibility shims and preserve typed
+      values through the Proteus thermophysical constructor.
+- [x] Remove 2D reference-trace and hemolysis fallbacks, preserve directed
+      reverse-flow signs, and keep the pressure correction budget bounded with
+      the bifurcation conservation oracle intact.
+- [x] Run cfd-core check, Nextest 259/259, doctests 3/3, warning-denied
+      cfd-core/cfd-2d Clippy, cfd-2d Nextest 571/571 with 27 skips, and
+      dependent cfd-1d/cfd-3d/cfd-validation test-target checks.
+- [x] Synchronize `fluid-state-metrics.md`, `gap_audit.md`, `docs/adr.md`,
+      `backlog.md`, and `CHANGELOG.md`; commit and push this increment.
+      `ConstantPropertyFluid`/`FluidProperties` raw storage remains separately
+      tracked.
+
 ## Owner: Codex — CFDRS-AEQ-MET-23 cell-separation force metrics [major] — verified 2026-07-27
 
 - [x] Add and verify the Aequitas `Force`/`Newton` provider seam before

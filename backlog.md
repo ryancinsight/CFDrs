@@ -32,20 +32,23 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
-  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidState`, its cfd-core producers,
-  direct metric consumers/tests, and synchronized audit/design/changelog
-  artifacts).** The live audit found that public `FluidState` fields for
-  density, dynamic viscosity, specific heat, thermal conductivity, and sound
-  speed remain raw scalars; kinematic viscosity, thermal diffusivity, and
-  Reynolds/Prandtl/Peclet/Mach results also erase their dimensions. Carry
-  those values through Aequitas, keeping scalar extraction at numerical
-  formula and Proteus boundaries. Acceptance is a residue-free `FluidState`
-  scan, value-semantic producer and derived-number regressions, focused
-  cfd-core gates, and synchronized audit/ADR/changelog evidence. The broader
-  model-property storage and `FluidProperties` constructor family is outside
-  this increment and remains separately tracked. Eunomia complex values do
-  not enter this real-valued fluid-state contract.
+  direct metric consumers/tests, cfd-2d channel error handling, and
+  synchronized audit/design/changelog artifacts).** Public `FluidState`
+  fields and derived metrics now use Aequitas `MassDensity`,
+  `DynamicViscosity`, `SpecificHeatCapacity`, `ThermalConductivity`,
+  `Velocity`, `KinematicViscosity`, `ThermalDiffusivity`, and
+  `Dimensionless`. Scalar extraction remains at numerical formula, Proteus,
+  mesh, FEM, GPU, and explicit serialization boundaries. The 2D channel
+  adapter now propagates solver and hemolysis errors, and preserves directed
+  reverse-flow signs without reference-trace fallback metrics. The broader
+  model-property storage and `FluidProperties` constructor family remains a
+  separately tracked raw-scalar boundary. Eunomia complex values do not enter
+  this real-valued fluid-state contract. Evidence: cfd-core test-target check,
+  Nextest 259/259, doctests 3/3, warning-denied cfd-core and cfd-2d Clippy,
+  cfd-2d Nextest 571/571 with 27 skips, and dependent cfd-1d/cfd-3d/
+  cfd-validation test-target check all pass.
 
 - **CFDRS-AEQ-MET-28 [major] - Type cfd-core solid material metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;

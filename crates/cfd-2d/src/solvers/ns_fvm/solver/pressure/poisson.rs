@@ -2,8 +2,8 @@
 
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use crate::solvers::ns_fvm::BloodModel;
+use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::error::Error;
 use eunomia::FloatElement;
 
@@ -11,6 +11,12 @@ use eunomia::FloatElement;
 // The classical Poisson optimum approaches 2 on large regular grids; 1.7
 // retains stability when the Venturi mask removes neighboring coefficients.
 const PRESSURE_SOR_RELAXATION: f64 = 1.7;
+const PRESSURE_SOR_MAX_SWEEPS: usize = 32;
+const PRESSURE_SOR_REFINED_MAX_SWEEPS: usize = 200;
+// Channel profiles use alpha_p <= 0.12; the general SIMPLE profiles use
+// alpha_p >= 0.2. The midpoint preserves the deeper correction budget for
+// higher pressure-relaxation profiles without penalizing the channel path.
+const PRESSURE_SOR_REFINEMENT_ALPHA_P: f64 = 0.15;
 
 impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
@@ -143,7 +149,17 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                     scalar::from_f64::<T>(PRESSURE_SOR_RELAXATION)
                 }
             };
-            for _ in 0..200 {
+            // SIMPLE repeats this correction and uses the field continuity
+            // residual below as the convergence oracle. The cap limits inner
+            // work without treating a partially converged pressure correction
+            // as a converged outer solution.
+            let max_sweeps =
+                if self.config.alpha_p > scalar::from_f64::<T>(PRESSURE_SOR_REFINEMENT_ALPHA_P) {
+                    PRESSURE_SOR_REFINED_MAX_SWEEPS
+                } else {
+                    PRESSURE_SOR_MAX_SWEEPS
+                };
+            for _ in 0..max_sweeps {
                 for i in 0..nx {
                     for j in 0..ny {
                         let a_e = a_e_workspace[(i, j)];

@@ -71,8 +71,9 @@ pub trait ResistanceModel<T: ResistanceScalar> {
     ) -> Result<()> {
         // Mach number validation: Ma < 0.3 for incompressibility
         if let Some(velocity) = conditions.velocity {
-            let speed_of_sound =
-                fluid.speed_of_sound_at(conditions.temperature, conditions.pressure)?;
+            let speed_of_sound = fluid
+                .speed_of_sound_at(conditions.temperature, conditions.pressure)?
+                .into_base();
             if speed_of_sound > T::zero() {
                 let v_abs = if velocity >= T::zero() {
                     velocity

@@ -1,5 +1,8 @@
 use super::constants;
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 
 // ── Temperature correction ────────────────────────────────────────────────────
 
@@ -284,11 +287,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CassonBlood<T> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
         Ok(FluidState {
-            density: self.density,
-            dynamic_viscosity: apparent_viscosity,
-            specific_heat: self.specific_heat,
-            thermal_conductivity: self.thermal_conductivity,
-            speed_of_sound: self.speed_of_sound,
+            density: MassDensity::from_base(self.density),
+            dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
+            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
+            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
+            speed_of_sound: Velocity::from_base(self.speed_of_sound),
         })
     }
 
@@ -300,22 +303,29 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CassonBlood<T> {
     /// This override ensures that any code calling `Fluid::viscosity_at_shear`
     /// (e.g. the 1D bifurcation junction solver) obtains the correct
     /// non-Newtonian apparent viscosity rather than a constant reference value.
-    fn viscosity_at_shear(&self, shear_rate: T, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.apparent_viscosity(shear_rate))
+    fn viscosity_at_shear(
+        &self,
+        shear_rate: T,
+        _temperature: T,
+        _pressure: T,
+    ) -> Result<DynamicViscosity<T>, Error> {
+        Ok(DynamicViscosity::from_base(
+            self.apparent_viscosity(shear_rate),
+        ))
     }
 }
 
 impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CassonBlood<T> {
-    fn apparent_viscosity(&self, shear_rate: T) -> T {
-        CassonBlood::apparent_viscosity(self, shear_rate)
+    fn apparent_viscosity(&self, shear_rate: T) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(CassonBlood::apparent_viscosity(self, shear_rate))
     }
 
     fn has_yield_stress(&self) -> bool {
         true
     }
 
-    fn yield_stress(&self) -> Option<T> {
-        Some(self.yield_stress)
+    fn yield_stress(&self) -> Option<Pressure<T>> {
+        Some(Pressure::from_base(self.yield_stress))
     }
 }
 

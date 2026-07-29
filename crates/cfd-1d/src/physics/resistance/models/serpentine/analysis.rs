@@ -5,7 +5,7 @@
 //! Dean flow corrections.
 
 use super::model::SerpentineModel;
-use super::traits::{scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceScalar, scalar_from_f64, scalar_to_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::NumericElement;
@@ -61,7 +61,7 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<SerpentineAnalysis<T>> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
 
         let dh = scalar_from_f64::<T>(self.cross_section.hydraulic_diameter());
         let area = scalar_from_f64::<T>(self.cross_section.area());
@@ -82,8 +82,9 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         let eight = scalar_from_f64::<T>(8.0);
         let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
-        let viscosity =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         let reynolds = density * velocity_magnitude * dh / viscosity;
         let re_safe = if reynolds > T::default_epsilon() {

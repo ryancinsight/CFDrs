@@ -47,7 +47,7 @@ fn reference_pressure_coefficient(
 
 fn no_chip_trace_config() -> Blueprint3dProcessingConfig {
     Blueprint3dProcessingConfig {
-        mesh: cfd_mesh::application::pipeline::PipelineConfig {
+        mesh: cfd_schematic_mesh::PipelineConfig {
             include_chip_body: false,
             ..Default::default()
         },
@@ -226,7 +226,7 @@ fn blueprint_trace_can_attach_two_d_comparison() {
             cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
         );
     let config = Blueprint3dProcessingConfig {
-        mesh: cfd_mesh::application::pipeline::PipelineConfig {
+        mesh: cfd_schematic_mesh::PipelineConfig {
             include_chip_body: false,
             ..Default::default()
         },

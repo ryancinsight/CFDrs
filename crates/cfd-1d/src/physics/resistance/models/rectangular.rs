@@ -47,7 +47,7 @@
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
@@ -124,8 +124,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         } else {
             scalar_from_f64::<T>(8.0) * v_abs / dh
         };
-        let viscosity =
-            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+        let viscosity = fluid
+            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .into_base();
 
         // Calculate aspect ratio epsilon (always <= 1 for consistency in Bahrami)
         let width_min = if self.width <= self.height {

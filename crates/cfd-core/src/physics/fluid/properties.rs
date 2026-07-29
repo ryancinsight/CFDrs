@@ -90,7 +90,7 @@ impl<T: RealField + NumericElement + Copy> FluidProperties<T> {
     /// Returns an error if density, specific heat, or thermal conductivity
     /// violates the Proteus thermophysical-property contract.
     pub fn thermal_diffusivity(&self) -> Result<T, Error> {
-        thermophysical::thermal_diffusivity(
+        thermophysical::thermal_diffusivity_from_base(
             self.density,
             self.specific_heat,
             self.thermal_conductivity,

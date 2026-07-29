@@ -32,7 +32,7 @@
 //! - Benzi, M., Golub, G.H. & Liesen, J. (2005). "Numerical solution of
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
-use crate::linear_solver::krylov::{self, SolveOutcome};
+use crate::linear_solver::krylov;
 use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
 use crate::linear_solver::{
     AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, DirectSparseSolver,
@@ -363,8 +363,8 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
                     }
                     Err(e) => {
                         tracing::warn!(
-                        "LinearSolverChain(warm): cached AMG hierarchy failed ({e}); rebuilding"
-                    );
+                            "LinearSolverChain(warm): cached AMG hierarchy failed ({e}); rebuilding"
+                        );
                         AlgebraicMultigrid::new(matrix, AMGConfig::default())
                     }
                 }

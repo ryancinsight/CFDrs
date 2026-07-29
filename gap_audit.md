@@ -31,6 +31,41 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## FluidState metric refresh (2026-07-29, CFDRS-AEQ-MET-29)
+
+The source audit found that the public `cfd-core::physics::fluid::FluidState`
+family still erased dimensions for density, dynamic viscosity, specific heat,
+thermal conductivity, sound speed, kinematic viscosity, thermal diffusivity,
+and the Reynolds, Prandtl, Peclet, and Mach results. The closure carries those
+values through Aequitas quantities and extends the same provider-first seam to
+the `Fluid`, `ConstantFluid`, `NonNewtonianFluid`, and `CompressibleFluid`
+contracts. Proteus now receives typed thermophysical quantities directly;
+scalar extraction remains only at formula, mesh, FEM/GPU, and serialization
+boundaries.
+
+The 2D channel adapter no longer substitutes reference-trace metrics when the
+field solve fails and no longer suppresses invalid hemolysis inputs. It
+propagates those errors. Reverse directed flow is solved as a magnitude under
+the field solver's left-inlet/right-outlet geometry and restores the directed
+sign on the field-derived flow metric; pressure and resistance remain derived
+from the solved field. The pressure correction budget stays bounded, with the
+deeper correction cap retained for general SIMPLE profiles where bifurcation
+mass-conservation tests require it.
+
+This is a real-valued fluid-state contract. Eunomia `Complex<T>` remains at
+the Womersley, Bessel, and spectral formula/storage boundaries; no imaginary SI
+unit is introduced for real density, viscosity, or thermophysical state.
+`ConstantPropertyFluid` and the older `FluidProperties` raw storage remain a
+separate residual boundary and are not claimed closed by this increment.
+
+Verification: cfd-core test-target check passed; cfd-core Nextest passed
+259/259; cfd-core doctests passed 3/3; warning-denied cfd-core and cfd-2d
+Clippy passed; cfd-2d Nextest passed 571/571 with 27 skips, including the
+15.69-second cross-fidelity test; and dependent cfd-1d, cfd-3d, and
+cfd-validation test-target checks passed. No metric residual remains in the
+`FluidState` public contract; the broader raw model-property boundary is
+tracked separately.
+
 ## Solid material metric refresh (2026-07-29, CFDRS-AEQ-MET-28)
 
 The source audit found a public cfd-core material family that was not present

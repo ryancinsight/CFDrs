@@ -37,7 +37,7 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
+use crate::linalg::{Matrix3, matrix3x4_from_columns, symmetric_part, vector3_from_indexed};
 use crate::scalar;
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
@@ -394,11 +394,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Iteration Basis".to_string(),
-            density: scalar::to_f64(fluid_props.density),
-            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
-            specific_heat: scalar::to_f64(fluid_props.specific_heat),
-            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
-            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
+            density: scalar::to_f64(fluid_props.density.into_base()),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat.into_base()),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity.into_base()),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound.into_base()),
         };
 
         let total_vertices = mesh.vertex_count();
@@ -410,7 +410,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -473,7 +473,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     self.calculate_element_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
                 let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
                 let new_visc_t = fluid.apparent_viscosity(shear_rate);
-                let new_visc = scalar::to_f64(new_visc_t);
+                let new_visc = scalar::to_f64(new_visc_t.into_base());
                 let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
@@ -564,7 +564,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 / (scalar::from_f64::<T>(std::f64::consts::PI) * d * d * d)
         };
 
-        let mu_eff = fluid_props.dynamic_viscosity;
+        let mu_eff = fluid_props.dynamic_viscosity.into_base();
         let wss_parent = compute_poiseuille_wss(q_parent_fem, self.geometry.d_parent, mu_eff);
         let wss_d1 = compute_poiseuille_wss(q_d1, self.geometry.d_daughters[0], mu_eff);
         let wss_d2 = compute_poiseuille_wss(q_d2, self.geometry.d_daughters[1], mu_eff);

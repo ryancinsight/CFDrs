@@ -73,7 +73,7 @@ use serde::{Deserialize, Serialize};
 /// difference between the two channels.
 fn hematocrit_viscosity_ratio(hct_local: f64, hct_reference: f64) -> f64 {
     let k = 2.5_f64; // Intrinsic viscosity coefficient (Quemada 1978)
-                     // Lower-bound at zero so plasma-dominant lanes are not artificially floored.
+    // Lower-bound at zero so plasma-dominant lanes are not artificially floored.
     let h_local = hct_local.clamp(0.0, 0.70);
     let h_ref = hct_reference.clamp(0.0, 0.70);
     let exponent = k * (h_local / (1.0 - h_local) - h_ref / (1.0 - h_ref));
@@ -545,14 +545,14 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             .fluid
             .properties_at(310.0, 0.0)
             .map_err(|e| Error::Solver(e.to_string()))?;
-        let base_viscosity = fluid_props.dynamic_viscosity * hct_viscosity_factor;
+        let base_viscosity = fluid_props.dynamic_viscosity.into_base() * hct_viscosity_factor;
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid {
             name: "cascade_channel".to_string(),
-            density: fluid_props.density,
+            density: fluid_props.density.into_base(),
             viscosity: base_viscosity,
-            specific_heat: fluid_props.specific_heat,
-            thermal_conductivity: fluid_props.thermal_conductivity,
-            speed_of_sound: fluid_props.speed_of_sound,
+            specific_heat: fluid_props.specific_heat.into_base(),
+            thermal_conductivity: fluid_props.thermal_conductivity.into_base(),
+            speed_of_sound: fluid_props.speed_of_sound.into_base(),
         };
 
         let n_corner_nodes = mesh.vertex_count();
@@ -592,7 +592,8 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 let mu_base = self
                     .fluid
                     .viscosity_at_shear(gamma_dot, 310.0, 0.0)
-                    .unwrap_or(fluid_props.dynamic_viscosity);
+                    .map(|value| value.into_base())
+                    .unwrap_or(fluid_props.dynamic_viscosity.into_base());
                 let mu = mu_base * hct_viscosity_factor;
                 let change = (mu - old_viscosities[i]).abs() / old_viscosities[i].max(1e-15);
                 if change > max_change {
@@ -703,7 +704,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let mu = self
             .fluid
             .properties_at(310.0, 0.0)
-            .map_or(3.5e-3, |p| p.dynamic_viscosity);
+            .map_or(3.5e-3, |p| p.dynamic_viscosity.into_base());
 
         // Pre-compute z-range once (instead of inside the face loop).
         let z_range = mesh

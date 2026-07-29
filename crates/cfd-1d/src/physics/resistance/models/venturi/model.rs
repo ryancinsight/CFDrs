@@ -4,10 +4,10 @@
 //! implementation, including Bernoulli contraction, throat friction, and
 //! Borda-Carnot expansion loss calculations.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
 use super::{
-    ExpansionType, VenturiGeometry, DURST_ENTRANCE_BLEND_L_OVER_DH, LAMINAR_FRICTION_COEFF,
-    LAMINAR_LIMIT_RE,
+    DURST_ENTRANCE_BLEND_L_OVER_DH, ExpansionType, LAMINAR_FRICTION_COEFF, LAMINAR_LIMIT_RE,
+    VenturiGeometry,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -236,11 +236,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
         let exp = scalar_from_f64::<T>(0.3);
         let correction = half + half * <T as FloatElement>::powf(ratio, exp);
         let one = T::one();
-        if correction > one {
-            one
-        } else {
-            correction
-        }
+        if correction > one { one } else { correction }
     }
 
     pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
@@ -288,11 +284,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
 
     #[inline]
     pub(crate) fn magnitude(value: T) -> T {
-        if value >= T::zero() {
-            value
-        } else {
-            -value
-        }
+        if value >= T::zero() { value } else { -value }
     }
 }
 
@@ -306,11 +298,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
 
         // Effective resistance: R_eff = R + k|Q|
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
-                q
-            } else {
-                -q
-            }
+            if q >= T::zero() { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.inlet_area()
@@ -327,7 +315,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density;
+        let density = state.density.into_base();
 
         // --- Compute throat velocity and Reynolds number ---
         let a_inlet = self.inlet_area();
@@ -353,21 +341,25 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
 
         // Get viscosity at throat shear rate (supports non-Newtonian fluids)
-        let viscosity = fluid.viscosity_at_shear(
-            shear_rate_throat,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity = fluid
+            .viscosity_at_shear(
+                shear_rate_throat,
+                conditions.temperature,
+                conditions.pressure,
+            )?
+            .into_base();
 
         // Reynolds number at throat
         let re_throat = density * v_throat_abs * self.throat_diameter / viscosity;
 
         // Reynolds number at inlet (for C_d correction)
-        let viscosity_inlet = fluid.viscosity_at_shear(
-            eight * v_inlet_abs / self.inlet_diameter,
-            conditions.temperature,
-            conditions.pressure,
-        )?;
+        let viscosity_inlet = fluid
+            .viscosity_at_shear(
+                eight * v_inlet_abs / self.inlet_diameter,
+                conditions.temperature,
+                conditions.pressure,
+            )?
+            .into_base();
         let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;
 
         // --- 1. Contraction loss (Bernoulli + discharge coefficient) ---

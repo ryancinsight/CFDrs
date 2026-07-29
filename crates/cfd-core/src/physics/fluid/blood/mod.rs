@@ -47,7 +47,7 @@ pub mod cross;
 pub mod fahraeus_lindqvist;
 
 pub use carreau_yasuda::CarreauYasudaBlood;
-pub use casson::{temperature_viscosity_factor, CassonBlood};
+pub use casson::{CassonBlood, temperature_viscosity_factor};
 pub use cross::CrossBlood;
 pub use fahraeus_lindqvist::FahraeuasLindqvist;
 
@@ -102,14 +102,14 @@ mod tests {
         let carreau_state = carreau.properties_at(310.0, 101325.0).unwrap();
         let cross_state = cross_blood.properties_at(310.0, 101325.0).unwrap();
 
-        assert_eq!(casson_state.density, constants::BLOOD_DENSITY);
-        assert_eq!(carreau_state.density, constants::BLOOD_DENSITY);
-        assert_eq!(cross_state.density, constants::BLOOD_DENSITY);
+        assert_eq!(casson_state.density.into_base(), constants::BLOOD_DENSITY);
+        assert_eq!(carreau_state.density.into_base(), constants::BLOOD_DENSITY);
+        assert_eq!(cross_state.density.into_base(), constants::BLOOD_DENSITY);
 
         // All have positive viscosity
-        assert!(casson_state.dynamic_viscosity > 0.0);
-        assert!(carreau_state.dynamic_viscosity > 0.0);
-        assert!(cross_state.dynamic_viscosity > 0.0);
+        assert!(casson_state.dynamic_viscosity.into_base() > 0.0);
+        assert!(carreau_state.dynamic_viscosity.into_base() > 0.0);
+        assert!(cross_state.dynamic_viscosity.into_base() > 0.0);
     }
 
     #[test]

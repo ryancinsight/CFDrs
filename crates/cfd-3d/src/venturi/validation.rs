@@ -237,7 +237,7 @@ mod tests {
         let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
         let validator = VenturiValidator3D::new(builder);
         let result = validator
-            .validate_flow(&solution, &config, fluid_props.density)
+            .validate_flow(&solution, &config, fluid_props.density.into_base())
             .expect("Validation failed");
 
         tracing::debug!(dp_error = ?result.dp_error, "Venturi DP error relative to Bernoulli");
@@ -315,10 +315,12 @@ mod tests {
             .expect("validation should run");
 
         assert!(!result.validation_passed);
-        assert!(result
-            .error_message
-            .as_ref()
-            .map(|msg| msg.contains("Bernoulli lower bound"))
-            .unwrap_or(false));
+        assert!(
+            result
+                .error_message
+                .as_ref()
+                .map(|msg| msg.contains("Bernoulli lower bound"))
+                .unwrap_or(false)
+        );
     }
 }

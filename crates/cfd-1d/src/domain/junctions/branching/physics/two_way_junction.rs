@@ -10,7 +10,7 @@ use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use eunomia::{FloatElement, NumericElement};
 
-use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
+use super::pressure_balance::{ScalarSolveTolerances, bisect_root};
 use super::two_way_solution::TwoWayBranchSolution;
 
 /// Two-way branch junction connecting parent channel to two daughter channels
@@ -205,10 +205,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
         let gamma = Self::shear_rate(q, channel);
         fluid
             .viscosity_at_shear(gamma, temperature, pressure)
+            .map(|value| value.into_base())
             .unwrap_or_else(|_| {
                 fluid.properties_at(temperature, pressure).map_or_else(
                     |_| T::from_f64_or_one(0.0035),
-                    |state| state.dynamic_viscosity,
+                    |state| state.dynamic_viscosity.into_base(),
                 )
             })
     }

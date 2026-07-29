@@ -2,15 +2,15 @@ use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::{
-    Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
+    EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
 };
 use cfd_1d::solver::core::{LinearSolverMethod, NetworkProblem, NetworkSolver};
 use cfd_1d::{
-    blood_microchannel_apparent_viscosity, durst_resistance_multiplier, pries_phase_separation,
     ChannelGeometry, CrossSection, FlowConditions, ResistanceCalculator, ResistanceChannelGeometry,
-    SurfaceProperties, Wettability,
+    SurfaceProperties, Wettability, blood_microchannel_apparent_viscosity,
+    durst_resistance_multiplier, pries_phase_separation,
 };
 use cfd_core::compute::solver::Solver;
 use cfd_core::conversion::SafeFromF64;
@@ -175,7 +175,8 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
         .fluid()
         .properties_at(conditions.temperature, conditions.pressure)?;
     let velocity = flow_rate / area;
-    let reynolds = fluid_state.density * velocity * diameter / fluid_state.dynamic_viscosity;
+    let reynolds =
+        (fluid_state.density * velocity * diameter / fluid_state.dynamic_viscosity).into_base();
     let expected_multiplier = durst_resistance_multiplier(reynolds, length / diameter);
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
@@ -254,13 +255,14 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
         flow_rate,
         area,
         0.45,
-        fluid_state.dynamic_viscosity / 3.2,
+        fluid_state.dynamic_viscosity.into_base() / 3.2,
     )
     .expect("blood apparent viscosity estimate must exist");
     let shear_rate = 8.0 * (flow_rate / area) / diameter;
-    let base_mu =
-        net.fluid()
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
+    let base_mu = net
+        .fluid()
+        .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+        .into_base();
     let expected_factor = target_mu / base_mu;
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
@@ -445,17 +447,23 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
         cfd_core::physics::constants::physics::thermo::P_ATM,
     )?;
     let target_reference_re = 2400.0;
-    let flow_rate =
-        target_reference_re * std::f64::consts::PI * diameter * fluid_state.dynamic_viscosity
-            / (4.0 * fluid_state.density);
+    let flow_rate = target_reference_re
+        * std::f64::consts::PI
+        * diameter
+        * fluid_state.dynamic_viscosity.into_base()
+        / (4.0 * fluid_state.density.into_base());
     let velocity = flow_rate / area;
     let shear_rate = 8.0 * velocity / diameter;
-    let apparent_viscosity = net.fluid().viscosity_at_shear(
-        shear_rate,
-        cfd_core::physics::constants::physics::thermo::T_STANDARD,
-        cfd_core::physics::constants::physics::thermo::P_ATM,
-    )?;
-    let shear_aware_re = fluid_state.density * velocity * diameter / apparent_viscosity;
+    let apparent_viscosity = net
+        .fluid()
+        .viscosity_at_shear(
+            shear_rate,
+            cfd_core::physics::constants::physics::thermo::T_STANDARD,
+            cfd_core::physics::constants::physics::thermo::P_ATM,
+        )?
+        .into_base();
+    let shear_aware_re =
+        (fluid_state.density * velocity * diameter / apparent_viscosity).into_base();
 
     assert!(target_reference_re > 2300.0);
     assert!(

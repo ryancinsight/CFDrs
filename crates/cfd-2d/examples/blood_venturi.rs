@@ -16,10 +16,10 @@ use cfd_2d::physics::immersed_boundary::{
 };
 use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
-use leto::geometry::{Vector2, Vector3};
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use leto::Array2;
+use leto::geometry::{Vector2, Vector3};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Setup Domain
@@ -163,8 +163,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let strain_rate = (2.0 * (s11 * s11 + s22 * s22 + 2.0 * s12 * s12)).sqrt();
 
                 let mu = blood
-                    .viscosity_at_shear(strain_rate, 310.15, 101325.0)
-                    .unwrap_or(mu_inf);
+                    .viscosity_at_shear(strain_rate, 310.15, 101325.0)?
+                    .into_base();
                 fields.viscosity.set(i, j, mu);
             }
         }

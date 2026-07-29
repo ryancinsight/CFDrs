@@ -34,6 +34,17 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public cfd-core `FluidState` and fluid-provider
+  metrics with Aequitas `MassDensity`, `DynamicViscosity`,
+  `SpecificHeatCapacity`, `ThermalConductivity`, `Velocity`,
+  `KinematicViscosity`, `ThermalDiffusivity`, and `Dimensionless` derived
+  values. Scalar extraction remains at formula, Proteus, mesh, FEM/GPU, and
+  serialization boundaries. The 2D channel adapter now propagates field-solve
+  and hemolysis errors, and preserves directed reverse-flow signs without a
+  reference-trace fallback. Eunomia complex values remain outside this
+  real-valued state contract. See
+  [`fluid-state-metrics.md`](docs/atlas-migration/fluid-state-metrics.md).
+
 - **Breaking**: Type the public cfd-core solid-material contract with Aequitas
   `MassDensity`, `Pressure`, `ThermalConductivity`, `SpecificHeatCapacity`,
   `ReciprocalTemperature`, and `Dimensionless` for Poisson's ratio. Solid

@@ -49,10 +49,10 @@ where
     // Falls back to 1060 kg/m³ (whole-blood reference) if the fluid query fails.
     let rho_ref_t = T::from_f64_or_zero(310.15);
     let p_ref_t = T::from_f64_or_zero(101_325.0);
-    let rho_blood: T = network
-        .fluid
-        .properties_at(rho_ref_t, p_ref_t)
-        .map_or_else(|_| T::from_f64_or_zero(1060.0), |state| state.density);
+    let rho_blood: T = network.fluid.properties_at(rho_ref_t, p_ref_t).map_or_else(
+        |_| T::from_f64_or_zero(1060.0),
+        |state| state.density.into_base(),
+    );
     let two: T = T::one() + T::one();
 
     let blueprint_node_meta: HashMap<

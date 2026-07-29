@@ -42,7 +42,7 @@ mod tests {
 
         use crate::physics::fluid::traits::Fluid;
         let props = fluid.properties_at(300.0, 101325.0).unwrap();
-        assert_relative_eq!(props.dynamic_viscosity, 2.581_138_830_084_19);
+        assert_relative_eq!(props.dynamic_viscosity.into_base(), 2.581_138_830_084_19);
         assert!(!fluid.is_temperature_dependent());
     }
 
@@ -66,10 +66,16 @@ mod tests {
 
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
-        assert_eq!(fluid.reference_temperature(), Some(t_ref));
+        assert_eq!(
+            fluid.reference_temperature().map(|value| value.into_base()),
+            Some(t_ref)
+        );
 
         let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
-        assert_relative_eq!(props_ref.dynamic_viscosity, 2.581_138_830_084_19);
+        assert_relative_eq!(
+            props_ref.dynamic_viscosity.into_base(),
+            2.581_138_830_084_19
+        );
 
         let t_high = 350.0;
         let props_high = fluid.properties_at(t_high, 101325.0).unwrap();
@@ -83,8 +89,8 @@ mod tests {
         let yield_term = 10.0 / shear_rate;
         let expected_viscosity = yield_term + power_law_term;
 
-        assert_relative_eq!(props_high.dynamic_viscosity, expected_viscosity);
-        assert!(props_high.dynamic_viscosity < props_ref.dynamic_viscosity);
+        assert_relative_eq!(props_high.dynamic_viscosity.into_base(), expected_viscosity);
+        assert!(props_high.dynamic_viscosity.into_base() < props_ref.dynamic_viscosity.into_base());
     }
 
     #[test]
@@ -102,7 +108,7 @@ mod tests {
 
         use crate::physics::fluid::traits::Fluid;
         let props = fluid.properties_at(300.0, 101325.0).unwrap();
-        assert_relative_eq!(props.dynamic_viscosity, 1.5811388300841898);
+        assert_relative_eq!(props.dynamic_viscosity.into_base(), 1.5811388300841898);
         assert!(!fluid.is_temperature_dependent());
     }
 
@@ -125,10 +131,13 @@ mod tests {
 
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
-        assert_eq!(fluid.reference_temperature(), Some(t_ref));
+        assert_eq!(
+            fluid.reference_temperature().map(|value| value.into_base()),
+            Some(t_ref)
+        );
 
         let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
-        assert_relative_eq!(props_ref.dynamic_viscosity, 1.5811388300841898);
+        assert_relative_eq!(props_ref.dynamic_viscosity.into_base(), 1.5811388300841898);
 
         let t_high = 350.0;
         let props_high = fluid.properties_at(t_high, 101325.0).unwrap();
@@ -140,7 +149,7 @@ mod tests {
         let shear_rate = 10.0_f64;
         let expected_viscosity = k_high * shear_rate.powf(0.5 - 1.0);
 
-        assert_relative_eq!(props_high.dynamic_viscosity, expected_viscosity);
-        assert!(props_high.dynamic_viscosity < props_ref.dynamic_viscosity);
+        assert_relative_eq!(props_high.dynamic_viscosity.into_base(), expected_viscosity);
+        assert!(props_high.dynamic_viscosity.into_base() < props_ref.dynamic_viscosity.into_base());
     }
 }

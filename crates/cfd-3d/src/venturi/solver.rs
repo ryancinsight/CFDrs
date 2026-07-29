@@ -62,8 +62,8 @@ use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::VenturiMeshBuilder;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
@@ -537,11 +537,11 @@ where
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Basis".to_string(),
-            density: scalar::to_f64(fluid_props.density),
-            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
-            specific_heat: scalar::to_f64(fluid_props.specific_heat),
-            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
-            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
+            density: scalar::to_f64(fluid_props.density.into_base()),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat.into_base()),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity.into_base()),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound.into_base()),
         };
 
         let mut problem = StokesFlowProblem::<f64>::new(
@@ -552,7 +552,7 @@ where
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -652,7 +652,7 @@ where
                     scalar::from_f64::<T>(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let mut new_visc = scalar::to_f64(new_visc_t);
+                let mut new_visc = scalar::to_f64(new_visc_t.into_base());
 
                 // Cap viscosity at 20x reference (stability)
                 let max_viscosity = problem.fluid.viscosity * 20.0_f64;
@@ -1075,7 +1075,7 @@ where
             self.config.inlet_flow_rate
         };
         let (cp_throat, cp_recovery) = pressure_coefficients_from_throat_flux(
-            fluid_props.density,
+            fluid_props.density.into_base(),
             coefficient_flow_rate,
             area_throat,
             solution.dp_throat,
@@ -1149,8 +1149,9 @@ mod tests {
             pressure_coefficients_from_throat_flux(1_000.0_f64, 0.0_f64, 1.0e-6_f64, 1.0, -0.2)
                 .expect_err("zero flow rate has no dynamic pressure scale");
 
-        assert!(err
-            .to_string()
-            .contains("positive throat area and flow rate"));
+        assert!(
+            err.to_string()
+                .contains("positive throat area and flow rate")
+        );
     }
 }
