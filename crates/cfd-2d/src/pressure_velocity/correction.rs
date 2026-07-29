@@ -28,8 +28,7 @@ use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::iterative::preconditioners::IdentityPreconditioner;
-use cfd_math::iterative::IterativeLinearSolver;
+use cfd_math::linear_solver::krylov::{self, KrylovResult};
 use cfd_math::multigrid::AlgebraicMultigrid;
 use eunomia::FloatElement;
 use leto::Array1;
@@ -90,101 +89,82 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
         }
 
         let amg_preconditioner: Option<&AlgebraicMultigrid<T>> = amg_cache.as_ref();
-        let solve_result = match self.solver_type {
-            PressureLinearSolver::ConjugateGradient => {
-                let result = if let Some(amg) = amg_preconditioner {
-                    self.cg_solver.solve(matrix, rhs, solution, Some(amg))
-                } else {
-                    self.cg_solver
-                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
+
+        // One dispatch over the closed solver set, then one preconditioner
+        // policy. The three recurrences previously repeated the same
+        // solve-then-retry logic verbatim; the retry exists because an AMG
+        // hierarchy built for a stale stencil can break the recurrence down,
+        // and the unpreconditioned operator is still solvable.
+        let solve_with = |preconditioner: Option<&AlgebraicMultigrid<T>>,
+                          solution: &mut Array1<T>|
+         -> KrylovResult<T> {
+            match (self.solver_type, preconditioner) {
+                (PressureLinearSolver::ConjugateGradient, Some(amg)) => krylov::cg_preconditioned(
+                    matrix,
+                    rhs,
+                    amg,
+                    solution,
+                    &self.linear_solver_config,
+                ),
+                (PressureLinearSolver::ConjugateGradient, None) => {
+                    krylov::cg(matrix, rhs, solution, &self.linear_solver_config)
                 }
-                .map(|_| ())
-                .map_err(cfd_core::error::Error::from);
-                match result {
-                    Ok(()) => Ok(()),
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => self
-                        .cg_solver
-                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ())
-                        .map_err(cfd_core::error::Error::from),
-                    Err(e) => Err(e),
+                (PressureLinearSolver::BiCGSTAB, Some(amg)) => krylov::bicgstab_preconditioned(
+                    matrix,
+                    rhs,
+                    amg,
+                    solution,
+                    &self.linear_solver_config,
+                ),
+                (PressureLinearSolver::BiCGSTAB, None) => {
+                    krylov::bicgstab(matrix, rhs, solution, &self.linear_solver_config)
                 }
-            }
-            PressureLinearSolver::BiCGSTAB => {
-                let result = if let Some(amg) = amg_preconditioner {
-                    self.bicgstab_solver.solve(matrix, rhs, solution, Some(amg))
-                } else {
-                    self.bicgstab_solver.solve(
+                (PressureLinearSolver::GMRES { restart_dim }, Some(amg)) => {
+                    krylov::gmres_preconditioned(
                         matrix,
                         rhs,
+                        amg,
                         solution,
-                        None::<&IdentityPreconditioner>,
+                        &self.linear_solver_config,
+                        restart_dim,
                     )
                 }
-                .map(|_| ())
-                .map_err(cfd_core::error::Error::from);
-                match result {
-                    Ok(()) => Ok(()),
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => self
-                        .bicgstab_solver
-                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ())
-                        .map_err(cfd_core::error::Error::from),
-                    Err(e) => Err(e),
-                }
-            }
-            PressureLinearSolver::GMRES { .. } => {
-                let Some(ref solver) = self.gmres_solver else {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(
-                        "GMRES solver not initialized".to_string(),
-                    ));
-                };
-                let result = if let Some(amg) = amg_preconditioner {
-                    solver.solve(matrix, rhs, solution, Some(amg))
-                } else {
-                    solver.solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                }
-                .map(|_| ())
-                .map_err(cfd_core::error::Error::from);
-                match result {
-                    Ok(()) => Ok(()),
-                    Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    )) if amg_preconditioner.is_some() => solver
-                        .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ())
-                        .map_err(cfd_core::error::Error::from),
-                    Err(e) => Err(e),
-                }
+                (PressureLinearSolver::GMRES { restart_dim }, None) => krylov::gmres(
+                    matrix,
+                    rhs,
+                    solution,
+                    &self.linear_solver_config,
+                    restart_dim,
+                ),
             }
         };
-        match solve_result {
-            Ok(()) => Ok(()),
-            Err(cfd_core::error::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
-            )) => {
+
+        let mut outcome = krylov::interpret(
+            "pressure correction",
+            solve_with(amg_preconditioner, solution),
+        )?;
+        if matches!(outcome, krylov::SolveOutcome::BrokenDown(_)) && amg_preconditioner.is_some() {
+            tracing::debug!("Pressure correction broke down under AMG; retrying unpreconditioned");
+            solution.fill(<T as eunomia::NumericElement>::ZERO);
+            outcome = krylov::interpret("pressure correction", solve_with(None, solution))?;
+        }
+        match outcome {
+            krylov::SolveOutcome::Converged(_) => {}
+            krylov::SolveOutcome::Stalled(report) => {
                 tracing::warn!(
                     solver = ?self.solver_type,
-                    max_iterations = max,
+                    max_iterations = report.iterations,
                     "Pressure solve stalled; keeping last iterate as approximate solution"
                 );
-                Ok(())
             }
-            Err(cfd_core::error::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Breakdown,
-            )) => {
+            krylov::SolveOutcome::BrokenDown(_) => {
                 tracing::warn!(
                     solver = ?self.solver_type,
                     "Pressure solve breakdown; keeping last iterate as approximate solution"
                 );
-                Ok(())
             }
-            Err(error) => Err(error),
         }
+        Ok(())
     }
 
     /// Solve pressure correction equation from cell-centred velocities

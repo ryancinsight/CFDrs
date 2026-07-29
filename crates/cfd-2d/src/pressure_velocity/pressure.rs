@@ -20,7 +20,7 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, GMRES};
+use cfd_math::iterative::IterativeSolverConfig;
 use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;
@@ -31,9 +31,12 @@ use std::fmt::Debug;
 pub struct PressureCorrectionSolver<T: Cfd2dScalar + Copy> {
     pub(super) grid: StructuredGrid2D<T>,
     pub(super) solver_type: PressureLinearSolver,
-    pub(super) cg_solver: ConjugateGradient<T>,
-    pub(super) bicgstab_solver: BiCGSTAB<T>,
-    pub(super) gmres_solver: Option<GMRES<T>>,
+    /// Linear solver configuration.
+    ///
+    /// Athena solvers are stateless markers with caller-owned workspaces, so
+    /// the three stored solver objects collapse to the configuration they all
+    /// carried; `solver_type` still selects the recurrence.
+    pub(super) linear_solver_config: IterativeSolverConfig<T>,
     pub(super) _amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
     pub(super) _amg_matrix_values: std::cell::RefCell<Option<Vec<T>>>,
     pub(super) _laplacian_cache: std::cell::RefCell<Option<cfd_math::sparse::SparseMatrix<T>>>,
@@ -58,21 +61,13 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
         grid: StructuredGrid2D<T>,
         solver_type: PressureLinearSolver,
     ) -> cfd_core::error::Result<Self> {
-        let config =
-            cfd_math::iterative::IterativeSolverConfig::new(<T as FloatElement>::from_f64(1e-3))
-                .with_max_iterations(200);
-
-        let gmres_solver = match solver_type {
-            PressureLinearSolver::GMRES { restart_dim } => Some(GMRES::new(config, restart_dim)),
-            _ => None,
-        };
+        let linear_solver_config = IterativeSolverConfig::new(<T as FloatElement>::from_f64(1e-3))
+            .with_max_iterations(200);
 
         Ok(Self {
             grid,
             solver_type,
-            cg_solver: ConjugateGradient::new(config),
-            bicgstab_solver: BiCGSTAB::new(config),
-            gmres_solver,
+            linear_solver_config,
             _amg_preconditioner: std::cell::RefCell::new(None),
             _amg_matrix_values: std::cell::RefCell::new(None),
             _laplacian_cache: std::cell::RefCell::new(None),

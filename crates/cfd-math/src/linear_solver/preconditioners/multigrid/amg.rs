@@ -46,6 +46,7 @@ use super::{
     SmootherType, SparseMatrix, SymmetricGaussSeidelSmoother,
 };
 use crate::error::Result;
+use athena_leto::{LetoBackend, LetoBackendError};
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
@@ -119,6 +120,15 @@ pub struct AlgebraicMultigrid<T: RealField + Copy + LetoScalar> {
     hierarchy: Option<AMGHierarchy<T>>,
     /// Reusable V-cycle vectors, serialized per preconditioner application.
     workspace: Arc<Mutex<Option<Vec<AMGLevelWorkspace<T>>>>>,
+    /// Owned buffers backing the Athena preconditioner boundary.
+    ///
+    /// The V-cycle recurses over owned `Array1` vectors while Athena hands the
+    /// preconditioner borrowed views, so the boundary copies in and out. The
+    /// two `O(n)` passes are small beside the cycle's `O(nnz)` sweeps, and
+    /// caching the buffers keeps a preconditioner application allocation-free.
+    /// Reworking the recursion to operate on slices would remove the copies
+    /// entirely and is tracked separately.
+    athena_boundary: Arc<Mutex<Option<(MultigridVector<T>, MultigridVector<T>)>>>,
 }
 
 impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
@@ -131,6 +141,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             is_setup: false,
             hierarchy: None,
             workspace: Arc::new(Mutex::new(None)),
+            athena_boundary: Arc::new(Mutex::new(None)),
         };
 
         amg.setup(matrix)?;
@@ -155,6 +166,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             is_setup: false,
             hierarchy: Some(hierarchy),
             workspace: Arc::new(Mutex::new(None)),
+            athena_boundary: Arc::new(Mutex::new(None)),
         };
 
         amg.setup(matrix)?;
@@ -522,6 +534,49 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for Alge
         z.fill(<T as NumericElement>::ZERO);
         self.v_cycle(0, r, z, workspace);
 
+        Ok(())
+    }
+}
+
+impl<T: RealField + Copy + FloatElement + LetoScalar + leto_ops::RealScalar>
+    athena_core::Preconditioner<LetoBackend<T>> for AlgebraicMultigrid<T>
+{
+    fn apply(
+        &self,
+        _backend: &LetoBackend<T>,
+        residual: <LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), LetoBackendError> {
+        let length = residual.shape()[0];
+        if output.shape()[0] != length {
+            return Err(LetoBackendError::LengthMismatch {
+                left: length,
+                right: output.shape()[0],
+            });
+        }
+        let mut guard = self.athena_boundary.lock().map_err(|_| {
+            LetoBackendError::Leto(leto::LetoError::InvalidInput(
+                "AMG boundary buffers poisoned".to_string(),
+            ))
+        })?;
+        if guard.as_ref().is_none_or(|(r, _)| r.shape()[0] != length) {
+            *guard = Some((
+                MultigridVector::zeros([length]),
+                MultigridVector::zeros([length]),
+            ));
+        }
+        let (scratch_residual, scratch_output) = guard
+            .as_mut()
+            .expect("invariant: AMG boundary buffers installed above");
+
+        for index in 0..length {
+            scratch_residual[index] = residual[index];
+        }
+        Preconditioner::apply_to(self, scratch_residual, scratch_output)
+            .map_err(LetoBackendError::Leto)?;
+        for index in 0..length {
+            output[index] = scratch_output[index];
+        }
         Ok(())
     }
 }

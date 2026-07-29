@@ -165,6 +165,38 @@ where
     )
 }
 
+/// Solve `A·x = b` with BiCGSTAB and an explicit preconditioner.
+///
+/// # Errors
+///
+/// See [`gmres_preconditioned`].
+pub fn bicgstab_preconditioned<T, P>(
+    matrix: &CsrMatrix<T>,
+    right_hand_side: &Array1<T>,
+    preconditioner: &P,
+    solution: &mut Array1<T>,
+    config: &IterativeSolverConfig<T>,
+) -> KrylovResult<T>
+where
+    T: RealScalar + RealField + FloatElement,
+    P: Preconditioner<LetoBackend<T>>,
+{
+    let backend = LetoBackend::<T>::default();
+    let operator = BorrowedCsrOperator::new(matrix).map_err(SolveError::Backend)?;
+    let policy = convergence_policy(config)?;
+    let mut workspace = BiCgStabWorkspace::new(&backend, LinearOperator::dimension(&operator))
+        .map_err(SolveError::Backend)?;
+    BiCgStab::<LetoBackend<T>>::solve_into(
+        &backend,
+        &operator,
+        preconditioner,
+        right_hand_side,
+        solution,
+        &mut workspace,
+        policy,
+    )
+}
+
 /// Solve `A·x = b` with BiCGSTAB and no preconditioner.
 ///
 /// # Errors
