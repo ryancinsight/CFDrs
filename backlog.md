@@ -68,6 +68,21 @@
   targeted rustfmt, diff checks, the typed public-field residue scan, and cfd-core
   doctests 3/3 pass.
 
+- **CFDRS-AEQ-MET-32 [major] - Type non-Newtonian model metrics
+  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  scope=`cfd-core::physics::fluid::non_newtonian`, its direct tests, and
+  synchronized audit/design/changelog artifacts).** The post-MET-31 scan
+  finds Bingham, Casson, Carreau-Yasuda, Power-law, and Herschel-Bulkley
+  models still store density, stress, viscosity, shear-rate, time, thermal,
+  acoustic, temperature, and activation-energy values as raw scalars. Carry
+  representable fields through Aequitas and keep scalar extraction only at
+  formula boundaries. Consistency-index units vary with the runtime flow
+  exponent, so they remain explicit formula data rather than a misleading
+  fixed quantity. Preserve the real-valued Eunomia `RealField` contract;
+  complex values and imaginary-unit SI properties do not apply. Acceptance is
+  a residue-free typed-field scan, value-semantic model regressions, focused
+  cfd-core gates, and synchronized audit/design/changelog evidence.
+
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidState`, its cfd-core producers,
