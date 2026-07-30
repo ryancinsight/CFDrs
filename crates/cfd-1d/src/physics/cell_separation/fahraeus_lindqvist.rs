@@ -8,7 +8,7 @@
 //! flow: dependence on diameter and hematocrit", *Am. J. Physiol.*
 //! 263(6):H1770-H1778.
 
-use aequitas::systems::si::quantities::{DynamicViscosity, Length};
+use aequitas::systems::si::quantities::{Dimensionless, DynamicViscosity, Length};
 use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
 
 /// Fahraeus-Lindqvist apparent viscosity for microvessels (Pries et al. 1992).
@@ -57,7 +57,10 @@ pub fn fahraeus_lindqvist_viscosity(
     hematocrit: f64,
     mu_plasma: DynamicViscosity,
 ) -> DynamicViscosity {
-    let fl = FahraeuasLindqvist::<f64>::new(diameter.into_base(), hematocrit);
+    let fl = FahraeuasLindqvist::<f64>::new(
+        Length::from_base(diameter.into_base()),
+        Dimensionless::from_base(hematocrit),
+    );
     DynamicViscosity::from_base(fl.pries_relative_viscosity() * mu_plasma.into_base())
 }
 
@@ -107,7 +110,10 @@ pub fn secomb_network_viscosity(
     hematocrit: f64,
     mu_plasma: DynamicViscosity,
 ) -> DynamicViscosity {
-    let fl = FahraeuasLindqvist::<f64>::new(diameter.into_base(), hematocrit);
+    let fl = FahraeuasLindqvist::<f64>::new(
+        Length::from_base(diameter.into_base()),
+        Dimensionless::from_base(hematocrit),
+    );
     DynamicViscosity::from_base(fl.secomb_relative_viscosity() * mu_plasma.into_base())
 }
 

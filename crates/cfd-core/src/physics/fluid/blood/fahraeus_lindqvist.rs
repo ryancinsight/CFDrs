@@ -1,4 +1,5 @@
 use super::constants;
+use aequitas::systems::si::quantities::{Dimensionless, DynamicViscosity, Length};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 
@@ -24,20 +25,22 @@ use eunomia::{FloatElement, NumericElement};
 #[derive(Debug, Clone, Copy)]
 pub struct FahraeuasLindqvist<T: RealField + Copy> {
     /// Vessel diameter \[m]
-    pub diameter: T,
+    pub diameter: Length<T>,
     /// Hematocrit (volume fraction of RBCs) [-]
-    pub hematocrit: T,
+    pub hematocrit: Dimensionless<T>,
     /// Plasma viscosity [Pa·s]
-    pub plasma_viscosity: T,
+    pub plasma_viscosity: DynamicViscosity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     /// Create new Fåhræus-Lindqvist calculator
-    pub fn new(diameter: T, hematocrit: T) -> Self {
+    pub fn new(diameter: Length<T>, hematocrit: Dimensionless<T>) -> Self {
         Self {
             diameter,
             hematocrit,
-            plasma_viscosity: scalar::<T>(constants::PLASMA_VISCOSITY_37C),
+            plasma_viscosity: DynamicViscosity::from_base(scalar::<T>(
+                constants::PLASMA_VISCOSITY_37C,
+            )),
         }
     }
 
@@ -45,7 +48,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     ///
     /// Effect is significant for D < 300 μm
     pub fn is_significant(&self) -> bool {
-        self.diameter < scalar::<T>(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER)
+        self.diameter.into_base() < scalar::<T>(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER)
     }
 
     /// Calculate relative apparent viscosity using exact Pries et al. (1992) formulation
@@ -110,7 +113,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     #[inline]
     fn compute_mu_45(&self) -> (T, T) {
         let zero = <T as NumericElement>::ZERO;
-        let mut d_um = self.diameter * scalar::<T>(1e6); // Convert to μm
+        let mut d_um = self.diameter.into_base() * scalar::<T>(1e6); // Convert to μm
         // Fahraeus-Lindqvist scales back to bulk viscosity above 300μm
         let d_max = scalar::<T>(300.0);
         if d_um > d_max {
@@ -135,7 +138,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     fn compute_final_relative_viscosity(&self, mu_45: T, exponent_c: T) -> T {
         let one = <T as NumericElement>::ONE;
         let zero = <T as NumericElement>::ZERO;
-        let ht_clamp = <T as NumericElement>::max_scalar(self.hematocrit, zero);
+        let ht_clamp = <T as NumericElement>::max_scalar(self.hematocrit.into_base(), zero);
 
         let num_base = <T as NumericElement>::max_scalar(one - ht_clamp, scalar::<T>(0.001));
         let den_base =
@@ -154,29 +157,29 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     }
 
     /// Calculate apparent viscosity in microvessel [Pa·s]
-    pub fn apparent_viscosity(&self) -> T {
-        self.plasma_viscosity * self.relative_viscosity()
+    pub fn apparent_viscosity(&self) -> DynamicViscosity<T> {
+        DynamicViscosity::from_base(self.plasma_viscosity.into_base() * self.relative_viscosity())
     }
 
     /// Calculate tube hematocrit from feed hematocrit (Fåhræus effect)
     ///
     /// H_tube / H_feed = empirical correlation
-    pub fn tube_hematocrit(&self) -> T {
-        let d_um = self.diameter * scalar::<T>(1e6);
+    pub fn tube_hematocrit(&self) -> Dimensionless<T> {
+        let d_um = self.diameter.into_base() * scalar::<T>(1e6);
         let one = <T as NumericElement>::ONE;
         let zero = <T as NumericElement>::ZERO;
 
         // Empirical correlation for tube hematocrit reduction
         // Valid for D > 10 μm
         if d_um < scalar::<T>(10.0) {
-            return self.hematocrit * scalar::<T>(0.5);
+            return Dimensionless::from_base(self.hematocrit.into_base() * scalar::<T>(0.5));
             // Approximate minimum
         }
 
         // Pries et al. empirical fit
         let reduction_factor =
             one - scalar::<T>(1.7) * <T as FloatElement>::exp((zero - d_um) / scalar::<T>(40.0));
-        self.hematocrit * reduction_factor
+        Dimensionless::from_base(self.hematocrit.into_base() * reduction_factor)
     }
 }
 
@@ -192,40 +195,55 @@ mod tests {
     #[test]
     fn test_fahraeus_lindqvist_significance() {
         // Large vessel - effect not significant
-        let large = FahraeuasLindqvist::<f64>::new(1e-3, 0.45); // 1 mm
+        let large =
+            FahraeuasLindqvist::<f64>::new(Length::from_base(1e-3), Dimensionless::from_base(0.45)); // 1 mm
         assert!(!large.is_significant());
 
         // Small vessel - effect significant
-        let small = FahraeuasLindqvist::<f64>::new(50e-6, 0.45); // 50 μm
+        let small = FahraeuasLindqvist::<f64>::new(
+            Length::from_base(50e-6),
+            Dimensionless::from_base(0.45),
+        ); // 50 μm
         assert!(small.is_significant());
     }
 
     #[test]
     fn test_fahraeus_lindqvist_viscosity_reduction() {
         // In smaller vessels, apparent viscosity should be lower
-        let d_100 = FahraeuasLindqvist::<f64>::new(100e-6, 0.45);
-        let d_50 = FahraeuasLindqvist::<f64>::new(50e-6, 0.45);
+        let d_100 = FahraeuasLindqvist::<f64>::new(
+            Length::from_base(100e-6),
+            Dimensionless::from_base(0.45),
+        );
+        let d_50 = FahraeuasLindqvist::<f64>::new(
+            Length::from_base(50e-6),
+            Dimensionless::from_base(0.45),
+        );
 
         let mu_100 = d_100.apparent_viscosity();
         let mu_50 = d_50.apparent_viscosity();
 
         // Smaller vessel should have lower apparent viscosity
         assert!(
-            mu_50 < mu_100,
-            "μ(50 μm) = {mu_50} should be < μ(100 μm) = {mu_100}"
+            mu_50.into_base() < mu_100.into_base(),
+            "μ(50 μm) = {} should be < μ(100 μm) = {}",
+            mu_50.into_base(),
+            mu_100.into_base()
         );
     }
 
     #[test]
     fn test_fahraeus_lindqvist_tube_hematocrit() {
-        let fl = FahraeuasLindqvist::<f64>::new(50e-6, 0.45);
+        let fl = FahraeuasLindqvist::<f64>::new(
+            Length::from_base(50e-6),
+            Dimensionless::from_base(0.45),
+        );
         let h_tube = fl.tube_hematocrit();
 
         // Tube hematocrit should be less than feed due to Fåhræus effect
         assert!(
-            h_tube < 0.45,
+            h_tube.into_base() < 0.45,
             "Tube hematocrit {} should be less than feed {}",
-            h_tube,
+            h_tube.into_base(),
             0.45
         );
     }

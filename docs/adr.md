@@ -16,7 +16,8 @@
 | **Aequitas-owned blueprint cross-fidelity metrics** | 2026-07-28 | cfd-3d blueprint traces exposed reference density, viscosity, flow, volume, pressure, velocity, and nodal flow residuals as public raw scalars | MassDensity, DynamicViscosity, VolumetricFlowRate, Volume, Pressure, and Velocity remain typed through blueprint configuration and channel/node traces; cfd-1d/cfd-2d adapters and millimetre mesh DTOs are explicit scalar boundaries | Breaking change for external blueprint trace consumers |
 | **Aequitas-owned cfd-core FluidState metrics** | 2026-07-29 | FluidState and provider seams exposed real physical state and derived numbers as raw scalars, and the 2D adapter masked solver/hemolysis failures with reference values | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless derived numbers remain typed; scalar extraction is confined to formula and infrastructure boundaries | Breaking change for fluid-state implementors and constructors; broader FluidProperties raw storage remains a separate boundary |
 | **Aequitas-owned cfd-core shared fluid properties** | 2026-07-29 | FluidProperties, PropertyBounds, and ConstantPropertyFluid still stored shared density, viscosity, heat capacity, conductivity, and sound speed as raw scalars after the FluidState cutover | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless metrics remain typed through shared storage and callers; constitutive model coefficients stay at formula boundaries | Breaking change for shared-property constructors and implementors; temperature-dependent, non-Newtonian, blood, and ideal-gas coefficients remain a separate migration |
-| **Aequitas-owned cfd-core temperature-model metrics** | 2026-07-30 | Temperature-dependent fluid models stored density, temperatures, viscosity parameters, heat capacity, conductivity, and sound speed as raw scalars | MassDensity, ThermodynamicTemperature, TemperatureDifference, ReciprocalTemperature, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and calculation methods; polynomial coefficient vectors remain formula-bound because order changes their units | Breaking change for external temperature-model constructors and callers; ideal-gas, non-Newtonian, and blood coefficients remain separate migrations |
+| **Aequitas-owned cfd-core temperature-model metrics** | 2026-07-30 | Temperature-dependent fluid models stored density, temperatures, viscosity parameters, heat capacity, conductivity, and sound speed as raw scalars | MassDensity, ThermodynamicTemperature, TemperatureDifference, ReciprocalTemperature, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and calculation methods; polynomial coefficient vectors remain formula-bound because order changes their units | Breaking change for external temperature-model constructors and callers; ideal-gas and remaining blood coefficients remain separate migrations |
+| **Aequitas-owned cfd-core microvascular blood metrics** | 2026-07-30 | Fåhræus-Lindqvist storage erased vessel diameter, hematocrit, and plasma viscosity dimensions | Length, Dimensionless, and DynamicViscosity remain typed through the calculator and direct cfd-1d/PyO3 adapters; scalar extraction is confined to empirical formulas, unit conversion, and serialization | Breaking change for external microvascular calculator constructors and consumers |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
@@ -86,6 +87,32 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-30: Aequitas owns cfd-core microvascular blood metrics [major] [arch]
+
+Context: `FahraeuasLindqvist` stored vessel diameter, feed hematocrit, and
+plasma viscosity as raw generic scalars even though the surrounding cfd-core
+and cfd-1d public blood contracts used Aequitas quantities.
+
+Decision: carry `Length`, `Dimensionless`, and `DynamicViscosity` through the
+calculator and return typed apparent viscosity and tube hematocrit. Extract
+base scalars only inside the Pries/Secomb empirical formulas, the micrometre
+conversion, and the cfd-1d/PyO3 scalar boundaries.
+
+Rejected alternative: retain unit comments, add parallel typed accessors, or
+introduce a consumer-local wrapper. Each option would preserve dimensional
+ambiguity or duplicate the Aequitas provider contract.
+
+Consequences: external `FahraeuasLindqvist` constructors and direct typed
+result consumers require explicit Aequitas values. The model remains real-
+valued under Eunomia `RealField`; `Complex<T>` and an imaginary-unit SI
+material quantity do not apply to ordered microvascular material properties.
+
+Verification: cfd-core/cfd-1d/cfd-python test-target checks, focused blood
+Nextest 3/3, warning-denied cfd-core Clippy, cfd-core doctests, no-default-
+features cfd-core rustdoc, targeted rustfmt, diff checks, and the typed
+public-field residue scan pass. See
+[`microvascular-blood-metrics.md`](atlas-migration/microvascular-blood-metrics.md).
 
 ### 2026-07-30: Aequitas owns cfd-core non-Newtonian metrics [major] [arch]
 

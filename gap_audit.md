@@ -84,9 +84,31 @@ apply to these real constitutive models.
 Focused temperature-model Nextest passes 7/7, cfd-core test-target check and
 warning-denied Clippy/all-targets pass, cfd-core doctests pass 3/3, targeted
 rustfmt and diff checks pass, and the public typed-field residue scan is clean.
-The remaining Aequitas model-property gaps are the
-ideal-gas, non-Newtonian, and blood constitutive families, which remain
-separate dependency-ordered items.
+The remaining Aequitas model-property gaps are the ideal-gas and the larger-
+vessel blood rheology families, which remain separate dependency-ordered
+items.
+
+## Microvascular blood metric refresh (2026-07-30, CFDRS-AEQ-MET-33)
+
+The blood audit found that `FahraeuasLindqvist` still stored vessel diameter,
+feed hematocrit, and plasma viscosity as raw generic scalars. The calculator
+now stores `Length`, `Dimensionless`, and `DynamicViscosity`, and returns typed
+apparent viscosity and tube hematocrit. The empirical Pries and Secomb
+correlations extract base scalars only at their formula and micrometre
+conversion boundaries. The cfd-1d and PyO3 adapters construct the typed core
+contract explicitly and extract only for their existing scalar interfaces.
+
+The model remains real-valued under Eunomia `RealField`: ordered diameter and
+hematocrit validation plus real-valued powers do not admit Eunomia
+`Complex<T>`. Complex values and an imaginary-unit SI material quantity remain
+at phasor, Bessel, Womersley, and spectral boundaries rather than being
+introduced into a real blood-property contract.
+
+Focused blood-model Nextest passes 3/3, cfd-core/cfd-1d/cfd-python test-target
+checks pass, cfd-1d cell-separation Nextest passes 155/155, and the typed
+Fåhræus-Lindqvist public-field residue scan is clean. The remaining Aequitas
+model-property gaps are the ideal-gas and larger-vessel blood rheology
+families; those are not silently claimed by this microvascular slice.
 
 ## Non-Newtonian metric refresh (2026-07-30, CFDRS-AEQ-MET-32)
 

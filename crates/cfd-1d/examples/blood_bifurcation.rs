@@ -29,9 +29,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── 1. Fluid Properties ──────────────────────────────────────────────────
     let blood = CarreauYasuda::<f64>::blood();
     println!("Fluid: {}", blood.name());
-    println!("Density: {} kg/m³", blood.density);
-    println!("Viscosity (inf): {} Pa·s", blood.viscosity_inf);
-    println!("Viscosity (0): {} Pa·s", blood.viscosity_zero);
+    println!("Density: {} kg/m³", blood.density.into_base());
+    println!(
+        "Viscosity (inf): {} Pa·s",
+        blood.viscosity_inf.into_base()
+    );
+    println!(
+        "Viscosity (0): {} Pa·s",
+        blood.viscosity_zero.into_base()
+    );
 
     // ── 2. Network Topology via ChannelSpec/NodeSpec ─────────────────────────
     // All physical geometry lives in ChannelSpec — no cfd_1d::domain::channel imports needed.

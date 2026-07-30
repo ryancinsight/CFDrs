@@ -55,9 +55,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //   λ = 3.313 s, n = 0.3568, a = 2.0
     let blood = CarreauYasuda::<f64>::blood();
     println!("Fluid Model: {}", blood.name());
-    println!("  Density       : {} kg/m³", blood.density);
-    println!("  μ₀ (zero-shear) : {:.4} Pa·s", blood.viscosity_zero);
-    println!("  μ_∞ (high-shear): {:.4} Pa·s", blood.viscosity_inf);
+    println!("  Density       : {} kg/m³", blood.density.into_base());
+    println!(
+        "  μ₀ (zero-shear) : {:.4} Pa·s",
+        blood.viscosity_zero.into_base()
+    );
+    println!(
+        "  μ_∞ (high-shear): {:.4} Pa·s",
+        blood.viscosity_inf.into_base()
+    );
     println!();
 
     // ── 2. Network Topology ──────────────────────────────────────────────────

@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the cfd-core Fåhræus-Lindqvist microvascular blood
+  calculator with Aequitas `Length`, `Dimensionless`, and
+  `DynamicViscosity`. Apparent viscosity and tube hematocrit now remain typed
+  through the core model; scalar extraction is limited to Pries/Secomb formula
+  boundaries, micrometre conversion, and cfd-1d/PyO3 adapters. The real-valued
+  Eunomia contract does not introduce complex or imaginary-unit material
+  properties. See
+  [`microvascular-blood-metrics.md`](docs/atlas-migration/microvascular-blood-metrics.md).
+
 - **Breaking**: Type fixed-dimension cfd-core non-Newtonian model parameters
   with Aequitas quantities for density, stress, viscosity, shear rate, time,
   exponents, temperature, activation energy, thermal properties, and sound

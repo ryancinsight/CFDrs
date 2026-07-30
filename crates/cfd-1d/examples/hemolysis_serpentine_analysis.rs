@@ -75,8 +75,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Fluid: {}", blood.name());
     println!(
         "   µ∞ = {:.4} mPa·s, µ₀ = {:.1} mPa·s",
-        blood.viscosity_inf * 1e3,
-        blood.viscosity_zero * 1e3
+        blood.viscosity_inf.into_base() * 1e3,
+        blood.viscosity_zero.into_base() * 1e3
     );
 
     let mut builder = NetworkBuilder::<f64>::new();
@@ -204,7 +204,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let cav_num = CavitationNumber {
                 reference_pressure: Pressure::from_base(inlet_pressure_pa),
                 vapor_pressure: Pressure::from_base(6300.0),
-                density: MassDensity::from_base(blood.density),
+                density: MassDensity::from_base(blood.density.into_base()),
                 velocity: Velocity::from_base(velocity),
             };
             let sigma = cav_num.calculate();
@@ -307,9 +307,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "fluid": {
             "model": "Carreau-Yasuda Blood",
-            "density_kg_m3": blood.density,
-            "viscosity_inf_pa_s": blood.viscosity_inf,
-            "viscosity_zero_pa_s": blood.viscosity_zero
+            "density_kg_m3": blood.density.into_base(),
+            "viscosity_inf_pa_s": blood.viscosity_inf.into_base(),
+            "viscosity_zero_pa_s": blood.viscosity_zero.into_base()
         },
         "boundary_conditions": {
             "inlet_pressure_pa": inlet_pressure_pa,

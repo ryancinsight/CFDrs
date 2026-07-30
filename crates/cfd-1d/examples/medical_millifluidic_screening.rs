@@ -229,7 +229,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let cav = CavitationNumber {
                 reference_pressure: Pressure::from_base(local_p),
                 vapor_pressure: Pressure::from_base(vapor_pressure),
-                density: MassDensity::from_base(blood.density),
+                density: MassDensity::from_base(blood.density.into_base()),
                 velocity: Velocity::from_base(velocity),
             };
             let sigma = cav.calculate().into_base();
@@ -397,9 +397,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         "fluid": {
             "model": "Carreau-Yasuda Blood",
-            "density_kg_m3": blood.density,
-            "viscosity_inf_pas": blood.viscosity_inf,
-            "viscosity_zero_pas": blood.viscosity_zero,
+            "density_kg_m3": blood.density.into_base(),
+            "viscosity_inf_pas": blood.viscosity_inf.into_base(),
+            "viscosity_zero_pas": blood.viscosity_zero.into_base(),
             "temperature_k": 310.15,
             "vapor_pressure_pa": vapor_pressure
         },

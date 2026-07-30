@@ -1,5 +1,6 @@
 //! Blood rheology model wrappers for `PyO3`
 
+use aequitas::systems::si::quantities::{Dimensionless, Length};
 use cfd_core::physics::fluid::blood::{
     CarreauYasudaBlood as RustCarreauYasudaBlood, CassonBlood as RustCassonBlood,
     CrossBlood as RustCrossBlood, FahraeuasLindqvist as RustFahraeuasLindqvist,
@@ -257,7 +258,10 @@ impl PyFahraeuasLindqvist {
     #[pyo3(signature = (diameter, hematocrit=0.45))]
     fn new(diameter: f64, hematocrit: f64) -> Self {
         PyFahraeuasLindqvist {
-            inner: RustFahraeuasLindqvist::<f64>::new(diameter, hematocrit),
+            inner: RustFahraeuasLindqvist::<f64>::new(
+                Length::from_base(diameter),
+                Dimensionless::from_base(hematocrit),
+            ),
         }
     }
 
@@ -273,24 +277,24 @@ impl PyFahraeuasLindqvist {
 
     /// Calculate apparent viscosity in microvessel [Pa.s]
     fn apparent_viscosity(&self) -> f64 {
-        self.inner.apparent_viscosity()
+        self.inner.apparent_viscosity().into_base()
     }
 
     /// Calculate tube hematocrit (Fahraeus effect) [-]
     fn tube_hematocrit(&self) -> f64 {
-        self.inner.tube_hematocrit()
+        self.inner.tube_hematocrit().into_base()
     }
 
     /// Get plasma viscosity [Pa.s]
     fn plasma_viscosity(&self) -> f64 {
-        self.inner.plasma_viscosity.to_f64()
+        self.inner.plasma_viscosity.into_base().to_f64()
     }
 
     fn __str__(&self) -> String {
         format!(
             "FahraeuasLindqvist(D={:.1} um, Ht={:.2}, significant={})",
-            self.inner.diameter.to_f64() * 1e6,
-            self.inner.hematocrit.to_f64(),
+            self.inner.diameter.into_base().to_f64() * 1e6,
+            self.inner.hematocrit.into_base().to_f64(),
             self.is_significant()
         )
     }

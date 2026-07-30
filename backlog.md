@@ -89,7 +89,7 @@
   peer `hephaestus-wgpu` bound error at `application/elementwise_seam.rs:413`.
 
 - **CFDRS-AEQ-MET-33 [major] - Type microvascular blood metrics
-  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  (VERIFIED 2026-07-30; owner=current Codex session; claimed 2026-07-30;
   scope=`cfd-core::physics::fluid::blood::FahraeuasLindqvist`, its direct
   consumers/tests, and synchronized audit/design/changelog artifacts).** The
   remaining blood audit finds the Fåhræus-Lindqvist calculator still stores
@@ -99,7 +99,37 @@
   model remains real-valued under Eunomia `RealField`; complex values and an
   imaginary-unit material quantity do not apply. Acceptance is a typed-field
   residue scan, value-semantic microvascular regressions, focused package
-  gates, and synchronized audit/design/changelog evidence.
+  gates, and synchronized audit/design/changelog evidence. Evidence:
+  cfd-core/cfd-1d/cfd-python test-target checks pass; focused blood-model
+  Nextest 3/3 passes; no-default-features cfd-core rustdoc and cfd-core
+  doctests pass; warning-denied cfd-core Clippy passes; targeted rustfmt,
+  diff checks, and the typed public-field residue scan pass.
+
+- **CFDRS-AEQ-MET-34 [major] - Type ideal-gas model metrics**
+  (TODO 2026-07-30; owner=unclaimed; scope=`cfd-core::physics::fluid::ideal_gas`,
+  its direct tests/consumers, and synchronized audit/design/changelog
+  artifacts). The post-MET-33 scan leaves the ideal-gas constitutive family as
+  the remaining cfd-core model-property gap. Carry fixed-dimension density,
+  pressure, temperature, specific heat, gas constant, viscosity, conductivity,
+  and sound-speed values through Aequitas where the model contract supports
+  them; leave formula coefficient arrays scalar only when their dimensions vary
+  with a runtime exponent or polynomial order. Preserve Eunomia real-field
+  semantics and keep complex values at phasor/spectral boundaries. Acceptance:
+  typed-field residue scan, value-semantic ideal-gas regressions, focused
+  package gates, and synchronized docs.
+
+- **CFDRS-AEQ-MET-35 [major] - Type larger-vessel blood rheology metrics**
+  (TODO 2026-07-30; owner=unclaimed; scope=`cfd-core::physics::fluid::blood::{casson,carreau_yasuda,cross}`,
+  their direct tests/consumers, and synchronized audit/design/changelog
+  artifacts). The blood-family scan still finds density, viscosity, time,
+  hematocrit, thermal, acoustic, and shear-rate fields stored as raw generic
+  scalars in the Casson, Carreau-Yasuda, and Cross models. Carry fixed-
+  dimension fields through Aequitas and keep formula scalars only where a
+  coefficient's unit varies with a runtime exponent or empirical law. Preserve
+  Eunomia `RealField`; complex values and imaginary-unit SI material metrics do
+  not apply to ordered rheology state. Acceptance: typed-field residue scan,
+  value-semantic blood regressions, focused package gates, and synchronized
+  docs.
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
