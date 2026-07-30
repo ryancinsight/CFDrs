@@ -88,6 +88,19 @@
   residue scan pass. Default-feature rustdoc remains blocked by the unrelated
   peer `hephaestus-wgpu` bound error at `application/elementwise_seam.rs:413`.
 
+- **CFDRS-AEQ-MET-33 [major] - Type microvascular blood metrics
+  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  scope=`cfd-core::physics::fluid::blood::FahraeuasLindqvist`, its direct
+  consumers/tests, and synchronized audit/design/changelog artifacts).** The
+  remaining blood audit finds the Fåhræus-Lindqvist calculator still stores
+  vessel diameter, hematocrit, and plasma viscosity as raw scalars. Carry
+  length, dimensionless hematocrit, and dynamic viscosity through Aequitas;
+  extract only at the empirical formula and unit-conversion boundaries. The
+  model remains real-valued under Eunomia `RealField`; complex values and an
+  imaginary-unit material quantity do not apply. Acceptance is a typed-field
+  residue scan, value-semantic microvascular regressions, focused package
+  gates, and synchronized audit/design/changelog evidence.
+
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidState`, its cfd-core producers,
