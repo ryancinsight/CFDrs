@@ -106,9 +106,10 @@
   diff checks, and the typed public-field residue scan pass.
 
 - **CFDRS-AEQ-MET-34 [major] - Type ideal-gas model metrics**
-  (TODO 2026-07-30; owner=unclaimed; scope=`cfd-core::physics::fluid::ideal_gas`,
-  its direct tests/consumers, and synchronized audit/design/changelog
-  artifacts). The post-MET-33 scan leaves the ideal-gas constitutive family as
+  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  scope=`cfd-core::physics::fluid::newtonian::IdealGas`, its direct
+  database/tests/consumers, and synchronized audit/design/changelog artifacts).
+  The post-MET-33 scan leaves the ideal-gas constitutive family as
   the remaining cfd-core model-property gap. Carry fixed-dimension density,
   pressure, temperature, specific heat, gas constant, viscosity, conductivity,
   and sound-speed values through Aequitas where the model contract supports
