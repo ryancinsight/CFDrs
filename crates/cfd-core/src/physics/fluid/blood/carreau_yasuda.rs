@@ -2,7 +2,8 @@ use super::constants;
 use crate::error::Error;
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    Dimensionless, DynamicViscosity, MassDensity, ReciprocalTime, SpecificHeatCapacity,
+    ThermalConductivity, Time, Velocity,
 };
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
@@ -30,29 +31,29 @@ use serde::{Deserialize, Serialize};
 /// Cho, Y.I., Kensey, K.R. (1991) "Effects of the non-Newtonian viscosity of blood
 /// on flows in a diseased arterial vessel. Part 1: Steady flows"
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct CarreauYasudaBlood<T: RealField + Copy> {
+pub struct CarreauYasudaBlood<T> {
     /// Blood density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Zero-shear viscosity μ_0 [Pa·s]
-    pub zero_shear_viscosity: T,
+    pub zero_shear_viscosity: DynamicViscosity<T>,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
-    pub infinite_shear_viscosity: T,
+    pub infinite_shear_viscosity: DynamicViscosity<T>,
     /// Relaxation time λ \[s]
-    pub relaxation_time: T,
+    pub relaxation_time: Time<T>,
     /// Power-law index n [-]
-    pub power_law_index: T,
+    pub power_law_index: Dimensionless<T>,
     /// Transition parameter a [-]
-    pub transition_parameter: T,
+    pub transition_parameter: Dimensionless<T>,
     /// Hematocrit (volume fraction of RBCs) [-]
-    pub hematocrit: T,
+    pub hematocrit: Dimensionless<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
     /// Reference shear rate for default viscosity calculation [1/s]
-    pub reference_shear_rate: T,
+    pub reference_shear_rate: ReciprocalTime<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
@@ -66,34 +67,50 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
     /// - a = 2.0
     pub fn normal_blood() -> Self {
         Self {
-            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
-            zero_shear_viscosity: <T as FloatElement>::from_f64(constants::ZERO_SHEAR_VISCOSITY),
-            infinite_shear_viscosity: <T as FloatElement>::from_f64(
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_DENSITY,
+            )),
+            zero_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
+                constants::ZERO_SHEAR_VISCOSITY,
+            )),
+            infinite_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
                 constants::INFINITE_SHEAR_VISCOSITY,
-            ),
-            relaxation_time: <T as FloatElement>::from_f64(constants::CARREAU_LAMBDA),
-            power_law_index: <T as FloatElement>::from_f64(constants::CARREAU_N),
-            transition_parameter: <T as FloatElement>::from_f64(constants::CARREAU_A),
-            hematocrit: <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT),
-            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
-            thermal_conductivity: <T as FloatElement>::from_f64(
+            )),
+            relaxation_time: Time::from_base(<T as FloatElement>::from_f64(
+                constants::CARREAU_LAMBDA,
+            )),
+            power_law_index: Dimensionless::from_base(<T as FloatElement>::from_f64(
+                constants::CARREAU_N,
+            )),
+            transition_parameter: Dimensionless::from_base(<T as FloatElement>::from_f64(
+                constants::CARREAU_A,
+            )),
+            hematocrit: Dimensionless::from_base(<T as FloatElement>::from_f64(
+                constants::NORMAL_HEMATOCRIT,
+            )),
+            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPECIFIC_HEAT,
+            )),
+            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
                 constants::BLOOD_THERMAL_CONDUCTIVITY,
-            ),
-            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
-            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            )),
+            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPEED_OF_SOUND,
+            )),
+            reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
 
     /// Create Carreau-Yasuda blood model with custom parameters
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        density: T,
-        zero_shear_viscosity: T,
-        infinite_shear_viscosity: T,
-        relaxation_time: T,
-        power_law_index: T,
-        transition_parameter: T,
-        hematocrit: T,
+        density: MassDensity<T>,
+        zero_shear_viscosity: DynamicViscosity<T>,
+        infinite_shear_viscosity: DynamicViscosity<T>,
+        relaxation_time: Time<T>,
+        power_law_index: Dimensionless<T>,
+        transition_parameter: Dimensionless<T>,
+        hematocrit: Dimensionless<T>,
     ) -> Self {
         Self {
             density,
@@ -103,12 +120,16 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
             power_law_index,
             transition_parameter,
             hematocrit,
-            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
-            thermal_conductivity: <T as FloatElement>::from_f64(
+            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPECIFIC_HEAT,
+            )),
+            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
                 constants::BLOOD_THERMAL_CONDUCTIVITY,
-            ),
-            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
-            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            )),
+            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPEED_OF_SOUND,
+            )),
+            reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
 
@@ -127,62 +148,65 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
 
         // Handle zero shear rate
         if shear_rate <= <T as NumericElement>::ZERO {
-            return self.zero_shear_viscosity;
+            return self.zero_shear_viscosity.into_base();
         }
 
         // λγ̇
-        let lambda_gamma = self.relaxation_time * shear_rate;
+        let lambda_gamma = self.relaxation_time.into_base() * shear_rate;
 
         // (λγ̇)^a
-        let lambda_gamma_a = <T as FloatElement>::powf(lambda_gamma, self.transition_parameter);
+        let lambda_gamma_a =
+            <T as FloatElement>::powf(lambda_gamma, self.transition_parameter.into_base());
 
         // 1 + (λγ̇)^a
         let bracketed = one + lambda_gamma_a;
 
         // (n-1)/a
-        let exponent = (self.power_law_index - one) / self.transition_parameter;
+        let exponent =
+            (self.power_law_index.into_base() - one) / self.transition_parameter.into_base();
 
         // [1 + (λγ̇)^a]^((n-1)/a)
         let shear_factor = <T as FloatElement>::powf(bracketed, exponent);
 
         // μ_∞ + (μ_0 - μ_∞) · shear_factor
-        self.infinite_shear_viscosity
-            + (self.zero_shear_viscosity - self.infinite_shear_viscosity) * shear_factor
+        self.infinite_shear_viscosity.into_base()
+            + (self.zero_shear_viscosity.into_base() - self.infinite_shear_viscosity.into_base())
+                * shear_factor
     }
 
     /// Validate model parameters
     pub fn validate(&self) -> Result<(), Error> {
-        if self.density <= <T as NumericElement>::ZERO {
+        if self.density.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        if self.zero_shear_viscosity <= <T as NumericElement>::ZERO {
+        if self.zero_shear_viscosity.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Zero-shear viscosity must be positive".to_string(),
             ));
         }
-        if self.infinite_shear_viscosity <= <T as NumericElement>::ZERO {
+        if self.infinite_shear_viscosity.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Infinite-shear viscosity must be positive".to_string(),
             ));
         }
-        if self.infinite_shear_viscosity >= self.zero_shear_viscosity {
+        if self.infinite_shear_viscosity.into_base() >= self.zero_shear_viscosity.into_base() {
             return Err(Error::InvalidInput(
                 "Infinite-shear viscosity must be less than zero-shear viscosity".to_string(),
             ));
         }
-        if self.relaxation_time <= <T as NumericElement>::ZERO {
+        if self.relaxation_time.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Relaxation time must be positive".to_string(),
             ));
         }
-        if self.power_law_index <= <T as NumericElement>::ZERO
-            || self.power_law_index >= <T as NumericElement>::ONE
+        if self.power_law_index.into_base() <= <T as NumericElement>::ZERO
+            || self.power_law_index.into_base() >= <T as NumericElement>::ONE
         {
             return Err(Error::InvalidInput(
                 "Power-law index must be in (0, 1) for shear-thinning".to_string(),
             ));
         }
-        if self.transition_parameter <= <T as NumericElement>::ZERO {
+        if self.transition_parameter.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Transition parameter must be positive".to_string(),
             ));
@@ -193,14 +217,14 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasudaBlood<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
+        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate.into_base());
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -237,13 +261,16 @@ mod tests {
     #[test]
     fn test_carreau_yasuda_normal_blood() {
         let blood = CarreauYasudaBlood::<f64>::normal_blood();
-        assert_eq!(blood.zero_shear_viscosity, constants::ZERO_SHEAR_VISCOSITY);
         assert_eq!(
-            blood.infinite_shear_viscosity,
+            blood.zero_shear_viscosity.into_base(),
+            constants::ZERO_SHEAR_VISCOSITY
+        );
+        assert_eq!(
+            blood.infinite_shear_viscosity.into_base(),
             constants::INFINITE_SHEAR_VISCOSITY
         );
-        assert_eq!(blood.relaxation_time, constants::CARREAU_LAMBDA);
-        assert_eq!(blood.power_law_index, constants::CARREAU_N);
+        assert_eq!(blood.relaxation_time.into_base(), constants::CARREAU_LAMBDA);
+        assert_eq!(blood.power_law_index.into_base(), constants::CARREAU_N);
     }
 
     #[test]

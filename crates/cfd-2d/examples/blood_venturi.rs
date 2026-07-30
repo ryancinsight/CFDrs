@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Setup Fluid (Blood)
     let blood = CarreauYasuda::<f64>::blood();
-    let rho = blood.density;
+    let rho = blood.density.into_base();
 
     // 3. Setup Solver
     let config = SimplecPimpleConfig {

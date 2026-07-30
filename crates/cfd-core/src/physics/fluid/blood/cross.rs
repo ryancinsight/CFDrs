@@ -2,7 +2,8 @@ use super::constants;
 use crate::error::Error;
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    Dimensionless, DynamicViscosity, MassDensity, ReciprocalTime, SpecificHeatCapacity,
+    ThermalConductivity, Time, Velocity,
 };
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
@@ -17,29 +18,29 @@ use serde::{Deserialize, Serialize};
 ///
 /// Computationally simpler than Carreau-Yasuda but provides good fit for blood.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossBlood<T: RealField + Copy> {
+pub struct CrossBlood<T> {
     /// Fluid name
     pub name: String,
     /// Blood density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Zero-shear viscosity μ_0 [Pa·s]
-    pub zero_shear_viscosity: T,
+    pub zero_shear_viscosity: DynamicViscosity<T>,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
-    pub infinite_shear_viscosity: T,
+    pub infinite_shear_viscosity: DynamicViscosity<T>,
     /// Time constant K \[s]
-    pub time_constant: T,
+    pub time_constant: Time<T>,
     /// Rate index n [-]
-    pub rate_index: T,
+    pub rate_index: Dimensionless<T>,
     /// Hematocrit [-]
-    pub hematocrit: T,
+    pub hematocrit: Dimensionless<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
     /// Reference shear rate [1/s]
-    pub reference_shear_rate: T,
+    pub reference_shear_rate: ReciprocalTime<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
@@ -47,20 +48,30 @@ impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
     pub fn normal_blood() -> Self {
         Self {
             name: "Normal Human Blood (Cross)".to_string(),
-            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
-            zero_shear_viscosity: <T as FloatElement>::from_f64(constants::ZERO_SHEAR_VISCOSITY),
-            infinite_shear_viscosity: <T as FloatElement>::from_f64(
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_DENSITY,
+            )),
+            zero_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
+                constants::ZERO_SHEAR_VISCOSITY,
+            )),
+            infinite_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
                 constants::INFINITE_SHEAR_VISCOSITY,
-            ),
-            time_constant: <T as FloatElement>::from_f64(1.007), // Fitted for blood
-            rate_index: <T as FloatElement>::from_f64(1.028),    // Fitted for blood
-            hematocrit: <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT),
-            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
-            thermal_conductivity: <T as FloatElement>::from_f64(
+            )),
+            time_constant: Time::from_base(<T as FloatElement>::from_f64(1.007)),
+            rate_index: Dimensionless::from_base(<T as FloatElement>::from_f64(1.028)),
+            hematocrit: Dimensionless::from_base(<T as FloatElement>::from_f64(
+                constants::NORMAL_HEMATOCRIT,
+            )),
+            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPECIFIC_HEAT,
+            )),
+            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
                 constants::BLOOD_THERMAL_CONDUCTIVITY,
-            ),
-            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
-            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            )),
+            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
+                constants::BLOOD_SPEED_OF_SOUND,
+            )),
+            reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
 
@@ -69,28 +80,29 @@ impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
     /// μ(γ̇) = μ_∞ + (μ_0 - μ_∞) / (1 + (K·γ̇)^n)
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
         if shear_rate <= <T as NumericElement>::ZERO {
-            return self.zero_shear_viscosity;
+            return self.zero_shear_viscosity.into_base();
         }
 
-        let k_gamma = self.time_constant * shear_rate;
-        let denominator =
-            <T as NumericElement>::ONE + <T as FloatElement>::powf(k_gamma, self.rate_index);
+        let k_gamma = self.time_constant.into_base() * shear_rate;
+        let denominator = <T as NumericElement>::ONE
+            + <T as FloatElement>::powf(k_gamma, self.rate_index.into_base());
 
-        self.infinite_shear_viscosity
-            + (self.zero_shear_viscosity - self.infinite_shear_viscosity) / denominator
+        self.infinite_shear_viscosity.into_base()
+            + (self.zero_shear_viscosity.into_base() - self.infinite_shear_viscosity.into_base())
+                / denominator
     }
 }
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CrossBlood<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
+        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate.into_base());
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -136,5 +148,19 @@ mod tests {
             mu_high < constants::ZERO_SHEAR_VISCOSITY / 2.0,
             "High shear viscosity should be significantly reduced"
         );
+    }
+
+    #[test]
+    fn normal_blood_preserves_typed_fixed_metrics() {
+        let blood = CrossBlood::<f64>::normal_blood();
+
+        assert_eq!(blood.density.into_base(), constants::BLOOD_DENSITY);
+        assert_eq!(
+            blood.zero_shear_viscosity.into_base(),
+            constants::ZERO_SHEAR_VISCOSITY
+        );
+        assert_eq!(blood.time_constant.into_base(), 1.007);
+        assert_eq!(blood.rate_index.into_base(), 1.028);
+        assert_eq!(blood.hematocrit.into_base(), constants::NORMAL_HEMATOCRIT);
     }
 }

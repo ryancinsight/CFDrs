@@ -29,11 +29,11 @@ fn validate_venturi_blood_flow() {
     let fluid = CassonBlood::<f64>::normal_blood();
 
     println!("Fluid Model: Casson Blood");
-    println!("  Density: {:.1} kg/m^3", fluid.density);
-    println!("  Yield Stress: {:.4} Pa", fluid.yield_stress);
+    println!("  Density: {:.1} kg/m^3", fluid.density.into_base());
+    println!("  Yield Stress: {:.4} Pa", fluid.yield_stress.into_base());
     println!(
         "  Inf Viscosity: {:.4} Pa.s",
-        fluid.infinite_shear_viscosity
+        fluid.infinite_shear_viscosity.into_base()
     );
 
     // 3. Flow Conditions
@@ -89,7 +89,7 @@ fn validate_venturi_blood_flow() {
     // Bernoulli: DP = 0.5 * rho * (u_th^2 - u_in^2)
     let area_th = std::f64::consts::PI * (d_throat / 2.0f64).powi(2);
     let u_th_avg = q_in / area_th;
-    let dp_bernoulli = 0.5 * fluid.density * (u_th_avg.powi(2) - u_in.powi(2));
+    let dp_bernoulli = 0.5 * fluid.density.into_base() * (u_th_avg.powi(2) - u_in.powi(2));
 
     println!("  Bernoulli Drop:      {:.2} Pa", dp_bernoulli);
     assert!(

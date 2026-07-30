@@ -58,12 +58,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Solve with Casson blood
     let blood = CassonBlood::<f64>::normal_blood();
     println!("\nFluid: Casson Blood");
-    println!("  Yield stress:          {:.4} Pa", blood.yield_stress);
+    println!(
+        "  Yield stress:          {:.4} Pa",
+        blood.yield_stress.into_base()
+    );
     println!(
         "  Inf-shear viscosity:   {:.4e} Pa.s",
-        blood.infinite_shear_viscosity
+        blood.infinite_shear_viscosity.into_base()
     );
-    println!("  Density:               {:.1} kg/m^3", blood.density);
+    println!(
+        "  Density:               {:.1} kg/m^3",
+        blood.density.into_base()
+    );
 
     println!("\nSolving...");
     let solution = solver.solve(blood)?;

@@ -31,6 +31,7 @@
 use super::AnalyticalSolution;
 use crate::scalar;
 use crate::scalar::ValidationScalar;
+use aequitas::systems::si::quantities::{Dimensionless, DynamicViscosity, MassDensity, Pressure};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use eunomia::FloatElement;
 use eunomia::RealField;
@@ -349,7 +350,7 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
     pub fn new(model: CassonBlood<T>, half_width: T, pressure_gradient: T, length: T) -> Self {
         // Calculate plug radius: y_p where τ(y_p) = τ_y
         // τ(y) = (dp/dx)·y, so y_p = τ_y / (dp/dx)
-        let tau_y = model.yield_stress;
+        let tau_y = model.yield_stress.into_base();
         let y_p = tau_y / pressure_gradient;
 
         // Clamp to channel width
@@ -401,8 +402,8 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
         let two = scalar::from_f64::<T>(2.0);
         let four = scalar::from_f64::<T>(4.0);
         let three = scalar::from_f64::<T>(3.0);
-        let sqrt_tau_y = scalar::sqrt(self.model.yield_stress);
-        let sqrt_mu_inf = scalar::sqrt(self.model.infinite_shear_viscosity);
+        let sqrt_tau_y = scalar::sqrt(self.model.yield_stress.into_base());
+        let sqrt_mu_inf = scalar::sqrt(self.model.infinite_shear_viscosity.into_base());
 
         for i in 0..=n_points {
             let eta = y_abs + scalar::from_usize::<T>(i) * dy;
@@ -412,7 +413,7 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
             // Solve for γ̇: γ̇ = [(√τ - √τ_y)² / μ_∞]
             let sqrt_tau = scalar::sqrt(tau);
 
-            let gamma_dot = if tau > self.model.yield_stress {
+            let gamma_dot = if tau > self.model.yield_stress.into_base() {
                 let diff = sqrt_tau - sqrt_tau_y;
                 (diff / sqrt_mu_inf) * (diff / sqrt_mu_inf)
             } else {
@@ -582,7 +583,12 @@ mod tests {
         let tau_y = 0.01_f64; // 10 mPa (yield stress)
         let mu_inf = 0.0035_f64; // 3.5 cP
 
-        let model = CassonBlood::new(1060.0, tau_y, mu_inf, 0.45);
+        let model = CassonBlood::new(
+            MassDensity::from_base(1060.0),
+            Pressure::from_base(tau_y),
+            DynamicViscosity::from_base(mu_inf),
+            Dimensionless::from_base(0.45),
+        );
 
         let h = 0.001_f64; // 1 mm
         let dp_dx = 100.0_f64; // 100 Pa/m
@@ -604,7 +610,12 @@ mod tests {
 
     #[test]
     fn test_casson_wall_velocity_zero() {
-        let model = CassonBlood::new(1060.0, 0.0056, 0.00345, 0.45);
+        let model = CassonBlood::new(
+            MassDensity::from_base(1060.0),
+            Pressure::from_base(0.0056),
+            DynamicViscosity::from_base(0.00345),
+            Dimensionless::from_base(0.45),
+        );
         let h = 0.001_f64;
         let dp_dx = 100.0_f64;
         let l = 0.1_f64;
@@ -618,7 +629,12 @@ mod tests {
 
     #[test]
     fn test_casson_flow_rate() {
-        let model = CassonBlood::new(1060.0, 0.0056, 0.00345, 0.45);
+        let model = CassonBlood::new(
+            MassDensity::from_base(1060.0),
+            Pressure::from_base(0.0056),
+            DynamicViscosity::from_base(0.00345),
+            Dimensionless::from_base(0.45),
+        );
         let h = 0.001_f64;
         let dp_dx = 100.0_f64;
         let l = 0.1_f64;

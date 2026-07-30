@@ -46,6 +46,7 @@
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
+use aequitas::systems::si::quantities::{Dimensionless, DynamicViscosity, MassDensity, Pressure};
 use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -380,7 +381,12 @@ mod tests {
         let yield_stress = 0.005; // Pa
         let hematocrit = 0.45;
         let density = 1060.0; // kg/m³
-        let casson = CassonBlood::new(density, yield_stress, mu_inf, hematocrit);
+        let casson = CassonBlood::new(
+            MassDensity::from_base(density),
+            Pressure::from_base(yield_stress),
+            DynamicViscosity::from_base(mu_inf),
+            Dimensionless::from_base(hematocrit),
+        );
         let blood = BloodModel::Casson(casson);
 
         let geom = BifurcationGeometry {

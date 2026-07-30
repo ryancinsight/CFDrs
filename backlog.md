@@ -125,7 +125,7 @@
   `Send + Sync` error at `application/elementwise_seam.rs:413`.
 
 - **CFDRS-AEQ-MET-35 [major] - Type larger-vessel blood rheology metrics**
-  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  (VERIFIED 2026-07-30; owner=current Codex session; claimed 2026-07-30;
   scope=`cfd-core::physics::fluid::blood::{casson,carreau_yasuda,cross}`,
   their direct tests/consumers, and synchronized audit/design/changelog
   artifacts). The blood-family scan still finds density, viscosity, time,
@@ -136,7 +136,13 @@
   Eunomia `RealField`; complex values and imaginary-unit SI material metrics do
   not apply to ordered rheology state. Acceptance: typed-field residue scan,
   value-semantic blood regressions, focused package gates, and synchronized
-  docs.
+  docs. Evidence: cfd-core test-target check, focused blood-model Nextest,
+  warning-denied cfd-core Clippy, cfd-core doctests, targeted rustfmt, staged
+  diff checks, and the typed public-field residue scan pass. The cfd-2d,
+  cfd-3d, cfd-validation, and cfd-python package checks remain blocked before
+  the consumer by peer hephaestus-core unresolved leto imports in
+  crates/hephaestus-core/src/domain/convolution/{ops,plan}.rs; this is a
+  provider/peer integration residual, not a MET35 failure.
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;

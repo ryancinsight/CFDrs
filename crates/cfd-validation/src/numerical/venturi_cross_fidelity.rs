@@ -353,7 +353,8 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     );
 
     let mut cb = CassonBlood::<f64>::normal_blood();
-    cb.regularization_shear_rate = 1.0;
+    cb.regularization_shear_rate =
+        aequitas::systems::si::quantities::ReciprocalTime::from_base(1.0);
     let blood = BloodModel::Casson(cb);
 
     let ny = (5.0 * cr).round().clamp(40.0, 160.0) as usize;

@@ -20,6 +20,7 @@
 | **Aequitas-owned cfd-core ideal-gas metrics** | 2026-07-30 | IdealGas stored gas constant, heat capacity, Sutherland parameters, and conductivity coefficient as raw scalars | SpecificHeatCapacity, DynamicViscosity, ThermodynamicTemperature, TemperatureDifference, MassDensity, Pressure, ThermalConductivity, and Velocity remain typed through model storage and formula adapters; gas constant and conductivity coefficient use their shared specific-heat dimension | Breaking change for external ideal-gas constructors and consumers |
 | **Aequitas-owned cfd-core microvascular blood metrics** | 2026-07-30 | Fåhræus-Lindqvist storage erased vessel diameter, hematocrit, and plasma viscosity dimensions | Length, Dimensionless, and DynamicViscosity remain typed through the calculator and direct cfd-1d/PyO3 adapters; scalar extraction is confined to empirical formulas, unit conversion, and serialization | Breaking change for external microvascular calculator constructors and consumers |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
+| **Aequitas-owned cfd-core larger-vessel blood metrics** | 2026-07-30 | Casson, Carreau-Yasuda, and Cross storage erased density, stress, viscosity, time, hematocrit, thermal, acoustic, and shear-rate dimensions | MassDensity, Pressure, DynamicViscosity, Dimensionless, Time, ReciprocalTime, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and direct consumers; formula and serialization boundaries extract explicitly | Breaking change for external larger-vessel blood constructors and consumers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -143,6 +144,34 @@ Nextest 3/3, warning-denied cfd-core Clippy, cfd-core doctests, no-default-
 features cfd-core rustdoc, targeted rustfmt, diff checks, and the typed
 public-field residue scan pass. See
 [`microvascular-blood-metrics.md`](atlas-migration/microvascular-blood-metrics.md).
+
+### 2026-07-30: Aequitas owns cfd-core larger-vessel blood metrics [major] [arch]
+
+Context: the Casson, Carreau-Yasuda, and Cross public models stored fixed-
+dimension density, stress, viscosity, time, hematocrit, thermal, acoustic, and
+shear-rate state as raw generic scalars.
+
+Decision: carry fixed-dimension fields through Aequitas MassDensity, Pressure,
+DynamicViscosity, Dimensionless, Time, ReciprocalTime, SpecificHeatCapacity,
+ThermalConductivity, and Velocity. Keep scalar extraction at constitutive
+formula, mesh/solver adapter, and explicit serialization boundaries.
+Runtime-exponent consistency indices remain formula scalars because their
+dimensions vary with the exponent. Temperature correction accepts typed
+ThermodynamicTemperature.
+
+Rejected alternative: retain scalar fields, add parallel typed accessors, or
+introduce a consumer-local wrapper. These alternatives preserve dimensional
+ambiguity or duplicate the Aequitas provider contract.
+
+Consequences: external Casson, Carreau-Yasuda, and Cross constructors and
+direct field consumers require explicit Aequitas values. The models remain
+real-valued under Eunomia RealField; Complex<T> and an imaginary-unit SI
+material quantity do not apply to their ordered constitutive state.
+
+Verification: cfd-core test-target check, focused blood-model Nextest,
+warning-denied Clippy, cfd-core doctests, targeted rustfmt, staged diff checks,
+and the typed public-field residue scan. See
+[larger-vessel-blood-metrics.md](atlas-migration/larger-vessel-blood-metrics.md).
 
 ### 2026-07-30: Aequitas owns cfd-core non-Newtonian metrics [major] [arch]
 

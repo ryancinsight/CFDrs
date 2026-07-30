@@ -1,4 +1,6 @@
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    Area, DynamicViscosity, HydraulicResistance, Length, ReciprocalTime, VolumetricFlowRate,
+};
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -62,8 +64,8 @@ fn cross_fidelity_stenosis_shear_thinning() {
             // High Newtonian threshold (approximate mu_0 with Carreau but constant)
             // By setting zero relaxation we make it effectively constant
             let mut cy = CarreauYasudaBlood::normal_blood();
-            cy.infinite_shear_viscosity = mu_0;
-            cy.zero_shear_viscosity = mu_0;
+            cy.infinite_shear_viscosity = DynamicViscosity::from_base(mu_0);
+            cy.zero_shear_viscosity = DynamicViscosity::from_base(mu_0);
             cy
         } else {
             CarreauYasudaBlood::normal_blood()
@@ -142,7 +144,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
             BloodModel::Newtonian(mu_0)
         } else {
             let mut cb = CassonBlood::<f64>::normal_blood();
-            cb.regularization_shear_rate = 1.0;
+            cb.regularization_shear_rate = ReciprocalTime::from_base(1.0);
             BloodModel::Casson(cb)
         };
 

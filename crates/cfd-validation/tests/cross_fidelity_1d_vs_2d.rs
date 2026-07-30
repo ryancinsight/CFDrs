@@ -553,6 +553,9 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
     use cfd_2d::solvers::poiseuille::{
         BloodModel as PoiseuilleBloodModel, PoiseuilleConfig, PoiseuilleFlow2D,
     };
+    use aequitas::systems::si::quantities::{
+        Dimensionless, DynamicViscosity, MassDensity, Pressure,
+    };
     use cfd_core::physics::fluid::blood::CassonBlood;
 
     let height = 1.0e-3_f64;
@@ -573,10 +576,10 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
 
     // Approximate Newtonian: Casson with near-zero yield stress and μ_∞ = 3.5e-3.
     let casson = CassonBlood::new(
-        DENSITY, // density
-        1e-12,   // yield_stress ≈ 0 (Newtonian limit)
-        mu,      // infinite_shear_viscosity
-        0.45,    // hematocrit (unused at zero yield stress)
+        MassDensity::from_base(DENSITY),
+        Pressure::from_base(1e-12),
+        DynamicViscosity::from_base(mu),
+        Dimensionless::from_base(0.45),
     );
     let blood = PoiseuilleBloodModel::Casson(casson);
 

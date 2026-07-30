@@ -140,6 +140,39 @@ peer `hephaestus-wgpu` `Send + Sync` error at
 `application/elementwise_seam.rs:413`. The remaining CFDrs Aequitas model-
 property gap is the larger-vessel blood rheology family tracked by MET35.
 
+## Larger-vessel blood metric refresh (2026-07-30, CFDRS-AEQ-MET-35)
+
+The post-MET-34 blood audit found that the Casson, Carreau-Yasuda, and Cross
+models still stored fixed-dimension density, stress, viscosity, time,
+hematocrit, thermal, acoustic, and shear-rate state as raw generic scalars.
+Those public fields, constructors, constitutive accessors, direct cfd-2d and
+cfd-3d consumers, cfd-validation formula adapters, and cfd-python
+serialization accessors now use Aequitas quantities. Scalar extraction is
+confined to constitutive formulas, mesh/solver adapters, and explicit
+serialization. Runtime-exponent consistency indices remain formula scalars
+because their units vary with the exponent.
+
+The models retain Eunomia RealField because their validation and empirical
+power laws require ordered real values. Eunomia Complex<T> and an
+imaginary-unit SI material quantity do not apply to this ordered blood
+rheology state; complex values remain at phasor, spectral, Bessel, and
+Womersley boundaries.
+
+The cfd-core test-target check, focused blood-model Nextest, warning-denied
+Clippy, cfd-core doctests, targeted rustfmt, staged diff checks, and typed
+public-field residue scan are the completed core gates. Consumer package
+checks must be interpreted against the shared workspace state: the cfd-2d,
+cfd-3d, cfd-validation, and cfd-python package checks all stop before the
+consumer by peer hephaestus-core unresolved leto imports in
+crates/hephaestus-core/src/domain/convolution/{ops,plan}.rs; any additional
+provider or peer diagnostics are recorded with their exact location rather
+than attributed to this metric slice.
+
+The CFDrs cfd-core model-property audit is closed for the tracked temperature,
+non-Newtonian, microvascular blood, ideal-gas, and larger-vessel blood
+families. Remaining workspace errors are provider/peer integration items,
+not untyped metrics in this audit scope.
+
 ## Non-Newtonian metric refresh (2026-07-30, CFDRS-AEQ-MET-32)
 
 The public-surface scan found that the Bingham, Casson, Carreau–Yasuda,

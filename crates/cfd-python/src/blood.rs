@@ -59,17 +59,17 @@ impl PyCassonBlood {
 
     /// Get yield stress
     fn yield_stress(&self) -> f64 {
-        self.inner.yield_stress.to_f64()
+        self.inner.yield_stress.into_base().to_f64()
     }
 
     /// Get density
     fn density(&self) -> f64 {
-        self.inner.density.to_f64()
+        self.inner.density.into_base().to_f64()
     }
 
     /// Get viscosity at high shear (asymptotic value)
     fn viscosity_high_shear(&self) -> f64 {
-        self.inner.infinite_shear_viscosity.to_f64()
+        self.inner.infinite_shear_viscosity.into_base().to_f64()
     }
 
     fn __str__(&self) -> String {
@@ -134,17 +134,17 @@ impl PyCarreauYasudaBlood {
 
     /// Get density
     fn density(&self) -> f64 {
-        self.inner.density.to_f64()
+        self.inner.density.into_base().to_f64()
     }
 
     /// Get viscosity at zero shear (limit)
     fn viscosity_zero_shear(&self) -> f64 {
-        self.inner.zero_shear_viscosity.to_f64()
+        self.inner.zero_shear_viscosity.into_base().to_f64()
     }
 
     /// Get viscosity at infinite shear (limit)
     fn viscosity_high_shear(&self) -> f64 {
-        self.inner.infinite_shear_viscosity.to_f64()
+        self.inner.infinite_shear_viscosity.into_base().to_f64()
     }
 
     fn __str__(&self) -> String {
@@ -197,27 +197,27 @@ impl PyCrossBlood {
 
     /// Get density [kg/m^3]
     fn density(&self) -> f64 {
-        self.inner.density.to_f64()
+        self.inner.density.into_base().to_f64()
     }
 
     /// Get viscosity at zero shear (limit) [Pa.s]
     fn viscosity_zero_shear(&self) -> f64 {
-        self.inner.zero_shear_viscosity.to_f64()
+        self.inner.zero_shear_viscosity.into_base().to_f64()
     }
 
     /// Get viscosity at infinite shear (limit) [Pa.s]
     fn viscosity_high_shear(&self) -> f64 {
-        self.inner.infinite_shear_viscosity.to_f64()
+        self.inner.infinite_shear_viscosity.into_base().to_f64()
     }
 
     /// Get time constant K \[s]
     fn time_constant(&self) -> f64 {
-        self.inner.time_constant.to_f64()
+        self.inner.time_constant.into_base().to_f64()
     }
 
     /// Get rate index n [-]
     fn rate_index(&self) -> f64 {
-        self.inner.rate_index.to_f64()
+        self.inner.rate_index.into_base().to_f64()
     }
 
     fn __str__(&self) -> String {

@@ -52,6 +52,15 @@ All notable changes to this project will be documented in this file.
   properties. See
   [`microvascular-blood-metrics.md`](docs/atlas-migration/microvascular-blood-metrics.md).
 
+- **Breaking**: Type cfd-core Casson, Carreau-Yasuda, and Cross larger-vessel
+  blood model state with Aequitas MassDensity, Pressure, DynamicViscosity,
+  Dimensionless, Time, ReciprocalTime, SpecificHeatCapacity,
+  ThermalConductivity, and Velocity. Scalar extraction remains at constitutive
+  formula, mesh/solver, and serialization boundaries. The Eunomia contract
+  remains real-valued; complex and imaginary-unit material properties remain
+  outside ordered blood rheology. See
+  [larger-vessel-blood-metrics.md](docs/atlas-migration/larger-vessel-blood-metrics.md).
+
 - **Breaking**: Type fixed-dimension cfd-core non-Newtonian model parameters
   with Aequitas quantities for density, stress, viscosity, shear rate, time,
   exponents, temperature, activation energy, thermal properties, and sound

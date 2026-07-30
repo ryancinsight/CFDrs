@@ -181,8 +181,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// fast and slowing SIMPLE convergence for non-Newtonian blood.
     pub fn initialize_viscosity(&mut self) {
         let mu_init = match &self.blood {
-            BloodModel::Casson(m) => m.apparent_viscosity(m.reference_shear_rate),
-            BloodModel::CarreauYasuda(m) => m.apparent_viscosity(m.reference_shear_rate),
+            BloodModel::Casson(m) => m.apparent_viscosity(m.reference_shear_rate.into_base()),
+            BloodModel::CarreauYasuda(m) => {
+                m.apparent_viscosity(m.reference_shear_rate.into_base())
+            }
             BloodModel::Newtonian(mu) => *mu,
         };
         for i in 0..self.grid.nx {

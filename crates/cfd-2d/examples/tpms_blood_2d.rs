@@ -57,7 +57,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Fluid : Carreau-Yasuda blood (ρ = {} kg/m³)", rho);
     println!(
         "        μ₀ = {:.4} Pa·s, μ_∞ = {:.4} Pa·s",
-        blood_params.zero_shear_viscosity, blood_params.infinite_shear_viscosity
+        blood_params.zero_shear_viscosity.into_base(),
+        blood_params.infinite_shear_viscosity.into_base()
     );
     println!();
 
