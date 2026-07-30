@@ -270,7 +270,7 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     ///
     /// # Arguments
     /// * `shear_rate` — Wall shear rate [s⁻¹]
-    /// * `temp_k`     — Blood temperature \[K]; if ≤ 0, defaults to 310 K (37 °C)
+    /// * `temperature` — Blood temperature \[K]; if ≤ 0, defaults to 310 K (37 °C)
     pub fn apparent_viscosity_at_temp(
         &self,
         shear_rate: T,
