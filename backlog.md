@@ -179,8 +179,9 @@
   cfd-core test-target check passes; material Nextest passes 4/4 with 255
   skipped (`9976af5f-f4c8-4415-bb47-04f5fc01cb1a`); cfd-core doctests pass
   3/3; targeted rustfmt, diff, residue scan, and warning-denied Clippy pass.
-  The broader fluid `FluidState`/`FluidProperties` raw metric family remains
-  open as the next dependency-ordered item.
+  The broader fluid `FluidState`/`FluidProperties` raw metric family was
+  subsequently closed by MET29/MET30; model-property follow-ons are
+  tracked by MET31-MET35.
 
 - **CFDRS-AEQ-MET-27 [major] - Type 2D cell-tracking physical metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29; scope=

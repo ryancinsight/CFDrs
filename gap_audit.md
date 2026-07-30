@@ -195,8 +195,10 @@ rustfmt and diff checks pass, and the public typed-field residue scan is clean.
 No-default-features cfd-core rustdoc also passes. Default-feature rustdoc
 remains blocked by the unrelated peer `hephaestus-wgpu` bound error at
 `application/elementwise_seam.rs:413`; that peer defect is outside this clean
-slice and is not masked by the no-default-features result. The remaining
-Aequitas model-property gaps are the ideal-gas and blood constitutive families.
+slice and is not masked by the no-default-features result. At that stage in
+the ordered migration, the remaining Aequitas model-property gaps were the
+ideal-gas and blood constitutive families; later MET34 and MET35 entries close
+those families.
 
 ## FluidState metric refresh (2026-07-29, CFDRS-AEQ-MET-29)
 
@@ -253,9 +255,9 @@ separate provider-backed contract rather than widening this real trait.
 
 The focused cfd-core check and material tests are the acceptance gates. The
 broader fluid `FluidState`/`FluidProperties` and remaining constitutive model
-fields still expose raw SI scalars across many implementors; they remain the
-next dependency-ordered Aequitas item and are not misreported as closed by
-this solid-material increment.
+fields still exposed raw SI scalars across many implementors. Subsequent MET29
+through MET35 entries close those dependency-ordered model-property families;
+the solid-material result itself remains unchanged.
 
 ## Eunomia complex compatibility refresh (2026-07-28)
 
