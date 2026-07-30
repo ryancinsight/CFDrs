@@ -17,6 +17,7 @@
 | **Aequitas-owned cfd-core FluidState metrics** | 2026-07-29 | FluidState and provider seams exposed real physical state and derived numbers as raw scalars, and the 2D adapter masked solver/hemolysis failures with reference values | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless derived numbers remain typed; scalar extraction is confined to formula and infrastructure boundaries | Breaking change for fluid-state implementors and constructors; broader FluidProperties raw storage remains a separate boundary |
 | **Aequitas-owned cfd-core shared fluid properties** | 2026-07-29 | FluidProperties, PropertyBounds, and ConstantPropertyFluid still stored shared density, viscosity, heat capacity, conductivity, and sound speed as raw scalars after the FluidState cutover | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless metrics remain typed through shared storage and callers; constitutive model coefficients stay at formula boundaries | Breaking change for shared-property constructors and implementors; temperature-dependent, non-Newtonian, blood, and ideal-gas coefficients remain a separate migration |
 | **Aequitas-owned cfd-core temperature-model metrics** | 2026-07-30 | Temperature-dependent fluid models stored density, temperatures, viscosity parameters, heat capacity, conductivity, and sound speed as raw scalars | MassDensity, ThermodynamicTemperature, TemperatureDifference, ReciprocalTemperature, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and calculation methods; polynomial coefficient vectors remain formula-bound because order changes their units | Breaking change for external temperature-model constructors and callers; ideal-gas and remaining blood coefficients remain separate migrations |
+| **Aequitas-owned cfd-core ideal-gas metrics** | 2026-07-30 | IdealGas stored gas constant, heat capacity, Sutherland parameters, and conductivity coefficient as raw scalars | SpecificHeatCapacity, DynamicViscosity, ThermodynamicTemperature, TemperatureDifference, MassDensity, Pressure, ThermalConductivity, and Velocity remain typed through model storage and formula adapters; gas constant and conductivity coefficient use their shared specific-heat dimension | Breaking change for external ideal-gas constructors and consumers |
 | **Aequitas-owned cfd-core microvascular blood metrics** | 2026-07-30 | Fåhræus-Lindqvist storage erased vessel diameter, hematocrit, and plasma viscosity dimensions | Length, Dimensionless, and DynamicViscosity remain typed through the calculator and direct cfd-1d/PyO3 adapters; scalar extraction is confined to empirical formulas, unit conversion, and serialization | Breaking change for external microvascular calculator constructors and consumers |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
@@ -87,6 +88,35 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-30: Aequitas owns cfd-core ideal-gas metrics [major] [arch]
+
+Context: `IdealGas` stored its gas constant, specific heat, reference
+viscosity, reference and Sutherland temperatures, and conductivity coefficient
+as raw generic scalars even though its `FluidState` result was already typed.
+
+Decision: carry fixed-dimension model parameters through Aequitas
+`SpecificHeatCapacity`, `DynamicViscosity`, `ThermodynamicTemperature`, and
+`TemperatureDifference`. Type the equation-of-state pressure boundary and
+retain typed `MassDensity`, `DynamicViscosity`, `SpecificHeatCapacity`,
+`ThermalConductivity`, and `Velocity` results. Extract base scalars only in
+the ideal-gas, Sutherland, conductivity, and sound-speed formulas. The gas
+constant and conductivity coefficient use `SpecificHeatCapacity` because both
+have SI dimension `J/(kg·K)`.
+
+Rejected alternative: retain scalar fields, add parallel typed accessors, or
+invent a consumer-local gas-constant alias. These alternatives preserve
+dimensional ambiguity or duplicate the Aequitas dimension owner.
+
+Consequences: external `IdealGas` constructors and direct model callers
+require explicit Aequitas values. The model remains real-valued under Eunomia
+`RealField`; `Complex<T>` and an imaginary-unit SI material quantity do not
+apply to its ordered constitutive state.
+
+Verification: cfd-core test-target check, selected ideal-gas/newtonian Nextest
+16/16, warning-denied Clippy, cfd-core doctests, no-default-features rustdoc,
+targeted rustfmt, diff checks, and the typed public-field residue scan. See
+[`ideal-gas-metrics.md`](atlas-migration/ideal-gas-metrics.md).
 
 ### 2026-07-30: Aequitas owns cfd-core microvascular blood metrics [major] [arch]
 

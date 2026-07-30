@@ -52,13 +52,17 @@ pub fn air_20c<T: RealField + FloatElement + Copy>() -> Result<ConstantPropertyF
 /// # Errors
 /// This constructor currently has no input-dependent failure path.
 pub fn ideal_air<T: RealField + FloatElement + Copy>() -> Result<IdealGas<T>, Error> {
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, SpecificHeatCapacity, TemperatureDifference, ThermodynamicTemperature,
+    };
+
     Ok(IdealGas::new(
         "Air (Ideal Gas)".to_string(),
-        <T as FloatElement>::from_f64(287.0),    // J/(kg·K)
-        <T as FloatElement>::from_f64(1005.0),   // J/(kg·K)
-        <T as FloatElement>::from_f64(1.716e-5), // Pa·s at 273K
-        <T as FloatElement>::from_f64(273.15),   // K
-        <T as FloatElement>::from_f64(110.4),    // K
+        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(287.0)),
+        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(1005.0)),
+        DynamicViscosity::from_base(<T as FloatElement>::from_f64(1.716e-5)),
+        ThermodynamicTemperature::from_base(<T as FloatElement>::from_f64(273.15)),
+        TemperatureDifference::from_base(<T as FloatElement>::from_f64(110.4)),
     ))
 }
 

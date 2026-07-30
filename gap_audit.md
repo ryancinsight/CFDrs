@@ -110,6 +110,36 @@ Fåhræus-Lindqvist public-field residue scan is clean. The remaining Aequitas
 model-property gaps are the ideal-gas and larger-vessel blood rheology
 families; those are not silently claimed by this microvascular slice.
 
+## Ideal-gas metric refresh (2026-07-30, CFDRS-AEQ-MET-34)
+
+The ideal-gas audit found that `cfd-core::physics::fluid::newtonian::IdealGas`
+still stored its fixed-dimension gas constant, heat capacity, reference
+viscosity, reference temperature, Sutherland offset, and conductivity
+coefficient as raw generic scalars. The model now carries those values with
+Aequitas `SpecificHeatCapacity`, `DynamicViscosity`,
+`ThermodynamicTemperature`, and `TemperatureDifference`; `properties_at`
+returns the existing typed `MassDensity`, `DynamicViscosity`,
+`SpecificHeatCapacity`, `ThermalConductivity`, and `Velocity` state.
+Pressure is typed at the equation-of-state boundary. The gas constant and
+conductivity coefficient use `SpecificHeatCapacity` because both are
+dimensionally `J/(kg·K)`; no misleading consumer-local semantic alias was
+added.
+
+Scalar extraction is confined to the ideal-gas, Sutherland, conductivity, and
+sound-speed formula boundaries. The model remains real-valued under Eunomia
+`RealField`: ordering and positivity checks plus real-valued powers do not
+admit `Complex<T>`. Complex values and an imaginary-unit SI material quantity
+remain at phasor, Bessel, Womersley, and spectral boundaries.
+
+Focused cfd-core Nextest passes 16/16 selected tests, including the ideal-gas
+value and invalid-input regressions; the cfd-core test-target check, warning-
+denied Clippy, cfd-core doctests 3/3, no-default-features rustdoc, targeted
+rustfmt, diff checks, and the typed `IdealGas` public-field residue scan all
+pass. The default-feature rustdoc closure remains subject to the unrelated
+peer `hephaestus-wgpu` `Send + Sync` error at
+`application/elementwise_seam.rs:413`. The remaining CFDrs Aequitas model-
+property gap is the larger-vessel blood rheology family tracked by MET35.
+
 ## Non-Newtonian metric refresh (2026-07-30, CFDRS-AEQ-MET-32)
 
 The public-surface scan found that the Bingham, Casson, Carreau–Yasuda,

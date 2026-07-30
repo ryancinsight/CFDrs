@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type cfd-core `IdealGas` model metrics with Aequitas
+  `SpecificHeatCapacity`, `DynamicViscosity`, `ThermodynamicTemperature`,
+  `TemperatureDifference`, `MassDensity`, `Pressure`,
+  `ThermalConductivity`, and `Velocity`. The ideal-gas equation, Sutherland
+  viscosity, conductivity, and sound-speed formulas extract scalars only at
+  their formula boundary. The Eunomia contract remains real-valued; complex
+  and imaginary-unit material properties remain outside this constitutive
+  model. See [`ideal-gas-metrics.md`](docs/atlas-migration/ideal-gas-metrics.md).
+
 - **Breaking**: Type the cfd-core Fåhræus-Lindqvist microvascular blood
   calculator with Aequitas `Length`, `Dimensionless`, and
   `DynamicViscosity`. Apparent viscosity and tube hematocrit now remain typed

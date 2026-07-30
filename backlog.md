@@ -106,7 +106,7 @@
   diff checks, and the typed public-field residue scan pass.
 
 - **CFDRS-AEQ-MET-34 [major] - Type ideal-gas model metrics**
-  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  (VERIFIED 2026-07-30; owner=current Codex session; claimed 2026-07-30;
   scope=`cfd-core::physics::fluid::newtonian::IdealGas`, its direct
   database/tests/consumers, and synchronized audit/design/changelog artifacts).
   The post-MET-33 scan leaves the ideal-gas constitutive family as
@@ -117,7 +117,12 @@
   with a runtime exponent or polynomial order. Preserve Eunomia real-field
   semantics and keep complex values at phasor/spectral boundaries. Acceptance:
   typed-field residue scan, value-semantic ideal-gas regressions, focused
-  package gates, and synchronized docs.
+  package gates, and synchronized docs. Evidence: cfd-core test-target check,
+  selected newtonian Nextest 16/16, warning-denied cfd-core Clippy, cfd-core
+  doctests 3/3, no-default-features rustdoc, targeted rustfmt, diff checks,
+  and the typed `IdealGas` public-field residue scan pass. The default-feature
+  rustdoc closure remains subject to the unrelated peer `hephaestus-wgpu`
+  `Send + Sync` error at `application/elementwise_seam.rs:413`.
 
 - **CFDRS-AEQ-MET-35 [major] - Type larger-vessel blood rheology metrics**
   (TODO 2026-07-30; owner=unclaimed; scope=`cfd-core::physics::fluid::blood::{casson,carreau_yasuda,cross}`,
