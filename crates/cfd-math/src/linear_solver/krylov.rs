@@ -405,3 +405,93 @@ where
         }
     }
 }
+
+/// The Krylov recurrences CFDrs selects between at runtime.
+///
+/// Athena's solvers are zero-sized markers carrying const generics and backend
+/// GATs, so they are not object-safe and cannot be held behind `dyn`. The
+/// closed set is small and fixed, which makes an exhaustively-matched enum the
+/// right dispatch: it keeps runtime selection without a vtable, and adding a
+/// recurrence becomes a compile error at every selection site rather than a
+/// silent fallthrough.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SolverKind {
+    /// Conjugate gradients. Requires a symmetric positive definite operator.
+    ConjugateGradient,
+    /// Stabilised biconjugate gradients, for general nonsymmetric operators.
+    BiCgStab,
+    /// Restarted GMRES with the given restart width.
+    Gmres {
+        /// Requested restart width, rounded up the instantiation ladder.
+        restart: usize,
+    },
+}
+
+impl SolverKind {
+    /// Human-readable name, for validation reports and logs.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::ConjugateGradient => "ConjugateGradient",
+            Self::BiCgStab => "BiCGSTAB",
+            Self::Gmres { .. } => "GMRES",
+        }
+    }
+
+    /// Solve with this recurrence and no preconditioner.
+    ///
+    /// # Errors
+    ///
+    /// See [`gmres_preconditioned`].
+    pub fn solve<T>(
+        self,
+        matrix: &CsrMatrix<T>,
+        right_hand_side: &Array1<T>,
+        solution: &mut Array1<T>,
+        config: &IterativeSolverConfig<T>,
+    ) -> KrylovResult<T>
+    where
+        T: RealScalar + RealField + FloatElement,
+    {
+        match self {
+            Self::ConjugateGradient => cg(matrix, right_hand_side, solution, config),
+            Self::BiCgStab => bicgstab(matrix, right_hand_side, solution, config),
+            Self::Gmres { restart } => gmres(matrix, right_hand_side, solution, config, restart),
+        }
+    }
+
+    /// Solve with this recurrence and an explicit preconditioner.
+    ///
+    /// # Errors
+    ///
+    /// See [`gmres_preconditioned`].
+    pub fn solve_preconditioned<T, P>(
+        self,
+        matrix: &CsrMatrix<T>,
+        right_hand_side: &Array1<T>,
+        preconditioner: &P,
+        solution: &mut Array1<T>,
+        config: &IterativeSolverConfig<T>,
+    ) -> KrylovResult<T>
+    where
+        T: RealScalar + RealField + FloatElement,
+        P: Preconditioner<LetoBackend<T>>,
+    {
+        match self {
+            Self::ConjugateGradient => {
+                cg_preconditioned(matrix, right_hand_side, preconditioner, solution, config)
+            }
+            Self::BiCgStab => {
+                bicgstab_preconditioned(matrix, right_hand_side, preconditioner, solution, config)
+            }
+            Self::Gmres { restart } => gmres_preconditioned(
+                matrix,
+                right_hand_side,
+                preconditioner,
+                solution,
+                config,
+                restart,
+            ),
+        }
+    }
+}

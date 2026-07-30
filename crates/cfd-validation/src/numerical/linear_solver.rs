@@ -2,7 +2,8 @@
 
 use cfd_core::error::Result;
 use cfd_math::iterative::IterativeSolverConfig;
-use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::krylov::{self, SolverKind};
+use leto::Array1;
 
 use super::error_metrics::compute_error_metrics;
 use super::test_cases::{
@@ -57,20 +58,14 @@ impl LinearSolverValidator {
         let (a, b, analytical) = create_diagonal_system::<T>(n)?;
 
         // Test different solvers
-        let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
-            (
-                "ConjugateGradient",
-                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
-            ),
-            (
-                "BiCGSTAB",
-                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
-            ),
-        ];
+        let solvers = [SolverKind::ConjugateGradient, SolverKind::BiCgStab];
+        let config = IterativeSolverConfig::<T>::default();
 
-        for (name, solver) in solvers {
-            match solver.solve_system(&a, &b, None) {
-                Ok(computed) => {
+        for kind in solvers {
+            let name = kind.name();
+            let mut computed = Array1::zeros([a.nrows()]);
+            match krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config)) {
+                Some(_) => {
                     let error_metrics = compute_error_metrics(&computed, &analytical);
 
                     let result = ValidationResult {
@@ -90,8 +85,8 @@ impl LinearSolverValidator {
                     };
                     results.push(result);
                 }
-                Err(e) => {
-                    println!("Solver {name} failed on diagonal system: {e}");
+                None => {
+                    println!("Solver {name} did not converge on diagonal system");
                 }
             }
         }
@@ -108,19 +103,16 @@ impl LinearSolverValidator {
         // Create tridiagonal system for 1D Poisson
         let (a, b, analytical) = create_tridiagonal_system::<T>(n)?;
 
-        let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
-            (
-                "ConjugateGradient",
-                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
-            ),
-            (
-                "BiCGSTAB",
-                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
-            ),
-        ];
+        let solvers = [SolverKind::ConjugateGradient, SolverKind::BiCgStab];
+        let config = IterativeSolverConfig::<T>::default();
 
-        for (name, solver) in solvers {
-            let computed = solver.solve_system(&a, &b, None)?;
+        for kind in solvers {
+            let name = kind.name();
+            let mut computed = Array1::zeros([a.nrows()]);
+            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                .ok_or_else(|| {
+                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -154,19 +146,16 @@ impl LinearSolverValidator {
         // Create 2D Poisson system with manufactured solution
         let (a, b, analytical) = create_2d_poisson_system::<T>(nx, ny)?;
 
-        let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
-            (
-                "ConjugateGradient",
-                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
-            ),
-            (
-                "BiCGSTAB",
-                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
-            ),
-        ];
+        let solvers = [SolverKind::ConjugateGradient, SolverKind::BiCgStab];
+        let config = IterativeSolverConfig::<T>::default();
 
-        for (name, solver) in solvers {
-            let computed = solver.solve_system(&a, &b, None)?;
+        for kind in solvers {
+            let name = kind.name();
+            let mut computed = Array1::zeros([a.nrows()]);
+            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                .ok_or_else(|| {
+                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -200,15 +189,15 @@ impl LinearSolverValidator {
         let (a, b, analytical) = create_hilbert_system::<T>(n)?;
 
         // Only test robust solvers for ill-conditioned systems
-        let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![(
-            "BiCGSTAB",
-            Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
-        )];
+        let solvers = [SolverKind::BiCgStab];
+        let config = IterativeSolverConfig::<T>::default();
 
-        for (name, solver) in solvers {
+        for kind in solvers {
+            let name = kind.name();
             // Handle potential solver breakdown gracefully
-            match solver.solve_system(&a, &b, None) {
-                Ok(computed) => {
+            let mut computed = Array1::zeros([a.nrows()]);
+            match krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config)) {
+                Some(_) => {
                     let error_metrics = compute_error_metrics(&computed, &analytical);
 
                     let result = ValidationResult {
@@ -229,9 +218,9 @@ impl LinearSolverValidator {
                     };
                     results.push(result);
                 }
-                Err(e) => {
+                None => {
                     // For ill-conditioned systems, solver failure is expected and should be reported honestly
-                    eprintln!("Solver {name} failed on ill-conditioned system: {e}");
+                    eprintln!("Solver {name} did not converge on ill-conditioned system");
                     // Do not create misleading results with zero solutions
                     // Skip this test case for solvers that cannot handle ill-conditioned systems
                 }
