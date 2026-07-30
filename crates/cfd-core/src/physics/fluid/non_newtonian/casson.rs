@@ -21,29 +21,29 @@ pub struct Casson<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Yield stress τ_y \[Pa]
-    pub yield_stress: T,
+    pub yield_stress: Pressure<T>,
     /// Plastic viscosity μ_p (or μ_inf) [Pa·s]
-    pub plastic_viscosity: T,
+    pub plastic_viscosity: DynamicViscosity<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> Casson<T> {
     /// Create a new Casson fluid
     pub fn new(
         name: String,
-        density: T,
-        yield_stress: T,
-        plastic_viscosity: T,
-        specific_heat: T,
-        thermal_conductivity: T,
-        speed_of_sound: T,
+        density: MassDensity<T>,
+        yield_stress: Pressure<T>,
+        plastic_viscosity: DynamicViscosity<T>,
+        specific_heat: SpecificHeatCapacity<T>,
+        thermal_conductivity: ThermalConductivity<T>,
+        speed_of_sound: Velocity<T>,
     ) -> Self {
         Self {
             name,
@@ -62,8 +62,8 @@ impl<T: RealField + FloatElement + Copy> Casson<T> {
             return <T as FloatElement>::from_f64(100.0);
         }
 
-        let sqrt_mu = <T as NumericElement>::sqrt(self.plastic_viscosity)
-            + <T as NumericElement>::sqrt(self.yield_stress / shear_rate);
+        let sqrt_mu = <T as NumericElement>::sqrt(self.plastic_viscosity.into_base())
+            + <T as NumericElement>::sqrt(self.yield_stress.into_base() / shear_rate);
         sqrt_mu * sqrt_mu
     }
 }
@@ -71,11 +71,11 @@ impl<T: RealField + FloatElement + Copy> Casson<T> {
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for Casson<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
-            dynamic_viscosity: DynamicViscosity::from_base(self.plastic_viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            density: self.density,
+            dynamic_viscosity: self.plastic_viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -105,6 +105,6 @@ impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for Casson<T> {
     }
 
     fn yield_stress(&self) -> Option<Pressure<T>> {
-        Some(Pressure::from_base(self.yield_stress))
+        Some(self.yield_stress)
     }
 }

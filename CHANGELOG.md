@@ -34,6 +34,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type fixed-dimension cfd-core non-Newtonian model parameters
+  with Aequitas quantities for density, stress, viscosity, shear rate, time,
+  exponents, temperature, activation energy, thermal properties, and sound
+  speed. Consistency-index coefficients remain formula scalars because their
+  `Pa·s^n` dimension depends on the runtime flow exponent. Eunomia complex
+  values remain outside this real constitutive contract. See
+  [`non-newtonian-metrics.md`](docs/atlas-migration/non-newtonian-metrics.md).
+
 - **Breaking**: Type cfd-core temperature-dependent fluid model parameters
   with Aequitas `MassDensity`, `ThermodynamicTemperature`,
   `TemperatureDifference`, `ReciprocalTemperature`, `DynamicViscosity`,

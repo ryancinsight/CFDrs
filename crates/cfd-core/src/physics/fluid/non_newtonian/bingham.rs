@@ -5,7 +5,8 @@
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, MassDensity, Pressure, ReciprocalTime, SpecificHeatCapacity,
+    ThermalConductivity, Velocity,
 };
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
@@ -21,32 +22,32 @@ pub struct BinghamPlastic<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Yield stress τ₀ \[Pa]
-    pub yield_stress: T,
+    pub yield_stress: Pressure<T>,
     /// Plastic viscosity `μ_p` [Pa·s]
-    pub plastic_viscosity: T,
+    pub plastic_viscosity: DynamicViscosity<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
     /// Reference shear rate for viscosity calculation [1/s]
-    pub reference_shear_rate: T,
+    pub reference_shear_rate: ReciprocalTime<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> BinghamPlastic<T> {
     /// Create a new Bingham plastic fluid
     pub fn new(
         name: String,
-        density: T,
-        yield_stress: T,
-        plastic_viscosity: T,
-        specific_heat: T,
-        thermal_conductivity: T,
-        speed_of_sound: T,
-        reference_shear_rate: T,
+        density: MassDensity<T>,
+        yield_stress: Pressure<T>,
+        plastic_viscosity: DynamicViscosity<T>,
+        specific_heat: SpecificHeatCapacity<T>,
+        thermal_conductivity: ThermalConductivity<T>,
+        speed_of_sound: Velocity<T>,
+        reference_shear_rate: ReciprocalTime<T>,
     ) -> Self {
         Self {
             name,
@@ -66,25 +67,25 @@ impl<T: RealField + FloatElement + Copy> BinghamPlastic<T> {
             return <T as FloatElement>::from_f64(1e6);
         }
 
-        self.plastic_viscosity + self.yield_stress / shear_rate
+        self.plastic_viscosity.into_base() + self.yield_stress.into_base() / shear_rate
     }
 
     /// Check if fluid is yielded at given shear stress
     pub fn is_yielded(&self, shear_stress: T) -> bool {
-        shear_stress > self.yield_stress
+        shear_stress > self.yield_stress.into_base()
     }
 }
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for BinghamPlastic<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
+        let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate.into_base());
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(apparent_viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -103,6 +104,6 @@ impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for BinghamPlastic
     }
 
     fn yield_stress(&self) -> Option<Pressure<T>> {
-        Some(Pressure::from_base(self.yield_stress))
+        Some(self.yield_stress)
     }
 }

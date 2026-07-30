@@ -88,6 +88,31 @@ The remaining Aequitas model-property gaps are the
 ideal-gas, non-Newtonian, and blood constitutive families, which remain
 separate dependency-ordered items.
 
+## Non-Newtonian metric refresh (2026-07-30, CFDRS-AEQ-MET-32)
+
+The public-surface scan found that the Bingham, Casson, Carreau–Yasuda,
+Power-law, and Herschel–Bulkley model structs still stored fixed-dimension
+physical parameters as raw generic scalars. Their density, yield stress,
+viscosity, shear-rate, relaxation-time, exponent, temperature, activation-
+energy, thermal, and acoustic fields now use Aequitas quantities. Scalar
+extraction is restricted to the existing formula boundary and legacy solver
+trait adapters.
+
+Consistency-index fields remain scalar formula data because the `Pa·s^n`
+dimension varies with the runtime flow exponent; assigning one fixed unit would
+be dimensionally false. The models remain real-valued under Eunomia
+`RealField`; complex values and imaginary-unit SI properties do not apply to
+these constitutive state contracts.
+
+Focused non-Newtonian Nextest passes 4/4, cfd-core test-target check and
+warning-denied all-targets Clippy pass, cfd-core doctests pass 3/3, targeted
+rustfmt and diff checks pass, and the public typed-field residue scan is clean.
+No-default-features cfd-core rustdoc also passes. Default-feature rustdoc
+remains blocked by the unrelated peer `hephaestus-wgpu` bound error at
+`application/elementwise_seam.rs:413`; that peer defect is outside this clean
+slice and is not masked by the no-default-features result. The remaining
+Aequitas model-property gaps are the ideal-gas and blood constitutive families.
+
 ## FluidState metric refresh (2026-07-29, CFDRS-AEQ-MET-29)
 
 The source audit found that the public `cfd-core::physics::fluid::FluidState`

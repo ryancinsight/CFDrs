@@ -69,7 +69,7 @@
   doctests 3/3 pass.
 
 - **CFDRS-AEQ-MET-32 [major] - Type non-Newtonian model metrics
-  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  (VERIFIED 2026-07-30; owner=current Codex session; claimed 2026-07-30;
   scope=`cfd-core::physics::fluid::non_newtonian`, its direct tests, and
   synchronized audit/design/changelog artifacts).** The post-MET-31 scan
   finds Bingham, Casson, Carreau-Yasuda, Power-law, and Herschel-Bulkley
@@ -81,7 +81,12 @@
   fixed quantity. Preserve the real-valued Eunomia `RealField` contract;
   complex values and imaginary-unit SI properties do not apply. Acceptance is
   a residue-free typed-field scan, value-semantic model regressions, focused
-  cfd-core gates, and synchronized audit/design/changelog evidence.
+  cfd-core gates, and synchronized audit/design/changelog evidence. Evidence:
+  cfd-core test-target check, focused non-Newtonian Nextest 4/4,
+  warning-denied all-targets Clippy, cfd-core doctests 3/3, targeted rustfmt,
+  diff checks, no-default-features cfd-core rustdoc, and the typed public-field
+  residue scan pass. Default-feature rustdoc remains blocked by the unrelated
+  peer `hephaestus-wgpu` bound error at `application/elementwise_seam.rs:413`.
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;

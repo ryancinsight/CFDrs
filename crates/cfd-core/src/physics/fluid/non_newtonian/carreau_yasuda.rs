@@ -5,7 +5,8 @@
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    Dimensionless, DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Time,
+    Velocity,
 };
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
@@ -20,38 +21,38 @@ pub struct CarreauYasuda<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Zero-shear viscosity μ₀ [Pa·s]
-    pub viscosity_zero: T,
+    pub viscosity_zero: DynamicViscosity<T>,
     /// Infinite-shear viscosity μ_inf [Pa·s]
-    pub viscosity_inf: T,
+    pub viscosity_inf: DynamicViscosity<T>,
     /// Relaxation time λ \[s]
-    pub lambda: T,
+    pub lambda: Time<T>,
     /// Power law index n [-]
-    pub power_index: T,
+    pub power_index: Dimensionless<T>,
     /// Yasuda parameter a [-] (default 2.0 for Carreau model)
-    pub yasuda_index: T,
+    pub yasuda_index: Dimensionless<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
     /// Create a new Carreau-Yasuda fluid
     pub fn new(
         name: String,
-        density: T,
-        viscosity_zero: T,
-        viscosity_inf: T,
-        lambda: T,
-        power_index: T,
-        yasuda_index: T,
-        specific_heat: T,
-        thermal_conductivity: T,
-        speed_of_sound: T,
+        density: MassDensity<T>,
+        viscosity_zero: DynamicViscosity<T>,
+        viscosity_inf: DynamicViscosity<T>,
+        lambda: Time<T>,
+        power_index: Dimensionless<T>,
+        yasuda_index: Dimensionless<T>,
+        specific_heat: SpecificHeatCapacity<T>,
+        thermal_conductivity: ThermalConductivity<T>,
+        speed_of_sound: Velocity<T>,
     ) -> Self {
         Self {
             name,
@@ -70,27 +71,31 @@ impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
         let one = <T as NumericElement>::ONE;
-        let term1 = <T as FloatElement>::powf(self.lambda * shear_rate, self.yasuda_index);
+        let term1 = <T as FloatElement>::powf(
+            self.lambda.into_base() * shear_rate,
+            self.yasuda_index.into_base(),
+        );
         let base = one + term1;
-        let exponent = (self.power_index - one) / self.yasuda_index;
+        let exponent = (self.power_index.into_base() - one) / self.yasuda_index.into_base();
 
-        self.viscosity_inf
-            + (self.viscosity_zero - self.viscosity_inf) * <T as FloatElement>::powf(base, exponent)
+        self.viscosity_inf.into_base()
+            + (self.viscosity_zero.into_base() - self.viscosity_inf.into_base())
+                * <T as FloatElement>::powf(base, exponent)
     }
 
     /// Standard blood parameters (approximate)
     pub fn blood() -> Self {
         Self::new(
             "Blood".to_string(),
-            <T as FloatElement>::from_f64(1060.0),
-            <T as FloatElement>::from_f64(0.056),
-            <T as FloatElement>::from_f64(0.0035),
-            <T as FloatElement>::from_f64(3.313),
-            <T as FloatElement>::from_f64(0.3568),
-            <T as FloatElement>::from_f64(2.0),
-            <T as FloatElement>::from_f64(3600.0),
-            <T as FloatElement>::from_f64(0.5),
-            <T as FloatElement>::from_f64(1540.0),
+            MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.056)),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
+            Time::from_base(<T as FloatElement>::from_f64(3.313)),
+            Dimensionless::from_base(<T as FloatElement>::from_f64(0.3568)),
+            Dimensionless::from_base(<T as FloatElement>::from_f64(2.0)),
+            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(3600.0)),
+            ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.5)),
+            Velocity::from_base(<T as FloatElement>::from_f64(1540.0)),
         )
     }
 }
@@ -98,11 +103,11 @@ impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasuda<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
-            dynamic_viscosity: DynamicViscosity::from_base(self.viscosity_zero),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            density: self.density,
+            dynamic_viscosity: self.viscosity_zero,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 

@@ -24,20 +24,24 @@ pub use power_law::PowerLawFluid;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        Dimensionless, DynamicViscosity, MassDensity, MolarEnergy, Pressure, ReciprocalTime,
+        SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature, Time, Velocity,
+    };
     use eunomia::assert_relative_eq;
 
     #[test]
     fn test_herschel_bulkley_constant() {
         let fluid = HerschelBulkley::<f64>::new(
             "Test Fluid".to_string(),
-            1000.0,
-            10.0,
+            MassDensity::from_base(1000.0),
+            Pressure::from_base(10.0),
             5.0,
-            0.5,
-            4000.0,
-            0.6,
-            1500.0,
-            10.0,
+            Dimensionless::from_base(0.5),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+            ReciprocalTime::from_base(10.0),
         );
 
         use crate::physics::fluid::traits::Fluid;
@@ -53,16 +57,20 @@ mod tests {
 
         let fluid = HerschelBulkley::<f64>::new(
             "Test Fluid".to_string(),
-            1000.0,
-            10.0,
+            MassDensity::from_base(1000.0),
+            Pressure::from_base(10.0),
             5.0,
-            0.5,
-            4000.0,
-            0.6,
-            1500.0,
-            10.0,
+            Dimensionless::from_base(0.5),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+            ReciprocalTime::from_base(10.0),
         )
-        .with_temperature_dependence(t_ref, Some(ea_k), None);
+        .with_temperature_dependence(
+            ThermodynamicTemperature::from_base(t_ref),
+            Some(MolarEnergy::from_base(ea_k)),
+            None,
+        );
 
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
@@ -97,13 +105,13 @@ mod tests {
     fn test_power_law_constant() {
         let fluid = PowerLawFluid::<f64>::new(
             "Test Fluid".to_string(),
-            1000.0,
+            MassDensity::from_base(1000.0),
             5.0,
-            0.5,
-            4000.0,
-            0.6,
-            1500.0,
-            10.0,
+            Dimensionless::from_base(0.5),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+            ReciprocalTime::from_base(10.0),
         );
 
         use crate::physics::fluid::traits::Fluid;
@@ -119,15 +127,18 @@ mod tests {
 
         let fluid = PowerLawFluid::<f64>::new(
             "Test Fluid".to_string(),
-            1000.0,
+            MassDensity::from_base(1000.0),
             5.0,
-            0.5,
-            4000.0,
-            0.6,
-            1500.0,
-            10.0,
+            Dimensionless::from_base(0.5),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+            ReciprocalTime::from_base(10.0),
         )
-        .with_temperature_dependence(t_ref, Some(ea_k));
+        .with_temperature_dependence(
+            ThermodynamicTemperature::from_base(t_ref),
+            Some(MolarEnergy::from_base(ea_k)),
+        );
 
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
@@ -151,5 +162,51 @@ mod tests {
 
         assert_relative_eq!(props_high.dynamic_viscosity.into_base(), expected_viscosity);
         assert!(props_high.dynamic_viscosity.into_base() < props_ref.dynamic_viscosity.into_base());
+    }
+
+    #[test]
+    fn fixed_dimension_model_parameters_preserve_value_semantics() {
+        let bingham = BinghamPlastic::new(
+            "Bingham".to_string(),
+            MassDensity::from_base(1000.0),
+            Pressure::from_base(10.0),
+            DynamicViscosity::from_base(5.0),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+            ReciprocalTime::from_base(10.0),
+        );
+        assert_relative_eq!(bingham.apparent_viscosity(10.0), 6.0);
+        assert!(bingham.is_yielded(10.1));
+
+        let casson = Casson::new(
+            "Casson".to_string(),
+            MassDensity::from_base(1000.0),
+            Pressure::from_base(10.0),
+            DynamicViscosity::from_base(5.0),
+            SpecificHeatCapacity::from_base(4000.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+        );
+        assert_relative_eq!(
+            casson.apparent_viscosity(10.0),
+            (5.0_f64.sqrt() + 1.0).powi(2)
+        );
+
+        let carreau = CarreauYasuda::new(
+            "Carreau".to_string(),
+            MassDensity::from_base(1060.0),
+            DynamicViscosity::from_base(0.056),
+            DynamicViscosity::from_base(0.0035),
+            Time::from_base(3.313),
+            Dimensionless::from_base(0.3568),
+            Dimensionless::from_base(2.0),
+            SpecificHeatCapacity::from_base(3600.0),
+            ThermalConductivity::from_base(0.5),
+            Velocity::from_base(1540.0),
+        );
+        let apparent_viscosity = carreau.apparent_viscosity(100.0);
+        assert!(apparent_viscosity > 0.0035);
+        assert!(apparent_viscosity < 0.056);
     }
 }

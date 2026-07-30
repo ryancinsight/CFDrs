@@ -87,6 +87,34 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-30: Aequitas owns cfd-core non-Newtonian metrics [major] [arch]
+
+Context: Bingham, Casson, Carreau–Yasuda, Power-law, and Herschel–Bulkley
+public structs exposed fixed-dimension physical parameters as raw scalar
+fields, while the shared fluid state already used Aequitas quantities.
+
+Decision: carry density, stress, viscosity, shear-rate, time, dimensionless
+indices, temperature, activation energy, thermal properties, and sound speed
+through their Aequitas quantities. Extract base scalars only at constitutive
+formula boundaries and the existing legacy solver trait adapters.
+
+Rejected alternative: assign a fixed unit to each consistency-index field.
+The coefficient in `K · γ̇^n` has units `Pa·s^n`, which depend on the runtime
+flow exponent, so a fixed quantity would encode a false dimension.
+
+Consequences: typed constructors and stored fields enforce the physical
+contract. The models remain real-valued under Eunomia `RealField`; Eunomia
+complex values and an imaginary-unit material quantity remain outside these
+real constitutive contracts.
+
+Verification: cfd-core test-target check, warning-denied all-targets Clippy,
+non-Newtonian Nextest 4/4, cfd-core doctests 3/3, targeted rustfmt, diff
+checks, no-default-features cfd-core rustdoc, and the typed public-field
+residue scan pass. Default-feature rustdoc remains blocked by the unrelated
+peer `hephaestus-wgpu` `Send + Sync` bound error at
+`application/elementwise_seam.rs:413`. See
+[non-newtonian-metrics.md](atlas-migration/non-newtonian-metrics.md).
+
 ### 2026-07-30: Aequitas owns cfd-core temperature-model metrics [major] [arch]
 
 Context: `PolynomialViscosity`, `ArrheniusViscosity`, `AndradeViscosity`, and
