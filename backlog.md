@@ -125,7 +125,8 @@
   `Send + Sync` error at `application/elementwise_seam.rs:413`.
 
 - **CFDRS-AEQ-MET-35 [major] - Type larger-vessel blood rheology metrics**
-  (TODO 2026-07-30; owner=unclaimed; scope=`cfd-core::physics::fluid::blood::{casson,carreau_yasuda,cross}`,
+  (IN-PROGRESS 2026-07-30; owner=current Codex session; claimed 2026-07-30;
+  scope=`cfd-core::physics::fluid::blood::{casson,carreau_yasuda,cross}`,
   their direct tests/consumers, and synchronized audit/design/changelog
   artifacts). The blood-family scan still finds density, viscosity, time,
   hematocrit, thermal, acoustic, and shear-rate fields stored as raw generic
