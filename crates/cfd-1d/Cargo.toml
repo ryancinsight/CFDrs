@@ -18,6 +18,8 @@ cfd-math = { path = "../cfd-math" }
 cfd-schematics = { path = "../cfd-schematics" }
 eunomia.workspace = true
 leto.workspace = true
+athena-core.workspace = true
+athena-leto.workspace = true
 leto-ops.workspace = true
 petgraph.workspace = true
 serde.workspace = true

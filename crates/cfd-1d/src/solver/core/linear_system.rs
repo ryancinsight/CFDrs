@@ -28,7 +28,7 @@
 use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::iterative::Preconditioner;
-use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
+use cfd_math::linear_solver::krylov::{self, SolverKind};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
 use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
@@ -131,45 +131,28 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
             };
         }
 
-        match self.method {
-            LinearSolverMethod::ConjugateGradient => {
-                let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
-                    .with_max_iterations(self.max_iterations)
-                    .with_preconditioner();
-                let solver = ConjugateGradient::<T>::new(config);
-                let precond = DiagJacobi::new(&scaled_a)?;
-                if solver
-                    .solve(&scaled_a, &scaled_b, x, Some(&precond))
-                    .is_ok()
-                {
-                    if self.solution_meets_residual_target(a, x, b) {
-                        Ok(x.clone())
-                    } else {
-                        Self::solve_dense_fallback(a, b)
-                    }
-                } else {
-                    Self::solve_dense_fallback(a, b)
-                }
-            }
-            LinearSolverMethod::BiCGSTAB => {
-                let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
-                    .with_max_iterations(self.max_iterations)
-                    .with_preconditioner();
-                let solver = BiCGSTAB::<T>::new(config);
-                let precond = DiagJacobi::new(&scaled_a)?;
-                if solver
-                    .solve(&scaled_a, &scaled_b, x, Some(&precond))
-                    .is_ok()
-                {
-                    if self.solution_meets_residual_target(a, x, b) {
-                        Ok(x.clone())
-                    } else {
-                        Self::solve_dense_fallback(a, b)
-                    }
-                } else {
-                    Self::solve_dense_fallback(a, b)
-                }
-            }
+        let kind = match self.method {
+            LinearSolverMethod::ConjugateGradient => SolverKind::ConjugateGradient,
+            LinearSolverMethod::BiCGSTAB => SolverKind::BiCgStab,
+        };
+        let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
+            .with_max_iterations(self.max_iterations)
+            .with_preconditioner();
+        let precond = DiagJacobi::new(&scaled_a)?;
+        let converged = krylov::converged_or_none(
+            kind.name(),
+            kind.solve_preconditioned(&scaled_a, &scaled_b, &precond, x, &config),
+        )
+        .is_some();
+
+        // The residual is re-checked against the unscaled system even after a
+        // reported convergence: the solve ran on the row-equilibrated matrix,
+        // so meeting its tolerance does not by itself bound the original
+        // residual.
+        if converged && self.solution_meets_residual_target(a, x, b) {
+            Ok(x.clone())
+        } else {
+            Self::solve_dense_fallback(a, b)
         }
     }
 
@@ -321,6 +304,30 @@ impl<T: Cfd1dScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> leto::Result<()> {
         for idx in 0..r.shape()[0] {
             z[idx] = r[idx] * self.inv_diag[idx];
+        }
+        Ok(())
+    }
+}
+
+impl<T: Cfd1dScalar + Copy + leto_ops::RealScalar>
+    athena_core::Preconditioner<athena_leto::LetoBackend<T>> for DiagJacobi<T>
+{
+    /// Elementwise apply straight over the borrowed views, needing no scratch.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let length = residual.shape()[0];
+        if output.shape()[0] != length || self.inv_diag.shape()[0] != length {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: length,
+                right: output.shape()[0],
+            });
+        }
+        for index in 0..length {
+            output[index] = residual[index] * self.inv_diag[index];
         }
         Ok(())
     }
