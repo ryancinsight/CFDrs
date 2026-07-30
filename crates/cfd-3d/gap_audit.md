@@ -1,11 +1,25 @@
 # CFD-3D Gap Audit
 
-## Current State
-`cargo check -p cfd-3d` fails with numerous errors related to a recent revision in `cfd-mesh`. 
+## Aequitas and Eunomia audit (2026-07-29, CFDRS-AEQ-3D-01)
 
-## Identified Gaps
-- **Missing Methods on `IndexedMesh`**: `face()` and `vertex()` are no longer available. `boundary_label()` signature has changed.
-- **Missing Methods on Builders**: `BranchingMeshBuilder`, `SerpentineMeshBuilder`, `VenturiMeshBuilder` no longer have `build()` methods available directly without traits or their signatures changed.
-- **Trait Implementations**: `num_traits::Float` vs `simba::scalar::ComplexField` conflicts (multiple applicable items in scope) for `abs()`, `min()`, `max()`, `powi()`, `powf()`, `cos()`, `sin()`.
-- **Iterator Type Inference**: `fold()` operations in `bifurcation/solver.rs` erroring out because of `&f64` vs `f64` mismatch.
-- **Associated Constraints**: `DMatrix::<T: Scalar>` is no longer valid in `spectral/poisson.rs` and other areas.
+The public Venturi/FEM contract now constructs shared fluid properties through
+`ConstantPropertyFluid` and Aequitas quantities. The cfd-3d audit found no
+additional missing physical metric dimensions in the public solver result;
+velocity, pressure, density, viscosity, heat capacity, conductivity, and
+derived flow diagnostics are typed at their existing domain boundaries.
+
+The FEM path is real-valued because its boundary validation and constitutive
+ordering require Eunomia `RealField`. Complex Eunomia values remain applicable
+only to phasor/spectral formula boundaries in other CFDrs consumers; no
+imaginary-unit Aequitas quantity is needed for this real-valued flow contract.
+
+The solver residuals found during this audit are closed: constrained DOFs are
+removed before Krylov iteration and restored exactly, the configured relative
+tolerance is used on every Picard linear system, P1 PSPG stabilization is
+assembled once per element, and the fallback chain uses provider-backed
+component factors with symbolic reuse. The Venturi blood validation remains
+the value-semantic regression gate.
+
+The historical API compatibility findings were revalidated against the
+current peer tree with `cargo check -p cfd-3d --all-targets`; that gate is
+green, so no cfd-3d compilation gaps remain in this audit.

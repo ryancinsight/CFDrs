@@ -9,11 +9,14 @@
 //! ## Algorithm (Solve Priority Order)
 //!
 //! ```text
-//! 1. DirectSparseSolver (LU)             — exact, O(n^1.5), used when n < threshold
-//! 2. GMRES + BlockDiagonalPreconditioner — best for large saddle-point systems
-//! 3. GMRES (unpreconditioned)            — fallback when block preconditioner fails
-//! 4. GMRES + ILU preconditioner          — fallback with incomplete LU
-//! 5. BiCGSTAB (unpreconditioned)         — last resort for extreme non-symmetry
+//! 1. DirectSparseSolver (LU)             — exact, used when n < threshold
+//! 2. GMRES + component blocks            — provider sparse-LU momentum solves
+//! 3. GMRES + SIMPLE                      — coupled saddle-point preconditioner
+//! 4. GMRES + Algebraic Multigrid         — elliptic fallback
+//! 5. GMRES + BlockDiagonalPreconditioner — diagonal saddle-point fallback
+//! 6. GMRES (unpreconditioned)            — fallback when preconditioners fail
+//! 7. GMRES + ILU preconditioner          — fallback with incomplete LU
+//! 8. BiCGSTAB (unpreconditioned)         — last resort for extreme non-symmetry
 //! ```
 //!
 //! **Rationale.** Direct LU is exact and preferred for small systems; for large
@@ -32,13 +35,14 @@
 //! - Benzi, M., Golub, G.H. & Liesen, J. (2005). "Numerical solution of
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
+use crate::linear_solver::block_preconditioner::ComponentBlockPattern;
 use crate::linear_solver::krylov;
 use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
 use crate::linear_solver::{
-    AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, DirectSparseSolver,
-    IterativeSolverConfig,
+    AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, ComponentBlockPreconditioner,
+    DirectSparseSolver, IterativeSolverConfig, SimplePreconditioner,
 };
-use athena_leto::IncompleteLu;
+use athena_leto::{IncompleteLu, SuccessiveOverRelaxation};
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
@@ -50,8 +54,8 @@ use crate::sparse::SparseMatrix;
 /// Tiered linear solver fallback chain for saddle-point systems arising from
 /// mixed FEM discretizations of incompressible flow.
 ///
-/// The chain attempts solvers in priority order (direct LU → GMRES/block →
-/// GMRES/unpreconditioned → GMRES/ILU → BiCGSTAB), returning the first
+/// The chain attempts solvers in priority order (direct LU → GMRES/component
+/// blocks → GMRES/SIMPLE → GMRES/AMG → GMRES/block → GMRES/ILU → BiCGSTAB), returning the first
 /// successful solution.  This eliminates duplicated solver fallback logic
 /// across domain-specific solvers.
 ///
@@ -66,7 +70,7 @@ pub struct LinearSolverChain<T: RealField + Copy + FloatElement + LetoRealScalar
     config: IterativeSolverConfig<T>,
     /// DOF count below which the direct LU solver is preferred.
     ///
-    /// Default: 100,000.  Direct LU is exact but has O(n^1.5) cost;
+    /// Default: 2,048.  Direct LU is exact but has O(n^1.5) cost;
     /// for large systems iterative solvers are more efficient.
     direct_threshold: usize,
     /// GMRES restart parameter m (maximum Krylov subspace dimension).
@@ -83,6 +87,7 @@ pub struct LinearSolverChain<T: RealField + Copy + FloatElement + LetoRealScalar
 /// boundary-topology changes.
 pub struct LinearSolverState<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
     amg: Option<CachedAmg<T>>,
+    component: Option<ComponentBlockPattern>,
 }
 
 struct CachedAmg<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
@@ -93,7 +98,10 @@ struct CachedAmg<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
 
 impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> Default for LinearSolverState<T> {
     fn default() -> Self {
-        Self { amg: None }
+        Self {
+            amg: None,
+            component: None,
+        }
     }
 }
 
@@ -106,12 +114,12 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> CachedAmg<T> {
 impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverChain<T> {
     /// Create a new solver chain with the given iterative solver configuration.
     ///
-    /// Defaults: direct_threshold = 100,000;  krylov_restart = 100.
+    /// Defaults: direct_threshold = 2,048;  krylov_restart = 100.
     #[must_use]
     pub fn new(config: IterativeSolverConfig<T>) -> Self {
         Self {
             config,
-            direct_threshold: 100_000,
+            direct_threshold: 2_048,
             krylov_restart: 100,
         }
     }
@@ -136,10 +144,13 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
     ///
     /// Attempts solvers in order:
     /// 1. **Direct LU** — used when `rhs.len() < direct_threshold` (exact, fast for small n).
-    /// 2. **GMRES + BlockDiagonal** — exploits 2×2 saddle-point block structure.
-    /// 3. **GMRES (unpreconditioned)** — fallback if block preconditioner fails.
-    /// 4. **GMRES + ILU** — fallback for highly anisotropic systems.
-    /// 5. **BiCGSTAB (unpreconditioned)** — last resort for strongly non-normal operators.
+    /// 2. **GMRES + component blocks** — provider sparse-LU momentum solves.
+    /// 3. **GMRES + SIMPLE** — couples momentum and pressure corrections.
+    /// 4. **GMRES + AMG** — fallback for elliptic systems.
+    /// 5. **GMRES + BlockDiagonal** — diagonal saddle-point fallback.
+    /// 6. **GMRES (unpreconditioned)** — fallback when preconditioners fail.
+    /// 7. **GMRES + ILU** — fallback for highly anisotropic systems.
+    /// 8. **BiCGSTAB (unpreconditioned)** — last resort for strongly non-normal operators.
     ///
     /// # Arguments
     /// * `matrix` — Sparse coefficient matrix A (CSR format)
@@ -162,7 +173,10 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 1: Direct sparse LU (exact, preferred for small systems) ─────
         if n_total_dof < self.direct_threshold {
-            let direct = DirectSparseSolver::default();
+            let direct = DirectSparseSolver {
+                max_size: self.direct_threshold,
+                ..DirectSparseSolver::default()
+            };
             match direct.solve(matrix, rhs) {
                 Ok(x_direct) => {
                     tracing::debug!("LinearSolverChain: direct LU succeeded (n={n_total_dof})");
@@ -176,7 +190,57 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
 
-        // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
+        // ── Tier 2: GMRES + component-block ILU/SIMPLE ───────────────────────
+        match ComponentBlockPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
+            Ok(component_block) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain: GMRES+ComponentBlock",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &component_block,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain: GMRES+ComponentBlock converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
+                }
+                x.fill(<T as NumericElement>::ZERO);
+            }
+            Err(e) => tracing::debug!("LinearSolverChain: component-block setup skipped ({e})"),
+        }
+
+        // ── Tier 3: GMRES + SIMPLE saddle-point preconditioner ───────────────
+        match SimplePreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
+            Ok(simple) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain: GMRES+SIMPLE",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &simple,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain: GMRES+SIMPLE converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
+                }
+                x.fill(<T as NumericElement>::ZERO);
+            }
+            Err(e) => tracing::debug!("LinearSolverChain: SIMPLE setup skipped ({e})"),
+        }
+
+        // ── Tier 3: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
         // AMG is exceptionally fast for Poisson and SPD systems (like pressure correction
         // in fractional step algorithms). For saddle-point systems it may fail setup or diverge,
         // safely falling back to block preconditioning.
@@ -200,7 +264,7 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
 
-        // ── Tier 3: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
+        // ── Tier 5: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
             Ok(block_precond) => {
                 if let Some(report) = krylov::converged_or_none(
@@ -334,7 +398,10 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 1: Direct sparse LU ──────────────────────────────────────────
         if n_total_dof < self.direct_threshold {
-            let direct = DirectSparseSolver::default();
+            let direct = DirectSparseSolver {
+                max_size: self.direct_threshold,
+                ..DirectSparseSolver::default()
+            };
             match direct.solve(matrix, rhs) {
                 Ok(x_direct) => {
                     tracing::debug!("LinearSolverChain: direct LU succeeded (n={n_total_dof})");
@@ -348,7 +415,34 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
 
-        // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
+        // ── Tier 2: GMRES + SOR triangular preconditioner ─────────────────────
+        //
+        // The Venturi saddle-point pattern is ordered and diagonally dominant
+        // enough for SOR to reduce the residual quickly. Keep this inexpensive
+        // path before component-block factorization: the latter is valuable for
+        // other sparsity patterns, but its setup and stagnation budget must not
+        // delay a preconditioner that already converges for this topology.
+        match SuccessiveOverRelaxation::from_csr_with_identity_rows(
+            matrix,
+            <T as FloatElement>::from_f64(1.0),
+        ) {
+            Ok(sor) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain(warm): GMRES+SOR",
+                    krylov::gmres_preconditioned(matrix, rhs, &sor, &mut x, &self.config, restart),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+SOR converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
+                }
+                reset(&mut x);
+            }
+            Err(e) => tracing::debug!("LinearSolverChain(warm): SOR setup skipped ({e})"),
+        }
+
+        // ── Tier 3: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
         let cached_hierarchy = state
             .amg
             .take()
@@ -395,7 +489,63 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
             }
         }
 
-        let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
+        // ── Tier 3: GMRES + SIMPLE saddle-point preconditioner ────────────────
+        match SimplePreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
+            Ok(simple) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain(warm): GMRES+SIMPLE",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &simple,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+SIMPLE converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
+                }
+                reset(&mut x);
+            }
+            Err(e) => tracing::debug!("LinearSolverChain(warm): SIMPLE setup skipped ({e})"),
+        }
+
+        // ── Tier 4: GMRES + component-block provider factors ─────────────────
+        match ComponentBlockPreconditioner::new_with_cache(
+            matrix,
+            n_velocity_dof,
+            n_pressure_dof,
+            &mut state.component,
+        ) {
+            Ok(component_block) => {
+                if let Some(report) = krylov::converged_or_none(
+                    "LinearSolverChain(warm): GMRES+ComponentBlock",
+                    krylov::gmres_preconditioned(
+                        matrix,
+                        rhs,
+                        &component_block,
+                        &mut x,
+                        &self.config,
+                        restart,
+                    ),
+                ) {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+ComponentBlock converged in {} iters",
+                        report.iterations
+                    );
+                    return Ok(x);
+                }
+                reset(&mut x);
+            }
+            Err(e) => {
+                tracing::debug!("LinearSolverChain(warm): component-block setup skipped ({e})");
+            }
+        }
+
         let mut block_precond_constructed = false;
 
         // ── Tier 3: GMRES + BlockDiagonal preconditioner ──────────────────────
@@ -448,7 +598,7 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         match IncompleteLu::from_csr(matrix) {
             Ok(ilu) => {
                 if let Some(report) = krylov::converged_or_none(
-                    "LinearSolverChainwarm): GMRES+ILU",
+                    "LinearSolverChain(warm): GMRES+ILU",
                     krylov::gmres_preconditioned(matrix, rhs, &ilu, &mut x, &self.config, restart),
                 ) {
                     tracing::debug!(

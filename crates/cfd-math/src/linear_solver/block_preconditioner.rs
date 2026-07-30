@@ -23,7 +23,12 @@ use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto::LetoError;
-use leto_ops::Scalar as LetoScalar;
+use leto_ops::{
+    CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar, Scalar as LetoScalar, SparseLuSolver,
+    SymbolicLu, factor_symbolic,
+};
+
+use crate::sparse::SparseMatrixBuilder;
 
 #[inline]
 fn from_f64<T: FloatElement>(value: f64) -> T {
@@ -58,6 +63,82 @@ fn validate_vector_len<T>(
         )));
     }
     Ok(())
+}
+
+/// Add provider-pivot-scale diagonal entries to structurally empty or
+/// numerically zero preconditioner rows.
+///
+/// Component extraction can leave an isolated velocity or pressure row even
+/// when the full saddle system is valid. A direct factorization must reject
+/// that singular block; the block preconditioner instead represents the row by
+/// the provider's pivot-scale identity, which preserves a bounded solve while
+/// leaving the assembled operator unchanged.
+fn stabilize_preconditioner_diagonal<T>(
+    matrix: &SparseMatrix<T>,
+    pivot_tolerance: f64,
+) -> Result<SparseMatrix<T>>
+where
+    T: RealField + FloatElement + Copy + LetoScalar,
+{
+    let n = matrix.nrows();
+    let mut builder = SparseMatrixBuilder::new(n, matrix.ncols());
+    let pivot_scale = from_f64::<T>(pivot_tolerance);
+
+    for row_index in 0..n {
+        let row = matrix.row(row_index);
+        let mut diagonal = <T as NumericElement>::ZERO;
+        let mut row_scale = <T as NumericElement>::ZERO;
+        for (&column, &value) in row.col_indices().iter().zip(row.values()) {
+            builder.add_entry(row_index, column, value)?;
+            let magnitude = NumericElement::abs(value);
+            if magnitude > row_scale {
+                row_scale = magnitude;
+            }
+            if column == row_index {
+                diagonal += value;
+            }
+        }
+
+        if NumericElement::abs(diagonal) <= diagonal_epsilon() {
+            let mut regularization = row_scale * pivot_scale;
+            if regularization < diagonal_epsilon() {
+                regularization = diagonal_epsilon();
+            }
+            builder.add_entry(row_index, row_index, regularization)?;
+        }
+    }
+
+    builder.build()
+}
+
+/// Build a pressure preconditioner from signed row-sum lumping of a Schur
+/// approximation. Preserving the sign is required for the indefinite saddle
+/// system; if row entries cancel, the raw diagonal supplies the signed scale.
+fn lumped_pressure_preconditioner<T>(matrix: &SparseMatrix<T>) -> DiagonalPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoScalar,
+{
+    let n = matrix.nrows();
+    let mut diag_inv = Array1::zeros([n]);
+    for row_index in 0..n {
+        let row_sum = matrix
+            .row(row_index)
+            .values()
+            .iter()
+            .copied()
+            .fold(<T as NumericElement>::ZERO, |sum, value| sum + value);
+        let scale = if NumericElement::abs(row_sum) > diagonal_epsilon() {
+            row_sum
+        } else {
+            get_diagonal(matrix, row_index)
+        };
+        diag_inv[row_index] = if NumericElement::abs(scale) > diagonal_epsilon() {
+            <T as NumericElement>::ONE / scale
+        } else {
+            <T as NumericElement>::ONE
+        };
+    }
+    DiagonalPreconditioner { diag_inv }
 }
 
 /// Extract diagonal element from CSR matrix
@@ -316,27 +397,18 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> BlockDiagonalPreconditione
 ///
 /// # Algorithm
 ///
-/// For solving $\begin{bmatrix} A & B^T \\ B & 0 \end{bmatrix} \begin{bmatrix} u \\ p \end{bmatrix} = \begin{bmatrix} f \\ g \end{bmatrix}$:
+/// For solving $\begin{bmatrix} A & G \\ D & C \end{bmatrix} \begin{bmatrix} u \\ p \end{bmatrix} = \begin{bmatrix} f \\ g \end{bmatrix}$:
 ///
 /// 1. Solve $A u^* = f$ (momentum prediction via diagonal approximation)
-/// 2. Solve $S p = g - B u^*$ (pressure Poisson equation)
-/// 3. Correct $u = u^* - \text{diag}(A)^{-1} B^T p$
+/// 2. Solve $S p = g - D u^*$ (pressure Schur equation)
+/// 3. Correct $u = u^* - \text{diag}(A)^{-1} G p$
 ///
-/// where $S \approx B \,\text{diag}(A)^{-1} B^T$ (Schur complement).
+/// where $S \approx D\,\text{diag}(A)^{-1} G$ (Schur complement).
 ///
-/// # Theorem (Spectral Equivalence)
-///
-/// When $A$ is SPD with condition number $\kappa(A)$, the SIMPLE
-/// preconditioner with the diagonal Schur complement approximation
-/// clusters eigenvalues of the preconditioned system in the interval
-/// $[1/\kappa(A),\, 1]$, guaranteeing convergence of Krylov solvers
-/// in $O(\sqrt{\kappa(A)})$ iterations.
-///
-/// **Proof sketch**: The diagonal approximation $\tilde{A} = \text{diag}(A)$
-/// satisfies $\text{diag}(A) \preceq A \preceq \kappa(A)\,\text{diag}(A)$
-/// (Löwner ordering). Applying this to the Schur complement yields
-/// $S \preceq B\,\text{diag}(A)^{-1}B^T \preceq \kappa(A)\, S$, bounding
-/// the spectral equivalence constants.
+/// The diagonal Schur approximation is a block-structured heuristic. Its
+/// effectiveness depends on the momentum block, coupling signs, stabilization,
+/// and pressure nullspace; convergence is verified by the enclosing Krylov
+/// solver rather than guaranteed by this preconditioner alone.
 ///
 /// # References
 ///
@@ -346,9 +418,12 @@ pub struct SimplePreconditioner<T: RealField + FloatElement> {
     momentum_inv: DiagonalPreconditioner<T>,
     /// Inverse diagonal of the Schur complement approximation
     schur_diag_inv: Array1<T>,
-    /// Rows of the B block stored as (col_index, value) pairs per pressure row,
-    /// used for the B u* product and the B^T p correction.
-    b_rows: Vec<Vec<(usize, T)>>,
+    /// Rows of the divergence block stored as (velocity index, value) pairs
+    /// per pressure row, used for the `D u*` product.
+    divergence_rows: Vec<Vec<(usize, T)>>,
+    /// Columns of the gradient block stored as (velocity index, value) pairs
+    /// per pressure column, used for the `G p` correction.
+    gradient_columns: Vec<Vec<(usize, T)>>,
     n_velocity: usize,
     n_pressure: usize,
 }
@@ -356,8 +431,9 @@ pub struct SimplePreconditioner<T: RealField + FloatElement> {
 impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
     /// Create SIMPLE preconditioner.
     ///
-    /// Extracts the $A$, $B$, and $B^T$ sub-blocks from the full saddle-point
-    /// matrix and builds the diagonal Schur complement $\text{diag}(B\,\text{diag}(A)^{-1}B^T)$.
+    /// Extracts the $A$, $D$, and $G$ sub-blocks from the full saddle-point
+    /// matrix and builds the diagonal Schur complement
+    /// $\text{diag}(C - D\,\text{diag}(A)^{-1}G)$.
     pub fn new(matrix: &SparseMatrix<T>, n_velocity: usize, n_pressure: usize) -> Result<Self> {
         let eps = diagonal_epsilon();
 
@@ -381,9 +457,9 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
             diag_inv: momentum_diag_inv,
         };
 
-        // Extract B sub-block rows (pressure rows, velocity columns).
-        // B lives in rows [n_velocity .. n_velocity+n_pressure], columns [0 .. n_velocity].
-        let mut b_rows = Vec::with_capacity(n_pressure);
+        // Extract the coupling blocks independently. The continuity row may
+        // be scaled by the formulation, so `G` is not reconstructed from `D`.
+        let mut divergence_rows = Vec::with_capacity(n_pressure);
         for i in 0..n_pressure {
             let global_row = n_velocity + i;
             let row = matrix.row(global_row);
@@ -394,15 +470,35 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
                 .filter(|(&c, _)| c < n_velocity)
                 .map(|(&c, &v)| (c, v))
                 .collect();
-            b_rows.push(entries);
+            divergence_rows.push(entries);
+        }
+        let mut gradient_columns = vec![Vec::new(); n_pressure];
+        for velocity_row in 0..n_velocity {
+            let row = matrix.row(velocity_row);
+            for (&column, &value) in row.col_indices().iter().zip(row.values()) {
+                if let Some(pressure_column) = column
+                    .checked_sub(n_velocity)
+                    .filter(|&index| index < n_pressure)
+                {
+                    gradient_columns[pressure_column].push((velocity_row, value));
+                }
+            }
         }
 
-        // Compute diagonal of Schur complement: [B diag(A)^{-1} B^T]_{ii} = Σ_k B_{ik}² / A_{kk}
+        // Compute diag(C - D diag(A)^-1 G) for the actual assembled coupling
+        // signs. This remains valid when the continuity row is normalized and
+        // retains the pressure stabilization block C.
         let mut schur_diag_inv = Array1::zeros([n_pressure]);
         for i in 0..n_pressure {
-            let mut s_ii = <T as NumericElement>::ZERO;
-            for &(k, b_ik) in &b_rows[i] {
-                s_ii += b_ik * b_ik * momentum_inv.diag_inv[k];
+            let mut s_ii = get_diagonal(matrix, n_velocity + i);
+            for &(velocity_index, divergence_value) in &divergence_rows[i] {
+                if let Some(&(_, gradient_value)) = gradient_columns[i]
+                    .iter()
+                    .find(|&&(index, _)| index == velocity_index)
+                {
+                    s_ii -=
+                        divergence_value * momentum_inv.diag_inv[velocity_index] * gradient_value;
+                }
             }
             schur_diag_inv[i] = if NumericElement::abs(s_ii) > eps {
                 <T as NumericElement>::ONE / s_ii
@@ -414,7 +510,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
         Ok(Self {
             momentum_inv,
             schur_diag_inv,
-            b_rows,
+            divergence_rows,
+            gradient_columns,
             n_velocity,
             n_pressure,
         })
@@ -424,8 +521,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
     ///
     /// Given $b = [f, g]^T$:
     /// 1. $u^* = \text{diag}(A)^{-1} f$
-    /// 2. $p   = S^{-1}(g - B u^*)$
-    /// 3. $u   = u^* - \text{diag}(A)^{-1} B^T p$
+    /// 2. $p   = S^{-1}(g - D u^*)$
+    /// 3. $u   = u^* - \text{diag}(A)^{-1} G p$
     pub fn apply(&self, b: &Array1<T>) -> Result<Array1<T>> {
         let n_total = self.n_velocity + self.n_pressure;
         validate_vector_len("SIMPLE preconditioner input", b, n_total)?;
@@ -438,15 +535,15 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
             u_star[idx] = b[idx] * self.momentum_inv.diag_inv[idx];
         }
 
-        // Step 2: Pressure correction p = S^{-1} (g - B u*)
+        // Step 2: Pressure correction p = S^{-1} (g - D u*)
         let mut rhs_p = Array1::zeros([self.n_pressure]);
         for idx in 0..self.n_pressure {
             rhs_p[idx] = b[self.n_velocity + idx];
         }
         for i in 0..self.n_pressure {
             let mut b_u = <T as NumericElement>::ZERO;
-            for &(k, b_ik) in &self.b_rows[i] {
-                b_u += b_ik * u_star[k];
+            for &(velocity_index, divergence_value) in &self.divergence_rows[i] {
+                b_u += divergence_value * u_star[velocity_index];
             }
             rhs_p[i] -= b_u;
         }
@@ -455,12 +552,12 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
             p[idx] = rhs_p[idx] * self.schur_diag_inv[idx];
         }
 
-        // Step 3: Velocity correction u = u* - diag(A)^{-1} B^T p
+        // Step 3: Velocity correction u = u* - diag(A)^{-1} G p
         let mut u_corrected = u_star;
         for i in 0..self.n_pressure {
-            for &(k, b_ik) in &self.b_rows[i] {
-                // B^T has entry b_ik at (k, i), so (B^T p)_k += b_ik * p_i
-                u_corrected[k] -= self.momentum_inv.diag_inv[k] * b_ik * p[i];
+            for &(velocity_index, gradient_value) in &self.gradient_columns[i] {
+                u_corrected[velocity_index] -=
+                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * p[i];
             }
         }
 
@@ -513,6 +610,381 @@ where
     }
 }
 
+/// Number of velocity components in the three-dimensional Taylor–Hood system.
+const VELOCITY_COMPONENTS: usize = 3;
+
+/// Component-block sparse-LU preconditioner for a three-dimensional saddle system.
+///
+/// The velocity block in CFDrs is component-major. When the assembled operator
+/// has no cross-component velocity entries, its momentum block is the direct
+/// sum of three scalar CSR operators. This preconditioner factors each scalar
+/// block once with the provider-owned Leto sparse LU implementation and combines
+/// those solves with the independently assembled SIMPLE pressure correction.
+///
+/// The constructor rejects cross-component entries. Applying only diagonal
+/// component blocks to a coupled operator would change the preconditioner
+/// contract while appearing to succeed, so such systems fall through to the
+/// general saddle-point tiers.
+pub struct ComponentBlockPreconditioner<T: RealField + FloatElement + LetoRealScalar> {
+    momentum_blocks: Vec<OwnedNumericLu<T>>,
+    pressure_block: PressureBlock<T>,
+    simple: SimplePreconditioner<T>,
+    component_size: usize,
+    n_velocity: usize,
+    n_pressure: usize,
+}
+
+enum PressureBlock<T: RealField + FloatElement + LetoRealScalar> {
+    LumpedDiagonal(DiagonalPreconditioner<T>),
+}
+
+/// Cached provider symbolic factors for an unchanged reduced FEM topology.
+#[derive(Debug, Clone)]
+pub(crate) struct ComponentBlockPattern {
+    component_size: usize,
+    n_velocity: usize,
+    n_pressure: usize,
+    row_ptr: Vec<usize>,
+    col_indices: Vec<usize>,
+    symbols: Vec<SymbolicLu>,
+}
+
+impl ComponentBlockPattern {
+    fn matches<T: RealField + Copy + LetoScalar>(
+        &self,
+        matrix: &SparseMatrix<T>,
+        n_velocity: usize,
+        n_pressure: usize,
+    ) -> bool {
+        self.component_size * VELOCITY_COMPONENTS == n_velocity
+            && self.n_velocity == n_velocity
+            && self.n_pressure == n_pressure
+            && self.row_ptr == matrix.row_ptr()
+            && self.col_indices == matrix.col_indices()
+    }
+}
+
+impl<T> ComponentBlockPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    /// Factor the independent velocity component blocks of `matrix`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the matrix dimensions are inconsistent, when a
+    /// nonzero cross-component velocity entry is present, or when a component
+    /// block cannot be factored by the provider sparse LU implementation.
+    pub fn new(matrix: &SparseMatrix<T>, n_velocity: usize, n_pressure: usize) -> Result<Self> {
+        Self::new_with_symbols(matrix, n_velocity, n_pressure, None)
+            .map(|(preconditioner, _)| preconditioner)
+    }
+
+    /// Construct while reusing symbolic factorization for an unchanged mesh.
+    pub(crate) fn new_with_cache(
+        matrix: &SparseMatrix<T>,
+        n_velocity: usize,
+        n_pressure: usize,
+        cache: &mut Option<ComponentBlockPattern>,
+    ) -> Result<Self> {
+        let cache_matches = cache
+            .as_ref()
+            .is_some_and(|pattern| pattern.matches(matrix, n_velocity, n_pressure));
+        let (preconditioner, symbols) = {
+            let cached_symbols = cache
+                .as_ref()
+                .filter(|_| cache_matches)
+                .map(|pattern| pattern.symbols.as_slice());
+            Self::new_with_symbols(matrix, n_velocity, n_pressure, cached_symbols)?
+        };
+        if !cache_matches {
+            *cache = Some(ComponentBlockPattern {
+                component_size: n_velocity / VELOCITY_COMPONENTS,
+                n_velocity,
+                n_pressure,
+                row_ptr: matrix.row_ptr().to_vec(),
+                col_indices: matrix.col_indices().to_vec(),
+                symbols,
+            });
+        }
+        Ok(preconditioner)
+    }
+
+    fn new_with_symbols(
+        matrix: &SparseMatrix<T>,
+        n_velocity: usize,
+        n_pressure: usize,
+        cached_symbols: Option<&[SymbolicLu]>,
+    ) -> Result<(Self, Vec<SymbolicLu>)> {
+        if matrix.nrows() != n_velocity + n_pressure {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Matrix size mismatch: {} != {} + {}",
+                matrix.nrows(),
+                n_velocity,
+                n_pressure
+            )));
+        }
+        if n_velocity == 0 || !n_velocity.is_multiple_of(VELOCITY_COMPONENTS) {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Velocity DOF count {n_velocity} is not divisible by {VELOCITY_COMPONENTS}"
+            )));
+        }
+
+        let component_size = n_velocity / VELOCITY_COMPONENTS;
+        let mut momentum_blocks = Vec::with_capacity(VELOCITY_COMPONENTS);
+        let mut symbols = Vec::with_capacity(VELOCITY_COMPONENTS);
+
+        for component in 0..VELOCITY_COMPONENTS {
+            let offset = component * component_size;
+            let mut block = SparseMatrixBuilder::new(component_size, component_size);
+            for local_row in 0..component_size {
+                let global_row = offset + local_row;
+                let row = matrix.row(global_row);
+                for (&global_col, &value) in row.col_indices().iter().zip(row.values()) {
+                    if global_col >= n_velocity {
+                        continue;
+                    }
+                    let column_component = global_col / component_size;
+                    if column_component != component {
+                        if NumericElement::abs(value) > diagonal_epsilon() {
+                            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                                "velocity component coupling ({global_row}, {global_col}) is not supported by component-block preconditioning"
+                            )));
+                        }
+                        continue;
+                    }
+                    block.add_entry(local_row, global_col - offset, value)?;
+                }
+            }
+
+            let solver = SparseLuSolver {
+                max_size: component_size,
+                ..SparseLuSolver::default()
+            };
+            let block = stabilize_preconditioner_diagonal(&block.build()?, solver.pivot_tolerance)?;
+            let symbol = cached_symbols
+                .and_then(|symbols| symbols.get(component))
+                .cloned()
+                .unwrap_or_else(|| factor_symbolic(&CscMatrix::from_csr(&block)));
+            let factor = solver.factor_sparse_with_symbolic(&block, &symbol)?;
+            symbols.push(symbol);
+            momentum_blocks.push(factor);
+        }
+
+        let simple = SimplePreconditioner::new(matrix, n_velocity, n_pressure)?;
+        let mut pressure_builder = SparseMatrixBuilder::new(n_pressure, n_pressure);
+        for pressure_row in 0..n_pressure {
+            let row = matrix.row(n_velocity + pressure_row);
+            for (&column, &value) in row.col_indices().iter().zip(row.values()) {
+                if let Some(pressure_column) = column
+                    .checked_sub(n_velocity)
+                    .filter(|&index| index < n_pressure)
+                {
+                    pressure_builder.add_entry(pressure_row, pressure_column, value)?;
+                }
+            }
+            for &(velocity, divergence_value) in &simple.divergence_rows[pressure_row] {
+                let momentum_inverse = simple.momentum_inv.diag_inv[velocity];
+                for pressure_column in 0..n_pressure {
+                    for &(gradient_velocity, gradient_value) in
+                        &simple.gradient_columns[pressure_column]
+                    {
+                        if gradient_velocity == velocity {
+                            pressure_builder.add_entry(
+                                pressure_row,
+                                pressure_column,
+                                -divergence_value * momentum_inverse * gradient_value,
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+        let pressure_matrix = stabilize_preconditioner_diagonal(
+            &pressure_builder.build()?,
+            SparseLuSolver::default().pivot_tolerance,
+        )?;
+        // The pressure Schur approximation has a structural nullspace for
+        // this reduced boundary topology. Do not spend a full numeric sparse
+        // factorization discovering that fact on every Picard iteration; use
+        // signed row-sum lumping as the explicit pressure recovery.
+        let pressure_block =
+            PressureBlock::LumpedDiagonal(lumped_pressure_preconditioner(&pressure_matrix));
+
+        Ok((
+            Self {
+                momentum_blocks,
+                pressure_block,
+                simple,
+                component_size,
+                n_velocity,
+                n_pressure,
+            },
+            symbols,
+        ))
+    }
+
+    /// Apply the component-block momentum solves and SIMPLE pressure update.
+    pub fn apply(&self, b: &Array1<T>) -> Result<Array1<T>> {
+        let n_total = self.n_velocity + self.n_pressure;
+        validate_vector_len("component-block preconditioner input", b, n_total)?;
+
+        let mut u_star = Array1::zeros([self.n_velocity]);
+        let mut block_rhs = Array1::zeros([self.component_size]);
+        let mut block_solution = Array1::zeros([self.component_size]);
+        for (component, factor) in self.momentum_blocks.iter().enumerate() {
+            let offset = component * self.component_size;
+            for local in 0..self.component_size {
+                block_rhs[local] = b[offset + local];
+            }
+            factor.solve_into(&block_rhs.view(), &mut block_solution.view_mut())?;
+            for local in 0..self.component_size {
+                u_star[offset + local] = block_solution[local];
+            }
+        }
+
+        let mut rhs_p = Array1::zeros([self.n_pressure]);
+        for pressure in 0..self.n_pressure {
+            rhs_p[pressure] = b[self.n_velocity + pressure];
+            let mut divergence_u = <T as NumericElement>::ZERO;
+            for &(velocity, value) in &self.simple.divergence_rows[pressure] {
+                divergence_u += value * u_star[velocity];
+            }
+            rhs_p[pressure] -= divergence_u;
+        }
+
+        let pressure = match &self.pressure_block {
+            PressureBlock::LumpedDiagonal(preconditioner) => preconditioner.apply(&rhs_p)?,
+        };
+
+        let mut gradient_pressure = Array1::zeros([self.n_velocity]);
+        for pressure_index in 0..self.n_pressure {
+            for &(velocity, value) in &self.simple.gradient_columns[pressure_index] {
+                gradient_pressure[velocity] += value * pressure[pressure_index];
+            }
+        }
+
+        for (component, factor) in self.momentum_blocks.iter().enumerate() {
+            let offset = component * self.component_size;
+            for local in 0..self.component_size {
+                block_rhs[local] = gradient_pressure[offset + local];
+            }
+            factor.solve_into(&block_rhs.view(), &mut block_solution.view_mut())?;
+            for local in 0..self.component_size {
+                u_star[offset + local] -= block_solution[local];
+            }
+        }
+
+        let mut result = Array1::zeros([n_total]);
+        for velocity in 0..self.n_velocity {
+            result[velocity] = u_star[velocity];
+        }
+        for pressure_index in 0..self.n_pressure {
+            result[self.n_velocity + pressure_index] = pressure[pressure_index];
+        }
+        Ok(result)
+    }
+}
+
+impl<T> Preconditioner<T> for ComponentBlockPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
+        validate_vector_len(
+            "component-block preconditioner input",
+            r,
+            self.n_velocity + self.n_pressure,
+        )?;
+        validate_vector_len("component-block preconditioner output", z, vector_len(r))?;
+        let result = self
+            .apply(r)
+            .map_err(|error| LetoError::InvalidInput(error.to_string()))?;
+        for index in 0..vector_len(z) {
+            z[index] = result[index];
+        }
+        Ok(())
+    }
+}
+
+impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for ComponentBlockPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    /// Apply component sparse-LU solves directly to Athena's borrowed vectors.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let expected = self.n_velocity + self.n_pressure;
+        if residual.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: residual.shape()[0],
+                right: expected,
+            });
+        }
+        if output.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: output.shape()[0],
+                right: expected,
+            });
+        }
+
+        let mut block_rhs = Array1::zeros([self.component_size]);
+        let mut block_solution = Array1::zeros([self.component_size]);
+        for (component, factor) in self.momentum_blocks.iter().enumerate() {
+            let offset = component * self.component_size;
+            for local in 0..self.component_size {
+                block_rhs[local] = residual[offset + local];
+            }
+            factor.solve_into(&block_rhs.view(), &mut block_solution.view_mut())?;
+            for local in 0..self.component_size {
+                output[offset + local] = block_solution[local];
+            }
+        }
+
+        let mut pressure_rhs = Array1::zeros([self.n_pressure]);
+        for pressure_index in 0..self.n_pressure {
+            pressure_rhs[pressure_index] = residual[self.n_velocity + pressure_index];
+            for &(velocity, value) in &self.simple.divergence_rows[pressure_index] {
+                pressure_rhs[pressure_index] -= value * output[velocity];
+            }
+        }
+        let pressure = match &self.pressure_block {
+            PressureBlock::LumpedDiagonal(preconditioner) => {
+                let mut pressure = Array1::zeros([self.n_pressure]);
+                for index in 0..self.n_pressure {
+                    pressure[index] = pressure_rhs[index] * preconditioner.diag_inv[index];
+                }
+                pressure
+            }
+        };
+        for pressure_index in 0..self.n_pressure {
+            output[self.n_velocity + pressure_index] = pressure[pressure_index];
+        }
+
+        for (component, factor) in self.momentum_blocks.iter().enumerate() {
+            let offset = component * self.component_size;
+            block_rhs.fill(<T as NumericElement>::ZERO);
+            for pressure_index in 0..self.n_pressure {
+                let pressure = output[self.n_velocity + pressure_index];
+                for &(velocity, value) in &self.simple.gradient_columns[pressure_index] {
+                    if velocity / self.component_size == component {
+                        block_rhs[velocity - offset] += value * pressure;
+                    }
+                }
+            }
+            factor.solve_into(&block_rhs.view(), &mut block_solution.view_mut())?;
+            for local in 0..self.component_size {
+                output[offset + local] -= block_solution[local];
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -541,6 +1013,29 @@ mod tests {
 
         let mut rhs = Array1::zeros([4]);
         builder.build_with_rhs(&mut rhs).unwrap()
+    }
+
+    fn normalized_saddle_point_matrix() -> SparseMatrix<f64> {
+        let mut builder = SparseMatrixBuilder::new(4, 4);
+        builder.add_entry(0, 0, 4.0).unwrap();
+        builder.add_entry(1, 1, 4.0).unwrap();
+        builder.add_entry(0, 2, -1.0).unwrap();
+        builder.add_entry(1, 3, -1.0).unwrap();
+        builder.add_entry(2, 0, -1.0).unwrap();
+        builder.add_entry(3, 1, -1.0).unwrap();
+        builder.build().unwrap()
+    }
+
+    fn component_saddle_point_matrix() -> SparseMatrix<f64> {
+        let mut builder = SparseMatrixBuilder::new(8, 8);
+        for velocity in 0..6 {
+            builder.add_entry(velocity, velocity, 4.0).unwrap();
+        }
+        builder.add_entry(0, 6, -1.0).unwrap();
+        builder.add_entry(1, 7, -1.0).unwrap();
+        builder.add_entry(6, 0, -1.0).unwrap();
+        builder.add_entry(7, 1, -1.0).unwrap();
+        builder.build().unwrap()
     }
 
     #[test]
@@ -585,12 +1080,41 @@ mod tests {
         let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).unwrap();
         let x = precond.apply(&b).unwrap();
 
-        // u* = [1, 1], S^{-1}(g - B u*) = 4 * [1, 1], and
-        // u = u* - diag(A)^{-1} B^T p = [0, 0].
-        assert!((x[0] - 0.0).abs() < 1e-10);
-        assert!((x[1] - 0.0).abs() < 1e-10);
-        assert!((x[2] - 4.0).abs() < 1e-10);
-        assert!((x[3] - 4.0).abs() < 1e-10);
+        // C - D diag(A)^-1 G = 3/4, yielding the exact solution.
+        assert!((x[0] - 2.0 / 3.0).abs() < 1e-10);
+        assert!((x[1] - 2.0 / 3.0).abs() < 1e-10);
+        assert!((x[2] - 4.0 / 3.0).abs() < 1e-10);
+        assert!((x[3] - 4.0 / 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn simple_preconditioner_preserves_normalized_continuity_sign() {
+        let matrix = normalized_saddle_point_matrix();
+        let precond = SimplePreconditioner::new(&matrix, 2, 2).unwrap();
+        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).unwrap();
+        let x = precond.apply(&b).unwrap();
+
+        assert!((x[0] + 2.0).abs() < 1e-10);
+        assert!((x[1] + 2.0).abs() < 1e-10);
+        assert!((x[2] + 12.0).abs() < 1e-10);
+        assert!((x[3] + 12.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn component_block_preconditioner_factors_provider_velocity_blocks() {
+        let matrix = component_saddle_point_matrix();
+        let precond = ComponentBlockPreconditioner::new(&matrix, 6, 2).unwrap();
+        let b = Array1::from_shape_vec([8], vec![4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]).unwrap();
+        let x = precond.apply(&b).unwrap();
+
+        assert!((x[0] + 2.0).abs() < 1e-10);
+        assert!((x[1] + 2.0).abs() < 1e-10);
+        assert!(x[2].abs() < 1e-10);
+        assert!(x[3].abs() < 1e-10);
+        assert!(x[4].abs() < 1e-10);
+        assert!(x[5].abs() < 1e-10);
+        assert!((x[6] + 12.0).abs() < 1e-10);
+        assert!((x[7] + 12.0).abs() < 1e-10);
     }
 
     #[test]
@@ -607,7 +1131,7 @@ mod tests {
 
 impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
 where
-    T: RealField + FloatElement + Copy + LetoScalar + leto_ops::RealScalar,
+    T: RealField + FloatElement + Copy + LetoRealScalar,
 {
     /// Block-diagonal apply straight over the borrowed views.
     ///
@@ -638,6 +1162,59 @@ where
         for index in 0..self.n_pressure {
             let offset = self.n_velocity + index;
             output[offset] = residual[offset] * self.pressure_preconditioner.diag_inv[index];
+        }
+        Ok(())
+    }
+}
+
+impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for SimplePreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    /// Apply SIMPLE directly to Athena's borrowed vectors.
+    ///
+    /// The velocity part of `output` first stores the diagonal momentum
+    /// prediction. Pressure is then formed from the borrowed divergence rows,
+    /// and the same output buffer receives the pressure correction. This
+    /// preserves the SIMPLE recurrence without allocating an intermediate
+    /// vector on the Krylov hot path.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let expected = self.n_velocity + self.n_pressure;
+        if residual.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: residual.shape()[0],
+                right: expected,
+            });
+        }
+        if output.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: output.shape()[0],
+                right: expected,
+            });
+        }
+
+        for index in 0..self.n_velocity {
+            output[index] = residual[index] * self.momentum_inv.diag_inv[index];
+        }
+        for pressure_index in 0..self.n_pressure {
+            let mut pressure_rhs = residual[self.n_velocity + pressure_index];
+            for &(velocity_index, divergence_value) in &self.divergence_rows[pressure_index] {
+                pressure_rhs -= divergence_value * output[velocity_index];
+            }
+            let pressure_offset = self.n_velocity + pressure_index;
+            output[pressure_offset] = pressure_rhs * self.schur_diag_inv[pressure_index];
+        }
+        for pressure_index in 0..self.n_pressure {
+            let pressure = output[self.n_velocity + pressure_index];
+            for &(velocity_index, gradient_value) in &self.gradient_columns[pressure_index] {
+                output[velocity_index] -=
+                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * pressure;
+            }
         }
         Ok(())
     }

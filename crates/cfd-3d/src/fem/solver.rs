@@ -35,13 +35,13 @@ use crate::fem::leto_bridge::build_with_vector_rhs;
 use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
-use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution, scalar};
 use crate::linalg::{
-    array1_l2_norm, array1_len, array1_subarray, matrix3_determinant, matrix3_from_columns,
-    matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed, Matrix3x4,
+    Matrix3x4, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
+    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
 };
 use crate::scalar::Cfd3dScalar;
-use moirai::{fold_reduce_with, Adaptive};
+use moirai::{Adaptive, fold_reduce_with};
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.
@@ -86,12 +86,19 @@ struct ElementGeometry<T: Cfd3dScalar> {
     p1_gradients_phys: Matrix3x4<T>,
 }
 
+struct AssembledSystem<T> {
+    matrix: SparseMatrix<T>,
+    rhs: Array1<T>,
+    constrained_dofs: Vec<(usize, T)>,
+}
+
 impl<T: Cfd3dScalar> FemSolver<T> {
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: config.base.convergence.max_iterations,
             tolerance: config.base.convergence.tolerance,
+            relative_tolerance: config.base.convergence.relative_tolerance,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         let linear_solver = GMRES::new(solver_config, 100);
@@ -135,7 +142,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         // to some topological boundary nodes (e.g., P2 mid-edge nodes), making the BVP ill-posed.
         problem.validate()?;
 
-        let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
+        let AssembledSystem {
+            matrix,
+            rhs,
+            constrained_dofs,
+        } = self.assemble_system(problem, previous_solution)?;
 
         let n_total_dof = array1_len(&rhs);
         let n_nodes = problem.mesh.vertex_count();
@@ -155,6 +166,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
+            relative_tolerance: self.config.base.convergence.relative_tolerance,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         tracing::info!(
@@ -175,7 +187,14 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             // (arch board item); the threshold lowers is the tactical routing.
             .with_direct_threshold(512)
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
-        let x_array = chain.solve(&matrix, &rhs, n_velocity_dof)?;
+        let x_array = self.solve_reduced_system(
+            &chain,
+            &matrix,
+            &rhs,
+            &constrained_dofs,
+            n_velocity_dof,
+            None,
+        )?;
 
         // Guard: detect NaN/Inf from ill-conditioned or singular systems before
         // they silently propagate into the velocity/pressure solution fields.
@@ -196,28 +215,25 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         Ok(solution)
     }
 
-    /// Picard-optimized solve with warm-start and adaptive linear tolerance.
+    /// Picard solve with warm-start and configured linear tolerance.
     ///
     /// # Optimizations over [`Self::solve`]
     ///
     /// 1. **Warm-start**: Uses the previous Picard solution as GMRES initial
     ///    guess, dramatically reducing iteration counts on subsequent iterations.
-    /// 2. **Adaptive tolerance**: Early Picard iterations use 100× looser
-    ///    linear solve tolerance (inexact Picard, cf. Eisenstat–Walker 1996),
-    ///    since the viscosity field is still changing significantly.
-    /// 3. **Reduced iteration budget**: 10K max linear iterations (vs 50K in
-    ///    [`Self::solve`]) — with warm-starting, convergence should occur in
-    ///    hundreds of iterations, not tens of thousands.
-    /// 4. **Smart tier progression**: Skips unpreconditioned GMRES tier for
+    /// 2. **Configured tolerance**: Every Picard linear system uses the
+    ///    configured relative tolerance so the returned velocity satisfies the
+    ///    continuity contract before viscosity is updated.
+    /// 3. **Smart tier progression**: Skips unpreconditioned GMRES tier for
     ///    saddle-point systems when block-preconditioned GMRES stagnates.
-    /// 5. **Timing diagnostics**: Logs assembly and linear solve wall-clock
+    /// 4. **Timing diagnostics**: Logs assembly and linear solve wall-clock
     ///    time for performance monitoring.
     pub fn solve_picard(
         &mut self,
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
         picard_iteration: usize,
-        max_picard_iterations: usize,
+        _max_picard_iterations: usize,
     ) -> Result<StokesFlowSolution<T>> {
         tracing::info!(
             picard_iteration,
@@ -227,7 +243,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         problem.validate()?;
 
         let assembly_start = std::time::Instant::now();
-        let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
+        let AssembledSystem {
+            matrix,
+            rhs,
+            constrained_dofs,
+        } = self.assemble_system(problem, previous_solution)?;
         let assembly_elapsed = assembly_start.elapsed();
 
         let n_total_dof = array1_len(&rhs);
@@ -235,21 +255,19 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
 
-        // Adaptive tolerance (inexact Picard / Eisenstat–Walker strategy):
-        // Early iterations use 100× looser tolerance since viscosity is still changing.
-        let base_tol = NumericElement::to_f64(self.config.base.convergence.tolerance);
-        let adaptive_factor = if picard_iteration < max_picard_iterations / 2 {
-            100.0_f64
-        } else {
-            1.0_f64
-        };
-        let rel_tol = <T as FloatElement>::from_f64(base_tol * adaptive_factor);
+        // The linear solve must satisfy the configured relative tolerance at
+        // every Picard step. An inexact early solve can preserve the previous
+        // velocity trace while the viscosity field has already changed,
+        // violating the inlet/outlet continuity contract.
+        let base_tol = NumericElement::to_f64(self.config.base.convergence.relative_tolerance);
+        let rel_tol = <T as FloatElement>::from_f64(base_tol);
         let abs_tol =
             (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
 
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
+            relative_tolerance: rel_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
@@ -288,18 +306,20 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         tracing::info!(
             assembly_secs = format!("{:.2}", assembly_elapsed.as_secs_f64()).as_str(),
             ?abs_tol,
+            ?rel_tol,
             max_iter = self.config.base.convergence.max_iterations,
             restart = std::cmp::min(200, n_total_dof.max(1)),
             "Assembly and linear solve config"
         );
 
         let solve_start = std::time::Instant::now();
-        let x_array = chain.solve_with_guess_state(
+        let x_array = self.solve_reduced_system(
+            &chain,
             &matrix,
             &rhs,
+            &constrained_dofs,
             n_velocity_dof,
             initial_guess_array,
-            &mut self.linear_solver_state,
         )?;
         let solve_elapsed = solve_start.elapsed();
 
@@ -325,6 +345,109 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             self.print_continuity_residual_stats(problem, &solution)?;
         }
 
+        Ok(solution)
+    }
+
+    /// Solve only the unconstrained Schur system.
+    ///
+    /// Dirichlet enforcement has already eliminated constrained columns and
+    /// replaced constrained rows with prescribed-value identities. Removing
+    /// those identities before Krylov iteration is algebraically exact: the
+    /// free rows see the same RHS, while constrained values are restored after
+    /// the solve. The reduced ordering preserves the velocity/pressure block
+    /// split required by the saddle-point preconditioners.
+    fn solve_reduced_system(
+        &mut self,
+        chain: &LinearSolverChain<T>,
+        matrix: &SparseMatrix<T>,
+        rhs: &Array1<T>,
+        constrained_dofs: &[(usize, T)],
+        n_velocity_dof: usize,
+        initial_guess: Option<&Array1<T>>,
+    ) -> Result<Array1<T>> {
+        let n_total_dof = rhs.shape()[0];
+        let mut constrained = vec![false; n_total_dof];
+        let mut prescribed = vec![scalar::zero::<T>(); n_total_dof];
+        for &(dof, value) in constrained_dofs {
+            if let (Some(is_constrained), Some(prescribed_value)) =
+                (constrained.get_mut(dof), prescribed.get_mut(dof))
+            {
+                *is_constrained = true;
+                *prescribed_value = value;
+            }
+        }
+
+        let free_indices: Vec<usize> = (0..n_total_dof).filter(|&dof| !constrained[dof]).collect();
+        let mut reduced_index = vec![None; n_total_dof];
+        for (reduced, &full) in free_indices.iter().enumerate() {
+            reduced_index[full] = Some(reduced);
+        }
+        let reduced_velocity_dof = free_indices
+            .iter()
+            .take_while(|&&dof| dof < n_velocity_dof)
+            .count();
+        let reduced_size = free_indices.len();
+        let mut reduced_scales = vec![scalar::one::<T>(); reduced_size];
+        for (reduced_row, &full_row) in free_indices.iter().enumerate() {
+            let row = matrix.row(full_row);
+            let diagonal = row
+                .col_indices()
+                .iter()
+                .zip(row.values())
+                .find_map(|(&column, &value)| (column == full_row).then_some(value));
+            if let Some(diagonal) = diagonal {
+                let magnitude = NumericElement::abs(diagonal);
+                if magnitude > scalar::zero::<T>() {
+                    reduced_scales[reduced_row] =
+                        <T as NumericElement>::ONE / NumericElement::sqrt(magnitude);
+                }
+            }
+        }
+        let mut reduced_builder = SparseMatrixBuilder::new(reduced_size, reduced_size);
+        let mut reduced_rhs = Array1::zeros([reduced_size]);
+
+        for (reduced_row, &full_row) in free_indices.iter().enumerate() {
+            let row_scale = reduced_scales[reduced_row];
+            reduced_rhs[reduced_row] = rhs[full_row] * row_scale;
+            let row = matrix.row(full_row);
+            for (&full_col, &value) in row.col_indices().iter().zip(row.values()) {
+                if let Some(reduced_col) = reduced_index.get(full_col).and_then(|index| *index) {
+                    reduced_builder.add_entry(
+                        reduced_row,
+                        reduced_col,
+                        row_scale * value * reduced_scales[reduced_col],
+                    )?;
+                }
+            }
+        }
+        let (reduced_matrix, reduced_rhs) =
+            build_with_vector_rhs(reduced_builder, reduced_rhs, "reduced FEM saddle-point RHS")?;
+
+        let reduced_guess = initial_guess.map(|guess| {
+            let mut reduced = Array1::zeros([reduced_size]);
+            for (reduced_index, &full_index) in free_indices.iter().enumerate() {
+                // The Krylov system is D A D y = D b and the reconstructed
+                // solution is x = D y. Convert the previous full-space x into
+                // the scaled-space y before using it as a warm start.
+                reduced[reduced_index] = guess[full_index] / reduced_scales[reduced_index];
+            }
+            reduced
+        });
+        let reduced_solution = chain.solve_with_guess_state(
+            &reduced_matrix,
+            &reduced_rhs,
+            reduced_velocity_dof,
+            reduced_guess.as_ref(),
+            &mut self.linear_solver_state,
+        )?;
+
+        let mut solution = Array1::zeros([n_total_dof]);
+        for (dof, value) in solution.iter_mut().zip(prescribed) {
+            *dof = value;
+        }
+        for (reduced_index, &full_index) in free_indices.iter().enumerate() {
+            solution[full_index] = reduced_scales[reduced_index] * reduced_solution[reduced_index];
+        }
         Ok(solution)
     }
 
@@ -516,7 +639,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         &mut self,
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
-    ) -> Result<(SparseMatrix<T>, Array1<T>)> {
+    ) -> Result<AssembledSystem<T>> {
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -667,7 +790,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 let viscosity = problem
                     .element_viscosities
                     .as_ref()
-                    .map_or(problem.fluid.viscosity, |v| v[i]);
+                    .map_or(problem.fluid.viscosity.into_base(), |v| v[i]);
                 let Some(geometry) = element_geometry[i].as_ref() else {
                     return local_map;
                 };
@@ -678,7 +801,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     &mut local_map,
                     geometry,
                     viscosity,
-                    problem.fluid.density,
+                    problem.fluid.density.into_base(),
                     u_avg,
                     n_nodes,
                 );
@@ -700,7 +823,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         }
 
         let mut rhs = rhs_store;
-        self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
+        let constrained_dofs =
+            self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
 
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
         tracing::debug!(
@@ -713,7 +837,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             tracing::warn!("All velocity DOFs constrained — may cause incompressibility conflict");
         }
 
-        let diag_eps = problem.fluid.viscosity * <T as FloatElement>::from_f64(1e-12);
+        let diag_eps = problem.fluid.viscosity.into_base() * <T as FloatElement>::from_f64(1e-12);
         for i in n_velocity_dof..n_total_dof {
             let _ = matrix_builder.add_entry(i, i, diag_eps);
         }
@@ -722,7 +846,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             build_with_vector_rhs(matrix_builder, rhs, "FEM saddle-point RHS")?;
         rhs = rhs_after_assembly;
         self.rhs = Some(rhs.clone());
-        Ok((matrix, rhs))
+        Ok(AssembledSystem {
+            matrix,
+            rhs,
+            constrained_dofs,
+        })
     }
 
     fn assemble_element_local(
@@ -834,7 +962,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             // Adds τ_BP * ∫ ∇q_i · ∇q_j dΩ to the pressure-pressure block.
             // τ_BP = h_e² / (12 * μ), where h_e = (6V)^(1/3).
             // Circumvents the LBB inf-sup condition for equal-order P1-P1 elements.
-            if viscosity > scalar::zero::<T>() {
+            // Taylor-Hood P2-P1 is inf-sup stable and does not use this term.
+            if idxs.len() == 4 && viscosity > scalar::zero::<T>() {
                 let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
                 let h_e = FloatElement::powf(abs_det, one_third); // (6V)^(1/3) ≈ element diameter
                 let twelve = <T as FloatElement>::from_f64(12.0);
@@ -948,15 +1077,17 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             }
         }
 
-        // Preserve the existing P1 stabilization contribution: the legacy
-        // quadrature loop adds the quadrature-independent term once per point.
+        // Add the pressure-stabilization bilinear form once per element. The
+        // element volume is already represented by
+        // `vol_e`; repeating this contribution for every quadrature point
+        // would scale the incompressibility defect with the quadrature rule
+        // instead of the physical element.
         if viscosity > zero {
             let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
             let h_e = FloatElement::powf(abs_det, one_third);
             let twelve = <T as FloatElement>::from_f64(12.0);
             let tau_bp = h_e * h_e / (twelve * viscosity);
             let vol_e = abs_det / <T as FloatElement>::from_f64(6.0);
-            let repetitions = points.len();
             for i in 0..4 {
                 let gi = idxs[i];
                 let gp_i = p_offset + gi;
@@ -964,9 +1095,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     let gj = idxs[j];
                     let gp_j = p_offset + gj;
                     let pspg = tau_bp * gradients[i].dot(gradients[j]) * vol_e;
-                    for _ in 0..repetitions {
-                        *local_map.entry((gp_i, gp_j)).or_insert(zero) += pspg;
-                    }
+                    *local_map.entry((gp_i, gp_j)).or_insert(zero) += pspg;
                 }
             }
         }
@@ -979,19 +1108,21 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         rhs: &mut Array1<T>,
         problem: &StokesFlowProblem<T>,
         n_nodes: usize,
-    ) -> Result<()> {
+    ) -> Result<Vec<(usize, T)>> {
         let v_offset = n_nodes;
         let p_offset = n_nodes * 3;
         let mesh_scale = compute_mesh_scale(&problem.mesh);
-        let diag_scale = problem.fluid.viscosity * mesh_scale;
+        let diag_scale = problem.fluid.viscosity.into_base() * mesh_scale;
 
         let mut vel_dofs = std::collections::HashSet::new();
         let mut p_dofs = std::collections::HashSet::new();
+        let mut has_pressure_bc = false;
         let mut inlet_nodes = 0usize;
         let mut wall_nodes = 0usize;
         let mut outlet_nodes = 0usize;
         let mut dirichlet_nodes = 0usize;
         let mut unconstrained_boundary_nodes = Vec::new();
+        let mut constrained_dofs = Vec::new();
 
         let boundary_nodes = problem.get_boundary_nodes();
         for &node_idx in &boundary_nodes {
@@ -1008,9 +1139,6 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             );
         }
 
-        // Track if any pressure boundary condition is applied
-        let mut has_pressure_bc = false;
-
         // Extract and uniquely sort boundary conditions to guarantee exact deterministic linear matrix
         // assembly across identical geometries on multi-threaded parallel executors with randomized `HashMap`s.
         let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
@@ -1024,6 +1152,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                         let dof = node_idx + d * v_offset;
                         builder.set_dirichlet_row(dof, diag_scale, velocity[d]);
                         rhs[dof] = velocity[d] * diag_scale;
+                        constrained_dofs.push((dof, velocity[d]));
                         vel_dofs.insert(dof);
                     }
                 }
@@ -1033,6 +1162,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                         let dof = node_idx + d * v_offset;
                         builder.set_dirichlet_row(dof, diag_scale, scalar::zero::<T>());
                         rhs[dof] = scalar::zero::<T>();
+                        constrained_dofs.push((dof, scalar::zero::<T>()));
                         vel_dofs.insert(dof);
                     }
                 }
@@ -1044,6 +1174,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                         let dof = p_offset + node_idx;
                         builder.set_dirichlet_row(dof, diag_scale, *pressure);
                         rhs[dof] = *pressure * diag_scale;
+                        constrained_dofs.push((dof, *pressure));
                         p_dofs.insert(dof);
                     }
                 }
@@ -1058,6 +1189,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                                 let dof = node_idx + d * v_offset;
                                 builder.set_dirichlet_row(dof, diag_scale, *val);
                                 rhs[dof] = *val * diag_scale;
+                                constrained_dofs.push((dof, *val));
                                 vel_dofs.insert(dof);
                             }
                         }
@@ -1067,6 +1199,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                                 let dof = p_offset + node_idx;
                                 builder.set_dirichlet_row(dof, diag_scale, *p_val);
                                 rhs[dof] = *p_val * diag_scale;
+                                constrained_dofs.push((dof, *p_val));
                                 p_dofs.insert(dof);
                             }
                         }
@@ -1077,6 +1210,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                             let dof = node_idx + d * v_offset;
                             builder.set_dirichlet_row(dof, diag_scale, *value);
                             rhs[dof] = *value * diag_scale;
+                            constrained_dofs.push((dof, *value));
                             vel_dofs.insert(dof);
                         }
                     }
@@ -1085,17 +1219,14 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             }
         }
 
-        // CRITICAL FIX: For incompressible flow without pressure BC, pressure is
-        // undetermined up to a constant. Pin first corner node pressure to zero
-        // as reference to remove this null space and make the system non-singular.
+        // In the natural-traction case pressure is defined only up to a
+        // constant. Pin one pressure DOF for the gauge; the pressure
+        // stabilization retains the remaining continuity equations.
         if !has_pressure_bc && problem.n_corner_nodes > 0 {
-            let reference_pressure_dof = p_offset; // First corner node
+            let reference_pressure_dof = p_offset;
             builder.set_dirichlet_row(reference_pressure_dof, diag_scale, scalar::zero::<T>());
             rhs[reference_pressure_dof] = scalar::zero::<T>();
-            tracing::info!(
-                reference_pressure_dof,
-                "Pinned pressure DOF to zero (no pressure BC specified)"
-            );
+            constrained_dofs.push((reference_pressure_dof, scalar::zero::<T>()));
         }
 
         tracing::debug!(
@@ -1113,7 +1244,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             "BC Diagnostics: DOF counts"
         );
 
-        Ok(())
+        Ok(constrained_dofs)
     }
 
     fn calculate_u_avg(

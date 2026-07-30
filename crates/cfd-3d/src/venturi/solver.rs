@@ -220,13 +220,6 @@ where
         }
 
         let tet_mesh = base_mesh;
-        // Use P1 (linear) elements directly.  The P2MeshConverter is a surface-mesh
-        // tool (1:4 triangle subdivision) and corrupts volumetric tet topology when
-        // applied to a 3-D mesh: after it clears + replaces all faces the cell→face
-        // index map becomes invalid, extract_vertex_indices falls to its unsorted
-        // fallback, and the first four "corner" nodes are nearly coplanar (volume
-        // < 1e-22), causing assembly to fail on element 0.  P1 Taylor-Hood elements
-        // are well-posed for Stokes flow at the mesh resolutions used here.
         let n_corner_nodes = tet_mesh.vertex_count();
         let mesh = tet_mesh;
 
@@ -377,43 +370,23 @@ where
         let wall_nodes = face_sets.wall_nodes;
         let boundary_vertices = face_sets.boundary_vertices;
 
-        let inlet_wall_rim_nodes: std::collections::HashSet<usize> =
-            inlet_nodes.intersection(&wall_nodes).copied().collect();
-
-        // Pass 1: Apply inlet velocity to non-rim inlet nodes and no-slip to inlet-wall rim nodes.
+        // Pass 1: Apply the prescribed inlet trace to every inlet node. The
+        // shared inlet/wall rim belongs to the inlet boundary condition here;
+        // forcing it to zero changes the requested volumetric flow before the
+        // FEM system is assembled.
         for &v_idx in &inlet_nodes {
-            if inlet_wall_rim_nodes.contains(&v_idx) {
-                boundary_conditions.insert(
-                    v_idx,
-                    BoundaryCondition::Dirichlet {
-                        value: 0.0_f64,
-                        component_values: Some(vec![
-                            Some(0.0_f64),
-                            Some(0.0_f64),
-                            Some(0.0_f64),
-                            None,
-                        ]),
-                    },
-                );
-            } else {
-                boundary_conditions.insert(
-                    v_idx,
-                    BoundaryCondition::VelocityInlet {
-                        velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
-                    },
-                );
-            }
+            boundary_conditions.insert(
+                v_idx,
+                BoundaryCondition::VelocityInlet {
+                    velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                },
+            );
         }
 
-        // Pass 2: Apply outlet pressure Dirichlet to all corner nodes on
-        // the outlet face.  For incompressible velocity-inlet / pressure-outlet
-        // flow, prescribing p at the outlet anchors the pressure field while
-        // the velocity there adjusts via the natural (traction-free) weak-form
-        // condition.  The FEM solver only applies PressureOutlet to corner
-        // nodes (those carrying a pressure DOF); mid-edge nodes are marked
-        // Outflow so they are not flagged as unconstrained by diagnostics.
+        // Pass 2: apply the prescribed outlet pressure at the outlet trace.
+        // This supplies the pressure reference while the velocity remains
+        // unconstrained, so the outlet flux is still determined by continuity.
         let outlet_pressure_f64 = scalar::to_f64(self.config.outlet_pressure);
-        let mut outlet_corner_count = 0usize;
         for &v_idx in &outlet_nodes {
             if v_idx < n_corner_nodes {
                 boundary_conditions.insert(
@@ -422,9 +395,6 @@ where
                         pressure: outlet_pressure_f64,
                     },
                 );
-                outlet_corner_count += 1;
-            } else {
-                boundary_conditions.insert(v_idx, BoundaryCondition::Outflow);
             }
         }
 
@@ -523,26 +493,32 @@ where
         }
 
         tracing::debug!(
-            outlet_corner_count,
-            "Venturi Outlet Corner BC: corner_nodes, pressure_outlet_applied"
-        );
-        tracing::debug!(
             inlet_count = inlet_nodes.len(),
             wall_count = wall_nodes.len(),
-            rim_count = inlet_wall_rim_nodes.len(),
+            rim_count = inlet_nodes.intersection(&wall_nodes).count(),
             "Venturi Inlet/Wall Compatibility"
         );
         tracing::debug!(repaired_nodes, "Venturi BC Coverage Repair");
 
         // 3. Set up FEM Problem with initial viscosity
-        let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
-            name: "Picard Basis".to_string(),
-            density: scalar::to_f64(fluid_props.density.into_base()),
-            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity.into_base()),
-            specific_heat: scalar::to_f64(fluid_props.specific_heat.into_base()),
-            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity.into_base()),
-            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound.into_base()),
-        };
+        let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::new(
+            "Picard Basis".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(scalar::to_f64(
+                fluid_props.density.into_base(),
+            )),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(scalar::to_f64(
+                fluid_props.dynamic_viscosity.into_base(),
+            )),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(scalar::to_f64(
+                fluid_props.specific_heat.into_base(),
+            )),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(scalar::to_f64(
+                fluid_props.thermal_conductivity.into_base(),
+            )),
+            aequitas::systems::si::quantities::Velocity::from_base(scalar::to_f64(
+                fluid_props.speed_of_sound.into_base(),
+            )),
+        );
 
         let mut problem = StokesFlowProblem::<f64>::new(
             mesh,
@@ -558,6 +534,7 @@ where
         // 4. Picard Iteration Loop
         let fem_config = crate::fem::FemConfig::<f64>::default();
         let mut solver = crate::fem::FemSolver::new(fem_config);
+        let final_picard_phase = self.config.max_nonlinear_iterations / 2;
         let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
         let shear_geometries = problem
             .mesh
@@ -575,7 +552,7 @@ where
         );
 
         let mut stagnation_count = 0usize;
-        let mut prev_vel_change = f64::MAX;
+        let mut prev_progress = f64::MAX;
 
         for iter in 0..self.config.max_nonlinear_iterations {
             let iter_start = std::time::Instant::now();
@@ -590,18 +567,7 @@ where
                 self.config.max_nonlinear_iterations,
             );
 
-            // If the linear solver fails (e.g. GMRES stagnation on the
-            // non-Newtonian saddle-point system), use the last converged
-            // solution and break. The Picard iterations before failure
-            // typically provide an accurate enough Newtonian/early-Casson
-            // solution for validation.
-            let fem_solution = match fem_result {
-                Ok(sol) => sol,
-                Err(e) => {
-                    tracing::warn!(error = %e, "Picard linear solve failed; using last converged solution");
-                    break;
-                }
-            };
+            let fem_solution = fem_result?;
 
             // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
@@ -655,12 +621,12 @@ where
                 let mut new_visc = scalar::to_f64(new_visc_t.into_base());
 
                 // Cap viscosity at 20x reference (stability)
-                let max_viscosity = problem.fluid.viscosity * 20.0_f64;
+                let max_viscosity = problem.fluid.viscosity.into_base() * 20.0_f64;
                 if new_visc > max_viscosity {
                     new_visc = max_viscosity;
                 }
-                if new_visc < problem.fluid.viscosity {
-                    new_visc = problem.fluid.viscosity;
+                if new_visc < problem.fluid.viscosity.into_base() {
+                    new_visc = problem.fluid.viscosity.into_base();
                 }
 
                 let relaxed_visc =
@@ -718,16 +684,20 @@ where
                 "Picard iteration progress"
             );
 
-            // Stagnation detection: if velocity change hasn't decreased
-            // by at least 5% for 3 consecutive iterations, abort early.
-            if vel_change_f64 >= prev_vel_change * 0.95 {
+            // Stagnation is a coupled Picard property: Anderson acceleration
+            // can make the velocity update zero while viscosity still moves.
+            // Use the larger coupled change so that a stationary velocity
+            // update cannot terminate an unconverged constitutive iteration.
+            let progress = vel_change_f64.max(max_change_f64);
+            if progress >= prev_progress * 0.95 {
                 stagnation_count += 1;
             } else {
                 stagnation_count = 0;
             }
-            prev_vel_change = vel_change_f64;
+            prev_progress = progress;
 
-            if stagnation_count >= 3 {
+            let in_final_picard_phase = iter >= final_picard_phase;
+            if in_final_picard_phase && stagnation_count >= 3 {
                 tracing::debug!(iter, "Picard stagnation detected — aborting");
                 break;
             }
