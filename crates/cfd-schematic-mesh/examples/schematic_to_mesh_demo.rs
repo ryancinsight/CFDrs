@@ -9,8 +9,8 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
     use cfd_schematics::geometry::generator::create_geometry;
-    use gaia::application::channel::profile::ChannelProfile;
-    use gaia::infrastructure::io::scheme;
+    use cfd_mesh::application::channel::profile::ChannelProfile;
+    use cfd_schematic_mesh::scheme_io;
 
     println!("🔌 Schematic to Mesh Integration Demo");
     println!("=====================================");
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
 
-    let schematic3d = scheme::from_blueprint(&system_with_frustum, substrate_height, segments)?;
+    let schematic3d = scheme_io::from_blueprint(&system_with_frustum, substrate_height, segments)?;
 
     println!("   Converted {} channels.", schematic3d.channels.len());
 
@@ -87,9 +87,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3. Inspecting Profiles and Meshing...");
 
     // Prepare Mesher
-    use gaia::application::channel::sweep::SweepMesher;
-    use gaia::domain::core::index::RegionId;
-    use gaia::infrastructure::storage::vertex_pool::VertexPool;
+    use cfd_mesh::application::channel::sweep::SweepMesher;
+    use cfd_mesh::domain::core::index::RegionId;
+    use cfd_mesh::infrastructure::storage::vertex_pool::VertexPool;
 
     let mesher = SweepMesher::new();
     let mut pool = VertexPool::new(1e-3);

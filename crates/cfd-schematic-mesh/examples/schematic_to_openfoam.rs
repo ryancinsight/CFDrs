@@ -45,19 +45,19 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
-use gaia::application::channel::path::ChannelPath;
-use gaia::application::channel::substrate::SubstrateBuilder;
-use gaia::application::channel::sweep::SweepMesher;
-use gaia::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
-use gaia::application::pipeline::PipelineOutput;
-use gaia::application::pipeline::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
-use gaia::domain::core::index::RegionId;
-use gaia::domain::core::scalar::{Point3r, Real};
-use gaia::domain::mesh::IndexedMesh;
-use gaia::domain::topology::halfedge::PatchType;
-use gaia::infrastructure::io::openfoam::write_openfoam_polymesh;
-use gaia::infrastructure::io::scheme;
-use gaia::infrastructure::io::stl::write_stl_binary;
+use cfd_mesh::application::channel::path::ChannelPath;
+use cfd_mesh::application::channel::substrate::SubstrateBuilder;
+use cfd_mesh::application::channel::sweep::SweepMesher;
+use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
+use cfd_schematic_mesh::PipelineOutput;
+use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
+use cfd_mesh::domain::core::index::RegionId;
+use cfd_mesh::domain::core::scalar::{Point3r, Real};
+use cfd_mesh::domain::mesh::IndexedMesh;
+use cfd_mesh::domain::topology::halfedge::PatchType;
+use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
+use cfd_schematic_mesh::scheme_io;
+use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
 use cfd_schematics::geometry::generator::create_geometry;
@@ -273,7 +273,7 @@ fn mesh_output_from_blueprint(
     config: &PipelineConfig,
     force_circular: bool,
 ) -> Result<PipelineOutput, Box<dyn std::error::Error>> {
-    let schematic3d = scheme::from_blueprint(
+    let schematic3d = scheme_io::from_blueprint(
         system,
         config.chip_height_mm as Real,
         config.circular_segments,
@@ -374,7 +374,7 @@ fn mesh_output_from_blueprint(
     Ok(PipelineOutput {
         fluid_mesh,
         chip_mesh,
-        topology_class: gaia::application::pipeline::TopologyClass::LinearChain {
+        topology_class: cfd_schematic_mesh::TopologyClass::LinearChain {
             n_segments: system.channels.len(),
         },
         segment_count: system.channels.len(),
@@ -385,7 +385,7 @@ fn mesh_output_from_blueprint(
 
 fn label_inlet_outlet_from_system(
     mesh: &mut IndexedMesh,
-    schematic3d: &scheme::Schematic,
+    schematic3d: &scheme_io::Schematic,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let ch = schematic3d
         .channels
@@ -425,7 +425,7 @@ fn label_inlet_outlet_from_system(
 
 fn sweep_channel(
     mesher: &SweepMesher,
-    profile: &gaia::application::channel::profile::ChannelProfile,
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
     path: &ChannelPath,
     scales: Option<&[Real]>,
 ) -> IndexedMesh {
@@ -441,8 +441,8 @@ fn sweep_channel(
     mesh
 }
 
-fn profile_radius_mm(profile: &gaia::application::channel::profile::ChannelProfile) -> Real {
-    use gaia::application::channel::profile::ChannelProfile;
+fn profile_radius_mm(profile: &cfd_mesh::application::channel::profile::ChannelProfile) -> Real {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
     match profile {
         ChannelProfile::Circular { radius, .. } => *radius,
         ChannelProfile::Rectangular { width, height } => 0.5 * width.min(*height),
@@ -467,10 +467,10 @@ fn extend_path_ends(path: &ChannelPath, extension_mm: Real) -> ChannelPath {
 }
 
 fn circularized_profile(
-    profile: &gaia::application::channel::profile::ChannelProfile,
+    profile: &cfd_mesh::application::channel::profile::ChannelProfile,
     segments: usize,
-) -> gaia::application::channel::profile::ChannelProfile {
-    use gaia::application::channel::profile::ChannelProfile;
+) -> cfd_mesh::application::channel::profile::ChannelProfile {
+    use cfd_mesh::application::channel::profile::ChannelProfile;
     use std::f64::consts::PI;
 
     match profile {
@@ -529,7 +529,7 @@ fn circularized_profile(
 /// | `"outlet"` | `REGION_OUTLET (1)` |
 /// | all others | `REGION_WALL   (2)` |
 fn reassign_regions_from_labels(mesh: &mut IndexedMesh) {
-    use gaia::domain::core::index::FaceId;
+    use cfd_mesh::domain::core::index::FaceId;
     use std::collections::HashMap;
 
     // Build FaceId → RegionId lookup from the immutable label map first,

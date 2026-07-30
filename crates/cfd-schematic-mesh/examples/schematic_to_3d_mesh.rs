@@ -28,16 +28,16 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use gaia::application::channel::sweep::SweepMesher;
-use gaia::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
-use gaia::domain::core::index::RegionId;
-use gaia::domain::core::scalar::Point3r;
-use gaia::domain::geometry::primitives::{Cube, PrimitiveMesh};
-use gaia::domain::mesh::IndexedMesh;
-use gaia::domain::topology::halfedge::PatchType;
-use gaia::infrastructure::io::openfoam::write_openfoam_polymesh;
-use gaia::infrastructure::io::scheme;
-use gaia::infrastructure::io::stl::write_stl_binary;
+use cfd_mesh::application::channel::sweep::SweepMesher;
+use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
+use cfd_mesh::domain::core::index::RegionId;
+use cfd_mesh::domain::core::scalar::Point3r;
+use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
+use cfd_mesh::domain::mesh::IndexedMesh;
+use cfd_mesh::domain::topology::halfedge::PatchType;
+use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
+use cfd_schematic_mesh::scheme_io;
+use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╔══════════════════════════════════════════╗");
@@ -78,9 +78,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let substrate_height = 5.0_f64; // mm
     let segments = 32;
 
-    let schematic3d = scheme::from_blueprint(
+    let schematic3d = scheme_io::from_blueprint(
         &interchange,
-        substrate_height as gaia::domain::core::scalar::Real,
+        substrate_height as cfd_mesh::domain::core::scalar::Real,
         segments,
     )?;
 

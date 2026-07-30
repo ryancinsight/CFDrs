@@ -40,9 +40,9 @@ tracing-subscriber = "0.3"
 aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", default-features = false, features = ["std"] }
 proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
 hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
-tyche-core = { path = "../tyche/crates/tyche-core", version = "0.1.0" }
+tyche-core = { version = "0.1.0", git = "https://github.com/ryancinsight/tyche" }
 eunomia = { version = "0.7.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
-iris = { path = "../iris", version = "0.1.0" }
+iris = { version = "0.1.0", git = "https://github.com/ryancinsight/iris" }
 approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
@@ -88,7 +88,7 @@ consus-core = { version = "0.1.0", git = "https://github.com/ryancinsight/consus
 consus-hdf5 = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
-ritk-vtk = { path = "../ritk/crates/ritk-vtk" }
+ritk-vtk = { version = "0.1.0", git = "https://github.com/ryancinsight/ritk" }
 # hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
 # SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
 hermes-simd = { version = "0.5.0", git = "https://github.com/ryancinsight/hermes.git" }
@@ -97,11 +97,11 @@ hermes-simd = { version = "0.5.0", git = "https://github.com/ryancinsight/hermes
 moirai = { version = "0.4.0", git = "https://github.com/ryancinsight/Moirai", default-features = false, features = ["parallel", "mnemosyne", "melinoe"] }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
-hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
+hephaestus-wgpu = { version = "0.18.0", git = "https://github.com/ryancinsight/hephaestus" }
 # athena: backend-neutral Krylov solver suite (athena-core = contracts,
 # athena-leto = Leto CPU backend). Used by cfd-math/linear_solver/krylov.rs.
-athena-core = { path = "../athena/crates/athena-core" }
-athena-leto = { path = "../athena/crates/athena-leto" }
+athena-core = { version = "0.1.0", git = "https://github.com/ryancinsight/athena" }
+athena-leto = { version = "0.1.0", git = "https://github.com/ryancinsight/athena" }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-schematic-mesh = { path = "crates/cfd-schematic-mesh" }
 cfd-1d = { path = "crates/cfd-1d" }
