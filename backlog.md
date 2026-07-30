@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-30 [major] - Type shared FluidProperties and constant fluid storage
-  (IN-PROGRESS 2026-07-29; owner=current Codex session; claimed 2026-07-29;
+  (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidProperties`,
   `ConstantPropertyFluid`, their direct constructors/callers/tests, and
   synchronized audit/design/changelog artifacts).** The post-MET-29 residue
@@ -51,7 +51,7 @@
   gates.
 
 - **CFDRS-AEQ-MET-31 [major] - Type temperature-model physical coefficients
-  (IN PROGRESS; owner=current Codex session; claimed 2026-07-30; scope=
+  (VERIFIED 2026-07-30; owner=current Codex session; claimed 2026-07-30; scope=
   `cfd-core::physics::fluid::temperature`, its direct tests, and synchronized
   audit/design/changelog artifacts).** The post-MET-30 public-surface scan
   found `PolynomialViscosity`, `ArrheniusViscosity`, `AndradeViscosity`, and
@@ -63,7 +63,10 @@
   Acceptance is a residue-free typed-field scan, value-semantic temperature
   model regressions, focused cfd-core gates, and synchronized audit/design/
   changelog evidence. Non-Newtonian and blood model coefficients remain
-  separately tracked slices.
+  separately tracked slices. Evidence: cfd-core test-target check,
+  focused temperature-model Nextest 7/7, warning-denied cfd-core Clippy,
+  targeted rustfmt, diff checks, the typed public-field residue scan, and cfd-core
+  doctests 3/3 pass.
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;

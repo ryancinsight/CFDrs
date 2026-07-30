@@ -34,6 +34,26 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type cfd-core temperature-dependent fluid model parameters
+  with Aequitas `MassDensity`, `ThermodynamicTemperature`,
+  `TemperatureDifference`, `ReciprocalTemperature`, `DynamicViscosity`,
+  `SpecificHeatCapacity`, `ThermalConductivity`, and `Velocity`. Direct
+  temperature calculations now accept typed absolute temperatures; polynomial
+  coefficient vectors remain explicit formula data because their units vary by
+  order. Eunomia complex values remain outside this real constitutive contract.
+  See [`temperature-model-metrics.md`](docs/atlas-migration/temperature-model-metrics.md).
+
+- **Breaking**: Type shared cfd-core `FluidProperties`, `PropertyBounds`, and
+  `ConstantPropertyFluid` storage with Aequitas `MassDensity`,
+  `DynamicViscosity`, `SpecificHeatCapacity`, `ThermalConductivity`, and
+  `Velocity`. Derived kinematic, thermal-diffusivity, Reynolds, Prandtl,
+  Peclet, and Mach metrics remain typed; scalar extraction is limited to
+  formula and infrastructure boundaries. Eunomia complex values remain
+  outside this real-valued material contract. Ideal-gas, temperature-
+  dependent, non-Newtonian, and blood constitutive coefficients remain a
+  separate model-parameter migration boundary. See
+  [`shared-fluid-properties.md`](docs/atlas-migration/shared-fluid-properties.md).
+
 - **Breaking**: Type the public cfd-core `FluidState` and fluid-provider
   metrics with Aequitas `MassDensity`, `DynamicViscosity`,
   `SpecificHeatCapacity`, `ThermalConductivity`, `Velocity`,

@@ -31,6 +31,63 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Shared fluid-property metric refresh (2026-07-29, CFDRS-AEQ-MET-30)
+
+The post-MET-29 residue scan found that the shared
+`cfd-core::physics::fluid::FluidProperties`, `PropertyBounds`, and
+`ConstantPropertyFluid` contracts still erased dimensions for density,
+dynamic viscosity, specific heat, thermal conductivity, and sound speed.
+Those public fields, constructors, validation bounds, database entries,
+examples, Python wrappers, 1D/2D/3D consumers, and cross-fidelity tests now
+use the corresponding Aequitas quantities. `FluidProperties` also returns
+typed kinematic viscosity, thermal diffusivity, and dimensionless Reynolds,
+Prandtl, Peclet, and Mach metrics. Scalar extraction remains at formula,
+solver, mesh, FEM/GPU, and explicit serialization boundaries.
+
+The shared thermophysical path delegates directly to Proteus with typed
+quantities. The contract remains real-valued under Eunomia `RealField` because
+property validation requires ordering, positivity, and finite non-negative
+values. Eunomia complex values remain at phasor, Womersley, Bessel, and
+spectral formula/storage boundaries; no imaginary-unit SI property is needed.
+
+The remaining source residue is intentionally narrower: `IdealGas`,
+non-Newtonian, and blood model structs still expose constitutive coefficients
+as raw generic scalar parameters. They are formula parameter contracts, not
+shared constant-property storage. Temperature-dependent model storage is
+closed by `CFDRS-AEQ-MET-31`; this audit does not claim the other model
+families closed.
+
+Verification: the cfd-core/cfd-1d/cfd-2d/cfd-3d/cfd-validation test-target
+checks and cfd-1d examples/cfd-python library check pass on the exact working
+tree; focused value-semantic tests, package Nextest, doctests, and warning-
+denied Clippy remain the closure gates before commit.
+
+## Temperature-model metric refresh (2026-07-30, CFDRS-AEQ-MET-31)
+
+The public-surface scan found that `PolynomialViscosity`,
+`ArrheniusViscosity`, `AndradeViscosity`, and `SutherlandViscosity` still
+stored density, reference and offset temperatures, viscosity parameters,
+specific heat, thermal conductivity, and sound speed as raw generic scalar
+fields. Their public storage and direct calculation methods now use Aequitas
+`MassDensity`, `ThermodynamicTemperature`, `TemperatureDifference`,
+`ReciprocalTemperature`, `DynamicViscosity`, `SpecificHeatCapacity`,
+`ThermalConductivity`, and `Velocity`. Temperature is converted to a scalar
+only at the existing Eunomia formula boundary; the `Fluid` trait adapter
+converts its legacy scalar condition at entry.
+
+Polynomial coefficient vectors remain scalar formula data because coefficient
+unit dimensions vary with polynomial order; treating the vector as one typed
+quantity would be dimensionally false. The model contract remains real-valued
+under Eunomia `RealField`; complex values and imaginary-unit quantities do not
+apply to these real constitutive models.
+
+Focused temperature-model Nextest passes 7/7, cfd-core test-target check and
+warning-denied Clippy/all-targets pass, cfd-core doctests pass 3/3, targeted
+rustfmt and diff checks pass, and the public typed-field residue scan is clean.
+The remaining Aequitas model-property gaps are the
+ideal-gas, non-Newtonian, and blood constitutive families, which remain
+separate dependency-ordered items.
+
 ## FluidState metric refresh (2026-07-29, CFDRS-AEQ-MET-29)
 
 The source audit found that the public `cfd-core::physics::fluid::FluidState`
@@ -55,8 +112,10 @@ mass-conservation tests require it.
 This is a real-valued fluid-state contract. Eunomia `Complex<T>` remains at
 the Womersley, Bessel, and spectral formula/storage boundaries; no imaginary SI
 unit is introduced for real density, viscosity, or thermophysical state.
-`ConstantPropertyFluid` and the older `FluidProperties` raw storage remain a
-separate residual boundary and are not claimed closed by this increment.
+The shared `ConstantPropertyFluid`, `FluidProperties`, and `PropertyBounds`
+storage residual is closed by `CFDRS-AEQ-MET-30`. Temperature-model storage
+is closed by `CFDRS-AEQ-MET-31`; non-Newtonian, blood, and ideal-gas model
+coefficients remain separate formula-parameter boundaries.
 
 Verification: cfd-core test-target check passed; cfd-core Nextest passed
 259/259; cfd-core doctests passed 3/3; warning-denied cfd-core and cfd-2d

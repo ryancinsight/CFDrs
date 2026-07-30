@@ -4,7 +4,8 @@ use super::thermophysical::linear_density_at;
 use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, MassDensity, ReciprocalTemperature, SpecificHeatCapacity,
+    TemperatureDifference, ThermalConductivity, ThermodynamicTemperature, Velocity,
 };
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
@@ -20,24 +21,29 @@ pub struct PolynomialViscosity<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Base density [kg/m³]
-    pub density_ref: T,
+    pub density_ref: MassDensity<T>,
     /// Temperature coefficient for density [1/K]
-    pub thermal_expansion: T,
-    /// Polynomial coefficients for viscosity [Pa·s/K^i]
+    pub thermal_expansion: ReciprocalTemperature<T>,
+    /// Polynomial coefficients for viscosity [Pa·s/K^i] at the formula boundary.
+    ///
+    /// Each coefficient has a different temperature exponent and therefore a
+    /// different derived unit; the vector remains scalar formula data rather
+    /// than pretending all coefficients share one quantity dimension.
     pub viscosity_coeffs: Vec<T>,
     /// Reference temperature \[K]
-    pub t_ref: T,
+    pub t_ref: ThermodynamicTemperature<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + NumericElement + Copy> PolynomialViscosity<T> {
     /// Calculate viscosity at given temperature
-    pub fn calculate_viscosity(&self, temperature: T) -> T {
+    pub fn calculate_viscosity(&self, temperature: ThermodynamicTemperature<T>) -> T {
+        let temperature = temperature.into_base();
         let mut viscosity = <T as NumericElement>::ZERO;
         let mut t_power = <T as NumericElement>::ONE;
 
@@ -56,21 +62,22 @@ impl<T: RealField + NumericElement + Copy> PolynomialViscosity<T> {
     /// Returns [`Error::InvalidInput`] when the reference thermophysical state,
     /// response coefficient, evaluation temperature, or resulting density lies
     /// outside the Proteus material-property contract.
-    pub fn calculate_density(&self, temperature: T) -> Result<T, Error> {
+    pub fn calculate_density(&self, temperature: ThermodynamicTemperature<T>) -> Result<T, Error> {
         linear_density_at(
-            self.density_ref,
-            self.thermal_expansion,
-            self.t_ref,
-            self.specific_heat,
-            self.thermal_conductivity,
-            temperature,
+            self.density_ref.into_base(),
+            self.thermal_expansion.into_base(),
+            self.t_ref.into_base(),
+            self.specific_heat.into_base(),
+            self.thermal_conductivity.into_base(),
+            temperature.into_base(),
         )
     }
 }
 
 impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        if temperature <= <T as NumericElement>::ZERO {
+        let temperature = ThermodynamicTemperature::from_base(temperature);
+        if temperature.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
@@ -82,9 +89,9 @@ impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity
         Ok(FluidState {
             density: MassDensity::from_base(density),
             dynamic_viscosity: DynamicViscosity::from_base(viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -99,7 +106,7 @@ impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity
     fn reference_temperature(
         &self,
     ) -> Option<aequitas::systems::si::quantities::ThermodynamicTemperature<T>> {
-        Some(aequitas::systems::si::quantities::ThermodynamicTemperature::from_base(self.t_ref))
+        Some(self.t_ref)
     }
 }
 
@@ -113,42 +120,47 @@ pub struct ArrheniusViscosity<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Pre-exponential factor A [Pa·s]
-    pub a_factor: T,
+    pub a_factor: DynamicViscosity<T>,
     /// Temperature coefficient B \[K]
-    pub b_factor: T,
+    pub b_factor: TemperatureDifference<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> ArrheniusViscosity<T> {
     /// Calculate viscosity using Arrhenius model
-    pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
+    pub fn calculate_viscosity(
+        &self,
+        temperature: ThermodynamicTemperature<T>,
+    ) -> Result<T, Error> {
+        let temperature = temperature.into_base();
         if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
         }
 
-        Ok(self.a_factor * FloatElement::exp(self.b_factor / temperature))
+        Ok(self.a_factor.into_base() * FloatElement::exp(self.b_factor.into_base() / temperature))
     }
 }
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for ArrheniusViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        let temperature = ThermodynamicTemperature::from_base(temperature);
         let viscosity = self.calculate_viscosity(temperature)?;
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -170,46 +182,51 @@ pub struct AndradeViscosity<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Pre-exponential factor A [Pa·s]
-    pub a_factor: T,
+    pub a_factor: DynamicViscosity<T>,
     /// Temperature coefficient B \[K]
-    pub b_factor: T,
+    pub b_factor: TemperatureDifference<T>,
     /// Temperature offset C \[K]
-    pub c_factor: T,
+    pub c_factor: TemperatureDifference<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> AndradeViscosity<T> {
     /// Calculate viscosity using Andrade model
-    pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
-        let denominator = temperature - self.c_factor;
+    pub fn calculate_viscosity(
+        &self,
+        temperature: ThermodynamicTemperature<T>,
+    ) -> Result<T, Error> {
+        let temperature = temperature.into_base();
+        let denominator = temperature - self.c_factor.into_base();
         if denominator <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(format!(
                 "Temperature must be greater than {:?}",
-                self.c_factor
+                self.c_factor.into_base()
             )));
         }
 
-        Ok(self.a_factor * FloatElement::exp(self.b_factor / denominator))
+        Ok(self.a_factor.into_base() * FloatElement::exp(self.b_factor.into_base() / denominator))
     }
 }
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for AndradeViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        let temperature = ThermodynamicTemperature::from_base(temperature);
         let viscosity = self.calculate_viscosity(temperature)?;
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -231,36 +248,40 @@ pub struct SutherlandViscosity<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³] (assumed constant for this model)
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Reference viscosity [Pa·s]
-    pub mu_ref: T,
+    pub mu_ref: DynamicViscosity<T>,
     /// Reference temperature \[K]
-    pub t_ref: T,
+    pub t_ref: ThermodynamicTemperature<T>,
     /// Sutherland constant \[K]
-    pub s_constant: T,
+    pub s_constant: TemperatureDifference<T>,
     /// Specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> SutherlandViscosity<T> {
     /// Calculate viscosity using Sutherland's law
-    pub fn calculate_viscosity(&self, temperature: T) -> T {
-        let t_ratio = temperature / self.t_ref;
-        let numerator = self.t_ref + self.s_constant;
-        let denominator = temperature + self.s_constant;
+    pub fn calculate_viscosity(&self, temperature: ThermodynamicTemperature<T>) -> T {
+        let temperature = temperature.into_base();
+        let t_ratio = temperature / self.t_ref.into_base();
+        let numerator = self.t_ref.into_base() + self.s_constant.into_base();
+        let denominator = temperature + self.s_constant.into_base();
 
-        self.mu_ref * FloatElement::powf(t_ratio, <T as FloatElement>::from_f64(1.5)) * numerator
+        self.mu_ref.into_base()
+            * FloatElement::powf(t_ratio, <T as FloatElement>::from_f64(1.5))
+            * numerator
             / denominator
     }
 }
 
 impl<T: RealField + FloatElement + Copy> FluidTrait<T> for SutherlandViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        if temperature <= <T as NumericElement>::ZERO {
+        let temperature = ThermodynamicTemperature::from_base(temperature);
+        if temperature.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
@@ -269,11 +290,11 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for SutherlandViscosity<T
         let viscosity = self.calculate_viscosity(temperature);
 
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
+            density: self.density,
             dynamic_viscosity: DynamicViscosity::from_base(viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -296,17 +317,17 @@ mod tests {
         // mu_ref = 1.716e-5 Pa·s at T_ref = 273.15 K, S = 110.4 K
         let air = SutherlandViscosity::<f64> {
             name: "Air".to_string(),
-            density: 1.225,              // kg/m^3
-            mu_ref: 1.716e-5,            // Pa·s
-            t_ref: 273.15,               // K
-            s_constant: 110.4,           // K
-            specific_heat: 1005.0,       // J/(kg·K)
-            thermal_conductivity: 0.024, // W/(m·K)
-            speed_of_sound: 340.0,       // m/s
+            density: MassDensity::from_base(1.225),
+            mu_ref: DynamicViscosity::from_base(1.716e-5),
+            t_ref: ThermodynamicTemperature::from_base(273.15),
+            s_constant: TemperatureDifference::from_base(110.4),
+            specific_heat: SpecificHeatCapacity::from_base(1005.0),
+            thermal_conductivity: ThermalConductivity::from_base(0.024),
+            speed_of_sound: Velocity::from_base(340.0),
         };
 
         // Test at reference temperature
-        let mu_ref_calc = air.calculate_viscosity(273.15);
+        let mu_ref_calc = air.calculate_viscosity(ThermodynamicTemperature::from_base(273.15));
         assert!((mu_ref_calc - 1.716e-5).abs() < 1e-10);
 
         // Test at higher temperature (e.g. 300 K)
@@ -315,7 +336,7 @@ mod tests {
         // (300/273.15)^1.5 * (273.15 + 110.4) / (300 + 110.4) * 1.716e-5
         // 1.15016 * 383.55 / 410.4 * 1.716e-5
         // 1.15016 * 0.93457 * 1.716e-5 = 1.0749 * 1.716e-5 = 1.844e-5 roughly
-        let mu_300 = air.calculate_viscosity(300.0);
+        let mu_300 = air.calculate_viscosity(ThermodynamicTemperature::from_base(300.0));
         let expected_mu_300 =
             1.716e-5 * f64::powf(300.0 / 273.15, 1.5) * (273.15 + 110.4) / (300.0 + 110.4);
         assert!((mu_300 - expected_mu_300).abs() <= 16.0 * f64::EPSILON * expected_mu_300);
@@ -325,13 +346,13 @@ mod tests {
     fn test_sutherland_negative_temperature() {
         let air = SutherlandViscosity::<f64> {
             name: "Air".to_string(),
-            density: 1.225,
-            mu_ref: 1.716e-5,
-            t_ref: 273.15,
-            s_constant: 110.4,
-            specific_heat: 1005.0,
-            thermal_conductivity: 0.024,
-            speed_of_sound: 340.0,
+            density: MassDensity::from_base(1.225),
+            mu_ref: DynamicViscosity::from_base(1.716e-5),
+            t_ref: ThermodynamicTemperature::from_base(273.15),
+            s_constant: TemperatureDifference::from_base(110.4),
+            specific_heat: SpecificHeatCapacity::from_base(1005.0),
+            thermal_conductivity: ThermalConductivity::from_base(0.024),
+            speed_of_sound: Velocity::from_base(340.0),
         };
 
         assert!(air.properties_at(-10.0, 101325.0).is_err());
@@ -342,15 +363,17 @@ mod tests {
     fn test_arrhenius_viscosity() {
         let fluid = ArrheniusViscosity::<f64> {
             name: "Test".to_string(),
-            density: 1000.0,
-            a_factor: 1.0,
-            b_factor: 2.0,
-            specific_heat: 1000.0,
-            thermal_conductivity: 1.0,
-            speed_of_sound: 1500.0,
+            density: MassDensity::from_base(1000.0),
+            a_factor: DynamicViscosity::from_base(1.0),
+            b_factor: TemperatureDifference::from_base(2.0),
+            specific_heat: SpecificHeatCapacity::from_base(1000.0),
+            thermal_conductivity: ThermalConductivity::from_base(1.0),
+            speed_of_sound: Velocity::from_base(1500.0),
         };
 
-        let mu = fluid.calculate_viscosity(2.0).unwrap();
+        let mu = fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(2.0))
+            .unwrap();
         assert!((mu - std::f64::consts::E).abs() < 1e-12);
         assert!(fluid.properties_at(2.0, 1.0).is_ok());
     }
@@ -359,37 +382,41 @@ mod tests {
     fn test_arrhenius_invalid_temperature() {
         let fluid = ArrheniusViscosity::<f64> {
             name: "Test".to_string(),
-            density: 1000.0,
-            a_factor: 1.0,
-            b_factor: 2.0,
-            specific_heat: 1000.0,
-            thermal_conductivity: 1.0,
-            speed_of_sound: 1500.0,
+            density: MassDensity::from_base(1000.0),
+            a_factor: DynamicViscosity::from_base(1.0),
+            b_factor: TemperatureDifference::from_base(2.0),
+            specific_heat: SpecificHeatCapacity::from_base(1000.0),
+            thermal_conductivity: ThermalConductivity::from_base(1.0),
+            speed_of_sound: Velocity::from_base(1500.0),
         };
 
-        assert!(fluid.calculate_viscosity(0.0).is_err());
-        assert!(fluid.calculate_viscosity(-1.0).is_err());
+        assert!(fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(0.0))
+            .is_err());
+        assert!(fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(-1.0))
+            .is_err());
     }
 
     #[test]
     fn test_polynomial_viscosity_and_density_are_value_semantic() {
         let fluid = PolynomialViscosity::<f64> {
             name: "Polynomial".to_string(),
-            density_ref: 1000.0,
-            thermal_expansion: 2.0e-4,
+            density_ref: MassDensity::from_base(1000.0),
+            thermal_expansion: ReciprocalTemperature::from_base(2.0e-4),
             viscosity_coeffs: vec![1.0, -0.01, 0.0001],
-            t_ref: 300.0,
-            specific_heat: 4180.0,
-            thermal_conductivity: 0.6,
-            speed_of_sound: 1480.0,
+            t_ref: ThermodynamicTemperature::from_base(300.0),
+            specific_heat: SpecificHeatCapacity::from_base(4180.0),
+            thermal_conductivity: ThermalConductivity::from_base(0.6),
+            speed_of_sound: Velocity::from_base(1480.0),
         };
 
-        let viscosity = fluid.calculate_viscosity(310.0);
+        let viscosity = fluid.calculate_viscosity(ThermodynamicTemperature::from_base(310.0));
         let expected_viscosity = 1.0 - 0.01 * 310.0 + 0.0001 * 310.0 * 310.0;
         assert!((viscosity - expected_viscosity).abs() <= 16.0 * f64::EPSILON);
 
         let density = fluid
-            .calculate_density(310.0)
+            .calculate_density(ThermodynamicTemperature::from_base(310.0))
             .expect("finite positive thermophysical state");
         let expected_density = 1000.0 * (1.0 - 2.0e-4 * 10.0);
         // Proteus evaluates the response with an FMA. Four native roundings
@@ -402,17 +429,17 @@ mod tests {
     fn polynomial_density_rejects_a_negative_proteus_state() {
         let fluid = PolynomialViscosity::<f64> {
             name: "Invalid response".to_string(),
-            density_ref: 1000.0,
-            thermal_expansion: 0.2,
+            density_ref: MassDensity::from_base(1000.0),
+            thermal_expansion: ReciprocalTemperature::from_base(0.2),
             viscosity_coeffs: vec![1.0],
-            t_ref: 300.0,
-            specific_heat: 4180.0,
-            thermal_conductivity: 0.6,
-            speed_of_sound: 1480.0,
+            t_ref: ThermodynamicTemperature::from_base(300.0),
+            specific_heat: SpecificHeatCapacity::from_base(4180.0),
+            thermal_conductivity: ThermalConductivity::from_base(0.6),
+            speed_of_sound: Velocity::from_base(1480.0),
         };
 
         let error = fluid
-            .calculate_density(310.0)
+            .calculate_density(ThermodynamicTemperature::from_base(310.0))
             .expect_err("the linear response produces negative density");
         match error {
             Error::InvalidInput(message) => {
@@ -427,20 +454,26 @@ mod tests {
     fn test_andrade_viscosity_and_domain_are_value_semantic() {
         let fluid = AndradeViscosity::<f64> {
             name: "Andrade".to_string(),
-            density: 1000.0,
-            a_factor: 0.25,
-            b_factor: 10.0,
-            c_factor: 2.0,
-            specific_heat: 1000.0,
-            thermal_conductivity: 1.0,
-            speed_of_sound: 1500.0,
+            density: MassDensity::from_base(1000.0),
+            a_factor: DynamicViscosity::from_base(0.25),
+            b_factor: TemperatureDifference::from_base(10.0),
+            c_factor: TemperatureDifference::from_base(2.0),
+            specific_heat: SpecificHeatCapacity::from_base(1000.0),
+            thermal_conductivity: ThermalConductivity::from_base(1.0),
+            speed_of_sound: Velocity::from_base(1500.0),
         };
 
-        let viscosity = fluid.calculate_viscosity(7.0).unwrap();
+        let viscosity = fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(7.0))
+            .unwrap();
         let expected_viscosity = 0.25 * f64::exp(10.0 / (7.0 - 2.0));
         assert!((viscosity - expected_viscosity).abs() <= 8.0 * f64::EPSILON * expected_viscosity);
 
-        assert!(fluid.calculate_viscosity(2.0).is_err());
-        assert!(fluid.calculate_viscosity(1.0).is_err());
+        assert!(fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(2.0))
+            .is_err());
+        assert!(fluid
+            .calculate_viscosity(ThermodynamicTemperature::from_base(1.0))
+            .is_err());
     }
 }

@@ -15,6 +15,8 @@
 | **Aequitas-owned cavitation physical metrics** | 2026-07-28 | cfd-3d VOF and shared cfd-core cavitation contracts exposed unit-bearing scalars for surface tension, radius, number density, time, pressure, density, sound speed, viscosity, frequency, and derived outputs | SurfaceTension, Length, NumberDensity, Time, Pressure, MassDensity, Velocity, DynamicViscosity, Frequency, Angle, Volume, ThermalDiffusivity, MassDensityRate, ThermodynamicTemperature, Energy, and Dimensionless remain typed through public contracts; formula and dense-field boundaries extract explicitly | Breaking change for external cavitation constructors and callers |
 | **Aequitas-owned blueprint cross-fidelity metrics** | 2026-07-28 | cfd-3d blueprint traces exposed reference density, viscosity, flow, volume, pressure, velocity, and nodal flow residuals as public raw scalars | MassDensity, DynamicViscosity, VolumetricFlowRate, Volume, Pressure, and Velocity remain typed through blueprint configuration and channel/node traces; cfd-1d/cfd-2d adapters and millimetre mesh DTOs are explicit scalar boundaries | Breaking change for external blueprint trace consumers |
 | **Aequitas-owned cfd-core FluidState metrics** | 2026-07-29 | FluidState and provider seams exposed real physical state and derived numbers as raw scalars, and the 2D adapter masked solver/hemolysis failures with reference values | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless derived numbers remain typed; scalar extraction is confined to formula and infrastructure boundaries | Breaking change for fluid-state implementors and constructors; broader FluidProperties raw storage remains a separate boundary |
+| **Aequitas-owned cfd-core shared fluid properties** | 2026-07-29 | FluidProperties, PropertyBounds, and ConstantPropertyFluid still stored shared density, viscosity, heat capacity, conductivity, and sound speed as raw scalars after the FluidState cutover | MassDensity, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity, KinematicViscosity, ThermalDiffusivity, and Dimensionless metrics remain typed through shared storage and callers; constitutive model coefficients stay at formula boundaries | Breaking change for shared-property constructors and implementors; temperature-dependent, non-Newtonian, blood, and ideal-gas coefficients remain a separate migration |
+| **Aequitas-owned cfd-core temperature-model metrics** | 2026-07-30 | Temperature-dependent fluid models stored density, temperatures, viscosity parameters, heat capacity, conductivity, and sound speed as raw scalars | MassDensity, ThermodynamicTemperature, TemperatureDifference, ReciprocalTemperature, DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and calculation methods; polynomial coefficient vectors remain formula-bound because order changes their units | Breaking change for external temperature-model constructors and callers; ideal-gas, non-Newtonian, and blood coefficients remain separate migrations |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
@@ -85,6 +87,65 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-30: Aequitas owns cfd-core temperature-model metrics [major] [arch]
+
+Context: `PolynomialViscosity`, `ArrheniusViscosity`, `AndradeViscosity`, and
+`SutherlandViscosity` exposed physical constitutive parameters as raw scalar
+fields and accepted raw scalar temperatures in their direct calculation
+methods.
+
+Decision: carry representable model parameters through Aequitas
+`MassDensity`, `ThermodynamicTemperature`, `TemperatureDifference`,
+`ReciprocalTemperature`, `DynamicViscosity`, `SpecificHeatCapacity`,
+`ThermalConductivity`, and `Velocity`. Extract base scalars only inside the
+Eunomia formula boundary. Keep polynomial coefficient vectors scalar because
+each coefficient order has a distinct temperature-derived unit.
+
+Rejected alternative: add parallel typed accessors, wrap the coefficient
+vector in one misleading quantity dimension, or introduce a consumer-local
+unit wrapper. Each option would preserve dimensional ambiguity or duplicate
+the Aequitas provider contract.
+
+Consequences: external temperature-model constructors and direct calculation
+callers require Aequitas quantities. The model family remains real-valued
+under Eunomia `RealField`; Eunomia complex values and an imaginary-unit SI
+quantity do not apply to these constitutive properties.
+
+Verification: cfd-core test-target check, warning-denied Clippy/all-targets,
+temperature-model Nextest 7/7, cfd-core doctests 3/3, targeted rustfmt, diff
+checks, and the typed public-field residue scan pass.
+See [`temperature-model-metrics.md`](atlas-migration/temperature-model-metrics.md).
+
+### 2026-07-29: Aequitas owns cfd-core shared fluid properties [major] [arch]
+
+Context: `FluidProperties`, `PropertyBounds`, and `ConstantPropertyFluid`
+continued to expose shared density, viscosity, specific heat, conductivity,
+and sound speed as raw scalar fields after the `FluidState` provider cutover.
+
+Decision: carry shared physical storage and all derived property metrics through
+Aequitas `MassDensity`, `DynamicViscosity`, `SpecificHeatCapacity`,
+`ThermalConductivity`, `Velocity`, `KinematicViscosity`,
+`ThermalDiffusivity`, and `Dimensionless`. Keep scalar extraction at formula,
+solver, mesh, FEM/GPU, and serialization boundaries. Delegate thermophysical
+validation and diffusivity to Proteus through typed quantities.
+
+Rejected alternative: retain raw fields, add parallel typed accessors, or
+introduce a scalar compatibility constructor. Each would preserve dimensional
+ambiguity or duplicate the provider-owned contract.
+
+Consequences: shared-property constructors, bounds, database entries, and
+dependent 1D/2D/3D/validation/Python callers require explicit Aequitas values.
+The contract remains real-valued under Eunomia `RealField`; complex values
+remain at phasor and spectral formula/storage boundaries. Constitutive
+coefficients in ideal-gas, temperature-dependent, non-Newtonian, and blood
+models remain a separate migration boundary.
+
+Verification: cfd-core/cfd-1d/cfd-2d/cfd-3d/cfd-validation test-target checks
+and cfd-1d examples/cfd-python library check pass on the working tree. The
+closure also requires focused metric tests, package Nextest, doctests, and
+warning-denied Clippy. See
+[`shared-fluid-properties.md`](atlas-migration/shared-fluid-properties.md).
+
 ### 2026-07-29: Aequitas owns cfd-core FluidState metrics [major] [arch]
 
 Context: `cfd-core::physics::fluid::FluidState` and its provider seams exposed
@@ -108,10 +169,11 @@ or fall back to the reference trace after a failed field solve. Each option
 would preserve dimensional ambiguity or mask a failed computation.
 
 Consequences: fluid-state implementors and constructors require explicit
-Aequitas quantities. `ConstantPropertyFluid` and the older `FluidProperties`
-raw storage remain a separately tracked boundary. This contract is real-valued
-under Eunomia `RealField`; Eunomia `Complex<T>` remains formula/storage data
-for phasor and spectral consumers rather than an imaginary SI state quantity.
+Aequitas quantities. Shared `ConstantPropertyFluid` and `FluidProperties`
+storage is closed by the subsequent MET-30 decision. This contract is
+real-valued under Eunomia `RealField`; Eunomia `Complex<T>` remains
+formula/storage data for phasor and spectral consumers rather than an
+imaginary SI state quantity.
 
 Verification: cfd-core test-target check, Nextest 259/259, doctests 3/3,
 warning-denied cfd-core and cfd-2d Clippy, cfd-2d Nextest 571/571 with 27
