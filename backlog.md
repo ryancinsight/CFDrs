@@ -44,7 +44,26 @@
   contract. Acceptance is a public-field residue scan, value-semantic
   property regressions, focused cfd-core and dependent package gates, and
   synchronized audit/ADR/changelog evidence. Temperature-dependent and
-  rheology model coefficients remain separate formula-parameter slices.
+  rheology model coefficients remain separate formula-parameter slices. Evidence:
+  cfd-core/cfd-1d/cfd-2d/cfd-3d/cfd-validation test-target checks and the
+  cfd-1d examples/cfd-python library check pass; focused metric tests, package
+  Nextest, doctests, and warning-denied Clippy are the exact-revision closure
+  gates.
+
+- **CFDRS-AEQ-MET-31 [major] - Type temperature-model physical coefficients
+  (IN PROGRESS; owner=current Codex session; claimed 2026-07-30; scope=
+  `cfd-core::physics::fluid::temperature`, its direct tests, and synchronized
+  audit/design/changelog artifacts).** The post-MET-30 public-surface scan
+  found `PolynomialViscosity`, `ArrheniusViscosity`, `AndradeViscosity`, and
+  `SutherlandViscosity` still store density, temperature, viscosity,
+  heat-capacity, conductivity, and sound-speed parameters as raw scalars.
+  Carry the representable physical coefficients through Aequitas, keep
+  polynomial coefficient vectors at their explicit formula boundary because
+  each order has a distinct unit, and preserve real-valued Eunomia execution.
+  Acceptance is a residue-free typed-field scan, value-semantic temperature
+  model regressions, focused cfd-core gates, and synchronized audit/design/
+  changelog evidence. Non-Newtonian and blood model coefficients remain
+  separately tracked slices.
 
 - **CFDRS-AEQ-MET-29 [major] - Type cfd-core FluidState metrics
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
