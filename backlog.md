@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-42 [major] - Consolidate legacy analytical benchmarks
+  (IN-PROGRESS 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical_benchmarks` duplicate Couette,
+  Poiseuille, and Taylor-Green models, their direct physics-validation
+  consumer, and synchronized audit/design/changelog artifacts).** The module
+  duplicates canonical Aequitas-backed analytical models while retaining raw
+  physical fields. Remove the superseded implementations, migrate the direct
+  consumer to `cfd_validation::analytical`, and preserve the unique
+  lid-driven-cavity reference tables. Acceptance is zero duplicate-model
+  residue, typed consumer construction, focused value-semantic regressions,
+  synchronized PM artifacts, and the applicable package gates. The existing
+  peer-dirty cfd-math `leto-ops` API mismatch is an external verification
+  dependency and is not in this claim's edit scope.
+
 - **CFDRS-AEQ-MET-41 [major] - Type non-Newtonian analytical metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::poiseuille_2d`, its direct analytical
