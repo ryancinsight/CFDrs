@@ -31,6 +31,35 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Non-Newtonian analytical metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-41` closes the non-Newtonian analytical-validation slice.
+`PowerLawPoiseuille` now stores channel geometry and pressure gradient as
+Aequitas `Length` and `PressureGradient`; its centerline/profile velocity,
+per-width flow rate, wall stress, wall shear rate, and generalized Reynolds
+number return `Velocity`, `AreaPerTime`, `Pressure`, `ReciprocalTime`, and
+`Dimensionless`. `CassonPoiseuille` carries typed geometry and plug radius and
+returns typed velocity, wall stress, and per-width flow rate. The rheology
+trait exchanges typed shear rate, stress, and dynamic viscosity.
+
+The power-law consistency coefficient remains a formula-bound
+`PowerLawConsistency` newtype. Its SI unit is `Pa·sⁿ`, which varies with the
+runtime exponent and cannot be represented by one fixed Aequitas dimension;
+assigning `DynamicViscosity` to every exponent would be dimensionally false.
+Scalar extraction is confined to the constitutive formula, numerical Simpson
+integration, and `AnalyticalSolution` mesh-coordinate boundaries. The direct
+Newtonian-limit, typed-derived-metric, shear-thinning, Casson plug, wall, and
+flow-rate regressions cover the changed contracts.
+
+The models remain real-valued under Eunomia `RealField`; no complex or
+imaginary-unit physical quantity applies. Complex values remain reserved for
+phasor/Bessel/spectral boundaries. Targeted Rustfmt and `git diff --check`
+pass. The pinned cfd-validation check remains blocked before the crate by
+peer-dirty `cfd-math::linear_solver::block_preconditioner` unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is a
+provider/peer integration residual, not a MET41 diagnostic.
+
 ## Blasius analytical metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-40` closes the Blasius analytical-validation slice.
@@ -134,10 +163,9 @@ provider/peer integration residual, not a MET37 diagnostic.
 ## Analytical validation metric audit (2026-07-31)
 
 The current public-surface scan leaves a separate Aequitas gap in
-`cfd-validation::analytical`: the non-Newtonian Poiseuille configuration
-still exposes fixed-dimension physical fields as raw generic scalars. The
-legacy `analytical_benchmarks` module contains the same pattern for its
-Couette, Poiseuille, and Taylor-Green configurations. These are public
+`cfd-validation::analytical`: the legacy `analytical_benchmarks` module
+still contains fixed-dimension raw generic scalars for its Couette, Poiseuille,
+and Taylor-Green configurations. These are public
 validation contracts, not dense solution arrays, so their fixed dimensions
 must be typed; coordinates, sampled fields, interpolation tables, normalized
 coefficients, and equation-dependent formula parameters remain scalar at

@@ -36,12 +36,11 @@ separate imaginary-unit physical quantity, and this model does not need one.
 
 ## Follow-on audit
 
-The same current-head scan found raw fixed-dimension fields in the
-non-Newtonian analytical configuration, plus the legacy
-`analytical_benchmarks` module. Those remain separate dependency-ordered metric
-items. Dense sampled fields, coordinates, interpolation tables, dimensionless
-coefficients, and runtime-exponent formula parameters remain explicit scalar
-boundaries.
+The same current-head scan leaves the legacy `analytical_benchmarks` module
+with raw fixed-dimension fields. That remains a separate dependency-ordered
+metric item. Dense sampled fields, coordinates, interpolation tables,
+dimensionless coefficients, and runtime-exponent formula parameters remain
+explicit scalar boundaries.
 
 ## Verification
 
@@ -70,6 +69,25 @@ The formula and `AnalyticalSolution` mesh-coordinate boundaries extract base
 values explicitly. These validation contracts require Eunomia `RealField`;
 complex intermediates and quadrature values are not physical-unit inputs for
 this family, so no imaginary-unit quantity is introduced.
+
+## Non-Newtonian Poiseuille flow
+
+`PowerLawPoiseuille` stores channel half-width, pressure gradient, and channel
+length as Aequitas `Length` and `PressureGradient`. Its centerline and profile
+velocities, per-width flow rate, wall stress, wall shear rate, and generalized
+Reynolds number return `Velocity`, `AreaPerTime`, `Pressure`,
+`ReciprocalTime`, and `Dimensionless`. `CassonPoiseuille` stores the same typed
+geometry plus its plug radius and returns typed velocity, wall stress, and
+per-width flow rate. `RheologicalModel` uses typed shear rate, stress, and
+dynamic viscosity values.
+
+The power-law consistency coefficient uses the formula-bound
+`PowerLawConsistency` newtype. Its `Pa·sⁿ` dimension depends on the runtime
+flow exponent, so no single Aequitas fixed dimension is valid for arbitrary
+`n`; scalar extraction is confined to the power-law/Casson formulas and the
+numerical integration boundary. The public model remains real-valued under
+Eunomia `RealField`; complex values and imaginary-unit quantities do not apply
+to this ordered rheology contract.
 
 ## Stokes flow around a sphere
 

@@ -26,6 +26,7 @@
 | **Aequitas-owned analytical Stokes metrics** | 2026-07-31 | The cfd-validation Stokes sphere configuration erased physical dimensions from its inputs and drag/stream metrics | Length, Velocity, DynamicViscosity, MassDensity, Force, Dimensionless, and VolumetricFlowRate remain typed through the validation boundary; formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Taylor-Green metrics** | 2026-07-31 | The cfd-validation Taylor-Green configuration erased fixed dimensions and represented 2D/3D energy with one raw scalar | Length, Velocity, KinematicViscosity, MassDensity, Dimensionless, ReciprocalTime, ReciprocalTimeSquared, and a closed `Force`/`Energy` result enum remain typed through the validation boundary; formula, mesh-coordinate, and benchmark/report boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Blasius metrics** | 2026-07-31 | The cfd-validation Blasius configuration erased boundary-layer dimensions and treated kinematic viscosity as dynamic viscosity for wall stress | Velocity, KinematicViscosity, MassDensity, Length, Dimensionless, Pressure, and typed velocity/similarity results remain explicit through the validation boundary; interpolation and mesh-coordinate boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
+| **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -185,6 +186,38 @@ Verification: typed-field scans, direct thickness/scaling/pressure
 regressions, targeted Rustfmt, and diff checks pass. The pinned
 cfd-validation test-target check remains blocked before the crate by
 peer-dirty cfd-math `leto-ops` API errors at
+`linear_solver/block_preconditioner.rs:26-28,769`. See
+[`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
+
+### 2026-07-31: Aequitas owns analytical non-Newtonian metrics [major] [arch]
+
+Context: `cfd-validation::analytical::PowerLawPoiseuille` and
+`CassonPoiseuille` stored channel geometry, pressure gradient, plug radius, and
+derived velocity, stress, shear-rate, flow-rate, and Reynolds values as raw
+generic scalars. The public rheology trait also exchanged untyped shear-rate,
+stress, and viscosity values.
+
+Decision: carry fixed-dimension configuration and derived metrics through
+Aequitas `Length`, `PressureGradient`, `Velocity`, `AreaPerTime`, `Pressure`,
+`ReciprocalTime`, `MassDensity`, and `Dimensionless`. Keep
+`PowerLawConsistency` as a formula-bound newtype because its `Pa·sⁿ`
+dimension depends on the runtime exponent; extract base scalars only at
+constitutive formulas, numerical integration, and mesh-coordinate boundaries.
+
+Rejected alternative: assign `DynamicViscosity` to every power-law
+consistency coefficient, retain scalar public fields, or add parallel typed
+accessors. The first encodes a false dimension for `n != 1`; the others
+preserve ambiguity or duplicate the provider contract.
+
+Consequences: external non-Newtonian analytical constructors and direct metric
+callers require explicit Aequitas values. The models remain real-valued under
+Eunomia `RealField`; complex values and an imaginary-unit quantity do not apply
+to this ordered rheology contract.
+
+Verification: direct Newtonian-limit, typed-derived-metric, shear-thinning,
+Casson plug, wall, and flow-rate regressions are added; targeted Rustfmt and
+diff checks pass. The pinned cfd-validation test-target check remains blocked
+before the crate by peer-dirty cfd-math `leto-ops` API errors at
 `linear_solver/block_preconditioner.rs:26-28,769`. See
 [`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
 

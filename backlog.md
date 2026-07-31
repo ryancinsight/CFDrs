@@ -31,6 +31,28 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-41 [major] - Type non-Newtonian analytical metrics
+  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::poiseuille_2d`, its direct analytical
+  regressions, and synchronized audit/design/changelog artifacts).**
+  `PowerLawPoiseuille` now stores typed length and pressure-gradient inputs and
+  returns typed velocity, per-width flow rate, wall stress, wall shear rate,
+  and generalized Reynolds metrics. `CassonPoiseuille` stores typed geometry
+  and plug radius and returns typed velocity, wall stress, and per-width flow
+  rate. `RheologicalModel` exchanges typed reciprocal time, pressure, and
+  dynamic viscosity values. The runtime-exponent power-law consistency
+  coefficient remains formula-bound as `PowerLawConsistency` because its
+  dimension is `Pa·s^n`; assigning one fixed Aequitas unit would be false.
+  Scalar extraction remains at constitutive, numerical-integration, and mesh
+  boundaries. Direct Newtonian-limit, typed-derived-metric, shear-thinning,
+  and Casson regressions are added; targeted Rustfmt and diff checks pass.
+  Eunomia
+  remains real-valued; no complex or imaginary-unit metric applies. The pinned
+  cfd-validation check remains blocked before the crate by peer-dirty
+  `cfd-math::linear_solver::block_preconditioner` unresolved `leto-ops`
+  imports at lines 26-28 and missing `factor_sparse_with_symbolic` at line
+  769; this is a provider/peer integration residual, not a MET41 failure.
+
 - **CFDRS-AEQ-MET-40 [major] - Type Blasius analytical metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::BlasiusBoundaryLayer`, its direct tests,

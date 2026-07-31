@@ -34,6 +34,16 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-validation` non-Newtonian Poiseuille
+  geometry and derived velocity, per-width flow-rate, wall-stress, shear-rate,
+  viscosity, and Reynolds metrics with Aequitas. The exponent-dependent
+  power-law consistency coefficient remains formula-bound as
+  `PowerLawConsistency` because its `Pa·sⁿ` dimension varies with the runtime
+  exponent. Scalar extraction remains at constitutive, numerical-integration,
+  and mesh-coordinate boundaries. Eunomia real-field execution is preserved;
+  no complex or imaginary-unit metric is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type the public `cfd-validation` Blasius boundary-layer
   configuration and derived Reynolds, thickness, shape, wall-stress,
   skin-friction, similarity, and velocity metrics with Aequitas. Wall stress
