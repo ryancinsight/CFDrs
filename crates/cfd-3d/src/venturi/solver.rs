@@ -370,17 +370,39 @@ where
         let wall_nodes = face_sets.wall_nodes;
         let boundary_vertices = face_sets.boundary_vertices;
 
-        // Pass 1: Apply the prescribed inlet trace to every inlet node. The
-        // shared inlet/wall rim belongs to the inlet boundary condition here;
-        // forcing it to zero changes the requested volumetric flow before the
-        // FEM system is assembled.
+        // Pass 1: prescribe the inlet velocity on interior inlet nodes and
+        // no-slip on the shared inlet/wall rim. The wall condition owns the
+        // rim: a full-velocity rim makes the boundary trace discontinuous
+        // (a slip ring where the plug profile meets the no-slip wall), which
+        // is not admissible H^{1/2} data and inflates the delivered inflow —
+        // the cross-fidelity envelopes are calibrated against the no-slip
+        // rim. The plug-profile flux deficit from the rim ring is O(h)
+        // discretization of the true boundary layer; an exact-flux inlet
+        // needs a developed (parabolic) profile, tracked on the board.
+        let inlet_wall_rim_nodes: std::collections::HashSet<usize> =
+            inlet_nodes.intersection(&wall_nodes).copied().collect();
         for &v_idx in &inlet_nodes {
-            boundary_conditions.insert(
-                v_idx,
-                BoundaryCondition::VelocityInlet {
-                    velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
-                },
-            );
+            if inlet_wall_rim_nodes.contains(&v_idx) {
+                boundary_conditions.insert(
+                    v_idx,
+                    BoundaryCondition::Dirichlet {
+                        value: 0.0_f64,
+                        component_values: Some(vec![
+                            Some(0.0_f64),
+                            Some(0.0_f64),
+                            Some(0.0_f64),
+                            None,
+                        ]),
+                    },
+                );
+            } else {
+                boundary_conditions.insert(
+                    v_idx,
+                    BoundaryCondition::VelocityInlet {
+                        velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                    },
+                );
+            }
         }
 
         // Pass 2: apply the prescribed outlet pressure at the outlet trace.

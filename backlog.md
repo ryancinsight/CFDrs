@@ -33,22 +33,30 @@
 
 - **CFDRS-VAL-RED-1 [patch] - Root-cause the remaining cfd-validation red set
   (in progress 2026-07-31; owner=Claude atlas session 0161539d; scope=
-  `cfd-validation` tests listed below only).** Full-workspace Nextest
-  2971/2979 after the MET-30 takeover; the red set is: FAIL
-  `cross_fidelity_circular_duct::cross_fidelity_circular_straight_duct_flux_and_velocity_bounds`
-  (panic at line 196, 3D pressure-drop envelope),
-  FAIL `cross_fidelity_venturi_calibration::cross_fidelity_venturi_total_loss_coefficient`
-  (15.5s), and four 30s TIMEOUTs (`venturi_cross_fidelity::tests::
-  microventuri_35um/fallback/option2_selected_45um`,
-  `cross_fidelity_non_newtonian::cross_fidelity_stenosis_shear_thinning`).
-  Poiseuille flow-rate and Taylor-Green convention defects from this set are
-  already fixed (bec12d7d). Timeouts were measured under heavy concurrent
-  peer builds (8 rustc); acceptance: re-run on a quiet host to separate
-  load flakiness from real budget breaches, then optimize the production
-  solver paths (never the tests) for genuine breaches and fix the two FAILs
-  value-semantically. Blocked at 2026-07-31T13:00: workspace test builds
-  transiently red from the hephaestus attention peer's in-flight tree;
-  re-open when hephaestus-wgpu compiles again.
+  `cfd-validation` tests listed below, `cfd-3d::venturi` inlet BC).**
+  Resolved this increment (quiet-host reruns, lane baseline at `bf65a415`):
+  the two FAILs were regressions from the `63e49604..fbc6c46c` window —
+  (a) `63e49604` replaced the no-slip inlet/wall rim with a full-velocity
+  rim (discontinuous boundary trace, inflated inflow); restored no-slip rim
+  cures `cross_fidelity_circular_straight_duct_flux_and_velocity_bounds`;
+  (b) the same commit's exact constrained-DOF reduction + strict Picard
+  tolerances legitimately raised the 3D venturi loss to within 3.3% of the
+  literature-backed 1D correlation (1D/2D bit-identical across the window;
+  3D 139.82 -> 308.70), so the stale under-converged envelope (0.15, 0.60)
+  is recalibrated to (0.70, 1.30) with the derivation at the assertion.
+  REMAINING (this item stays open for): the four 30s TIMEOUTs
+  (`microventuri_35um/fallback/option2_45um`, `stenosis_shear_thinning`).
+  Evidence: 35um timed out at the `bf65a415` baseline too (pre-existing);
+  stenosis passed there as slow (>15s) and now breaches 30s; raising the
+  pressure-AMG setup limit 10k->50k did NOT help (reverted); the timed-out
+  SIMPLEC log shows the continuity residual stagnating at ~5.1e2 (<0.5%
+  movement over 5 iterations) — the solve is NOT converging on extreme
+  contraction ratios and burns the full 150-step budget. Next increment:
+  stagnation-aware termination plus root-causing the micro-venturi
+  collocated-fallback convergence (mask/BC/relaxation), never test dilution.
+  Note for bisectors: `63e49604..fbc6c46c` revisions do not compile
+  standalone (each was committed against a future cfd-core/leto state);
+  only window endpoints are buildable.
 
 - **CFDRS-AEQ-MET-42 [major] - Consolidate legacy analytical benchmarks
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
