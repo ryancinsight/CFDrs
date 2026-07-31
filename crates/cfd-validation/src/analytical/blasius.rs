@@ -17,19 +17,24 @@
 
 use super::AnalyticalSolution;
 use crate::scalar;
+use aequitas::systems::si::quantities::{
+    Dimensionless, KinematicViscosity, Length, MassDensity, Pressure, Velocity,
+};
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;
 
-/// Blasius boundary layer solution
+/// Blasius boundary-layer solution.
 #[derive(Debug, Clone)]
 pub struct BlasiusBoundaryLayer<T: RealField + Copy> {
-    /// Free-stream velocity
-    pub u_inf: T,
-    /// Kinematic viscosity
-    pub nu: T,
-    /// Position along plate (distance from leading edge)
-    pub x: T,
+    /// Free-stream velocity.
+    pub u_inf: Velocity<T>,
+    /// Kinematic viscosity.
+    pub nu: KinematicViscosity<T>,
+    /// Fluid density used to convert kinematic to dynamic viscosity.
+    pub density: MassDensity<T>,
+    /// Position along plate (distance from leading edge).
+    pub x: Length<T>,
 }
 
 /// Tabulated Blasius solution values (η, f, f', f'')
@@ -79,79 +84,110 @@ const BLASIUS_TABLE: [(f64, f64, f64, f64); 41] = [
 ];
 
 impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
-    /// Create new Blasius boundary layer
-    pub fn new(u_inf: T, nu: T, x: T) -> Self {
-        Self { u_inf, nu, x }
-    }
-
-    /// Create air flow over flat plate at standard conditions
-    pub fn air_flow(u_inf: f64) -> Self {
+    /// Create a Blasius boundary layer.
+    pub fn new(
+        u_inf: Velocity<T>,
+        nu: KinematicViscosity<T>,
+        x: Length<T>,
+        density: MassDensity<T>,
+    ) -> Self {
         Self {
-            u_inf: scalar::from_f64(u_inf),
-            nu: scalar::from_f64(1.5e-5), // Air kinematic viscosity
-            x: scalar::from_f64(1.0),
+            u_inf,
+            nu,
+            density,
+            x,
         }
     }
 
-    /// Create water flow over flat plate
-    pub fn water_flow(u_inf: f64) -> Self {
-        Self {
-            u_inf: scalar::from_f64(u_inf),
-            nu: scalar::from_f64(1.0e-6), // Water kinematic viscosity
-            x: scalar::from_f64(1.0),
-        }
+    /// Create air flow over a flat plate at standard conditions.
+    pub fn air_flow(u_inf: Velocity<T>) -> Self {
+        Self::new(
+            u_inf,
+            KinematicViscosity::from_base(scalar::from_f64(1.5e-5)),
+            Length::from_base(scalar::one::<T>()),
+            MassDensity::from_base(scalar::from_f64(1.225)),
+        )
     }
 
-    /// Calculate local Reynolds number: Re_x = U*x/ν
-    pub fn local_reynolds(&self) -> T {
-        self.u_inf * self.x / self.nu
+    /// Create water flow over a flat plate.
+    pub fn water_flow(u_inf: Velocity<T>) -> Self {
+        Self::new(
+            u_inf,
+            KinematicViscosity::from_base(scalar::from_f64(1.0e-6)),
+            Length::from_base(scalar::one::<T>()),
+            MassDensity::from_base(scalar::from_f64(998.0)),
+        )
     }
 
-    /// Calculate boundary layer thickness (99% of free-stream velocity)
-    /// δ ≈ 5.0 * sqrt(νx/U) = 5.0x / sqrt(Re_x)
-    pub fn boundary_layer_thickness(&self) -> T {
+    /// Calculate local Reynolds number: `Re_x = U*x/ν`.
+    pub fn local_reynolds(&self) -> Dimensionless<T> {
+        let value = self.u_inf.into_base() * self.x.into_base() / self.nu.into_base();
+        Dimensionless::from_base(value)
+    }
+
+    /// Calculate boundary-layer thickness (99% of free-stream velocity).
+    ///
+    /// `δ ≈ 5.0 * sqrt(νx/U) = 5.0x / sqrt(Re_x)`.
+    pub fn boundary_layer_thickness(&self) -> Length<T> {
         let five = scalar::from_f64::<T>(5.0);
-        five * scalar::sqrt(self.nu * self.x / self.u_inf)
+        let value =
+            five * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
+        Length::from_base(value)
     }
 
-    /// Calculate displacement thickness
-    /// δ* ≈ 1.72 * sqrt(νx/U) = 1.72x / sqrt(Re_x)
-    pub fn displacement_thickness(&self) -> T {
+    /// Calculate displacement thickness.
+    ///
+    /// `δ* ≈ 1.72 * sqrt(νx/U) = 1.72x / sqrt(Re_x)`.
+    pub fn displacement_thickness(&self) -> Length<T> {
         let factor = scalar::from_f64::<T>(1.7208);
-        factor * scalar::sqrt(self.nu * self.x / self.u_inf)
+        let value = factor
+            * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
+        Length::from_base(value)
     }
 
-    /// Calculate momentum thickness
-    /// θ ≈ 0.664 * sqrt(νx/U) = 0.664x / sqrt(Re_x)
-    pub fn momentum_thickness(&self) -> T {
+    /// Calculate momentum thickness.
+    ///
+    /// `θ ≈ 0.664 * sqrt(νx/U) = 0.664x / sqrt(Re_x)`.
+    pub fn momentum_thickness(&self) -> Length<T> {
         let factor = scalar::from_f64::<T>(0.664);
-        factor * scalar::sqrt(self.nu * self.x / self.u_inf)
+        let value = factor
+            * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
+        Length::from_base(value)
     }
 
-    /// Calculate shape factor H = δ*/θ
-    /// For Blasius: H ≈ 2.59
-    pub fn shape_factor(&self) -> T {
-        scalar::from_f64(2.591)
+    /// Calculate shape factor `H = δ*/θ`.
+    ///
+    /// For Blasius, `H ≈ 2.59`.
+    pub fn shape_factor(&self) -> Dimensionless<T> {
+        Dimensionless::from_base(scalar::from_f64(2.591))
     }
 
-    /// Calculate wall shear stress
-    /// τ_w = 0.332 * μ * U * sqrt(U/(νx))
-    pub fn wall_shear_stress(&self) -> T {
+    /// Calculate wall shear stress.
+    ///
+    /// `τ_w = 0.332 * μ * U * sqrt(U/(νx))`, with `μ = ρν`.
+    pub fn wall_shear_stress(&self) -> Pressure<T> {
         let factor = scalar::from_f64::<T>(0.332);
-        let mu = self.nu; // Assuming unit density for simplicity
-        factor * mu * self.u_inf * scalar::sqrt(self.u_inf / (self.nu * self.x))
+        let dynamic_viscosity = self.density.into_base() * self.nu.into_base();
+        let value = factor
+            * dynamic_viscosity
+            * self.u_inf.into_base()
+            * scalar::sqrt(self.u_inf.into_base() / (self.nu.into_base() * self.x.into_base()));
+        Pressure::from_base(value)
     }
 
-    /// Calculate skin friction coefficient
-    /// Cf = 0.664 / sqrt(Re_x)
-    pub fn skin_friction_coefficient(&self) -> T {
+    /// Calculate skin-friction coefficient `Cf = 0.664 / sqrt(Re_x)`.
+    pub fn skin_friction_coefficient(&self) -> Dimensionless<T> {
         let factor = scalar::from_f64::<T>(0.664);
-        factor / scalar::sqrt(self.local_reynolds())
+        Dimensionless::from_base(factor / scalar::sqrt(self.local_reynolds().into_base()))
     }
 
-    /// Calculate similarity variable η = y * sqrt(U/(νx))
-    pub fn similarity_variable(&self, y: T) -> T {
-        y * scalar::sqrt(self.u_inf / (self.nu * self.x))
+    /// Calculate similarity variable `η = y * sqrt(U/(νx))`.
+    pub fn similarity_variable(&self, y: Length<T>) -> Dimensionless<T> {
+        Dimensionless::from_base(self.similarity_variable_at(self.x, y))
+    }
+
+    fn similarity_variable_at(&self, x: Length<T>, y: Length<T>) -> T {
+        y.into_base() * scalar::sqrt(self.u_inf.into_base() / (self.nu.into_base() * x.into_base()))
     }
 
     /// Get normalized velocity u/U at similarity variable η
@@ -183,12 +219,13 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
         scalar::from_f64::<T>(f1) + frac * (scalar::from_f64::<T>(f2) - scalar::from_f64::<T>(f1))
     }
 
-    /// Get velocity at physical coordinates (x, y)
-    /// Note: x should be >= self.x (downstream of leading edge)
-    pub fn velocity_at(&self, x: T, y: T) -> T {
+    /// Get velocity at physical coordinates `(x, y)`.
+    ///
+    /// `x` should be downstream of the leading edge.
+    pub fn velocity_at(&self, x: Length<T>, y: Length<T>) -> Velocity<T> {
         // Adjust for different x positions
-        let local_eta = y * scalar::sqrt(self.u_inf / (self.nu * x));
-        self.velocity_ratio_at_eta(local_eta) * self.u_inf
+        let local_eta = self.similarity_variable_at(x, y);
+        Velocity::from_base(self.velocity_ratio_at_eta(local_eta) * self.u_inf.into_base())
     }
 
     /// Get wall-normal velocity component v/U at similarity variable
@@ -227,16 +264,23 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
 impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for BlasiusBoundaryLayer<T> {
     fn evaluate(&self, x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if x <= scalar::zero::<T>() {
-            return Vector3::new(self.u_inf, scalar::zero::<T>(), scalar::zero::<T>());
+            return Vector3::new(
+                self.u_inf.into_base(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+            );
         }
 
-        let eta = self.similarity_variable(y);
-        let u = self.velocity_ratio_at_eta(eta) * self.u_inf;
+        let local_x = Length::from_base(x);
+        let local_y = Length::from_base(y);
+        let eta = self.similarity_variable_at(local_x, local_y);
+        let u = self.velocity_ratio_at_eta(eta) * self.u_inf.into_base();
 
         // v-velocity (wall-normal)
-        let sqrt_term = scalar::sqrt(self.nu / (self.u_inf * x));
+        let sqrt_term =
+            scalar::sqrt(self.nu.into_base() / (self.u_inf.into_base() * local_x.into_base()));
         let v_ratio = self.normal_velocity_ratio_at_eta(eta);
-        let v = sqrt_term * v_ratio * self.u_inf;
+        let v = sqrt_term * v_ratio * self.u_inf.into_base();
 
         Vector3::new(u, v, scalar::zero::<T>())
     }
@@ -251,8 +295,8 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for BlasiusBounda
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let delta = self.boundary_layer_thickness();
-        let length = scalar::from_f64::<T>(10.0) * self.x;
+        let delta = self.boundary_layer_thickness().into_base();
+        let length = scalar::from_f64::<T>(10.0) * self.x.into_base();
         [
             scalar::zero::<T>(),
             length, // x: [0, 10x]
@@ -264,11 +308,11 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for BlasiusBounda
     }
 
     fn length_scale(&self) -> T {
-        self.boundary_layer_thickness()
+        self.boundary_layer_thickness().into_base()
     }
 
     fn velocity_scale(&self) -> T {
-        self.u_inf
+        self.u_inf.into_base()
     }
 }
 
@@ -278,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_blasius_boundary_conditions() {
-        let blasius = BlasiusBoundaryLayer::<f64>::air_flow(1.0);
+        let blasius = BlasiusBoundaryLayer::<f64>::air_flow(Velocity::from_base(1.0));
 
         // At wall (η = 0): u = 0, v = 0
         let u_wall = blasius.velocity_ratio_at_eta(0.0_f64);
@@ -294,12 +338,23 @@ mod tests {
 
     #[test]
     fn test_boundary_layer_growth() {
-        let blasius1 = BlasiusBoundaryLayer::new(1.0, 1.5e-5, 1.0);
-        let blasius2 = BlasiusBoundaryLayer::new(1.0, 1.5e-5, 4.0);
+        let density = MassDensity::from_base(1.0);
+        let blasius1 = BlasiusBoundaryLayer::new(
+            Velocity::from_base(1.0),
+            KinematicViscosity::from_base(1.5e-5),
+            Length::from_base(1.0),
+            density,
+        );
+        let blasius2 = BlasiusBoundaryLayer::new(
+            Velocity::from_base(1.0),
+            KinematicViscosity::from_base(1.5e-5),
+            Length::from_base(4.0),
+            density,
+        );
 
-        // Boundary layer grows with sqrt(x)
-        let delta1 = blasius1.boundary_layer_thickness();
-        let delta2 = blasius2.boundary_layer_thickness();
+        // Boundary layer grows with sqrt(x).
+        let delta1 = blasius1.boundary_layer_thickness().into_base();
+        let delta2 = blasius2.boundary_layer_thickness().into_base();
 
         let ratio = delta2 / delta1;
         assert!(
@@ -310,11 +365,11 @@ mod tests {
 
     #[test]
     fn test_shape_factor() {
-        let blasius = BlasiusBoundaryLayer::<f64>::air_flow(10.0);
+        let blasius = BlasiusBoundaryLayer::<f64>::air_flow(Velocity::from_base(10.0));
 
         // Calculate shape factor from definitions
-        let delta_star = blasius.displacement_thickness();
-        let theta = blasius.momentum_thickness();
+        let delta_star = blasius.displacement_thickness().into_base();
+        let theta = blasius.momentum_thickness().into_base();
         let h_calc = delta_star / theta;
 
         // Should match theoretical value of 2.59
@@ -322,16 +377,42 @@ mod tests {
             (h_calc - 2.591).abs() < 0.01,
             "Shape factor should be ~2.59 for Blasius"
         );
+        assert!((blasius.shape_factor().into_base() - 2.591).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn test_wall_shear_stress_uses_density() {
+        let blasius = BlasiusBoundaryLayer::new(
+            Velocity::from_base(2.0),
+            KinematicViscosity::from_base(1.0e-5),
+            Length::from_base(0.5),
+            MassDensity::from_base(1_000.0),
+        );
+        let expected = 0.332 * 1_000.0 * 1.0e-5 * 2.0 * (2.0 / (1.0e-5 * 0.5)).sqrt();
+        let actual = blasius.wall_shear_stress().into_base();
+
+        assert!((actual - expected).abs() / expected < 1.0e-12);
     }
 
     #[test]
     fn test_skin_friction_scaling() {
         // Cf should decrease with Reynolds number
-        let blasius_low_re = BlasiusBoundaryLayer::new(1.0, 1.5e-5, 0.1);
-        let blasius_high_re = BlasiusBoundaryLayer::new(1.0, 1.5e-5, 10.0);
+        let density = MassDensity::from_base(1.0);
+        let blasius_low_re = BlasiusBoundaryLayer::new(
+            Velocity::from_base(1.0),
+            KinematicViscosity::from_base(1.5e-5),
+            Length::from_base(0.1),
+            density,
+        );
+        let blasius_high_re = BlasiusBoundaryLayer::new(
+            Velocity::from_base(1.0),
+            KinematicViscosity::from_base(1.5e-5),
+            Length::from_base(10.0),
+            density,
+        );
 
-        let cf_low = blasius_low_re.skin_friction_coefficient();
-        let cf_high = blasius_high_re.skin_friction_coefficient();
+        let cf_low = blasius_low_re.skin_friction_coefficient().into_base();
+        let cf_high = blasius_high_re.skin_friction_coefficient().into_base();
 
         assert!(cf_low > cf_high, "Skin friction should decrease with Re");
     }

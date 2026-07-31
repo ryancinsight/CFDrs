@@ -31,6 +31,25 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-40 [major] - Type Blasius analytical metrics
+  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::BlasiusBoundaryLayer`, its direct tests,
+  and synchronized audit/design/changelog artifacts).** `BlasiusBoundaryLayer`
+  now stores free-stream velocity, kinematic viscosity, fluid density, and
+  streamwise position as Aequitas quantities. Local Reynolds number,
+  thicknesses, shape factor, wall shear stress, skin friction, similarity
+  variables, and typed coordinate velocity results preserve their dimensions.
+  Wall stress derives dynamic viscosity as `rho * nu`; the former unit-density
+  shortcut is removed. Scalar extraction remains at interpolation and
+  mesh-coordinate boundaries. The typed-field residue scan, direct
+  thickness/scaling/pressure regressions, targeted Rustfmt, and diff checks
+  pass. Eunomia remains real-valued; no complex or imaginary-unit metric
+  applies. The pinned cfd-validation check remains blocked before the crate by
+  peer-dirty `cfd-math::linear_solver::block_preconditioner` unresolved
+  `leto-ops` imports at lines 26-28 and missing `factor_sparse_with_symbolic`
+  at line 769; this is a provider/peer integration residual, not a MET40
+  failure.
+
 - **CFDRS-AEQ-MET-39 [major] - Type Taylor-Green analytical metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::TaylorGreenVortex`, its direct analytical

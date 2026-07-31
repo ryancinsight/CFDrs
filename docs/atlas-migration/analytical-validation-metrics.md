@@ -36,8 +36,8 @@ separate imaginary-unit physical quantity, and this model does not need one.
 
 ## Follow-on audit
 
-The same current-head scan found raw fixed-dimension fields in the Blasius and
-non-Newtonian analytical configurations, plus the legacy
+The same current-head scan found raw fixed-dimension fields in the
+non-Newtonian analytical configuration, plus the legacy
 `analytical_benchmarks` module. Those remain separate dependency-ordered metric
 items. Dense sampled fields, coordinates, interpolation tables, dimensionless
 coefficients, and runtime-exponent formula parameters remain explicit scalar
@@ -104,3 +104,20 @@ benchmark/report boundary.
 The model remains real-valued under Eunomia `RealField`; no complex or
 imaginary-unit quantity applies. Aequitas owns `ReciprocalTimeSquared` rather
 than a consumer-local unit alias.
+
+## Blasius boundary layer
+
+`BlasiusBoundaryLayer` stores free-stream velocity, kinematic viscosity,
+fluid density, and streamwise position as Aequitas `Velocity`,
+`KinematicViscosity`, `MassDensity`, and `Length`. Local Reynolds number,
+boundary-layer/displacement/momentum thickness, shape factor, wall shear
+stress, skin friction, and similarity variables return typed
+`Dimensionless`, `Length`, `Length`, `Length`, `Dimensionless`, `Pressure`,
+`Dimensionless`, and `Dimensionless` values. `velocity_at` returns typed
+`Velocity` for typed coordinate inputs.
+
+The wall-shear formula derives dynamic viscosity as `rho * nu`; the previous
+unit-density assumption is removed. Tabulated interpolation and the
+`AnalyticalSolution` mesh-coordinate boundary extract scalar values
+explicitly. The model remains real-valued under Eunomia `RealField`; no
+complex or imaginary-unit quantity applies.

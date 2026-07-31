@@ -31,6 +31,30 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Blasius analytical metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-40` closes the Blasius analytical-validation slice.
+`BlasiusBoundaryLayer` now stores free-stream velocity, kinematic viscosity,
+fluid density, and streamwise position as Aequitas `Velocity`,
+`KinematicViscosity`, `MassDensity`, and `Length`. Local Reynolds number,
+boundary-layer/displacement/momentum thickness, shape factor, wall shear
+stress, and skin friction return `Dimensionless`, `Length`, `Length`,
+`Length`, `Dimensionless`, `Pressure`, and `Dimensionless` respectively.
+
+The wall-shear formula now derives dynamic viscosity as `rho * nu` rather than
+silently treating kinematic viscosity as dynamic viscosity at unit density.
+Similarity variables are dimensionless and velocity-at-coordinate returns
+typed `Velocity`; scalar extraction remains at interpolation and
+`AnalyticalSolution` mesh-coordinate boundaries. The model remains real-valued
+under Eunomia `RealField`; no complex or imaginary-unit physical quantity
+applies. The typed-field residue scan, direct thickness/scaling/pressure
+regressions, targeted Rustfmt, and `git diff --check` pass. The pinned
+cfd-validation check remains blocked before the crate by peer-dirty
+`cfd-math::linear_solver::block_preconditioner` unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is a
+provider/peer integration residual, not a MET40 diagnostic.
+
 ## Taylor-Green analytical metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-39` closes the Taylor-Green analytical-validation slice.
@@ -109,14 +133,13 @@ provider/peer integration residual, not a MET37 diagnostic.
 
 ## Analytical validation metric audit (2026-07-31)
 
-The current public-surface scan found a separate Aequitas gap in
-`cfd-validation::analytical`: Womersley, Couette, Poiseuille, Stokes,
-Taylor-Green, Blasius, and non-Newtonian Poiseuille configurations still
-expose fixed-dimension physical fields as raw generic scalars. The legacy
-`analytical_benchmarks` module contains the same pattern for its Couette,
-Poiseuille, and Taylor-Green configurations. These are public validation
-contracts, not dense solution arrays, so their fixed dimensions must be
-typed; coordinates, sampled fields, interpolation tables, normalized
+The current public-surface scan leaves a separate Aequitas gap in
+`cfd-validation::analytical`: the non-Newtonian Poiseuille configuration
+still exposes fixed-dimension physical fields as raw generic scalars. The
+legacy `analytical_benchmarks` module contains the same pattern for its
+Couette, Poiseuille, and Taylor-Green configurations. These are public
+validation contracts, not dense solution arrays, so their fixed dimensions
+must be typed; coordinates, sampled fields, interpolation tables, normalized
 coefficients, and equation-dependent formula parameters remain scalar at
 their explicit formula or mesh boundaries.
 

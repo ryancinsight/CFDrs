@@ -25,6 +25,7 @@
 | **Aequitas-owned analytical Couette and Poiseuille metrics** | 2026-07-31 | The cfd-validation Couette and Poiseuille configurations erased fixed dimensions and conflated planar and volumetric flow results | Velocity, Length, PressureGradient, DynamicViscosity, ReciprocalTime, Pressure, Dimensionless, AreaPerTime, and VolumetricFlowRate remain typed through the validation boundary; formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Stokes metrics** | 2026-07-31 | The cfd-validation Stokes sphere configuration erased physical dimensions from its inputs and drag/stream metrics | Length, Velocity, DynamicViscosity, MassDensity, Force, Dimensionless, and VolumetricFlowRate remain typed through the validation boundary; formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Taylor-Green metrics** | 2026-07-31 | The cfd-validation Taylor-Green configuration erased fixed dimensions and represented 2D/3D energy with one raw scalar | Length, Velocity, KinematicViscosity, MassDensity, Dimensionless, ReciprocalTime, ReciprocalTimeSquared, and a closed `Force`/`Energy` result enum remain typed through the validation boundary; formula, mesh-coordinate, and benchmark/report boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
+| **Aequitas-owned analytical Blasius metrics** | 2026-07-31 | The cfd-validation Blasius configuration erased boundary-layer dimensions and treated kinematic viscosity as dynamic viscosity for wall stress | Velocity, KinematicViscosity, MassDensity, Length, Dimensionless, Pressure, and typed velocity/similarity results remain explicit through the validation boundary; interpolation and mesh-coordinate boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -152,6 +153,37 @@ Verification: Aequitas commit `f67462a` passes its 41-test Nextest suite and
 warning-denied Clippy. CFDrs typed-field scans, direct 2D/3D metric
 regressions, benchmark migration, targeted Rustfmt, and diff checks pass. The
 pinned cfd-validation test-target check remains blocked before the crate by
+peer-dirty cfd-math `leto-ops` API errors at
+`linear_solver/block_preconditioner.rs:26-28,769`. See
+[`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
+
+### 2026-07-31: Aequitas owns analytical Blasius metrics [major] [arch]
+
+Context: `cfd-validation::analytical::BlasiusBoundaryLayer` stored free-stream
+velocity, kinematic viscosity, and streamwise position as raw generic scalars.
+Its thickness, Reynolds, shape, wall-stress, skin-friction, and similarity
+metrics also discarded fixed dimensions. Wall stress silently reused
+kinematic viscosity as dynamic viscosity under an implicit unit-density
+assumption.
+
+Decision: carry velocity, kinematic viscosity, fluid density, and streamwise
+position through Aequitas `Velocity`, `KinematicViscosity`, `MassDensity`, and
+`Length`. Return typed `Dimensionless`, `Length`, `Pressure`, and `Velocity`
+results. Derive dynamic viscosity as `rho * nu` in the wall-stress formula;
+extract base scalars only at interpolation and mesh-coordinate boundaries.
+
+Rejected alternative: retain raw fields, preserve the unit-density wall-stress
+shortcut, or add parallel typed accessors. Each preserves dimensional
+ambiguity or duplicates the public analytical contract.
+
+Consequences: external Blasius constructors and direct metric callers require
+explicit Aequitas values and the density needed for pressure-valued wall
+stress. The model remains real-valued under Eunomia `RealField`; no complex or
+imaginary-unit quantity is required.
+
+Verification: typed-field scans, direct thickness/scaling/pressure
+regressions, targeted Rustfmt, and diff checks pass. The pinned
+cfd-validation test-target check remains blocked before the crate by
 peer-dirty cfd-math `leto-ops` API errors at
 `linear_solver/block_preconditioner.rs:26-28,769`. See
 [`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).

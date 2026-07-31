@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-validation` Blasius boundary-layer
+  configuration and derived Reynolds, thickness, shape, wall-stress,
+  skin-friction, similarity, and velocity metrics with Aequitas. Wall stress
+  now derives dynamic viscosity as `rho * nu` instead of assuming unit
+  density. Scalar extraction remains at interpolation and mesh-coordinate
+  boundaries. Eunomia real-field execution is preserved and no imaginary-unit
+  metric is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type the public `cfd-validation` Taylor-Green configuration
   and derived Reynolds, decay-rate, kinetic-energy, and enstrophy metrics with
   Aequitas. `TaylorGreenKineticEnergy` preserves `Force` per unit depth for
