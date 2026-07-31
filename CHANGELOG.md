@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-validation` Taylor-Green configuration
+  and derived Reynolds, decay-rate, kinetic-energy, and enstrophy metrics with
+  Aequitas. `TaylorGreenKineticEnergy` preserves `Force` per unit depth for
+  2D and `Energy` for 3D, while `ReciprocalTimeSquared` owns enstrophy. Scalar
+  extraction remains at formula, mesh-coordinate, and benchmark/report
+  boundaries. Eunomia real-field execution is preserved and no imaginary-unit
+  metric is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type the public `cfd-validation` Stokes sphere configuration
   and derived drag, coefficient, Reynolds, and stream-function metrics with
   Aequitas. The stream function returns `VolumetricFlowRate`; scalar

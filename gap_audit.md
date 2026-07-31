@@ -31,6 +31,31 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Taylor-Green analytical metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-39` closes the Taylor-Green analytical-validation slice.
+`TaylorGreenVortex` now stores length, velocity, kinematic viscosity, and
+density as Aequitas quantities. Reynolds number, decay rate, kinetic energy,
+and enstrophy retain `Dimensionless`, `ReciprocalTime`, a typed dimensional
+energy enum, and `ReciprocalTimeSquared` respectively.
+
+`TaylorGreenDimension` makes the 2D/3D branch explicit. The 2D kinetic-energy
+result is `TaylorGreenKineticEnergy::PerDepth(Force)`, while the 3D result is
+`TaylorGreenKineticEnergy::Volumetric(Energy)`. Aequitas
+`ReciprocalTimeSquared` owns the enstrophy dimension. Scalar extraction remains
+at formula, mesh-coordinate, and benchmark/report boundaries.
+
+The model remains real-valued under Eunomia `RealField`; no complex or
+imaginary-unit physical quantity applies. Aequitas provider commit `f67462a`
+adds the reciprocal-time-squared aliases and dimension-law regression. The
+typed-field residue scan, direct 2D/3D metric regressions, benchmark call-site
+migration, targeted Rustfmt, and `git diff --check` pass. The pinned
+cfd-validation check remains blocked before the crate by peer-dirty
+`cfd-math::linear_solver::block_preconditioner` unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is a
+provider/peer integration residual, not a MET39 diagnostic.
+
 ## Stokes analytical metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-38` closes the Stokes analytical-validation slice.

@@ -36,12 +36,12 @@ separate imaginary-unit physical quantity, and this model does not need one.
 
 ## Follow-on audit
 
-The same current-head scan found raw fixed-dimension fields in the Couette,
-Poiseuille, Stokes, Taylor-Green, Blasius, and non-Newtonian analytical
-configurations, plus the legacy `analytical_benchmarks` module. Those remain
-separate dependency-ordered metric items. Dense sampled fields, coordinates,
-interpolation tables, dimensionless coefficients, and runtime-exponent
-formula parameters remain explicit scalar boundaries.
+The same current-head scan found raw fixed-dimension fields in the Blasius and
+non-Newtonian analytical configurations, plus the legacy
+`analytical_benchmarks` module. Those remain separate dependency-ordered metric
+items. Dense sampled fields, coordinates, interpolation tables, dimensionless
+coefficients, and runtime-exponent formula parameters remain explicit scalar
+boundaries.
 
 ## Verification
 
@@ -83,3 +83,24 @@ The analytical vector and pressure methods retain raw mesh-coordinate values
 at the `AnalyticalSolution` boundary. The physical configuration and direct
 metrics remain real-valued under Eunomia `RealField`; no complex or
 imaginary-unit quantity is introduced.
+
+## Taylor-Green vortex
+
+`TaylorGreenVortex` stores its characteristic length, velocity, kinematic
+viscosity, and density with Aequitas `Length`, `Velocity`,
+`KinematicViscosity`, and `MassDensity`. Its Reynolds number, decay rate, and
+enstrophy return `Dimensionless`, `ReciprocalTime`, and
+`ReciprocalTimeSquared`.
+
+The explicit `TaylorGreenDimension` branch prevents a dimensional mismatch in
+kinetic energy. Two-dimensional solutions return
+`TaylorGreenKineticEnergy::PerDepth(Force)` because their energy is per unit
+depth; three-dimensional solutions return
+`TaylorGreenKineticEnergy::Volumetric(Energy)`. The analytical and mesh
+boundaries extract base scalars only for trigonometric formulas and coordinate
+arrays. The 3D DNS benchmark converts its typed analytic result at the
+benchmark/report boundary.
+
+The model remains real-valued under Eunomia `RealField`; no complex or
+imaginary-unit quantity applies. Aequitas owns `ReciprocalTimeSquared` rather
+than a consumer-local unit alias.

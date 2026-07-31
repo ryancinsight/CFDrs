@@ -11,9 +11,31 @@
 //!   Journal of Fluid Mechanics, 130, 411-452.
 //! - White, F.M. (2006). "Viscous Fluid Flow" (3rd ed.). McGraw-Hill.
 
-use aequitas::systems::si::quantities::{DynamicViscosity, Length, PressureGradient, Velocity};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, KinematicViscosity, Length, PressureGradient, Time, Velocity,
+};
+use cfd_validation::analytical::taylor_green::TaylorGreenKineticEnergy;
 use cfd_validation::analytical::{AnalyticalSolution, CouetteFlow, TaylorGreenVortex};
 use eunomia::assert_relative_eq;
+
+fn taylor_green_2d(
+    length_scale: f64,
+    velocity_scale: f64,
+    viscosity: f64,
+) -> TaylorGreenVortex<f64> {
+    TaylorGreenVortex::create_2d(
+        Length::from_base(length_scale),
+        Velocity::from_base(velocity_scale),
+        KinematicViscosity::from_base(viscosity),
+    )
+}
+
+fn kinetic_energy_value(energy: TaylorGreenKineticEnergy<f64>) -> f64 {
+    match energy {
+        TaylorGreenKineticEnergy::PerDepth(value) => value.into_base(),
+        TaylorGreenKineticEnergy::Volumetric(value) => value.into_base(),
+    }
+}
 
 fn couette_flow(
     wall_velocity: f64,
@@ -42,14 +64,14 @@ fn test_taylor_green_energy_decay() {
     let velocity_scale: f64 = 1.0; // Unit velocity
     let viscosity: f64 = 0.01; // Re = 100
 
-    let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+    let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
     // Test at several time points
     let test_times = vec![0.0, 0.1, 0.5, 1.0];
     let mut prev_energy = f64::INFINITY;
 
     for t in test_times {
-        let energy = vortex.kinetic_energy(t);
+        let energy = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(t)));
 
         // Energy should be positive
         assert!(energy > 0.0, "Energy should be positive at t = {}", t);
@@ -67,8 +89,8 @@ fn test_taylor_green_energy_decay() {
     }
 
     // Verify that energy has decayed significantly by t=1.0
-    let energy_final = vortex.kinetic_energy(1.0);
-    let energy_initial = vortex.kinetic_energy(0.0);
+    let energy_final = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(1.0)));
+    let energy_initial = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(0.0)));
     assert!(
         energy_final < energy_initial,
         "Energy should have decayed: E(1.0) = {} >= E(0) = {}",
@@ -89,13 +111,51 @@ fn test_taylor_green_reynolds_number() {
     let velocity_scale: f64 = 1.0;
     let viscosity: f64 = 0.01; // Should give Re = 100
 
-    let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+    let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
-    let re = vortex.reynolds_number();
+    let re = vortex.reynolds_number().into_base();
     let expected_re = velocity_scale * length_scale / viscosity;
 
     assert_relative_eq!(re, expected_re, epsilon = 1.0e-10);
     assert_relative_eq!(re, 100.0, epsilon = 1.0e-10);
+}
+
+/// Test dimensional Taylor-Green energy and enstrophy metrics.
+#[test]
+fn test_taylor_green_metric_dimensions() {
+    let two_d = taylor_green_2d(1.0, 1.0, 0.01);
+    match two_d.kinetic_energy(Time::from_base(0.0)) {
+        TaylorGreenKineticEnergy::PerDepth(value) => {
+            assert_relative_eq!(value.into_base(), 0.25, epsilon = 1.0e-10)
+        }
+        TaylorGreenKineticEnergy::Volumetric(_) => {
+            panic!("2D Taylor-Green energy must be reported per unit depth")
+        }
+    }
+    assert_relative_eq!(
+        two_d.enstrophy(Time::from_base(0.0)).into_base(),
+        std::f64::consts::PI * std::f64::consts::PI,
+        epsilon = 1.0e-10
+    );
+    assert_relative_eq!(
+        two_d.decay_rate().into_base(),
+        2.0 * 0.01 * std::f64::consts::PI * std::f64::consts::PI,
+        epsilon = 1.0e-10
+    );
+
+    let three_d = TaylorGreenVortex::create_3d(
+        Length::from_base(1.0),
+        Velocity::from_base(1.0),
+        KinematicViscosity::from_base(0.01),
+    );
+    match three_d.kinetic_energy(Time::from_base(0.0)) {
+        TaylorGreenKineticEnergy::Volumetric(value) => {
+            assert_relative_eq!(value.into_base(), 1.0 / 16.0, epsilon = 1.0e-10)
+        }
+        TaylorGreenKineticEnergy::PerDepth(_) => {
+            panic!("3D Taylor-Green energy must be volumetric")
+        }
+    }
 }
 
 /// Test Couette flow velocity profile
@@ -172,7 +232,7 @@ fn test_taylor_green_incompressibility() {
     let velocity_scale: f64 = 1.0;
     let viscosity: f64 = 0.01;
 
-    let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+    let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
     // Test incompressibility at several points
     let dx = 1.0e-6;
@@ -214,7 +274,7 @@ fn test_taylor_green_vorticity_decay() {
     let velocity_scale: f64 = 1.0;
     let viscosity: f64 = 0.01;
 
-    let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+    let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
     let dx = 1.0e-6;
     let dy = 1.0e-6;
@@ -291,11 +351,11 @@ mod property_tests {
             velocity_scale in 0.1f64..10.0,
             viscosity in 1.0e-4f64..1.0
         ) {
-            let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+            let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
-            let e0 = vortex.kinetic_energy(0.0);
-            let e1 = vortex.kinetic_energy(0.1);
-            let e2 = vortex.kinetic_energy(1.0);
+            let e0 = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(0.0)));
+            let e1 = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(0.1)));
+            let e2 = kinetic_energy_value(vortex.kinetic_energy(Time::from_base(1.0)));
 
             prop_assert!(e0 >= e1, "Energy should not increase: E(0) = {} < E(0.1) = {}", e0, e1);
             prop_assert!(e1 >= e2, "Energy should not increase: E(0.1) = {} < E(1) = {}", e1, e2);
@@ -343,9 +403,9 @@ mod property_tests {
             velocity_scale in 0.1f64..10.0,
             viscosity in 1.0e-4f64..1.0
         ) {
-            let vortex = TaylorGreenVortex::create_2d(length_scale, velocity_scale, viscosity);
+            let vortex = taylor_green_2d(length_scale, velocity_scale, viscosity);
 
-            let re = vortex.reynolds_number();
+            let re = vortex.reynolds_number().into_base();
             let expected_re = velocity_scale * length_scale / viscosity;
 
             prop_assert!((re - expected_re).abs() / expected_re < 1.0e-10,

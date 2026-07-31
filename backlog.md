@@ -31,6 +31,25 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-39 [major] - Type Taylor-Green analytical metrics
+  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::TaylorGreenVortex`, its direct analytical
+  regressions, the 3D benchmark consumer, and synchronized audit/design/
+  changelog artifacts).** `TaylorGreenVortex` now stores length, velocity,
+  kinematic viscosity, and density as Aequitas quantities. Reynolds number,
+  decay rate, kinetic energy, and enstrophy return typed dimensions. The
+  closed `TaylorGreenKineticEnergy` result preserves `Force` per unit depth
+  for 2D and `Energy` for 3D; Aequitas `ReciprocalTimeSquared` owns enstrophy.
+  Scalar extraction remains at formula, mesh-coordinate, and benchmark/report
+  boundaries. The provider dimension-law regression, typed-field residue scan,
+  direct 2D/3D metric regressions, benchmark call-site migration, targeted
+  Rustfmt, and diff checks pass. Eunomia remains real-valued; no complex or
+  imaginary-unit metric applies. The pinned cfd-validation check remains
+  blocked before the crate by peer-dirty
+  `cfd-math::linear_solver::block_preconditioner` unresolved `leto-ops`
+  imports at lines 26-28 and missing `factor_sparse_with_symbolic` at line
+  769; this is a provider/peer integration residual, not a MET39 failure.
+
 - **CFDRS-AEQ-MET-38 [major] - Type Stokes analytical metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::StokesFlow`, its direct analytical

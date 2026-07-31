@@ -7,10 +7,14 @@
 //! diagnostics on the same run.
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use crate::analytical::{AnalyticalSolution, TaylorGreenVortex};
+use crate::analytical::AnalyticalSolution;
+use crate::analytical::taylor_green::{
+    TaylorGreenDimension, TaylorGreenKineticEnergy, TaylorGreenVortex,
+};
+use aequitas::systems::si::quantities::{KinematicViscosity, Length, MassDensity, Time, Velocity};
 use cfd_3d::spectral::{
-    kinetic_energy_spectrum, KineticEnergySpectrum, PeriodicPseudospectralDns3D,
-    PeriodicPseudospectralDnsConfig,
+    KineticEnergySpectrum, PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig,
+    kinetic_energy_spectrum,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
@@ -239,11 +243,11 @@ impl TaylorGreenBenchmark3D {
     ) -> Result<TaylorGreenBenchmarkReport> {
         let config = self.config.with_runtime_overrides(runtime);
         let solution = TaylorGreenVortex::create(
-            config.length_scale,
-            config.velocity_scale,
-            config.kinematic_viscosity,
-            config.density,
-            true,
+            Length::from_base(config.length_scale),
+            Velocity::from_base(config.velocity_scale),
+            KinematicViscosity::from_base(config.kinematic_viscosity),
+            MassDensity::from_base(config.density),
+            TaylorGreenDimension::ThreeD,
         );
 
         let dns = PeriodicPseudospectralDns3D::new(PeriodicPseudospectralDnsConfig::new(
@@ -447,8 +451,11 @@ impl TaylorGreenBenchmark3D {
         solution: &TaylorGreenVortex<f64>,
     ) -> Result<TaylorGreenCheckpoint> {
         let spectrum = kinetic_energy_spectrum(velocity)?;
-        let numerical_energy = spectrum.total_energy * solution.density;
-        let analytic_energy = solution.kinetic_energy(time);
+        let numerical_energy = spectrum.total_energy * solution.density.into_base();
+        let analytic_energy = match solution.kinetic_energy(Time::from_base(time)) {
+            TaylorGreenKineticEnergy::PerDepth(value) => value.into_base(),
+            TaylorGreenKineticEnergy::Volumetric(value) => value.into_base(),
+        };
         let relative_energy_error = if analytic_energy.abs() > f64::EPSILON {
             (numerical_energy - analytic_energy).abs() / analytic_energy.abs()
         } else {
@@ -539,15 +546,18 @@ impl Benchmark<f64> for TaylorGreenBenchmark3D {
     fn reference_solution(&self) -> Option<BenchmarkResult<f64>> {
         let mut reference = BenchmarkResult::new(self.name());
         let solution = TaylorGreenVortex::create(
-            self.config.length_scale,
-            self.config.velocity_scale,
-            self.config.kinematic_viscosity,
-            self.config.density,
-            true,
+            Length::from_base(self.config.length_scale),
+            Velocity::from_base(self.config.velocity_scale),
+            KinematicViscosity::from_base(self.config.kinematic_viscosity),
+            MassDensity::from_base(self.config.density),
+            TaylorGreenDimension::ThreeD,
         );
         reference.metrics.insert(
             "Initial Analytic Energy".to_string(),
-            solution.kinetic_energy(0.0),
+            match solution.kinetic_energy(Time::from_base(0.0)) {
+                TaylorGreenKineticEnergy::PerDepth(value) => value.into_base(),
+                TaylorGreenKineticEnergy::Volumetric(value) => value.into_base(),
+            },
         );
         Some(reference)
     }
@@ -620,11 +630,14 @@ mod tests {
                     .numerical_energy
         );
         assert!(benchmark.validate_history(&report.history));
-        assert!(report
-            .history
-            .checkpoints
-            .iter()
-            .all(|checkpoint| checkpoint.dominant_shell <= checkpoint.spectrum.shell_energy.len()));
+        assert!(
+            report
+                .history
+                .checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.dominant_shell
+                    <= checkpoint.spectrum.shell_energy.len())
+        );
     }
 
     #[test]
@@ -642,9 +655,11 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the Taylor-Green benchmark");
 
-        assert!(benchmark
-            .validate(&result)
-            .expect("validation should be computable"));
+        assert!(
+            benchmark
+                .validate(&result)
+                .expect("validation should be computable")
+        );
         assert!(result.metrics.contains_key("Final Relative Energy Error"));
         assert!(result.metrics.contains_key("Spectrum Samples"));
         assert!(result.values.len() >= 2);
@@ -654,11 +669,11 @@ mod tests {
     fn benchmark_initial_condition_matches_analytical_taylor_green() {
         let benchmark = TaylorGreenBenchmark3D::default();
         let solution = TaylorGreenVortex::create(
-            benchmark.config.length_scale,
-            benchmark.config.velocity_scale,
-            benchmark.config.kinematic_viscosity,
-            benchmark.config.density,
-            true,
+            Length::from_base(benchmark.config.length_scale),
+            Velocity::from_base(benchmark.config.velocity_scale),
+            KinematicViscosity::from_base(benchmark.config.kinematic_viscosity),
+            MassDensity::from_base(benchmark.config.density),
+            TaylorGreenDimension::ThreeD,
         );
         let config = benchmark.config.clone();
         let field = TaylorGreenBenchmark3D::initial_velocity_field(&config, &solution);
