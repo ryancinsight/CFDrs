@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-36 [major] - Type analytical Womersley metrics
+  (IN-PROGRESS 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::WomersleyFlow`, its direct tests, and
+  synchronized audit/design/changelog artifacts).** The current public-surface
+  audit found the validation Womersley configuration still stores radius,
+  density, dynamic viscosity, angular frequency, and pressure-gradient
+  amplitude as raw generic scalars. Carry those fixed-dimension values through
+  Aequitas and keep scalar extraction at the analytical Bessel/formula and
+  mesh-coordinate boundaries. Preserve the real-valued Eunomia contract;
+  Womersley complex values remain internal to the canonical Bessel/phasor
+  evaluator and do not require an imaginary-unit quantity. Acceptance is a
+  typed-field residue scan, value-semantic Womersley regressions, focused
+  cfd-validation gates, and synchronized audit/design/changelog evidence.
+
 - **CFDRS-AEQ-MET-30 [major] - Type shared FluidProperties and constant fluid storage
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;
   scope=`cfd-core::physics::fluid::FluidProperties`,

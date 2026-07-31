@@ -31,6 +31,32 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Analytical validation metric audit (2026-07-31)
+
+The current public-surface scan found a separate Aequitas gap in
+`cfd-validation::analytical`: Womersley, Couette, Poiseuille, Stokes,
+Taylor-Green, Blasius, and non-Newtonian Poiseuille configurations still
+expose fixed-dimension physical fields as raw generic scalars. The legacy
+`analytical_benchmarks` module contains the same pattern for its Couette,
+Poiseuille, and Taylor-Green configurations. These are public validation
+contracts, not dense solution arrays, so their fixed dimensions must be
+typed; coordinates, sampled fields, interpolation tables, normalized
+coefficients, and equation-dependent formula parameters remain scalar at
+their explicit formula or mesh boundaries.
+
+`CFDRS-AEQ-MET-36` claims the Womersley configuration as the first bounded
+closure: radius as `Length`, density as `MassDensity`, dynamic viscosity as
+`DynamicViscosity`, angular frequency as `ReciprocalTime`, and pressure
+gradient as `PressureGradient`, with typed velocity, stress, and flow-rate
+results. The remaining analytical families are recorded here as open
+follow-ons rather than silently treated as closed.
+
+Womersley execution remains compatible with Eunomia: the public contract is
+ordered and real-valued under `RealField`; the canonical evaluator may use
+complex Bessel/phasor intermediates internally, but those intermediates do not
+cross the Aequitas physical boundary. Eunomia has no separate imaginary-unit
+quantity, and none is required for these SI metrics.
+
 ## Shared fluid-property metric refresh (2026-07-29, CFDRS-AEQ-MET-30)
 
 The post-MET-29 residue scan found that the shared
