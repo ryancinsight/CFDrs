@@ -34,6 +34,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Remove the duplicate raw-scalar Couette, Poiseuille, and
+  Taylor-Green models from `cfd-validation::analytical_benchmarks` and migrate
+  physics validation to the canonical Aequitas-backed `analytical` APIs. Keep
+  only the normalized Ghia lid-driven-cavity reference tables in the legacy
+  module. Eunomia real-field execution is preserved and no imaginary-unit
+  metric is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type the public `cfd-validation` non-Newtonian Poiseuille
   geometry and derived velocity, per-width flow-rate, wall-stress, shear-rate,
   viscosity, and Reynolds metrics with Aequitas. The exponent-dependent

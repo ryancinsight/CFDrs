@@ -27,6 +27,7 @@
 | **Aequitas-owned analytical Taylor-Green metrics** | 2026-07-31 | The cfd-validation Taylor-Green configuration erased fixed dimensions and represented 2D/3D energy with one raw scalar | Length, Velocity, KinematicViscosity, MassDensity, Dimensionless, ReciprocalTime, ReciprocalTimeSquared, and a closed `Force`/`Energy` result enum remain typed through the validation boundary; formula, mesh-coordinate, and benchmark/report boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Blasius metrics** | 2026-07-31 | The cfd-validation Blasius configuration erased boundary-layer dimensions and treated kinematic viscosity as dynamic viscosity for wall stress | Velocity, KinematicViscosity, MassDensity, Length, Dimensionless, Pressure, and typed velocity/similarity results remain explicit through the validation boundary; interpolation and mesh-coordinate boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
+| **Canonical analytical benchmark ownership** | 2026-07-31 | `analytical_benchmarks` duplicated raw-scalar Couette, Poiseuille, and Taylor-Green models beside the canonical analytical modules | Remove duplicate model implementations and migrate the physics-validation consumer to canonical Aequitas-backed APIs; retain only normalized Ghia reference tables | Breaking removal of the legacy duplicate model names from `analytical_benchmarks` |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -219,6 +220,33 @@ Casson plug, wall, and flow-rate regressions are added; targeted Rustfmt and
 diff checks pass. The pinned cfd-validation test-target check remains blocked
 before the crate by peer-dirty cfd-math `leto-ops` API errors at
 `linear_solver/block_preconditioner.rs:26-28,769`. See
+[`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
+
+### 2026-07-31: Canonical analytical benchmark ownership [major] [arch]
+
+Context: `cfd-validation::analytical_benchmarks` duplicated the Couette,
+Poiseuille, and Taylor-Green analytical models already owned by
+`cfd-validation::analytical`. The duplicate models retained raw generic
+physical fields and a separate scalar test surface.
+
+Decision: remove the duplicate implementations and migrate
+`tests/physics_validation.rs` to the canonical Aequitas-backed analytical
+constructors and typed result enums. Retain only the unique normalized Ghia
+lid-driven-cavity reference tables in `analytical_benchmarks`.
+
+Rejected alternative: add Aequitas fields to both module copies or retain a
+re-export wrapper under the legacy names. Both preserve parallel ownership and
+compatibility soup instead of one canonical analytical contract.
+
+Consequences: external callers of the removed legacy model names must use
+`cfd_validation::analytical`. The canonical models remain real-valued under
+Eunomia `RealField`; no complex or imaginary-unit physical quantity applies to
+the normalized cavity reference data.
+
+Verification: duplicate-model residue scan, typed consumer migration,
+targeted Rustfmt, and diff checks pass. The focused cfd-validation test-target
+check remains blocked before the crate by peer-dirty cfd-math `leto-ops` API
+errors at `linear_solver/block_preconditioner.rs:26-28,769`. See
 [`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
 
 ### 2026-07-31: Aequitas owns analytical Couette and Poiseuille metrics [major] [arch]

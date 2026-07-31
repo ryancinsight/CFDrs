@@ -36,11 +36,11 @@ separate imaginary-unit physical quantity, and this model does not need one.
 
 ## Follow-on audit
 
-The same current-head scan leaves the legacy `analytical_benchmarks` module
-with raw fixed-dimension fields. That remains a separate dependency-ordered
-metric item. Dense sampled fields, coordinates, interpolation tables,
-dimensionless coefficients, and runtime-exponent formula parameters remain
-explicit scalar boundaries.
+The same current-head scan leaves only the unique normalized
+`analytical_benchmarks::lid_driven_cavity` reference tables outside the
+canonical analytical models. Dense sampled fields, coordinates, interpolation
+tables, dimensionless coefficients, and runtime-exponent formula parameters
+remain explicit scalar boundaries.
 
 ## Verification
 
@@ -88,6 +88,17 @@ flow exponent, so no single Aequitas fixed dimension is valid for arbitrary
 numerical integration boundary. The public model remains real-valued under
 Eunomia `RealField`; complex values and imaginary-unit quantities do not apply
 to this ordered rheology contract.
+
+## Legacy analytical benchmark consolidation
+
+The former raw-scalar Couette, Poiseuille, and Taylor-Green implementations in
+`analytical_benchmarks` duplicated the canonical analytical modules and have
+been removed. The physics-validation consumer now constructs the canonical
+Aequitas-backed models and matches their typed geometry-dependent result enums.
+`analytical_benchmarks` retains only the Ghia lid-driven-cavity reference
+tables. Those normalized dimensionless samples stay scalar because they are
+benchmark data, not physical-unit model state. Eunomia real-field execution is
+preserved and no complex or imaginary-unit metric is introduced.
 
 ## Stokes flow around a sphere
 

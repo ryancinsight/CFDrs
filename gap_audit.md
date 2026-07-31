@@ -31,6 +31,27 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Legacy analytical benchmark consolidation (2026-07-31)
+
+`CFDRS-AEQ-MET-42` closes the legacy `analytical_benchmarks` duplication
+gap. Its raw-scalar Couette, Poiseuille, and Taylor-Green implementations and
+their local tests were removed; `tests/physics_validation.rs` now exercises
+the canonical Aequitas-backed `analytical` models. The module retains only the
+unique Ghia lid-driven-cavity reference tables, which are normalized
+dimensionless benchmark data rather than physical-unit model state.
+
+The migrated consumer constructs `Velocity`, `Length`, `PressureGradient`,
+`DynamicViscosity`, `KinematicViscosity`, and `Time` explicitly and matches
+the typed `PoiseuilleFlowRate` and `TaylorGreenKineticEnergy` result enums.
+Scalar extraction remains at analytical mesh coordinates and report assertions.
+The canonical models remain real-valued under Eunomia `RealField`; no complex
+or imaginary-unit physical quantity applies. Targeted Rustfmt and
+`git diff --check` pass. The focused cfd-validation gate remains blocked
+before the crate by peer-dirty `cfd-math::linear_solver::block_preconditioner`
+unresolved `leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports
+on lines 26-28 and missing `factor_sparse_with_symbolic` on line 769; this is
+a provider/peer integration residual, not a MET42 diagnostic.
+
 ## Non-Newtonian analytical metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-41` closes the non-Newtonian analytical-validation slice.
@@ -162,12 +183,10 @@ provider/peer integration residual, not a MET37 diagnostic.
 
 ## Analytical validation metric audit (2026-07-31)
 
-The current public-surface scan leaves a separate Aequitas gap in
-`cfd-validation::analytical`: the legacy `analytical_benchmarks` module
-still contains fixed-dimension raw generic scalars for its Couette, Poiseuille,
-and Taylor-Green configurations. These are public
-validation contracts, not dense solution arrays, so their fixed dimensions
-must be typed; coordinates, sampled fields, interpolation tables, normalized
+The current public-surface scan leaves the canonical analytical contracts and
+the unique `analytical_benchmarks::lid_driven_cavity` reference tables. The
+tables are normalized dimensionless benchmark data, not typed physical model
+state. Coordinates, sampled fields, interpolation tables, normalized
 coefficients, and equation-dependent formula parameters remain scalar at
 their explicit formula or mesh boundaries.
 

@@ -3,43 +3,56 @@
 //! These tests verify that our numerical implementations
 //! match known analytical solutions to required accuracy.
 
-use cfd_validation::analytical_benchmarks::{CouetteFlow, PoiseuilleFlow, TaylorGreenVortex};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, KinematicViscosity, Length, PressureGradient, Time, Velocity,
+};
+use cfd_validation::analytical::poiseuille::{PoiseuilleFlowRate, PoiseuilleGeometry};
+use cfd_validation::analytical::taylor_green::TaylorGreenKineticEnergy;
+use cfd_validation::analytical::{
+    AnalyticalSolution, CouetteFlow, PoiseuilleFlow, TaylorGreenVortex,
+};
 use eunomia::assert_relative_eq;
 
 #[test]
 fn validate_couette_flow_profile() {
     // Test case from White (2016), Example 3.1
-    let flow = CouetteFlow {
-        u_wall: 10.0, // 10 m/s upper wall
-        h: 0.001,     // 1 mm gap
-        dp_dx: 0.0,   // No pressure gradient
-        mu: 0.001,    // 1 mPa·s
-    };
+    let flow = CouetteFlow::create(
+        Velocity::from_base(10.0),
+        Length::from_base(0.001),
+        PressureGradient::from_base(0.0),
+        DynamicViscosity::from_base(0.001),
+    );
 
     // Check linear profile when dp/dx = 0
     let y_test = 0.0005; // Midpoint
     let u_expected = 5.0; // Should be u_wall/2
 
     assert_relative_eq!(
-        flow.velocity(y_test),
+        flow.evaluate(0.0, y_test, 0.0, 0.0)[0],
         u_expected,
         epsilon = 1e-10,
         max_relative = 1e-10
     );
 
     // Check wall boundary conditions
-    assert_relative_eq!(flow.velocity(0.0), 0.0, epsilon = 1e-10);
-    assert_relative_eq!(flow.velocity(flow.h), flow.u_wall, epsilon = 1e-10);
+    assert_relative_eq!(flow.evaluate(0.0, 0.0, 0.0, 0.0)[0], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(
+        flow.evaluate(0.0, flow.gap_height.into_base(), 0.0, 0.0)[0],
+        flow.wall_velocity.into_base(),
+        epsilon = 1e-10
+    );
 }
 
 #[test]
 fn validate_poiseuille_parabolic_profile() {
     // Test case: Channel flow with pressure gradient
-    let flow = PoiseuilleFlow {
-        h: 0.01,       // 1 cm half-height
-        dp_dx: -100.0, // -100 Pa/m pressure gradient (pressure drop in +x)
-        mu: 0.001,     // 1 mPa·s (water-like)
-    };
+    let flow = PoiseuilleFlow::create(
+        Velocity::from_base(5.0),
+        Length::from_base(0.01),
+        PressureGradient::from_base(100.0),
+        DynamicViscosity::from_base(0.001),
+        PoiseuilleGeometry::Plates,
+    );
 
     // Validate parabolic profile
     let y_values = [0.0, 0.0025, 0.005, 0.0075, 0.01];
@@ -52,7 +65,7 @@ fn validate_poiseuille_parabolic_profile() {
     ];
 
     for (y, u_expected) in y_values.iter().zip(expected_velocities.iter()) {
-        let u_computed = flow.velocity(*y);
+        let u_computed = flow.evaluate(0.0, *y, 0.0, 0.0)[0];
         assert_relative_eq!(
             u_computed,
             *u_expected,
@@ -62,37 +75,49 @@ fn validate_poiseuille_parabolic_profile() {
     }
 
     // Validate flow rate calculation
-    let q = flow.flow_rate();
+    let PoiseuilleFlowRate::PerWidth(q) = flow.flow_rate() else {
+        panic!("plate flow must return a per-width rate");
+    };
     let q_expected = 2.0 * 0.01 * (2.0 / 3.0) * 5.0; // 2h * (2/3) * u_max = 2×0.01×(2/3)×5.0
-    assert_relative_eq!(q, q_expected, epsilon = 1e-10);
+    assert_relative_eq!(q.into_base(), q_expected, epsilon = 1e-10);
 }
 
 #[test]
 fn validate_taylor_green_decay() {
     // Classic Taylor-Green vortex test
-    let vortex = TaylorGreenVortex {
-        u0: 1.0,
-        l: 2.0 * std::f64::consts::PI, // Domain size 2π
-        nu: 0.1,                       // Kinematic viscosity
-    };
+    let vortex = TaylorGreenVortex::create_2d(
+        Length::from_base(2.0 * std::f64::consts::PI),
+        Velocity::from_base(1.0),
+        KinematicViscosity::from_base(0.1),
+    );
 
     // Test velocity field at t=0
-    let v0 = vortex.velocity(0.0, 0.0, 0.0);
+    let v0 = vortex.evaluate(0.0, 0.0, 0.0, 0.0);
     assert_relative_eq!(v0[0], 0.0, epsilon = 1e-10); // u=0 at origin
     assert_relative_eq!(v0[1], 0.0, epsilon = 1e-10); // v=0 at origin
 
-    // Test velocity at (π/2, 0)
-    let v1 = vortex.velocity(std::f64::consts::PI / 2.0, 0.0, 0.0);
+    // Test velocity at (0, π), where the canonical 2D solution has u=u0.
+    let v1 = vortex.evaluate(0.0, std::f64::consts::PI, 0.0, 0.0);
     assert_relative_eq!(v1[0], 1.0, epsilon = 1e-10); // u=u0
     assert_relative_eq!(v1[1], 0.0, epsilon = 1e-10); // v=0
 
     // Test energy decay
     let t = 1.0;
-    let e0 = vortex.kinetic_energy(0.0);
-    let e1 = vortex.kinetic_energy(t);
-    let expected_ratio = (-2.0 * vortex.nu * t).exp();
+    let e0 = vortex.kinetic_energy(Time::from_base(0.0));
+    let e1 = vortex.kinetic_energy(Time::from_base(t));
+    let expected_ratio = (-2.0 * 0.1 * t).exp();
 
-    assert_relative_eq!(e1 / e0, expected_ratio, epsilon = 1e-10);
+    let TaylorGreenKineticEnergy::PerDepth(e0) = e0 else {
+        panic!("2D Taylor-Green energy must be reported per depth");
+    };
+    let TaylorGreenKineticEnergy::PerDepth(e1) = e1 else {
+        panic!("2D Taylor-Green energy must be reported per depth");
+    };
+    assert_relative_eq!(
+        e1.into_base() / e0.into_base(),
+        expected_ratio,
+        epsilon = 1e-10
+    );
 }
 
 #[test]
