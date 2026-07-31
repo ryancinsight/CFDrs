@@ -34,6 +34,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-validation` Couette and Poiseuille
+  configurations and derived metrics with Aequitas physical quantities. The
+  geometry-specific `PoiseuilleFlowRate` returns `AreaPerTime` for planar flow
+  per unit width and `VolumetricFlowRate` for pipe flow; scalar extraction
+  remains at formula and mesh-coordinate boundaries. Eunomia real-field
+  execution is preserved and no imaginary-unit metric is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type the public `cfd-validation` analytical Womersley
   configuration and derived metrics with Aequitas `Length`, `MassDensity`,
   `DynamicViscosity`, `ReciprocalTime`, `PressureGradient`, `Dimensionless`,

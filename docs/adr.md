@@ -22,6 +22,7 @@
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Aequitas-owned cfd-core larger-vessel blood metrics** | 2026-07-30 | Casson, Carreau-Yasuda, and Cross storage erased density, stress, viscosity, time, hematocrit, thermal, acoustic, and shear-rate dimensions | MassDensity, Pressure, DynamicViscosity, Dimensionless, Time, ReciprocalTime, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and direct consumers; formula and serialization boundaries extract explicitly | Breaking change for external larger-vessel blood constructors and consumers |
 | **Aequitas-owned analytical Womersley metrics** | 2026-07-31 | The cfd-validation analytical Womersley configuration discarded fixed dimensions before reaching the canonical cfd-1d evaluator | Length, MassDensity, DynamicViscosity, ReciprocalTime, PressureGradient, Dimensionless, Velocity, Pressure, and VolumetricFlowRate remain typed through the validation boundary; Bessel/formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
+| **Aequitas-owned analytical Couette and Poiseuille metrics** | 2026-07-31 | The cfd-validation Couette and Poiseuille configurations erased fixed dimensions and conflated planar and volumetric flow results | Velocity, Length, PressureGradient, DynamicViscosity, ReciprocalTime, Pressure, Dimensionless, AreaPerTime, and VolumetricFlowRate remain typed through the validation boundary; formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -90,6 +91,35 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-31: Aequitas owns analytical Couette and Poiseuille metrics [major] [arch]
+
+Context: `cfd-validation::analytical::{CouetteFlow, PoiseuilleFlow}` stored
+fixed-dimension values as raw generic scalars. The runtime Poiseuille geometry
+also returned planar flow per unit width and pipe volumetric flow from one
+scalar-returning method.
+
+Decision: carry Couette and Poiseuille configuration and fixed-dimension
+derived metrics through Aequitas. Add provider-owned `AreaPerTime` and return
+`PoiseuilleFlowRate::PerWidth` for plates and
+`PoiseuilleFlowRate::Volumetric` for pipes. Extract base values only at the
+formula and mesh-coordinate boundaries.
+
+Rejected alternative: retain raw flow-rate scalars, label both branches as
+`VolumetricFlowRate`, or add a consumer-local unit alias. Each would erase or
+misstate the geometry-dependent contract.
+
+Consequences: external analytical Couette and Poiseuille constructors and
+flow-rate consumers require explicit Aequitas values and enum matching. The
+public models remain real-valued under Eunomia `RealField`; no imaginary-unit
+quantity is required.
+
+Verification: Aequitas check, 40-test Nextest, 13 passing doctests, typed-field
+residue scan, direct literature regressions, targeted Rustfmt, and diff checks
+pass. The CFDrs test-target check remains blocked before `cfd-validation` by
+peer-dirty cfd-math `leto-ops` API errors at
+`linear_solver/block_preconditioner.rs:26-28,769`. See
+[`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
 
 ### 2026-07-31: Aequitas owns analytical Womersley metrics [major] [arch]
 

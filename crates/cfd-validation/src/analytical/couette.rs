@@ -2,6 +2,10 @@
 
 use super::AnalyticalSolution;
 use crate::scalar;
+use aequitas::systems::si::quantities::{
+    Dimensionless, DynamicViscosity, Length, MassDensity, Pressure, PressureGradient,
+    ReciprocalTime, Velocity,
+};
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;
@@ -12,18 +16,23 @@ use leto::geometry::Vector3;
 /// with velocity U relative to the other. Can include pressure gradient effects.
 pub struct CouetteFlow<T: RealField + Copy> {
     /// Velocity of the moving wall
-    pub wall_velocity: T,
+    pub wall_velocity: Velocity<T>,
     /// Gap height between plates
-    pub gap_height: T,
+    pub gap_height: Length<T>,
     /// Pressure gradient (optional)
-    pub pressure_gradient: T,
+    pub pressure_gradient: PressureGradient<T>,
     /// Dynamic viscosity
-    pub viscosity: T,
+    pub viscosity: DynamicViscosity<T>,
 }
 
 impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
     /// Create Couette flow solution
-    pub fn create(wall_velocity: T, gap_height: T, pressure_gradient: T, viscosity: T) -> Self {
+    pub fn create(
+        wall_velocity: Velocity<T>,
+        gap_height: Length<T>,
+        pressure_gradient: PressureGradient<T>,
+        viscosity: DynamicViscosity<T>,
+    ) -> Self {
         Self {
             wall_velocity,
             gap_height,
@@ -33,50 +42,59 @@ impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
     }
 
     /// Create pure Couette flow (no pressure gradient)
-    pub fn pure(wall_velocity: T, gap_height: T) -> Self {
+    pub fn pure(wall_velocity: Velocity<T>, gap_height: Length<T>) -> Self {
         Self {
             wall_velocity,
             gap_height,
-            pressure_gradient: scalar::zero::<T>(),
-            viscosity: scalar::one::<T>(), // Normalized
+            pressure_gradient: PressureGradient::from_base(scalar::zero::<T>()),
+            viscosity: DynamicViscosity::from_base(scalar::one::<T>()),
         }
     }
 
     /// Get the shear rate
-    pub fn shear_rate(&self) -> T {
-        self.wall_velocity / self.gap_height
+    pub fn shear_rate(&self) -> ReciprocalTime<T> {
+        ReciprocalTime::from_base(self.wall_velocity.into_base() / self.gap_height.into_base())
     }
 
     /// Get the wall shear stress
-    pub fn wall_shear_stress(&self) -> T {
-        let base_shear = self.viscosity * self.wall_velocity / self.gap_height;
-        let pressure_contribution =
-            self.pressure_gradient * self.gap_height / scalar::from_f64::<T>(2.0);
-        base_shear + pressure_contribution
+    pub fn wall_shear_stress(&self) -> Pressure<T> {
+        let base_shear = self.viscosity.into_base() * self.wall_velocity.into_base()
+            / self.gap_height.into_base();
+        let pressure_contribution = self.pressure_gradient.into_base()
+            * self.gap_height.into_base()
+            / scalar::from_f64::<T>(2.0);
+        Pressure::from_base(base_shear + pressure_contribution)
     }
 
     /// Get Reynolds number based on gap height
-    pub fn reynolds_number(&self, density: T) -> T {
-        density * self.wall_velocity * self.gap_height / self.viscosity
+    pub fn reynolds_number(&self, density: MassDensity<T>) -> Dimensionless<T> {
+        Dimensionless::from_base(
+            density.into_base() * self.wall_velocity.into_base() * self.gap_height.into_base()
+                / self.viscosity.into_base(),
+        )
     }
 }
 
 impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         // Normalize y coordinate: η = y/h where y ∈ [0, h]
-        let eta = y / self.gap_height;
+        let gap_height = self.gap_height.into_base();
+        let wall_velocity = self.wall_velocity.into_base();
+        let pressure_gradient = self.pressure_gradient.into_base();
+        let viscosity = self.viscosity.into_base();
+        let eta = y / gap_height;
 
         // Couette-Poiseuille flow: u(y) = U*y/h + (1/2μ)(dp/dx)(y)(y-h)
-        let couette_part = self.wall_velocity * eta;
+        let couette_part = wall_velocity * eta;
 
-        let poiseuille_part = if self.pressure_gradient == scalar::zero::<T>() {
+        let poiseuille_part = if pressure_gradient == scalar::zero::<T>() {
             scalar::zero::<T>()
         } else {
             // Plane Poiseuille contribution (Versteeg & Malalasekera):
             // u_p(y) = -(1/(2μ)) (dp/dx) y (h - y)
             let two = scalar::from_f64::<T>(2.0);
-            let factor = -self.pressure_gradient / (two * self.viscosity);
-            factor * y * (self.gap_height - y)
+            let factor = -pressure_gradient / (two * viscosity);
+            factor * y * (gap_height - y)
         };
 
         let u = couette_part + poiseuille_part;
@@ -86,11 +104,11 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
         // Linear pressure drop if pressure gradient exists
-        -self.pressure_gradient * x
+        -self.pressure_gradient.into_base() * x
     }
 
     fn name(&self) -> &str {
-        if self.pressure_gradient == scalar::zero::<T>() {
+        if self.pressure_gradient.into_base() == scalar::zero::<T>() {
             "Pure Couette Flow"
         } else {
             "Couette-Poiseuille Flow"
@@ -103,17 +121,17 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T
             scalar::zero::<T>(),
             large, // x: [0, L]
             scalar::zero::<T>(),
-            self.gap_height, // y: [0, h]
+            self.gap_height.into_base(), // y: [0, h]
             -large,
             large, // z: arbitrary
         ]
     }
 
     fn length_scale(&self) -> T {
-        self.gap_height
+        self.gap_height.into_base()
     }
 
     fn velocity_scale(&self) -> T {
-        self.wall_velocity
+        self.wall_velocity.into_base()
     }
 }

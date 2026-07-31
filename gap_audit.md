@@ -33,19 +33,32 @@
 
 ## Couette and Poiseuille analytical metric audit (2026-07-31)
 
-`CFDRS-AEQ-MET-37` claims the next bounded analytical-validation slice:
-`cfd-validation::analytical::{couette,poiseuille}` still exposes fixed-
-dimension velocity, length, pressure-gradient, and viscosity fields as raw
-generic scalars. The slice will carry those values and fixed-dimension derived
-metrics through Aequitas, with extraction only at the analytical formula and
-mesh-coordinate boundaries.
+`CFDRS-AEQ-MET-37` closes the Couette and Poiseuille analytical-validation
+slice. `CouetteFlow` now stores velocity, gap height, pressure gradient, and
+dynamic viscosity as Aequitas quantities and returns typed reciprocal time,
+pressure, and dimensionless Reynolds metrics. `PoiseuilleFlow` carries typed
+velocity, characteristic length, pressure gradient, and viscosity, returns
+typed velocity and Reynolds metrics, and exposes a geometry-specific typed
+flow-rate enum.
 
-The plate form of Poiseuille flow returns flow per unit width (`m²/s`) while
-the pipe form returns volumetric flow (`m³/s`) under one runtime geometry enum.
-Because Aequitas currently names only the volumetric flow dimension, the
-per-width result remains explicit formula scalar data in this slice rather
-than being mislabeled as `VolumetricFlowRate`. This is a provider-dimension
-candidate, not a justification for a consumer alias or compatibility wrapper.
+Aequitas now provides `AreaPerTime` for planar flow per unit width (`m²/s`).
+`PoiseuilleFlowRate::PerWidth` uses that quantity and
+`PoiseuilleFlowRate::Volumetric` uses `VolumetricFlowRate` (`m³/s`); the
+runtime geometry enum no longer forces either result through a raw scalar or
+an incorrect fixed dimension. Scalar extraction remains at analytical
+formula and mesh-coordinate boundaries.
+
+Couette and Poiseuille remain real-valued under Eunomia `RealField`. No
+complex or imaginary-unit metric applies; Eunomia complex values remain
+reserved for phasor/Bessel formula boundaries.
+
+The typed-field residue scan, direct literature regressions, targeted
+Rustfmt, and `git diff --check` pass. The pinned cfd-validation test-target
+check and focused Nextest remain blocked before `cfd-validation` by peer-dirty
+`cfd-math::linear_solver::block_preconditioner` unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is a
+provider/peer integration residual, not a MET37 diagnostic.
 
 ## Analytical validation metric audit (2026-07-31)
 

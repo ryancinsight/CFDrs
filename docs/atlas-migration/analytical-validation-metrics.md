@@ -50,3 +50,23 @@ The Womersley public-field residue scan, targeted Rustfmt, and `git diff
 blocked before this crate by peer-dirty `cfd-math` unresolved `leto-ops`
 symbols in `linear_solver/block_preconditioner.rs:26-28` and the missing
 `factor_sparse_with_symbolic` method at line 769.
+
+## Couette and Poiseuille
+
+`CouetteFlow` stores wall velocity, gap height, pressure gradient, and
+dynamic viscosity as Aequitas `Velocity`, `Length`, `PressureGradient`, and
+`DynamicViscosity`. Its shear rate, wall stress, and Reynolds number return
+`ReciprocalTime`, `Pressure`, and `Dimensionless` respectively.
+
+`PoiseuilleFlow` stores its maximum velocity, characteristic length, pressure
+gradient, and viscosity with the same typed boundary. Its velocity and
+Reynolds calculations return `Velocity` and `Dimensionless`. The runtime
+geometry is closed by `PoiseuilleFlowRate`: plates return
+`AreaPerTime` (`m²/s`, flow per unit width), while pipes return
+`VolumetricFlowRate` (`m³/s`). This preserves the distinction instead of
+coercing both formulas to one scalar dimension.
+
+The formula and `AnalyticalSolution` mesh-coordinate boundaries extract base
+values explicitly. These validation contracts require Eunomia `RealField`;
+complex intermediates and quadrature values are not physical-unit inputs for
+this family, so no imaginary-unit quantity is introduced.

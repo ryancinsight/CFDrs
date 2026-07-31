@@ -11,8 +11,23 @@
 //!   Journal of Fluid Mechanics, 130, 411-452.
 //! - White, F.M. (2006). "Viscous Fluid Flow" (3rd ed.). McGraw-Hill.
 
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, PressureGradient, Velocity};
 use cfd_validation::analytical::{AnalyticalSolution, CouetteFlow, TaylorGreenVortex};
 use eunomia::assert_relative_eq;
+
+fn couette_flow(
+    wall_velocity: f64,
+    gap_height: f64,
+    pressure_gradient: f64,
+    viscosity: f64,
+) -> CouetteFlow<f64> {
+    CouetteFlow::create(
+        Velocity::from_base(wall_velocity),
+        Length::from_base(gap_height),
+        PressureGradient::from_base(pressure_gradient),
+        DynamicViscosity::from_base(viscosity),
+    )
+}
 
 /// Test Taylor-Green vortex energy decay
 ///
@@ -96,7 +111,7 @@ fn test_couette_linear_profile() {
     let wall_velocity: f64 = 1.0; // 1 m/s
     let viscosity: f64 = 1.0e-3; // Water
 
-    let couette = CouetteFlow::create(wall_velocity, gap_height, 0.0, viscosity);
+    let couette = couette_flow(wall_velocity, gap_height, 0.0, viscosity);
 
     // Test velocity at several points
     let test_points = vec![
@@ -125,7 +140,7 @@ fn test_couette_wall_shear_stress() {
     let wall_velocity: f64 = 1.0;
     let viscosity: f64 = 1.0e-3;
 
-    let couette = CouetteFlow::create(wall_velocity, gap_height, 0.0, viscosity);
+    let couette = couette_flow(wall_velocity, gap_height, 0.0, viscosity);
 
     // Analytical wall shear stress (White 2006, Eq. 3-46)
     let tau_wall_analytical = viscosity * wall_velocity / gap_height;
@@ -251,7 +266,7 @@ mod property_tests {
             wall_velocity in 0.1f64..10.0,
             viscosity in 1.0e-5f64..1.0e-2
         ) {
-            let couette = CouetteFlow::create(wall_velocity, gap_height, 0.0, viscosity);
+            let couette = couette_flow(wall_velocity, gap_height, 0.0, viscosity);
 
             // Test linearity at multiple points
             for i in 0..=10 {
@@ -298,7 +313,7 @@ mod property_tests {
             wall_velocity in 0.1f64..10.0,
             viscosity in 1.0e-5f64..1.0e-2
         ) {
-            let couette = CouetteFlow::create(wall_velocity, gap_height, 0.0, viscosity);
+            let couette = couette_flow(wall_velocity, gap_height, 0.0, viscosity);
             let expected_shear = wall_velocity / gap_height;
 
             let dy = 1.0e-7;
