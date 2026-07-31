@@ -388,7 +388,7 @@ mod tests {
             Length::from_base(0.5),
             MassDensity::from_base(1_000.0),
         );
-        let expected = 0.332 * 1_000.0 * 1.0e-5 * 2.0 * (2.0 / (1.0e-5 * 0.5)).sqrt();
+        let expected = 0.332_f64 * 1_000.0 * 1.0e-5 * 2.0 * (2.0_f64 / (1.0e-5 * 0.5)).sqrt();
         let actual = blasius.wall_shear_stress().into_base();
 
         assert!((actual - expected).abs() / expected < 1.0e-12);

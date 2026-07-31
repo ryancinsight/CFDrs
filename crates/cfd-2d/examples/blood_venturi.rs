@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Initialize Fields
     let mut fields = SimulationFields::new(nx, ny);
     // Initialize viscosity to constant high-shear limit
-    let mu_inf = blood.viscosity_inf;
+    let mu_inf = blood.viscosity_inf.into_base();
     for j in 0..ny {
         for i in 0..nx {
             fields.viscosity.set(i, j, mu_inf);
@@ -141,8 +141,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Fluid: {}, Viscosity range: {:.4}-{:.4} Pa.s",
         blood.name(),
-        blood.viscosity_inf,
-        blood.viscosity_zero
+        blood.viscosity_inf.into_base(),
+        blood.viscosity_zero.into_base()
     );
 
     while time < end_time {

@@ -46,7 +46,6 @@
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use aequitas::systems::si::quantities::{Dimensionless, DynamicViscosity, MassDensity, Pressure};
 use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
@@ -330,6 +329,9 @@ pub struct BifurcationSolution<T: Cfd2dScalar + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        Dimensionless, DynamicViscosity, MassDensity, Pressure,
+    };
     use cfd_core::physics::fluid::blood::CassonBlood;
     use eunomia::assert_relative_eq;
 

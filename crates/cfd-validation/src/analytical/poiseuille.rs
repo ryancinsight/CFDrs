@@ -91,9 +91,12 @@ impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
         let characteristic_length = self.characteristic_length.into_base();
         match self.geometry {
             PoiseuilleGeometry::Plates => {
-                let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+                // Q/W = ∫_{-h}^{h} u_max (1 − (y/h)²) dy = (4/3)·u_max·h,
+                // equivalently ū·2h with ū = (2/3)·u_max over the full gap 2h
+                // (characteristic_length is the half-gap h; see u_max above).
+                let four_thirds = scalar::from_f64::<T>(4.0 / 3.0);
                 PoiseuilleFlowRate::PerWidth(AreaPerTime::from_base(
-                    two_thirds * u_max * characteristic_length,
+                    four_thirds * u_max * characteristic_length,
                 ))
             }
             PoiseuilleGeometry::Pipe => {

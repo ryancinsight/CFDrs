@@ -187,9 +187,12 @@ fn test_planar_flow_rate_has_per_width_unit() {
         panic!("plate geometry must return flow per unit width");
     };
 
+    // Q/W = ∫_{-h}^{h} u_max (1 − (y/h)²) dy = (4/3)·u_max·h — the mean
+    // velocity (2/3)·u_max carried across the full plate gap 2h (White,
+    // Viscous Fluid Flow, plane Poiseuille).
     assert_relative_eq!(
         flow_rate.into_base(),
-        (2.0 / 3.0) * u_max * half_height,
+        (4.0 / 3.0) * u_max * half_height,
         epsilon = 1.0e-12
     );
 }

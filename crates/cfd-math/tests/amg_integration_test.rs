@@ -1,172 +1,260 @@
-//! Integration test for BiCGSTAB and GMRES solvers.
+//! Integration tests for the AMG preconditioner with BiCGSTAB and GMRES.
 //!
-//! AMG preconditioner tests are temporarily disabled pending migration
-//! of the domain-specific multigrid code to the leto-ops API surface.
+//! Oracle: the 2-D five-point Poisson operator with a manufactured solution
+//! `x*` and `b = A·x*`. Krylov solves preconditioned by
+//! [`AlgebraicMultigrid`] must recover `x*` to the solver tolerance, and the
+//! stationary preconditioned iteration must contract in the A-norm with
+//! factor `ρ < 1` (Ruge & Stüben 1987; theorem restated in `amg.rs`).
 
-use cfd_math::iterative::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
-use cfd_math::sparse::{spmv, SparseMatrix, SparseMatrixBuilder};
-use eunomia::{FloatElement, RealField};
+use cfd_math::iterative::{IterativeSolverConfig, Preconditioner, BiCGSTAB, GMRES};
+use cfd_math::multigrid::{AMGConfig, AlgebraicMultigrid, CycleType};
 use leto::Array1;
-use leto_ops::{CsrMatrix as AtlasSparseMatrix, Scalar as LetoScalar};
+use leto_ops::{spmv_into, CsrMatrix};
 
-struct PoissonSystem<T: RealField + Copy + LetoScalar> {
-    solver_matrix: SparseMatrix<T>,
-    amg_matrix: AtlasSparseMatrix<T>,
-}
-
-/// Create a test matrix representing a 2D Poisson equation
-fn create_poisson_system<T: RealField + FloatElement + LetoScalar>(n: usize) -> PoissonSystem<T> {
+/// Assemble the 2-D five-point Poisson operator on an `n × n` grid
+/// (order `n²`): `4` on the diagonal, `-1` toward each grid neighbour.
+fn poisson_2d(n: usize) -> CsrMatrix<f64> {
     let size = n * n;
-    let mut builder = SparseMatrixBuilder::new(size, size);
+    let mut row_offsets = Vec::with_capacity(size + 1);
+    let mut col_indices = Vec::new();
     let mut values = Vec::new();
-    let mut indices = Vec::new();
-    let mut indptr = vec![0];
-
+    row_offsets.push(0);
     for i in 0..size {
         let row = i / n;
         let col = i % n;
-
-        // Top neighbor (i-n)
         if row > 0 {
-            let value = <T as FloatElement>::from_f64(-1.0);
-            builder
-                .add_entry(i, i - n, value)
-                .expect("invariant: top-neighbor entry is in bounds");
-            values.push(value);
-            indices.push(i - n);
+            col_indices.push(i - n);
+            values.push(-1.0);
         }
-
-        // Left neighbor (i-1)
         if col > 0 {
-            let value = <T as FloatElement>::from_f64(-1.0);
-            builder
-                .add_entry(i, i - 1, value)
-                .expect("invariant: left-neighbor entry is in bounds");
-            values.push(value);
-            indices.push(i - 1);
+            col_indices.push(i - 1);
+            values.push(-1.0);
         }
-
-        // Diagonal element (i)
-        let diagonal = <T as FloatElement>::from_f64(4.0);
-        builder
-            .add_entry(i, i, diagonal)
-            .expect("invariant: diagonal entry is in bounds");
-        values.push(diagonal);
-        indices.push(i);
-
-        // Right neighbor (i+1)
-        if col < n - 1 {
-            let value = <T as FloatElement>::from_f64(-1.0);
-            builder
-                .add_entry(i, i + 1, value)
-                .expect("invariant: right-neighbor entry is in bounds");
-            values.push(value);
-            indices.push(i + 1);
+        col_indices.push(i);
+        values.push(4.0);
+        if col + 1 < n {
+            col_indices.push(i + 1);
+            values.push(-1.0);
         }
-
-        // Bottom neighbor (i+n)
-        if row < n - 1 {
-            let value = <T as FloatElement>::from_f64(-1.0);
-            builder
-                .add_entry(i, i + n, value)
-                .expect("invariant: bottom-neighbor entry is in bounds");
-            values.push(value);
-            indices.push(i + n);
+        if row + 1 < n {
+            col_indices.push(i + n);
+            values.push(-1.0);
         }
-
-        indptr.push(values.len());
+        row_offsets.push(col_indices.len());
     }
-
-    let solver_matrix = builder
-        .build()
-        .expect("invariant: generated Poisson entries build a valid solver matrix");
-    let amg_matrix = AtlasSparseMatrix::from_parts(values, indices, indptr, size, size)
-        .expect("invariant: generated Poisson CSR is valid for AMG matrix");
-
-    PoissonSystem {
-        solver_matrix,
-        amg_matrix,
-    }
+    CsrMatrix::from_parts(values, col_indices, row_offsets, size, size)
+        .expect("five-point stencil assembly is structurally valid")
 }
 
-fn create_exact_solution<T: FloatElement>(size: usize) -> Array1<T> {
-    Array1::from_shape_vec(
-        [size],
-        (0..size)
-            .map(|i| <T as FloatElement>::from_f64((i as f64).sin()))
-            .collect(),
-    )
-    .expect("invariant: exact-solution shape matches data")
-}
-
-fn create_rhs<T: RealField + Copy + LetoScalar>(
-    matrix: &SparseMatrix<T>,
-    solution: &Array1<T>,
-) -> Array1<T> {
-    let mut rhs = Array1::zeros([matrix.nrows()]);
-    spmv(matrix, solution, &mut rhs);
-    rhs
-}
-
-fn apply_preconditioner<P: Preconditioner<f64>>(
-    preconditioner: &P,
-    rhs: &Array1<f64>,
-    out: &mut Array1<f64>,
-) {
-    preconditioner
-        .apply_to(rhs, out)
-        .expect("preconditioner application succeeds");
-}
-
-fn vector_norm(values: &Array1<f64>) -> f64 {
-    (0..values.shape()[0])
-        .map(|idx| values[idx] * values[idx])
-        .sum::<f64>()
-        .sqrt()
-}
-
-fn vector_distance(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
-    assert_eq!(
-        lhs.shape(),
-        rhs.shape(),
-        "invariant: compared arrays share shape"
-    );
-    (0..lhs.shape()[0])
-        .map(|idx| {
-            let diff = lhs[idx] - rhs[idx];
-            diff * diff
+/// Manufactured smooth solution sampled on the grid.
+fn manufactured_solution(size: usize) -> Array1<f64> {
+    let values = (0..size)
+        .map(|k| {
+            let t = k as f64 / size as f64;
+            (std::f64::consts::PI * t).sin() + 0.5 * t
         })
-        .sum::<f64>()
-        .sqrt()
+        .collect::<Vec<_>>();
+    Array1::from_shape_vec([size], values).expect("solution length matches size")
 }
 
-fn energy_norm(matrix: &SparseMatrix<f64>, values: &Array1<f64>) -> f64 {
-    let mut applied = Array1::zeros([matrix.nrows()]);
-    spmv(matrix, values, &mut applied);
-    let dot = (0..values.shape()[0])
-        .map(|idx| values[idx] * applied[idx])
-        .sum::<f64>();
+/// `b = A · x*` so the solve has an exact reference.
+fn rhs_for(a: &CsrMatrix<f64>, x_exact: &Array1<f64>) -> Array1<f64> {
+    let mut b = Array1::zeros([x_exact.shape()[0]]);
+    spmv_into(a, &x_exact.view(), b.as_slice_mut().expect("contiguous rhs"))
+        .expect("SpMV over matching shapes");
+    b
+}
+
+fn max_abs_diff(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
+    assert_eq!(lhs.shape(), rhs.shape(), "compared arrays share shape");
+    (0..lhs.shape()[0])
+        .map(|idx| (lhs[idx] - rhs[idx]).abs())
+        .fold(0.0, f64::max)
+}
+
+/// `‖v‖_A = sqrt(vᵀ A v)` — the energy norm the AMG theory contracts in.
+fn energy_norm(a: &CsrMatrix<f64>, v: &Array1<f64>) -> f64 {
+    let mut av = Array1::zeros([v.shape()[0]]);
+    spmv_into(a, &v.view(), av.as_slice_mut().expect("contiguous workspace"))
+        .expect("SpMV over matching shapes");
+    let dot = (0..v.shape()[0]).map(|idx| v[idx] * av[idx]).sum::<f64>();
     dot.max(0.0).sqrt()
 }
 
-/// AMG preconditioner tests are temporarily disabled pending migration
-/// of the domain-specific multigrid code to the leto-ops API surface.
-#[ignore]
-#[test]
-fn test_amg_with_bicgstab() {}
+fn amg_for(a: &CsrMatrix<f64>, config: AMGConfig) -> AlgebraicMultigrid<f64> {
+    AlgebraicMultigrid::new(a, config).expect("AMG setup on SPD Poisson operator")
+}
 
-#[ignore]
 #[test]
-fn test_amg_with_gmres() {}
+fn test_amg_with_bicgstab() {
+    let n = 16;
+    let a = poisson_2d(n);
+    let x_exact = manufactured_solution(n * n);
+    let b = rhs_for(&a, &x_exact);
+    let amg = amg_for(&a, AMGConfig::default());
 
-#[ignore]
-#[test]
-fn test_amg_different_cycles() {}
+    let solver = BiCGSTAB::new(IterativeSolverConfig::new(1e-10).with_max_iterations(200));
+    let mut x = Array1::zeros([n * n]);
+    let monitor = solver
+        .solve_preconditioned(&a, &b, &amg, &mut x)
+        .expect("AMG-preconditioned BiCGSTAB converges on SPD Poisson");
 
-#[ignore]
-#[test]
-fn test_amg_construction_edge_cases() {}
+    let final_residual = *monitor
+        .residual_history
+        .last()
+        .expect("monitor records at least the initial residual");
+    assert!(
+        final_residual <= 1e-10 * monitor.initial_residual.max(1.0),
+        "relative residual not reached: final {final_residual}, initial {}",
+        monitor.initial_residual
+    );
+    let error = max_abs_diff(&x, &x_exact);
+    assert!(error < 1e-6, "‖x - x*‖∞ = {error}");
+}
 
-#[ignore]
 #[test]
-fn test_amg_two_grid_convergence_factor() {}
+fn test_amg_with_gmres() {
+    let n = 16;
+    let a = poisson_2d(n);
+    let x_exact = manufactured_solution(n * n);
+    let b = rhs_for(&a, &x_exact);
+    let amg = amg_for(&a, AMGConfig::default());
+
+    let solver = GMRES::new(
+        IterativeSolverConfig::new(1e-10).with_max_iterations(200),
+        30,
+    );
+    let mut x = Array1::zeros([n * n]);
+    solver
+        .solve_preconditioned(&a, &b, &amg, &mut x)
+        .expect("AMG-preconditioned GMRES converges on SPD Poisson");
+
+    let error = max_abs_diff(&x, &x_exact);
+    assert!(error < 1e-6, "‖x - x*‖∞ = {error}");
+}
+
+#[test]
+fn test_amg_different_cycles() {
+    let n = 16;
+    let a = poisson_2d(n);
+    let x_exact = manufactured_solution(n * n);
+    let b = rhs_for(&a, &x_exact);
+
+    for cycle in [CycleType::VCycle, CycleType::WCycle, CycleType::FCycle] {
+        let amg = amg_for(
+            &a,
+            AMGConfig {
+                cycle_type: cycle,
+                ..AMGConfig::default()
+            },
+        );
+        let solver = BiCGSTAB::new(IterativeSolverConfig::new(1e-10).with_max_iterations(200));
+        let mut x = Array1::zeros([n * n]);
+        solver
+            .solve_preconditioned(&a, &b, &amg, &mut x)
+            .unwrap_or_else(|e| panic!("{cycle:?} preconditioned solve failed: {e}"));
+        let error = max_abs_diff(&x, &x_exact);
+        assert!(error < 1e-6, "{cycle:?}: ‖x - x*‖∞ = {error}");
+    }
+}
+
+#[test]
+fn test_amg_construction_edge_cases() {
+    // A matrix already at or below min_coarse_size builds a single-level
+    // hierarchy whose application is still a usable preconditioner.
+    let n = 4; // order 16 < default min_coarse_size (50)
+    let a = poisson_2d(n);
+    let amg = amg_for(&a, AMGConfig::default());
+    let r = manufactured_solution(n * n);
+    let mut z = Array1::zeros([n * n]);
+    amg.apply_to(&r, &mut z)
+        .expect("single-level AMG application");
+    // A preconditioner approximating A⁻¹ must not annihilate a nonzero
+    // residual: z = M⁻¹ r ≠ 0.
+    assert!(
+        (0..z.shape()[0]).any(|idx| z[idx] != 0.0),
+        "preconditioner returned the zero vector for a nonzero residual"
+    );
+
+    // Dimension mismatch at application is a typed error, not a panic.
+    let mut wrong = Array1::zeros([n * n + 1]);
+    assert!(
+        amg.apply_to(&r, &mut wrong).is_err(),
+        "output-length mismatch must be rejected"
+    );
+
+    // A capped hierarchy depth (max_levels = 1) is honored.
+    let deep = poisson_2d(16);
+    let amg_shallow = amg_for(
+        &deep,
+        AMGConfig {
+            max_levels: 1,
+            ..AMGConfig::default()
+        },
+    );
+    let r = manufactured_solution(256);
+    let mut z = Array1::zeros([256]);
+    amg_shallow
+        .apply_to(&r, &mut z)
+        .expect("depth-1 AMG application");
+}
+
+#[test]
+fn test_amg_two_grid_convergence_factor() {
+    // Stationary preconditioned Richardson iteration
+    //   x_{k+1} = x_k + M⁻¹ (b − A x_k)
+    // has error propagation e_{k+1} = (I − M⁻¹A) e_k. Ruge–Stüben theory
+    // bounds the A-norm contraction factor ρ < 1 independently of h for
+    // SPD M-matrices; assert the contraction on two grid sizes.
+    for n in [8usize, 16] {
+        let size = n * n;
+        let a = poisson_2d(n);
+        let x_exact = manufactured_solution(size);
+        let b = rhs_for(&a, &x_exact);
+        let amg = amg_for(&a, AMGConfig::default());
+
+        let mut x = Array1::zeros([size]);
+        let mut residual = Array1::zeros([size]);
+        let mut z = Array1::zeros([size]);
+
+        let mut error = Array1::zeros([size]);
+        for idx in 0..size {
+            error[idx] = x_exact[idx] - x[idx];
+        }
+        let mut previous_energy = energy_norm(&a, &error);
+        assert!(previous_energy > 0.0, "nonzero initial error required");
+
+        let mut worst_factor = 0.0_f64;
+        for _ in 0..5 {
+            spmv_into(
+                &a,
+                &x.view(),
+                residual.as_slice_mut().expect("contiguous residual"),
+            )
+            .expect("SpMV over matching shapes");
+            for idx in 0..size {
+                residual[idx] = b[idx] - residual[idx];
+            }
+            amg.apply_to(&residual, &mut z).expect("AMG application");
+            for idx in 0..size {
+                x[idx] += z[idx];
+            }
+
+            for idx in 0..size {
+                error[idx] = x_exact[idx] - x[idx];
+            }
+            let energy = energy_norm(&a, &error);
+            if previous_energy > 0.0 {
+                worst_factor = worst_factor.max(energy / previous_energy);
+            }
+            previous_energy = energy;
+            if energy == 0.0 {
+                break;
+            }
+        }
+        assert!(
+            worst_factor < 1.0,
+            "n = {n}: A-norm contraction factor {worst_factor} is not < 1"
+        );
+    }
+}

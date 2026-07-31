@@ -101,11 +101,15 @@ fn validate_taylor_green_decay() {
     assert_relative_eq!(v1[0], 1.0, epsilon = 1e-10); // u=u0
     assert_relative_eq!(v1[1], 0.0, epsilon = 1e-10); // v=0
 
-    // Test energy decay
+    // Test energy decay. The implementation pins the k = π/L convention
+    // (u = U·cos(kx)·sin(ky), asserted by the velocity checks above), under
+    // which velocity decays as e^{−2νk²t} and kinetic energy as e^{−4νk²t}.
+    // With L = 2π, ν = 0.1: k = 1/2, so E(t)/E(0) = e^{−0.1·t}.
     let t = 1.0;
     let e0 = vortex.kinetic_energy(Time::from_base(0.0));
     let e1 = vortex.kinetic_energy(Time::from_base(t));
-    let expected_ratio = (-2.0 * 0.1 * t).exp();
+    let k = std::f64::consts::PI / (2.0 * std::f64::consts::PI);
+    let expected_ratio = (-4.0 * 0.1 * k * k * t).exp();
 
     let TaylorGreenKineticEnergy::PerDepth(e0) = e0 else {
         panic!("2D Taylor-Green energy must be reported per depth");
