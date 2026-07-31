@@ -44,19 +44,31 @@
   literature-backed 1D correlation (1D/2D bit-identical across the window;
   3D 139.82 -> 308.70), so the stale under-converged envelope (0.15, 0.60)
   is recalibrated to (0.70, 1.30) with the derivation at the assertion.
-  REMAINING (this item stays open for): the four 30s TIMEOUTs
-  (`microventuri_35um/fallback/option2_45um`, `stenosis_shear_thinning`).
-  Evidence: 35um timed out at the `bf65a415` baseline too (pre-existing);
-  stenosis passed there as slow (>15s) and now breaches 30s; raising the
-  pressure-AMG setup limit 10k->50k did NOT help (reverted); the timed-out
-  SIMPLEC log shows the continuity residual stagnating at ~5.1e2 (<0.5%
-  movement over 5 iterations) — the solve is NOT converging on extreme
-  contraction ratios and burns the full 150-step budget. Next increment:
-  stagnation-aware termination plus root-causing the micro-venturi
-  collocated-fallback convergence (mask/BC/relaxation), never test dilution.
+  TIMEOUTS RESOLVED (done 2026-07-31): the three micro-venturi solves were
+  not diverging — the collocated fallback's continuity residual is the
+  dimensional max cell divergence [1/s], and the fixed absolute 1e-4 target
+  was ~3e-9 relative at microventuri scales (u_throat ≈ 5 m/s over ~2 µm
+  cells), so engineering-converged solves (~2e-4 relative) burned the full
+  150-step budget past the 30s terminate. Termination is now problem-scaled
+  (1e-3 x u_throat/min cell size, derivation at the call site); the three
+  tests pass in 6.9/11.4/12.5 s with unchanged physical acceptance.
+  `stenosis_shear_thinning` passes in isolation and in the full suite
+  (26-28 s) — its earlier 30s breaches were suite parallelism on top of a
+  >15s solve. CLOSURE: cfd-validation Nextest 434/434 (1 slow).
   Note for bisectors: `63e49604..fbc6c46c` revisions do not compile
   standalone (each was committed against a future cfd-core/leto state);
   only window endpoints are buildable.
+
+- **CFDRS-PERF-STEN-1 [patch] - Bring the stenosis cross-fidelity solve under
+  the 15s slow bound (todo).** `cross_fidelity_stenosis_shear_thinning`
+  passes but runs 26-28 s: two `VenturiSolver2D` (ns_fvm SIMPLE) solves at
+  40x60 with max_iterations 20000, tolerance 1e-4, alpha_u 0.5/alpha_p 0.2.
+  Crossing the committed 15s slow bound is a performance defect in the
+  production solve path. Method: instrument iteration counts (SolveResult
+  already carries them; the test discards), check whether the tolerance is
+  problem-scaled (same defect class as VAL-RED-1's microventuri fix), then
+  profile the SIMPLE inner solves. Acceptance: test under 15s with unchanged
+  assertions, or a recorded derivation for a dedicated reviewed profile.
 
 - **CFDRS-AEQ-MET-42 [major] - Consolidate legacy analytical benchmarks
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;

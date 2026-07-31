@@ -580,14 +580,27 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     }
 
     // Run SIMPLEC/PIMPLE with adaptive time stepping.
+    //
+    // Termination is problem-scaled: the solver's continuity residual is the
+    // dimensional max cell divergence [1/s], whose natural scale here is
+    // u_throat / min(dx, dy) — the largest velocity gradient the grid can
+    // represent. A fixed absolute 1e-4 1/s target is ~3e-9 in relative terms
+    // on a microventuri (u_throat ≈ 5 m/s over ~2 µm cells) and unreachable:
+    // solves plateaued near 2e-4 relative while burning the full step budget.
+    // 1e-3 relative is the engineering convergence the downstream
+    // `physically_informative` acceptance is calibrated to.
     let nu = MU / RHO;
     let max_steps = 150;
-    let target_residual = 1e-4;
+    let dx_cell = l_total / ((nx - 1) as f64);
+    let dy_cell = h_half / ((ny - 1) as f64);
+    let u_throat_scale = u_inlet * d_in / d_th.max(1e-12);
+    let divergence_scale = u_throat_scale / dx_cell.min(dy_cell).max(1e-30);
+    let target_residual = 1e-3 * divergence_scale;
     let dt_initial = 1e-6;
 
     let _ =
         match solver.solve_adaptive(&mut fields, dt_initial, nu, RHO, max_steps, target_residual) {
-            Ok((_dt_final, residual)) => residual < 1e-3,
+            Ok((_dt_final, residual)) => residual < target_residual,
             Err(_) => false,
         };
 
