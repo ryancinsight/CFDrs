@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-36 [major] - Type analytical Womersley metrics
-  (IN-PROGRESS 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::WomersleyFlow`, its direct tests, and
   synchronized audit/design/changelog artifacts).** The current public-surface
   audit found the validation Womersley configuration still stores radius,
@@ -43,7 +43,13 @@
   Womersley complex values remain internal to the canonical Bessel/phasor
   evaluator and do not require an imaginary-unit quantity. Acceptance is a
   typed-field residue scan, value-semantic Womersley regressions, focused
-  cfd-validation gates, and synchronized audit/design/changelog evidence.
+  cfd-validation gates, and synchronized audit/design/changelog evidence. The
+  Womersley source residue scan, targeted rustfmt, and diff checks pass. The
+  pinned cfd-validation test-target check is blocked before cfd-validation by
+  peer-dirty `cfd-math::linear_solver::block_preconditioner` unresolved
+  `leto-ops` symbols at lines 26-28 and 769; this is a provider/peer
+  integration residual, not a MET36 failure. The other analytical families
+  remain separately recorded follow-ons in `gap_audit.md`.
 
 - **CFDRS-AEQ-MET-30 [major] - Type shared FluidProperties and constant fluid storage
   (VERIFIED 2026-07-29; owner=current Codex session; claimed 2026-07-29;

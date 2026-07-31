@@ -44,18 +44,28 @@ typed; coordinates, sampled fields, interpolation tables, normalized
 coefficients, and equation-dependent formula parameters remain scalar at
 their explicit formula or mesh boundaries.
 
-`CFDRS-AEQ-MET-36` claims the Womersley configuration as the first bounded
-closure: radius as `Length`, density as `MassDensity`, dynamic viscosity as
-`DynamicViscosity`, angular frequency as `ReciprocalTime`, and pressure
-gradient as `PressureGradient`, with typed velocity, stress, and flow-rate
-results. The remaining analytical families are recorded here as open
-follow-ons rather than silently treated as closed.
+`CFDRS-AEQ-MET-36` closes the first bounded slice: the Womersley
+configuration stores radius as `Length`, density as `MassDensity`, dynamic
+viscosity as `DynamicViscosity`, angular frequency as `ReciprocalTime`, and
+pressure gradient as `PressureGradient`; its public Womersley number,
+characteristic velocity, Stokes-layer thickness, velocity, wall stress, and
+flow-rate results are typed. Scalar conversion remains only at the analytical
+Bessel/formula and mesh-coordinate boundaries. The remaining analytical
+families are recorded here as open follow-ons rather than silently treated as
+closed.
 
 Womersley execution remains compatible with Eunomia: the public contract is
 ordered and real-valued under `RealField`; the canonical evaluator may use
 complex Bessel/phasor intermediates internally, but those intermediates do not
 cross the Aequitas physical boundary. Eunomia has no separate imaginary-unit
-quantity, and none is required for these SI metrics.
+quantity, and none is required for these SI metrics. The Womersley residue
+scan, targeted rustfmt, and `git diff --check` pass. The pinned
+`cargo check -p cfd-validation --tests --no-default-features --offline` run
+currently stops before `cfd-validation` in peer-dirty
+`cfd-math::linear_solver::block_preconditioner` at unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is not a
+Womersley diagnostic.
 
 ## Shared fluid-property metric refresh (2026-07-29, CFDRS-AEQ-MET-30)
 

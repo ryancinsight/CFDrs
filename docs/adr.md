@@ -21,6 +21,7 @@
 | **Aequitas-owned cfd-core microvascular blood metrics** | 2026-07-30 | Fåhræus-Lindqvist storage erased vessel diameter, hematocrit, and plasma viscosity dimensions | Length, Dimensionless, and DynamicViscosity remain typed through the calculator and direct cfd-1d/PyO3 adapters; scalar extraction is confined to empirical formulas, unit conversion, and serialization | Breaking change for external microvascular calculator constructors and consumers |
 | **Aequitas-owned solid material metrics** | 2026-07-29 | cfd-core solid-property contracts exposed density, modulus, conductivity, heat capacity, and expansion as raw scalars | MassDensity, Pressure, ThermalConductivity, SpecificHeatCapacity, and ReciprocalTemperature remain typed through `SolidProperties` and `ElasticSolid`; Poisson and derived ratios remain Dimensionless | Breaking change for external solid-property implementors and constructors |
 | **Aequitas-owned cfd-core larger-vessel blood metrics** | 2026-07-30 | Casson, Carreau-Yasuda, and Cross storage erased density, stress, viscosity, time, hematocrit, thermal, acoustic, and shear-rate dimensions | MassDensity, Pressure, DynamicViscosity, Dimensionless, Time, ReciprocalTime, SpecificHeatCapacity, ThermalConductivity, and Velocity remain typed through model storage and direct consumers; formula and serialization boundaries extract explicitly | Breaking change for external larger-vessel blood constructors and consumers |
+| **Aequitas-owned analytical Womersley metrics** | 2026-07-31 | The cfd-validation analytical Womersley configuration discarded fixed dimensions before reaching the canonical cfd-1d evaluator | Length, MassDensity, DynamicViscosity, ReciprocalTime, PressureGradient, Dimensionless, Velocity, Pressure, and VolumetricFlowRate remain typed through the validation boundary; Bessel/formula and mesh-coordinate boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -89,6 +90,34 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-31: Aequitas owns analytical Womersley metrics [major] [arch]
+
+Context: `cfd-validation::analytical::WomersleyFlow` stored radius, density,
+dynamic viscosity, angular frequency, and pressure-gradient amplitude as raw
+generic scalars even though the canonical cfd-1d evaluator already used typed
+quantities.
+
+Decision: carry the fixed-dimension configuration through Aequitas
+`Length`, `MassDensity`, `DynamicViscosity`, `ReciprocalTime`, and
+`PressureGradient`. Return typed dimensionless, velocity, length, pressure,
+and volumetric-flow metrics. Extract base scalars only at the Bessel/formula
+and mesh-coordinate boundaries.
+
+Rejected alternative: retain scalar fields, add parallel typed accessors, or
+introduce a validation-local wrapper. Each preserves dimensional ambiguity or
+duplicates the canonical provider boundary.
+
+Consequences: external analytical Womersley constructors and direct metric
+callers require explicit Aequitas values. The public contract remains
+real-valued under Eunomia `RealField`; complex Bessel/phasor intermediates are
+internal and do not require an imaginary-unit quantity.
+
+Verification: the typed public-field residue scan, targeted Rustfmt, and diff
+checks pass. The pinned cfd-validation test-target check is blocked before the
+crate by peer-dirty cfd-math `leto-ops` API errors at
+`linear_solver/block_preconditioner.rs:26-28,769`. See
+[`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
 
 ### 2026-07-30: Aequitas owns cfd-core ideal-gas metrics [major] [arch]
 

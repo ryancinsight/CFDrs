@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-validation` analytical Womersley
+  configuration and derived metrics with Aequitas `Length`, `MassDensity`,
+  `DynamicViscosity`, `ReciprocalTime`, `PressureGradient`, `Dimensionless`,
+  `Velocity`, `Pressure`, and `VolumetricFlowRate`. Scalar extraction remains
+  at the canonical Bessel/formula and mesh-coordinate boundaries. Eunomia
+  complex intermediates remain internal to the Womersley evaluator; no
+  imaginary-unit physical quantity is introduced. See
+  [`analytical-validation-metrics.md`](docs/atlas-migration/analytical-validation-metrics.md).
+
 - **Breaking**: Type cfd-core `IdealGas` model metrics with Aequitas
   `SpecificHeatCapacity`, `DynamicViscosity`, `ThermodynamicTemperature`,
   `TemperatureDifference`, `MassDensity`, `Pressure`,
