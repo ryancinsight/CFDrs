@@ -31,6 +31,21 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-37 [major] - Type Couette and Poiseuille analytical metrics
+  (IN-PROGRESS 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::{couette,poiseuille}`, direct analytical
+  validation tests, and synchronized audit/design/changelog artifacts).** The
+  current analytical-validation audit leaves Couette and Poiseuille public
+  configurations with raw velocity, length, pressure-gradient, and viscosity
+  fields. Carry fixed-dimension values and fixed-dimension derived metrics
+  through Aequitas; retain scalar extraction at analytical formula and mesh
+  boundaries. The runtime geometry-dependent plate flow-rate formula remains
+  explicit scalar formula data because its per-width output is not the same
+  dimension as pipe volumetric flow. Preserve Eunomia real-field execution;
+  no complex or imaginary-unit metric applies. Acceptance is a typed-field
+  residue scan, value-semantic Couette/Poiseuille regressions, focused
+  cfd-validation gates, and synchronized audit/design/changelog evidence.
+
 - **CFDRS-AEQ-MET-36 [major] - Type analytical Womersley metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::WomersleyFlow`, its direct tests, and

@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Couette and Poiseuille analytical metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-37` claims the next bounded analytical-validation slice:
+`cfd-validation::analytical::{couette,poiseuille}` still exposes fixed-
+dimension velocity, length, pressure-gradient, and viscosity fields as raw
+generic scalars. The slice will carry those values and fixed-dimension derived
+metrics through Aequitas, with extraction only at the analytical formula and
+mesh-coordinate boundaries.
+
+The plate form of Poiseuille flow returns flow per unit width (`m²/s`) while
+the pipe form returns volumetric flow (`m³/s`) under one runtime geometry enum.
+Because Aequitas currently names only the volumetric flow dimension, the
+per-width result remains explicit formula scalar data in this slice rather
+than being mislabeled as `VolumetricFlowRate`. This is a provider-dimension
+candidate, not a justification for a consumer alias or compatibility wrapper.
+
 ## Analytical validation metric audit (2026-07-31)
 
 The current public-surface scan found a separate Aequitas gap in
