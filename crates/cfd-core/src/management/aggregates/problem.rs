@@ -124,7 +124,7 @@ impl<T: RealField + Copy + FloatElement, D: Domain<T>> ProblemAggregate<T, D> {
         }
 
         // Check fluid properties
-        if self.fluid.density <= T::ZERO {
+        if self.fluid.density.into_base() <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));

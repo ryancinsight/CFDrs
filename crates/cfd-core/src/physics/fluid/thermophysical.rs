@@ -24,41 +24,6 @@ pub(super) fn thermal_diffusivity<T: RealField>(
         .map_err(|error| Error::InvalidInput(error.to_string()))
 }
 
-/// Evaluate the same thermophysical law for the raw-scalar `FluidProperties`
-/// compatibility boundary.
-pub(super) fn thermal_diffusivity_from_base<T: RealField>(
-    density: T,
-    specific_heat: T,
-    thermal_conductivity: T,
-) -> Result<T, Error> {
-    thermal_diffusivity(
-        MassDensity::from_base(density),
-        SpecificHeatCapacity::from_base(specific_heat),
-        ThermalConductivity::from_base(thermal_conductivity),
-    )
-    .map(|value| value.into_base())
-}
-
-/// Validate the thermophysical subset (density, specific heat, thermal conductivity)
-/// via the Proteus `FiniteNonNegative` property contract, without computing any
-/// derived quantity.
-///
-/// Returns `Ok(())` when all three quantities satisfy the Proteus constraint, or a
-/// descriptive `Error::InvalidInput` naming the violated property.
-pub(super) fn validate_thermophysical_subset<T: RealField>(
-    density: T,
-    specific_heat: T,
-    thermal_conductivity: T,
-) -> Result<(), Error> {
-    ThermophysicalProperties::try_from_quantities(
-        MassDensity::from_base(density),
-        SpecificHeatCapacity::from_base(specific_heat),
-        ThermalConductivity::from_base(thermal_conductivity),
-    )
-    .map(|_| ())
-    .map_err(|error| Error::InvalidInput(error.to_string()))
-}
-
 /// Evaluate a linearly temperature-dependent density through Proteus.
 ///
 /// The CFD thermal-expansion convention

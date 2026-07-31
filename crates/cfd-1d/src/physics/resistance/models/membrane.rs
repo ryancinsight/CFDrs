@@ -62,7 +62,7 @@
 //! - Truskey, G. A., Yuan, F., & Deen, D. F. (2010).
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use serde::{Deserialize, Serialize};

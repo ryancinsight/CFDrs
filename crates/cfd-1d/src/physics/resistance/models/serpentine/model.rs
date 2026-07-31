@@ -5,7 +5,7 @@
 //! and base friction factor computation.
 
 use super::traits::{
-    FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64, scalar_to_f64,
+    scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceModel, ResistanceScalar,
 };
 use super::{BendType, SerpentineCrossSection};
 use cfd_core::error::{Error, Result};
@@ -200,7 +200,11 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let area = scalar_from_f64::<T>(self.cross_section.area());
             let v_abs = if v >= T::zero() { v } else { -v };

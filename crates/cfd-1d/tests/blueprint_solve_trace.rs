@@ -7,10 +7,10 @@
 //! - Pressure drops across channels are consistent with their computed resistances.
 //! - Symmetric topologies produce symmetric flow distributions.
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::{
     domain::network::network_from_blueprint, Network, NetworkProblem, NetworkSolver, SolverConfig,
 };
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_core::physics::fluid::database::water_20c;
 use cfd_schematics::domain::model::{
     ChannelShape, ChannelSpec, CrossSectionSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId,

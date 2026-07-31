@@ -135,9 +135,8 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
                     pressures.get(from_idx.index()),
                     pressures.get(to_idx.index()),
                 ) {
-                    let pressure_drop = <T as NumericElement>::abs(
-                        p_from.into_base() - p_to.into_base(),
-                    );
+                    let pressure_drop =
+                        <T as NumericElement>::abs(p_from.into_base() - p_to.into_base());
                     total_power += pressure_drop * <T as NumericElement>::abs(flow_rate);
                 }
             }

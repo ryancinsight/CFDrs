@@ -83,7 +83,7 @@
 //! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor in turbulent pipe flow."
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -143,7 +143,11 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() { q } else { -q }
+            if q >= T::zero() {
+                q
+            } else {
+                -q
+            }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::zero() { v } else { -v };
             v_abs * self.area
@@ -444,6 +448,9 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
     use eunomia::assert_relative_eq;
 
@@ -460,7 +467,14 @@ mod tests {
     }
 
     fn water() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new("water".into(), 998.0, 1.002e-3, 4182.0, 0.598, 2.15e9)
+        ConstantPropertyFluid::new(
+            "water".into(),
+            MassDensity::from_base(998.0),
+            DynamicViscosity::from_base(1.002e-3),
+            SpecificHeatCapacity::from_base(4182.0),
+            ThermalConductivity::from_base(0.598),
+            Velocity::from_base(2.15e9),
+        )
     }
 
     #[test]

@@ -312,7 +312,14 @@ mod tests {
             },
         );
 
-        let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
+        let fluid = ConstantPropertyFluid::new(
+            "test".into(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(1e-3),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4180.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
+            aequitas::systems::si::quantities::Velocity::from_base(2.1e9),
+        );
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, Pressure::from_base(p_a));
         net.set_pressure(c, Pressure::from_base(p_c));
@@ -415,7 +422,14 @@ mod tests {
         graph.add_edge(b, c, mk_edge("BC", 3.0));
         graph.add_edge(c, d, mk_edge("CD", 4.0));
 
-        let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
+        let fluid = ConstantPropertyFluid::new(
+            "test".into(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(1e-3),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4180.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
+            aequitas::systems::si::quantities::Velocity::from_base(2.1e9),
+        );
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, Pressure::from_base(100.0));
         net.set_pressure(d, Pressure::from_base(0.0));

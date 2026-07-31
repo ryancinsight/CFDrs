@@ -1,5 +1,8 @@
 //! 2D and 1D Venturi solver `PyO3` wrappers.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
@@ -241,11 +244,11 @@ impl PyVenturiSolver1D {
 
         let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "blood".to_string(),
-            density,
-            mu,
-            3617.0,
-            0.52,
-            1570.0,
+            MassDensity::from_base(density),
+            DynamicViscosity::from_base(mu),
+            SpecificHeatCapacity::from_base(3617.0),
+            ThermalConductivity::from_base(0.52),
+            Velocity::from_base(1570.0),
         );
 
         let resistance = model

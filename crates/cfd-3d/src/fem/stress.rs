@@ -40,7 +40,7 @@
 //! - Yasuda, K. (1979). Investigation of the analogies between viscometric and
 //!   linear viscoelastic properties of polystyrene fluids. PhD thesis, MIT.
 
-use crate::linalg::{matrix3_scale, symmetric_part, Matrix3};
+use crate::linalg::{Matrix3, matrix3_scale, symmetric_part};
 use crate::scalar::Cfd3dScalar;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
@@ -83,7 +83,7 @@ pub fn stress_tensor_with_fluid<T: Cfd3dScalar>(
     pressure: T,
     strain_rate: &Matrix3<T>,
 ) -> Matrix3<T> {
-    stress_tensor(fluid.viscosity, pressure, strain_rate)
+    stress_tensor(fluid.viscosity.into_base(), pressure, strain_rate)
 }
 
 /// Calculate strain rate tensor from velocity gradient.
@@ -156,7 +156,7 @@ mod tests {
         let pressure = 50.0;
         let grad_u = Matrix3::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
         let eps = strain_rate_tensor(&grad_u);
-        let sigma_scalar = stress_tensor(fluid.viscosity, pressure, &eps);
+        let sigma_scalar = stress_tensor(fluid.viscosity.into_base(), pressure, &eps);
         let sigma_fluid = stress_tensor_with_fluid(&fluid, pressure, &eps);
 
         for i in 0..3 {

@@ -20,7 +20,10 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example venturi_parallel_analysis`
 
-use aequitas::systems::si::quantities::{Angle, Length, MassDensity, Pressure, Velocity};
+use aequitas::systems::si::quantities::{
+    Angle, DynamicViscosity, Length, MassDensity, Pressure, SpecificHeatCapacity,
+    ThermalConductivity, Velocity,
+};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator, VenturiModel};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
@@ -51,11 +54,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Water at 25 °C ───────────────────────────────────────────────────────
     let water = ConstantPropertyFluid::new(
         "Water".to_string(),
-        998.0,  // kg/m³
-        8.9e-4, // Pa·s
-        4182.0, // J/(kg·K)
-        0.598,  // W/(m·K)
-        1497.0, // m/s (speed of sound)
+        MassDensity::from_base(998.0),
+        DynamicViscosity::from_base(8.9e-4),
+        SpecificHeatCapacity::from_base(4182.0),
+        ThermalConductivity::from_base(0.598),
+        Velocity::from_base(1497.0),
     );
     let mu = 8.9e-4_f64;
     let rho = 998.0_f64;
@@ -247,7 +250,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let v_throat = venturi.throat_velocity().into_base();
             let p_throat = venturi.throat_pressure().into_base();
             let is_cav = venturi.is_cavitating();
-            let cavity_len = venturi.cavity_length(venturi.cavitation_number()).into_base();
+            let cavity_len = venturi
+                .cavity_length(venturi.cavitation_number())
+                .into_base();
 
             // Venturi-specific resistance via 1D model
             let venturi_model = VenturiModel::millifluidic(inlet_d, throat_d, length);

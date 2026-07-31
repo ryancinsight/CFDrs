@@ -98,7 +98,7 @@ fn test_series_resistance_addition() -> Result<()> {
     // Calculate Hagen-Poiseuille resistance for identical channels
     let length = 0.001; // 1mm
     let diameter: f64 = 100e-6; // 100μm
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     // Hagen-Poiseuille: R = 128μL/(πD⁴)
     let resistance = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4_i32));
@@ -185,7 +185,7 @@ fn test_parallel_conductance_addition() -> Result<()> {
     let length = 0.001;
     let d1: f64 = 100e-6; // Branch 1: 100μm
     let d2: f64 = 150e-6; // Branch 2: 150μm (larger, lower resistance)
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     let r1 = 128.0 * viscosity * length / (std::f64::consts::PI * d1.powi(4));
     let r2 = 128.0 * viscosity * length / (std::f64::consts::PI * d2.powi(4));
@@ -281,7 +281,7 @@ fn test_junction_mass_conservation() -> Result<()> {
     // Set up equal resistances for simplicity
     let length = 0.001;
     let diameter: f64 = 100e-6;
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
     let resistance = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4_i32));
 
     // Set resistance on all edges
@@ -349,7 +349,7 @@ fn test_solver_convergence_simple() -> Result<()> {
     // Add edge properties
     let length = 0.01; // 1cm
     let diameter: f64 = 1e-3; // 1mm
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
     let resistance = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4_i32));
 
     // Set resistance on edge
@@ -414,7 +414,7 @@ fn test_reynolds_number_laminar_regime() -> Result<()> {
     let length = 0.01; // 10mm length
     let diameter = 200e-6; // 200μm diameter (smaller for lower Re)
     let area = std::f64::consts::PI * (diameter / 2.0_f64).powi(2);
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
     let resistance = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4_i32));
 
     // Set resistance on edge
@@ -440,7 +440,7 @@ fn test_reynolds_number_laminar_regime() -> Result<()> {
     assert!(!flows.is_empty(), "Should have flow rates");
     let q = flows[0].abs();
     let velocity = q / area;
-    let re = fluid.density * velocity * diameter / viscosity;
+    let re = fluid.density.into_base() * velocity * diameter / viscosity;
 
     // Should be in laminar regime
     assert!(
@@ -479,7 +479,7 @@ fn test_pressure_flow_linearity() -> Result<()> {
     let length = 0.01;
     let diameter: f64 = 1e-3;
     let _area = std::f64::consts::PI * (diameter / 2.0_f64).powi(2);
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
     let resistance = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4_i32));
 
     // Set resistance on edge

@@ -36,7 +36,7 @@ fn test_circular_channel_resistance_analytical() -> Result<()> {
 
     // Get fluid properties
     let fluid = fluid::database::water_20c::<f64>()?;
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     // Calculate resistance
     let resistance = channel.resistance(&fluid);
@@ -332,7 +332,7 @@ fn test_capillary_number_microfluidics() -> Result<()> {
     let surface_tension: f64 = 0.072; // N/m (water-air interface)
 
     // Calculate capillary number: Ca = μV/σ
-    let ca = fluid.viscosity * velocity / surface_tension;
+    let ca = fluid.viscosity.into_base() * velocity / surface_tension;
 
     // For microfluidics, Ca typically in range 10^-6 to 10^-1
     assert!(ca > 1e-6 && ca < 1e-1, "Ca should be in microfluidic range");
@@ -357,7 +357,7 @@ fn test_bond_number_microfluidics() -> Result<()> {
     let g: f64 = 9.81; // m/s²
 
     // Bond number: Bo = ρgL²/σ (for water-air)
-    let bo = fluid.density * g * length_scale.powi(2) / surface_tension;
+    let bo = fluid.density.into_base() * g * length_scale.powi(2) / surface_tension;
 
     // For microfluidics, Bo << 1 (surface tension dominates gravity)
     assert!(bo < 1.0, "Bo should be << 1 for microfluidics");

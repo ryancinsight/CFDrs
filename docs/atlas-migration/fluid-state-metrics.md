@@ -27,9 +27,11 @@ FEM/GPU adapters, and explicit serialization. The cfd-1d and cfd-3d callers
 convert at those boundaries with `into_base()`; they do not reconstruct raw
 physical values beside the typed contracts.
 
-The older `ConstantPropertyFluid` storage and `FluidProperties` constructor
-family remain a separate raw-scalar compatibility boundary. They are not
-represented as closed by this `FluidState` increment.
+`ConstantPropertyFluid`, `FluidProperties`, and `PropertyBounds` now preserve
+their shared physical values as Aequitas quantities as well. The remaining
+raw fields in `IdealGas`, temperature-dependent, non-Newtonian, and blood
+models are constitutive coefficients consumed by their formula implementations;
+they remain a separate model-parameter migration boundary.
 
 ## Eunomia compatibility
 
@@ -50,7 +52,8 @@ remain field-derived values.
 
 ## Verification
 
-The closure is tracked by `CFDRS-AEQ-MET-29` in `backlog.md` and
+The FluidState closure is tracked by `CFDRS-AEQ-MET-29` and the shared-property
+closure by `CFDRS-AEQ-MET-30` in `backlog.md` and
 `gap_audit.md`. The exact acceptance gates are the cfd-core test-target check,
 cfd-core Nextest, cfd-core doctests, warning-denied cfd-core and cfd-2d
 Clippy, the cfd-2d Nextest suite, and dependent cfd-1d/cfd-3d/

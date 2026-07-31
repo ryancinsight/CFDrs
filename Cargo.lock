@@ -428,6 +428,8 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "anyhow",
+ "athena-core",
+ "athena-leto",
  "cfd-core",
  "cfd-math",
  "cfd-schematics",
@@ -662,6 +664,7 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
+ "cfd-schematic-mesh",
  "cfd-schematics",
  "chrono",
  "criterion",
@@ -1598,7 +1601,6 @@ dependencies = [
 name = "hephaestus-wgpu"
 version = "0.18.0"
 dependencies = [
- "aequitas",
  "bytemuck",
  "eunomia",
  "hephaestus-core",
@@ -4259,6 +4261,18 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "consus-npy"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-onnx"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-zarr"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "ritk-core"
 version = "0.9.0"
 
@@ -4275,20 +4289,12 @@ name = "ritk-registration"
 version = "0.53.0"
 
 [[patch.unused]]
-name = "consus-npy"
+name = "horae"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "moirai-http"
-version = "0.4.0"
+name = "hephaestus-cuda"
+version = "0.18.0"
 
 [[patch.unused]]
 name = "asclepius"
@@ -4299,17 +4305,5 @@ name = "asclepius-coeus"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "hephaestus-cuda"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "hephaestus-metal"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "hephaestus-rocm"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "horae"
-version = "0.1.0"
+name = "moirai-http"
+version = "0.4.0"

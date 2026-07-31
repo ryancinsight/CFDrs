@@ -9,14 +9,33 @@
 //! 2. **Stokes Flow**: Validates pressure-driven flow in a channel
 //! 3. **Divergence-Free Constraint**: Verifies mass conservation
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_3d::fem::{FemConfig, ProjectionSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
-use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
+
+fn constant_fluid(
+    name: &str,
+    density: f64,
+    viscosity: f64,
+    speed_of_sound: f64,
+) -> ConstantPropertyFluid<f64> {
+    ConstantPropertyFluid::new(
+        name.to_string(),
+        MassDensity::from_base(density),
+        DynamicViscosity::from_base(viscosity),
+        SpecificHeatCapacity::from_base(4186.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(speed_of_sound),
+    )
+}
 
 /// Create a simple tetrahedral mesh for a unit cube using structured grid builder
 fn create_cube_mesh(nx: usize, ny: usize, nz: usize) -> IndexedMesh<f64> {
@@ -48,14 +67,7 @@ fn test_stokes_flow_unit_cube() {
     );
 
     // Fluid properties (water-like)
-    let fluid = ConstantPropertyFluid::new(
-        "Water".to_string(),
-        1000.0, // density kg/m³
-        0.001,  // viscosity Pa·s
-        4186.0, // specific heat J/(kg·K)
-        0.6,    // thermal conductivity W/(m·K)
-        1500.0, // speed of sound m/s
-    );
+    let fluid = constant_fluid("Water", 1000.0, 0.001, 1500.0);
 
     // Boundary conditions: lid-driven cavity style
     // Top face (z = 1): u = (0.001, 0, 0) - slow moving lid
@@ -146,14 +158,7 @@ fn test_pressure_driven_channel_flow() {
     );
 
     // Fluid properties (water-like, low Re)
-    let fluid = ConstantPropertyFluid::new(
-        "Water".to_string(),
-        1000.0, // density kg/m³
-        0.001,  // viscosity Pa·s
-        4186.0, // specific heat J/(kg·K)
-        0.6,    // thermal conductivity W/(m·K)
-        1500.0, // speed of sound m/s
-    );
+    let fluid = constant_fluid("Water", 1000.0, 0.001, 1500.0);
 
     // Boundary conditions
     // Inlet (x = 0): u = (u_in, 0, 0)
@@ -245,7 +250,7 @@ fn test_divergence_free_constraint() {
     let mesh = create_cube_mesh(4, 4, 4);
 
     // Fluid properties
-    let fluid = ConstantPropertyFluid::new("Water".to_string(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
+    let fluid = constant_fluid("Water", 1000.0, 0.001, 1500.0);
 
     // Simple boundary conditions - all walls
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
@@ -310,7 +315,7 @@ fn test_divergence_free_constraint() {
 fn test_mass_conservation() {
     let mesh = create_cube_mesh(4, 3, 3);
 
-    let fluid = ConstantPropertyFluid::new("Water".to_string(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
+    let fluid = constant_fluid("Water", 1000.0, 0.001, 1500.0);
 
     let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
 

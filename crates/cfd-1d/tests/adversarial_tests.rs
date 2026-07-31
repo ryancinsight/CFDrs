@@ -168,7 +168,7 @@ fn test_nan_resistance_does_not_panic() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.1_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
 
     let mut builder = NetworkBuilder::new();
     let n1 = builder.add_inlet("n1".into());
@@ -276,7 +276,7 @@ fn test_two_dirichlet_nodes_solve_correctly() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.1_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
 
     let mut builder = NetworkBuilder::new();
     let n1 = builder.add_inlet("in".into());
@@ -382,14 +382,17 @@ fn test_circular_channel_high_roughness_finite() {
 /// Near-inviscid fluid (μ → 0) must keep resistance ≥ 0 and finite.
 #[test]
 fn test_near_inviscid_fluid_resistance_near_zero() {
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     let inviscid = ConstantPropertyFluid::new(
         "near_inviscid".to_string(),
-        1000.0_f64, // density
-        1e-15_f64,  // viscosity ≈ 0
-        0.0_f64,    // specific_heat
-        0.0_f64,    // thermal_conductivity
-        1500.0_f64, // speed_of_sound
+        MassDensity::from_base(1000.0_f64),
+        DynamicViscosity::from_base(1e-15_f64),
+        SpecificHeatCapacity::from_base(0.0_f64),
+        ThermalConductivity::from_base(0.0_f64),
+        Velocity::from_base(1500.0_f64),
     );
     let chan = circular_channel(0.1, 1e-3, 0.0);
     let r = chan.resistance(&inviscid);

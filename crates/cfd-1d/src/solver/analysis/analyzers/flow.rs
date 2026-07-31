@@ -47,10 +47,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
         for edge in network.edges_with_properties() {
             let flow_rate = edge.flow_rate.into_base();
             if flow_rate != T::zero() {
-                analysis.add_component_flow(
-                    edge.id.clone(),
-                    VolumetricFlowRate::from_base(flow_rate),
-                );
+                analysis
+                    .add_component_flow(edge.id.clone(), VolumetricFlowRate::from_base(flow_rate));
 
                 let area = edge.properties.area.into_base();
                 let velocity = flow_rate / area;
@@ -65,25 +63,21 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
                     |diameter| diameter.into_base(),
                 );
 
-                let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
-                    / network.fluid().viscosity;
-                analysis.add_reynolds_number(
-                    edge.id.clone(),
-                    Dimensionless::from_base(reynolds),
-                );
+                let reynolds =
+                    network.fluid().density.into_base() * velocity_mag * hydraulic_diameter
+                        / network.fluid().viscosity.into_base();
+                analysis.add_reynolds_number(edge.id.clone(), Dimensionless::from_base(reynolds));
 
                 if hydraulic_diameter > T::zero() {
                     let eight = T::from_f64_or_one(8.0);
                     let shear_rate = eight * velocity_mag / hydraulic_diameter;
-                    let shear_stress = network.fluid().viscosity * shear_rate;
+                    let shear_stress = network.fluid().viscosity.into_base() * shear_rate;
                     analysis.add_wall_shear_rate(
                         edge.id.clone(),
                         ReciprocalTime::from_base(shear_rate),
                     );
-                    analysis.add_wall_shear_stress(
-                        edge.id.clone(),
-                        Pressure::from_base(shear_stress),
-                    );
+                    analysis
+                        .add_wall_shear_stress(edge.id.clone(), Pressure::from_base(shear_stress));
                 }
 
                 // Determine flow regime
@@ -125,8 +119,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
         );
 
         let velocity = flow_rate / area;
-        let reynolds = fluid.density * <T as NumericElement>::abs(velocity) * hydraulic_diameter
-            / fluid.viscosity;
+        let reynolds =
+            fluid.density.into_base() * <T as NumericElement>::abs(velocity) * hydraulic_diameter
+                / fluid.viscosity.into_base();
 
         FlowRegime::from_reynolds_number(reynolds)
     }

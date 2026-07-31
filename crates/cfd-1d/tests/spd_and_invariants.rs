@@ -2,15 +2,15 @@ use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::{
+    Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
-    EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use cfd_1d::solver::core::{LinearSolverMethod, NetworkProblem, NetworkSolver};
 use cfd_1d::{
+    blood_microchannel_apparent_viscosity, durst_resistance_multiplier, pries_phase_separation,
     ChannelGeometry, CrossSection, FlowConditions, ResistanceCalculator, ResistanceChannelGeometry,
-    SurfaceProperties, Wettability, blood_microchannel_apparent_viscosity,
-    durst_resistance_multiplier, pries_phase_separation,
+    SurfaceProperties, Wettability,
 };
 use cfd_core::compute::solver::Solver;
 use cfd_core::conversion::SafeFromF64;

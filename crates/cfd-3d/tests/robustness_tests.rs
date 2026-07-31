@@ -161,10 +161,20 @@ fn test_strain_rate_zero_for_rigid_rotation() {
 /// Theorem: tr(σ) = −3p for incompressible Newtonian flow.
 #[test]
 fn test_stress_trace_is_neg_3p() {
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_3d::fem::stress::{strain_rate_tensor, stress_tensor_with_fluid};
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
-    let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
+    let fluid = ConstantPropertyFluid::new(
+        "test".into(),
+        MassDensity::from_base(1000.0),
+        DynamicViscosity::from_base(0.001),
+        SpecificHeatCapacity::from_base(4186.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(1500.0),
+    );
 
     // Divergence-free velocity gradient: tr(∇u) = 0.
     let grad_u = Matrix3::from_rows([[1.0, 0.5, 0.0], [0.5, -2.0, 0.3], [0.0, 0.3, 1.0]]);

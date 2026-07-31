@@ -103,13 +103,15 @@ mod tests {
 
     #[test]
     fn with_hemolysis_limits_overrides_defaults() {
-        let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood()
-            .with_hemolysis_limits(
-                Some(Dimensionless::from_base(1e-4)),
-                Some(Dimensionless::from_base(5e-4)),
-            );
+        let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood().with_hemolysis_limits(
+            Some(Dimensionless::from_base(1e-4)),
+            Some(Dimensionless::from_base(5e-4)),
+        );
 
-        assert_eq!(limits.max_giersiepen_hi, Some(Dimensionless::from_base(1e-4)));
+        assert_eq!(
+            limits.max_giersiepen_hi,
+            Some(Dimensionless::from_base(1e-4))
+        );
         assert_eq!(limits.max_taskin_hi, Some(Dimensionless::from_base(5e-4)));
     }
 }

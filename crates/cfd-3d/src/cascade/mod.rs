@@ -546,14 +546,22 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             .properties_at(310.0, 0.0)
             .map_err(|e| Error::Solver(e.to_string()))?;
         let base_viscosity = fluid_props.dynamic_viscosity.into_base() * hct_viscosity_factor;
-        let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid {
-            name: "cascade_channel".to_string(),
-            density: fluid_props.density.into_base(),
-            viscosity: base_viscosity,
-            specific_heat: fluid_props.specific_heat.into_base(),
-            thermal_conductivity: fluid_props.thermal_conductivity.into_base(),
-            speed_of_sound: fluid_props.speed_of_sound.into_base(),
-        };
+        let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
+            "cascade_channel".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(
+                fluid_props.density.into_base(),
+            ),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(base_viscosity),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(
+                fluid_props.specific_heat.into_base(),
+            ),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(
+                fluid_props.thermal_conductivity.into_base(),
+            ),
+            aequitas::systems::si::quantities::Velocity::from_base(
+                fluid_props.speed_of_sound.into_base(),
+            ),
+        );
 
         let n_corner_nodes = mesh.vertex_count();
         let n_elements = mesh.cell_count();
@@ -592,8 +600,9 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 let mu_base = self
                     .fluid
                     .viscosity_at_shear(gamma_dot, 310.0, 0.0)
-                    .map(|value| value.into_base())
-                    .unwrap_or(fluid_props.dynamic_viscosity.into_base());
+                    .map_or(fluid_props.dynamic_viscosity.into_base(), |value| {
+                        value.into_base()
+                    });
                 let mu = mu_base * hct_viscosity_factor;
                 let change = (mu - old_viscosities[i]).abs() / old_viscosities[i].max(1e-15);
                 if change > max_change {
@@ -892,14 +901,14 @@ mod tests {
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
     fn water_fluid() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid {
-            name: "water".to_string(),
-            density: 1000.0,
-            viscosity: 1e-3,
-            specific_heat: 4186.0,
-            thermal_conductivity: 0.6,
-            speed_of_sound: 1500.0,
-        }
+        ConstantPropertyFluid::new(
+            "water".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(1e-3),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
+            aequitas::systems::si::quantities::Velocity::from_base(1500.0),
+        )
     }
 
     fn simple_channel(id: &str) -> CascadeChannelSpec {

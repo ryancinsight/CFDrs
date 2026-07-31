@@ -18,15 +18,15 @@ impl FluidDynamicsService {
         velocity: T,
         characteristic_length: T,
     ) -> T {
-        let kinematic_viscosity = fluid.viscosity / fluid.density;
+        let kinematic_viscosity = fluid.viscosity.into_base() / fluid.density.into_base();
         velocity * characteristic_length / kinematic_viscosity
     }
 
     /// Calculate Prandtl number for constant property fluid
     pub fn prandtl_number<T: RealField + Copy>(fluid: &ConstantPropertyFluid<T>) -> T {
-        let cp = fluid.specific_heat;
-        let k = fluid.thermal_conductivity;
-        let mu = fluid.viscosity;
+        let cp = fluid.specific_heat.into_base();
+        let k = fluid.thermal_conductivity.into_base();
+        let mu = fluid.viscosity.into_base();
         mu * cp / k
     }
 
@@ -48,7 +48,10 @@ impl FluidDynamicsService {
 
         let two = <T as NumericElement>::ONE + <T as NumericElement>::ONE;
 
-        Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
+        Ok(
+            friction_factor * length * fluid.density.into_base() * velocity * velocity
+                / (two * diameter),
+        )
     }
 
     /// Calculate friction factor using appropriate correlation
@@ -165,11 +168,15 @@ mod tests {
         // Setup fluid properties (water-like)
         let fluid = ConstantPropertyFluid {
             name: "Water".to_string(),
-            density: 1000.0,
-            viscosity: 0.001,
-            specific_heat: 4182.0,
-            thermal_conductivity: 0.6,
-            speed_of_sound: 1482.0,
+            density: aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            viscosity: aequitas::systems::si::quantities::DynamicViscosity::from_base(0.001),
+            specific_heat: aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(
+                4182.0,
+            ),
+            thermal_conductivity: aequitas::systems::si::quantities::ThermalConductivity::from_base(
+                0.6,
+            ),
+            speed_of_sound: aequitas::systems::si::quantities::Velocity::from_base(1482.0),
         };
 
         // Pipe parameters
@@ -191,7 +198,7 @@ mod tests {
         // Back-calculate friction factor
         // dp = f * (L/D) * (rho * v^2 / 2)
         // f = dp * D * 2 / (L * rho * v^2)
-        let dynamic_pressure = 0.5 * fluid.density * velocity * velocity;
+        let dynamic_pressure = 0.5 * fluid.density.into_base() * velocity * velocity;
         let f_calc = delta_p * diameter / (length * dynamic_pressure);
 
         println!("Calculated Friction Factor: {f_calc}");

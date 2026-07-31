@@ -3,11 +3,11 @@
 //! Tests verify the correctness of accumulation invariants, series/parallel
 //! resistance laws, flow rate aggregation, and blood shear safety limits.
 
-use cfd_1d::solver::analysis::{
-    BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
-};
 use aequitas::systems::si::quantities::{
     HydraulicResistance, Pressure, ReciprocalTime, Time, VolumetricFlowRate,
+};
+use cfd_1d::solver::analysis::{
+    BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
 };
 use eunomia::assert_relative_eq;
 use std::collections::HashMap;
@@ -35,7 +35,11 @@ fn test_pressure_range_equals_max_minus_min() {
     analysis.add_pressure("a".into(), Pressure::from_base(500.0));
     analysis.add_pressure("b".into(), Pressure::from_base(200.0));
 
-    assert_relative_eq!(analysis.pressure_range().into_base(), 300.0, epsilon = 1e-12);
+    assert_relative_eq!(
+        analysis.pressure_range().into_base(),
+        300.0,
+        epsilon = 1e-12
+    );
 }
 
 /// Empty pressure analysis: range must return 0.
@@ -53,7 +57,11 @@ fn test_pressure_average_correct() {
     analysis.add_pressure("b".into(), Pressure::from_base(200.0));
     analysis.add_pressure("c".into(), Pressure::from_base(300.0));
 
-    assert_relative_eq!(analysis.average_pressure().into_base(), 200.0, epsilon = 1e-10);
+    assert_relative_eq!(
+        analysis.average_pressure().into_base(),
+        200.0,
+        epsilon = 1e-10
+    );
 }
 
 // ============================================================================
@@ -88,7 +96,10 @@ fn test_resistance_parallel_less_than_min() {
     let min_r = 100.0_f64;
 
     assert_relative_eq!(parallel.into_base(), expected, max_relative = 1e-10);
-    assert!(parallel.into_base() <= min_r, "R_parallel must be ≤ min(R_i)");
+    assert!(
+        parallel.into_base() <= min_r,
+        "R_parallel must be ≤ min(R_i)"
+    );
 }
 
 /// Series/Parallel duality bound: R_parallel ≤ min ≤ max ≤ R_series.
@@ -110,7 +121,10 @@ fn test_resistance_duality_bound() {
         r_par.into_base(),
         r_min.into_base()
     );
-    assert!(r_min.into_base() <= r_max.into_base(), "min(R_i) must be ≤ max(R_i)");
+    assert!(
+        r_min.into_base() <= r_max.into_base(),
+        "min(R_i) must be ≤ max(R_i)"
+    );
     assert!(
         r_max.into_base() <= r_ser.into_base(),
         "max(R_i) ({:?}) must be ≤ R_series ({:?})",
@@ -139,7 +153,11 @@ fn test_flow_average_correct() {
     analysis.add_component_flow("c1".into(), VolumetricFlowRate::from_base(1e-9_f64));
     analysis.add_component_flow("c2".into(), VolumetricFlowRate::from_base(3e-9_f64));
 
-    assert_relative_eq!(analysis.average_flow_rate().into_base(), 2e-9_f64, epsilon = 1e-21);
+    assert_relative_eq!(
+        analysis.average_flow_rate().into_base(),
+        2e-9_f64,
+        epsilon = 1e-21
+    );
 }
 
 /// `flag_fda_shear_limit_violations` must flag components exceeding stress limit.
@@ -207,11 +225,14 @@ fn test_blood_damage_violation_respects_residence_time() {
     let mut analysis = FlowAnalysis::<f64>::new();
     analysis.add_wall_shear_stress("edge_damage".into(), Pressure::from_base(180.0_f64));
 
-    let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood()
-        .with_hemolysis_limits(
-            Some(aequitas::systems::si::quantities::Dimensionless::from_base(1e-3)),
-            Some(aequitas::systems::si::quantities::Dimensionless::from_base(5e-3)),
-        );
+    let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood().with_hemolysis_limits(
+        Some(aequitas::systems::si::quantities::Dimensionless::from_base(
+            1e-3,
+        )),
+        Some(aequitas::systems::si::quantities::Dimensionless::from_base(
+            5e-3,
+        )),
+    );
     let residence_times = HashMap::from([("edge_damage".to_string(), Time::from_base(0.5_f64))]);
 
     let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);

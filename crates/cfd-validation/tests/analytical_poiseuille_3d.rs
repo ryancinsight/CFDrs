@@ -13,6 +13,9 @@
 //! The numerical FEM error geometrically converges as $\mathcal{O}(h^2)$ for
 //! piecewise-linear P1 elements.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -126,14 +129,14 @@ fn test_3d_poiseuille_stokes_flow() {
     }
 
     // 3. Fluid Properties
-    let fluid = ConstantPropertyFluid {
-        name: "test_fluid".to_string(),
-        density: 1000.0,
-        viscosity: 1.0e-3,
-        specific_heat: 4182.0,
-        thermal_conductivity: 0.6,
-        speed_of_sound: 1500.0,
-    };
+    let fluid = ConstantPropertyFluid::new(
+        "test_fluid".to_string(),
+        MassDensity::from_base(1000.0),
+        DynamicViscosity::from_base(1.0e-3),
+        SpecificHeatCapacity::from_base(4182.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(1500.0),
+    );
 
     // 4. Solve Stokes Flow
     let problem =

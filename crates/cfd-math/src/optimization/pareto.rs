@@ -175,8 +175,7 @@ where
         }
 
         for k in 1..(n - 1) {
-            let delta =
-                front[order[k + 1]][obj_idx] - front[order[k - 1]][obj_idx];
+            let delta = front[order[k + 1]][obj_idx] - front[order[k - 1]][obj_idx];
             dist[order[k]] = dist[order[k]] + delta / range;
         }
     }
@@ -245,13 +244,11 @@ mod tests {
     #[test]
     fn pareto_front_is_generic_over_scalar() {
         let candidates_f32 = [[0.5_f32, 0.5], [0.3_f32, 0.3]];
-        let front_f32 =
-            pareto_front(&candidates_f32, &[ObjectiveSense::Maximize; 2]);
+        let front_f32 = pareto_front(&candidates_f32, &[ObjectiveSense::Maximize; 2]);
         assert_eq!(front_f32, vec![0]);
 
         let candidates_f64 = [[0.5_f64, 0.5], [0.3_f64, 0.3]];
-        let front_f64 =
-            pareto_front(&candidates_f64, &[ObjectiveSense::Maximize; 2]);
+        let front_f64 = pareto_front(&candidates_f64, &[ObjectiveSense::Maximize; 2]);
         assert_eq!(front_f64, vec![0]);
     }
 

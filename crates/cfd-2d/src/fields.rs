@@ -294,9 +294,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
     /// Create fields with specified fluid properties
     pub fn with_fluid(nx: usize, ny: usize, fluid: &ConstantPropertyFluid<T>) -> Self {
         let mut fields = Self::new(nx, ny);
-        fields.density.map_inplace(|d| *d = fluid.density);
+        fields
+            .density
+            .map_inplace(|d| *d = fluid.density.into_base());
         // For initialization, use the fluid's dynamic viscosity
-        fields.viscosity.map_inplace(|v| *v = fluid.viscosity);
+        fields
+            .viscosity
+            .map_inplace(|v| *v = fluid.viscosity.into_base());
         fields
     }
 

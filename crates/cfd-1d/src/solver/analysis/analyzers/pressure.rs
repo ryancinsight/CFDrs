@@ -43,10 +43,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
         let pressures = network.pressures();
         for (idx, node) in network.nodes().enumerate() {
             if let Some(&pressure) = pressures.get(idx) {
-                analysis.add_pressure(
-                    node.id.clone(),
-                    Pressure::from_base(pressure.into_base()),
-                );
+                analysis.add_pressure(node.id.clone(), Pressure::from_base(pressure.into_base()));
             }
         }
 

@@ -6,7 +6,7 @@ fn test_schematics2mesh_stl_output() {
     use cfd_mesh::infrastructure::io::stl::write_stl_binary;
     use cfd_schematic_mesh::scheme_io;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-    use cfd_schematics::geometry::{SplitType, generator::create_geometry};
+    use cfd_schematics::geometry::{generator::create_geometry, SplitType};
     use std::fs::File;
     use std::path::PathBuf;
 

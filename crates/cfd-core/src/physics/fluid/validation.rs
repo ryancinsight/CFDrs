@@ -4,44 +4,55 @@
 
 use super::FluidProperties;
 use crate::error::Error;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
+};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 
 /// Physical bounds for fluid properties
-pub struct PropertyBounds<T: RealField + Copy> {
+pub struct PropertyBounds<T> {
     /// Minimum density [kg/m³]
-    pub density_min: T,
+    pub density_min: MassDensity<T>,
     /// Maximum density [kg/m³]
-    pub density_max: T,
+    pub density_max: MassDensity<T>,
     /// Minimum viscosity [Pa·s]
-    pub viscosity_min: T,
+    pub viscosity_min: DynamicViscosity<T>,
     /// Maximum viscosity [Pa·s]
-    pub viscosity_max: T,
+    pub viscosity_max: DynamicViscosity<T>,
     /// Minimum specific heat [J/(kg·K)]
-    pub specific_heat_min: T,
+    pub specific_heat_min: SpecificHeatCapacity<T>,
     /// Maximum specific heat [J/(kg·K)]
-    pub specific_heat_max: T,
+    pub specific_heat_max: SpecificHeatCapacity<T>,
     /// Minimum thermal conductivity [W/(m·K)]
-    pub thermal_conductivity_min: T,
+    pub thermal_conductivity_min: ThermalConductivity<T>,
     /// Maximum thermal conductivity [W/(m·K)]
-    pub thermal_conductivity_max: T,
+    pub thermal_conductivity_max: ThermalConductivity<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> Default for PropertyBounds<T> {
     fn default() -> Self {
         Self {
             // Covers gases to heavy liquids
-            density_min: <T as FloatElement>::from_f64(0.01),
-            density_max: <T as FloatElement>::from_f64(20000.0),
+            density_min: MassDensity::from_base(<T as FloatElement>::from_f64(0.01)),
+            density_max: MassDensity::from_base(<T as FloatElement>::from_f64(20000.0)),
             // From superfluid helium to highly viscous materials
-            viscosity_min: <T as FloatElement>::from_f64(1e-7),
-            viscosity_max: <T as FloatElement>::from_f64(1e6),
+            viscosity_min: DynamicViscosity::from_base(<T as FloatElement>::from_f64(1e-7)),
+            viscosity_max: DynamicViscosity::from_base(<T as FloatElement>::from_f64(1e6)),
             // Reasonable range for most fluids
-            specific_heat_min: <T as FloatElement>::from_f64(100.0),
-            specific_heat_max: <T as FloatElement>::from_f64(10000.0),
+            specific_heat_min: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                100.0,
+            )),
+            specific_heat_max: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                10000.0,
+            )),
             // From insulators to liquid metals
-            thermal_conductivity_min: <T as FloatElement>::from_f64(0.001),
-            thermal_conductivity_max: <T as FloatElement>::from_f64(1000.0),
+            thermal_conductivity_min: ThermalConductivity::from_base(
+                <T as FloatElement>::from_f64(0.001),
+            ),
+            thermal_conductivity_max: ThermalConductivity::from_base(
+                <T as FloatElement>::from_f64(1000.0),
+            ),
         }
     }
 }
@@ -203,17 +214,19 @@ mod tests {
 
         // Valid properties (water-like)
         let valid = FluidProperties::new(
-            1000.0, // density
-            0.001,  // viscosity
-            4186.0, // specific heat
-            0.6,    // thermal conductivity
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(0.001),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.6),
         );
         assert!(validate_properties(&valid, &bounds).is_ok());
 
         // Invalid density
         let invalid_density = FluidProperties::new(
-            -100.0, // negative density
-            0.001, 4186.0, 0.6,
+            MassDensity::from_base(-100.0),
+            DynamicViscosity::from_base(0.001),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.6),
         );
         assert!(validate_properties(&invalid_density, &bounds).is_err());
     }

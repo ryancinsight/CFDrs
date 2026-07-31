@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use crate::scalar::Cfd2dScalar;
-use aequitas::systems::si::quantities::Pressure;
-use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_1d::BoundaryCondition;
+use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{
     NetworkProblem, NetworkSolver, PrimarySolveDiagnostics, SolvePathStatus, SolverConfig,
 };
@@ -314,13 +316,11 @@ where
             })
             .collect::<Vec<_>>()
             .join("; ");
-        return Err(Error::InvalidInput(
-            format!(
-                "Network2DSolver reference trace produced zero inlet flow from the cfd-1d solve (normalized_inlet_flow={normalized_inlet_flow_f64:.3e}, normalized_outlet_flow={:.3e}, edge_resistance_range=[{min_edge_resistance:.3e}, {max_edge_resistance:.3e}], boundary_nodes=[{}])",
-                to_f64(normalized_outlet_flow).abs(),
-                boundary_summary
-            ),
-        ));
+        return Err(Error::InvalidInput(format!(
+            "Network2DSolver reference trace produced zero inlet flow from the cfd-1d solve (normalized_inlet_flow={normalized_inlet_flow_f64:.3e}, normalized_outlet_flow={:.3e}, edge_resistance_range=[{min_edge_resistance:.3e}, {max_edge_resistance:.3e}], boundary_nodes=[{}])",
+            to_f64(normalized_outlet_flow).abs(),
+            boundary_summary
+        )));
     }
 
     let scale_factor =
@@ -406,11 +406,11 @@ where
 {
     let fluid = ConstantPropertyFluid::new(
         "Blood reference fluid".to_string(),
-        <T as FloatElement>::from_f64(density_kg_m3),
-        <T as FloatElement>::from_f64(viscosity_pa_s),
-        <T as FloatElement>::from_f64(3617.0),
-        <T as FloatElement>::from_f64(0.52),
-        <T as FloatElement>::from_f64(1570.0),
+        MassDensity::from_base(<T as FloatElement>::from_f64(density_kg_m3)),
+        DynamicViscosity::from_base(<T as FloatElement>::from_f64(viscosity_pa_s)),
+        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(3617.0)),
+        ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.52)),
+        Velocity::from_base(<T as FloatElement>::from_f64(1570.0)),
     );
     fluid.validate()?;
     Ok(fluid)

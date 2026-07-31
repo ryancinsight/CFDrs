@@ -263,7 +263,7 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
     for state in &states {
         let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
-        let re = fluid.density * velocity * diameter / fluid.viscosity;
+        let re = fluid.density.into_base() * velocity * diameter / fluid.viscosity.into_base();
         assert!(re < 2300.0, "Re={} should remain laminar", re);
         assert!(re < 100.0, "Re={} should remain microfluidic-low", re);
     }
@@ -313,7 +313,7 @@ fn flow_event_validation_operates_in_laminar_reynolds_range() {
     for state in &states {
         let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
-        let re = fluid.density * velocity * diameter / fluid.viscosity;
+        let re = fluid.density.into_base() * velocity * diameter / fluid.viscosity.into_base();
         assert!(re < 2300.0, "Re={} should remain laminar", re);
         assert!(re < 100.0, "Re={} should remain microfluidic-low", re);
     }

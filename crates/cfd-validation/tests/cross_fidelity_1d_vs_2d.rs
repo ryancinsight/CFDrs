@@ -627,7 +627,9 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
 /// Zweifach-Fung approximation against the 2D inertial-lift physics.
 #[test]
 fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
-    use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity, VolumetricFlowRate};
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, Length, MassDensity, Time, Velocity, VolumetricFlowRate,
+    };
     use cfd_1d::cascade_junction_separation;
     use cfd_2d::solvers::cell_tracking::{
         AsymmetricBifurcationFlow, CellPopulation, CellTracker, CellTrackerConfig, OutletZone,

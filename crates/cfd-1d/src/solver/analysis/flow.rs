@@ -96,9 +96,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
                 .values()
                 .map(|flow| flow.into_base())
                 .sum();
-            VolumetricFlowRate::from_base(
-                sum / T::from_usize_or_one(self.component_flows.len()),
-            )
+            VolumetricFlowRate::from_base(sum / T::from_usize_or_one(self.component_flows.len()))
         }
     }
 
@@ -135,8 +133,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
         let mut violations = Vec::new();
 
         for (component_id, wall_shear_stress) in &self.wall_shear_stresses {
-            let exceeds_stress = wall_shear_stress.into_base()
-                > limits.max_wall_shear_stress_pa.into_base();
+            let exceeds_stress =
+                wall_shear_stress.into_base() > limits.max_wall_shear_stress_pa.into_base();
             let shear_rate = self.wall_shear_rates.get(component_id).copied();
             let exceeds_rate = if let (Some(rate), Some(rate_limit)) =
                 (shear_rate, limits.max_wall_shear_rate_per_s)
@@ -205,19 +203,15 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
             });
 
             let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
-                (Some(value), Some(limit)) if limit.into_base() > T::zero() => {
-                    Some(Dimensionless::from_base(
-                        value.into_base() / limit.into_base(),
-                    ))
-                }
+                (Some(value), Some(limit)) if limit.into_base() > T::zero() => Some(
+                    Dimensionless::from_base(value.into_base() / limit.into_base()),
+                ),
                 _ => None,
             };
             let taskin_ratio = match (taskin_value, limits.max_taskin_hi) {
-                (Some(value), Some(limit)) if limit.into_base() > T::zero() => {
-                    Some(Dimensionless::from_base(
-                        value.into_base() / limit.into_base(),
-                    ))
-                }
+                (Some(value), Some(limit)) if limit.into_base() > T::zero() => Some(
+                    Dimensionless::from_base(value.into_base() / limit.into_base()),
+                ),
                 _ => None,
             };
 
@@ -264,10 +258,7 @@ mod tests {
     fn flags_component_when_stress_exceeds_limit() {
         let mut analysis = FlowAnalysis::<f64>::new();
         analysis.add_wall_shear_stress("edge_1".to_string(), Pressure::from_base(180.0));
-        analysis.add_wall_shear_rate(
-            "edge_1".to_string(),
-            ReciprocalTime::from_base(40_000.0),
-        );
+        analysis.add_wall_shear_rate("edge_1".to_string(), ReciprocalTime::from_base(40_000.0));
 
         let limits = BloodShearLimits {
             max_wall_shear_stress_pa: Pressure::from_base(150.0),
@@ -286,10 +277,7 @@ mod tests {
     fn flags_component_when_rate_exceeds_optional_limit() {
         let mut analysis = FlowAnalysis::<f64>::new();
         analysis.add_wall_shear_stress("edge_2".to_string(), Pressure::from_base(80.0));
-        analysis.add_wall_shear_rate(
-            "edge_2".to_string(),
-            ReciprocalTime::from_base(50_000.0),
-        );
+        analysis.add_wall_shear_rate("edge_2".to_string(), ReciprocalTime::from_base(50_000.0));
 
         let limits = BloodShearLimits {
             max_wall_shear_stress_pa: Pressure::from_base(150.0),
@@ -308,11 +296,10 @@ mod tests {
         let mut analysis = FlowAnalysis::<f64>::new();
         analysis.add_wall_shear_stress("edge_3".to_string(), Pressure::from_base(180.0));
 
-        let limits = BloodShearLimits::fda_conservative_whole_blood()
-            .with_hemolysis_limits(
-                Some(Dimensionless::from_base(1e-3)),
-                Some(Dimensionless::from_base(5e-3)),
-            );
+        let limits = BloodShearLimits::fda_conservative_whole_blood().with_hemolysis_limits(
+            Some(Dimensionless::from_base(1e-3)),
+            Some(Dimensionless::from_base(5e-3)),
+        );
         let residence_times = HashMap::from([("edge_3".to_string(), Time::from_base(0.5))]);
 
         let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);

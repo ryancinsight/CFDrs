@@ -22,8 +22,8 @@ use crate::scalar::Cfd3dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::domain::core::index::FaceId;
 use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::index::FaceId;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
 
@@ -162,8 +162,8 @@ impl<T: Cfd3dScalar> StokesFlowProblem<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
+    use cfd_mesh::domain::topology::Cell;
     use leto::Point3;
 
     /// Create a simple tetrahedral mesh for testing
@@ -365,8 +365,14 @@ mod tests {
             boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
         }
 
-        let invalid_fluid =
-            ConstantPropertyFluid::new("invalid".to_string(), 1000.0, 0.0, 4186.0, 0.6, 1500.0);
+        let invalid_fluid = ConstantPropertyFluid::new(
+            "invalid".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(0.0),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
+            aequitas::systems::si::quantities::Velocity::from_base(1500.0),
+        );
         let problem = StokesFlowProblem::new(mesh, invalid_fluid, boundary_conditions, 4);
         let err = problem
             .validate()

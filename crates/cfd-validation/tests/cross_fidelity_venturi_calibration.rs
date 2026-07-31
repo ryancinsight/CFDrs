@@ -3,6 +3,9 @@
 //! This complements the existing directional venturi test with a quantitative
 //! pressure-loss calibration around a shared total loss coefficient.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_2d::network::solve_reference_trace;
 use cfd_2d::solvers::venturi_flow::{VenturiGeometry, VenturiSolver2D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
@@ -16,7 +19,14 @@ const MU: f64 = 3.5e-3;
 const RHO: f64 = 1060.0;
 
 fn blood_fluid() -> ConstantPropertyFluid<f64> {
-    ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
+    ConstantPropertyFluid::new(
+        "blood".to_string(),
+        MassDensity::from_base(RHO),
+        DynamicViscosity::from_base(MU),
+        SpecificHeatCapacity::from_base(3617.0),
+        ThermalConductivity::from_base(0.52),
+        Velocity::from_base(1570.0),
+    )
 }
 
 fn rectangular_dims(cross_section: &CrossSectionSpec) -> (f64, f64) {

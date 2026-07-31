@@ -47,7 +47,7 @@
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
@@ -246,17 +246,20 @@ impl<T: ResistanceScalar> RectangularChannelModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
     use eunomia::assert_relative_eq;
 
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "water".to_string(),
-            1000.0, // density [kg/m³]
-            0.001,  // viscosity [Pa·s]
-            4186.0, // specific heat
-            0.598,  // thermal conductivity
-            1480.0, // speed of sound
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(0.001),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.598),
+            Velocity::from_base(1480.0),
         )
     }
 

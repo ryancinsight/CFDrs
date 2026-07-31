@@ -1,4 +1,7 @@
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    Area, DynamicViscosity, HydraulicResistance, Length, MassDensity, SpecificHeatCapacity,
+    ThermalConductivity, Velocity, VolumetricFlowRate,
+};
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -47,7 +50,14 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
         let edge = builder.connect_with_pipe(n_inlet, n_out, "Duct".to_string());
         let graph = builder.build().expect("valid graph");
 
-        let fluid = ConstantPropertyFluid::new("water".to_string(), rho, mu, 4184.0, 0.6, 1500.0);
+        let fluid = ConstantPropertyFluid::new(
+            "water".to_string(),
+            MassDensity::from_base(rho),
+            DynamicViscosity::from_base(mu),
+            SpecificHeatCapacity::from_base(4184.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+        );
         let mut network = Network::new(graph, fluid);
 
         let (cross_section, area) = if is_circular {
@@ -109,7 +119,8 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
     assert!(
         dp_1d_square < dp_1d_circ,
         "1D Poiseuille formulation must calculate less pressure drop for square duct vs circular. Found {} vs {}",
-        dp_1d_square, dp_1d_circ
+        dp_1d_square,
+        dp_1d_circ
     );
 
     // -------------------------------------------------------------------------------- //
@@ -136,8 +147,14 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
             ..Default::default()
         };
 
-        let constant_fluid =
-            ConstantPropertyFluid::new("water".to_string(), rho, mu, 4184.0, 0.6, 1500.0);
+        let constant_fluid = ConstantPropertyFluid::new(
+            "water".to_string(),
+            MassDensity::from_base(rho),
+            DynamicViscosity::from_base(mu),
+            SpecificHeatCapacity::from_base(4184.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
+        );
         let sol = VenturiSolver3D::new(builder, config)
             .solve(constant_fluid)
             .expect("3D must converge");
@@ -154,6 +171,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
     assert!(
         dp_3d_square < dp_3d_circ,
         "3D Stokes Flow must naturally resolve the shape factor divergence allowing more transport in square cross sections. Found {} vs {}",
-        dp_3d_square, dp_3d_circ
+        dp_3d_square,
+        dp_3d_circ
     );
 }

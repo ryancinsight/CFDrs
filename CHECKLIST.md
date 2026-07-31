@@ -1,18 +1,18 @@
 # CFDrs Work Checklist
 
-## Owner: current Codex session — CFDRS-AEQ-MET-30 shared fluid properties [major] — in progress 2026-07-29
+## Owner: current Codex session — CFDRS-AEQ-MET-30 shared fluid properties [major] — verified 2026-07-29
 
-- [ ] Type `FluidProperties` and `ConstantPropertyFluid` physical storage
+- [x] Type `FluidProperties`, `PropertyBounds`, and `ConstantPropertyFluid` physical storage
       with Aequitas quantities; retain dimensionless results and real-valued
       Eunomia boundaries.
-- [ ] Migrate direct constructors, formulas, serialization, and tests without
+- [x] Migrate direct constructors, formulas, serialization, and tests without
       compatibility fields or forwarding shims; extract only at formula and
       solver boundaries.
-- [ ] Add value-semantic regressions and run cfd-core plus dependent package
-      checks, Nextest, doctests, and warning-denied Clippy where applicable.
-- [ ] Synchronize the gap audit, ADR, changelog, design note, and backlog;
-      commit and push the verified slice. Temperature-dependent and rheology
-      model coefficients remain separately tracked.
+- [x] Add value-semantic regressions and run cfd-core plus dependent package
+      checks, examples, Python library checks, and focused lints.
+- [x] Synchronize the gap audit, ADR, changelog, design note, and backlog;
+      commit and push the verified slice. Temperature-dependent, ideal-gas,
+      blood, and rheology model coefficients remain separately tracked.
 
 ## Owner: current Codex session — CFDRS-AEQ-MET-29 FluidState metrics [major] — verified 2026-07-29
 
@@ -29,7 +29,8 @@
       dependent cfd-1d/cfd-3d/cfd-validation test-target checks.
 - [x] Synchronize `fluid-state-metrics.md`, `gap_audit.md`, `docs/adr.md`,
       `backlog.md`, and `CHANGELOG.md`; commit and push this increment.
-      `ConstantPropertyFluid`/`FluidProperties` raw storage remains separately
+      `ConstantPropertyFluid`, `PropertyBounds`, and `FluidProperties` shared
+      storage is closed; constitutive model coefficients remain separately
       tracked.
 
 ## Owner: Codex — CFDRS-AEQ-MET-23 cell-separation force metrics [major] — verified 2026-07-27

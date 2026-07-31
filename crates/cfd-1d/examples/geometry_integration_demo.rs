@@ -10,7 +10,9 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example geometry_integration_demo`
 
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -76,11 +78,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
         "Water".to_string(),
-        1000.0, // kg/m³
-        1e-3,   // Pa·s
-        4186.0, // J/(kg·K)
-        0.6,    // W/(m·K)
-        1480.0, // m/s
+        MassDensity::from_base(1000.0),
+        DynamicViscosity::from_base(1e-3),
+        SpecificHeatCapacity::from_base(4186.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(1480.0),
     );
     let mut network = Network::new(graph, fluid);
 

@@ -13,17 +13,38 @@
 //! reference data within 5% L2 error. This is a critical validation for
 //! pressure-velocity coupling algorithms.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
-use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_2d::simplec_pimple::SimplecPimpleSolver;
+use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use cfd_validation::error_metrics::ErrorMetric;
 use cfd_validation::error_metrics::L2Norm;
+
+fn constant_fluid(
+    name: &str,
+    density: f64,
+    viscosity: f64,
+    specific_heat: f64,
+    thermal_conductivity: f64,
+    speed_of_sound: f64,
+) -> ConstantPropertyFluid<f64> {
+    ConstantPropertyFluid::new(
+        name.to_string(),
+        MassDensity::from_base(density),
+        DynamicViscosity::from_base(viscosity),
+        SpecificHeatCapacity::from_base(specific_heat),
+        ThermalConductivity::from_base(thermal_conductivity),
+        Velocity::from_base(speed_of_sound),
+    )
+}
 
 /// Test SIMPLEC solver basic functionality with Rhie-Chow interpolation
 #[test]
@@ -40,8 +61,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -71,7 +91,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
     for step in 0..n_steps {
         let residual = solver
-            .solve_time_step(&mut fields, config.dt, nu, fluid.density)
+            .solve_time_step(&mut fields, config.dt, nu, fluid.density.into_base())
             .expect("Solver failed at step {}");
 
         residuals.push(residual);
@@ -141,8 +161,7 @@ fn test_simplec_convergence_ghia_cavity_re100() {
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -175,7 +194,7 @@ fn test_simplec_convergence_ghia_cavity_re100() {
             &mut fields,
             config.dt,
             nu,
-            fluid.density,
+            fluid.density.into_base(),
             max_time_steps,
             convergence_tolerance,
         )
@@ -238,7 +257,11 @@ fn test_simplec_convergence_ghia_cavity_re100() {
         // For converged steady-state solutions, pressure smoothness should be very low
         // Literature threshold: <0.01 indicates well-behaved pressure field
         // Commercial CFD: <0.001 for high-quality solutions
-        assert!(pressure_smoothness < 0.01, "Pressure field smoothness {:.6} exceeds literature threshold of <0.01 for converged solution", pressure_smoothness);
+        assert!(
+            pressure_smoothness < 0.01,
+            "Pressure field smoothness {:.6} exceeds literature threshold of <0.01 for converged solution",
+            pressure_smoothness
+        );
     } else {
         println!(
             "⚠ SIMPLEC solver did not fully converge within {} steps",
@@ -274,8 +297,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields (boundary conditions handled by solver)
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -306,7 +328,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
 
     for step in 0..max_time_steps {
         let residual = solver
-            .solve_time_step(&mut fields, config.dt, nu, fluid.density)
+            .solve_time_step(&mut fields, config.dt, nu, fluid.density.into_base())
             .expect("Solver failed");
 
         if step % 100 == 0 {
@@ -392,8 +414,7 @@ fn test_rhie_chow_effectiveness() {
     let nu = lid_velocity / reynolds;
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Test without Rhie-Chow
     let mut fields_no_rhie = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -418,7 +439,12 @@ fn test_rhie_chow_effectiveness() {
     // Run without Rhie-Chow
     for _step in 0..500 {
         let residual = solver_no_rhie
-            .solve_time_step(&mut fields_no_rhie, config_no_rhie.dt, nu, fluid.density)
+            .solve_time_step(
+                &mut fields_no_rhie,
+                config_no_rhie.dt,
+                nu,
+                fluid.density.into_base(),
+            )
             .expect("Solver without Rhie-Chow failed");
 
         if residual < 1e-4 {
@@ -453,7 +479,7 @@ fn test_rhie_chow_effectiveness() {
                 &mut fields_with_rhie,
                 config_with_rhie.dt,
                 nu,
-                fluid.density,
+                fluid.density.into_base(),
             )
             .expect("Solver with Rhie-Chow failed");
 
@@ -557,7 +583,7 @@ fn check_pressure_smoothness(pressure: &cfd_2d::fields::Field2D<f64>) -> f64 {
 #[test]
 fn test_pressure_correction_basic() {
     use cfd_2d::grid::StructuredGrid2D;
-    use cfd_2d::pressure_velocity::{config::PressureLinearSolver, PressureCorrectionSolver};
+    use cfd_2d::pressure_velocity::{PressureCorrectionSolver, config::PressureLinearSolver};
     use leto::geometry::Vector2;
 
     // Create a simple 4x4 grid
@@ -587,14 +613,7 @@ fn test_pressure_correction_basic() {
     let fields = cfd_2d::fields::SimulationFields::with_fluid(
         nx,
         ny,
-        &cfd_core::physics::fluid::ConstantPropertyFluid::new(
-            "test".to_string(),
-            1.0,
-            0.01,
-            1.0,
-            1.0,
-            1.0,
-        ),
+        &constant_fluid("test", 1.0, 0.01, 1.0, 1.0, 1.0),
     );
     // Set u_star values into fields if needed, but the solver interface may vary
     let mut p_correction: cfd_2d::grid::Array2D<f64> = cfd_2d::grid::Array2D::new(nx, ny, 0.0);
@@ -840,8 +859,7 @@ fn test_simplec_parameter_optimization_re100() {
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Parameter study: try different configurations
     let parameter_sets = vec![
@@ -883,7 +901,7 @@ fn test_simplec_parameter_optimization_re100() {
             &mut fields,
             config.dt,
             nu,
-            fluid.density,
+            fluid.density.into_base(),
             50, // Limited steps for parameter study
             config.tolerance,
         );
@@ -981,8 +999,7 @@ fn test_simplec_grid_convergence_study() {
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid =
-            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration
         let config = SimplecPimpleConfig {
@@ -1008,7 +1025,7 @@ fn test_simplec_grid_convergence_study() {
             &mut fields,
             config.dt,
             nu,
-            fluid.density,
+            fluid.density.into_base(),
             200, // More steps for convergence on fine grids
             config.tolerance,
         );
@@ -1117,8 +1134,7 @@ fn test_simplec_higher_reynolds_validation() {
         let nu = lid_velocity / reynolds;
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid =
-            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration from Re=100 study
         let config = SimplecPimpleConfig {
@@ -1144,7 +1160,7 @@ fn test_simplec_higher_reynolds_validation() {
             &mut fields,
             config.dt,
             nu,
-            fluid.density,
+            fluid.density.into_base(),
             100, // More steps for higher Re convergence
             config.tolerance,
         );
@@ -1179,8 +1195,14 @@ fn test_simplec_higher_reynolds_validation() {
                         let l2_norm = L2Norm;
                         let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
 
-                        println!("✓ Re={} converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
-                                 reynolds, l2_error * 100.0, l2_error, final_residual, final_dt);
+                        println!(
+                            "✓ Re={} converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
+                            reynolds,
+                            l2_error * 100.0,
+                            l2_error,
+                            final_residual,
+                            final_dt
+                        );
 
                         // For higher Re, we expect higher errors due to more complex flow physics
                         // Re=400 target: <25%, Re=1000 target: <45% (turbulent regime)
@@ -1240,8 +1262,7 @@ fn test_simplec_performance_benchmark() {
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid =
-            ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+        let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Optimized configuration for performance
         let config = SimplecPimpleConfig {
@@ -1269,7 +1290,7 @@ fn test_simplec_performance_benchmark() {
             &mut fields,
             config.dt,
             nu,
-            fluid.density,
+            fluid.density.into_base(),
             50, // Limited steps for benchmarking
             config.tolerance,
         );
@@ -1403,8 +1424,7 @@ fn test_simplec_channel_flow_validation() {
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height)
         .expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
@@ -1465,7 +1485,7 @@ fn test_simplec_channel_flow_validation() {
         &mut fields,
         config.dt,
         nu,
-        fluid.density,
+        fluid.density.into_base(),
         100, // More steps for channel flow development
         config.tolerance,
     );
@@ -1553,8 +1573,7 @@ fn test_simplec_stokes_flow_validation() {
     println!("\n=== Stokes Flow Validation (Re={:.4}) ===", reynolds);
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid =
-        ConstantPropertyFluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
+    let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Use very conservative settings for Stokes flow
     let config = SimplecPimpleConfig {
@@ -1580,7 +1599,7 @@ fn test_simplec_stokes_flow_validation() {
         &mut fields,
         config.dt,
         nu,
-        fluid.density,
+        fluid.density.into_base(),
         200, // Many steps for convergence at low Re
         config.tolerance,
     );

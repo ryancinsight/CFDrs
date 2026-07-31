@@ -23,6 +23,9 @@
 //! a fixed volumetric flow rate $Q$ must strictly increase:
 //! $\Delta P_{serp} > \Delta P_{straight}$.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_1d::physics::resistance::calculator::dispatch::{
     calculate_rectangular, calculate_serpentine_rectangular,
 };
@@ -52,14 +55,14 @@ fn cross_fidelity_dean_flow_resistance() {
     // Blood properties
     let density = 1050.0;
     let viscosity = 0.0035; // 3.5 cP
-    let fluid_1d = ConstantPropertyFluid {
-        name: "Blood".to_string(),
-        density,
-        viscosity,
-        specific_heat: 3600.0,
-        thermal_conductivity: 0.5,
-        speed_of_sound: 1540.0,
-    };
+    let fluid_1d = ConstantPropertyFluid::new(
+        "Blood".to_string(),
+        MassDensity::from_base(density),
+        DynamicViscosity::from_base(viscosity),
+        SpecificHeatCapacity::from_base(3600.0),
+        ThermalConductivity::from_base(0.5),
+        Velocity::from_base(1540.0),
+    );
     let fluid_2d = BloodModel2D::Newtonian(viscosity);
 
     let conditions = FlowConditions {
@@ -141,7 +144,8 @@ fn cross_fidelity_dean_flow_resistance() {
     assert!(
         dp_serp_1d > dp_straight_1d,
         "Violation of Dean Flow resistance augmentation: 1D Serpentine ({:.4} Pa) <= 1D Straight ({:.4} Pa)",
-        dp_serp_1d, dp_straight_1d
+        dp_serp_1d,
+        dp_straight_1d
     );
 
     // Invariant 2: 2D NS computes transverse advection but crucially LACKS the 3D boundary depth required to form Dean vortices.
@@ -151,7 +155,8 @@ fn cross_fidelity_dean_flow_resistance() {
     assert!(
         dp_serp_2d < dp_straight_2d,
         "Violation of 2D planar corner-cutting: 2D Serpentine ({:.4} Pa) >= 2D Straight Baseline ({:.4} Pa)",
-        dp_serp_2d, dp_straight_2d
+        dp_serp_2d,
+        dp_straight_2d
     );
 
     // Invariant 3: 3D NS resolves full counter-rotating Dean vortices in confined 3D space, heavily dissipating energy.

@@ -5,7 +5,7 @@
 //! Dean flow corrections.
 
 use super::model::SerpentineModel;
-use super::traits::{FlowConditions, ResistanceScalar, scalar_from_f64, scalar_to_f64};
+use super::traits::{scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::NumericElement;

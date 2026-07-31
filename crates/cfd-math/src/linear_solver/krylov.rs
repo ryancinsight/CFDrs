@@ -394,6 +394,10 @@ where
         Ok(SolveOutcome::Converged(report)) => Some(report),
         Ok(other) => {
             tracing::warn!(
+                iterations = other.report().iterations,
+                initial_residual = ?other.report().initial_residual_norm,
+                final_residual = ?other.report().final_residual_norm,
+                threshold = ?other.report().threshold,
                 "{context}: did not converge ({:?})",
                 other.report().termination
             );

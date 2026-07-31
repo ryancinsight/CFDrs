@@ -418,8 +418,14 @@ impl CfdMemoryProfiler {
         Ok(self
             .profiler
             .profile_closure(|| {
-                let fluid =
-                    ConstantPropertyFluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001, 343.0);
+                let fluid = ConstantPropertyFluid::new(
+                    "Test".to_string(),
+                    aequitas::systems::si::quantities::MassDensity::from_base(1.0),
+                    aequitas::systems::si::quantities::DynamicViscosity::from_base(0.01),
+                    aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(1000.0),
+                    aequitas::systems::si::quantities::ThermalConductivity::from_base(0.001),
+                    aequitas::systems::si::quantities::Velocity::from_base(343.0),
+                );
                 let _fields = SimulationFields::with_fluid(32, 32, &fluid);
             })
             .1)

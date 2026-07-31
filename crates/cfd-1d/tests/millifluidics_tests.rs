@@ -133,7 +133,7 @@ fn test_flow_regime_analysis() -> Result<()> {
     let diameter = 100e-6; // 100μm
     let velocity = 0.1; // 10 cm/s
     let density = 1000.0; // kg/m³ (water)
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     let calculated_re = density * velocity * diameter / viscosity;
 
@@ -200,7 +200,11 @@ fn test_performance_analysis() -> Result<()> {
     metrics.set_power_consumption(Power::from_base(expected_flow_rate * pressure_drop));
 
     // Validate metrics
-    assert_relative_eq!(metrics.throughput.into_base(), expected_flow_rate, epsilon = 1e-15);
+    assert_relative_eq!(
+        metrics.throughput.into_base(),
+        expected_flow_rate,
+        epsilon = 1e-15
+    );
     assert_relative_eq!(
         metrics.power_consumption.into_base(),
         expected_flow_rate * pressure_drop,
@@ -315,7 +319,7 @@ fn test_advanced_millifluidics() -> Result<()> {
     let velocity = 0.1; // m/s
     let surface_tension = 0.072; // N/m
 
-    let capillary_number = fluid.viscosity * velocity / surface_tension;
+    let capillary_number = fluid.viscosity.into_base() * velocity / surface_tension;
 
     // Validate capillary number is in expected range for droplet formation (Ca ~ 0.001-0.1)
     assert!(capillary_number > 1e-4 && capillary_number < 1e0);

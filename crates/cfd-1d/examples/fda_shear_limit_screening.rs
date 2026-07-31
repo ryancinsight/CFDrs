@@ -22,11 +22,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Approximate whole-blood Newtonianized properties for this screening demo.
     let blood_like = cfd_core::physics::fluid::ConstantPropertyFluid::<f64>::new(
         "Blood-like (screening)".to_string(),
-        1060.0,
-        0.0035,
-        3770.0,
-        0.52,
-        1570.0,
+        aequitas::systems::si::quantities::MassDensity::from_base(1060.0),
+        aequitas::systems::si::quantities::DynamicViscosity::from_base(0.0035),
+        aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(3770.0),
+        aequitas::systems::si::quantities::ThermalConductivity::from_base(0.52),
+        aequitas::systems::si::quantities::Velocity::from_base(1570.0),
     );
 
     let mut builder = NetworkBuilder::<f64>::new();

@@ -33,7 +33,7 @@ fn test_solver_ohms_law_single_edge() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.1_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
     let p_in = 1000.0_f64;
 
     let mut builder = NetworkBuilder::new();
@@ -90,7 +90,7 @@ fn test_solver_y_junction_kcl() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.05_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
 
     let mut builder = NetworkBuilder::new();
     let n_in = builder.add_inlet("in".into());
@@ -148,7 +148,7 @@ fn test_owned_solver_matches_borrowed_problem_path() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.05_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
 
     let mut builder = NetworkBuilder::new();
     let inlet = builder.add_inlet("in".into());
@@ -181,10 +181,20 @@ fn test_owned_solver_matches_borrowed_problem_path() {
     assert_eq!(borrowed.flow_rates().len(), owned.flow_rates().len());
 
     for (lhs, rhs) in borrowed.pressures().iter().zip(owned.pressures().iter()) {
-        assert_relative_eq!(lhs.into_base(), rhs.into_base(), max_relative = 1e-12, epsilon = 1e-12);
+        assert_relative_eq!(
+            lhs.into_base(),
+            rhs.into_base(),
+            max_relative = 1e-12,
+            epsilon = 1e-12
+        );
     }
     for (lhs, rhs) in borrowed.flow_rates().iter().zip(owned.flow_rates().iter()) {
-        assert_relative_eq!(lhs.into_base(), rhs.into_base(), max_relative = 1e-12, epsilon = 1e-12);
+        assert_relative_eq!(
+            lhs.into_base(),
+            rhs.into_base(),
+            max_relative = 1e-12,
+            epsilon = 1e-12
+        );
     }
 }
 
@@ -202,7 +212,7 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     let fluid = water();
     let d = 1e-3_f64;
     let l = 0.1_f64;
-    let r = hp_resistance(d, l, fluid.viscosity);
+    let r = hp_resistance(d, l, fluid.viscosity.into_base());
 
     // Build a valid topology (inlet+outlet required by builder) but do NOT set pressures,
     // so the assembled Laplacian has no Dirichlet rows → singular system.

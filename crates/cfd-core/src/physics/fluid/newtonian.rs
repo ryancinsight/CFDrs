@@ -16,30 +16,30 @@ use serde::{Deserialize, Serialize};
 /// This model assumes fluid properties are independent of temperature and pressure.
 /// Suitable for isothermal, incompressible flow simulations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ConstantPropertyFluid<T: RealField + Copy> {
+pub struct ConstantPropertyFluid<T> {
     /// Descriptive name of the fluid
     pub name: String,
     /// Constant density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Constant dynamic viscosity [Pa·s]
-    pub viscosity: T,
+    pub viscosity: DynamicViscosity<T>,
     /// Constant specific heat capacity [J/(kg·K)]
-    pub specific_heat: T,
+    pub specific_heat: SpecificHeatCapacity<T>,
     /// Constant thermal conductivity [W/(m·K)]
-    pub thermal_conductivity: T,
+    pub thermal_conductivity: ThermalConductivity<T>,
     /// Constant speed of sound \[m/s]
-    pub speed_of_sound: T,
+    pub speed_of_sound: Velocity<T>,
 }
 
 impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// Create a new constant property fluid
     pub fn new(
         name: String,
-        density: T,
-        viscosity: T,
-        specific_heat: T,
-        thermal_conductivity: T,
-        speed_of_sound: T,
+        density: MassDensity<T>,
+        viscosity: DynamicViscosity<T>,
+        specific_heat: SpecificHeatCapacity<T>,
+        thermal_conductivity: ThermalConductivity<T>,
+        speed_of_sound: Velocity<T>,
     ) -> Self {
         Self {
             name,
@@ -66,18 +66,18 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         // Route the thermophysical subset through Proteus — this checks finiteness
         // and non-negativeness with descriptive error messages.
-        thermophysical::validate_thermophysical_subset(
+        thermophysical::thermal_diffusivity(
             self.density,
             self.specific_heat,
             self.thermal_conductivity,
         )?;
 
-        if self.viscosity <= <T as NumericElement>::ZERO {
+        if self.viscosity.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Viscosity must be positive".to_string(),
             ));
         }
-        if self.speed_of_sound <= <T as NumericElement>::ZERO {
+        if self.speed_of_sound.into_base() <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Speed of sound must be positive".to_string(),
             ));
@@ -96,11 +96,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            <T as FloatElement>::from_f64(998.2), // density [kg/m³]
-            <T as FloatElement>::from_f64(0.001_002), // viscosity [Pa·s]
-            <T as FloatElement>::from_f64(4186.0), // specific heat [J/(kg·K)]
-            <T as FloatElement>::from_f64(0.599), // thermal conductivity [W/(m·K)]
-            <T as FloatElement>::from_f64(1482.0), // speed of sound [m/s]
+            MassDensity::from_base(<T as FloatElement>::from_f64(998.2)),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.001_002)),
+            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(4186.0)),
+            ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.599)),
+            Velocity::from_base(<T as FloatElement>::from_f64(1482.0)),
         );
         fluid.validate()?;
         Ok(fluid)
@@ -117,11 +117,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Air (20°C)".to_string(),
-            <T as FloatElement>::from_f64(1.204), // density [kg/m³]
-            <T as FloatElement>::from_f64(1.825e-5), // viscosity [Pa·s]
-            <T as FloatElement>::from_f64(1005.0), // specific heat [J/(kg·K)]
-            <T as FloatElement>::from_f64(0.02538), // thermal conductivity [W/(m·K)]
-            <T as FloatElement>::from_f64(343.2), // speed of sound [m/s]
+            MassDensity::from_base(<T as FloatElement>::from_f64(1.204)),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(1.825e-5)),
+            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(1005.0)),
+            ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.02538)),
+            Velocity::from_base(<T as FloatElement>::from_f64(343.2)),
         );
         fluid.validate()?;
         Ok(fluid)
@@ -131,11 +131,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
 impl<T: RealField + Copy> FluidTrait<T> for ConstantPropertyFluid<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
-            density: MassDensity::from_base(self.density),
-            dynamic_viscosity: DynamicViscosity::from_base(self.viscosity),
-            specific_heat: SpecificHeatCapacity::from_base(self.specific_heat),
-            thermal_conductivity: ThermalConductivity::from_base(self.thermal_conductivity),
-            speed_of_sound: Velocity::from_base(self.speed_of_sound),
+            density: self.density,
+            dynamic_viscosity: self.viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+            speed_of_sound: self.speed_of_sound,
         })
     }
 
@@ -146,23 +146,23 @@ impl<T: RealField + Copy> FluidTrait<T> for ConstantPropertyFluid<T> {
 
 impl<T: RealField + Copy> ConstantFluid<T> for ConstantPropertyFluid<T> {
     fn density(&self) -> MassDensity<T> {
-        MassDensity::from_base(self.density)
+        self.density
     }
 
     fn dynamic_viscosity(&self) -> DynamicViscosity<T> {
-        DynamicViscosity::from_base(self.viscosity)
+        self.viscosity
     }
 
     fn specific_heat(&self) -> SpecificHeatCapacity<T> {
-        SpecificHeatCapacity::from_base(self.specific_heat)
+        self.specific_heat
     }
 
     fn thermal_conductivity(&self) -> ThermalConductivity<T> {
-        ThermalConductivity::from_base(self.thermal_conductivity)
+        self.thermal_conductivity
     }
 
     fn speed_of_sound(&self) -> Velocity<T> {
-        Velocity::from_base(self.speed_of_sound)
+        self.speed_of_sound
     }
 }
 
@@ -308,11 +308,11 @@ mod tests {
     fn base_fluid() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "test".to_string(),
-            998.2,     // density [kg/m³]
-            0.001_002, // viscosity [Pa·s]
-            4186.0,    // specific heat [J/(kg·K)]
-            0.599,     // thermal conductivity [W/(m·K)]
-            1482.0,    // speed of sound [m/s]
+            MassDensity::from_base(998.2),
+            DynamicViscosity::from_base(0.001_002),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.599),
+            Velocity::from_base(1482.0),
         )
     }
 
@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn validate_rejects_negative_density_with_proteus_message() {
         let mut fluid = base_fluid();
-        fluid.density = -1.0;
+        fluid.density = MassDensity::from_base(-1.0);
         let err = fluid.validate().expect_err("negative density is invalid");
         match err {
             Error::InvalidInput(msg) => assert!(
@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn validate_rejects_nan_density_with_proteus_message() {
         let mut fluid = base_fluid();
-        fluid.density = f64::NAN;
+        fluid.density = MassDensity::from_base(f64::NAN);
         let err = fluid.validate().expect_err("NaN density is invalid");
         match err {
             Error::InvalidInput(msg) => assert!(msg.contains("MassDensity")),
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn validate_rejects_negative_specific_heat_with_proteus_message() {
         let mut fluid = base_fluid();
-        fluid.specific_heat = -1.0;
+        fluid.specific_heat = SpecificHeatCapacity::from_base(-1.0);
         let err = fluid
             .validate()
             .expect_err("negative specific heat is invalid");
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn validate_rejects_negative_thermal_conductivity_with_proteus_message() {
         let mut fluid = base_fluid();
-        fluid.thermal_conductivity = -0.1;
+        fluid.thermal_conductivity = ThermalConductivity::from_base(-0.1);
         let err = fluid
             .validate()
             .expect_err("negative thermal conductivity is invalid");
@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn validate_rejects_zero_viscosity_with_descriptive_message() {
         let mut fluid = base_fluid();
-        fluid.viscosity = 0.0;
+        fluid.viscosity = DynamicViscosity::from_base(0.0);
         let err = fluid.validate().expect_err("zero viscosity is invalid");
         match err {
             Error::InvalidInput(msg) => {
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     fn validate_rejects_zero_speed_of_sound_with_descriptive_message() {
         let mut fluid = base_fluid();
-        fluid.speed_of_sound = 0.0;
+        fluid.speed_of_sound = Velocity::from_base(0.0);
         let err = fluid
             .validate()
             .expect_err("zero speed of sound is invalid");

@@ -71,11 +71,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("4. Building network (water at 25°C)...");
     let water = ConstantPropertyFluid::<f64>::new(
         "Water (25°C)".to_string(),
-        997.0,  // kg/m³
-        8.9e-4, // Pa·s
-        4186.0, // J/(kg·K)
-        0.606,  // W/(m·K)
-        1497.0, // m/s (speed of sound)
+        aequitas::systems::si::quantities::MassDensity::from_base(997.0),
+        aequitas::systems::si::quantities::DynamicViscosity::from_base(8.9e-4),
+        aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+        aequitas::systems::si::quantities::ThermalConductivity::from_base(0.606),
+        aequitas::systems::si::quantities::Velocity::from_base(1497.0),
     );
 
     let mut builder = NetworkBuilder::<f64>::new();

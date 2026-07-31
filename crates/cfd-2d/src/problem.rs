@@ -13,8 +13,8 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -189,9 +189,19 @@ impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowSolution<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
 
     fn water() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new("water".to_string(), 1_000.0, 1.0e-3, 4_184.0, 0.6, 1_480.0)
+        ConstantPropertyFluid::new(
+            "water".to_string(),
+            MassDensity::from_base(1_000.0),
+            DynamicViscosity::from_base(1.0e-3),
+            SpecificHeatCapacity::from_base(4_184.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1_480.0),
+        )
     }
 
     #[test]

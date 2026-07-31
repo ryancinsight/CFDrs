@@ -5,6 +5,9 @@
 //! already support circular channels, but no canonical validation exercised
 //! that path end-to-end.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
@@ -20,7 +23,14 @@ const MU: f64 = 3.5e-3;
 const RHO: f64 = 1060.0;
 
 fn blood_fluid() -> ConstantPropertyFluid<f64> {
-    ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
+    ConstantPropertyFluid::new(
+        "blood".to_string(),
+        MassDensity::from_base(RHO),
+        DynamicViscosity::from_base(MU),
+        SpecificHeatCapacity::from_base(3617.0),
+        ThermalConductivity::from_base(0.52),
+        Velocity::from_base(1570.0),
+    )
 }
 
 struct CircularPipe3dMetrics {

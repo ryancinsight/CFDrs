@@ -64,7 +64,7 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, GMRES};
+use cfd_math::iterative::{ConjugateGradient, GMRES, IdentityPreconditioner};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};
@@ -75,7 +75,7 @@ use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution, scalar};
 use crate::linalg::{
     array1_len, array2_column3, matrix3_determinant, matrix3_from_columns, matrix3_try_inverse,
     matrix3x4_column, reference_tet_gradients, vector3_from_indexed,
@@ -274,7 +274,7 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
             let viscosity = problem
                 .element_viscosities
                 .as_ref()
-                .map_or(problem.fluid.viscosity, |v| v[i]);
+                .map_or(problem.fluid.viscosity.into_base(), |v| v[i]);
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
             let positions: Vec<Vector3<T>> =
                 idxs.iter().map(|&idx| vertex_positions[idx]).collect();
@@ -285,7 +285,7 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
                 &idxs,
                 &positions,
                 viscosity,
-                problem.fluid.density,
+                problem.fluid.density.into_base(),
                 n_nodes,
             )?;
         }
@@ -363,7 +363,7 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
                 &mut rhs_out,
                 &corner_idxs,
                 &positions,
-                problem.fluid.density,
+                problem.fluid.density.into_base(),
                 u_star,
             )?;
         }
@@ -390,7 +390,7 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
             .collect();
 
         let mut velocity = u_star.clone();
-        let dt_over_rho = self.dt / problem.fluid.density;
+        let dt_over_rho = self.dt / problem.fluid.density.into_base();
 
         // For each element, compute pressure gradient and correct velocity
         for cell in &problem.mesh.cells {
@@ -658,7 +658,7 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
 
         // Compute mesh scale for diagonal scaling
         let mesh_scale = compute_mesh_scale(&problem.mesh);
-        let diag_scale = problem.fluid.viscosity * mesh_scale;
+        let diag_scale = problem.fluid.viscosity.into_base() * mesh_scale;
 
         let mut applied_bcs = HashSet::new();
 

@@ -46,7 +46,7 @@
 //! - Khodabandeh, E. et al. (2020). "Pressure drop and heat transfer in
 //!   T-junction microchannels." *Int. J. Heat Mass Transfer*, 154, 119689.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;

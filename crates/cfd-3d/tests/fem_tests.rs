@@ -9,13 +9,16 @@
 //! | Adversarial  | Zero velocity BCs, extreme viscosity, pressure reference  |
 //! | Property     | Divergence-free constraint, symmetry preservation        |
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_3d::fem::{FemConfig, ProjectionSolver, StokesFlowProblem};
 use cfd_core::error::Error;
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
-use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
 
@@ -30,7 +33,14 @@ fn cube_mesh(nx: usize, ny: usize, nz: usize) -> IndexedMesh<f64> {
 }
 
 fn water() -> ConstantPropertyFluid<f64> {
-    ConstantPropertyFluid::new("Water".into(), 1000.0, 1e-3, 4186.0, 0.6, 1500.0)
+    ConstantPropertyFluid::new(
+        "Water".into(),
+        MassDensity::from_base(1000.0),
+        DynamicViscosity::from_base(1e-3),
+        SpecificHeatCapacity::from_base(4186.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(1500.0),
+    )
 }
 
 fn all_wall_bcs(mesh: &IndexedMesh<f64>) -> HashMap<usize, BoundaryCondition<f64>> {
@@ -260,7 +270,14 @@ fn test_extremely_low_viscosity_no_panic() {
     let mesh = cube_mesh(3, 3, 3);
     let bcs = all_wall_bcs(&mesh);
     let n_nodes = mesh.vertex_count();
-    let fluid = ConstantPropertyFluid::new("Gas".into(), 1.0, 1e-12, 1000.0, 0.03, 340.0);
+    let fluid = ConstantPropertyFluid::new(
+        "Gas".into(),
+        MassDensity::from_base(1.0),
+        DynamicViscosity::from_base(1e-12),
+        SpecificHeatCapacity::from_base(1000.0),
+        ThermalConductivity::from_base(0.03),
+        Velocity::from_base(340.0),
+    );
     let problem = StokesFlowProblem::new(mesh, fluid, bcs, n_nodes);
     let mut solver = ProjectionSolver::with_timestep(FemConfig::default(), 1e-6);
     // Must not panic
@@ -273,7 +290,14 @@ fn test_extremely_high_viscosity_no_panic() {
     let mesh = cube_mesh(3, 3, 3);
     let bcs = all_wall_bcs(&mesh);
     let n_nodes = mesh.vertex_count();
-    let fluid = ConstantPropertyFluid::new("Honey".into(), 1400.0, 1e3, 2000.0, 0.5, 1000.0);
+    let fluid = ConstantPropertyFluid::new(
+        "Honey".into(),
+        MassDensity::from_base(1400.0),
+        DynamicViscosity::from_base(1e3),
+        SpecificHeatCapacity::from_base(2000.0),
+        ThermalConductivity::from_base(0.5),
+        Velocity::from_base(1000.0),
+    );
     let problem = StokesFlowProblem::new(mesh, fluid, bcs, n_nodes);
     let mut solver = ProjectionSolver::with_timestep(FemConfig::default(), 1e-3);
     let _ = solver.solve(&problem, None);

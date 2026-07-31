@@ -30,8 +30,8 @@ use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
+use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 /// Hagen-Poiseuille resistance for a circular tube: R = 128·μ·L / (π·D⁴)

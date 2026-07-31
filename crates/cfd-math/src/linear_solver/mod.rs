@@ -22,7 +22,8 @@ pub use crate::iterative::IterativeSolverConfig;
 // Re-export solver types for convenience
 pub use crate::iterative::{BiCGSTAB, GMRES};
 pub use block_preconditioner::{
-    BlockDiagonalPreconditioner, DiagonalPreconditioner, SimplePreconditioner,
+    BlockDiagonalPreconditioner, ComponentBlockPreconditioner, DiagonalPreconditioner,
+    SimplePreconditioner,
 };
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use direct_solver::DirectSparseSolver;

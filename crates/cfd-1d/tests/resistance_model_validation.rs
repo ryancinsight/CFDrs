@@ -32,7 +32,7 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
 
     let model = HagenPoiseuilleModel::new(diameter, length);
     let fluid = fluid::database::water_20c::<f64>()?;
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     let mut conditions = FlowConditions::new(0.1);
     conditions.reynolds_number = Some(100.0); // Laminar regime
@@ -97,7 +97,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // Laminar regime yields a linear hydraulic resistance independent of velocity:
     // R = 128 μ L / (π D^4) = 32 μ L / (A D^2)
     let expected_resistance_laminar: f64 =
-        32.0 * fluid.viscosity * length / (area * diameter.powi(2));
+        32.0 * fluid.viscosity.into_base() * length / (area * diameter.powi(2));
 
     assert_relative_eq!(
         resistance_laminar,
@@ -119,7 +119,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
                                      // R_eff = f ρ L V / (2 A D)
     let v: f64 = conditions_turbulent.velocity.expect("test invariant");
     let expected_resistance_turbulent: f64 =
-        f_expected * fluid.density * length * v / (2.0 * area * diameter);
+        f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
 
     // Allow 0.2% tolerance for iterative convergence (max_relative for better control)
     assert_relative_eq!(
@@ -157,7 +157,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
     let v: f64 = conditions.velocity.expect("test invariant");
     let expected_resistance: f64 =
-        f_expected * fluid.density * length * v / (2.0 * area * diameter);
+        f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
 
     // Allow 0.05% tolerance for Colebrook-White iteration vs Moody chart
     assert_relative_eq!(resistance, expected_resistance, max_relative = 0.0005);
@@ -252,7 +252,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let po_square: f64 = 56.91;
     let area_square: f64 = width * height;
     let expected_resistance_square: f64 =
-        po_square * fluid.viscosity * length / (2.0 * area_square * d_h_square.powi(2));
+        po_square * fluid.viscosity.into_base() * length / (2.0 * area_square * d_h_square.powi(2));
 
     assert_relative_eq!(
         resistance_square,
@@ -268,7 +268,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let area_05 = 1e-3 * 0.5e-3;
     let po_05 = 62.19;
     let expected_resistance_05 =
-        (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
+        (po_05 * fluid.viscosity.into_base() * length) / (2.0 * area_05 * d_h_05.powi(2));
     assert_relative_eq!(resistance_05, expected_resistance_05, max_relative = 0.01);
 
     // High aspect ratio (approaches parallel plates): Po = 96.0
@@ -278,7 +278,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let area_inf = 10e-3 * 0.1e-3;
     let po_inf = 96.0;
     let expected_resistance_inf =
-        (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
+        (po_inf * fluid.viscosity.into_base() * length) / (2.0 * area_inf * d_h_inf.powi(2));
     assert_relative_eq!(resistance_inf, expected_resistance_inf, max_relative = 0.05);
 
     Ok(())
@@ -323,7 +323,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
     // Expected turbulent resistance: k·Q at given velocity
     // k = f·ρ·L/(2·A²·D), R_eff = k·V·A = f·ρ·L·V/(2·A·D)
     let expected_resistance_haaland: f64 =
-        f_haaland * fluid.density * 10.0 * v / (2.0 * area * diameter);
+        f_haaland * fluid.density.into_base() * 10.0 * v / (2.0 * area * diameter);
 
     // Colebrook-White should match Haaland within 2%
     assert_relative_eq!(resistance, expected_resistance_haaland, max_relative = 0.02);
@@ -426,7 +426,8 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
         let k_entry = k_base * (1.0 + re_correction);
 
         // k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
-        let expected_k = k_entry * fluid.density / (2.0 * downstream_area * downstream_area);
+        let expected_k =
+            k_entry * fluid.density.into_base() / (2.0 * downstream_area * downstream_area);
 
         assert_relative_eq!(k_coeff, expected_k, epsilon = 1e-6);
     }
@@ -458,7 +459,8 @@ fn test_entrance_effects_smooth_contraction() -> Result<()> {
     // Expected from Blevins (1984): K = 0.05 + 0.19 * 2.0 = 0.43
     // k = K · ρ / (2 · A₂²)
     let k_entry = 0.05 + 0.19 * area_ratio;
-    let expected_k = k_entry * fluid.density / (2.0 * downstream_area * downstream_area);
+    let expected_k =
+        k_entry * fluid.density.into_base() / (2.0 * downstream_area * downstream_area);
 
     assert_relative_eq!(k_coeff, expected_k, epsilon = 1e-6);
 

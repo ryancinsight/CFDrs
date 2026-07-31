@@ -252,14 +252,24 @@ where
         }
 
         // 3. Set up FEM Problem with f64 precision (build_surface produces f64 mesh)
-        let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
-            name: "Picard Iteration Basis".to_string(),
-            density: scalar::to_f64(fluid_props.density.into_base()),
-            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity.into_base()),
-            specific_heat: scalar::to_f64(fluid_props.specific_heat.into_base()),
-            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity.into_base()),
-            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound.into_base()),
-        };
+        let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::new(
+            "Picard Iteration Basis".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(scalar::to_f64(
+                fluid_props.density.into_base(),
+            )),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(scalar::to_f64(
+                fluid_props.dynamic_viscosity.into_base(),
+            )),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(scalar::to_f64(
+                fluid_props.specific_heat.into_base(),
+            )),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(scalar::to_f64(
+                fluid_props.thermal_conductivity.into_base(),
+            )),
+            aequitas::systems::si::quantities::Velocity::from_base(scalar::to_f64(
+                fluid_props.speed_of_sound.into_base(),
+            )),
+        );
 
         // Convert boundary conditions from T -> f64 via manual variant mapping
         let convert_bc = |bc: BoundaryCondition<T>| -> BoundaryCondition<f64> {

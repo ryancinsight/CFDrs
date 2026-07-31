@@ -104,7 +104,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
         let kn_opt = if dh > T::zero() {
             let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
             let lam = fluid.dynamic_viscosity().into_base() * sqrt_half_pi
-                / (fluid.density * fluid.speed_of_sound);
+                / (fluid.density().into_base() * fluid.speed_of_sound().into_base());
             if lam > T::zero() {
                 Some(lam / dh)
             } else {
@@ -198,7 +198,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
 
         let area = self.geometry.area().into_base();
         let dh = self.geometry.hydraulic_diameter().into_base();
-        let density = fluid.density;
+        let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = (re * viscosity) / (density * dh);
         let model = DarcyWeisbachModel::new(
@@ -234,11 +234,11 @@ mod tests {
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "water".to_string(),
-            1000.0, // density [kg/m³]
-            0.001,  // viscosity [Pa·s]
-            4186.0, // specific heat
-            0.598,  // thermal conductivity
-            1480.0, // speed of sound
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(0.001),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.598),
+            aequitas::systems::si::quantities::Velocity::from_base(1480.0),
         )
     }
 
@@ -275,7 +275,7 @@ mod tests {
         let d = chan.geometry.hydraulic_diameter().into_base();
         let area = chan.geometry.area().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
-        let density = fluid.density;
+        let density = fluid.density().into_base();
         let velocity = (10_000.0 * viscosity) / (density * d);
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(10_000.0);
@@ -313,10 +313,22 @@ mod tests {
     #[test]
     fn resistance_scales_with_viscosity() {
         let chan = circular_channel(1e-3, 0.01);
-        let water1 =
-            ConstantPropertyFluid::new("w1".to_string(), 1000.0, 0.001, 4186.0, 0.598, 1480.0);
-        let water2 =
-            ConstantPropertyFluid::new("w2".to_string(), 1000.0, 0.003, 4186.0, 0.598, 1480.0);
+        let water1 = ConstantPropertyFluid::new(
+            "w1".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(0.001),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.598),
+            aequitas::systems::si::quantities::Velocity::from_base(1480.0),
+        );
+        let water2 = ConstantPropertyFluid::new(
+            "w2".to_string(),
+            aequitas::systems::si::quantities::MassDensity::from_base(1000.0),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(0.003),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4186.0),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(0.598),
+            aequitas::systems::si::quantities::Velocity::from_base(1480.0),
+        );
         let r1 = chan.laminar_resistance(&water1).unwrap();
         let r2 = chan.laminar_resistance(&water2).unwrap();
         assert_relative_eq!(r2 / r1, 3.0, max_relative = 1e-12);

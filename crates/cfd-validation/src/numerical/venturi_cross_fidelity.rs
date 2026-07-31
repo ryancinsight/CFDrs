@@ -24,6 +24,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_1d::{FlowConditions, VenturiModel};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
@@ -34,9 +37,9 @@ use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_2d::solvers::venturi_flow::{VenturiGeometry as VenturiGeom2D, VenturiSolver2D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_mesh::VenturiMeshBuilder;
 use leto::geometry::Vector3;
 
@@ -287,11 +290,11 @@ fn run_1d(input: &VenturiValidationInput) -> FidelityBreakdown1D {
 
     let blood = ConstantPropertyFluid::new(
         "blood_newtonian_37c".to_string(),
-        RHO,
-        MU,
-        3617.0, // cp blood at 37 °C [J/(kg·K)]
-        0.52,   // k blood [W/(m·K)]
-        1570.0, // speed of sound in blood [m/s]
+        MassDensity::from_base(RHO),
+        DynamicViscosity::from_base(MU),
+        SpecificHeatCapacity::from_base(3617.0),
+        ThermalConductivity::from_base(0.52),
+        Velocity::from_base(1570.0),
     );
 
     let analysis = model
@@ -925,7 +928,10 @@ mod tests {
         );
 
         let result = run_2d(&input);
-        assert!(result.converged, "standard 2D venturi path should produce an informative converged state for the GA validation geometry: {result:?}");
+        assert!(
+            result.converged,
+            "standard 2D venturi path should produce an informative converged state for the GA validation geometry: {result:?}"
+        );
         assert!(result.dp_throat_pa.is_finite() && result.dp_throat_pa > 0.0);
         assert!(result.u_throat.is_finite() && result.u_throat > result.u_inlet);
         assert!(result.sigma.is_finite());

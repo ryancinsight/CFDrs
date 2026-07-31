@@ -117,6 +117,9 @@ mod tests {
     use crate::physics::resistance::models::{
         FlowConditions, RectangularChannelModel, ResistanceModel,
     };
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use eunomia::assert_relative_eq;
 
@@ -124,7 +127,14 @@ mod tests {
     const L: f64 = 0.01; // 1 cm channel
 
     fn water() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new("water".to_string(), 1000.0, MU, 4186.0, 0.598, 1480.0)
+        ConstantPropertyFluid::new(
+            "water".to_string(),
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(MU),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.598),
+            Velocity::from_base(1480.0),
+        )
     }
 
     /// Circular tube: exact Hagen-Poiseuille resistance.

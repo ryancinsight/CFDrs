@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let area = CHANNEL_WIDTH * CHANNEL_HEIGHT;
     let hydraulic_diameter = 2.0 * area / (CHANNEL_WIDTH + CHANNEL_HEIGHT);
-    let viscosity = fluid.viscosity;
+    let viscosity = fluid.viscosity.into_base();
 
     // Resistance for rectangular microchannels
     let resistance_1 = 12.0 * viscosity * CHANNEL_LENGTH / (CHANNEL_WIDTH * CHANNEL_HEIGHT.powi(3));
@@ -169,8 +169,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let reynolds = {
-        let viscosity = fluid.viscosity;
-        fluid.density * avg_velocity * diameter / viscosity
+        let viscosity = fluid.viscosity.into_base();
+        fluid.density.into_base() * avg_velocity * diameter / viscosity
     };
 
     println!("\n📈 Flow Characteristics:");

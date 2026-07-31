@@ -269,8 +269,11 @@ mod level_set_tests {
 
 #[cfg(test)]
 mod cross_fidelity_physics_tests {
-    use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
-    use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+        VolumetricFlowRate,
+    };
+    use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
     use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
     use cfd_schematics::application::ports::GraphSink;
     use cfd_schematics::domain::model::{
@@ -285,7 +288,14 @@ mod cross_fidelity_physics_tests {
     const RHO: f64 = 1060.0;
 
     fn blood_fluid() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
+        ConstantPropertyFluid::new(
+            "blood".to_string(),
+            MassDensity::from_base(RHO),
+            DynamicViscosity::from_base(MU),
+            SpecificHeatCapacity::from_base(3617.0),
+            ThermalConductivity::from_base(0.52),
+            Velocity::from_base(1570.0),
+        )
     }
 
     fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {

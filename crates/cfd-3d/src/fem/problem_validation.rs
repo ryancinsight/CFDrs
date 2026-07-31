@@ -19,15 +19,15 @@ pub(super) fn validate_physical_invariants<T: Cfd3dScalar>(
 }
 
 fn validate_fluid_properties<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
-    if !<T as NumericElement>::is_finite(problem.fluid.density)
-        || problem.fluid.density <= scalar::zero::<T>()
+    if !<T as NumericElement>::is_finite(problem.fluid.density.into_base())
+        || problem.fluid.density.into_base() <= scalar::zero::<T>()
     {
         return Err(Error::InvalidConfiguration(
             "FEM fluid density must be finite and positive".to_string(),
         ));
     }
-    if !<T as NumericElement>::is_finite(problem.fluid.viscosity)
-        || problem.fluid.viscosity <= scalar::zero::<T>()
+    if !<T as NumericElement>::is_finite(problem.fluid.viscosity.into_base())
+        || problem.fluid.viscosity.into_base() <= scalar::zero::<T>()
     {
         return Err(Error::InvalidConfiguration(
             "FEM dynamic viscosity must be finite and positive".to_string(),

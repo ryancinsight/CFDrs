@@ -5,20 +5,20 @@
 
 pub mod blasius;
 pub mod couette;
+pub mod dimensionless;
 pub mod poiseuille;
 pub mod poiseuille_2d;
 pub mod stokes;
 pub mod taylor_green;
-pub mod dimensionless;
 pub mod womersley;
 
 pub use blasius::BlasiusBoundaryLayer;
 pub use couette::CouetteFlow;
+pub use dimensionless::{AnalyticalUtils, FlowGeometry};
 pub use poiseuille::{PoiseuilleFlow, PoiseuilleGeometry};
 pub use poiseuille_2d::{CassonPoiseuille, PowerLawModel, PowerLawPoiseuille, RheologicalModel};
 pub use stokes::StokesFlow;
 pub use taylor_green::TaylorGreenVortex;
-pub use dimensionless::{AnalyticalUtils, FlowGeometry};
 pub use womersley::WomersleyFlow;
 
 use eunomia::RealField;

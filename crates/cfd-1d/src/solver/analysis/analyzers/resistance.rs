@@ -232,7 +232,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {
                 let velocity = q / properties.area.into_base();
-                fluid.density * velocity * hydraulic_diameter / fluid.viscosity
+                fluid.density.into_base() * velocity * hydraulic_diameter
+                    / fluid.viscosity.into_base()
             }),
             velocity: flow_rate.map(|q| q / properties.area.into_base()),
             flow_rate,

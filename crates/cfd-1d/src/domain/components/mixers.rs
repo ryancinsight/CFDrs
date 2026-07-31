@@ -191,7 +191,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
     /// - Stroock, A. D. et al. (2002). Chaotic mixer for microchannels.
     ///   *Science*, 295(5555), 647–651.
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
-        let mu = fluid.viscosity;
+        let mu = fluid.viscosity.into_base();
 
         let d = self.hydraulic_diameter.into_base();
         let l = self.length.into_base();

@@ -1,3 +1,6 @@
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolution3D, VenturiSolver3D};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::VenturiMeshBuilder;
@@ -18,11 +21,11 @@ fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D
     // Use ConstantPropertyFluid with dummy thermal properties
     let fluid = ConstantPropertyFluid::new(
         "Poiseuille Fluid".to_string(),
-        rho,
-        mu,
-        4186.0, // Cp (Water)
-        0.6,    // k (Water)
-        1500.0, // c (Water)
+        MassDensity::from_base(rho),
+        DynamicViscosity::from_base(mu),
+        SpecificHeatCapacity::from_base(4186.0),
+        ThermalConductivity::from_base(0.6),
+        Velocity::from_base(1500.0),
     );
 
     // 3. Flow Conditions

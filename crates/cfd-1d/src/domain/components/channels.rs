@@ -256,7 +256,7 @@ mod tests {
 
         // For square channel, Bahrami exact fit yields slightly different Po (~56.4-56.9)
         // compared to the hardcoded Shah-London polynomial estimation of 56.91.
-        let mu = fluid.viscosity;
+        let mu = fluid.viscosity.into_base();
         let area = width * height;
         let dh = 2.0 * width * height / (width + height);
         let r_expected = 56.91 * mu * length / (2.0 * area * dh * dh);
@@ -308,7 +308,7 @@ mod tests {
         let r = chan.resistance(&fluid);
 
         // Hagen-Poiseuille: R = 128 mu L / (pi D^4)
-        let expected = 128.0 * fluid.viscosity * l / (std::f64::consts::PI * d.powi(4));
+        let expected = 128.0 * fluid.viscosity.into_base() * l / (std::f64::consts::PI * d.powi(4));
         assert_relative_eq!(r, expected, epsilon = 1e-6);
     }
 

@@ -43,7 +43,7 @@
 //! - Kreutzer, M. T. et al. (2005). "Inertial and interfacial effects on pressure
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
@@ -192,17 +192,20 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use eunomia::assert_relative_eq;
 
     fn test_fluid() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "water_air".to_string(),
-            1000.0, // density
-            0.001,  // viscosity
-            4186.0,
-            0.6,
-            1500.0,
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(0.001),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.6),
+            Velocity::from_base(1500.0),
         )
     }
 

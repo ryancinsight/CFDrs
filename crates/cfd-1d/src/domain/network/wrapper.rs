@@ -15,9 +15,9 @@ use cfd_core::{
 };
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
-use petgraph::Direction;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods

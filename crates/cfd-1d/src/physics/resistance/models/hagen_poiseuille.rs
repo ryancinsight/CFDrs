@@ -62,7 +62,7 @@
 //!   l'Académie Royale des Sciences de l'Institut de France*, 9, 433-544.
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use serde::{Deserialize, Serialize};
@@ -192,6 +192,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    };
     use cfd_core::physics::fluid::CassonBlood;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use eunomia::assert_relative_eq;
@@ -199,11 +202,11 @@ mod tests {
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "water".to_string(),
-            1000.0, // density [kg/m³]
-            0.001,  // viscosity [Pa·s]
-            4186.0, // specific heat
-            0.598,  // thermal conductivity
-            1480.0, // speed of sound
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(0.001),
+            SpecificHeatCapacity::from_base(4186.0),
+            ThermalConductivity::from_base(0.598),
+            Velocity::from_base(1480.0),
         )
     }
 
@@ -280,17 +283,13 @@ mod tests {
         assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());
 
         let zero_diam = HagenPoiseuilleModel::new(0.0_f64, 0.01_f64);
-        assert!(
-            zero_diam
-                .validate_invariants(&water(), &conditions)
-                .is_err()
-        );
+        assert!(zero_diam
+            .validate_invariants(&water(), &conditions)
+            .is_err());
 
         let neg_length = HagenPoiseuilleModel::new(0.001_f64, -0.01_f64);
-        assert!(
-            neg_length
-                .validate_invariants(&water(), &conditions)
-                .is_err()
-        );
+        assert!(neg_length
+            .validate_invariants(&water(), &conditions)
+            .is_err());
     }
 }

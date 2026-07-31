@@ -1,6 +1,5 @@
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance,
-    VolumetricFlowRate,
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{

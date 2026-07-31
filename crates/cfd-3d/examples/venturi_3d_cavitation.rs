@@ -58,10 +58,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Solve with water
     let water = ConstantPropertyFluid::<f64>::water_20c()?;
-    let rho = water.density;
+    let rho = water.density.into_base();
+    let mu = water.viscosity.into_base();
     println!(
         "\nFluid: water at 20C (rho={:.1} kg/m^3, mu={:.4e} Pa.s)",
-        rho, water.viscosity
+        rho, mu
     );
 
     println!("\nSolving...");

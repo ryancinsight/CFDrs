@@ -15,7 +15,10 @@
 //! We verify that all three fidelity levels agree on core invariants: mass
 //! conservation, directional pressure relationships, and wall shear ordering.
 
-use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    VolumetricFlowRate,
+};
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
 use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
@@ -31,7 +34,14 @@ const MU: f64 = 3.5e-3;
 const RHO: f64 = 1060.0;
 
 fn blood_fluid() -> ConstantPropertyFluid<f64> {
-    ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
+    ConstantPropertyFluid::new(
+        "blood".to_string(),
+        MassDensity::from_base(RHO),
+        DynamicViscosity::from_base(MU),
+        SpecificHeatCapacity::from_base(3617.0),
+        ThermalConductivity::from_base(0.52),
+        Velocity::from_base(1570.0),
+    )
 }
 
 fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {

@@ -27,7 +27,7 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
-use super::traits::{ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -375,8 +375,8 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
-    use cfd_core::physics::fluid::ConstantFluid;
     use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+    use cfd_core::physics::fluid::ConstantFluid;
     use eunomia::assert_relative_eq;
 
     #[test]
@@ -418,7 +418,7 @@ mod tests {
         let mut conditions = FlowConditions::new(0.001);
         // Compute Reynolds number based on hydraulic diameter and set it
         let dh = 2.0 * model.width * model.height / (model.width + model.height);
-        let density = fluid.density;
+        let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = conditions.velocity.unwrap();
         let re = density * velocity * dh / viscosity;
@@ -453,7 +453,7 @@ mod tests {
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
         let velocity = 1.0;
         let density = WATER_DENSITY;
-        let viscosity = fluid.viscosity;
+        let viscosity = fluid.viscosity.into_base();
         let re = density * velocity * diameter / viscosity;
 
         // Create flow conditions with Reynolds number
@@ -521,7 +521,7 @@ mod tests {
         };
         // Provide Reynolds number for rectangular geometry
         let dh = 2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6);
-        let density = fluid.density;
+        let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
         let velocity = conditions.velocity.unwrap();
         let re = density * velocity * dh / viscosity;

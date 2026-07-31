@@ -23,9 +23,7 @@
 //! into moving fluid through the channel resistances.
 
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{
-    Dimensionless, Power, Pressure, Time, VolumetricFlowRate,
-};
+use aequitas::systems::si::quantities::{Dimensionless, Power, Pressure, Time, VolumetricFlowRate};
 use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
@@ -77,9 +75,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     pub fn set_total_pressure_drop(&mut self, pressure_drop: Pressure<T>) {
         // Store as part of pressure efficiency calculation
         if pressure_drop.into_base() > T::zero() && self.throughput.into_base() > T::zero() {
-            self.pressure_efficiency = Dimensionless::from_base(
-                self.throughput.into_base() / pressure_drop.into_base(),
-            );
+            self.pressure_efficiency =
+                Dimensionless::from_base(self.throughput.into_base() / pressure_drop.into_base());
         }
     }
 
@@ -119,7 +116,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
         if self.residence_times.is_empty() {
             Time::from_base(T::zero())
         } else {
-            let sum: T = self.residence_times.values().map(|time| time.into_base()).sum();
+            let sum: T = self
+                .residence_times
+                .values()
+                .map(|time| time.into_base())
+                .sum();
             Time::from_base(sum / T::from_usize_or_one(self.residence_times.len()))
         }
     }

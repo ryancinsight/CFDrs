@@ -4,9 +4,9 @@
 //! [`Network`] with physically refined resistance coefficients.
 
 use super::super::{
-    Edge, EdgeProperties, Node, ResistanceUpdatePolicy,
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses,
+    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
+    ResistanceUpdatePolicy,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
@@ -24,8 +24,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 
 use crate::domain::network::wrapper::{
-    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
-    blood_microchannel_apparent_viscosity,
+    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
+    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -371,8 +371,7 @@ where
                                 conds.temperature,
                                 conds.pressure,
                             )
-                            .map(|value| value.into_base())
-                            .unwrap_or(default_plasma_viscosity);
+                            .map_or(default_plasma_viscosity, |value| value.into_base());
                         if local_mu > T::default_epsilon() {
                             resistance_scale *= target_mu / local_mu;
                         }

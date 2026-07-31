@@ -28,7 +28,7 @@
 //! the scalar resistance coefficients for a symmetric venturi.
 
 use super::model::VenturiModel;
-use super::traits::{FlowConditions, ResistanceScalar, scalar_from_f64};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 
