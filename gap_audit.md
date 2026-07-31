@@ -31,6 +31,28 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Stokes analytical metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-38` closes the Stokes analytical-validation slice.
+`StokesFlow` now stores sphere radius, free-stream velocity, dynamic viscosity,
+and fluid density as Aequitas quantities. Drag force, drag coefficient,
+Reynolds number, and the spherical stream function return `Force`,
+`Dimensionless`, `Dimensionless`, and `VolumetricFlowRate` respectively.
+Scalar extraction remains only at the analytical formula and mesh-coordinate
+boundaries.
+
+The sphere stream function has volumetric-flow dimensions (`m³/s`) because
+its definition is velocity times area. The contract remains real-valued under
+Eunomia `RealField`; no complex or imaginary-unit physical quantity applies.
+
+The typed-field residue scan, direct Stokes-law regression, targeted Rustfmt,
+and `git diff --check` pass. The pinned cfd-validation test-target check is
+still blocked before `cfd-validation` by peer-dirty
+`cfd-math::linear_solver::block_preconditioner` unresolved
+`leto-ops::{OwnedNumericLu, SymbolicLu, factor_symbolic}` imports on lines
+26-28 and missing `factor_sparse_with_symbolic` on line 769; this is a
+provider/peer integration residual, not a MET38 diagnostic.
+
 ## Couette and Poiseuille analytical metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-37` closes the Couette and Poiseuille analytical-validation

@@ -15,10 +15,12 @@
 //!   (4th ed.). Springer.
 
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, Length, MassDensity, PressureGradient, Velocity,
+    Angle, DynamicViscosity, Length, MassDensity, PressureGradient, Velocity,
 };
 use cfd_validation::analytical::poiseuille::PoiseuilleFlowRate;
-use cfd_validation::analytical::{AnalyticalSolution, PoiseuilleFlow, PoiseuilleGeometry};
+use cfd_validation::analytical::{
+    AnalyticalSolution, PoiseuilleFlow, PoiseuilleGeometry, StokesFlow,
+};
 use eunomia::assert_relative_eq;
 
 fn poiseuille_flow(
@@ -190,6 +192,51 @@ fn test_planar_flow_rate_has_per_width_unit() {
         (2.0 / 3.0) * u_max * half_height,
         epsilon = 1.0e-12
     );
+}
+
+/// Test Stokes drag, Reynolds, and stream-function dimensions and values.
+#[test]
+fn test_stokes_law_metrics() {
+    let radius = 0.01_f64;
+    let velocity = 0.01_f64;
+    let viscosity = 1.0e-3_f64;
+    let density = 1_000.0_f64;
+    let flow = StokesFlow::create(
+        Length::from_base(radius),
+        Velocity::from_base(velocity),
+        DynamicViscosity::from_base(viscosity),
+        MassDensity::from_base(density),
+    );
+
+    let expected_drag = 6.0 * std::f64::consts::PI * viscosity * radius * velocity;
+    assert_relative_eq!(
+        flow.drag_force().into_base(),
+        expected_drag,
+        epsilon = 1.0e-14
+    );
+    assert_relative_eq!(
+        flow.reynolds_number().into_base(),
+        density * velocity * (2.0 * radius) / viscosity,
+        epsilon = 1.0e-12
+    );
+    assert_relative_eq!(
+        flow.drag_coefficient().into_base(),
+        24.0 / flow.reynolds_number().into_base(),
+        epsilon = 1.0e-12
+    );
+
+    let stream_function = flow
+        .stream_function(
+            Length::from_base(2.0 * radius),
+            Angle::from_base(0.5 * std::f64::consts::PI),
+        )
+        .into_base();
+    let expected_stream_function = 0.5
+        * velocity
+        * (2.0 * radius).powi(2)
+        * (1.0 - 3.0 * radius / (2.0 * 2.0 * radius)
+            + radius.powi(3) / (2.0 * (2.0 * radius).powi(3)));
+    assert_relative_eq!(stream_function, expected_stream_function, epsilon = 1.0e-14);
 }
 
 /// Test Reynolds number calculation and laminar flow criterion

@@ -31,6 +31,23 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-38 [major] - Type Stokes analytical metrics
+  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-validation::analytical::StokesFlow`, its direct analytical
+  regressions, and synchronized audit/design/changelog artifacts).** The
+  current analytical-validation audit leaves the sphere radius, free-stream
+  velocity, dynamic viscosity, and density as raw generic scalars, and its
+  drag, Reynolds, and stream-function results erase fixed dimensions. Carry
+  those values and derived metrics through Aequitas; keep scalar extraction at
+  the analytical formula and mesh-coordinate boundaries. The typed-field
+  residue scan, direct Stokes-law regression, targeted Rustfmt, and diff checks
+  pass. Preserve Eunomia real-field execution; Stokes flow has no complex or
+  imaginary-unit metric. The pinned cfd-validation test-target check remains
+  blocked before cfd-validation by peer-dirty
+  `cfd-math::linear_solver::block_preconditioner` unresolved `leto-ops`
+  imports at lines 26-28 and missing `factor_sparse_with_symbolic` at line
+  769; this is a provider/peer integration residual, not a MET38 failure.
+
 - **CFDRS-AEQ-MET-37 [major] - Type Couette and Poiseuille analytical metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical::{couette,poiseuille}`, direct analytical

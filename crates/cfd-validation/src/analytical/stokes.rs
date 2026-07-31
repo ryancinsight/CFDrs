@@ -2,6 +2,10 @@
 
 use super::AnalyticalSolution;
 use crate::scalar;
+use aequitas::systems::si::quantities::{
+    Angle, Dimensionless, DynamicViscosity, Force, Length, MassDensity, Velocity,
+    VolumetricFlowRate,
+};
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;
@@ -12,18 +16,23 @@ use std::f64::consts::PI;
 /// Analytical solution for creeping flow (Re << 1) around a sphere.
 pub struct StokesFlow<T: RealField + Copy> {
     /// Sphere radius
-    pub sphere_radius: T,
+    pub sphere_radius: Length<T>,
     /// Free stream velocity
-    pub free_stream_velocity: T,
+    pub free_stream_velocity: Velocity<T>,
     /// Dynamic viscosity
-    pub viscosity: T,
+    pub viscosity: DynamicViscosity<T>,
     /// Fluid density
-    pub density: T,
+    pub density: MassDensity<T>,
 }
 
 impl<T: RealField + Copy + FloatElement> StokesFlow<T> {
     /// Create Stokes flow solution
-    pub fn create(sphere_radius: T, free_stream_velocity: T, viscosity: T, density: T) -> Self {
+    pub fn create(
+        sphere_radius: Length<T>,
+        free_stream_velocity: Velocity<T>,
+        viscosity: DynamicViscosity<T>,
+        density: MassDensity<T>,
+    ) -> Self {
         Self {
             sphere_radius,
             free_stream_velocity,
@@ -33,38 +42,47 @@ impl<T: RealField + Copy + FloatElement> StokesFlow<T> {
     }
 
     /// Get the drag force on the sphere (Stokes' law)
-    pub fn drag_force(&self) -> T {
+    pub fn drag_force(&self) -> Force<T> {
         let pi = scalar::from_f64::<T>(PI);
         let six = scalar::from_f64::<T>(6.0);
 
-        six * pi * self.viscosity * self.sphere_radius * self.free_stream_velocity
+        Force::from_base(
+            six * pi
+                * self.viscosity.into_base()
+                * self.sphere_radius.into_base()
+                * self.free_stream_velocity.into_base(),
+        )
     }
 
     /// Get the drag coefficient
-    pub fn drag_coefficient(&self) -> T {
-        let reynolds = self.reynolds_number();
+    pub fn drag_coefficient(&self) -> Dimensionless<T> {
+        let reynolds = self.reynolds_number().into_base();
         if reynolds > scalar::from_f64::<T>(0.01) {
             // Stokes drag coefficient: CD = 24/Re
-            scalar::from_f64::<T>(24.0) / reynolds
+            Dimensionless::from_base(scalar::from_f64::<T>(24.0) / reynolds)
         } else {
             // Avoid division by very small number
-            scalar::from_f64::<T>(2400.0)
+            Dimensionless::from_base(scalar::from_f64::<T>(2400.0))
         }
     }
 
     /// Get Reynolds number based on sphere diameter
-    pub fn reynolds_number(&self) -> T {
-        let diameter = scalar::from_f64::<T>(2.0) * self.sphere_radius;
-        self.density * self.free_stream_velocity * diameter / self.viscosity
+    pub fn reynolds_number(&self) -> Dimensionless<T> {
+        let diameter = scalar::from_f64::<T>(2.0) * self.sphere_radius.into_base();
+        Dimensionless::from_base(
+            self.density.into_base() * self.free_stream_velocity.into_base() * diameter
+                / self.viscosity.into_base(),
+        )
     }
 
     /// Get the stream function value at (r, θ)
-    pub fn stream_function(&self, r: T, theta: T) -> T {
-        let a = self.sphere_radius;
-        let u_inf = self.free_stream_velocity;
+    pub fn stream_function(&self, r: Length<T>, theta: Angle<T>) -> VolumetricFlowRate<T> {
+        let r = r.into_base();
+        let a = self.sphere_radius.into_base();
+        let u_inf = self.free_stream_velocity.into_base();
 
         // ψ = (U∞/2) * r² * sin²(θ) * (1 - 3a/(2r) + a³/(2r³))
-        let sin_theta = scalar::sin(theta);
+        let sin_theta = scalar::sin(theta.into_base());
         let sin2_theta = sin_theta * sin_theta;
 
         let half = scalar::from_f64::<T>(0.5);
@@ -74,7 +92,7 @@ impl<T: RealField + Copy + FloatElement> StokesFlow<T> {
         let term2 = -three_halves * a / r;
         let term3 = half * a * a * a / (r * r * r);
 
-        half * u_inf * r * r * sin2_theta * (term1 + term2 + term3)
+        VolumetricFlowRate::from_base(half * u_inf * r * r * sin2_theta * (term1 + term2 + term3))
     }
 }
 
@@ -83,13 +101,16 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for StokesFlow<T>
         // Convert to spherical coordinates (r, θ, φ)
         let r = scalar::sqrt(x * x + y * y + z * z);
 
-        if r < self.sphere_radius {
+        let sphere_radius = self.sphere_radius.into_base();
+        let free_stream_velocity = self.free_stream_velocity.into_base();
+
+        if r < sphere_radius {
             // Inside sphere: no flow
             return Vector3::zeros();
         }
 
-        let a = self.sphere_radius;
-        let u_inf = self.free_stream_velocity;
+        let a = sphere_radius;
+        let u_inf = free_stream_velocity;
 
         // For simplicity, assume flow in x-direction
         // u_r = U∞ * cos(θ) * (1 - 3a/(2r) + a³/(2r³))
@@ -139,16 +160,19 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for StokesFlow<T>
     fn pressure(&self, x: T, y: T, z: T, _t: T) -> T {
         let r = scalar::sqrt(x * x + y * y + z * z);
 
-        if r < self.sphere_radius {
+        if r < self.sphere_radius.into_base() {
             // Inside sphere
             return scalar::zero::<T>();
         }
 
         // p = p∞ - (3μU∞a/2) * (x/r³)
         let three_halves = scalar::from_f64::<T>(1.5);
-        let pressure_drop =
-            three_halves * self.viscosity * self.free_stream_velocity * self.sphere_radius * x
-                / (r * r * r);
+        let pressure_drop = three_halves
+            * self.viscosity.into_base()
+            * self.free_stream_velocity.into_base()
+            * self.sphere_radius.into_base()
+            * x
+            / (r * r * r);
 
         -pressure_drop // Relative to p∞
     }
@@ -158,7 +182,7 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for StokesFlow<T>
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let domain_size = scalar::from_f64::<T>(10.0) * self.sphere_radius;
+        let domain_size = scalar::from_f64::<T>(10.0) * self.sphere_radius.into_base();
         [
             -domain_size,
             domain_size, // x
@@ -170,10 +194,10 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for StokesFlow<T>
     }
 
     fn length_scale(&self) -> T {
-        self.sphere_radius
+        self.sphere_radius.into_base()
     }
 
     fn velocity_scale(&self) -> T {
-        self.free_stream_velocity
+        self.free_stream_velocity.into_base()
     }
 }

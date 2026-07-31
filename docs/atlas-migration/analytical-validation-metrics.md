@@ -70,3 +70,16 @@ The formula and `AnalyticalSolution` mesh-coordinate boundaries extract base
 values explicitly. These validation contracts require Eunomia `RealField`;
 complex intermediates and quadrature values are not physical-unit inputs for
 this family, so no imaginary-unit quantity is introduced.
+
+## Stokes flow around a sphere
+
+`StokesFlow` stores sphere radius, free-stream velocity, dynamic viscosity,
+and density as Aequitas `Length`, `Velocity`, `DynamicViscosity`, and
+`MassDensity`. Its drag law returns `Force`, the drag coefficient and Reynolds
+number return `Dimensionless`, and the spherical stream function returns
+`VolumetricFlowRate` because its definition is velocity times area.
+
+The analytical vector and pressure methods retain raw mesh-coordinate values
+at the `AnalyticalSolution` boundary. The physical configuration and direct
+metrics remain real-valued under Eunomia `RealField`; no complex or
+imaginary-unit quantity is introduced.
