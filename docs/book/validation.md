@@ -1,5 +1,10 @@
 # Chapter 7 — Validation and Benchmarking
 
+<!-- generated-figure-start -->
+![Figure 16.1 — Canonical Flow Benchmarks](figures/ch16/fig01_16_canonical_flow_benchmarks.svg)
+*Figure 16.1 — Canonical Flow Benchmarks*
+<!-- generated-figure-end -->
+
 Computational accuracy is established by comparing against **analytical
 solutions**, **experimental data**, and **published benchmark results**.
 CFDrs ships a `cfd-validation` crate dedicated to this discipline.

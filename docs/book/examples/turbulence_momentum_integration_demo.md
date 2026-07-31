@@ -1,5 +1,10 @@
 # Example: Turbulence-Momentum Integration
 
+<!-- generated-figure-start -->
+![Figure 5.4 — Example: Turbulence Momentum Integration Demo](../figures/ch05/fig04_example_turbulence_momentum_integration_demo.svg)
+*Figure 5.4 — Example: Turbulence Momentum Integration Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example turbulence_momentum_integration_demo`
 **Source**: [`examples/turbulence_momentum_integration_demo.rs`](../../../examples/turbulence_momentum_integration_demo.rs)

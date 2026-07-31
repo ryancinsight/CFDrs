@@ -1,5 +1,10 @@
 # Example: Serpentine-Channel Mixing Analysis
 
+<!-- generated-figure-start -->
+![Figure 9.8 — Example: Serpentine Mixing Comprehensive](../figures/ch09/fig08_example_serpentine_mixing_comprehensive.svg)
+*Figure 9.8 — Example: Serpentine Mixing Comprehensive*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example serpentine_mixing_comprehensive`
 **Source**: [`examples/serpentine_mixing_comprehensive.rs`](../../../examples/serpentine_mixing_comprehensive.rs)

@@ -1,5 +1,10 @@
 # Chapter 5 — Spectral, FEM, MUSCL, and Matrix-Free Methods
 
+<!-- generated-figure-start -->
+![Figure 10.1 — Spectral Methods, FEM, and MUSCL Schemes](figures/ch10/fig01_10_spectral_methods_fem_and_muscl_schemes.svg)
+*Figure 10.1 — Spectral Methods, FEM, and MUSCL Schemes*
+<!-- generated-figure-end -->
+
 CFDrs's solver layer decomposes into **discretization** (stencil/FEM),
 **linear algebra** (matrix-free, sparse direct, Krylov), and **time
 integration** (explicit, implicit, adaptive).  Commonalities across the

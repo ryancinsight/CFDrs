@@ -1,5 +1,10 @@
 # Example: tpms_blood_2d
 
+<!-- generated-figure-start -->
+![Figure 15.3 — Example: TPMS Blood 2D](../figures/ch15/fig03_example_tpms_blood_2d.svg)
+*Figure 15.3 — Example: TPMS Blood 2D*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-2d/examples/tpms_blood_2d.rs`  
 **Crate**: `cfd-2d`
 

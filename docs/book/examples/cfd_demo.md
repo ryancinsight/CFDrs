@@ -1,5 +1,10 @@
 # Example: cfd_demo
 
+<!-- generated-figure-start -->
+![Figure 1.2 — Example: CFD Demo](../figures/ch01/fig02_example_cfd_demo.svg)
+*Figure 1.2 — Example: CFD Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example cfd_demo`  
 **Source**: [`examples/cfd_demo.rs`](../../../examples/cfd_demo.rs)
@@ -39,4 +44,3 @@ turbulence diagnostics; for a quiescent initial field it should be zero.
 ## Book Chapter
 
 [← CFDrs Architecture and Problem Setup](../foundations.md)
-

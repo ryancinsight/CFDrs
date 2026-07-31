@@ -1,5 +1,10 @@
 # Example: matrix_free_demo
 
+<!-- generated-figure-start -->
+![Figure 11.2 — Example: Matrix Free Demo](../figures/ch11/fig02_example_matrix_free_demo.svg)
+*Figure 11.2 — Example: Matrix Free Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example matrix_free_demo`  
 **Source**: [`examples/matrix_free_demo.rs`](../../../examples/matrix_free_demo.rs)
@@ -54,4 +59,3 @@ iterative solver path.
 ## Book Chapter
 
 [← Spectral, FEM, MUSCL, and Matrix-Free Methods](../numerics_and_solvers.md)
-

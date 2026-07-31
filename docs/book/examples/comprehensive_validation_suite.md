@@ -1,5 +1,10 @@
 # Example: comprehensive_validation_suite
 
+<!-- generated-figure-start -->
+![Figure 16.4 — Example: Comprehensive Validation Suite](../figures/ch16/fig04_example_comprehensive_validation_suite.svg)
+*Figure 16.4 — Example: Comprehensive Validation Suite*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example comprehensive_validation_suite`
 **Source**: [`crates/cfd-validation/examples/comprehensive_validation_suite.rs`](../../../crates/cfd-validation/examples/comprehensive_validation_suite.rs)

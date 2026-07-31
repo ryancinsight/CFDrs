@@ -1,5 +1,10 @@
 # Chapter 10 — Leto: Arrays and Linear Algebra
 
+<!-- generated-figure-start -->
+![Figure 22.1 — Leto: Arrays and Linalg](figures/ch22/fig01_22_leto_arrays_and_linalg.svg)
+*Figure 22.1 — Leto: Arrays and Linalg*
+<!-- generated-figure-end -->
+
 The bulk of CFDrs's tensor arithmetic — state vectors, velocity fields,
 pressure fields, sparse system matrices — migrates from `ndarray::Array*` and
 `nalgebra::DMatrix` to **Leto's** unified `NdArray` and sparse CsrMatrix types.

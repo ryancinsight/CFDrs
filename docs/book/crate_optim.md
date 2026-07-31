@@ -1,5 +1,10 @@
 # Chapter 22 — Optimization
 
+<!-- generated-figure-start -->
+![Figure 19.1 — Multi-Objective Optimization](figures/ch19/fig01_19_multi_objective_optimization.svg)
+*Figure 19.1 — Multi-Objective Optimization*
+<!-- generated-figure-end -->
+
 `cfd-optim` provides design-space exploration and Pareto-front optimization
 for CFD geometries.  Key examples demonstrate the Latin-hypercube sampler
 (backed by `tyche-core`) and the genetic-algorithm optimizer.

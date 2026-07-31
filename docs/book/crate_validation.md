@@ -1,5 +1,10 @@
 # Chapter 18 — Validation Suite
 
+<!-- generated-figure-start -->
+![Figure 18.1 — Validation Suite](figures/ch18/fig01_18_validation_suite.svg)
+*Figure 18.1 — Validation Suite*
+<!-- generated-figure-end -->
+
 CFDrs ships three crate-level validation examples that run inside `cfd-validation`.
 Together they confirm solver accuracy, convergence order, and haemodynamic physics.
 

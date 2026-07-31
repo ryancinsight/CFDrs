@@ -1,5 +1,10 @@
 # Example: Simple Cavitation Model
 
+<!-- generated-figure-start -->
+![Figure 6.3 — Example: Simple Cavitation](../figures/ch06/fig03_example_simple_cavitation.svg)
+*Figure 6.3 — Example: Simple Cavitation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example simple_cavitation`
 **Source**: [`examples/simple_cavitation.rs`](../../../examples/simple_cavitation.rs)

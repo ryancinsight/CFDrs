@@ -1,5 +1,10 @@
 # Chapter 11 — Leto: Geometry — Points, Vectors, Isometries
 
+<!-- generated-figure-start -->
+![Figure 23.1 — Leto: Geometry](figures/ch23/fig01_23_leto_geometry.svg)
+*Figure 23.1 — Leto: Geometry*
+<!-- generated-figure-end -->
+
 CFDrs geometry — cell centres, face normals, mesh indices, coordinate
 transforms — migrates from `nalgebra::Point3`/`Vector3`/`Isometry3` to the
 matching **Leto** types.  Leto's geometry types share the same in-memory

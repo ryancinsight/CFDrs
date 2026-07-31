@@ -1,5 +1,10 @@
 # Example: csg_operations
 
+<!-- generated-figure-start -->
+![Figure 12.3 — Example: CSG Operations](../figures/ch12/fig03_example_csg_operations.svg)
+*Figure 12.3 — Example: CSG Operations*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example csg_operations --features csg`  
 **Source**: [`examples/csg_operations.rs`](../../../examples/csg_operations.rs)
@@ -43,4 +48,3 @@ after boolean operations.
 ## Book Chapter
 
 [← Geometry Construction and CFD Coupling](../geometry_and_meshing.md)
-

@@ -1,5 +1,10 @@
 # Chapter 3 — Turbulence Models and Cavitation
 
+<!-- generated-figure-start -->
+![Figure 5.1 — Turbulence Models: k-ε, k-ω SST, Smagorinsky LES](figures/ch05/fig01_5_turbulence_models_k_k_sst_smagorinsky_les.svg)
+*Figure 5.1 — Turbulence Models: k-ε, k-ω SST, Smagorinsky LES*
+<!-- generated-figure-end -->
+
 CFDrs models three coupled physical regimes: **turbulence** (RANS / LES
 closures), **multiphase flows** (phases with distinct equations of state),
 and **cavitation** (liquid–vapour phase transition at low pressure).

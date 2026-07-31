@@ -1,5 +1,10 @@
 # Example: milestone12_option2
 
+<!-- generated-figure-start -->
+![Figure 19.5 — Example: Milestone 12 Option 2](../figures/ch19/fig05_example_milestone_12_option_2.svg)
+*Figure 19.5 — Example: Milestone 12 Option 2*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-optim/examples/milestone12_option2.rs`  
 **Crate**: `cfd-optim`
 

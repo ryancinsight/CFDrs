@@ -1,5 +1,10 @@
 # Chapter 9 — Eunomia: Numeric Trait Unification
 
+<!-- generated-figure-start -->
+![Figure 21.1 — Eunomia: Numeric Traits](figures/ch21/fig01_21_eunomia_numeric_traits.svg)
+*Figure 21.1 — Eunomia: Numeric Traits*
+<!-- generated-figure-end -->
+
 Every Atlas crate depends on [`eunomia::RealField`] for scalar arithmetic and
 on [`eunomia::ComplexField`] when complex numbers appear.  Eunomia is the
 **trait frontier** — a one-crate abstraction that the rest of the stack builds

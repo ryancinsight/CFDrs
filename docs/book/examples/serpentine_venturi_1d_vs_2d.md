@@ -1,5 +1,10 @@
 # Example: serpentine_venturi_1d_vs_2d
 
+<!-- generated-figure-start -->
+![Figure 15.4 — Example: Serpentine Venturi 1D vs 2D](../figures/ch15/fig04_example_serpentine_venturi_1d_vs_2d.svg)
+*Figure 15.4 — Example: Serpentine Venturi 1D vs 2D*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-2d/examples/serpentine_venturi_1d_vs_2d.rs`  
 **Crate**: `cfd-2d`
 

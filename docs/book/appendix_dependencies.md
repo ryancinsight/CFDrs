@@ -1,5 +1,10 @@
 # Appendix A — Atlas Crate Dependency Map
 
+<!-- generated-figure-start -->
+![Figure A.1 — A. Atlas Crate Dependency Map](figures/appendix/fig01_a_atlas_crate_dependency_map.svg)
+*Figure A.1 — A. Atlas Crate Dependency Map*
+<!-- generated-figure-end -->
+
 A CFDrs-centric view of the Atlas stack — which crate owns which surface, which
 CFDrs crate consumes it, and the migration phase each consumer is in.
 

@@ -1,5 +1,10 @@
 # Example: schematic_demo_integration
 
+<!-- generated-figure-start -->
+![Figure 15.5 — Example: Schematic Demo Integration](../figures/ch15/fig05_example_schematic_demo_integration.svg)
+*Figure 15.5 — Example: Schematic Demo Integration*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-1d/examples/schematic_demo_integration.rs`  
 **Crate**: `cfd-1d`
 

@@ -1,5 +1,10 @@
 # Chapter 6 — Geometry Construction and CFD Coupling
 
+<!-- generated-figure-start -->
+![Figure 12.1 — Constructive Solid Geometry for CFD](figures/ch12/fig01_12_constructive_solid_geometry_for_cfd.svg)
+*Figure 12.1 — Constructive Solid Geometry for CFD*
+<!-- generated-figure-end -->
+
 CFDrs separates solid-mesh operations from design-time microfluidic topology.
 The two representations have different contracts and do not share a synthetic
 cross-domain facade.

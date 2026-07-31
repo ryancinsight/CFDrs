@@ -1,5 +1,10 @@
 # Chapter 8 — Migration Overview: ndarray/nalgebra → Atlas
 
+<!-- generated-figure-start -->
+![Figure 20.1 — Migration Overview](figures/ch20/fig01_20_migration_overview.svg)
+*Figure 20.1 — Migration Overview*
+<!-- generated-figure-end -->
+
 CFDrs is mid-flight in a bulk-then-cleanup migration from third-party mathematics
 crates to the unified **Atlas** stack.  This Part documents the destination
 crates, the principles they encode, and the per-crate migration surface that

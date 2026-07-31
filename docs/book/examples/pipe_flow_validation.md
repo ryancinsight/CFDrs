@@ -1,5 +1,10 @@
 # Example: pipe_flow_validation
 
+<!-- generated-figure-start -->
+![Figure 16.3 — Example: Pipe Flow Validation](../figures/ch16/fig03_example_pipe_flow_validation.svg)
+*Figure 16.3 — Example: Pipe Flow Validation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example pipe_flow_validation`  
 **Source**: [`examples/pipe_flow_validation.rs`](../../../examples/pipe_flow_validation.rs)
@@ -43,10 +48,8 @@ value to within the FEM discretisation error.
 
 ## Generated Figure
 
-![Plane Poiseuille parabolic profile u(y) = u_max(1 - (2y/H)^2)](../figures/poiseuille_parabolic_profile.svg)
 ![Pipe-flow Reynolds regime map](../figures/reynolds_regime_map.svg)
 
 ## Book Chapter
 
 [← Canonical Incompressible Benchmarks](../core_flows.md)
-

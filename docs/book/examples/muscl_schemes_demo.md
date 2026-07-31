@@ -1,5 +1,10 @@
 # Example: MUSCL Higher-Order Reconstruction Schemes
 
+<!-- generated-figure-start -->
+![Figure 10.4 — Example: MUSCL Schemes Demo](../figures/ch10/fig04_example_muscl_schemes_demo.svg)
+*Figure 10.4 — Example: MUSCL Schemes Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example muscl_schemes_demo`
 **Source**: [`examples/muscl_schemes_demo.rs`](../../../examples/muscl_schemes_demo.rs)

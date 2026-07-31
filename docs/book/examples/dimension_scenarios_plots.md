@@ -1,5 +1,10 @@
 # Example: Dimension Scenarios and Visualization
 
+<!-- generated-figure-start -->
+![Figure 13.5 — Example: Dimension Scenarios Plots](../figures/ch13/fig05_example_dimension_scenarios_plots.svg)
+*Figure 13.5 — Example: Dimension Scenarios Plots*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example dimension_scenarios_plots`
 **Source**: [`examples/dimension_scenarios_plots.rs`](../../../examples/dimension_scenarios_plots.rs)

@@ -1,5 +1,10 @@
 # Example: hemolysis_serpentine_analysis
 
+<!-- generated-figure-start -->
+![Figure 9.7 — Example: Hemolysis Serpentine Analysis](../figures/ch09/fig07_example_hemolysis_serpentine_analysis.svg)
+*Figure 9.7 — Example: Hemolysis Serpentine Analysis*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-1d/examples/hemolysis_serpentine_analysis.rs`  
 **Crate**: `cfd-1d`
 

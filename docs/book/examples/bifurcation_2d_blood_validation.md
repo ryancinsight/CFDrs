@@ -1,5 +1,10 @@
 # Example: bifurcation_2d_blood_validation
 
+<!-- generated-figure-start -->
+![Figure 8.2 — Example: Bifurcation 2D Blood Validation](../figures/ch08/fig02_example_bifurcation_2d_blood_validation.svg)
+*Figure 8.2 — Example: Bifurcation 2D Blood Validation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example bifurcation_2d_blood_validation`  
 **Source**: [`examples/bifurcation_2d_blood_validation.rs`](../../../examples/bifurcation_2d_blood_validation.rs)
@@ -42,4 +47,3 @@ geometric measurement error for angled branches.
 ## Book Chapter
 
 [← Blood Flow and Rheology Workflows](../biomedical_flows.md)
-

@@ -1,5 +1,10 @@
 # Chapter 16 — Leto: GAT-Based Tiling and Lending Iterators
 
+<!-- generated-figure-start -->
+![Figure 28.1 — Leto: GAT Tiling](figures/ch28/fig01_28_leto_gat_tiling.svg)
+*Figure 28.1 — Leto: GAT Tiling*
+<!-- generated-figure-end -->
+
 CFDrs iterates over volumetric data in **tiles** (sliding windows, boundary
 extrusions, ghost-cell haloes) at multiple granularities.  The legacy approach
 allocates a `Vec<Tile>` per call and pays for the heap traffic.  Atlas

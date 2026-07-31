@@ -1,5 +1,10 @@
 # Example: csg_cfd_simulation
 
+<!-- generated-figure-start -->
+![Figure 12.4 — Example: CSG CFD Simulation](../figures/ch12/fig04_example_csg_cfd_simulation.svg)
+*Figure 12.4 — Example: CSG CFD Simulation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example csg_cfd_simulation`  
 **Source**: [`examples/csg_cfd_simulation.rs`](../../../examples/csg_cfd_simulation.rs)
@@ -51,4 +56,3 @@ cfd-schematics (parametric blueprint)
 ## Book Chapter
 
 [← Geometry Construction and CFD Coupling](../geometry_and_meshing.md)
-

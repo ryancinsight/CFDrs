@@ -1,5 +1,10 @@
 # Example: turbulence_validation_demo
 
+<!-- generated-figure-start -->
+![Figure 5.3 — Example: Turbulence Validation Demo](../figures/ch05/fig03_example_turbulence_validation_demo.svg)
+*Figure 5.3 — Example: Turbulence Validation Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example turbulence_validation_demo`  
 **Source**: [`examples/turbulence_validation_demo.rs`](../../../examples/turbulence_validation_demo.rs)
@@ -37,4 +42,3 @@ constants should reproduce n ≈ 1.2 – 1.4 over the initial decay period.
 ## Book Chapter
 
 [← Turbulence Models and Cavitation](../turbulence_multiphase.md)
-

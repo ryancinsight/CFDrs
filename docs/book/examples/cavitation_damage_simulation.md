@@ -1,5 +1,10 @@
 # Example: Cavitation Damage Prediction with Multi-Phase CFD
 
+<!-- generated-figure-start -->
+![Figure 6.4 — Example: Cavitation Damage Simulation](../figures/ch06/fig04_example_cavitation_damage_simulation.svg)
+*Figure 6.4 — Example: Cavitation Damage Simulation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example cavitation_damage_simulation`
 **Source**: [`examples/cavitation_damage_simulation.rs`](../../../examples/cavitation_damage_simulation.rs)

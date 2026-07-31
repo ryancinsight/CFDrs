@@ -1,5 +1,10 @@
 # Example: shell_cuboid_demo
 
+<!-- generated-figure-start -->
+![Figure 13.9 — Example: Shell Cuboid Demo](../figures/ch13/fig09_example_shell_cuboid_demo.svg)
+*Figure 13.9 — Example: Shell Cuboid Demo*
+<!-- generated-figure-end -->
+
 **Source**: [`crates/cfd-schematics/examples/advanced/shell_cuboid_demo.rs`](../../../crates/cfd-schematics/examples/advanced/shell_cuboid_demo.rs)
 **Crate**: `cfd-schematics`
 **Run**: `cargo run -p cfd-schematics --example shell_cuboid_demo`

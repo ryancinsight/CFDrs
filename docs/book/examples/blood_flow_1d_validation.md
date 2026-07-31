@@ -1,5 +1,10 @@
 # Example: blood_flow_1d_validation
 
+<!-- generated-figure-start -->
+![Figure 7.3 — Example: Blood Flow 1D Validation](../figures/ch07/fig03_example_blood_flow_1d_validation.svg)
+*Figure 7.3 — Example: Blood Flow 1D Validation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example blood_flow_1d_validation --no-default-features`  
 **Source**: [`examples/blood_flow_1d_validation.rs`](../../../examples/blood_flow_1d_validation.rs)
@@ -41,4 +46,3 @@ At low shear rates (venules, stenosed vessels) it exhibits:
 ## Book Chapter
 
 [← Blood Flow and Rheology Workflows](../biomedical_flows.md)
-

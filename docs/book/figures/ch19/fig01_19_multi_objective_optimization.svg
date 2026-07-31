@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="19. Multi-Objective Optimization">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">19. Multi-Objective Optimization</tspan>
+</text>
+  <line x1="80" y1="250" x2="720" y2="250" stroke="#111827" stroke-width="2"/>
+  <line x1="80" y1="250" x2="80" y2="100" stroke="#111827" stroke-width="2"/>
+<text x="400" y="288.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+  <tspan x="400" dy="0">Objective 1</tspan>
+</text>
+<text x="50" y="173.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">
+  <tspan x="50" dy="0">Obj 2</tspan>
+</text>
+  <path d="M 120,220 Q 250,200 400,150 T 680,110" fill="none" stroke="#7e22ce" stroke-width="3"/>
+  <circle cx="150" cy="215" r="5" fill="#7e22ce"/>
+  <circle cx="300" cy="185" r="5" fill="#7e22ce"/>
+  <circle cx="480" cy="145" r="5" fill="#7e22ce"/>
+  <circle cx="650" cy="115" r="5" fill="#7e22ce"/>
+  <circle cx="200" cy="225" r="4" fill="#64748b" opacity="0.6"/>
+  <circle cx="350" cy="205" r="4" fill="#64748b" opacity="0.6"/>
+  <circle cx="550" cy="165" r="4" fill="#64748b" opacity="0.6"/>
+  <circle cx="540" cy="120" r="5" fill="#7e22ce"/>
+<text x="600" y="123.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">
+  <tspan x="600" dy="0">Pareto front</tspan>
+</text>
+  <circle cx="540" cy="140" r="4" fill="#64748b" opacity="0.6"/>
+<text x="600" y="143.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">
+  <tspan x="600" dy="0">Dominated</tspan>
+</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 19.1 — Multi-Objective Optimization</tspan>
+</text>
+</svg>

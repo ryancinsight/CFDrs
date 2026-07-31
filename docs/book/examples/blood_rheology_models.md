@@ -1,5 +1,10 @@
 # Example: blood_rheology_models
 
+<!-- generated-figure-start -->
+![Figure 7.2 — Example: Blood Rheology Models](../figures/ch07/fig02_example_blood_rheology_models.svg)
+*Figure 7.2 — Example: Blood Rheology Models*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example blood_rheology_models`  
 **Source**: [`examples/blood_rheology_models.rs`](../../../examples/blood_rheology_models.rs)
@@ -39,4 +44,3 @@ The example generates a viscosity-vs-shear-rate plot and a pressure-drop compari
 ## Book Chapter
 
 [← Blood Flow and Rheology Workflows](../biomedical_flows.md)
-

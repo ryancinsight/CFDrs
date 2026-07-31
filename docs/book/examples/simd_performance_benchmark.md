@@ -1,5 +1,10 @@
 # Example: simd_performance_benchmark
 
+<!-- generated-figure-start -->
+![Figure 17.3 — Example: SIMD Performance Benchmark](../figures/ch17/fig03_example_simd_performance_benchmark.svg)
+*Figure 17.3 — Example: SIMD Performance Benchmark*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example simd_performance_benchmark`  
 **Source**: [`examples/simd_performance_benchmark.rs`](../../../examples/simd_performance_benchmark.rs)
@@ -41,4 +46,3 @@ Expected fallback on hardware without AVX2/NEON: scalar path, 1× throughput.
 ## Book Chapter
 
 [← SIMD, GPU, and Backend Migration](../performance_and_atlas.md)
-

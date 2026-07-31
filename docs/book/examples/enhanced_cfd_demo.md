@@ -1,5 +1,10 @@
 # Example: enhanced_cfd_demo
 
+<!-- generated-figure-start -->
+![Figure 1.3 — Example: Enhanced CFD Demo](../figures/ch01/fig03_example_enhanced_cfd_demo.svg)
+*Figure 1.3 — Example: Enhanced CFD Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example enhanced_cfd_demo`  
 **Source**: [`examples/enhanced_cfd_demo.rs`](../../../examples/enhanced_cfd_demo.rs)
@@ -40,4 +45,3 @@ let rk_cheb = RungeKuttaChebyshev::new(stages=10); // stable for stiff diffusion
 ## Book Chapter
 
 [← CFDrs Architecture and Problem Setup](../foundations.md)
-

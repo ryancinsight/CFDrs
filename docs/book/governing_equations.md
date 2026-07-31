@@ -1,5 +1,10 @@
 # Chapter 2 — Governing Equations and Discretization
 
+<!-- generated-figure-start -->
+![Figure 3.1 — Governing Equations and Discretization](figures/ch03/fig01_3_governing_equations_and_discretization.svg)
+*Figure 3.1 — Governing Equations and Discretization*
+<!-- generated-figure-end -->
+
 CFDrs solves the incompressible Navier-Stokes equations in primitive-variable
 form together with optional scalar transport equations (energy, turbulent
 kinetic energy, species concentration).

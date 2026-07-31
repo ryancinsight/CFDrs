@@ -1,5 +1,10 @@
 # Chapter 3 — Pressure-Velocity Coupling and Time Integration
 
+<!-- generated-figure-start -->
+![Figure 4.1 — Pressure-Velocity Coupling and Time Integration](figures/ch04/fig01_4_pressure_velocity_coupling_and_time_integration.svg)
+*Figure 4.1 — Pressure-Velocity Coupling and Time Integration*
+<!-- generated-figure-end -->
+
 CFDrs implements two families of pressure-velocity coupling algorithms:
 **segregated** (SIMPLE/PIMPLE family) and **monolithic** (coupled solver).
 Time integration covers both explicit and implicit strategies.

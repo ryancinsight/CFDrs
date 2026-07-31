@@ -1,5 +1,10 @@
 # Example: Cross-Fidelity Branching Validation
 
+<!-- generated-figure-start -->
+![Figure 8.4 — Example: Cross Fidelity Branching](../figures/ch08/fig04_example_cross_fidelity_branching.svg)
+*Figure 8.4 — Example: Cross Fidelity Branching*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example cross_fidelity_branching`
 **Source**: [`examples/cross_fidelity_branching.rs`](../../../examples/cross_fidelity_branching.rs)

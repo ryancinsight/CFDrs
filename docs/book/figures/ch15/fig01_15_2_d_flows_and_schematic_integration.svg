@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="15. 2-D Flows and Schematic Integration">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">15. 2-D Flows and Schematic Integration</tspan>
+</text>
+  <rect x="290.0" y="130" width="44" height="44" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <rect x="334.0" y="130" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="378.0" y="130" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="422.0" y="130" width="44" height="44" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <rect x="466.0" y="130" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="290.0" y="174" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="334.0" y="174" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="378.0" y="174" width="44" height="44" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <rect x="422.0" y="174" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="466.0" y="174" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="290.0" y="218" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="334.0" y="218" width="44" height="44" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <rect x="378.0" y="218" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="422.0" y="218" width="44" height="44" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+  <rect x="466.0" y="218" width="44" height="44" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+  <text x="280.0" y="196.0" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#64748b">j</text>
+  <text x="400.0" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">i</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 15.1 — 2-D Flows and Schematic Integration</tspan>
+</text>
+</svg>

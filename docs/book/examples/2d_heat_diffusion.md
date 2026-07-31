@@ -1,5 +1,10 @@
 # Example: 2D Heat Diffusion Solver
 
+<!-- generated-figure-start -->
+![Figure 11.3 — Example: 2D Heat Diffusion](../figures/ch11/fig03_example_2d_heat_diffusion.svg)
+*Figure 11.3 — Example: 2D Heat Diffusion*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example 2d_heat_diffusion`
 **Source**: [`examples/2d_heat_diffusion.rs`](../../../examples/2d_heat_diffusion.rs)

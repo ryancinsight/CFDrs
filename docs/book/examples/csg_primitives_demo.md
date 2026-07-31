@@ -1,5 +1,10 @@
 # Example: csg_primitives_demo
 
+<!-- generated-figure-start -->
+![Figure 12.2 — Example: CSG Primitives Demo](../figures/ch12/fig02_example_csg_primitives_demo.svg)
+*Figure 12.2 — Example: CSG Primitives Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example csg_primitives_demo --features csg`  
 **Source**: [`examples/csg_primitives_demo.rs`](../../../examples/csg_primitives_demo.rs)
@@ -40,4 +45,3 @@ duplicating topology storage.
 ## Book Chapter
 
 [← Geometry Construction and CFD Coupling](../geometry_and_meshing.md)
-

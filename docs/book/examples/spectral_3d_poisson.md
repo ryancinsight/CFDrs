@@ -1,5 +1,10 @@
 # Example: spectral_3d_poisson
 
+<!-- generated-figure-start -->
+![Figure 10.2 — Example: Spectral 3D Poisson](../figures/ch10/fig02_example_spectral_3d_poisson.svg)
+*Figure 10.2 — Example: Spectral 3D Poisson*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example spectral_3d_poisson`  
 **Source**: [`examples/spectral_3d_poisson.rs`](../../../examples/spectral_3d_poisson.rs)
@@ -48,4 +53,3 @@ transforms so the convolution is computed exactly without aliasing.
 ## Book Chapter
 
 [← Spectral, FEM, MUSCL, and Matrix-Free Methods](../numerics_and_solvers.md)
-

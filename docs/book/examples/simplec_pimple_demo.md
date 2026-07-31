@@ -1,5 +1,10 @@
 # Example: SIMPLEC and PIMPLE Pressure-Velocity Coupling
 
+<!-- generated-figure-start -->
+![Figure 4.2 — Example: SIMPLEC PIMPLE Demo](../figures/ch04/fig02_example_simplec_pimple_demo.svg)
+*Figure 4.2 — Example: SIMPLEC PIMPLE Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example simplec_pimple_demo`
 **Source**: [`examples/simplec_pimple_demo.rs`](../../../examples/simplec_pimple_demo.rs)

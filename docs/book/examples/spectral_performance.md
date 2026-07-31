@@ -1,5 +1,10 @@
 # Example: spectral_performance
 
+<!-- generated-figure-start -->
+![Figure 10.5 — Example: Spectral Performance](../figures/ch10/fig05_example_spectral_performance.svg)
+*Figure 10.5 — Example: Spectral Performance*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example spectral_performance`  
 **Source**: [`examples/spectral_performance.rs`](../../../examples/spectral_performance.rs)

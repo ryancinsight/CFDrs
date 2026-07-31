@@ -1,5 +1,10 @@
 # Chapter 20 — 1-D Biomedical Flows
 
+<!-- generated-figure-start -->
+![Figure 9.1 — Microfluidics and Millifluidic Networks](figures/ch09/fig01_9_microfluidics_and_millifluidic_networks.svg)
+*Figure 9.1 — Microfluidics and Millifluidic Networks*
+<!-- generated-figure-end -->
+
 Reduced-order 1-D haemodynamic examples live in `cfd-1d`.  They cover the
 core biomedical-flow library: bifurcations, microfluidics, FDA device
 screening, TPMS scaffolds, cavitation analysis, and hemolysis assessment.

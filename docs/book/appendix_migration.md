@@ -1,5 +1,10 @@
 # Appendix B — Migration Notes: ndarray/nalgebra/burn → leto/hephaestus/coeus
 
+<!-- generated-figure-start -->
+![Figure D.4 — D. Atlas Migration Reference](figures/appendix/fig04_d_atlas_migration_reference.svg)
+*Figure D.4 — D. Atlas Migration Reference*
+<!-- generated-figure-end -->
+
 This appendix is the **type-mapping quick reference** for the CFDrs
 Atlas migration.  Use it when porting a specific call site — the
 table below tells you which Atlas crate owns the surface and how the

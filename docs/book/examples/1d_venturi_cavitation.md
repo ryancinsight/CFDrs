@@ -1,5 +1,10 @@
 # Example: 1D Venturi Cavitation Screening
 
+<!-- generated-figure-start -->
+![Figure 6.5 — Example: 1D Venturi Cavitation](../figures/ch06/fig05_example_1d_venturi_cavitation.svg)
+*Figure 6.5 — Example: 1D Venturi Cavitation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example 1d_venturi_cavitation`
 **Source**: [`examples/1d_venturi_cavitation.rs`](../../../examples/1d_venturi_cavitation.rs)

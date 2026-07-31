@@ -1,5 +1,10 @@
 # Example: blood_poiseuille_2d
 
+<!-- generated-figure-start -->
+![Figure 16.6 — Example: Blood Poiseuille 2D](../figures/ch16/fig06_example_blood_poiseuille_2d.svg)
+*Figure 16.6 — Example: Blood Poiseuille 2D*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example blood_poiseuille_2d`
 **Source**: [`crates/cfd-validation/examples/blood_poiseuille_2d.rs`](../../../crates/cfd-validation/examples/blood_poiseuille_2d.rs)

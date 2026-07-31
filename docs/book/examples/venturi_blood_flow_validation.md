@@ -1,5 +1,10 @@
 # Example: Venturi Blood Flow Validation
 
+<!-- generated-figure-start -->
+![Figure 8.3 — Example: Venturi Blood Flow Validation](../figures/ch08/fig03_example_venturi_blood_flow_validation.svg)
+*Figure 8.3 — Example: Venturi Blood Flow Validation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example venturi_blood_flow_validation`
 **Source**: [`examples/venturi_blood_flow_validation.rs`](../../../examples/venturi_blood_flow_validation.rs)

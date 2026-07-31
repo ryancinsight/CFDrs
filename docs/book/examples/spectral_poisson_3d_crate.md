@@ -1,5 +1,10 @@
 # Example: spectral_poisson_3d (cfd-3d)
 
+<!-- generated-figure-start -->
+![Figure 14.5 — Example: Spectral Poisson 3D](../figures/ch14/fig05_example_spectral_poisson_3d.svg)
+*Figure 14.5 — Example: Spectral Poisson 3D*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-3d`
 **Run**: `cargo run -p cfd-3d --example spectral_poisson_3d`
 **Source**: [`crates/cfd-3d/examples/spectral_poisson_3d.rs`](../../../crates/cfd-3d/examples/spectral_poisson_3d.rs)

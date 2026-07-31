@@ -1,5 +1,10 @@
 # Chapter 13 — Mnemosyne and Themis: Memory
 
+<!-- generated-figure-start -->
+![Figure 25.1 — Mnemosyne and Themis: Memory](figures/ch25/fig01_25_mnemosyne_and_themis_memory.svg)
+*Figure 25.1 — Mnemosyne and Themis: Memory*
+<!-- generated-figure-end -->
+
 CFDrs migrates from `std::alloc` (jemalloc/mimalloc on production) to
 **Mnemosyne** arenas plus **Themis** NUMA placement.  Two crates compose:
 Mnemosyne reuses memory in type-erased arenas; Themis binds the arenas to

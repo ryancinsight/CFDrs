@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="2. Canonical Incompressible Benchmarks">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">2. Canonical Incompressible Benchmarks</tspan>
+</text>
+  <line x1="80" y1="250" x2="720" y2="250" stroke="#111827" stroke-width="2"/>
+  <line x1="80" y1="250" x2="80" y2="100" stroke="#111827" stroke-width="2"/>
+  <rect x="120" y="70" width="35" height="180" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+  <rect x="160" y="75" width="35" height="175" fill="#22c55e" stroke="#16a34a" stroke-width="1"/>
+<text x="155" y="277.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">
+  <tspan x="155" dy="0">Lid-Driven Cavity</tspan>
+</text>
+  <rect x="240" y="30" width="35" height="220" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+  <rect x="280" y="35" width="35" height="215" fill="#22c55e" stroke="#16a34a" stroke-width="1"/>
+<text x="275" y="277.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">
+  <tspan x="275" dy="0">Pipe Flow</tspan>
+</text>
+  <rect x="360" y="100" width="35" height="150" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+  <rect x="400" y="105" width="35" height="145" fill="#22c55e" stroke="#16a34a" stroke-width="1"/>
+<text x="395" y="277.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">
+  <tspan x="395" dy="0">Poiseuille</tspan>
+</text>
+  <rect x="520" y="120" width="15" height="15" fill="#2563eb"/>
+<text x="600" y="130.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">
+  <tspan x="600" dy="0">Reference</tspan>
+</text>
+  <rect x="520" y="145" width="15" height="15" fill="#22c55e"/>
+<text x="600" y="155.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">
+  <tspan x="600" dy="0">Computed</tspan>
+</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 2.1 — Canonical Incompressible Benchmarks</tspan>
+</text>
+</svg>

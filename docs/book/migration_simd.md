@@ -1,5 +1,10 @@
 # Chapter 12 — Hermes: SIMD Lanes and Vectorized Kernels
 
+<!-- generated-figure-start -->
+![Figure 24.1 — Hermes: SIMD Lanes](figures/ch24/fig01_24_hermes_simd_lanes.svg)
+*Figure 24.1 — Hermes: SIMD Lanes*
+<!-- generated-figure-end -->
+
 CFDrs's hot paths — Stencil sweeps, sparse kernels, element-wise arrays —
 migrate from hand-written SIMD intrinsics and `packed_simd` to **Hermes**'
 portable SIMD lanes.  Hermes detects the host CPU once at startup and routes

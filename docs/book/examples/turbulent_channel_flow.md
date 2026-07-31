@@ -1,5 +1,10 @@
 # Example: turbulent_channel_flow
 
+<!-- generated-figure-start -->
+![Figure 5.5 — Example: Turbulent Channel Flow](../figures/ch05/fig05_example_turbulent_channel_flow.svg)
+*Figure 5.5 — Example: Turbulent Channel Flow*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example turbulent_channel_flow`  
 **Source**: [`examples/turbulent_channel_flow.rs`](../../../examples/turbulent_channel_flow.rs)
@@ -45,9 +50,7 @@ Reference: Menter (1994), AIAA J. 32(8), 1598–1605.
 
 ## Generated Figure
 
-![Semi-log L2 residual vs iteration, SIMPLE vs PISO (two corrector steps)](../figures/residual_convergence_semilog.svg)
 
 ## Book Chapter
 
 [← Turbulence Models and Cavitation](../turbulence_multiphase.md)
-

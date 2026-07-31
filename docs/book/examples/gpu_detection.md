@@ -1,5 +1,10 @@
 # Example: gpu_detection
 
+<!-- generated-figure-start -->
+![Figure 17.2 — Example: GPU Detection](../figures/ch17/fig02_example_gpu_detection.svg)
+*Figure 17.2 — Example: GPU Detection*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example gpu_detection`  
 **Source**: [`examples/gpu_detection.rs`](../../../examples/gpu_detection.rs)
@@ -44,4 +49,3 @@ whichever backend is available without compile-time feature flags.
 ## Book Chapter
 
 [← SIMD, GPU, and Backend Migration](../performance_and_atlas.md)
-

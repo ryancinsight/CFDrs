@@ -1,5 +1,10 @@
 # Appendix D — Changelog
 
+<!-- generated-figure-start -->
+![Figure C.3 — C. Changelog](figures/appendix/fig03_c_changelog.svg)
+*Figure C.3 — C. Changelog*
+<!-- generated-figure-end -->
+
 ## Unreleased
 
 ### Documentation

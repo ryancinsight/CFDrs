@@ -1,5 +1,10 @@
 # Example: venturi_schematic
 
+<!-- generated-figure-start -->
+![Figure 13.3 — Example: Venturi Schematic](../figures/ch13/fig03_example_venturi_schematic.svg)
+*Figure 13.3 — Example: Venturi Schematic*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-2d/examples/venturi_schematic.rs`  
 **Crate**: `cfd-2d`
 

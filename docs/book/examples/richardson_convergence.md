@@ -1,5 +1,10 @@
 # Example: richardson_convergence
 
+<!-- generated-figure-start -->
+![Figure 16.5 — Example: Richardson Convergence](../figures/ch16/fig05_example_richardson_convergence.svg)
+*Figure 16.5 — Example: Richardson Convergence*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example richardson_convergence`
 **Source**: [`crates/cfd-validation/examples/richardson_convergence.rs`](../../../crates/cfd-validation/examples/richardson_convergence.rs)
@@ -54,7 +59,6 @@ implementation drift.
 
 ## Generated Figure
 
-![Richardson extrapolation: log L2 error vs log grid spacing, with slope-2 reference line](../figures/richardson_loglog.svg)
 
 ## Book Chapter
 

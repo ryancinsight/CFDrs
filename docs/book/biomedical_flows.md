@@ -1,5 +1,10 @@
 # Chapter 4 — Blood Flow and Rheology Workflows
 
+<!-- generated-figure-start -->
+![Figure 7.1 — Non-Newtonian Fluids and Blood Rheology](figures/ch07/fig01_7_non_newtonian_fluids_and_blood_rheology.svg)
+*Figure 7.1 — Non-Newtonian Fluids and Blood Rheology*
+<!-- generated-figure-end -->
+
 CFDrs supports a focused subset of physiologically relevant geometries —
 **vascular bifurcations**, **venturi / stenosis regions**, **microfluidic
 screens**, and **TPMS (triply-periodic minimal-surface) scaffolds**.

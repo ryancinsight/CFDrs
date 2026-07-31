@@ -1,5 +1,10 @@
 # Chapter 14 — Moirai: Concurrency
 
+<!-- generated-figure-start -->
+![Figure 26.1 — Moirai: Concurrency](figures/ch26/fig01_26_moirai_concurrency.svg)
+*Figure 26.1 — Moirai: Concurrency*
+<!-- generated-figure-end -->
+
 CFDrs migrates parallel execution from `rayon::ParIter` and bespoke
 `std::thread::spawn` calls to **Moirai**'s unified executor.  Moirai
 unifies what tokio does for async and what rayon does for CPU-bound

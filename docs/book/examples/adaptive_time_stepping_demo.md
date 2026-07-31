@@ -1,5 +1,10 @@
 # Example: adaptive_time_stepping_demo
 
+<!-- generated-figure-start -->
+![Figure 4.3 — Example: Adaptive Time Stepping Demo](../figures/ch04/fig03_example_adaptive_time_stepping_demo.svg)
+*Figure 4.3 — Example: Adaptive Time Stepping Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example adaptive_time_stepping_demo`  
 **Source**: [`examples/adaptive_time_stepping_demo.rs`](../../../examples/adaptive_time_stepping_demo.rs)
@@ -51,4 +56,3 @@ where p is the scheme order.
 ## Book Chapter
 
 [← CFDrs Architecture and Problem Setup](../foundations.md)
-

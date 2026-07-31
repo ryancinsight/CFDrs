@@ -1,5 +1,10 @@
 # Vascular Bifurcations and Stenosis
 
+<!-- generated-figure-start -->
+![Figure 8.1 — Vascular Bifurcations and Stenosis](figures/ch08/fig01_8_vascular_bifurcations_and_stenosis.svg)
+*Figure 8.1 — Vascular Bifurcations and Stenosis*
+<!-- generated-figure-end -->
+
 The vascular bifurcation is the keystone of CFDrs's biomedical flow
 support.  It is generated as a CSG composition:
 

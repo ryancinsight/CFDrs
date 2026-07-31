@@ -1,5 +1,10 @@
 # 2-D Flows and Schematic Integration
 
+<!-- generated-figure-start -->
+![Figure 15.1 — 2-D Flows and Schematic Integration](figures/ch15/fig01_15_2_d_flows_and_schematic_integration.svg)
+*Figure 15.1 — 2-D Flows and Schematic Integration*
+<!-- generated-figure-end -->
+
 This chapter covers schematic-driven 2D CFD — the two-phase pattern of
 designing a device in `cfd-schematics` and simulating it in `cfd-2d` or
 `cfd-1d`.

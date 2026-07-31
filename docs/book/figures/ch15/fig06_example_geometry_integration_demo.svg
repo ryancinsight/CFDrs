@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="Example: Geometry Integration Demo">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">Example: Geometry Integration Demo</tspan>
+</text>
+  <line x1="198.0" y1="150" x2="242.0" y2="150" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="378.0" y1="150" x2="422.0" y2="150" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="558.0" y1="150" x2="602.0" y2="150" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="60.0" y="115" width="140" height="70" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="130" y="153.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">
+  <tspan x="130" dy="0">Geometry</tspan>
+</text>
+  <rect x="240.0" y="115" width="140" height="70" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="310" y="153.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">
+  <tspan x="310" dy="0">Integration</tspan>
+</text>
+  <rect x="420.0" y="115" width="140" height="70" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="490" y="153.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">
+  <tspan x="490" dy="0">Demo</tspan>
+</text>
+  <rect x="600.0" y="115" width="140" height="70" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="670" y="153.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">
+  <tspan x="670" dy="0">Input</tspan>
+</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 15.6 — Example: Geometry Integration Demo</tspan>
+</text>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+</svg>

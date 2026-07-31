@@ -1,5 +1,10 @@
 # Example: geometry_integration_demo
 
+<!-- generated-figure-start -->
+![Figure 15.6 — Example: Geometry Integration Demo](../figures/ch15/fig06_example_geometry_integration_demo.svg)
+*Figure 15.6 — Example: Geometry Integration Demo*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-1d/examples/geometry_integration_demo.rs`  
 **Crate**: `cfd-1d`
 

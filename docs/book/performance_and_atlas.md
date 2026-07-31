@@ -1,5 +1,10 @@
 # Chapter 7 — Performance and Atlas Integration Overview
 
+<!-- generated-figure-start -->
+![Figure 17.1 — GPU Detection and Performance Profiling](figures/ch17/fig01_17_gpu_detection_and_performance_profiling.svg)
+*Figure 17.1 — GPU Detection and Performance Profiling*
+<!-- generated-figure-end -->
+
 This Part is the **Atlas stack migration reference** for CFDrs.  It documents
 how the legacy third-party crates have been — or are being — replaced
 by the Atlas monolith: the unified, purpose-built crates that share one

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="1. CFDrs Architecture and Problem Setup">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">1. CFDrs Architecture and Problem Setup</tspan>
+</text>
+  <line x1="400" y1="160" x2="180" y2="80" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="400" y1="160" x2="180" y2="240" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="400" y1="160" x2="620" y2="80" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="400" y1="160" x2="620" y2="240" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="100" y="55" width="160" height="50" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="180" y="78.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">CFDrs</text>
+  <rect x="100" y="215" width="160" height="50" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="180" y="238.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">Architecture</text>
+  <rect x="540" y="55" width="160" height="50" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="620" y="78.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">Problem</text>
+  <rect x="540" y="215" width="160" height="50" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="620" y="238.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1f2937">Setup</text>
+  <rect x="320" y="130" width="160" height="60" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+<text x="400" y="146.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#111827">
+  <tspan x="400" dy="0">CFDrs</tspan>
+  <tspan x="400" dy="17.5">Architecture</tspan>
+  <tspan x="400" dy="17.5">Problem</tspan>
+</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 1.1 — CFDrs Architecture and Problem Setup</tspan>
+</text>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+</svg>

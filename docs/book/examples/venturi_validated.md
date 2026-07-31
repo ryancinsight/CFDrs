@@ -1,5 +1,10 @@
 # Example: Validated Venturi Flow Benchmark
 
+<!-- generated-figure-start -->
+![Figure 17.4 — Example: Venturi Validated](../figures/ch17/fig04_example_venturi_validated.svg)
+*Figure 17.4 — Example: Venturi Validated*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example venturi_validated`
 **Source**: [`examples/venturi_validated.rs`](../../../examples/venturi_validated.rs)

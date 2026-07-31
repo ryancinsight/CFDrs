@@ -1,5 +1,10 @@
 # Example: venturi_cavitation
 
+<!-- generated-figure-start -->
+![Figure 6.2 — Example: Venturi Cavitation](../figures/ch06/fig02_example_venturi_cavitation.svg)
+*Figure 6.2 — Example: Venturi Cavitation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example venturi_cavitation`  
 **Source**: [`examples/venturi_cavitation.rs`](../../../examples/venturi_cavitation.rs)
@@ -47,4 +52,3 @@ therefore selectively lyse CTCs while leaving erythrocytes intact.
 ## Book Chapter
 
 [← Turbulence Models and Cavitation](../turbulence_multiphase.md)
-

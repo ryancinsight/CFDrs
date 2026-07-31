@@ -1,5 +1,10 @@
 # Example: fem_3d_stokes
 
+<!-- generated-figure-start -->
+![Figure 10.3 — Example: FEM 3D Stokes](../figures/ch10/fig03_example_fem_3d_stokes.svg)
+*Figure 10.3 — Example: FEM 3D Stokes*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example fem_3d_stokes`  
 **Source**: [`examples/fem_3d_stokes.rs`](../../../examples/fem_3d_stokes.rs)
@@ -46,4 +51,3 @@ creeping flows). Reference geometry: Ghia et al. (1982).
 ## Book Chapter
 
 [← Spectral, FEM, MUSCL, and Matrix-Free Methods](../numerics_and_solvers.md)
-

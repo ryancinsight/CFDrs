@@ -1,5 +1,10 @@
 # Matrix-Free Operators and Krylov Solvers
 
+<!-- generated-figure-start -->
+![Figure 11.1 — Matrix-Free Operators and Krylov Solvers](figures/ch11/fig01_11_matrix_free_operators_and_krylov_solvers.svg)
+*Figure 11.1 — Matrix-Free Operators and Krylov Solvers*
+<!-- generated-figure-end -->
+
 For high-resolution flows, CFDrs prefers **matrix-free** evaluation: the
 linear operator is a trait, and the solver allocates only the action
 function `A·x`.  Matrix-free applications decouple memory footprint from

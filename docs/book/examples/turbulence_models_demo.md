@@ -1,5 +1,10 @@
 # Example: turbulence_models_demo
 
+<!-- generated-figure-start -->
+![Figure 5.2 — Example: Turbulence Models Demo](../figures/ch05/fig02_example_turbulence_models_demo.svg)
+*Figure 5.2 — Example: Turbulence Models Demo*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example turbulence_models_demo`  
 **Source**: [`examples/turbulence_models_demo.rs`](../../../examples/turbulence_models_demo.rs)
@@ -40,4 +45,3 @@ an eddy-viscosity `νt` used in the momentum equation as `τ_ij = νt S_ij`.
 ## Book Chapter
 
 [← Turbulence Models and Cavitation](../turbulence_multiphase.md)
-

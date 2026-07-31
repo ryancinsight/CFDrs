@@ -1,5 +1,10 @@
 # Chapter 15 — Apollo: FFT and Spectral Methods
 
+<!-- generated-figure-start -->
+![Figure 27.1 — Apollo: FFT](figures/ch27/fig01_27_apollo_fft.svg)
+*Figure 27.1 — Apollo: FFT*
+<!-- generated-figure-end -->
+
 CFDrs's spectral Poisson solver, FFT-based filters, and boundary-layer
 analyses migrate from `rustfft` (and `realfft` for real-to-real) to
 **Apollo**'s forward FFT crate.  Apollo is *forward-only* (no inverse FFT

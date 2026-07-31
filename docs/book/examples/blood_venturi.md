@@ -1,5 +1,10 @@
 # Example: blood_venturi
 
+<!-- generated-figure-start -->
+![Figure 15.2 — Example: Blood Venturi](../figures/ch15/fig02_example_blood_venturi.svg)
+*Figure 15.2 — Example: Blood Venturi*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-2d/examples/blood_venturi.rs`  
 **Crate**: `cfd-2d`
 

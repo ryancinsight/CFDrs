@@ -1,5 +1,10 @@
 # Chapter 19 — 3-D Flows
 
+<!-- generated-figure-start -->
+![Figure 14.1 — 3-D Navier-Stokes: Bifurcations, Cavitation, and Dean Vortices](figures/ch14/fig01_14_3_d_navier_stokes_bifurcations_cavitation_and_dean_vortic.svg)
+*Figure 14.1 — 3-D Navier-Stokes: Bifurcations, Cavitation, and Dean Vortices*
+<!-- generated-figure-end -->
+
 Three-dimensional CFD examples live in `cfd-3d`.  They exercise the full
 3-D pressure-velocity coupling, turbulence, and cavitation pathways.
 

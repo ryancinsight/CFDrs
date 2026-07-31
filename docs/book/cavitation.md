@@ -1,5 +1,10 @@
 # Cavitation: Liquid-Vapour Phase Transition
 
+<!-- generated-figure-start -->
+![Figure 6.1 — Cavitation: Liquid-Vapour Phase Transition](figures/ch06/fig01_6_cavitation_liquid_vapour_phase_transition.svg)
+*Figure 6.1 — Cavitation: Liquid-Vapour Phase Transition*
+<!-- generated-figure-end -->
+
 Cavitation is modeled as a **phase transition** whose rate depends on local
 pressure-vs-vapor-pressure:
 

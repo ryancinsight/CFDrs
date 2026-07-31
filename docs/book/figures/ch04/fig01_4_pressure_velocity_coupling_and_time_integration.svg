@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="340" viewBox="0 0 800 340" role="img" aria-label="4. Pressure-Velocity Coupling and Time Integration">
+  <rect width="800" height="340" fill="#f8fafc"/>
+<text x="400" y="40.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#111827">
+  <tspan x="400" dy="0">4. Pressure-Velocity Coupling and Time Integration</tspan>
+</text>
+  <line x1="400" y1="115" x2="500" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="560" y1="195" x2="400" y2="225" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="340" y1="250" x2="300" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="240" y1="145" x2="400" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="340" y="65" width="120" height="50" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="400" y="93.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1e3a8a">
+  <tspan x="400" dy="0">Predict</tspan>
+</text>
+  <rect x="500" y="145" width="120" height="50" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="560" y="173.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1e3a8a">
+  <tspan x="560" dy="0">Momentum</tspan>
+</text>
+  <rect x="340" y="225" width="120" height="50" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="400" y="253.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1e3a8a">
+  <tspan x="400" dy="0">Pressure</tspan>
+</text>
+  <rect x="180" y="145" width="120" height="50" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="240" y="173.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1e3a8a">
+  <tspan x="240" dy="0">Correct</tspan>
+</text>
+<text x="400" y="173.0" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">
+  <tspan x="400" dy="0">SIMPLE / PIMPLE</tspan>
+</text>
+<text x="400" y="310.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#374151">
+  <tspan x="400" dy="0">Figure 4.1 — Pressure-Velocity Coupling and Time Integration</tspan>
+</text>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+</svg>

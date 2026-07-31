@@ -1,5 +1,10 @@
 # Example: cavity_validation
 
+<!-- generated-figure-start -->
+![Figure 16.2 — Example: Cavity Validation](../figures/ch16/fig02_example_cavity_validation.svg)
+*Figure 16.2 — Example: Cavity Validation*
+<!-- generated-figure-end -->
+
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example cavity_validation`  
 **Source**: [`examples/cavity_validation.rs`](../../../examples/cavity_validation.rs)
@@ -48,9 +53,7 @@ The Ghia et al. Re = 100 vertical-centreline u-velocity benchmark points used he
 
 ## Generated Figure
 
-![Lid-driven cavity primary-vortex streamfunction contours](../figures/cavity_streamfunction_contour.svg)
 
 ## Book Chapter
 
 [← Canonical Incompressible Benchmarks](../core_flows.md)
-

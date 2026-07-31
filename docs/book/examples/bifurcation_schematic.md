@@ -1,5 +1,10 @@
 # Example: bifurcation_schematic
 
+<!-- generated-figure-start -->
+![Figure 13.2 — Example: Bifurcation Schematic](../figures/ch13/fig02_example_bifurcation_schematic.svg)
+*Figure 13.2 — Example: Bifurcation Schematic*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-2d/examples/bifurcation_schematic.rs`  
 **Crate**: `cfd-2d`
 

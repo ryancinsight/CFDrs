@@ -1,5 +1,10 @@
 # Example: medical_millifluidic_screening
 
+<!-- generated-figure-start -->
+![Figure 9.6 — Example: Medical Millifluidic Screening](../figures/ch09/fig06_example_medical_millifluidic_screening.svg)
+*Figure 9.6 — Example: Medical Millifluidic Screening*
+<!-- generated-figure-end -->
+
 **Source**: `crates/cfd-1d/examples/medical_millifluidic_screening.rs`  
 **Crate**: `cfd-1d`
 

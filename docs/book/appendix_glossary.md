@@ -1,5 +1,10 @@
 # Appendix C — Atlas Glossary
 
+<!-- generated-figure-start -->
+![Figure B.2 — B. Glossary](figures/appendix/fig02_b_glossary.svg)
+*Figure B.2 — B. Glossary*
+<!-- generated-figure-end -->
+
 A consolidated glossary spanning every Atlas crate that CFDrs, Helios, and
 Kwavers consume.  Where a term has an Atlas-crate-specific meaning,
 the relevant crate is named in parentheses.
