@@ -31,6 +31,25 @@
 
 ## Active integration
 
+- **CFDRS-VAL-RED-1 [patch] - Root-cause the remaining cfd-validation red set
+  (in progress 2026-07-31; owner=Claude atlas session 0161539d; scope=
+  `cfd-validation` tests listed below only).** Full-workspace Nextest
+  2971/2979 after the MET-30 takeover; the red set is: FAIL
+  `cross_fidelity_circular_duct::cross_fidelity_circular_straight_duct_flux_and_velocity_bounds`
+  (panic at line 196, 3D pressure-drop envelope),
+  FAIL `cross_fidelity_venturi_calibration::cross_fidelity_venturi_total_loss_coefficient`
+  (15.5s), and four 30s TIMEOUTs (`venturi_cross_fidelity::tests::
+  microventuri_35um/fallback/option2_selected_45um`,
+  `cross_fidelity_non_newtonian::cross_fidelity_stenosis_shear_thinning`).
+  Poiseuille flow-rate and Taylor-Green convention defects from this set are
+  already fixed (bec12d7d). Timeouts were measured under heavy concurrent
+  peer builds (8 rustc); acceptance: re-run on a quiet host to separate
+  load flakiness from real budget breaches, then optimize the production
+  solver paths (never the tests) for genuine breaches and fix the two FAILs
+  value-semantically. Blocked at 2026-07-31T13:00: workspace test builds
+  transiently red from the hephaestus attention peer's in-flight tree;
+  re-open when hephaestus-wgpu compiles again.
+
 - **CFDRS-AEQ-MET-42 [major] - Consolidate legacy analytical benchmarks
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-validation::analytical_benchmarks` duplicate Couette,
