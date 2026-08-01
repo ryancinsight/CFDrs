@@ -437,6 +437,12 @@ pub struct VenturiFlowSolution<T: Cfd2dScalar + Copy> {
     pub cp_recovery: T,
     /// Whether the iterative solver converged (always true for Bernoulli)
     pub converged: bool,
+    /// SIMPLE iterations consumed (0 for the analytical Bernoulli path).
+    pub iterations: usize,
+    /// Final continuity residual reported by the iterative solver
+    /// (max of the RMS and mean-L1 per-cell mass imbalance; exactly zero
+    /// for the analytical Bernoulli path).
+    pub final_residual: T,
 }
 
 impl<T: Cfd2dScalar + Copy + FloatElement> VenturiFlowSolution<T> {
@@ -464,6 +470,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiFlowSolution<T> {
             cp_throat,
             cp_recovery,
             converged: true,
+            iterations: 0,
+            final_residual: scalar::zero::<T>(),
         }
     }
 

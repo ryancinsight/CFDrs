@@ -257,6 +257,8 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
             cp_throat,
             cp_recovery,
             converged: solve_result.converged,
+            iterations: solve_result.iterations,
+            final_residual: solve_result.residual,
         })
     }
 

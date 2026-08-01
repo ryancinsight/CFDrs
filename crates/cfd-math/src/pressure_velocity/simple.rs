@@ -37,6 +37,15 @@ pub struct SIMPLEConfig<T: RealField + Copy> {
     pub viscosity_update_interval: usize,
     /// Number of pressure correction loops per outer iteration (1 = SIMPLE, >1 = PISO)
     pub n_correctors: usize,
+    /// Inner pressure-correction sweep cap per outer iteration.
+    ///
+    /// `None` keeps the solver's α_p-derived default. Deeper inner solves
+    /// buy outer iterations at diminishing returns because the
+    /// under-relaxed outer relinearization discards excess inner accuracy
+    /// (Ferziger & Perić §7.2); the profitable cap is problem-dependent,
+    /// so consumers with a measured inner/outer balance declare it here.
+    #[serde(default)]
+    pub pressure_sweep_cap: Option<usize>,
 }
 
 impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
@@ -50,6 +59,7 @@ impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
             alpha_mu: T::ONE,
             viscosity_update_interval: 1,
             n_correctors: 1, // Default to traditional SIMPLE
+            pressure_sweep_cap: None,
         }
     }
 }
@@ -89,6 +99,7 @@ impl<T: RealField + Copy> SIMPLEConfig<T> {
             alpha_mu,
             viscosity_update_interval,
             n_correctors,
+            pressure_sweep_cap: None,
         }
     }
 }

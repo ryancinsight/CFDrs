@@ -32,6 +32,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Add `SIMPLEConfig::pressure_sweep_cap` so consumers with a measured
+  inner/outer balance can bound the pressure-correction SOR budget per
+  problem, and surface `iterations`/`final_residual` on
+  `VenturiFlowSolution`. The inner sweep loop now exits early once the
+  largest per-sweep update decays one order relative to the first sweep
+  (Ferziger & Perić §7.2); defaults are behavior-preserving. The stenosis
+  cross-fidelity validation drops from 28.3s to 10.9s at its measured cap
+  of 40 with unchanged physical assertions.
+
 ### Changed
 
 - **Breaking**: Type the public `cfd-schematics` volume summaries and

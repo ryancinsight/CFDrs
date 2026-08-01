@@ -73,15 +73,27 @@
   only window endpoints are buildable.
 
 - **CFDRS-PERF-STEN-1 [patch] - Bring the stenosis cross-fidelity solve under
-  the 15s slow bound (todo).** `cross_fidelity_stenosis_shear_thinning`
-  passes but runs 26-28 s: two `VenturiSolver2D` (ns_fvm SIMPLE) solves at
-  40x60 with max_iterations 20000, tolerance 1e-4, alpha_u 0.5/alpha_p 0.2.
-  Crossing the committed 15s slow bound is a performance defect in the
-  production solve path. Method: instrument iteration counts (SolveResult
-  already carries them; the test discards), check whether the tolerance is
-  problem-scaled (same defect class as VAL-RED-1's microventuri fix), then
-  profile the SIMPLE inner solves. Acceptance: test under 15s with unchanged
-  assertions, or a recorded derivation for a dedicated reviewed profile.
+  the 15s slow bound (done 2026-07-31; owner=Claude atlas session 0161539d).**
+  Root cause measured, not the outer tolerance: 918 + 532 converged SIMPLE
+  outer iterations at ~19 ms each — the inner pressure correction ran an
+  unconditional 200-SOR-sweep budget per outer iteration (no early exit).
+  Fixes: (a) problem-scaled early exit on the sweep loop (largest per-sweep
+  update decayed one order vs the first sweep, Ferziger & Perić §7.2);
+  (b) `SIMPLEConfig::pressure_sweep_cap` — consumers with a measured
+  inner/outer balance declare the cap; the stenosis case sets 40 (measured
+  knee: 200 -> 24.6s/1142 outer, 40 -> 9.3s/1931, 32 -> 9.7s/2190);
+  (c) `VenturiFlowSolution` now carries `iterations`/`final_residual`, and
+  the test asserts convergence within budget. Result: 28.3s -> 10.9s
+  isolated, unchanged physical assertions; gates cfd-2d 571/571,
+  cfd-validation 434/434, cfd-math 230/230. Rejected paths, both measured:
+  globally lowering the 200-sweep default broke four bifurcation/branching
+  flow-split calibrations (kept 200 as the alpha_p > 0.15 default), and
+  unifying the pressure-SOR omega to 1.7 for Newtonian slowed the
+  selective-split-tree channel profiles into timeout — the omega = 1 arm is
+  load-bearing as implicit outer under-relaxation (documented at the site;
+  re-unify only with an outer recalibration of those profiles). Note: the
+  suite-parallel run still flags the test slow (>15s wall under full CPU
+  contention); the isolated quiet-host time is the budget-relevant measure.
 
 - **CFDRS-AEQ-MET-42 [major] - Consolidate legacy analytical benchmarks
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;

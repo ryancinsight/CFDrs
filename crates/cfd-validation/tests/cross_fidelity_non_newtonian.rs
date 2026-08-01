@@ -154,12 +154,25 @@ fn cross_fidelity_stenosis_shear_thinning() {
             alpha_u: 0.5,
             alpha_p: 0.2,
             alpha_mu: 0.1,
+            // Measured inner/outer knee for this 40x60 stenosis at these
+            // relaxation factors: 200 sweeps -> 24.6s / 1142 outer, 40 ->
+            // 9.3s / 1931, 32 -> 9.7s / 2190; deeper inner solves lose net
+            // wall-clock because the under-relaxed outer relinearization
+            // discards the extra inner accuracy (Ferziger & Perić §7.2).
+            pressure_sweep_cap: Some(40),
             ..SIMPLEConfig::default()
         };
         let mut solver =
             VenturiSolver2D::new_stretched_with_config(geom, blood, rho, 40, 60, 0.5, config);
 
         let sol = solver.solve(u_inlet).expect("2D FVM must converge");
+        assert!(
+            sol.converged && sol.iterations < 20000,
+            "stenosis 2D solve must converge within the iteration budget: \
+             iterations={}, residual={:?}",
+            sol.iterations,
+            sol.final_residual
+        );
         -sol.dp_throat // Pressure drop is negative in FVM struct
     };
 

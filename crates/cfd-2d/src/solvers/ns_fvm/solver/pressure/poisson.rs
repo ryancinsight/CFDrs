@@ -5,18 +5,33 @@ use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::BloodModel;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::error::Error;
-use eunomia::FloatElement;
+use eunomia::{FloatElement, NumericElement};
 
 // A conservative fixed SOR factor for the masked pressure-correction grid.
 // The classical Poisson optimum approaches 2 on large regular grids; 1.7
 // retains stability when the Venturi mask removes neighboring coefficients.
 const PRESSURE_SOR_RELAXATION: f64 = 1.7;
 const PRESSURE_SOR_MAX_SWEEPS: usize = 32;
+// Default deep budget for alpha_p > 0.15 profiles; the branching/junction
+// consumers' flow-split calibrations depend on this depth (dropping it
+// globally to the stenosis-measured knee of 40 broke four bifurcation
+// cross-fidelity tests). A consumer with a measured inner/outer balance
+// overrides per problem via SIMPLEConfig::pressure_sweep_cap — e.g. the
+// stenosis case (40x60, alpha_p 0.2): 200 sweeps -> 24.6s / 1142 outer
+// iterations; 40 -> 9.3s / 1931; 32 -> 9.7s / 2190.
 const PRESSURE_SOR_REFINED_MAX_SWEEPS: usize = 200;
 // Channel profiles use alpha_p <= 0.12; the general SIMPLE profiles use
 // alpha_p >= 0.2. The midpoint preserves the deeper correction budget for
 // higher pressure-relaxation profiles without penalizing the channel path.
 const PRESSURE_SOR_REFINEMENT_ALPHA_P: f64 = 0.15;
+
+/// Relative decay of the largest per-sweep correction update at which the
+/// inner SOR solve stops early: a one-order reduction of the first sweep's
+/// update is the standard inner residual reduction for SIMPLE pressure
+/// corrections (Ferziger & Perić, Computational Methods for Fluid Dynamics,
+/// §7.2 recommend one to two orders); the under-relaxed outer iteration
+/// gains nothing from a tighter inner solve.
+const PRESSURE_SOR_SWEEP_TOLERANCE: f64 = 1e-2;
 
 impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
@@ -143,6 +158,15 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                 }
             }
 
+            // The pressure-correction operator itself does not depend on the
+            // rheology model, but the ω split is load-bearing as implicit
+            // outer under-relaxation: the Newtonian channel profiles
+            // (alpha_p ≤ 0.12, 32-sweep cap) are calibrated against the
+            // weaker ω = 1 inner solve, and unifying to ω = 1.7 makes their
+            // per-step correction strong enough to slow the outer loop into
+            // the test budget (measured on the selective-split-tree
+            // cross-fidelity case). Re-unify only together with an outer
+            // recalibration of those profiles.
             let relaxation = match &self.blood {
                 BloodModel::Newtonian(_) => scalar::one(),
                 BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
@@ -152,14 +176,19 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
             // SIMPLE repeats this correction and uses the field continuity
             // residual below as the convergence oracle. The cap limits inner
             // work without treating a partially converged pressure correction
-            // as a converged outer solution.
-            let max_sweeps =
+            // as a converged outer solution; a consumer-declared cap wins
+            // over the alpha_p-derived default.
+            let max_sweeps = self.config.pressure_sweep_cap.unwrap_or(
                 if self.config.alpha_p > scalar::from_f64::<T>(PRESSURE_SOR_REFINEMENT_ALPHA_P) {
                     PRESSURE_SOR_REFINED_MAX_SWEEPS
                 } else {
                     PRESSURE_SOR_MAX_SWEEPS
-                };
-            for _ in 0..max_sweeps {
+                },
+            );
+            let sweep_tolerance = scalar::from_f64::<T>(PRESSURE_SOR_SWEEP_TOLERANCE);
+            let mut first_sweep_update: T = zero;
+            for sweep in 0..max_sweeps {
+                let mut max_update: T = zero;
                 for i in 0..nx {
                     for j in 0..ny {
                         let a_e = a_e_workspace[(i, j)];
@@ -193,8 +222,28 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                         let gauss_seidel_value =
                             (a_e * pe + a_w * pw + a_n * pn + a_s * ps + b[(i, j)]) / a_p;
                         let previous = p_prime[(i, j)];
-                        p_prime[(i, j)] = previous + relaxation * (gauss_seidel_value - previous);
+                        let update = relaxation * (gauss_seidel_value - previous);
+                        p_prime[(i, j)] = previous + update;
+                        let update_magnitude = <T as NumericElement>::abs(update);
+                        if update_magnitude > max_update {
+                            max_update = update_magnitude;
+                        }
                     }
+                }
+                // Problem-scaled early exit: the sweep cap bounds the worst
+                // case, but the inner solve is converged for the outer
+                // iteration's purposes once the largest correction update has
+                // decayed by PRESSURE_SOR_SWEEP_TOLERANCE relative to the
+                // first sweep of this call (inner/outer balancing per
+                // Ferziger & Perić §7.2 — tighter inner solves add no outer
+                // progress under SIMPLE under-relaxation). Late outer
+                // iterations then finish in a few sweeps instead of always
+                // burning the full cap.
+                if sweep == 0 {
+                    first_sweep_update = max_update;
+                }
+                if max_update <= first_sweep_update * sweep_tolerance {
+                    break;
                 }
             }
         }
