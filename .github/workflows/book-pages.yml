@@ -22,6 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v6
@@ -56,6 +57,11 @@ jobs:
           echo "$PWD" >> "$GITHUB_PATH"
           export PATH="$PWD:$PATH"
           mdbook --version
+
+      - name: Install mdBook link checker
+        run: |
+          cargo install mdbook-linkcheck --version 0.7.7 --locked
+          mdbook-linkcheck --version
 
       - name: Build book
         run: |
