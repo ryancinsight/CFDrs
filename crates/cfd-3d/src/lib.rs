@@ -141,8 +141,12 @@ pub mod serpentine;
 pub mod spectral;
 /// 3D trifurcation (three-way branching) flow solvers and validation
 pub mod trifurcation;
-/// k-ε, k-ω SST, and Smagorinsky turbulence closures.
-pub mod turbulence;
+/// Canonical 3D turbulence closures and their Eunomia-backed scalar models.
+///
+/// The implementation is owned by [`physics::turbulence`]. Re-exporting that
+/// module preserves the crate-level discovery path without maintaining a
+/// second, behaviorally divergent turbulence facade.
+pub use physics::turbulence;
 pub mod venturi;
 pub mod vof;
 

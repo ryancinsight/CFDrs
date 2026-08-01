@@ -12,6 +12,7 @@
 //! - Menter, Kuntz & Langtry (2003). Ten years of industrial experience.
 //!   Turbulence, Heat and Mass Transfer 4, Begell House.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
@@ -157,12 +158,12 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KOmegaSSTModel<T> {
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KOmegaSSTModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
         let eps = <T as FloatElement>::from_f64(1e-15);
         match &self.state {
-            None => vec![T::ZERO; n],
+            None => vec![KinematicViscosity::from_base(T::ZERO); n],
             Some(state) => {
                 assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
                 assert_eq!(
@@ -194,17 +195,25 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KO
                     viscosity.push(self.a1 * k / denom);
                 }
                 viscosity
+                    .into_iter()
+                    .map(KinematicViscosity::from_base)
+                    .collect()
             }
         }
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         let n = flow_field.velocity.components.len();
         match &self.state {
-            None => vec![T::ZERO; n],
+            None => vec![SpecificEnergy::from_base(T::ZERO); n],
             Some(state) => {
                 assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
-                state.k.clone()
+                state
+                    .k
+                    .iter()
+                    .copied()
+                    .map(SpecificEnergy::from_base)
+                    .collect()
             }
         }
     }
@@ -255,8 +264,8 @@ mod tests {
         let f2 = (arg2 * arg2).tanh();
         let expected = 0.31_f64 * 1.0_f64 / (0.31_f64 * 1.0_f64).max(f2 + eps);
 
-        assert_relative_eq!(viscosity[13], expected, epsilon = 1e-12);
-        assert!(viscosity[13] < 1.0);
+        assert_relative_eq!(viscosity[13].into_base(), expected, epsilon = 1e-12);
+        assert!(viscosity[13].into_base() < 1.0);
     }
 
     #[test]

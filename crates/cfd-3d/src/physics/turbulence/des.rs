@@ -42,6 +42,7 @@
 //!   eddy simulation of an airfoil at high angle of attack." *IUTAM Symp.*
 
 use crate::scalar::Cfd3dScalar;
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
@@ -200,7 +201,7 @@ impl<T: Cfd3dScalar> TurbulenceModel<T> for DESModel<T> {
     ///
     /// At each grid point, uses l_DES = min(d, C_DES·Δ_max) as the effective
     /// length scale for the Smagorinsky LES sub-model.
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
         assert_eq!(
@@ -252,9 +253,12 @@ impl<T: Cfd3dScalar> TurbulenceModel<T> for DESModel<T> {
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let viscosity = self.turbulent_viscosity(flow_field);
         let mut kinetic_energy = Vec::with_capacity(viscosity.len());
@@ -275,9 +279,11 @@ impl<T: Cfd3dScalar> TurbulenceModel<T> for DESModel<T> {
                         delta,
                         delta,
                     );
-                    kinetic_energy.push(kinetic_energy_from_eddy_viscosity(
-                        viscosity[idx],
-                        self.effective_length_scale(&gradient, idx),
+                    kinetic_energy.push(SpecificEnergy::from_base(
+                        kinetic_energy_from_eddy_viscosity(
+                            viscosity[idx].into_base(),
+                            self.effective_length_scale(&gradient, idx),
+                        ),
                     ));
                 }
             }
@@ -494,7 +500,7 @@ mod tests {
 
         // Compute with standard DES
         model.use_ddes = false;
-        let visc_des: Vec<f64> = TurbulenceModel::turbulent_viscosity(&model, &flow);
+        let visc_des = TurbulenceModel::turbulent_viscosity(&model, &flow);
 
         // Compute with DDES using the baseline turbulent viscosity field.
         let background = vec![1e-1_f64; n];
@@ -502,14 +508,14 @@ mod tests {
             .clone()
             .with_background_turbulent_viscosity(background);
         ddes_model.use_ddes = true;
-        let visc_ddes: Vec<f64> = TurbulenceModel::turbulent_viscosity(&ddes_model, &flow);
+        let visc_ddes = TurbulenceModel::turbulent_viscosity(&ddes_model, &flow);
 
         // The results should differ because DDES uses a different length scale
         // (At least at some interior points where gradients are non-zero)
         let any_differ = visc_des
             .iter()
             .zip(visc_ddes.iter())
-            .any(|(a, b)| (a - b).abs() > 1e-20);
+            .any(|(a, b)| (a.into_base() - b.into_base()).abs() > 1e-20);
 
         // For uniform wall distance of 0.5 and delta of 0.1, C_DES*delta = 0.065.
         // Standard DES: l = min(0.5, 0.065) = 0.065

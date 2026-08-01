@@ -15,13 +15,26 @@ This chapter documents the integration contracts used to combine them.
 `cfd-3d` integrates the canonical closures through a single trait:
 
 ```rust
-pub trait TurbulenceModel {
-    type Field;
-    fn step<F: FloatElement>(&mut self, u: &Array3<F>, v: &Array3<F>, w: &Array3<F>,
-                             nu_t: &mut Array3<F>, dt: F);
-    fn label(&self) -> &'static str;
+pub trait TurbulenceModel<T: NumericElement> {
+    fn turbulent_viscosity(
+        &self,
+        flow: &FlowField<T>,
+    ) -> Vec<KinematicViscosity<T>>;
+    fn turbulent_kinetic_energy(
+        &self,
+        flow: &FlowField<T>,
+    ) -> Vec<SpecificEnergy<T>>;
 }
 ```
+
+The public results retain their physical dimensions through Aequitas:
+turbulent viscosity is `m²/s` and turbulent kinetic energy is `J/kg`.
+Canonical closures store their dense solver state in the existing scalar
+arrays, then wrap values at the public metric boundary. Formula kernels and
+dense-field assertions explicitly extract the base scalar. This preserves
+Eunomia's real-valued turbulence contract; a complex value is appropriate for
+a genuine phasor or Fourier field, not for a real turbulence metric, so no
+imaginary physical unit is introduced.
 
 CFDrs distributes three models:
 
@@ -87,7 +100,7 @@ Part III opens with seven example chapters:
 
 ## Further Reading
 
-- [`cfd-3d` turbulence module](../../crates/cfd-3d/src/turbulence.rs)
+- [`cfd-3d` turbulence module](../../crates/cfd-3d/src/physics/turbulence/mod.rs)
 - [`cfd-3d` multiphase module](../../crates/cfd-3d/src/multiphase.rs)
 - [`cfd-3d` cavitation module](../../crates/cfd-3d/src/cavitation.rs)
 - [Geometry, Meshing, and CSG](geometry_and_meshing.md) — CSG primitives

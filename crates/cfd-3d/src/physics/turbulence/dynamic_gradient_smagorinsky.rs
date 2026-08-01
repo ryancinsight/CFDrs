@@ -23,8 +23,9 @@
 //!   gradient Smagorinsky model for large-eddy simulation." *Phys. Rev. Fluids*
 //!   7, 074604.
 
-use cfd_core::physics::fluid_dynamics::fields::FlowField;
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
+use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
@@ -182,7 +183,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for DynamicGradientSmagorinskyModel<T>
 {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
         let mut filtered_velocity = Vec::with_capacity(n);
@@ -219,12 +220,20 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
         }
 
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         self.turbulent_viscosity(flow_field)
             .into_iter()
-            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .map(|nu_t| {
+                SpecificEnergy::from_base(kinetic_energy_from_eddy_viscosity(
+                    nu_t.into_base(),
+                    self.filter_width,
+                ))
+            })
             .collect()
     }
 
@@ -260,7 +269,7 @@ mod tests {
         let model = DynamicGradientSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
 
-        assert!(viscosity.iter().all(|&value| value == 0.0));
+        assert!(viscosity.iter().all(|value| value.into_base() == 0.0));
     }
 
     #[test]
@@ -271,9 +280,11 @@ mod tests {
         let model = DynamicGradientSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
 
-        assert!(viscosity
-            .iter()
-            .all(|value| value.is_finite() && *value >= 0.0));
+        assert!(
+            viscosity
+                .iter()
+                .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0)
+        );
     }
 
     #[test]
@@ -339,6 +350,6 @@ mod tests {
         };
         let expected = coefficient * delta * delta * gradient_magnitude;
 
-        assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), expected, epsilon = 1e-12);
     }
 }

@@ -38,6 +38,7 @@
 //! - Allmaras, S.R., Johnson, F.T. & Spalart, P.R. (2012). Modifications and
 //!   clarifications for the Spalart-Allmaras model. ICCFD7-1902.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
@@ -157,7 +158,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for SpalartAllmarasModel<T>
 {
     /// Compute SA eddy viscosity nu_t = nu_tilde * f_v1.
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let n = flow_field.velocity.components.len();
         assert_eq!(
             self.nu_tilde.len(),
@@ -177,14 +178,22 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
             viscosity.push(<T as NumericElement>::max_scalar(T::ZERO, nu_t * fv1));
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         let eddy_viscosity = self.turbulent_viscosity(flow_field);
         eddy_viscosity
             .into_iter()
             .zip(self.wall_distance.iter().copied())
-            .map(|(nu_t, wall_distance)| Self::diagnostic_kinetic_energy(nu_t, wall_distance))
+            .map(|(nu_t, wall_distance)| {
+                SpecificEnergy::from_base(Self::diagnostic_kinetic_energy(
+                    nu_t.into_base(),
+                    wall_distance,
+                ))
+            })
             .collect()
     }
 
@@ -237,8 +246,8 @@ mod tests {
         let model =
             SpalartAllmarasModel::<f64>::with_nu_tilde(nu, vec![nu_tilde], vec![wall_distance]);
         let flow = FlowField::<f64>::new(1, 1, 1);
-        let nu_t = model.turbulent_viscosity(&flow)[0];
-        let k = model.turbulent_kinetic_energy(&flow)[0];
+        let nu_t = model.turbulent_viscosity(&flow)[0].into_base();
+        let k = model.turbulent_kinetic_energy(&flow)[0].into_base();
         let expected = (nu_t / (0.094 * wall_distance)).powi(2);
 
         assert!((k - expected).abs() < 1.0e-18);
@@ -250,6 +259,6 @@ mod tests {
         let model = SpalartAllmarasModel::<f64>::with_nu_tilde(1.0e-6, vec![3.0e-6], vec![0.0]);
         let flow = FlowField::<f64>::new(1, 1, 1);
 
-        assert_eq!(model.turbulent_kinetic_energy(&flow)[0], 0.0);
+        assert_eq!(model.turbulent_kinetic_energy(&flow)[0].into_base(), 0.0);
     }
 }

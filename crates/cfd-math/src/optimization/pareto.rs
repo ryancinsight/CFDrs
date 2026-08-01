@@ -176,7 +176,7 @@ where
 
         for k in 1..(n - 1) {
             let delta = front[order[k + 1]][obj_idx] - front[order[k - 1]][obj_idx];
-            dist[order[k]] = dist[order[k]] + delta / range;
+            dist[order[k]] += delta / range;
         }
     }
 

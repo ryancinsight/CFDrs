@@ -24,7 +24,7 @@ preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ryancinsight/CFDrs"
 edit-url-template = "https://github.com/ryancinsight/CFDrs/edit/main/docs/book/{path}"
 
-[output.linkcheck]
+[output.linkcheck2]
 # Check internal mdBook links during build. External web links are not followed
 # so the build remains deterministic and network-independent.
 follow-web-links = false

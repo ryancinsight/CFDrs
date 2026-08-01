@@ -21,14 +21,15 @@
 //! - Lilly, D.K. (1992). "A proposed modification of the Germano subgrid-scale
 //!   closure method." *Phys. Fluids A* 4(3):633–635.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
 
 use super::constants::DEARDORFF_ONE_THIRD;
 use super::field_ops::{
-    linear_index, strain_components, strain_magnitude, symmetric_contract,
-    velocity_gradient_tensor, SymmetricTensor6,
+    SymmetricTensor6, linear_index, strain_components, strain_magnitude, symmetric_contract,
+    velocity_gradient_tensor,
 };
 use super::filter_ops::{box_filter_moments_at, box_filter_velocity_at, resolved_stress_tensor};
 use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
@@ -91,7 +92,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for DynamicSmagor
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for DynamicSmagorinskyModel<T>
 {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
         let delta = self.filter_width;
@@ -180,7 +181,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
             <T as NumericElement>::min_scalar(cs_sq, self.cs_sq_max),
         );
         if cs_sq <= eps {
-            return vec![T::ZERO; n];
+            return vec![KinematicViscosity::from_base(T::ZERO); n];
         }
 
         let prefactor = cs_sq * delta_sq;
@@ -207,12 +208,20 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
         }
 
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         self.turbulent_viscosity(flow_field)
             .into_iter()
-            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .map(|nu_t| {
+                SpecificEnergy::from_base(kinetic_energy_from_eddy_viscosity(
+                    nu_t.into_base(),
+                    self.filter_width,
+                ))
+            })
             .collect()
     }
 
@@ -250,7 +259,7 @@ mod tests {
         let model = DynamicSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
         let center = linear_index(4, 4, 2, 2, 2);
-        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -258,6 +267,10 @@ mod tests {
         let flow = FlowField::<f64>::new(3, 3, 3);
         let model = DynamicSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
-        assert!(viscosity.iter().all(|value| value.abs() < 1e-15));
+        assert!(
+            viscosity
+                .iter()
+                .all(|value| value.into_base().abs() < 1e-15)
+        );
     }
 }

@@ -22,6 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v6
@@ -57,10 +58,15 @@ jobs:
           export PATH="$PWD:$PATH"
           mdbook --version
 
+      - name: Install mdBook link checker
+        run: |
+          cargo install mdbook-linkcheck2 --version 0.12.2 --locked
+          mdbook-linkcheck2 --version
+
       - name: Build book
         run: |
           mdbook build docs/book
-          test -f target/book/cfdrs/index.html
+          test -f target/book/cfdrs/html/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

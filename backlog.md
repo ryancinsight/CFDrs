@@ -31,6 +31,45 @@
 
 ## Active integration
 
+- **CFDRS-CI-LOCK-1 [patch] - Restore standalone provider lock and hosted
+  documentation gates (done 2026-07-31; owner=current Codex session).** The
+  Aequitas provider lock now records the Eunomia git source, CFDrs `Cargo.lock`
+  is regenerated outside the Atlas overlay with all git source revisions, the
+  figure SSOT workflow no longer references an absent sibling Coeus checkout,
+  and the Pages workflow uses `mdbook-linkcheck2` with the correct HTML path.
+  Evidence: standalone locked metadata and cfd-core/cfd-3d library checks,
+  local mdBook build, hosted runs `30684476602` and `30684476604`; the
+  standalone focused Nextest has only the recorded Windows
+  `mnemosyne-heap` compiler residual.
+
+- **CFDRS-ARCH-3D-TURB-1 [arch] - Remove the placeholder 3D turbulence
+  facade (done 2026-07-31; owner=current Codex session; scope=
+  `cfd-3d` public turbulence module and direct regression documentation).**
+  The exported `cfd-3d::turbulence` module contains no-op k-epsilon,
+  k-omega-SST, and Smagorinsky implementations while the real Eunomia-backed
+  models already live under `cfd-3d::physics::turbulence`. Replace the fake
+  module with the canonical public module and verify that the public path
+  reaches input-sensitive model behavior. Acceptance: no placeholder bodies or
+  duplicate turbulence trait remain; the public-path regression passes; the
+  Aequitas/Eunomia audit records the typed turbulence metric boundary and its
+  real/complex semantics.
+
+- **CFDRS-AEQ-MET-44 [major] - Type canonical 3D turbulence metrics (done
+  2026-07-31; owner=current Codex session; dependency=CFDRS-ARCH-3D-TURB-1).**
+  Aequitas now supplies the `SpecificEnergy<T>` semantic alias and cfd-core
+  returns typed `KinematicViscosity<T>` and `SpecificEnergy<T>` metrics. Every
+  canonical cfd-3d closure wraps its real scalar result at the public boundary;
+  formulas and dense-field assertions extract base scalars explicitly. Eunomia
+  real/complex boundary semantics are documented, and no imaginary unit is
+  introduced for a real turbulence metric.
+
+- **CFDRS-AEQ-MET-45 [major] - Type multiphase mixture metrics (done
+  2026-07-31; owner=current Codex session; dependency=CFDRS-ARCH-3D-TURB-1).**
+  `cfd-3d::multiphase::exchange` now carries phase fraction, density, and
+  dynamic viscosity through Aequitas and extracts scalars only for the
+  volume-weighted interpolation. f64/f32 value regressions pass; the real
+  Eunomia boundary has no complex or imaginary physical unit.
+
 - **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-schematics` volume summaries, `cfd-schematic-mesh` volume traces

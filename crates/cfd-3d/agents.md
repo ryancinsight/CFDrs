@@ -76,7 +76,7 @@ src/
     collocation.rs            Pseudospectral collocation points
 
   physics/
-    turbulence.rs             Re-exports `cfd-2d` LES/DES/RANS models; 3D field bookkeeping
+    turbulence/mod.rs         Canonical Eunomia-backed LES/RANS closures and 3D field bookkeeping
 
   bifurcation/
     mod.rs

@@ -25,13 +25,6 @@ jobs:
           destination: ..
           atlas_ref: 51d8600cf3077e6ad6aafa5603b3289444b1719f
 
-      - name: Checkout Coeus path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@51d8600cf3077e6ad6aafa5603b3289444b1719f
-        with:
-          manifest: ../coeus/Cargo.toml
-          destination: ..
-          atlas_ref: 51d8600cf3077e6ad6aafa5603b3289444b1719f
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 

@@ -29,6 +29,9 @@
 | **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Canonical analytical benchmark ownership** | 2026-07-31 | `analytical_benchmarks` duplicated raw-scalar Couette, Poiseuille, and Taylor-Green models beside the canonical analytical modules | Remove duplicate model implementations and migrate the physics-validation consumer to canonical Aequitas-backed APIs; retain only normalized Ghia reference tables | Breaking removal of the legacy duplicate model names from `analytical_benchmarks` |
 | **Aequitas-owned schematic volume metrics** | 2026-07-31 | `cfd-schematics` volume summaries and `cfd-schematic-mesh` diagnostics exposed unit-suffixed length, area, volume, and percentage `f64` fields, including redundant mm³/uL pairs | `Length`, `Area`, `Volume`, and `Dimensionless` remain typed through public schematic and mesh volume contracts; mesh signed-volume and percentage calculations are explicit scalar boundaries | Breaking change for schematic and mesh diagnostic consumers |
+| **Canonical cfd-3d turbulence module** | 2026-07-31 | The crate-level turbulence module was a no-op placeholder beside the real Eunomia-backed models under `physics::turbulence` | One public module re-exports the canonical input-sensitive implementations; typed physical turbulence outputs are defined by the following Aequitas decision | Breaking removal of the placeholder model names; metric return types are covered by the following breaking decision |
+| **Aequitas-owned cfd-core turbulence metrics** | 2026-07-31 | `cfd-core::TurbulenceModel` exposed turbulent viscosity and kinetic energy as raw scalar vectors | `KinematicViscosity<T>` and `SpecificEnergy<T>` remain typed through the shared trait and every canonical cfd-3d closure; scalar extraction is confined to formulas and dense-field assertions | Breaking change for turbulence implementors and consumers; real Eunomia values only, with no imaginary-unit metric |
+| **Aequitas-owned cfd-3d multiphase mixture metrics** | 2026-07-31 | The phase-fraction exchange function accepted raw density and viscosity scalars despite being a public physical-property boundary | `Dimensionless`, `MassDensity`, and `DynamicViscosity` remain typed through the interpolation API; formula extraction is explicit and real-valued | Breaking change for multiphase exchange callers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -97,6 +100,76 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-31: Canonical cfd-3d turbulence module [major] [arch]
+
+Context: `cfd-3d/src/turbulence.rs` exposed no-op k-epsilon, k-omega-SST, and
+Smagorinsky implementations while the real Eunomia-backed turbulence models
+already lived under `cfd-3d::physics::turbulence`.
+
+Decision: delete the placeholder module and re-export the canonical
+`physics::turbulence` module as `cfd_3d::turbulence`. Migrate in-tree tests to
+that public path so one module owns the turbulence behavior.
+
+Rejected alternative: keep the placeholder as a compatibility facade. It
+would preserve a public API whose methods ignore every input and would leave
+two competing turbulence implementations in the crate.
+
+Consequences: the old placeholder-only model names are removed. The canonical
+models remain real-valued under Eunomia scalar traits. Their public metric
+outputs are typed by the following Aequitas decision as
+`KinematicViscosity<T>` and `SpecificEnergy<T>`; no imaginary-unit physical
+quantity is appropriate.
+
+Verification: the public-path turbulence regressions and source placeholder
+scan are part of the focused cfd-3d gate. The local locked compile is blocked
+before rustc by the shared Atlas overlay requesting a provider lock refresh;
+the pinned package-check evidence remains recorded in the cfd-3d audit.
+
+### 2026-07-31: Aequitas owns cfd-3d multiphase mixture metrics [major]
+
+Context: `multiphase::exchange` accepted a raw gas volume fraction, phase
+density pair, and phase dynamic-viscosity pair even though it returned physical
+mixture properties.
+
+Decision: accept and return Aequitas `Dimensionless`, `MassDensity`, and
+`DynamicViscosity` values. Extract base scalars only inside the volume-weighted
+interpolation formula.
+
+Consequences: external exchange callers construct typed phase values. The
+interpolation remains generic over Eunomia `FloatElement`, supports f32/f64,
+and stays real-valued; no complex or imaginary unit applies.
+
+Verification: f64 and f32 value-semantic regressions cover the mixture result
+and pure-gas limit. The source scan contains no placeholder multiphase body.
+
+### 2026-07-31: Aequitas owns cfd-core turbulence metrics [major]
+
+Context: `cfd-core::TurbulenceModel` exposed turbulent viscosity and kinetic
+energy as untyped scalar vectors even though every canonical `cfd-3d`
+implementation computes physical quantities.
+
+Decision: return Aequitas `KinematicViscosity<T>` (`m²/s`) and
+`SpecificEnergy<T>` (`J/kg`) from the shared trait. Canonical closures wrap
+their real Eunomia scalar results at the public boundary. Dense solver state
+remains scalar where the existing transport kernels require it; formula and
+assertion boundaries extract base scalars explicitly.
+
+Rejected alternative: retain raw vectors, add consumer-local wrappers, or
+represent turbulent kinetic energy with a dimensionless or imaginary unit.
+Those alternatives either erase the public contract or misrepresent a real
+turbulence metric. Eunomia complex values remain reserved for genuine
+phasor/Fourier fields.
+
+Consequences: the trait and all canonical turbulence implementors have a
+breaking return-type change; no compatibility facade is retained. The
+Aequitas provider supplies the coherent `J/kg` semantic alias used by this
+boundary.
+
+Verification: direct formatting and diff checks cover every migrated model.
+The configured local locked compile and Nextest gates are blocked before
+rustc while the shared Atlas overlay requests a provider lock refresh; the
+exact hosted CI result remains the merge gate.
 
 ### 2026-07-31: Aequitas owns schematic volume metrics [major] [arch]
 
