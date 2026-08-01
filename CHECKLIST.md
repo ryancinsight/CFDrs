@@ -8,7 +8,8 @@
       job and align Pages with mdBook 0.5.4 through `mdbook-linkcheck2`.
 - [x] Verify standalone locked metadata, cfd-core/cfd-3d library checks, local
       mdBook output, hosted figure SSOT, and hosted Pages build. Record the
-      Windows dependency-compile residual from standalone focused Nextest.
+      Windows `mnemosyne-heap` dependency-compile residual from standalone
+      focused Nextest.
 
 ## Owner: current Codex session — CFDRS-AEQ-MET-44 typed turbulence metrics — done 2026-07-31
 

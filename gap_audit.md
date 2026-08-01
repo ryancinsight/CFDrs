@@ -51,9 +51,10 @@ Standalone verification passes `cargo metadata --locked`, `cargo check
 --locked --package cfd-core --lib`, and `cargo check --locked --package
 cfd-3d --lib` against the regenerated lock. The standalone focused Nextest
 attempt reaches dependency compilation but stops at
-`geometry-predicates-0.3.0` with no compiler diagnostic; the Atlas-overlay
+`mnemosyne-heap` with no compiler diagnostic even when the repository-declared
+Clang/LLD linker and test debuginfo settings are supplied; the Atlas-overlay
 focused metric run remains the value-semantic evidence at 70/70. This is a
-Windows toolchain/build-target residual, not an Aequitas metric gap.
+Windows provider-build residual, not an Aequitas metric gap.
 
 The real/complex boundary remains unchanged: turbulence, multiphase, and
 fluid metrics are real Eunomia values; complex values remain at genuine

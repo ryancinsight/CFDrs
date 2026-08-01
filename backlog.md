@@ -40,7 +40,7 @@
   Evidence: standalone locked metadata and cfd-core/cfd-3d library checks,
   local mdBook build, hosted runs `30684476602` and `30684476604`; the
   standalone focused Nextest has only the recorded Windows
-  `geometry-predicates` compiler residual.
+  `mnemosyne-heap` compiler residual.
 
 - **CFDRS-ARCH-3D-TURB-1 [arch] - Remove the placeholder 3D turbulence
   facade (done 2026-07-31; owner=current Codex session; scope=
