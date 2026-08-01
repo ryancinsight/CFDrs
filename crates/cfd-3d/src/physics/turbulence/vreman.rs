@@ -36,6 +36,7 @@
 //! - Vreman, A.W. (2004). "An eddy-viscosity subgrid-scale model for
 //!   turbulent shear flow." *Phys. Fluids* 16(10):3670–3681.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
@@ -152,7 +153,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for VremanModel<T
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for VremanModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
         for k in 0..nz {
@@ -163,12 +164,20 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Vr
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         self.turbulent_viscosity(flow_field)
             .into_iter()
-            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .map(|nu_t| {
+                SpecificEnergy::from_base(kinetic_energy_from_eddy_viscosity(
+                    nu_t.into_base(),
+                    self.filter_width,
+                ))
+            })
             .collect()
     }
 
@@ -206,7 +215,7 @@ mod tests {
         let model = VremanModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
         let center = 2 * 4 * 4 + 2 * 4 + 2;
-        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -218,9 +227,11 @@ mod tests {
         let viscosity = model.turbulent_viscosity(&flow);
         let center = 2 * 4 * 4 + 2 * 4 + 2;
 
-        assert!(viscosity
-            .iter()
-            .all(|value| value.is_finite() && *value >= 0.0));
-        assert!(viscosity[center] > 0.0);
+        assert!(
+            viscosity
+                .iter()
+                .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0)
+        );
+        assert!(viscosity[center].into_base() > 0.0);
     }
 }

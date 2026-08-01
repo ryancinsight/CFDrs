@@ -874,8 +874,8 @@ fn test_smagorinsky_zero_velocity_zero_viscosity() {
 
     let visc = model.turbulent_viscosity(&flow);
     assert_eq!(visc.len(), 64);
-    for &v in &visc {
-        assert_relative_eq!(v, 0.0, epsilon = 1e-15);
+    for v in &visc {
+        assert_relative_eq!(v.into_base(), 0.0, epsilon = 1e-15);
     }
 }
 
@@ -890,8 +890,8 @@ fn test_mixing_length_zero_velocity_zero_viscosity() {
     let flow = FlowField::<f64>::new(4, 4, 4);
 
     let visc = model.turbulent_viscosity(&flow);
-    for &v in &visc {
-        assert_relative_eq!(v, 0.0, epsilon = 1e-15);
+    for v in &visc {
+        assert_relative_eq!(v.into_base(), 0.0, epsilon = 1e-15);
     }
 }
 
@@ -910,8 +910,8 @@ fn test_mixing_length_zero_tke_uniform_flow() {
     }
 
     let tke = model.turbulent_kinetic_energy(&flow);
-    for &t in &tke {
-        assert_relative_eq!(t, 0.0, epsilon = 1e-15);
+    for t in &tke {
+        assert_relative_eq!(t.into_base(), 0.0, epsilon = 1e-15);
     }
 }
 
@@ -942,7 +942,11 @@ fn test_mixing_length_anisotropic_wall_spacing() {
 
     let visc = model.turbulent_viscosity(&flow);
     let center = 13;
-    assert_relative_eq!(visc[center], length_scale * length_scale, epsilon = 1e-12);
+    assert_relative_eq!(
+        visc[center].into_base(),
+        length_scale * length_scale,
+        epsilon = 1e-12
+    );
 }
 
 /// k-ε: standard constants match Launder & Spalding (1974).
@@ -989,8 +993,8 @@ fn test_k_epsilon_viscosity_formula() {
 
     let visc = model.turbulent_viscosity(&flow);
     let expected = 0.09 * k_val * k_val / eps_val;
-    for &v in &visc {
-        assert_relative_eq!(v, expected, epsilon = 1e-10);
+    for v in &visc {
+        assert_relative_eq!(v.into_base(), expected, epsilon = 1e-10);
     }
 }
 
@@ -1008,9 +1012,9 @@ fn test_k_epsilon_zero_tke_no_nan() {
     model.initialize_state_exact(vec![0.0; n], vec![1.0; n]);
 
     let visc = model.turbulent_viscosity(&flow);
-    for &v in &visc {
-        assert!(v.is_finite(), "νₜ should be finite for k=0");
-        assert_relative_eq!(v, 0.0, epsilon = 1e-15);
+    for v in &visc {
+        assert!(v.into_base().is_finite(), "νₜ should be finite for k=0");
+        assert_relative_eq!(v.into_base(), 0.0, epsilon = 1e-15);
     }
 }
 

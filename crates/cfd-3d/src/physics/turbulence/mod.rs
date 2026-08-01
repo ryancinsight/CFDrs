@@ -63,8 +63,9 @@ pub use k_epsilon::{KEpsilonConstants, KEpsilonModel, KEpsilonState};
 pub use mixing_length::MixingLengthModel;
 pub use wale::WaleModel;
 
-use cfd_core::physics::fluid_dynamics::fields::FlowField;
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
+use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use eunomia::FloatElement;
 
 use self::field_ops::{strain_magnitude, velocity_gradient_tensor};
@@ -172,7 +173,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SmagorinskyModel<T> {
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for SmagorinskyModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         // Physically correct filter width Δ = (dx·dy·dz)^(1/3); stored at construction time.
         // Bug fix: the previous `Δ = 1/nx` used grid count instead of physical cell size,
@@ -192,9 +193,12 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Sm
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         // Estimate SGS TKE from strain rate: k ≈ (Cs · Δ · |S|)²
         // Uses the physically correct filter width (see turbulent_viscosity bug note).
         let (nx, ny, nz) = flow_field.velocity.dimensions;
@@ -208,7 +212,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Sm
                 for i in 0..nx {
                     let strain_rate = self.calculate_strain_rate_at_point(flow_field, i, j, k);
                     let cs_delta_s = cs_delta * strain_rate;
-                    tke.push(cs_delta_s * cs_delta_s);
+                    tke.push(SpecificEnergy::from_base(cs_delta_s * cs_delta_s));
                 }
             }
         }

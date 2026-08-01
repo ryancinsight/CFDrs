@@ -25,6 +25,7 @@
 //! computation of turbulent flows." *Comput. Methods Appl. Mech. Eng.*
 //! 3(2):269–289.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::{RANSModel, TurbulenceModel};
 use eunomia::{FloatElement, NumericElement};
@@ -184,7 +185,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KEpsilonModel<T> {
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KEpsilonModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         // νₜ = C_μ * k² / ε
         let state = self.state_for_flow(flow_field);
         let mut viscosity = Vec::with_capacity(state.k.len());
@@ -210,10 +211,18 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KE
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        self.state_for_flow(flow_field).k.clone()
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
+        self.state_for_flow(flow_field)
+            .k
+            .iter()
+            .copied()
+            .map(SpecificEnergy::from_base)
+            .collect()
     }
 
     fn name(&self) -> &'static str {
@@ -253,6 +262,6 @@ mod tests {
 
         let viscosity = model.turbulent_viscosity(&flow);
         assert_eq!(viscosity.len(), 8);
-        assert!(viscosity.iter().all(|&value| value == 0.0));
+        assert!(viscosity.iter().all(|value| value.into_base() == 0.0));
     }
 }

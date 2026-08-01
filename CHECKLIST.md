@@ -1,5 +1,22 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-AEQ-MET-44 typed turbulence metrics — done 2026-07-31
+
+- [x] Add the Aequitas `SpecificEnergy<T>` semantic alias and coherent
+      `JoulePerKilogram` unit used by the turbulence contract.
+- [x] Change `cfd-core::TurbulenceModel` to return typed
+      `KinematicViscosity<T>` and `SpecificEnergy<T>` values, then migrate all
+      canonical cfd-3d closures and value-semantic tests.
+- [x] Keep scalar extraction at formula, transport, and assertion boundaries;
+      document that Eunomia complex values apply to genuine phasor/Fourier
+      fields, not to real turbulence metrics.
+- [x] Synchronize the audit, ADR, changelog, book, and crate-local PM records.
+      The local locked compile/Nextest blocker is recorded without claiming
+      unavailable compiler evidence.
+- [x] Fix the two dependency-source clippy blockers required for the cfd-3d
+      library gate; retain the exact unrelated all-targets/test-linker
+      residuals in the audit.
+
 ## Owner: current Codex session — CFDRS-ARCH-3D-TURB-1 turbulence facade — done 2026-07-31
 
 - [x] Remove the exported no-op `cfd-3d/src/turbulence.rs` module and expose
@@ -10,9 +27,9 @@
       Spalart-Allmaras regressions.
 - [x] Reconcile the cfd-3d historical compilation checklist and record the
       shared-overlay lockfile blocker without claiming an unavailable compile.
-- [x] Record `CFDRS-AEQ-MET-44` for the remaining typed turbulence-state
-      boundary; do not mask the missing specific-energy provider dimension with
-      an incorrect dimensionless or imaginary-unit wrapper.
+- [x] Record `CFDRS-AEQ-MET-44` as the completed typed turbulence-state
+      boundary; retain real-valued Eunomia semantics and avoid an incorrect
+      dimensionless or imaginary-unit wrapper.
 
 ## Owner: current Codex session — CFDRS-AEQ-MET-45 multiphase metrics — done 2026-07-31
 

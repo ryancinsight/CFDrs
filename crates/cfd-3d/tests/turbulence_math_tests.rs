@@ -39,9 +39,9 @@ fn test_sigma_vanishing_solid_body_rotation() {
             for i in 1..nx - 1 {
                 let idx = k * nx * ny + j * nx + i;
                 assert!(
-                    viscosity[idx] < 1e-12,
+                    viscosity[idx].into_base() < 1e-12,
                     "Sigma model MUST vanish for solid body rotation. Got {}",
-                    viscosity[idx]
+                    viscosity[idx].into_base()
                 );
             }
         }
@@ -82,9 +82,9 @@ fn test_vreman_vanishing_pure_shear() {
             for i in 1..nx - 1 {
                 let idx = k * nx * ny + j * nx + i;
                 assert!(
-                    viscosity[idx] < 1e-12,
+                    viscosity[idx].into_base() < 1e-12,
                     "Vreman model MUST vanish for pure shear flow. Got {:?}",
-                    viscosity[idx]
+                    viscosity[idx].into_base()
                 );
             }
         }
@@ -107,7 +107,7 @@ fn test_spalart_allmaras_math_bounds() {
     let viscosity = model.turbulent_viscosity(&flow_field);
     for v in viscosity {
         assert!(
-            v >= 0.0,
+            v.into_base() >= 0.0,
             "Spalart Allmaras viscosity must be bounded positively"
         );
     }

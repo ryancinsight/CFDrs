@@ -24,8 +24,9 @@
 //! **Reference:** Prandtl, L. (1925). "Über die ausgebildete Turbulenz."
 //! *Z. Angew. Math. Mech.* 5:136–139.
 
-use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
+use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
 use eunomia::{FloatElement, NumericElement};
 
 use super::field_ops::derivative_y;
@@ -117,7 +118,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> MixingLengthModel<T> {
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for MixingLengthModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         // νₜ = l² * |∂u/∂y| (Prandtl's mixing length hypothesis)
         flow_field
             .velocity
@@ -128,10 +129,11 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Mi
                 let grad_u = self.wall_normal_shear_rate_at(&flow_field.velocity, idx);
                 self.length_scale * self.length_scale * grad_u
             })
+            .map(KinematicViscosity::from_base)
             .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         // Estimate TKE from mixing length and velocity gradient
         // k ≈ (l * |∂u/∂y|)²
         flow_field
@@ -142,7 +144,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Mi
             .map(|(idx, _)| {
                 let grad_u = self.wall_normal_shear_rate_at(&flow_field.velocity, idx);
                 let l_grad_u = self.length_scale * grad_u;
-                l_grad_u * l_grad_u
+                SpecificEnergy::from_base(l_grad_u * l_grad_u)
             })
             .collect()
     }

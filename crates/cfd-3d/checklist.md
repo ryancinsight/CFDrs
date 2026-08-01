@@ -1,5 +1,17 @@
 # CFD-3D Update Checklist
 
+## CFDRS-AEQ-MET-44 typed turbulence metrics — closed 2026-07-31
+
+- [x] Migrate the shared turbulence contract to Aequitas
+      `KinematicViscosity<T>` and `SpecificEnergy<T>` results.
+- [x] Migrate every canonical turbulence closure and its value-semantic
+      regression assertions; keep scalar extraction at formula boundaries.
+- [x] Record the Eunomia boundary: real turbulence uses real scalars;
+      complex values remain for genuine phasor/Fourier fields and no imaginary
+      physical unit is introduced.
+- [x] Record the exact local locked-gate blocker: the shared Atlas overlay
+      requests a provider lock refresh before rustc starts.
+
 ## Historical compilation-error reconciliation — closed 2026-07-31
 
 - [x] Audit the historical compilation-error list against the current source.

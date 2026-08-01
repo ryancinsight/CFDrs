@@ -73,7 +73,7 @@ fn blueprint_trace_captures_mesh_and_reference_contract() {
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.node_traces.len(), blueprint.nodes.len());
-    assert!(trace.volume_trace.fluid_mesh_volume_mm3 > 0.0);
+    assert!(trace.volume_trace.fluid_mesh_volume.into_base() > 0.0);
     assert!(
         trace
             .channel_traces
@@ -114,7 +114,7 @@ fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
             .iter()
             .any(|segment| segment.is_synthetic_connector)
     );
-    assert!(trace.volume_trace.synthetic_connector_volume_mm3 > 0.0);
+    assert!(trace.volume_trace.synthetic_connector_volume.into_base() > 0.0);
     assert!(
         trace.layout_segments.iter().all(|segment| {
             !segment.is_synthetic_connector || segment.source_channel_id.is_none()
@@ -147,7 +147,10 @@ fn blueprint_trace_balances_bifurcation_serpentine_arms() {
         .expect("3D blueprint trace should preserve symmetric bifurcation serpentine balance");
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
-    assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
+    assert_eq!(
+        trace.volume_trace.synthetic_connector_volume.into_base(),
+        0.0
+    );
     assert!(
         (reference_flow(&trace, "throat_section") - flow_rate * 0.5).abs() < flow_rate * 1.0e-6
     );
@@ -176,7 +179,10 @@ fn blueprint_trace_balances_double_bifurcation_serpentine_arms() {
         .expect("3D blueprint trace should preserve double bifurcation serpentine balance");
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
-    assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
+    assert_eq!(
+        trace.volume_trace.synthetic_connector_volume.into_base(),
+        0.0
+    );
     assert!(
         (reference_flow(&trace, "throat_section") - flow_rate * 0.25).abs() < flow_rate * 1.0e-6
     );
@@ -206,7 +212,10 @@ fn blueprint_trace_balances_trifurcation_serpentine_arms() {
         .expect("3D blueprint trace should preserve trifurcation serpentine balance");
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
-    assert_eq!(trace.volume_trace.synthetic_connector_volume_mm3, 0.0);
+    assert_eq!(
+        trace.volume_trace.synthetic_connector_volume.into_base(),
+        0.0
+    );
     assert!(
         (reference_flow(&trace, "throat_section") - flow_rate / 3.0).abs() < flow_rate * 1.0e-6
     );

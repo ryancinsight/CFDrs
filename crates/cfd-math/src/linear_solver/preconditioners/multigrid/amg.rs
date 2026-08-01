@@ -51,7 +51,7 @@ use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto_ops::Preconditioner;
-use leto_ops::{spgemm, spmv_into as leto_spmv_into, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, spgemm, spmv_into as leto_spmv_into};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -105,6 +105,8 @@ impl<T: RealField + Copy + LetoScalar> AMGLevelWorkspace<T> {
     }
 }
 
+type AthenaBoundaryBuffers<T> = Arc<Mutex<Option<(MultigridVector<T>, MultigridVector<T>)>>>;
+
 /// Algebraic Multigrid preconditioner
 #[derive(Clone)]
 pub struct AlgebraicMultigrid<T: RealField + Copy + LetoScalar> {
@@ -128,7 +130,7 @@ pub struct AlgebraicMultigrid<T: RealField + Copy + LetoScalar> {
     /// caching the buffers keeps a preconditioner application allocation-free.
     /// Reworking the recursion to operate on slices would remove the copies
     /// entirely and is tracked separately.
-    athena_boundary: Arc<Mutex<Option<(MultigridVector<T>, MultigridVector<T>)>>>,
+    athena_boundary: AthenaBoundaryBuffers<T>,
 }
 
 impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
@@ -199,7 +201,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
                     _ => {
                         return Err(Error::InvalidInput(
                             "Missing transfer operators".to_string(),
-                        ))
+                        ));
                     }
                 }
             };

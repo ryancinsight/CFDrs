@@ -58,13 +58,30 @@ properties; f64 and f32 value regressions cover liquid/gas limits. The mixture
 remains real-valued under Eunomia and has no complex or imaginary physical
 quantity.
 
-The remaining Aequitas metric boundary is explicit rather than hidden:
-canonical turbulence state (`k`, `epsilon`, `omega`, wall distance, and
-eddy-viscosity results) still crosses the `cfd-core::TurbulenceModel` scalar
-trait. Completing that family requires a provider dimension for specific
-turbulent kinetic energy and a coordinated trait/API migration; it is not
-represented as an imaginary unit or approximated with a dimensionless wrapper.
-This is the next metric item after the facade cleanup.
+The canonical turbulence metric boundary is now closed by
+`CFDRS-AEQ-MET-44`: `cfd-core::TurbulenceModel` returns Aequitas
+`KinematicViscosity<T>` (`m²/s`) and `SpecificEnergy<T>` (`J/kg`) values, and
+all canonical cfd-3d closures wrap their real scalar results at that boundary.
+Solver state remains scalar where transport kernels require it; formulas and
+dense-field assertions extract base scalars explicitly. The Aequitas provider
+uses the coherent `J/kg` semantic alias, while Eunomia complex values remain
+reserved for genuine phasor/Fourier fields. No imaginary physical unit is
+introduced.
+
+The configured local locked compile and focused Nextest remain blocked before
+rustc because the shared Atlas overlay requests a mutable provider lock
+refresh. This is an environment/integration blocker, not a remaining source
+metric gap; the exact hosted CI result remains the merge gate.
+
+Verification residuals are separate from the metric audit: the focused offline
+package check is green, the cfd-core/cfd-3d doctests pass, and the migrated
+metric suite passes 70/70. The cfd-3d library clippy gate is warning-clean;
+full all-targets clippy still reports 47 pre-existing test/validation lint
+findings in untouched modules. The cfd-math source lint blockers encountered
+while checking the dependency graph were fixed at source, and its test target
+compiles with `cargo check --tests`; its Nextest link step remains blocked by
+the local MinGW/Clang linker invocation without a diagnostic. Neither residual
+is a missing Aequitas metric implementation.
 
 ## Schematic volume metric audit (2026-07-31)
 

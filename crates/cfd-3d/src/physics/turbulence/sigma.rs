@@ -31,6 +31,7 @@
 //!   "Using singular values to build a subgrid-scale model for LES."
 //!   *Phys. Fluids* 23(8):085106.
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
@@ -189,11 +190,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SigmaModel<T> {
         let denominator = sigma1 * sigma1;
         let sigma_product = if denominator > eps {
             let product = sigma3 * (sigma1 - sigma2) * (sigma2 - sigma3) / denominator;
-            if product > T::ZERO {
-                product
-            } else {
-                T::ZERO
-            }
+            if product > T::ZERO { product } else { T::ZERO }
         } else {
             T::ZERO
         };
@@ -215,7 +212,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for SigmaModel<T>
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for SigmaModel<T> {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
         for k in 0..nz {
@@ -226,13 +223,21 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Si
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         // Yoshizawa inversion: nu_t = C_k Delta sqrt(k_sgs).
         self.turbulent_viscosity(flow_field)
             .into_iter()
-            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .map(|nu_t| {
+                SpecificEnergy::from_base(kinetic_energy_from_eddy_viscosity(
+                    nu_t.into_base(),
+                    self.filter_width,
+                ))
+            })
             .collect()
     }
 
@@ -272,7 +277,7 @@ mod tests {
         let center = 13;
         let expected = model.c_sigma * model.c_sigma / 9.0;
 
-        assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), expected, epsilon = 1e-12);
     }
 
     #[test]
@@ -285,8 +290,8 @@ mod tests {
         let kinetic_energy = model.turbulent_kinetic_energy(&flow);
         let center = 13;
 
-        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
-        assert_relative_eq!(kinetic_energy[center], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), 0.0, epsilon = 1e-12);
+        assert_relative_eq!(kinetic_energy[center].into_base(), 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -308,7 +313,7 @@ mod tests {
         let expected =
             model.c_sigma * model.c_sigma * model.filter_width * model.filter_width / 9.0;
 
-        assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), expected, epsilon = 1e-12);
     }
 
     #[test]
@@ -329,12 +334,17 @@ mod tests {
         let kinetic_energy = model.turbulent_kinetic_energy(&flow);
         let center = 13;
         let yoshizawa_c_k = 0.094_f64;
-        let expected = (viscosity[center] / (yoshizawa_c_k * model.filter_width)).powi(2);
-        let former_strain_rate_formula = viscosity[center] * 14.0_f64.sqrt() / model.filter_width;
+        let viscosity_value = viscosity[center].into_base();
+        let expected = (viscosity_value / (yoshizawa_c_k * model.filter_width)).powi(2);
+        let former_strain_rate_formula = viscosity_value * 14.0_f64.sqrt() / model.filter_width;
 
-        assert_relative_eq!(kinetic_energy[center], expected, epsilon = 1e-12);
+        assert_relative_eq!(
+            kinetic_energy[center].into_base(),
+            expected,
+            epsilon = 1e-12
+        );
         assert!(
-            (kinetic_energy[center] - former_strain_rate_formula).abs() > 1e-3,
+            (kinetic_energy[center].into_base() - former_strain_rate_formula).abs() > 1e-3,
             "SGS kinetic energy must use the dimensionally correct Yoshizawa relation"
         );
     }

@@ -40,19 +40,17 @@
   module with the canonical public module and verify that the public path
   reaches input-sensitive model behavior. Acceptance: no placeholder bodies or
   duplicate turbulence trait remain; the public-path regression passes; the
-  Aequitas/Eunomia audit records that physical turbulence-unit typing is a
-  separate follow-up boundary.
+  Aequitas/Eunomia audit records the typed turbulence metric boundary and its
+  real/complex semantics.
 
-- **CFDRS-AEQ-MET-44 [major] - Type canonical 3D turbulence metrics (todo;
-  dependency=CFDRS-ARCH-3D-TURB-1).** The real turbulence models now own one
-  public implementation path, but `cfd-core::TurbulenceModel` still exposes
-  scalar turbulent-viscosity and kinetic-energy fields, while the cfd-3d
-  k-epsilon/k-omega state stores unit-bearing values as raw `T`. Add the
-  missing Aequitas provider dimension for specific turbulent kinetic energy,
-  then migrate the trait and model boundaries with scalar extraction confined
-  to gradient, transport, and dense-field formula kernels. Acceptance requires
-  typed state/results, value-semantic model regressions, and Eunomia real/complex
-  boundary documentation; no imaginary physical unit is appropriate.
+- **CFDRS-AEQ-MET-44 [major] - Type canonical 3D turbulence metrics (done
+  2026-07-31; owner=current Codex session; dependency=CFDRS-ARCH-3D-TURB-1).**
+  Aequitas now supplies the `SpecificEnergy<T>` semantic alias and cfd-core
+  returns typed `KinematicViscosity<T>` and `SpecificEnergy<T>` metrics. Every
+  canonical cfd-3d closure wraps its real scalar result at the public boundary;
+  formulas and dense-field assertions extract base scalars explicitly. Eunomia
+  real/complex boundary semantics are documented, and no imaginary unit is
+  introduced for a real turbulence metric.
 
 - **CFDRS-AEQ-MET-45 [major] - Type multiphase mixture metrics (done
   2026-07-31; owner=current Codex session; dependency=CFDRS-ARCH-3D-TURB-1).**

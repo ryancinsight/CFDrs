@@ -48,10 +48,14 @@ All notable changes to this project will be documented in this file.
 - **Breaking**: Remove the no-op `cfd-3d::turbulence` facade and expose the
   canonical Eunomia-backed implementations from `cfd-3d::physics::turbulence`
   through the crate-level module path. Migrate in-tree turbulence regressions
-  to the canonical path. Aequitas typing of turbulence state and outputs stays
-  separately tracked because `cfd-core::TurbulenceModel` is scalar-valued and
-  no fixed specific-energy provider dimension exists yet; no imaginary-unit
-  metric is introduced.
+  to the canonical path. Physical turbulence metrics are typed in the
+  following breaking entry.
+
+- **Breaking**: Type `cfd-core::TurbulenceModel` turbulence outputs with
+  Aequitas `KinematicViscosity<T>` (`m²/s`) and `SpecificEnergy<T>` (`J/kg`).
+  Migrate every canonical cfd-3d closure and extract base scalars only inside
+  formulas and dense-field assertions. Eunomia complex values remain for
+  genuine phasors; no imaginary physical unit is introduced.
 
 - **Breaking**: Type `cfd-3d::multiphase::exchange` with Aequitas
   `Dimensionless`, `MassDensity`, and `DynamicViscosity` inputs and outputs.

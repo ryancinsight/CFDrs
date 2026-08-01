@@ -629,6 +629,7 @@ dependencies = [
 name = "cfd-schematic-mesh"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "cfd-io",
  "cfd-schematics",
  "gaia",
@@ -642,6 +643,7 @@ dependencies = [
 name = "cfd-schematics"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "cfd-core",
  "iris",
  "petgraph",
@@ -869,6 +871,8 @@ dependencies = [
  "coeus-core",
  "coeus-ops",
  "coeus-tensor",
+ "leto",
+ "leto-ops",
  "thiserror 2.0.19",
 ]
 

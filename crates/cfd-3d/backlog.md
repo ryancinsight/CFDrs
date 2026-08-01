@@ -13,8 +13,11 @@ Atlas overlay requesting a Cargo.lock refresh for mutable provider patches. The
 root cfd-3d audit records the pinned package-check evidence; this residual is
 environmental lock coherence, not an unresolved cfd-3d compiler error.
 
-The physical-unit typing of canonical turbulence state and viscosity outputs is
-not silently marked complete by this cleanup. It is a separate Aequitas
-boundary item because `cfd-core::TurbulenceModel` currently exposes scalar
-fields and k-epsilon kinetic energy needs a provider dimension that is not yet
-present in the current Aequitas quantity set.
+The physical-unit typing of canonical turbulence outputs is closed by
+CFDRS-AEQ-MET-44. `cfd-core::TurbulenceModel` now returns Aequitas
+`KinematicViscosity<T>` and `SpecificEnergy<T>` values; every cfd-3d closure
+wraps its real scalar result at the public boundary, while solver state remains
+scalar and formulas extract explicitly. The provider supplies coherent `J/kg`
+semantics, and no imaginary unit is introduced. The local locked compile
+remains blocked before rustc by the shared Atlas overlay requesting a provider
+lock refresh; hosted CI is the remaining integration gate.

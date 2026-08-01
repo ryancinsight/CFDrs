@@ -29,13 +29,14 @@
 //! - Rozema, W., Bae, H. J. & Verstappen, R. (2022).
 //!   "Local dynamic gradient Smagorinsky model for large-eddy simulation."
 
+use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use eunomia::FloatElement;
 
 use super::constants::AMD_C_A_SECOND_ORDER;
 use super::field_ops::{
-    strain_components, symmetric_contract, velocity_gradient_tensor, SymmetricTensor6,
+    SymmetricTensor6, strain_components, symmetric_contract, velocity_gradient_tensor,
 };
 use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
@@ -161,7 +162,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default
 impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for AnisotropicMinimumDissipationModel<T>
 {
-    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<KinematicViscosity<T>> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
         for k in 0..nz {
@@ -172,9 +173,12 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
             }
         }
         viscosity
+            .into_iter()
+            .map(KinematicViscosity::from_base)
+            .collect()
     }
 
-    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<SpecificEnergy<T>> {
         let length_scale = if self.dx >= self.dy && self.dx >= self.dz {
             self.dx
         } else if self.dy >= self.dz {
@@ -184,7 +188,12 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
         };
         self.turbulent_viscosity(flow_field)
             .into_iter()
-            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, length_scale))
+            .map(|nu_t| {
+                SpecificEnergy::from_base(kinetic_energy_from_eddy_viscosity(
+                    nu_t.into_base(),
+                    length_scale,
+                ))
+            })
             .collect()
     }
 
@@ -220,7 +229,7 @@ mod tests {
         let model = AnisotropicMinimumDissipationModel::<f64>::with_grid_spacing(0.5, 1.5, 2.0);
         let viscosity = model.turbulent_viscosity(&flow);
 
-        assert!(viscosity.iter().all(|&value| value == 0.0));
+        assert!(viscosity.iter().all(|value| value.into_base() == 0.0));
     }
 
     #[test]
@@ -232,7 +241,7 @@ mod tests {
         let viscosity = model.turbulent_viscosity(&flow);
         let center = 13;
 
-        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(viscosity[center].into_base(), 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -304,8 +313,8 @@ mod tests {
         let grad_norm_sq = a.iter().flatten().map(|value| *value * *value).sum::<f64>();
         let expected = (1.0 / 3.0) * (-b_dot_s).max(0.0) / grad_norm_sq;
 
-        assert_relative_eq!(viscosity[13], expected, epsilon = 1e-12);
-        assert!(viscosity[13] > 0.0);
+        assert_relative_eq!(viscosity[13].into_base(), expected, epsilon = 1e-12);
+        assert!(viscosity[13].into_base() > 0.0);
     }
 
     #[test]
@@ -336,12 +345,17 @@ mod tests {
         let viscosity = model.turbulent_viscosity(&flow);
         let kinetic_energy = model.turbulent_kinetic_energy(&flow);
         let center = 13;
-        let expected = (viscosity[center] / (0.094 * dz)).powi(2);
+        let viscosity_value = viscosity[center].into_base();
+        let expected = (viscosity_value / (0.094 * dz)).powi(2);
 
-        assert!(viscosity[center] > 0.0);
-        assert_relative_eq!(kinetic_energy[center], expected, epsilon = 1e-12);
+        assert!(viscosity_value > 0.0);
+        assert_relative_eq!(
+            kinetic_energy[center].into_base(),
+            expected,
+            epsilon = 1e-12
+        );
         assert!(
-            (kinetic_energy[center] - viscosity[center]).abs() > 1e-9,
+            (kinetic_energy[center].into_base() - viscosity_value).abs() > 1e-9,
             "SGS kinetic energy must not alias eddy viscosity"
         );
     }
