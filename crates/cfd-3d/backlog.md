@@ -1,10 +1,20 @@
 # CFD-3D Update Backlog
 
-## Strategy
-Update `cfd-3d` to be compatible with the recent `cfd-mesh` revisions. The goal is a successful compile and passage of all tests for `cfd-3d`.
+## Closed historical compilation compatibility slice — 2026-07-31
 
-## Tasks
-1. Fix trait resolution errors (`num_traits::Float` vs `ComplexField`)
-2. Fix missing `face` and `vertex` methods on `IndexedMesh` and `builder.build()` methods.
-3. Fix associated item constraints in `DMatrix::<T: Scalar>`.
-4. Fix `&f64` to `f64` parameter mismatches in iterators.
+The old `cfd-mesh` compatibility checklist is reconciled with the current
+source. The listed trait, mesh-accessor, builder, matrix-bound, and iterator
+diagnostics are no longer present. The source-level turbulence placeholder was
+also removed; the public module now re-exports the canonical Eunomia-backed
+implementations from `physics::turbulence`.
+
+The current local locked build remains blocked before compilation by the shared
+Atlas overlay requesting a Cargo.lock refresh for mutable provider patches. The
+root cfd-3d audit records the pinned package-check evidence; this residual is
+environmental lock coherence, not an unresolved cfd-3d compiler error.
+
+The physical-unit typing of canonical turbulence state and viscosity outputs is
+not silently marked complete by this cleanup. It is a separate Aequitas
+boundary item because `cfd-core::TurbulenceModel` currently exposes scalar
+fields and k-epsilon kinetic energy needs a provider dimension that is not yet
+present in the current Aequitas quantity set.

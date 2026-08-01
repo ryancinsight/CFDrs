@@ -865,7 +865,7 @@ fn test_level_set_zero_velocity_preserves_phi() {
 /// Smagorinsky: zero velocity field → zero turbulent viscosity.
 #[test]
 fn test_smagorinsky_zero_velocity_zero_viscosity() {
-    use cfd_3d::physics::turbulence::SmagorinskyModel;
+    use cfd_3d::turbulence::SmagorinskyModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 
@@ -882,7 +882,7 @@ fn test_smagorinsky_zero_velocity_zero_viscosity() {
 /// MixingLength: zero velocity gradient → zero turbulent viscosity.
 #[test]
 fn test_mixing_length_zero_velocity_zero_viscosity() {
-    use cfd_3d::physics::turbulence::MixingLengthModel;
+    use cfd_3d::turbulence::MixingLengthModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 
@@ -898,7 +898,7 @@ fn test_mixing_length_zero_velocity_zero_viscosity() {
 /// MixingLength: turbulent kinetic energy also zero for uniform flow.
 #[test]
 fn test_mixing_length_zero_tke_uniform_flow() {
-    use cfd_3d::physics::turbulence::MixingLengthModel;
+    use cfd_3d::turbulence::MixingLengthModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 
@@ -948,7 +948,7 @@ fn test_mixing_length_anisotropic_wall_spacing() {
 /// k-ε: standard constants match Launder & Spalding (1974).
 #[test]
 fn test_k_epsilon_standard_constants() {
-    use cfd_3d::physics::turbulence::KEpsilonConstants;
+    use cfd_3d::turbulence::KEpsilonConstants;
 
     let c = KEpsilonConstants::<f64>::standard();
     assert_relative_eq!(c.c_mu, 0.09, epsilon = 1e-10);
@@ -962,7 +962,7 @@ fn test_k_epsilon_standard_constants() {
 #[test]
 #[should_panic(expected = "requires initialized k and epsilon transport fields")]
 fn test_k_epsilon_uninit_rejected() {
-    use cfd_3d::physics::turbulence::KEpsilonModel;
+    use cfd_3d::turbulence::KEpsilonModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 
@@ -975,7 +975,7 @@ fn test_k_epsilon_uninit_rejected() {
 /// k-ε: νₜ = C_μ k² / ε for initialised state with uniform fields.
 #[test]
 fn test_k_epsilon_viscosity_formula() {
-    use cfd_3d::physics::turbulence::KEpsilonModel;
+    use cfd_3d::turbulence::KEpsilonModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 
@@ -997,7 +997,7 @@ fn test_k_epsilon_viscosity_formula() {
 /// k-ε: zero TKE → zero turbulent viscosity (no division by zero).
 #[test]
 fn test_k_epsilon_zero_tke_no_nan() {
-    use cfd_3d::physics::turbulence::KEpsilonModel;
+    use cfd_3d::turbulence::KEpsilonModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 

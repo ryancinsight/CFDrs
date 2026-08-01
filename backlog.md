@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-ARCH-3D-TURB-1 [arch] - Remove the placeholder 3D turbulence
-  facade (in progress 2026-07-31; owner=current Codex session; scope=
+  facade (done 2026-07-31; owner=current Codex session; scope=
   `cfd-3d` public turbulence module and direct regression documentation).**
   The exported `cfd-3d::turbulence` module contains no-op k-epsilon,
   k-omega-SST, and Smagorinsky implementations while the real Eunomia-backed
@@ -42,6 +42,24 @@
   duplicate turbulence trait remain; the public-path regression passes; the
   Aequitas/Eunomia audit records that physical turbulence-unit typing is a
   separate follow-up boundary.
+
+- **CFDRS-AEQ-MET-44 [major] - Type canonical 3D turbulence metrics (todo;
+  dependency=CFDRS-ARCH-3D-TURB-1).** The real turbulence models now own one
+  public implementation path, but `cfd-core::TurbulenceModel` still exposes
+  scalar turbulent-viscosity and kinetic-energy fields, while the cfd-3d
+  k-epsilon/k-omega state stores unit-bearing values as raw `T`. Add the
+  missing Aequitas provider dimension for specific turbulent kinetic energy,
+  then migrate the trait and model boundaries with scalar extraction confined
+  to gradient, transport, and dense-field formula kernels. Acceptance requires
+  typed state/results, value-semantic model regressions, and Eunomia real/complex
+  boundary documentation; no imaginary physical unit is appropriate.
+
+- **CFDRS-AEQ-MET-45 [major] - Type multiphase mixture metrics (done
+  2026-07-31; owner=current Codex session; dependency=CFDRS-ARCH-3D-TURB-1).**
+  `cfd-3d::multiphase::exchange` now carries phase fraction, density, and
+  dynamic viscosity through Aequitas and extracts scalars only for the
+  volume-weighted interpolation. f64/f32 value regressions pass; the real
+  Eunomia boundary has no complex or imaginary physical unit.
 
 - **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;

@@ -1,5 +1,26 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-ARCH-3D-TURB-1 turbulence facade — done 2026-07-31
+
+- [x] Remove the exported no-op `cfd-3d/src/turbulence.rs` module and expose
+      the canonical `cfd-3d::physics::turbulence` implementation through the
+      crate-level `cfd_3d::turbulence` path.
+- [x] Migrate direct in-tree turbulence callers to the canonical public path;
+      retain input-sensitive Smagorinsky, k-epsilon, Sigma, Vreman, and
+      Spalart-Allmaras regressions.
+- [x] Reconcile the cfd-3d historical compilation checklist and record the
+      shared-overlay lockfile blocker without claiming an unavailable compile.
+- [x] Record `CFDRS-AEQ-MET-44` for the remaining typed turbulence-state
+      boundary; do not mask the missing specific-energy provider dimension with
+      an incorrect dimensionless or imaginary-unit wrapper.
+
+## Owner: current Codex session — CFDRS-AEQ-MET-45 multiphase metrics — done 2026-07-31
+
+- [x] Carry phase fraction, liquid/gas density, and liquid/gas viscosity
+      through `cfd-3d::multiphase::exchange` as Aequitas quantities.
+- [x] Keep scalar extraction inside the volume-weighted interpolation formula;
+      verify f64 and f32 value semantics and the real-only Eunomia boundary.
+
 ## Owner: current Codex session — CFDRS-AEQ-MET-43 schematic volume metrics [major] — verified 2026-07-31
 
 - [x] Type `cfd-schematics` `FluidVolumeSummary` and

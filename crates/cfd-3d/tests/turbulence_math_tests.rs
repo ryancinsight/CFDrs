@@ -1,6 +1,6 @@
-use cfd_3d::physics::turbulence::sigma::SigmaModel;
-use cfd_3d::physics::turbulence::spalart_allmaras::SpalartAllmarasModel;
-use cfd_3d::physics::turbulence::vreman::VremanModel;
+use cfd_3d::turbulence::sigma::SigmaModel;
+use cfd_3d::turbulence::spalart_allmaras::SpalartAllmarasModel;
+use cfd_3d::turbulence::vreman::VremanModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 

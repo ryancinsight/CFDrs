@@ -31,6 +31,41 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Cross-consumer refresh and cfd-3d facade closure (2026-07-31)
+
+The CFDrs, Helios, and Kwavers re-audit found no new missing Aequitas
+dimension in the already-closed CFDrs metric families: schematic volumes,
+analytical validation, shared fluid properties, cavitation, vascular, and
+transient contracts remain typed at their public physical boundaries. The
+real-valued CFD/FEM contracts continue to use Eunomia real scalar traits;
+Fourier and phasor fields remain the only complex numerical boundaries, so no
+imaginary-unit Aequitas quantity is introduced.
+
+The audit did find and close a source defect in `cfd-3d`: its exported
+`turbulence` module contained no-op k-epsilon, k-omega-SST, and Smagorinsky
+implementations beside the real Eunomia-backed models under
+`physics::turbulence`. The placeholder file is deleted, the crate-level path
+now exposes the canonical module, and value-semantic turbulence tests exercise
+that public path. The historical `cfd-3d` compilation checklist is reconciled
+with the current source. Locked local compilation remains blocked before
+rustc by the shared Atlas overlay's mutable provider lock refresh; metadata,
+diff checks, and the previously recorded pinned package gate remain valid.
+
+The adjacent `cfd-3d::multiphase::exchange` boundary is also now typed with
+Aequitas `Dimensionless`, `MassDensity`, and `DynamicViscosity`. The
+interpolation formula extracts base scalars once and returns typed phase
+properties; f64 and f32 value regressions cover liquid/gas limits. The mixture
+remains real-valued under Eunomia and has no complex or imaginary physical
+quantity.
+
+The remaining Aequitas metric boundary is explicit rather than hidden:
+canonical turbulence state (`k`, `epsilon`, `omega`, wall distance, and
+eddy-viscosity results) still crosses the `cfd-core::TurbulenceModel` scalar
+trait. Completing that family requires a provider dimension for specific
+turbulent kinetic energy and a coordinated trait/API migration; it is not
+represented as an imaginary unit or approximated with a dimensionless wrapper.
+This is the next metric item after the facade cleanup.
+
 ## Schematic volume metric audit (2026-07-31)
 
 `CFDRS-AEQ-MET-43` addresses the remaining untyped volume-summary boundary in
