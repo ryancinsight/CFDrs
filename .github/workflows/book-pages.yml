@@ -60,13 +60,13 @@ jobs:
 
       - name: Install mdBook link checker
         run: |
-          cargo install mdbook-linkcheck --version 0.7.7 --locked
-          mdbook-linkcheck --version
+          cargo install mdbook-linkcheck2 --version 0.12.2 --locked
+          mdbook-linkcheck2 --version
 
       - name: Build book
         run: |
           mdbook build docs/book
-          test -f target/book/cfdrs/index.html
+          test -f target/book/cfdrs/html/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
