@@ -31,6 +31,34 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Standalone provider lock and hosted gate closure (2026-07-31)
+
+The Aequitas provider lock gap is closed. Aequitas commit `7f6afaf` restored
+the Eunomia git source for locked standalone resolution and merged as
+`8e75ee3`. The CFDrs lockfile was then regenerated outside the Atlas
+development overlay; it now records source revisions for every git package,
+including Aequitas `8e75ee3` and Eunomia `18459875`, instead of the
+overlay-only package entries and `[[patch.unused]]` records.
+
+The workflow gap is also closed. The figure SSOT job no longer asks a hosted
+runner to materialize an absent sibling `../coeus/Cargo.toml`. The Pages job
+uses the mdBook-0.5-compatible `mdbook-linkcheck2` backend and checks the
+HTML renderer's `target/book/cfdrs/html/index.html` artifact. Local
+`mdbook build docs/book` and hosted runs `30684476602` (figure SSOT) and
+`30684476604` (Pages build) pass.
+
+Standalone verification passes `cargo metadata --locked`, `cargo check
+--locked --package cfd-core --lib`, and `cargo check --locked --package
+cfd-3d --lib` against the regenerated lock. The standalone focused Nextest
+attempt reaches dependency compilation but stops at
+`geometry-predicates-0.3.0` with no compiler diagnostic; the Atlas-overlay
+focused metric run remains the value-semantic evidence at 70/70. This is a
+Windows toolchain/build-target residual, not an Aequitas metric gap.
+
+The real/complex boundary remains unchanged: turbulence, multiphase, and
+fluid metrics are real Eunomia values; complex values remain at genuine
+Fourier/phasor boundaries, and no imaginary physical unit is introduced.
+
 ## Cross-consumer refresh and cfd-3d facade closure (2026-07-31)
 
 The CFDrs, Helios, and Kwavers re-audit found no new missing Aequitas
@@ -47,9 +75,9 @@ implementations beside the real Eunomia-backed models under
 `physics::turbulence`. The placeholder file is deleted, the crate-level path
 now exposes the canonical module, and value-semantic turbulence tests exercise
 that public path. The historical `cfd-3d` compilation checklist is reconciled
-with the current source. Locked local compilation remains blocked before
-rustc by the shared Atlas overlay's mutable provider lock refresh; metadata,
-diff checks, and the previously recorded pinned package gate remain valid.
+with the current source. The Atlas-overlay locked form remains blocked before
+rustc by its mutable provider lock refresh; the standalone lock and compile
+gates are recorded above.
 
 The adjacent `cfd-3d::multiphase::exchange` boundary is also now typed with
 Aequitas `Dimensionless`, `MassDensity`, and `DynamicViscosity`. The
@@ -68,10 +96,9 @@ uses the coherent `J/kg` semantic alias, while Eunomia complex values remain
 reserved for genuine phasor/Fourier fields. No imaginary physical unit is
 introduced.
 
-The configured local locked compile and focused Nextest remain blocked before
-rustc because the shared Atlas overlay requests a mutable provider lock
-refresh. This is an environment/integration blocker, not a remaining source
-metric gap; the exact hosted CI result remains the merge gate.
+The configured Atlas-overlay locked compile and focused standalone Nextest
+remain environment-limited as described above. This is not a remaining source
+metric gap; the hosted standalone graph and Pages/figure gates pass.
 
 Verification residuals are separate from the metric audit: the focused offline
 package check is green, the cfd-core/cfd-3d doctests pass, and the migrated

@@ -1,5 +1,15 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
+
+- [x] Regenerate `Cargo.lock` outside the Atlas development overlay after the
+      Aequitas provider merge; retain source revisions for the full git graph.
+- [x] Remove the invalid hosted Coeus sibling checkout from the figure SSOT
+      job and align Pages with mdBook 0.5.4 through `mdbook-linkcheck2`.
+- [x] Verify standalone locked metadata, cfd-core/cfd-3d library checks, local
+      mdBook output, hosted figure SSOT, and hosted Pages build. Record the
+      Windows dependency-compile residual from standalone focused Nextest.
+
 ## Owner: current Codex session — CFDRS-AEQ-MET-44 typed turbulence metrics — done 2026-07-31
 
 - [x] Add the Aequitas `SpecificEnergy<T>` semantic alias and coherent
