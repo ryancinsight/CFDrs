@@ -222,9 +222,9 @@ pub fn process_blueprint_with_reference_trace(
                 channel_id: mesh_trace.channel_id.clone(),
                 from_node_id: mesh_trace.from_node_id.clone(),
                 to_node_id: mesh_trace.to_node_id.clone(),
-                schematic_volume: Volume::from_base(mesh_trace.schematic_volume_mm3 * 1.0e-9),
-                meshed_volume: Volume::from_base(mesh_trace.meshed_volume_mm3 * 1.0e-9),
-                mesh_volume_error_pct: mesh_trace.volume_error_pct,
+                schematic_volume: mesh_trace.schematic_volume,
+                meshed_volume: mesh_trace.meshed_volume,
+                mesh_volume_error_pct: mesh_trace.volume_error_pct.into_base(),
                 reference_flow_rate: VolumetricFlowRate::from_base(reference.flow_rate_m3_s),
                 reference_pressure_drop: Pressure::from_base(reference.pressure_drop_pa),
                 reference_pressure_drop_coefficient: reference.pressure_drop_pa
