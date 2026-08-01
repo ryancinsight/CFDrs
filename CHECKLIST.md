@@ -1,5 +1,17 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-AEQ-MET-43 schematic volume metrics [major] — in progress 2026-07-31
+
+- [ ] Type `cfd-schematics` `FluidVolumeSummary` and
+      `ChannelFluidVolumeSummary` with Aequitas `Length`, `Area`, and `Volume`;
+      replace redundant unit-suffixed fields and migrate direct consumers.
+- [ ] Type `cfd-schematic-mesh` public volume traces and the OpenFOAM example;
+      retain scalar extraction only at mesh signed-volume and percentage
+      formulas, with value-semantic regressions for summary and trace values.
+- [ ] Synchronize `gap_audit.md`, `docs/adr.md`, `CHANGELOG.md`, and the
+      backlog/checklist; run focused format/check/Nextest/doc gates and record
+      exact provider blockers if the shared Leto state prevents closure.
+
 ## Owner: current Codex session — CFDRS-AEQ-MET-30 shared fluid properties [major] — verified 2026-07-29
 
 - [x] Type `FluidProperties`, `PropertyBounds`, and `ConstantPropertyFluid` physical storage

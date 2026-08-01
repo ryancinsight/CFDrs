@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
+  (in progress 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  scope=`cfd-schematics` volume summaries, `cfd-schematic-mesh` volume traces
+  and example consumer, plus synchronized audit/design/changelog artifacts).**
+  The public schematic and mesh volume contracts still expose length, area,
+  volume, and volume-error values as unit-suffixed `f64` fields. Replace those
+  fields with Aequitas `Length`, `Area`, and `Volume`, remove the redundant
+  millimetre/microlitre field pairs, and keep scalar extraction at mesh-volume
+  and percentage formula boundaries. Acceptance is a source migration with
+  value-semantic summary/trace assertions, focused package gates, and exact
+  Eunomia real/complex boundary documentation.
+
 - **CFDRS-VAL-RED-1 [patch] - Root-cause the remaining cfd-validation red set
   (in progress 2026-07-31; owner=Claude atlas session 0161539d; scope=
   `cfd-validation` tests listed below, `cfd-3d::venturi` inlet BC).**
