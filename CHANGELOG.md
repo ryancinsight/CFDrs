@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the public `cfd-schematics` volume summaries and
+  `cfd-schematic-mesh` volume traces with Aequitas `Length`, `Area`, `Volume`,
+  and `Dimensionless`. Remove redundant unit-suffixed mm³/uL fields; convert
+  mesh signed volumes at the explicit cubic-millimetre boundary and extract
+  scalars only for relative-error formulas. Eunomia real-field execution is
+  preserved and no imaginary-unit metric is introduced.
+
 - **Breaking**: Remove the duplicate raw-scalar Couette, Poiseuille, and
   Taylor-Green models from `cfd-validation::analytical_benchmarks` and migrate
   physics validation to the canonical Aequitas-backed `analytical` APIs. Keep

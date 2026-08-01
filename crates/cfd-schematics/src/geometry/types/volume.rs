@@ -1,5 +1,7 @@
 //! Fluid volume summary for channel systems.
 
+use aequitas::systems::si::quantities::{Area, Length, Volume};
+use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::model::NetworkBlueprint;
@@ -7,12 +9,10 @@ use crate::domain::model::NetworkBlueprint;
 /// Summary of the fluid volume within a channel system.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FluidVolumeSummary {
-    /// Total centerline length in the schematic \[mm].
-    pub total_channel_length_mm: f64,
-    /// Total fluid volume in the system [mm^3].
-    pub total_fluid_volume_mm3: f64,
-    /// Total fluid volume in the system \[uL].
-    pub total_fluid_volume_ul: f64,
+    /// Total centerline length in the schematic.
+    pub total_channel_length: Length<f64>,
+    /// Total fluid volume in the system.
+    pub total_fluid_volume: Volume<f64>,
     /// Number of channels contributing to the volume.
     pub channel_count: usize,
     /// Human-readable legend label for report and plot overlays.
@@ -28,14 +28,12 @@ pub struct ChannelFluidVolumeSummary {
     pub from_node_id: String,
     /// Downstream blueprint node identifier.
     pub to_node_id: String,
-    /// Total channel centerline length in the schematic \[mm].
-    pub centerline_length_mm: f64,
-    /// True blueprint cross-sectional area [mm^2].
-    pub cross_section_area_mm2: f64,
-    /// Total fluid volume for this channel [mm^3].
-    pub fluid_volume_mm3: f64,
-    /// Total fluid volume for this channel \[uL].
-    pub fluid_volume_ul: f64,
+    /// Total channel centerline length in the schematic.
+    pub centerline_length: Length<f64>,
+    /// True blueprint cross-sectional area.
+    pub cross_section_area: Area<f64>,
+    /// Total fluid volume for this channel.
+    pub fluid_volume: Volume<f64>,
 }
 
 impl NetworkBlueprint {
@@ -44,7 +42,7 @@ impl NetworkBlueprint {
         self.channels
             .iter()
             .map(|channel| {
-                let centerline_length_mm = if channel.path.len() >= 2 {
+                let centerline_length = if channel.path.len() >= 2 {
                     channel
                         .path
                         .windows(2)
@@ -53,21 +51,21 @@ impl NetworkBlueprint {
                             let dy = segment[1].1 - segment[0].1;
                             dx.hypot(dy)
                         })
-                        .sum()
+                        .sum::<f64>()
                 } else {
                     channel.length_m * 1000.0
                 };
-                let cross_section_area_mm2 = channel.cross_section.area() * 1.0e6;
-                let fluid_volume_mm3 = centerline_length_mm * cross_section_area_mm2;
+                let centerline_length = Length::from_unit::<Millimeter>(centerline_length);
+                let cross_section_area = Area::from_base(channel.cross_section.area());
+                let fluid_volume = centerline_length * cross_section_area;
 
                 ChannelFluidVolumeSummary {
                     channel_id: channel.id.as_str().to_string(),
                     from_node_id: channel.from.to_string(),
                     to_node_id: channel.to.to_string(),
-                    centerline_length_mm,
-                    cross_section_area_mm2,
-                    fluid_volume_mm3,
-                    fluid_volume_ul: fluid_volume_mm3,
+                    centerline_length,
+                    cross_section_area,
+                    fluid_volume,
                 }
             })
             .collect()
@@ -76,25 +74,66 @@ impl NetworkBlueprint {
     #[must_use]
     pub fn fluid_volume_summary(&self) -> FluidVolumeSummary {
         let channel_summaries = self.channel_fluid_volume_summaries();
-        let total_channel_length_mm = channel_summaries
+        let total_channel_length = channel_summaries
             .iter()
-            .map(|channel| channel.centerline_length_mm)
-            .sum();
-        let total_fluid_volume_mm3 = channel_summaries
+            .map(|channel| channel.centerline_length)
+            .fold(Length::default(), |total, length| total + length);
+        let total_fluid_volume = channel_summaries
             .iter()
-            .map(|channel| channel.fluid_volume_mm3)
-            .sum();
-
-        let total_fluid_volume_ul = total_fluid_volume_mm3;
+            .map(|channel| channel.fluid_volume)
+            .fold(Volume::default(), |total, volume| total + volume);
 
         FluidVolumeSummary {
-            total_channel_length_mm,
-            total_fluid_volume_mm3,
-            total_fluid_volume_ul,
+            total_channel_length,
+            total_fluid_volume,
             channel_count: channel_summaries.len(),
             display_label: format!(
-                "Volume: {total_fluid_volume_ul:.3} uL over {total_channel_length_mm:.2} mm"
+                "Volume: {:.3} uL over {:.2} mm",
+                total_fluid_volume.in_unit::<CubicMillimeter>(),
+                total_channel_length.in_unit::<Millimeter>()
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::topology::presets::parallel_path_spec;
+    use crate::topology::{ChannelRouteSpec, ParallelChannelSpec};
+    use crate::{BlueprintTopologyFactory, TreatmentActuationMode};
+
+    #[test]
+    fn summary_preserves_volume_and_unit_conversion() {
+        let topology = parallel_path_spec(
+            "typed-volume",
+            2.0e-3,
+            2.0e-3,
+            12.0e-3,
+            12.0e-3,
+            vec![ParallelChannelSpec {
+                channel_id: "channel".to_string(),
+                route: ChannelRouteSpec {
+                    length_m: 10.0e-3,
+                    width_m: 1.0e-3,
+                    height_m: 1.0e-3,
+                    serpentine: None,
+                    therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
+                },
+            }],
+            TreatmentActuationMode::UltrasoundOnly,
+        );
+        let blueprint =
+            BlueprintTopologyFactory::build(&topology).expect("parallel topology should build");
+        let channels = blueprint.channel_fluid_volume_summaries();
+        let summary = blueprint.fluid_volume_summary();
+
+        assert_eq!(channels.len(), summary.channel_count);
+        assert_eq!(summary.total_fluid_volume, channels[0].fluid_volume);
+        let volume_mm3 = summary.total_fluid_volume.in_unit::<CubicMillimeter>();
+        // The expected 10 mm³ result has four f64 roundings: area, length,
+        // multiplication, and conversion back to cubic millimetres.
+        assert!((volume_mm3 - 10.0).abs() <= 4.0 * f64::EPSILON);
+        assert!(summary.display_label.contains("uL"));
     }
 }

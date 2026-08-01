@@ -28,6 +28,7 @@
 | **Aequitas-owned analytical Blasius metrics** | 2026-07-31 | The cfd-validation Blasius configuration erased boundary-layer dimensions and treated kinematic viscosity as dynamic viscosity for wall stress | Velocity, KinematicViscosity, MassDensity, Length, Dimensionless, Pressure, and typed velocity/similarity results remain explicit through the validation boundary; interpolation and mesh-coordinate boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Canonical analytical benchmark ownership** | 2026-07-31 | `analytical_benchmarks` duplicated raw-scalar Couette, Poiseuille, and Taylor-Green models beside the canonical analytical modules | Remove duplicate model implementations and migrate the physics-validation consumer to canonical Aequitas-backed APIs; retain only normalized Ghia reference tables | Breaking removal of the legacy duplicate model names from `analytical_benchmarks` |
+| **Aequitas-owned schematic volume metrics** | 2026-07-31 | `cfd-schematics` volume summaries and `cfd-schematic-mesh` diagnostics exposed unit-suffixed length, area, volume, and percentage `f64` fields, including redundant mm³/uL pairs | `Length`, `Area`, `Volume`, and `Dimensionless` remain typed through public schematic and mesh volume contracts; mesh signed-volume and percentage calculations are explicit scalar boundaries | Breaking change for schematic and mesh diagnostic consumers |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -96,6 +97,34 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-31: Aequitas owns schematic volume metrics [major] [arch]
+
+Context: `cfd-schematics::FluidVolumeSummary` and
+`ChannelFluidVolumeSummary` stored length, area, and volume in fields whose
+names encoded millimetres, square millimetres, cubic millimetres, and
+microlitres. `cfd-schematic-mesh` repeated the same raw representation for
+per-channel and full-pipeline volume diagnostics.
+
+Decision: carry `Length`, `Area`, `Volume`, and `Dimensionless` through both
+public contracts. Convert mesh-provider signed volumes at the explicit
+`CubicMillimeter` boundary and extract only inside relative-percentage
+formulas. Report labels may format a `Volume` in cubic millimetres, which is
+numerically equivalent to microlitres, without storing a duplicate field.
+
+Rejected alternative: retain the raw fields and add typed accessors. That
+would preserve dimensional ambiguity and create two public sources for every
+metric.
+
+Consequences: schematic and mesh diagnostic consumers must construct and read
+typed values. The geometry remains real-valued under Eunomia `RealField`; no
+imaginary-unit quantity is introduced. Complex values remain available for
+complex numerical fields where the domain requires them.
+
+Verification: focused package check passes for `cfd-schematics` and
+`cfd-schematic-mesh`; Nextest run `0383cb4d-2e80-43e5-a0e0-683025defcbd`
+passes 207/207. The source migration includes summary and mesh-trace
+value assertions, targeted Rustfmt, and a clean diff check.
 
 ### 2026-07-31: Aequitas owns analytical Stokes metrics [major] [arch]
 

@@ -12,6 +12,7 @@ description = "Schematic network design, geometry generation, and metadata expor
 default = []
 
 [dependencies]
+aequitas = { workspace = true, features = ["serde"] }
 cfd-core = { path = "../cfd-core" }
 iris.workspace = true
 petgraph.workspace = true

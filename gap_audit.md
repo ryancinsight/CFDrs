@@ -31,6 +31,30 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Schematic volume metric audit (2026-07-31)
+
+`CFDRS-AEQ-MET-43` addresses the remaining untyped volume-summary boundary in
+`cfd-schematics` and its `cfd-schematic-mesh` consumer. Public summaries and
+mesh traces now carry Aequitas `Length`, `Area`, `Volume`, and `Dimensionless`
+values instead of unit-suffixed `f64` fields. The previous parallel
+millimetre/microlitre fields are removed; microlitres remain an explicit report
+conversion from `Volume` through Eunomia-backed Aequitas units.
+
+Mesh signed-volume values enter through `Volume::from_unit::<CubicMillimeter>`;
+relative-error percentages extract base values only inside the percentage
+formula. This keeps geometry-provider scalars at the mesh boundary and typed
+values through the public diagnostic contract. The slice is real-valued under
+Eunomia `RealField`; no imaginary-unit metric exists. Eunomia complex values
+remain valid for genuinely complex numerical fields elsewhere, but do not
+apply to geometric volume.
+
+The focused package check passes for `cfd-schematics` and
+`cfd-schematic-mesh`. Nextest run `0383cb4d-2e80-43e5-a0e0-683025defcbd`
+passes 207/207. Targeted Rustfmt checks for the changed summary and example,
+`git diff --check`, and the typed-field residue scan pass. Existing
+package-wide format drift outside this slice remains separately visible in the
+repository baseline.
+
 ## Legacy analytical benchmark consolidation (2026-07-31)
 
 `CFDRS-AEQ-MET-42` closes the legacy `analytical_benchmarks` duplication

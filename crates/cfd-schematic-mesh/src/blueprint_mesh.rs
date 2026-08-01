@@ -6,6 +6,8 @@
 use hashbrown::HashMap;
 use std::f64::consts::PI;
 
+use aequitas::systems::si::quantities::{Area, Dimensionless, Length, Volume};
+use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
 use cfd_schematics::geometry::FluidVolumeSummary;
 use cfd_schematics::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 
@@ -111,20 +113,20 @@ pub struct ChannelVolumeTrace {
     pub from_node_id: String,
     /// Downstream blueprint node identifier.
     pub to_node_id: String,
-    /// Schematic centerline length (mm).
-    pub schematic_centerline_length_mm: f64,
-    /// Meshed centerline length traced through synthesized layout segments (mm).
-    pub meshed_centerline_length_mm: f64,
-    /// True schematic cross-sectional area [mm^2].
-    pub cross_section_area_mm2: f64,
-    /// Authoritative schematic fluid volume [mm^3].
-    pub schematic_volume_mm3: f64,
-    /// Meshed fluid volume for this channel after collapsing the channel's own subsegments [mm^3].
-    pub meshed_volume_mm3: f64,
-    /// Meshed minus schematic volume [mm^3].
-    pub volume_error_mm3: f64,
-    /// Relative volume error against the schematic contract [%].
-    pub volume_error_pct: f64,
+    /// Schematic centerline length.
+    pub schematic_centerline_length: Length<f64>,
+    /// Meshed centerline length traced through synthesized layout segments.
+    pub meshed_centerline_length: Length<f64>,
+    /// True schematic cross-sectional area.
+    pub cross_section_area: Area<f64>,
+    /// Authoritative schematic fluid volume.
+    pub schematic_volume: Volume<f64>,
+    /// Meshed fluid volume for this channel after collapsing the channel's own subsegments.
+    pub meshed_volume: Volume<f64>,
+    /// Meshed minus schematic volume.
+    pub volume_error: Volume<f64>,
+    /// Relative volume error against the schematic contract.
+    pub volume_error_pct: Dimensionless<f64>,
     /// Number of synthesized layout segments attributed to this blueprint channel.
     pub layout_segment_count: usize,
 }
@@ -136,20 +138,20 @@ pub struct PipelineVolumeTrace {
     pub schematic_summary: FluidVolumeSummary,
     /// Per-channel schematic-versus-mesh volume traces.
     pub channel_traces: Vec<ChannelVolumeTrace>,
-    /// Sum of all per-channel meshed volumes before inter-channel CSG overlap removal [mm^3].
-    pub pre_csg_channel_volume_mm3: f64,
-    /// Volume carried by synthesized routing connectors that do not map to a blueprint channel [mm^3].
-    pub synthetic_connector_volume_mm3: f64,
-    /// Final fluid mesh signed volume after full CSG assembly [mm^3].
-    pub fluid_mesh_volume_mm3: f64,
-    /// Final chip-body signed volume [mm^3] when requested.
-    pub chip_mesh_volume_mm3: Option<f64>,
-    /// Fluid-mesh minus schematic total fluid volume [mm^3].
-    pub fluid_mesh_volume_error_mm3: f64,
-    /// Relative fluid-mesh volume error against the schematic total [%].
-    pub fluid_mesh_volume_error_pct: f64,
-    /// Volume removed by full-network CSG relative to the sum of meshed channel and connector volumes [mm^3].
-    pub csg_overlap_delta_mm3: f64,
+    /// Sum of all per-channel meshed volumes before inter-channel CSG overlap removal.
+    pub pre_csg_channel_volume: Volume<f64>,
+    /// Volume carried by synthesized routing connectors that do not map to a blueprint channel.
+    pub synthetic_connector_volume: Volume<f64>,
+    /// Final fluid mesh signed volume after full CSG assembly.
+    pub fluid_mesh_volume: Volume<f64>,
+    /// Final chip-body signed volume when requested.
+    pub chip_mesh_volume: Option<Volume<f64>>,
+    /// Fluid-mesh minus schematic total fluid volume.
+    pub fluid_mesh_volume_error: Volume<f64>,
+    /// Relative fluid-mesh volume error against the schematic total.
+    pub fluid_mesh_volume_error_pct: Dimensionless<f64>,
+    /// Volume removed by full-network CSG relative to the sum of meshed channel and connector volumes.
+    pub csg_overlap_delta: Volume<f64>,
 }
 
 /// Output of the `BlueprintMeshPipeline`.
@@ -548,7 +550,7 @@ fn synthesize_layout(
 
             // n rows + (n−1) turns = 2n − 1 segments.
             let mut layout: Vec<SegmentLayout> = Vec::with_capacity(2 * n);
-            for i in 0..n {
+            for (i, channel) in channels.iter().enumerate() {
                 let y_row = y_base + i as Real * row_pitch;
                 // Even rows run +X, odd rows run −X.
                 let x0 = if i == 0 {
@@ -573,10 +575,10 @@ fn synthesize_layout(
                 layout.push(channel_segment(
                     Point3r::new(x0, y_row, z_mid),
                     Point3r::new(x1, y_row, z_mid),
-                    channels[i].cross_section,
-                    channels[i].id.as_str(),
-                    channels[i].from.as_str(),
-                    channels[i].to.as_str(),
+                    channel.cross_section,
+                    channel.id.as_str(),
+                    channel.from.as_str(),
+                    channel.to.as_str(),
                 ));
                 // Vertical turn connecting this row to the next at an inset x.
                 if i + 1 < n {
@@ -584,7 +586,7 @@ fn synthesize_layout(
                     layout.push(synthetic_segment(
                         Point3r::new(x1, y_row, z_mid),
                         Point3r::new(x1, y_next, z_mid),
-                        channels[i].cross_section,
+                        channel.cross_section,
                     ));
                 }
             }
@@ -825,8 +827,8 @@ fn synthesize_complex_layout(
     // Kahn's BFS: seed with all zero-in-degree vertices, propagate depths.
     let mut depth_vec: Vec<usize> = vec![0; n_nodes];
     let mut queue = std::collections::VecDeque::with_capacity(n_nodes);
-    for i in 0..n_nodes {
-        if in_degree[i] == 0 {
+    for (i, &degree) in in_degree.iter().enumerate() {
+        if degree == 0 {
             queue.push_back(i);
         }
     }
@@ -1028,8 +1030,8 @@ fn build_polyline_mesh_with_policy(
     points.push(layout[0].start - first_dir * extend_ends_mm);
 
     // Interior connection points (end of each segment except the last).
-    for i in 0..(n - 1) {
-        points.push(layout[i].end);
+    for segment in layout.iter().take(n - 1) {
+        points.push(segment.end);
     }
 
     // Last waypoint — optionally extended forward along the last segment.
@@ -1794,7 +1796,7 @@ fn compute_volume_trace(
 ) -> MeshResult<PipelineVolumeTrace> {
     let schematic_summary = bp.fluid_volume_summary();
     let mut channel_traces = Vec::with_capacity(bp.channels.len());
-    let mut pre_csg_channel_volume_mm3 = 0.0;
+    let mut pre_csg_channel_volume = Volume::default();
 
     for channel_summary in bp.channel_fluid_volume_summaries() {
         let channel_segments: Vec<SegmentLayout> = layout
@@ -1818,57 +1820,61 @@ fn compute_volume_trace(
         } else {
             build_polyline_mesh(&channel_segments, 0.0, config)?
         };
-        let meshed_volume_mm3 = channel_mesh.signed_volume().abs();
-        let meshed_centerline_length_mm =
-            channel_segments.iter().map(segment_length_mm).sum::<f64>();
-        let volume_error_mm3 = meshed_volume_mm3 - channel_summary.fluid_volume_mm3;
-        let volume_error_pct = relative_percent(volume_error_mm3, channel_summary.fluid_volume_mm3);
+        let meshed_volume =
+            Volume::from_unit::<CubicMillimeter>(channel_mesh.signed_volume().abs());
+        let meshed_centerline_length = Length::from_unit::<Millimeter>(
+            channel_segments.iter().map(segment_length_mm).sum::<f64>(),
+        );
+        let volume_error = meshed_volume - channel_summary.fluid_volume;
+        let volume_error_pct = relative_percent(volume_error, channel_summary.fluid_volume);
 
-        pre_csg_channel_volume_mm3 += meshed_volume_mm3;
+        pre_csg_channel_volume += meshed_volume;
         channel_traces.push(ChannelVolumeTrace {
             channel_id: channel_summary.channel_id,
             from_node_id: channel_summary.from_node_id,
             to_node_id: channel_summary.to_node_id,
-            schematic_centerline_length_mm: channel_summary.centerline_length_mm,
-            meshed_centerline_length_mm,
-            cross_section_area_mm2: channel_summary.cross_section_area_mm2,
-            schematic_volume_mm3: channel_summary.fluid_volume_mm3,
-            meshed_volume_mm3,
-            volume_error_mm3,
+            schematic_centerline_length: channel_summary.centerline_length,
+            meshed_centerline_length,
+            cross_section_area: channel_summary.cross_section_area,
+            schematic_volume: channel_summary.fluid_volume,
+            meshed_volume,
+            volume_error,
             volume_error_pct,
             layout_segment_count: channel_segments.len(),
         });
     }
 
-    let synthetic_connector_volume_mm3 = layout
+    let synthetic_connector_volume = layout
         .iter()
         .filter(|segment| segment.is_synthetic_connector)
         .map(|segment| build_segment_mesh(segment, config).map(|mesh| mesh.signed_volume().abs()))
         .collect::<MeshResult<Vec<_>>>()?
         .into_iter()
-        .sum();
+        .map(Volume::from_unit::<CubicMillimeter>)
+        .fold(Volume::default(), |total, volume| total + volume);
 
-    let fluid_mesh_volume_mm3 = fluid_mesh.signed_volume().abs();
-    let chip_mesh_volume_mm3 = chip_mesh.map(|mesh| mesh.signed_volume().abs());
-    let fluid_mesh_volume_error_mm3 =
-        fluid_mesh_volume_mm3 - schematic_summary.total_fluid_volume_mm3;
+    let fluid_mesh_volume =
+        Volume::from_unit::<CubicMillimeter>(fluid_mesh.signed_volume().abs());
+    let chip_mesh_volume =
+        chip_mesh.map(|mesh| Volume::from_unit::<CubicMillimeter>(mesh.signed_volume().abs()));
+    let fluid_mesh_volume_error = fluid_mesh_volume - schematic_summary.total_fluid_volume;
     let fluid_mesh_volume_error_pct = relative_percent(
-        fluid_mesh_volume_error_mm3,
-        schematic_summary.total_fluid_volume_mm3,
+        fluid_mesh_volume_error,
+        schematic_summary.total_fluid_volume,
     );
-    let csg_overlap_delta_mm3 =
-        pre_csg_channel_volume_mm3 + synthetic_connector_volume_mm3 - fluid_mesh_volume_mm3;
+    let csg_overlap_delta =
+        pre_csg_channel_volume + synthetic_connector_volume - fluid_mesh_volume;
 
     Ok(PipelineVolumeTrace {
         schematic_summary,
         channel_traces,
-        pre_csg_channel_volume_mm3,
-        synthetic_connector_volume_mm3,
-        fluid_mesh_volume_mm3,
-        chip_mesh_volume_mm3,
-        fluid_mesh_volume_error_mm3,
+        pre_csg_channel_volume,
+        synthetic_connector_volume,
+        fluid_mesh_volume,
+        chip_mesh_volume,
+        fluid_mesh_volume_error,
         fluid_mesh_volume_error_pct,
-        csg_overlap_delta_mm3,
+        csg_overlap_delta,
     })
 }
 
@@ -1876,12 +1882,14 @@ fn segment_length_mm(segment: &SegmentLayout) -> f64 {
     (segment.end - segment.start).norm()
 }
 
-fn relative_percent(delta: f64, reference: f64) -> f64 {
-    if reference.abs() <= 1e-18 {
+fn relative_percent(delta: Volume<f64>, reference: Volume<f64>) -> Dimensionless<f64> {
+    let delta = delta.into_base();
+    let reference = reference.into_base();
+    Dimensionless::from_base(if reference.abs() <= 1e-18 {
         0.0
     } else {
         delta.abs() / reference.abs() * 100.0
-    }
+    })
 }
 
 #[cfg(test)]
@@ -1958,6 +1966,21 @@ mod tests {
         let result = BlueprintMeshPipeline::run(&bp, &cfg)
             .expect("complex topology should be supported by graph layout synthesis");
         assert_eq!(result.topology_class, TopologyClass::Complex);
+        assert_eq!(result.volume_trace.channel_traces.len(), bp.channels.len());
+        assert!(
+            result
+                .volume_trace
+                .fluid_mesh_volume
+                .in_unit::<CubicMillimeter>()
+                > 0.0
+        );
+        assert!(
+            result
+                .volume_trace
+                .channel_traces
+                .iter()
+                .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0)
+        );
     }
 
     #[test]

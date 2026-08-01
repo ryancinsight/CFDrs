@@ -45,23 +45,25 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
+use aequitas::systems::si::quantities::{Dimensionless, Volume};
+use aequitas::systems::si::units::CubicMillimeter;
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
-use cfd_schematic_mesh::PipelineOutput;
-use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean, csg_boolean_nary};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::mesh::IndexedMesh;
 use cfd_mesh::domain::topology::halfedge::PatchType;
 use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
-use cfd_schematic_mesh::scheme_io;
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
+use cfd_schematic_mesh::PipelineOutput;
+use cfd_schematic_mesh::scheme_io;
+use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::interface::presets::{
     serpentine_chain, serpentine_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_chain, venturi_rect,
@@ -350,25 +352,31 @@ fn mesh_output_from_blueprint(
         None
     };
     let schematic_summary = system.fluid_volume_summary();
-    let fluid_mesh_volume_mm3 = fluid_mesh.signed_volume().abs();
-    let chip_mesh_volume_mm3 = chip_mesh.as_ref().map(|mesh| mesh.signed_volume().abs());
-    let fluid_mesh_volume_error_mm3 =
-        fluid_mesh_volume_mm3 - schematic_summary.total_fluid_volume_mm3;
-    let fluid_mesh_volume_error_pct = if schematic_summary.total_fluid_volume_mm3.abs() <= 1e-18 {
-        0.0
-    } else {
-        fluid_mesh_volume_error_mm3.abs() / schematic_summary.total_fluid_volume_mm3.abs() * 100.0
-    };
+    let fluid_mesh_volume = Volume::from_unit::<CubicMillimeter>(fluid_mesh.signed_volume().abs());
+    let chip_mesh_volume = chip_mesh
+        .as_ref()
+        .map(|mesh| Volume::from_unit::<CubicMillimeter>(mesh.signed_volume().abs()));
+    let fluid_mesh_volume_error = fluid_mesh_volume - schematic_summary.total_fluid_volume;
+    let fluid_mesh_volume_error_pct =
+        if schematic_summary.total_fluid_volume.into_base().abs() <= 1e-18 {
+            Dimensionless::from_base(0.0)
+        } else {
+            Dimensionless::from_base(
+                fluid_mesh_volume_error.into_base().abs()
+                    / schematic_summary.total_fluid_volume.into_base().abs()
+                    * 100.0,
+            )
+        };
     let volume_trace = PipelineVolumeTrace {
         schematic_summary,
         channel_traces: Vec::new(),
-        pre_csg_channel_volume_mm3: fluid_mesh_volume_mm3,
-        synthetic_connector_volume_mm3: 0.0,
-        fluid_mesh_volume_mm3,
-        chip_mesh_volume_mm3,
-        fluid_mesh_volume_error_mm3,
+        pre_csg_channel_volume: fluid_mesh_volume,
+        synthetic_connector_volume: Volume::default(),
+        fluid_mesh_volume,
+        chip_mesh_volume,
+        fluid_mesh_volume_error,
         fluid_mesh_volume_error_pct,
-        csg_overlap_delta_mm3: 0.0,
+        csg_overlap_delta: Volume::default(),
     };
 
     Ok(PipelineOutput {
