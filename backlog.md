@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-ARCH-3D-TURB-1 [arch] - Remove the placeholder 3D turbulence
+  facade (in progress 2026-07-31; owner=current Codex session; scope=
+  `cfd-3d` public turbulence module and direct regression documentation).**
+  The exported `cfd-3d::turbulence` module contains no-op k-epsilon,
+  k-omega-SST, and Smagorinsky implementations while the real Eunomia-backed
+  models already live under `cfd-3d::physics::turbulence`. Replace the fake
+  module with the canonical public module and verify that the public path
+  reaches input-sensitive model behavior. Acceptance: no placeholder bodies or
+  duplicate turbulence trait remain; the public-path regression passes; the
+  Aequitas/Eunomia audit records that physical turbulence-unit typing is a
+  separate follow-up boundary.
+
 - **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
   (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-schematics` volume summaries, `cfd-schematic-mesh` volume traces
