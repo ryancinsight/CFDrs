@@ -21,6 +21,9 @@ use cfd_mesh::domain::geometry::tpms::{
 use cfd_mesh::domain::mesh::IndexedMesh;
 use hashbrown::HashMap;
 
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
+
 use cfd_schematics::geometry::types::{InterchangeShellCuboid, TpmsSurfaceKind};
 
 // ── Pipeline configuration ────────────────────────────────────────────────────
@@ -28,20 +31,20 @@ use cfd_schematics::geometry::types::{InterchangeShellCuboid, TpmsSurfaceKind};
 /// Configuration for the `ShellMeshPipeline`.
 #[derive(Debug, Clone)]
 pub struct ShellPipelineConfig {
-    /// Desired 3-D height of the fluid cavity (Z-axis) (mm).  Typical: 1–2 mm.
-    pub cavity_height_mm: f64,
-    /// Desired 3-D height of the physical chip body (Z-axis) (mm).  Must be > cavity_height.
-    pub chip_height_mm: f64,
-    /// Z-coordinate for the mid-plane of the cavity (mm).
-    pub z_mid_mm: f64,
+    /// Desired 3-D height of the fluid cavity (Z-axis). Typical: 1–2 mm.
+    pub cavity_height: Length<f64>,
+    /// Desired 3-D height of the physical chip body (Z-axis). Must exceed the cavity height.
+    pub chip_height: Length<f64>,
+    /// Z-coordinate for the mid-plane of the cavity.
+    pub z_mid: Length<f64>,
 }
 
 impl Default for ShellPipelineConfig {
     fn default() -> Self {
         Self {
-            cavity_height_mm: 1.5,
-            chip_height_mm: 4.0,
-            z_mid_mm: 2.0,
+            cavity_height: Length::from_unit::<Millimeter>(1.5),
+            chip_height: Length::from_unit::<Millimeter>(4.0),
+            z_mid: Length::from_unit::<Millimeter>(2.0),
         }
     }
 }
@@ -78,11 +81,14 @@ impl ShellMeshPipeline {
     ) -> MeshResult<ShellPipelineOutput> {
         let (cw, ch) = shell.inner_dims_mm;
         let t = shell.shell_thickness_mm;
+        let cavity_height_mm = config.cavity_height.in_unit::<Millimeter>();
+        let chip_height_mm = config.chip_height.in_unit::<Millimeter>();
+        let z_mid_mm = config.z_mid.in_unit::<Millimeter>();
 
         // Origin of cavity is at (t, t) in schematic coords.
         let cvx = t;
         let cvy = t;
-        let cvz = config.z_mid_mm - config.cavity_height_mm / 2.0;
+        let cvz = z_mid_mm - cavity_height_mm / 2.0;
 
         let bounds = [
             cvx,
@@ -90,7 +96,7 @@ impl ShellMeshPipeline {
             cvz,
             cvx + cw,
             cvy + ch,
-            cvz + config.cavity_height_mm,
+            cvz + cavity_height_mm,
         ];
 
         // 1. Build the core cavity (either empty box or TPMS)
@@ -113,7 +119,7 @@ impl ShellMeshPipeline {
                 origin: cfd_mesh::domain::core::scalar::Point3r::new(cvx, cvy, cvz),
                 width: cw,
                 height: ch,
-                depth: config.cavity_height_mm,
+                depth: cavity_height_mm,
             }
             .build()
             .map_err(|e| MeshError::Other(e.to_string()))?
@@ -126,12 +132,12 @@ impl ShellMeshPipeline {
             let p1 = Vector3r::new(
                 port.outer_point_mm.0,
                 port.outer_point_mm.1,
-                config.z_mid_mm,
+                z_mid_mm,
             );
             let p2 = Vector3r::new(
                 port.inner_point_mm.0,
                 port.inner_point_mm.1,
-                config.z_mid_mm,
+                z_mid_mm,
             );
 
             // To ensure robust overlapping, we extend the inner point slightly into the cavity.
@@ -150,7 +156,7 @@ impl ShellMeshPipeline {
 
             // Port diameter defaults to 4mm to interface with 4mm tubing,
             // or 2mm if cavity is smaller.
-            let dia = config.cavity_height_mm.min(4.0);
+            let dia = cavity_height_mm.min(4.0);
 
             use cfd_mesh::application::channel::path::ChannelPath;
             use cfd_mesh::application::channel::profile::ChannelProfile;
@@ -208,7 +214,7 @@ impl ShellMeshPipeline {
             origin: cfd_mesh::domain::core::scalar::Point3r::origin(),
             width: shell.outer_dims_mm.0,
             height: shell.outer_dims_mm.1,
-            depth: config.chip_height_mm,
+            depth: chip_height_mm,
         }
         .build()
         .map_err(|e| MeshError::Other(e.to_string()))?;

@@ -31,6 +31,32 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Schematic mesh geometry metrics (CFDRS-AEQ-MET-46, 2026-08-02)
+
+The audit found a remaining public Aequitas gap in `cfd-schematic-mesh`:
+`PipelineConfig` and `ShellPipelineConfig` exposed angles, lengths,
+clearances, CSG overlap fractions, and cavity dimensions as raw scalars, and
+`SegmentCenterline` exposed millimetre coordinates and diameter as raw
+scalars. These values are runtime mesh contracts rather than serialized
+interchange data.
+
+The gap is resolved. Runtime configuration now carries Aequitas `Angle`,
+`Length`, and `Dimensionless` values; emitted centerline coordinates and
+diameter carry `Length`. Scalar extraction occurs only when routing, primitive
+mesh, trigonometric, or CSG formulas require the provider scalar. The
+unit-labelled `cfd-schematics` interchange payload remains an explicit
+serialization boundary and is not duplicated as a second typed runtime owner.
+
+The geometry is real-valued under Eunomia. No complex or imaginary physical
+unit is introduced; Eunomia complex values remain reserved for genuine
+phasor/Fourier fields elsewhere in the stack.
+
+Verification: `cargo metadata --offline --locked --no-deps`, the typed-field
+residue scan, and `git diff --check` pass. The focused package check is blocked
+before rustc by the locked Moirai revision requesting a `mnemosyne` package
+that is unavailable in the local provider checkout. This is an external
+provider-resolution residual, not a geometry implementation failure.
+
 ## Standalone provider lock and hosted gate closure (2026-07-31)
 
 The Aequitas provider lock gap is closed. Aequitas commit `7f6afaf` restored

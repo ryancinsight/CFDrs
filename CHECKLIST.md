@@ -49,6 +49,19 @@
 - [x] Keep scalar extraction inside the volume-weighted interpolation formula;
       verify f64 and f32 value semantics and the real-only Eunomia boundary.
 
+## Owner: current Codex session — CFDRS-AEQ-MET-46 schematic mesh geometry metrics [major] — in progress 2026-08-02
+
+- [x] Audit the live `cfd-schematic-mesh` runtime configuration and emitted
+      centerline contracts; classify mesh-provider, trigonometric, routing,
+      CSG, serialization, and Eunomia real/complex boundaries.
+- [x] Replace public scalar angles, lengths, clearances, overlap fractions,
+      cavity dimensions, centerline coordinates, and diameters with Aequitas
+      quantities; migrate the OpenFOAM example without compatibility fields.
+- [x] Synchronize the design note, `gap_audit.md`, `docs/adr.md`,
+      `CHANGELOG.md`, `backlog.md`, and this checklist. Metadata, residue, and
+      diff checks pass; focused compilation is blocked by the recorded locked
+      Moirai/Mnemosyne provider-resolution residual.
+
 ## Owner: current Codex session — CFDRS-AEQ-MET-43 schematic volume metrics [major] — verified 2026-07-31
 
 - [x] Type `cfd-schematics` `FluidVolumeSummary` and

@@ -6,8 +6,8 @@
 use hashbrown::HashMap;
 use std::f64::consts::PI;
 
-use aequitas::systems::si::quantities::{Area, Dimensionless, Length, Volume};
-use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
+use aequitas::systems::si::quantities::{Angle, Area, Dimensionless, Length, Volume};
+use aequitas::systems::si::units::{CubicMillimeter, Millimeter, Radian};
 use cfd_schematics::geometry::FluidVolumeSummary;
 use cfd_schematics::{CrossSectionSpec, NetworkBlueprint, NodeKind};
 
@@ -36,19 +36,19 @@ pub struct PipelineConfig {
     /// Number of axial rings per path segment. Default: 8.
     pub axial_rings: usize,
     /// Fractional overlap extension for CSG union watertightness. Default: 0.05.
-    pub csg_overlap_fraction: f64,
-    /// Arm angle (rad) for the bifurcation diamond layout.
+    pub csg_overlap_fraction: Dimensionless<f64>,
+    /// Arm angle for the bifurcation diamond layout.
     ///
     /// Controls how steeply the diagonal arms diverge from the centreline
     /// before reaching the horizontal parallel-channel section.  Larger values
     /// give a wider Y-spread.  Default: π/3 (60°).
-    pub bifurcation_half_angle_rad: f64,
-    /// Half-angle (rad) between trifurcation outer daughter tubes. Default: π/4.
-    pub trifurcation_half_angle_rad: f64,
-    /// Chip thickness — the Z dimension of the substrate (mm). Default: 2.0.
-    pub chip_height_mm: f64,
-    /// Minimum clearance from block edges for channel segments (mm). Default: 5.0.
-    pub wall_clearance_mm: f64,
+    pub bifurcation_half_angle: Angle<f64>,
+    /// Half-angle between trifurcation outer daughter tubes. Default: π/4.
+    pub trifurcation_half_angle: Angle<f64>,
+    /// Chip thickness — the Z dimension of the substrate. Default: 10 mm.
+    pub chip_height: Length<f64>,
+    /// Minimum clearance from block edges for channel segments. Default: 5 mm.
+    pub wall_clearance: Length<f64>,
     /// Whether to build the chip body mesh (substrate minus channel void). Default: true.
     pub include_chip_body: bool,
     /// Skip the 4 mm inlet/outlet hydraulic-diameter constraint.
@@ -65,11 +65,11 @@ impl Default for PipelineConfig {
         Self {
             circular_segments: 16,
             axial_rings: 8,
-            csg_overlap_fraction: 0.05,
-            bifurcation_half_angle_rad: PI / 3.0,
-            trifurcation_half_angle_rad: PI / 4.0,
-            chip_height_mm: 10.0,
-            wall_clearance_mm: 5.0,
+            csg_overlap_fraction: Dimensionless::from_base(0.05),
+            bifurcation_half_angle: Angle::from_unit::<Radian>(PI / 3.0),
+            trifurcation_half_angle: Angle::from_unit::<Radian>(PI / 4.0),
+            chip_height: Length::from_unit::<Millimeter>(10.0),
+            wall_clearance: Length::from_unit::<Millimeter>(5.0),
             include_chip_body: true,
             skip_diameter_constraint: false,
         }
@@ -80,18 +80,19 @@ impl Default for PipelineConfig {
 
 /// XY centreline of one synthesised layout segment, projected onto the chip plane.
 ///
-/// All coordinates are in millimetres.  Use these for 2-D schematics and for
-/// comparing the pipeline's physical layout against the source blueprint.
+/// All coordinates and diameters carry their millimetre dimension. Use these
+/// for 2-D schematics and for comparing the pipeline's physical layout against
+/// the source blueprint.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SegmentCenterline {
-    /// X start (mm)
-    pub x0: f64,
-    /// Y start (mm)
-    pub y0: f64,
-    /// X end (mm)
-    pub x1: f64,
-    /// Y end (mm)
-    pub y1: f64,
+    /// X start.
+    pub x0: Length<f64>,
+    /// Y start.
+    pub y0: Length<f64>,
+    /// X end.
+    pub x1: Length<f64>,
+    /// Y end.
+    pub y1: Length<f64>,
     /// Source blueprint channel identifier when this segment maps to one.
     pub source_channel_id: Option<String>,
     /// Upstream blueprint node identifier when this segment maps to one.
@@ -100,8 +101,8 @@ pub struct SegmentCenterline {
     pub to_node_id: Option<String>,
     /// Whether this segment was synthesized as a routing connector rather than a direct blueprint channel mapping.
     pub is_synthetic_connector: bool,
-    /// Effective tube diameter (mm)
-    pub diameter_mm: f64,
+    /// Effective tube diameter.
+    pub diameter: Length<f64>,
 }
 
 /// Per-blueprint-channel volume comparison between schematic geometry and the meshed 3D path.
@@ -223,7 +224,9 @@ impl BlueprintMeshPipeline {
         // Complex topologies proceed to graph-based layout synthesis.
 
         // Step 3 — synthesize layout
-        let z_mid = config.chip_height_mm / 2.0;
+        let chip_height_mm = config.chip_height.in_unit::<Millimeter>();
+        let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
+        let z_mid = chip_height_mm / 2.0;
         let y_center = SbsWellPlate96::center_y();
         // segment_count = number of *blueprint* channels (not synthesised 3-D segments).
         // The serpentine zigzag inserts synthetic turn segments that don't map to
@@ -239,17 +242,11 @@ impl BlueprintMeshPipeline {
 
         // Step 4 — wall clearance (routing bounds)
         // Inlet/outlet ports are allowed to touch the x=0 and x=WIDTH_MM faces;
-        // only the Y side-walls require `wall_clearance_mm` keep-out.
+        // only the Y side-walls require the configured keep-out.
         for seg in &layout {
             let (x0, y0) = (seg.start.x, seg.start.y);
             let (x1, y1) = (seg.end.x, seg.end.y);
-            if !SbsWellPlate96::segment_within_routing_bounds(
-                x0,
-                y0,
-                x1,
-                y1,
-                config.wall_clearance_mm,
-            ) {
+            if !SbsWellPlate96::segment_within_routing_bounds(x0, y0, x1, y1, wall_clearance_mm) {
                 return Err(MeshError::ChannelError {
                     message: format!(
                         "channel segment ({x0:.2}, {y0:.2}) → ({x1:.2}, {y1:.2}) mm \
@@ -257,7 +254,7 @@ impl BlueprintMeshPipeline {
                          (side clearance {:.1} mm)",
                         SbsWellPlate96::WIDTH_MM,
                         SbsWellPlate96::DEPTH_MM,
-                        config.wall_clearance_mm,
+                        wall_clearance_mm,
                     ),
                 });
             }
@@ -267,15 +264,17 @@ impl BlueprintMeshPipeline {
         let layout_segments: Vec<SegmentCenterline> = layout
             .iter()
             .map(|seg| SegmentCenterline {
-                x0: seg.start.x,
-                y0: seg.start.y,
-                x1: seg.end.x,
-                y1: seg.end.y,
+                x0: Length::from_unit::<Millimeter>(seg.start.x),
+                y0: Length::from_unit::<Millimeter>(seg.start.y),
+                x1: Length::from_unit::<Millimeter>(seg.end.x),
+                y1: Length::from_unit::<Millimeter>(seg.end.y),
                 source_channel_id: seg.source_channel_id.clone(),
                 from_node_id: seg.from_node_id.clone(),
                 to_node_id: seg.to_node_id.clone(),
                 is_synthetic_connector: seg.is_synthetic_connector,
-                diameter_mm: cross_section_diameter_mm(&seg.cross_section),
+                diameter: Length::from_unit::<Millimeter>(cross_section_diameter_mm(
+                    &seg.cross_section,
+                )),
             })
             .collect();
 
@@ -333,7 +332,7 @@ impl BlueprintMeshPipeline {
                 // and one outlet for a single continuous channel network.
                 boolean::csg_boolean(
                     BooleanOp::Difference,
-                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &SubstrateBuilder::well_plate_96(chip_height_mm).build_indexed()?,
                     &fluid_mesh,
                 )?
             } else if matches!(&class, TopologyClass::VenturiChain) {
@@ -342,14 +341,14 @@ impl BlueprintMeshPipeline {
                 let void_mesh = build_venturi_chain_mesh(&mesh_layout, config)?;
                 boolean::csg_boolean(
                     BooleanOp::Difference,
-                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &SubstrateBuilder::well_plate_96(chip_height_mm).build_indexed()?,
                     &void_mesh,
                 )?
             } else if matches!(&class, TopologyClass::Complex) {
                 // Complex: reuse the already-built fluid_mesh as the void.
                 boolean::csg_boolean(
                     BooleanOp::Difference,
-                    &SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?,
+                    &SubstrateBuilder::well_plate_96(chip_height_mm).build_indexed()?,
                     &fluid_mesh,
                 )?
             } else {
@@ -620,8 +619,9 @@ fn synthesize_parallel_array_layout(
     config: &PipelineConfig,
 ) -> MeshResult<Vec<SegmentLayout>> {
     let chip_w = SbsWellPlate96::WIDTH_MM;
-    let max_y = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
-    let min_y = config.wall_clearance_mm;
+    let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
+    let max_y = SbsWellPlate96::DEPTH_MM - wall_clearance_mm;
+    let min_y = wall_clearance_mm;
 
     // Determine cross-section from the first channel in the blueprint.
     let first_ch = bp.channels.first().ok_or_else(|| MeshError::ChannelError {
@@ -783,8 +783,9 @@ fn synthesize_complex_layout(
     config: &PipelineConfig,
 ) -> MeshResult<Vec<SegmentLayout>> {
     let chip_w = SbsWellPlate96::WIDTH_MM;
-    let max_y = SbsWellPlate96::DEPTH_MM - config.wall_clearance_mm;
-    let min_y = config.wall_clearance_mm;
+    let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
+    let max_y = SbsWellPlate96::DEPTH_MM - wall_clearance_mm;
+    let min_y = wall_clearance_mm;
 
     // Find the unique inlet node.
     // Kahn's algorithm seeds from all zero-in-degree vertices so we don't
@@ -950,7 +951,8 @@ fn build_segment_mesh_with_policy(
     // panic.  Limiting the extension to ½ · r guarantees the tip always stays
     // inside the body of any same-diameter (or larger) adjacent tube.
     let radius_mm = cross_section_radius_mm(&seg.cross_section);
-    let overlap = (len * config.csg_overlap_fraction).min(radius_mm * 0.5);
+    let overlap_fraction = config.csg_overlap_fraction.into_base();
+    let overlap = (len * overlap_fraction).min(radius_mm * 0.5);
     let start_ext = Point3r::from(seg.start.coords - unit * overlap);
     let end_ext = Point3r::from(seg.end.coords + unit * overlap);
 
@@ -1688,12 +1690,13 @@ fn build_complex_fluid_mesh(
 }
 
 fn build_chip_body(layout: &[SegmentLayout], config: &PipelineConfig) -> MeshResult<IndexedMesh> {
-    let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
+    let chip_height_mm = config.chip_height.in_unit::<Millimeter>();
+    let substrate = SubstrateBuilder::well_plate_96(chip_height_mm).build_indexed()?;
 
     // Build the void mesh using the same tube geometry as the fluid mesh.
     // The 5% CSG overlap extension makes void tubes exit the inlet face (x < 0),
     // creating proper port openings in the substrate.
-    // config.chip_height_mm must be > channel_diameter so the void stays within
+    // config.chip_height must be > channel_diameter so the void stays within
     // the substrate in the Z direction (default: 10 mm for 4 mm channels).
     let void_meshes: Vec<IndexedMesh> = layout
         .iter()
@@ -1720,7 +1723,8 @@ fn build_chip_body_sequential(
     layout: &[SegmentLayout],
     config: &PipelineConfig,
 ) -> MeshResult<IndexedMesh> {
-    let mut result = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
+    let chip_height_mm = config.chip_height.in_unit::<Millimeter>();
+    let mut result = SubstrateBuilder::well_plate_96(chip_height_mm).build_indexed()?;
     for seg in layout {
         let void_mesh = build_segment_mesh(seg, config)?;
         result = boolean::csg_boolean(BooleanOp::Difference, &result, &void_mesh)?;
@@ -1981,6 +1985,10 @@ mod tests {
                 .iter()
                 .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0)
         );
+        assert!(result
+            .layout_segments
+            .iter()
+            .all(|segment| segment.diameter.in_unit::<Millimeter>() > 0.0));
     }
 
     #[test]

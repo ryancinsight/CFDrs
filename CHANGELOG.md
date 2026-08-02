@@ -45,6 +45,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type `cfd-schematic-mesh` runtime geometry configuration and
+  `SegmentCenterline` output with Aequitas `Angle`, `Length`, and
+  `Dimensionless` values. Mesh-provider, trigonometric, routing, and CSG
+  boundaries extract scalars explicitly. The geometry remains real-valued
+  under Eunomia; no imaginary-unit physical metric is introduced. See
+  [`schematic-mesh-geometry-metrics.md`](docs/atlas-migration/schematic-mesh-geometry-metrics.md).
+
 - **Breaking**: Remove the no-op `cfd-3d::turbulence` facade and expose the
   canonical Eunomia-backed implementations from `cfd-3d::physics::turbulence`
   through the crate-level module path. Migrate in-tree turbulence regressions
