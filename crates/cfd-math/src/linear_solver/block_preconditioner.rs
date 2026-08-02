@@ -23,10 +23,10 @@ use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto::LetoError;
-// `OwnedNumericLu`/`SymbolicLu`/`factor_symbolic` come from the public
-// sparse module path until leto's root re-export sweep lands (leto board).
-use leto_ops::application::sparse::{OwnedNumericLu, SymbolicLu, factor_symbolic};
-use leto_ops::{CscMatrix, RealScalar as LetoRealScalar, Scalar as LetoScalar, SparseLuSolver};
+use leto_ops::{
+    factor_symbolic, CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar,
+    Scalar as LetoScalar, SparseLuSolver, SymbolicLu,
+};
 
 use crate::sparse::SparseMatrixBuilder;
 
