@@ -32,12 +32,16 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
-  (in progress 2026-08-02; owner=current Codex session; scope=
+  (done 2026-08-02; owner=current Codex session; scope=
   `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**
-  Carry angles, lengths, clearances, overlap fractions, and centerline
-  diameters through Aequitas at the public mesh boundary. Scalar extraction is
-  limited to mesh-provider and trigonometric formula calls; serialized
-  interchange payloads remain a separate unit-labelled format boundary.
+  Carry angles, lengths, clearances, overlap fractions, centerline diameters,
+  SBS plate bounds, and wall-clearance constraint metrics through Aequitas at
+  the public mesh boundary. Scalar extraction is limited to mesh-provider,
+  trigonometric, routing, comparison, and CSG formula calls; serialized
+  interchange payloads remain a separate unit-labelled format boundary. The
+  standalone provider lock and Atlas checkout pin are aligned with the current
+  `moirai-runtime`/`mnemosyne-memory` graph; focused check, Clippy, Nextest
+  29/29, doctests, and Rustdoc pass.
 
 
 - **CFDRS-CI-LOCK-1 [patch] - Restore standalone provider lock and hosted

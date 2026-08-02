@@ -15,6 +15,8 @@ Use Aequitas quantities for the runtime mesh contract:
 - `ShellPipelineConfig` carries cavity height, chip height, and cavity mid-plane
   as `Length` values;
 - `SegmentCenterline` carries coordinates and diameter as `Length` values.
+- `SbsWellPlate96` bounds and wall-clearance constraints carry dimensions,
+  coordinates, and error metrics as `Length` values.
 
 The mesh provider still consumes millimetre/radian scalars at the explicit
 trigonometry, routing, primitive, and CSG formula boundaries. The serialized
@@ -33,9 +35,9 @@ untyped path. Both alternatives are rejected.
 
 ## Verification contract
 
-The focused `cfd-schematic-mesh` package check and value-semantic Nextest are
-required. The standalone provider graph is currently blocked before package
-compilation because the locked Moirai revision requests a `mnemosyne` package
-that is not available in the local git checkout; this external provider
-residual is recorded in `gap_audit.md` and does not change the geometry
-contract.
+The standalone locked `cfd-schematic-mesh` package check, Clippy with
+`-D warnings`, value-semantic Nextest (29/29), doctests, and Rustdoc pass. A
+typed-field residue scan and `git diff --check` also pass. The Atlas umbrella
+development overlay is not used for this standalone lock gate because its
+working-tree provider versions do not match the committed lock; this local
+resolver distinction does not change the geometry contract.

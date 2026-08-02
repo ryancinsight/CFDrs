@@ -227,7 +227,7 @@ impl BlueprintMeshPipeline {
         let chip_height_mm = config.chip_height.in_unit::<Millimeter>();
         let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
         let z_mid = chip_height_mm / 2.0;
-        let y_center = SbsWellPlate96::center_y();
+        let y_center = SbsWellPlate96::center_y().in_unit::<Millimeter>();
         // segment_count = number of *blueprint* channels (not synthesised 3-D segments).
         // The serpentine zigzag inserts synthetic turn segments that don't map to
         // blueprint channels, so we cannot use layout.len() here.
@@ -241,19 +241,25 @@ impl BlueprintMeshPipeline {
         };
 
         // Step 4 — wall clearance (routing bounds)
-        // Inlet/outlet ports are allowed to touch the x=0 and x=WIDTH_MM faces;
+        // Inlet/outlet ports are allowed to touch the x=0 and x=WIDTH faces;
         // only the Y side-walls require the configured keep-out.
         for seg in &layout {
             let (x0, y0) = (seg.start.x, seg.start.y);
             let (x1, y1) = (seg.end.x, seg.end.y);
-            if !SbsWellPlate96::segment_within_routing_bounds(x0, y0, x1, y1, wall_clearance_mm) {
+            if !SbsWellPlate96::segment_within_routing_bounds(
+                Length::from_unit::<Millimeter>(x0),
+                Length::from_unit::<Millimeter>(y0),
+                Length::from_unit::<Millimeter>(x1),
+                Length::from_unit::<Millimeter>(y1),
+                config.wall_clearance,
+            ) {
                 return Err(MeshError::ChannelError {
                     message: format!(
                         "channel segment ({x0:.2}, {y0:.2}) → ({x1:.2}, {y1:.2}) mm \
                          violates routing bounds on plate {:.2} × {:.2} mm \
                          (side clearance {:.1} mm)",
-                        SbsWellPlate96::WIDTH_MM,
-                        SbsWellPlate96::DEPTH_MM,
+                        SbsWellPlate96::WIDTH.in_unit::<Millimeter>(),
+                        SbsWellPlate96::DEPTH.in_unit::<Millimeter>(),
                         wall_clearance_mm,
                     ),
                 });
@@ -477,7 +483,7 @@ fn synthesize_layout(
                 .ok_or_else(|| MeshError::ChannelError {
                     message: "expected linear path but traversal failed".to_string(),
                 })?;
-            let chip_w = SbsWellPlate96::WIDTH_MM;
+            let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
             let total_len_mm: Real = channels.iter().map(|ch| ch.length_m * 1000.0).sum();
             let scale = if total_len_mm > 1e-9 {
                 chip_w / total_len_mm
@@ -531,7 +537,7 @@ fn synthesize_layout(
                 .map(|ch| cross_section_diameter_mm(&ch.cross_section))
                 .fold(0.0_f64, f64::max);
             let row_pitch = (max_dia_mm * 2.5).max(1.0); // ≥ 1 mm
-            let chip_w = SbsWellPlate96::WIDTH_MM;
+            let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
             let n = channels.len();
             let turn_inset_x = (max_dia_mm * 0.5).max(1e-3);
             let x_left = turn_inset_x;
@@ -618,9 +624,9 @@ fn synthesize_parallel_array_layout(
     z_mid: Real,
     config: &PipelineConfig,
 ) -> MeshResult<Vec<SegmentLayout>> {
-    let chip_w = SbsWellPlate96::WIDTH_MM;
+    let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
     let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
-    let max_y = SbsWellPlate96::DEPTH_MM - wall_clearance_mm;
+    let max_y = SbsWellPlate96::DEPTH.in_unit::<Millimeter>() - wall_clearance_mm;
     let min_y = wall_clearance_mm;
 
     // Determine cross-section from the first channel in the blueprint.
@@ -782,9 +788,9 @@ fn synthesize_complex_layout(
     z_mid: Real,
     config: &PipelineConfig,
 ) -> MeshResult<Vec<SegmentLayout>> {
-    let chip_w = SbsWellPlate96::WIDTH_MM;
+    let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
     let wall_clearance_mm = config.wall_clearance.in_unit::<Millimeter>();
-    let max_y = SbsWellPlate96::DEPTH_MM - wall_clearance_mm;
+    let max_y = SbsWellPlate96::DEPTH.in_unit::<Millimeter>() - wall_clearance_mm;
     let min_y = wall_clearance_mm;
 
     // Find the unique inlet node.

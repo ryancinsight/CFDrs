@@ -202,16 +202,18 @@ value assertions, targeted Rustfmt, and a clean diff check.
 
 ### 2026-08-02: Aequitas owns schematic mesh geometry metrics [major] [arch]
 
-Context: `cfd-schematic-mesh` runtime configuration and emitted
-`SegmentCenterline` values documented millimetres, radians, and dimensionless
-fractions but exposed raw scalars at the public boundary.
+Context: `cfd-schematic-mesh` runtime configuration, emitted
+`SegmentCenterline` values, and SBS plate/wall-clearance constraints documented
+millimetres, radians, and dimensionless fractions but exposed raw scalars at
+the public boundary.
 
-Decision: carry blueprint angles, chip/cavity dimensions, wall clearances, CSG
-overlap fractions, centerline coordinates, and centerline diameters through
-Aequitas `Angle`, `Length`, and `Dimensionless`. Extract base scalars only at
-mesh-provider, trigonometric, routing, and CSG formula boundaries. The
-serialized `cfd-schematics` interchange payload remains a separate
-unit-labelled format boundary.
+Decision: carry blueprint angles, chip/cavity dimensions, wall clearances, SBS
+plate bounds, constraint coordinates, CSG overlap fractions, centerline
+coordinates, and centerline diameters through Aequitas `Angle`, `Length`, and
+`Dimensionless`. Extract base scalars only at mesh-provider, trigonometric,
+routing, comparison, and CSG formula boundaries. The serialized
+`cfd-schematics` interchange payload remains a separate unit-labelled format
+boundary.
 
 Rejected alternative: retain scalar configuration fields or add typed
 accessors beside them. Both preserve an untyped construction path and create
@@ -223,10 +225,10 @@ physical unit applies, and complex values remain reserved for genuine
 phasor/Fourier data.
 
 Verification: `cargo metadata --offline --locked --no-deps`, the typed-field
-residue scan, and `git diff --check` pass. Focused package compilation is
-currently blocked before rustc because the locked Moirai revision requests a
-`mnemosyne` package unavailable in the local provider checkout; the exact
-provider residual is recorded in `gap_audit.md`.
+residue scan, and `git diff --check` pass. The standalone locked package check,
+Clippy with `-D warnings`, Nextest (29/29), doctests, and Rustdoc pass. The
+Atlas umbrella overlay remains a separate local-only resolver context because
+its working-tree package versions do not match the standalone lock.
 
 ### 2026-07-31: Aequitas owns analytical Stokes metrics [major] [arch]
 
