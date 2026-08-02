@@ -46,7 +46,7 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use aequitas::systems::si::quantities::{Dimensionless, Volume};
-use aequitas::systems::si::units::CubicMillimeter;
+use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
 use cfd_mesh::application::channel::sweep::SweepMesher;
@@ -117,7 +117,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!(
         "  Running {} designs with chip_height = {} mm",
-        n, config.chip_height_mm
+        n,
+        config.chip_height.in_unit::<Millimeter>()
     );
     println!("  Output root: {}", out_root.display());
     println!("{}", "─".repeat(60));
@@ -277,7 +278,7 @@ fn mesh_output_from_blueprint(
 ) -> Result<PipelineOutput, Box<dyn std::error::Error>> {
     let schematic3d = scheme_io::from_blueprint(
         system,
-        config.chip_height_mm as Real,
+        config.chip_height.in_unit::<Millimeter>() as Real,
         config.circular_segments,
     )?;
 
@@ -327,7 +328,8 @@ fn mesh_output_from_blueprint(
     label_inlet_outlet_from_system(&mut fluid_mesh, &schematic3d)?;
 
     let chip_mesh = if config.include_chip_body {
-        let substrate = SubstrateBuilder::well_plate_96(config.chip_height_mm).build_indexed()?;
+        let substrate = SubstrateBuilder::well_plate_96(config.chip_height.in_unit::<Millimeter>())
+            .build_indexed()?;
         let void_union = if void_meshes.len() == 1 {
             void_meshes.into_iter().next().unwrap()
         } else {

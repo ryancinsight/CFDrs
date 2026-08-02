@@ -32,6 +32,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Type schematic-mesh runtime geometry configuration and emitted
+  centerline coordinates/diameters with Aequitas `Angle`, `Length`, and
+  `Dimensionless` quantities. Scalar extraction remains at mesh, trigonometric,
+  routing, and CSG formula boundaries; real geometry introduces no imaginary
+  physical unit for Eunomia representations.
+- Refresh the standalone provider lock and Atlas checkout pin to the current
+  `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
+  locked package check resolves and passes.
+
 ### Added
 
 - Add `SIMPLEConfig::pressure_sweep_cap` so consumers with a measured
@@ -44,6 +55,13 @@ All notable changes to this project will be documented in this file.
   of 40 with unchanged physical assertions.
 
 ### Changed
+
+- **Breaking**: Type `cfd-schematic-mesh` runtime geometry configuration and
+  `SegmentCenterline` output with Aequitas `Angle`, `Length`, and
+  `Dimensionless` values. Mesh-provider, trigonometric, routing, and CSG
+  boundaries extract scalars explicitly. The geometry remains real-valued
+  under Eunomia; no imaginary-unit physical metric is introduced. See
+  [`schematic-mesh-geometry-metrics.md`](docs/atlas-migration/schematic-mesh-geometry-metrics.md).
 
 - **Breaking**: Remove the no-op `cfd-3d::turbulence` facade and expose the
   canonical Eunomia-backed implementations from `cfd-3d::physics::turbulence`

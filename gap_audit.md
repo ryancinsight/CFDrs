@@ -31,6 +31,51 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Schematic mesh geometry metrics (CFDRS-AEQ-MET-46, 2026-08-02)
+
+The audit found a remaining public Aequitas gap in `cfd-schematic-mesh`:
+`PipelineConfig` and `ShellPipelineConfig` exposed angles, lengths,
+clearances, CSG overlap fractions, and cavity dimensions as raw scalars;
+`SegmentCenterline` exposed millimetre coordinates and diameter as raw
+scalars; and the wall-clearance/plate constraint APIs exposed raw segment
+coordinates, dimensions, and error metrics. These values are runtime mesh
+contracts rather than serialized interchange data.
+
+The gap is resolved. Runtime configuration now carries Aequitas `Angle`,
+`Length`, and `Dimensionless` values; emitted centerline coordinates and
+diameter carry `Length`; and SBS plate bounds, wall-clearance inputs, and
+constraint error metrics carry `Length`. Scalar extraction occurs only when
+routing, primitive mesh, trigonometric, comparison, or CSG formulas require
+the provider scalar. The unit-labelled `cfd-schematics` interchange payload
+remains an explicit serialization boundary and is not duplicated as a second
+typed runtime owner.
+
+The geometry is real-valued under Eunomia. No complex or imaginary physical
+unit is introduced; Eunomia complex values remain reserved for genuine
+phasor/Fourier fields elsewhere in the stack.
+
+Verification: `cargo metadata --offline --locked --no-deps`, the typed-field
+residue scan, and `git diff --check` pass. The standalone lock now resolves the
+current `moirai-runtime` and `mnemosyne-memory` package graph; the focused
+locked package all-target check, Clippy (`-D warnings`), Nextest run
+`5091fabe-e3da-4e76-a6ed-8c0377b0b0ee` (29/29), doctests, and Rustdoc pass
+through `cfd-schematic-mesh`. No provider-resolution residual remains for this
+geometry slice. The Atlas umbrella overlay remains
+a separate local-only resolver context because its current working-tree
+package versions do not match the standalone lock.
+
+The manifest and workflow now use the provider's `moirai-runtime` package and
+the immutable Atlas checkout action at `11581413ddd1da6fd849dd2c4ad11fdbb6ce673a`.
+The regenerated lock records current Aequitas, Apollo, Coeus, Hephaestus,
+Moirai, Mnemosyne, RITK, and related provider source identities.
+
+The semver gate was attempted with `cargo semver-checks` using the historical
+`HEAD` baseline. The current crate built and parsed, but the baseline update
+stopped because that historical manifest still requests the retired `moirai`
+package; the registry baseline is unavailable because `cfd-schematic-mesh` is
+not published. This is a baseline/tooling limitation, not a regression in the
+current typed contract; the deliberate breaking change is recorded in the ADR.
+
 ## Standalone provider lock and hosted gate closure (2026-07-31)
 
 The Aequitas provider lock gap is closed. Aequitas commit `7f6afaf` restored

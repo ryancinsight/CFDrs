@@ -29,6 +29,7 @@
 | **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Canonical analytical benchmark ownership** | 2026-07-31 | `analytical_benchmarks` duplicated raw-scalar Couette, Poiseuille, and Taylor-Green models beside the canonical analytical modules | Remove duplicate model implementations and migrate the physics-validation consumer to canonical Aequitas-backed APIs; retain only normalized Ghia reference tables | Breaking removal of the legacy duplicate model names from `analytical_benchmarks` |
 | **Aequitas-owned schematic volume metrics** | 2026-07-31 | `cfd-schematics` volume summaries and `cfd-schematic-mesh` diagnostics exposed unit-suffixed length, area, volume, and percentage `f64` fields, including redundant mm³/uL pairs | `Length`, `Area`, `Volume`, and `Dimensionless` remain typed through public schematic and mesh volume contracts; mesh signed-volume and percentage calculations are explicit scalar boundaries | Breaking change for schematic and mesh diagnostic consumers |
+| **Aequitas-owned schematic mesh geometry metrics** | 2026-08-02 | `cfd-schematic-mesh` runtime configuration and emitted centerlines exposed angles, lengths, clearances, overlap fractions, and diameters as raw scalars | `Angle`, `Length`, and `Dimensionless` remain typed through blueprint/shell configuration and centerline output; mesh-provider, trigonometric, and CSG boundaries extract explicit scalars | Breaking change for runtime mesh configuration and centerline consumers |
 | **Canonical cfd-3d turbulence module** | 2026-07-31 | The crate-level turbulence module was a no-op placeholder beside the real Eunomia-backed models under `physics::turbulence` | One public module re-exports the canonical input-sensitive implementations; typed physical turbulence outputs are defined by the following Aequitas decision | Breaking removal of the placeholder model names; metric return types are covered by the following breaking decision |
 | **Aequitas-owned cfd-core turbulence metrics** | 2026-07-31 | `cfd-core::TurbulenceModel` exposed turbulent viscosity and kinetic energy as raw scalar vectors | `KinematicViscosity<T>` and `SpecificEnergy<T>` remain typed through the shared trait and every canonical cfd-3d closure; scalar extraction is confined to formulas and dense-field assertions | Breaking change for turbulence implementors and consumers; real Eunomia values only, with no imaginary-unit metric |
 | **Aequitas-owned cfd-3d multiphase mixture metrics** | 2026-07-31 | The phase-fraction exchange function accepted raw density and viscosity scalars despite being a public physical-property boundary | `Dimensionless`, `MassDensity`, and `DynamicViscosity` remain typed through the interpolation API; formula extraction is explicit and real-valued | Breaking change for multiphase exchange callers |
@@ -198,6 +199,36 @@ Verification: focused package check passes for `cfd-schematics` and
 `cfd-schematic-mesh`; Nextest run `0383cb4d-2e80-43e5-a0e0-683025defcbd`
 passes 207/207. The source migration includes summary and mesh-trace
 value assertions, targeted Rustfmt, and a clean diff check.
+
+### 2026-08-02: Aequitas owns schematic mesh geometry metrics [major] [arch]
+
+Context: `cfd-schematic-mesh` runtime configuration, emitted
+`SegmentCenterline` values, and SBS plate/wall-clearance constraints documented
+millimetres, radians, and dimensionless fractions but exposed raw scalars at
+the public boundary.
+
+Decision: carry blueprint angles, chip/cavity dimensions, wall clearances, SBS
+plate bounds, constraint coordinates, CSG overlap fractions, centerline
+coordinates, and centerline diameters through Aequitas `Angle`, `Length`, and
+`Dimensionless`. Extract base scalars only at mesh-provider, trigonometric,
+routing, comparison, and CSG formula boundaries. The serialized
+`cfd-schematics` interchange payload remains a separate unit-labelled format
+boundary.
+
+Rejected alternative: retain scalar configuration fields or add typed
+accessors beside them. Both preserve an untyped construction path and create
+two owners for the same geometry.
+
+Consequences: external mesh configuration and centerline consumers require the
+typed fields. The geometry remains real-valued under Eunomia; no imaginary
+physical unit applies, and complex values remain reserved for genuine
+phasor/Fourier data.
+
+Verification: `cargo metadata --offline --locked --no-deps`, the typed-field
+residue scan, and `git diff --check` pass. The standalone locked package check,
+Clippy with `-D warnings`, Nextest (29/29), doctests, and Rustdoc pass. The
+Atlas umbrella overlay remains a separate local-only resolver context because
+its working-tree package versions do not match the standalone lock.
 
 ### 2026-07-31: Aequitas owns analytical Stokes metrics [major] [arch]
 

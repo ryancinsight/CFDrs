@@ -94,7 +94,7 @@ ritk-vtk = { version = "0.1.0", git = "https://github.com/ryancinsight/ritk" }
 hermes-simd = { version = "0.5.0", git = "https://github.com/ryancinsight/hermes.git" }
 # moirai: unified concurrency runtime replacing tokio + rayon. Moirai's parallel,
 # Mnemosyne, and Melinoe surfaces are enabled for the CFDrs workspace.
-moirai = { version = "0.4.0", git = "https://github.com/ryancinsight/Moirai", default-features = false, features = ["parallel", "mnemosyne", "melinoe"] }
+moirai = { version = "0.4.0", git = "https://github.com/ryancinsight/Moirai", package = "moirai-runtime", default-features = false, features = ["parallel", "mnemosyne-memory", "melinoe"] }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
 hephaestus-wgpu = { version = "0.18.0", git = "https://github.com/ryancinsight/hephaestus" }
