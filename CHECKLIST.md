@@ -64,10 +64,12 @@
       doctests, Rustdoc, and diff checks pass.
 
 Evidence: `cargo check --offline --locked --package cfd-schematic-mesh
---all-targets`, Clippy with `-D warnings`, Nextest (29/29), doctests, and
-Rustdoc pass against the regenerated standalone provider lock. The workflow
-uses the current immutable Atlas checkout action; no provider-resolution
-residual remains for this geometry slice.
+--all-targets`, Clippy with `-D warnings`, Nextest run
+`5091fabe-e3da-4e76-a6ed-8c0377b0b0ee` (29/29), doctests, and Rustdoc pass
+against the regenerated standalone provider lock. The workflow uses the
+current immutable Atlas checkout action; no provider-resolution residual
+remains for this geometry slice. The semver baseline limitation is recorded
+in `gap_audit.md`.
 
 ## Owner: current Codex session — CFDRS-AEQ-MET-43 schematic volume metrics [major] — verified 2026-07-31
 

@@ -58,7 +58,7 @@ Verification: `cargo metadata --offline --locked --no-deps`, the typed-field
 residue scan, and `git diff --check` pass. The standalone lock now resolves the
 current `moirai-runtime` and `mnemosyne-memory` package graph; the focused
 locked package all-target check, Clippy (`-D warnings`), Nextest run
-`a524f1a7-5676-4d8e-b9d9-d7f82aa6084e` (29/29), doctests, and Rustdoc pass
+`5091fabe-e3da-4e76-a6ed-8c0377b0b0ee` (29/29), doctests, and Rustdoc pass
 through `cfd-schematic-mesh`. No provider-resolution residual remains for this
 geometry slice. The Atlas umbrella overlay remains
 a separate local-only resolver context because its current working-tree
@@ -68,6 +68,13 @@ The manifest and workflow now use the provider's `moirai-runtime` package and
 the immutable Atlas checkout action at `11581413ddd1da6fd849dd2c4ad11fdbb6ce673a`.
 The regenerated lock records current Aequitas, Apollo, Coeus, Hephaestus,
 Moirai, Mnemosyne, RITK, and related provider source identities.
+
+The semver gate was attempted with `cargo semver-checks` using the historical
+`HEAD` baseline. The current crate built and parsed, but the baseline update
+stopped because that historical manifest still requests the retired `moirai`
+package; the registry baseline is unavailable because `cfd-schematic-mesh` is
+not published. This is a baseline/tooling limitation, not a regression in the
+current typed contract; the deliberate breaking change is recorded in the ADR.
 
 ## Standalone provider lock and hosted gate closure (2026-07-31)
 
