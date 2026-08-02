@@ -31,6 +31,15 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
+  (in progress 2026-08-02; owner=current Codex session; scope=
+  `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**
+  Carry angles, lengths, clearances, overlap fractions, and centerline
+  diameters through Aequitas at the public mesh boundary. Scalar extraction is
+  limited to mesh-provider and trigonometric formula calls; serialized
+  interchange payloads remain a separate unit-labelled format boundary.
+
+
 - **CFDRS-CI-LOCK-1 [patch] - Restore standalone provider lock and hosted
   documentation gates (done 2026-07-31; owner=current Codex session).** The
   Aequitas provider lock now records the Eunomia git source, CFDrs `Cargo.lock`
