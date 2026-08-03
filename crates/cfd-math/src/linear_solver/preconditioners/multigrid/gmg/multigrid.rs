@@ -1,4 +1,5 @@
-use super::{ops::*, GmgMatrix, GmgVector, NonlinearOperator};
+use super::{GmgMatrix, GmgVector, NonlinearOperator};
+use super::ops::{from_f64, from_usize, l2_norm, vector_add, vector_add_assign, vector_sub};
 use crate::error::Result;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
