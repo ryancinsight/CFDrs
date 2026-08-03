@@ -1,7 +1,7 @@
 //! Linear solver validation against analytical solutions
 
 use cfd_core::error::Result;
-use cfd_math::iterative::IterativeSolverConfig;
+use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
 use leto::Array1;
 

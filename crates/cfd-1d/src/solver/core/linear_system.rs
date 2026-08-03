@@ -27,7 +27,7 @@
 
 use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
-use cfd_math::iterative::Preconditioner;
+use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};

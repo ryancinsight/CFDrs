@@ -10,8 +10,7 @@ use crate::scalar;
 use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::preconditioners::IdentityPreconditioner;
-use cfd_math::iterative::{BiCGSTAB, IterativeLinearSolver, IterativeSolverConfig};
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use std::collections::HashMap;
@@ -460,13 +459,12 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> 
             max_iterations: 2000,
             ..Default::default()
         };
-        let linear_solver = BiCGSTAB::new(solver_config);
-        linear_solver.solve(
-            matrix,
-            self.rhs.as_ref().unwrap(),
-            self.p_prime.as_mut().unwrap(),
-            None::<&IdentityPreconditioner>,
-        )?;
+        let pp = self.p_prime.as_mut().unwrap();
+        krylov::converged_or_none(
+            "SIMPLE pressure correction",
+            krylov::bicgstab(matrix, self.rhs.as_ref().unwrap(), pp, &solver_config),
+        )
+        .ok_or_else(|| Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string()))?;
 
         let pp = self.p_prime.as_mut().unwrap();
         if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {

@@ -16,7 +16,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::IterativeSolverConfig;
+use cfd_math::linear_solver::IterativeSolverConfig;
 
 use crate::scalar::Cfd2dScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
