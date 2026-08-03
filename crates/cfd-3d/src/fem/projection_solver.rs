@@ -64,13 +64,13 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, GMRES};
+use cfd_math::linear_solver::krylov;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};
 use std::collections::HashSet;
 
-use crate::fem::leto_bridge::{build_with_vector_rhs, iterative_solve};
+use crate::fem::leto_bridge::build_with_vector_rhs;
 use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
@@ -151,16 +151,13 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
-        let momentum_solver = GMRES::new(gmres_config, 100);
-        let (momentum_iterations, momentum_residual) = iterative_solve(
-            &momentum_solver,
-            &momentum_matrix,
-            &momentum_rhs,
-            &mut u_star,
-            None::<&IdentityPreconditioner>,
+        let momentum_report = krylov::converged_or_none(
             "projection momentum",
-        )
-        .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
+            krylov::gmres(&momentum_matrix, &momentum_rhs, &mut u_star, &gmres_config, 100),
+        );
+        let (momentum_iterations, momentum_residual) = momentum_report
+            .map(|r| (r.iterations, r.final_residual_norm))
+            .ok_or_else(|| Error::Solver("Momentum solve failed to converge".to_string()))?;
 
         tracing::debug!(
             iter = momentum_iterations,
@@ -179,16 +176,13 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
         };
 
         // Use Conjugate Gradient for pressure (symmetric positive definite after pinning)
-        let cg_solver = ConjugateGradient::new(gmres_config);
-        let (pressure_iterations, pressure_residual) = iterative_solve(
-            &cg_solver,
-            &pressure_matrix,
-            &pressure_rhs,
-            &mut pressure,
-            None::<&IdentityPreconditioner>,
+        let pressure_report = krylov::converged_or_none(
             "projection pressure",
-        )
-        .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
+            krylov::cg(&pressure_matrix, &pressure_rhs, &mut pressure, &gmres_config),
+        );
+        let (pressure_iterations, pressure_residual) = pressure_report
+            .map(|r| (r.iterations, r.final_residual_norm))
+            .ok_or_else(|| Error::Solver("Pressure solve failed to converge".to_string()))?;
 
         tracing::debug!(
             iter = pressure_iterations,
