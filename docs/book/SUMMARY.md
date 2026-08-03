@@ -110,24 +110,10 @@
   - [Example: Milestone 12 Option 2](examples/milestone12_option2.md)
   - [Example: Milestone 12 GA](examples/milestone12_ga.md)
 
-# Part IX — Atlas Stack Migration
-
-- [20. Migration Overview](migration_overview.md)
-- [21. Eunomia: Numeric Traits](migration_eunomia.md)
-- [22. Leto: Arrays and Linalg](migration_arrays.md)
-- [23. Leto: Geometry](migration_geometry.md)
-- [24. Hermes: SIMD Lanes](migration_simd.md)
-- [25. Mnemosyne and Themis: Memory](migration_memory.md)
-- [26. Moirai: Concurrency](migration_concurrency.md)
-- [27. Apollo: FFT](migration_fft.md)
-- [28. Leto: GAT Tiling](migration_gat_tiles.md)
-- [29. Migration Validation](migration_validation.md)
-
 # Appendix
 
 - [A. Atlas Crate Dependency Map](appendix_dependencies.md)
 - [B. Glossary](appendix_glossary.md)
 - [C. Changelog](appendix_changelog.md)
-- [D. Atlas Migration Reference](appendix_migration.md)
-- [E. Book Organization](BOOK_ORGANIZATION.md)
-- [F. Parity Artefacts Archive](parity_archive.md)
+- [D. Book Organization](BOOK_ORGANIZATION.md)
+- [E. Parity Artefacts Archive](parity_archive.md)

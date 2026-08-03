@@ -170,9 +170,6 @@ mdbook serve docs/book
 
 ## Cross-References
 
-- [`kwavers` book](../../../kwavers/docs/book/README.md) — Part VI
-  Atlas migration is the model for `CFDrs`'s Part VII.
-- [`helios` book](../../../helios/docs/book/README.md) — Part VIII
-  Atlas migration is the model for `CFDrs`'s Part VII.
+- [`kwavers` book](../../../kwavers/docs/book/README.md)
+- [`helios` book](../../../helios/docs/book/README.md)
 - [Atlas Dependency Map](appendix_dependencies.md)
-- [Migration Type Reference](appendix_migration.md)
