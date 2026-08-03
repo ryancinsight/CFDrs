@@ -3,7 +3,7 @@
 //! Private helpers called by [`super::apply_momentum_boundaries`] — one function
 //! per wall of the rectangular domain.
 
-use super::apply_rotating_wall_bc;
+use super::rotating::apply_rotating_wall_bc;
 use crate::physics::momentum::solver::MomentumComponent;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
