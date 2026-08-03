@@ -143,6 +143,9 @@ pub mod error;
 pub mod fd_extensions;
 pub mod high_order;
 pub mod iterators;
+
+/// Vector norms (SSOT: leto-ops)
+pub use leto_ops::application::linalg::norms::*;
 pub mod nonlinear_solver;
 pub mod optimization;
 pub mod pressure_velocity;
@@ -158,18 +161,6 @@ pub mod time_stepping;
 // `Interpolation` was removed; use `cfd_math::interp::Interpolation` instead.
 pub use self::sparse::SparseMatrix;
 
-/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
-/// `cfd-math` can use the Atlas-canonical implementations directly:
-///
-/// ```rust,no_run
-/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
-/// ```
-/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
-/// `cfd-math` can use the Atlas-canonical implementations directly:
-///
-/// ```rust,no_run
-/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
-/// ```
 /// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
 /// `cfd-math` can use the Atlas-canonical implementations directly:
 ///

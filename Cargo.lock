@@ -4281,28 +4281,12 @@ name = "asclepius-coeus"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "moirai-http"
-version = "0.4.0"
-
-[[patch.unused]]
-name = "apollo-sht"
-version = "0.7.0"
-
-[[patch.unused]]
 name = "horae"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "consus-npy"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
+name = "moirai-http"
+version = "0.4.0"
 
 [[patch.unused]]
 name = "ritk-core"
@@ -4331,3 +4315,19 @@ version = "0.18.0"
 [[patch.unused]]
 name = "hephaestus-rocm"
 version = "0.18.0"
+
+[[patch.unused]]
+name = "consus-npy"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-onnx"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-zarr"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "apollo-sht"
+version = "0.7.0"

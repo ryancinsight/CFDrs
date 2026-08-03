@@ -5,7 +5,7 @@ use super::super::{
     vector_add, vector_add_assign_scaled, vector_len, vector_scale, vector_sub, vector_sum,
     vector_zeros,
 };
-use super::params::*;
+use super::params::DGOperatorParams;
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};

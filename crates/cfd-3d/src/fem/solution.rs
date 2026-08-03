@@ -41,6 +41,12 @@ impl<T> FemDofVector<T> {
             .expect("invariant: FEM DOF vectors are dense one-dimensional Leto arrays")
     }
 
+    /// Reference to the underlying Leto array storage.
+    #[must_use]
+    pub fn as_array(&self) -> &Array1<T> {
+        &self.data
+    }
+
     /// Mutable dense slice view of the DOFs.
     #[must_use]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
