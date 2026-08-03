@@ -64,7 +64,7 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::{ConjugateGradient, GMRES, IdentityPreconditioner};
+use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};
@@ -75,7 +75,7 @@ use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution, scalar};
+use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
     array1_len, array2_column3, matrix3_determinant, matrix3_from_columns, matrix3_try_inverse,
     matrix3x4_column, reference_tet_gradients, vector3_from_indexed,

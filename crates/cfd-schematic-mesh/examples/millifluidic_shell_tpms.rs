@@ -17,8 +17,8 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
-use cfd_schematic_mesh::{ShellMeshPipeline, ShellPipelineConfig};
 use cfd_mesh::infrastructure::io::stl;
+use cfd_schematic_mesh::{ShellMeshPipeline, ShellPipelineConfig};
 
 use cfd_schematics::geometry::types::{
     InterchangeShellCuboid, InterchangeShellPort, TpmsFillSpec, TpmsSurfaceKind,

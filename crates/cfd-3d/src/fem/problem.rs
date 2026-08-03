@@ -22,8 +22,8 @@ use crate::scalar::Cfd3dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::FaceId;
+use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
 
@@ -162,8 +162,8 @@ impl<T: Cfd3dScalar> StokesFlowProblem<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_mesh::IndexedMesh;
     use cfd_mesh::domain::topology::Cell;
+    use cfd_mesh::IndexedMesh;
     use leto::Point3;
 
     /// Create a simple tetrahedral mesh for testing

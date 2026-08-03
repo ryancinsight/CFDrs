@@ -273,7 +273,7 @@ mod cross_fidelity_physics_tests {
         DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
         VolumetricFlowRate,
     };
-    use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
+    use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
     use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
     use cfd_schematics::application::ports::GraphSink;
     use cfd_schematics::domain::model::{

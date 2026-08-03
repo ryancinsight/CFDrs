@@ -91,8 +91,8 @@ pub fn ideal_air<T: RealField + FloatElement + Copy>() -> Result<IdealGas<T>, Er
 ///
 /// # Errors
 /// This constructor currently has no input-dependent failure path.
-pub fn engine_oil_sae30<T: RealField + FloatElement + Copy>()
--> Result<ConstantPropertyFluid<T>, Error> {
+pub fn engine_oil_sae30<T: RealField + FloatElement + Copy>(
+) -> Result<ConstantPropertyFluid<T>, Error> {
     Ok(ConstantPropertyFluid::new(
         "Engine Oil SAE 30 (40°C)".to_string(),
         MassDensity::from_base(<T as FloatElement>::from_f64(870.0)),

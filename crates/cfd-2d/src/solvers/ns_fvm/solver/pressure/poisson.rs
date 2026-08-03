@@ -2,8 +2,8 @@
 
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use crate::solvers::ns_fvm::BloodModel;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
+use crate::solvers::ns_fvm::BloodModel;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 

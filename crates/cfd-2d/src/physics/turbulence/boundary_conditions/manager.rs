@@ -1,5 +1,5 @@
-use super::constants::{C_MU, EPSILON_MIN, OMEGA_MIN};
-use super::wall_functions::WallTreatment;
+use crate::physics::turbulence::constants::{C_MU, EPSILON_MIN, OMEGA_MIN};
+use crate::physics::turbulence::wall_functions::WallTreatment;
 use eunomia::{FloatElement, NumericElement, RealField};
 
 /// Turbulence boundary condition types

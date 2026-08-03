@@ -51,7 +51,7 @@ use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto_ops::Preconditioner;
-use leto_ops::{Scalar as LetoScalar, spgemm, spmv_into as leto_spmv_into};
+use leto_ops::{spgemm, spmv_into as leto_spmv_into, Scalar as LetoScalar};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 

@@ -152,7 +152,7 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 
         defs.push(ChannelDef {
             id,
-            path: ChannelPath::new(points),
+            path: ChannelPath::new(points).expect("invariant: channel path from schematic points is valid"),
             profile: ChannelProfile::Circular {
                 radius: diameter / 2.0,
                 segments,
@@ -284,7 +284,7 @@ pub fn from_blueprint(
 
         channels.push(ChannelDef {
             id: ch.id.as_str().to_string(),
-            path: ChannelPath::new(points),
+            path: ChannelPath::new(points).expect("invariant: channel path from schematic points is valid"),
             profile,
             width_scales,
         });

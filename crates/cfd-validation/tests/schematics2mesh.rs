@@ -42,7 +42,8 @@ fn test_schematics2mesh_stl_output() {
                 scales,
                 &mut mesh.vertices,
                 RegionId::new(0),
-            );
+            )
+            .expect("variable sweep should succeed");
             for face in faces {
                 mesh.faces.push(face);
             }

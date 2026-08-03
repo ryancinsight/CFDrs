@@ -98,10 +98,8 @@ pub fn solve_blueprint_candidate(
             let mut linear_network = primary_problem.network.clone();
             let edge_indices: Vec<_> = linear_network.graph.edge_indices().collect();
             for edge_index in edge_indices {
-                linear_network.set_flow_rate(
-                    edge_index,
-                    VolumetricFlowRate::from_base(q_per_inlet),
-                );
+                linear_network
+                    .set_flow_rate(edge_index, VolumetricFlowRate::from_base(q_per_inlet));
             }
             let _ = linear_network.update_resistances();
             for properties in linear_network.properties.values_mut() {

@@ -550,11 +550,11 @@ fn cross_fidelity_venturi_standalone_bernoulli() {
 /// to approximate Newtonian) since the Poiseuille solver has its own type.
 #[test]
 fn cross_fidelity_poiseuille_2d_vs_analytical() {
-    use cfd_2d::solvers::poiseuille::{
-        BloodModel as PoiseuilleBloodModel, PoiseuilleConfig, PoiseuilleFlow2D,
-    };
     use aequitas::systems::si::quantities::{
         Dimensionless, DynamicViscosity, MassDensity, Pressure,
+    };
+    use cfd_2d::solvers::poiseuille::{
+        BloodModel as PoiseuilleBloodModel, PoiseuilleConfig, PoiseuilleFlow2D,
     };
     use cfd_core::physics::fluid::blood::CassonBlood;
 

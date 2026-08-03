@@ -13,8 +13,8 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
-use crate::grid::StructuredGrid2D;
 use crate::grid::array2d::Array2D;
+use crate::grid::StructuredGrid2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;

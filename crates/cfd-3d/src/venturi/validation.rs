@@ -315,12 +315,10 @@ mod tests {
             .expect("validation should run");
 
         assert!(!result.validation_passed);
-        assert!(
-            result
-                .error_message
-                .as_ref()
-                .map(|msg| msg.contains("Bernoulli lower bound"))
-                .unwrap_or(false)
-        );
+        assert!(result
+            .error_message
+            .as_ref()
+            .map(|msg| msg.contains("Bernoulli lower bound"))
+            .unwrap_or(false));
     }
 }

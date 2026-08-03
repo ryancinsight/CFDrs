@@ -24,8 +24,8 @@
 //!   7, 074604.
 
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
-use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
+use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
@@ -280,11 +280,9 @@ mod tests {
         let model = DynamicGradientSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
 
-        assert!(
-            viscosity
-                .iter()
-                .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0)
-        );
+        assert!(viscosity
+            .iter()
+            .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0));
     }
 
     #[test]

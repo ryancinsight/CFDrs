@@ -24,8 +24,8 @@ use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto::LetoError;
 use leto_ops::{
-    factor_symbolic, CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar,
-    Scalar as LetoScalar, SparseLuSolver, SymbolicLu,
+    factor_symbolic, CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar, Scalar as LetoScalar,
+    SparseLuSolver, SymbolicLu,
 };
 
 use crate::sparse::SparseMatrixBuilder;

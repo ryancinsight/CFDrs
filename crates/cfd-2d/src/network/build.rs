@@ -13,13 +13,13 @@ use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use crate::scalar;
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 
-use super::ChannelReferenceTrace;
 use super::projection::{
     channel_projection_domain, populate_channel_projection_mask, summarize_projection,
 };
 use super::reference::solve_reference_trace;
 use super::types::{Channel2dEntry, Network2DSolver};
 use super::validate_blueprint_for_2d_projection;
+use super::ChannelReferenceTrace;
 
 /// A [`GraphSink`] that converts a validated [`NetworkBlueprint`] into a
 /// solver-ready [`Network2DSolver<T>`].

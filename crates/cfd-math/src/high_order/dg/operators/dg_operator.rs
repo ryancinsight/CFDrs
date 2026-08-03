@@ -268,7 +268,7 @@ impl DGOperator {
     }
 
     /// Compute the numerical flux at a boundary
-    fn compute_numerical_flux<G>(
+    pub(crate) fn compute_numerical_flux<G>(
         &self,
         x: f64,
         f: &Array1<f64>,

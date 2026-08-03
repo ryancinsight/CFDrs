@@ -25,8 +25,8 @@
 //! *Z. Angew. Math. Mech.* 5:136–139.
 
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
-use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
+use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use eunomia::{FloatElement, NumericElement};
 
 use super::field_ops::derivative_y;

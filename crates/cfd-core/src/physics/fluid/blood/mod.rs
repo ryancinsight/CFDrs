@@ -47,7 +47,7 @@ pub mod cross;
 pub mod fahraeus_lindqvist;
 
 pub use carreau_yasuda::CarreauYasudaBlood;
-pub use casson::{CassonBlood, temperature_viscosity_factor};
+pub use casson::{temperature_viscosity_factor, CassonBlood};
 pub use cross::CrossBlood;
 pub use fahraeus_lindqvist::FahraeuasLindqvist;
 

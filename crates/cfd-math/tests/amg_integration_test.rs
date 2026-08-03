@@ -6,7 +6,7 @@
 //! stationary preconditioned iteration must contract in the A-norm with
 //! factor `ρ < 1` (Ruge & Stüben 1987; theorem restated in `amg.rs`).
 
-use cfd_math::iterative::{IterativeSolverConfig, Preconditioner, BiCGSTAB, GMRES};
+use cfd_math::iterative::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
 use cfd_math::multigrid::{AMGConfig, AlgebraicMultigrid, CycleType};
 use leto::Array1;
 use leto_ops::{spmv_into, CsrMatrix};
@@ -60,8 +60,12 @@ fn manufactured_solution(size: usize) -> Array1<f64> {
 /// `b = A · x*` so the solve has an exact reference.
 fn rhs_for(a: &CsrMatrix<f64>, x_exact: &Array1<f64>) -> Array1<f64> {
     let mut b = Array1::zeros([x_exact.shape()[0]]);
-    spmv_into(a, &x_exact.view(), b.as_slice_mut().expect("contiguous rhs"))
-        .expect("SpMV over matching shapes");
+    spmv_into(
+        a,
+        &x_exact.view(),
+        b.as_slice_mut().expect("contiguous rhs"),
+    )
+    .expect("SpMV over matching shapes");
     b
 }
 
@@ -75,8 +79,12 @@ fn max_abs_diff(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
 /// `‖v‖_A = sqrt(vᵀ A v)` — the energy norm the AMG theory contracts in.
 fn energy_norm(a: &CsrMatrix<f64>, v: &Array1<f64>) -> f64 {
     let mut av = Array1::zeros([v.shape()[0]]);
-    spmv_into(a, &v.view(), av.as_slice_mut().expect("contiguous workspace"))
-        .expect("SpMV over matching shapes");
+    spmv_into(
+        a,
+        &v.view(),
+        av.as_slice_mut().expect("contiguous workspace"),
+    )
+    .expect("SpMV over matching shapes");
     let dot = (0..v.shape()[0]).map(|idx| v[idx] * av[idx]).sum::<f64>();
     dot.max(0.0).sqrt()
 }

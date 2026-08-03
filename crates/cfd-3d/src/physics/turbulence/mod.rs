@@ -64,8 +64,8 @@ pub use mixing_length::MixingLengthModel;
 pub use wale::WaleModel;
 
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
-use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
+use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use eunomia::FloatElement;
 
 use self::field_ops::{strain_magnitude, velocity_gradient_tensor};

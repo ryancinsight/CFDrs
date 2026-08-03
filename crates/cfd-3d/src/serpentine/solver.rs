@@ -46,13 +46,13 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-use crate::linalg::{Matrix3, matrix3x4_from_columns, symmetric_part, vector3_from_indexed};
+use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::SerpentineMeshBuilder;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use cfd_mesh::SerpentineMeshBuilder;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::geometry::Vector3 as LetoVector3;
 use serde::{Deserialize, Serialize};

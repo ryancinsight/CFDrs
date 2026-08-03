@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, Pressure, Velocity, Volume, VolumetricFlowRate,
 };
-use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
+use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematic_mesh::TopologyClass;

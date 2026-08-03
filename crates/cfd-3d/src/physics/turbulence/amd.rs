@@ -36,7 +36,7 @@ use eunomia::FloatElement;
 
 use super::constants::AMD_C_A_SECOND_ORDER;
 use super::field_ops::{
-    SymmetricTensor6, strain_components, symmetric_contract, velocity_gradient_tensor,
+    strain_components, symmetric_contract, velocity_gradient_tensor, SymmetricTensor6,
 };
 use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 

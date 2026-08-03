@@ -90,14 +90,7 @@ impl ShellMeshPipeline {
         let cvy = t;
         let cvz = z_mid_mm - cavity_height_mm / 2.0;
 
-        let bounds = [
-            cvx,
-            cvy,
-            cvz,
-            cvx + cw,
-            cvy + ch,
-            cvz + cavity_height_mm,
-        ];
+        let bounds = [cvx, cvy, cvz, cvx + cw, cvy + ch, cvz + cavity_height_mm];
 
         // 1. Build the core cavity (either empty box or TPMS)
         let mut fluid_mesh = if let Some(ref fill) = shell.tpms_fill {
@@ -129,16 +122,8 @@ impl ShellMeshPipeline {
         let mut port_meshes: Vec<IndexedMesh> = Vec::new();
         for port in &shell.ports {
             // Port cylinder connects outer wall to cavity wall
-            let p1 = Vector3r::new(
-                port.outer_point_mm.0,
-                port.outer_point_mm.1,
-                z_mid_mm,
-            );
-            let p2 = Vector3r::new(
-                port.inner_point_mm.0,
-                port.inner_point_mm.1,
-                z_mid_mm,
-            );
+            let p1 = Vector3r::new(port.outer_point_mm.0, port.outer_point_mm.1, z_mid_mm);
+            let p2 = Vector3r::new(port.inner_point_mm.0, port.inner_point_mm.1, z_mid_mm);
 
             // To ensure robust overlapping, we extend the inner point slightly into the cavity.
             // Port `end` is on the inner wall. Vector goes from start (outer) to end (inner).
@@ -170,7 +155,7 @@ impl ShellMeshPipeline {
             };
             let start_ext = cfd_mesh::domain::core::scalar::Point3r::from(p1_extended);
             let end_ext = cfd_mesh::domain::core::scalar::Point3r::from(p2_extended);
-            let path = ChannelPath::straight(start_ext, end_ext);
+            let path = ChannelPath::straight(start_ext, end_ext).expect("invariant: straight channel path is valid");
             let mut pool = VertexPool::default_millifluidic();
             let mesher = SweepMesher {
                 cap_start: true,
