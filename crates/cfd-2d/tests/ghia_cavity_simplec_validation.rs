@@ -20,8 +20,8 @@ use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
-use cfd_2d::simplec_pimple::SimplecPimpleSolver;
 use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
+use cfd_2d::simplec_pimple::SimplecPimpleSolver;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
@@ -583,7 +583,7 @@ fn check_pressure_smoothness(pressure: &cfd_2d::fields::Field2D<f64>) -> f64 {
 #[test]
 fn test_pressure_correction_basic() {
     use cfd_2d::grid::StructuredGrid2D;
-    use cfd_2d::pressure_velocity::{PressureCorrectionSolver, config::PressureLinearSolver};
+    use cfd_2d::pressure_velocity::{config::PressureLinearSolver, PressureCorrectionSolver};
     use leto::geometry::Vector2;
 
     // Create a simple 4x4 grid

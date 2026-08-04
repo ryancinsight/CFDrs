@@ -973,7 +973,7 @@ fn build_segment_mesh_with_policy(
         },
     };
 
-    let path = ChannelPath::straight(start_ext, end_ext);
+    let path = ChannelPath::straight(start_ext, end_ext).expect("invariant: straight channel path is valid");
     let mut pool = VertexPool::default_millifluidic();
     let mesher = SweepMesher {
         cap_start: true,
@@ -1058,7 +1058,7 @@ fn build_polyline_mesh_with_policy(
         },
     };
 
-    let path = ChannelPath::new(points);
+    let path = ChannelPath::new(points).expect("invariant: polyline channel path is valid");
     let mut pool = VertexPool::default_millifluidic();
     let mesher = SweepMesher {
         cap_start: true,
@@ -1253,7 +1253,7 @@ fn build_venturi_chain_mesh(
             position,
             Point3r::new(position.x + 1.0, position.y, position.z),
         );
-        let frame = &path_tmp.compute_frames()[0];
+        let frame = &path_tmp.expect("invariant: straight channel path is valid").compute_frames()[0];
         let n = n_seg_pts;
         let two_pi = 2.0 * std::f64::consts::PI;
         (0..n)
@@ -1292,15 +1292,17 @@ fn build_venturi_chain_mesh(
             start_pos,
             Point3r::new(start_pos.x + 1.0, start_pos.y, start_pos.z),
         );
-        let frame = &path_tmp.compute_frames()[0];
+        let frame = &path_tmp.expect("invariant: straight channel path is valid").compute_frames()[0];
         let center = pool.insert_or_weld(start_pos, -frame.tangent);
         let ring = &segment_rings[0].0;
         let n = ring.len();
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                center, ring[j], ring[i], region,
-            ));
+            all_faces.push(
+                cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                    center, ring[j], ring[i], region,
+                ),
+            );
         }
     }
 
@@ -1312,18 +1314,22 @@ fn build_venturi_chain_mesh(
         // Lateral quad-strip for segment s.
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                start_ring[i],
-                end_ring[j],
-                end_ring[i],
-                region,
-            ));
-            all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                start_ring[i],
-                start_ring[j],
-                end_ring[j],
-                region,
-            ));
+            all_faces.push(
+                cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                    start_ring[i],
+                    end_ring[j],
+                    end_ring[i],
+                    region,
+                ),
+            );
+            all_faces.push(
+                cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                    start_ring[i],
+                    start_ring[j],
+                    end_ring[j],
+                    region,
+                ),
+            );
         }
 
         // Annular cap at the boundary between segment s and segment s+1.
@@ -1356,19 +1362,27 @@ fn build_venturi_chain_mesh(
                 for i in 0..n {
                     let j = (i + 1) % n;
                     if contraction {
-                        all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                            ring_b[j], ring_b[i], ring_a[i], region,
-                        ));
-                        all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                            ring_a[j], ring_b[j], ring_a[i], region,
-                        ));
+                        all_faces.push(
+                            cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                                ring_b[j], ring_b[i], ring_a[i], region,
+                            ),
+                        );
+                        all_faces.push(
+                            cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                                ring_a[j], ring_b[j], ring_a[i], region,
+                            ),
+                        );
                     } else {
-                        all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                            ring_a[i], ring_a[j], ring_b[j], region,
-                        ));
-                        all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                            ring_a[i], ring_b[j], ring_b[i], region,
-                        ));
+                        all_faces.push(
+                            cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                                ring_a[i], ring_a[j], ring_b[j], region,
+                            ),
+                        );
+                        all_faces.push(
+                            cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                                ring_a[i], ring_b[j], ring_b[i], region,
+                            ),
+                        );
                     }
                 }
             }
@@ -1381,7 +1395,7 @@ fn build_venturi_chain_mesh(
         let end_pos = last_seg.end;
         let path_tmp =
             ChannelPath::straight(Point3r::new(end_pos.x - 1.0, end_pos.y, end_pos.z), end_pos);
-        let frames = path_tmp.compute_frames();
+        let frames = path_tmp.expect("invariant: straight channel path is valid").compute_frames();
         let frame = frames
             .last()
             .expect("invariant: compute_frames on a 2-point straight path always yields ≥1 frame");
@@ -1390,9 +1404,11 @@ fn build_venturi_chain_mesh(
         let n = ring.len();
         for i in 0..n {
             let j = (i + 1) % n;
-            all_faces.push(cfd_mesh::infrastructure::storage::face_store::FaceData::new(
-                center, ring[i], ring[j], region,
-            ));
+            all_faces.push(
+                cfd_mesh::infrastructure::storage::face_store::FaceData::new(
+                    center, ring[i], ring[j], region,
+                ),
+            );
         }
     }
 
@@ -1863,8 +1879,7 @@ fn compute_volume_trace(
         .map(Volume::from_unit::<CubicMillimeter>)
         .fold(Volume::default(), |total, volume| total + volume);
 
-    let fluid_mesh_volume =
-        Volume::from_unit::<CubicMillimeter>(fluid_mesh.signed_volume().abs());
+    let fluid_mesh_volume = Volume::from_unit::<CubicMillimeter>(fluid_mesh.signed_volume().abs());
     let chip_mesh_volume =
         chip_mesh.map(|mesh| Volume::from_unit::<CubicMillimeter>(mesh.signed_volume().abs()));
     let fluid_mesh_volume_error = fluid_mesh_volume - schematic_summary.total_fluid_volume;
@@ -1872,8 +1887,7 @@ fn compute_volume_trace(
         fluid_mesh_volume_error,
         schematic_summary.total_fluid_volume,
     );
-    let csg_overlap_delta =
-        pre_csg_channel_volume + synthetic_connector_volume - fluid_mesh_volume;
+    let csg_overlap_delta = pre_csg_channel_volume + synthetic_connector_volume - fluid_mesh_volume;
 
     Ok(PipelineVolumeTrace {
         schematic_summary,
@@ -1984,13 +1998,11 @@ mod tests {
                 .in_unit::<CubicMillimeter>()
                 > 0.0
         );
-        assert!(
-            result
-                .volume_trace
-                .channel_traces
-                .iter()
-                .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0)
-        );
+        assert!(result
+            .volume_trace
+            .channel_traces
+            .iter()
+            .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0));
         assert!(result
             .layout_segments
             .iter()

@@ -2,7 +2,7 @@
 //!
 //! Provides wall boundary conditions for k-ε, k-ω SST, and Spalart-Allmaras models.
 
-use super::{TurbulenceBoundaryCondition, TurbulenceBoundaryManager};
+use super::manager::{TurbulenceBoundaryCondition, TurbulenceBoundaryManager};
 use crate::physics::turbulence::constants::{EPSILON_MIN, SST_BETA_1};
 use eunomia::RealField;
 

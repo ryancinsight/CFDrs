@@ -7,10 +7,10 @@
 //! Run with: cargo run -p gaia --example schematic_to_mesh_demo
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-    use cfd_schematics::geometry::generator::create_geometry;
     use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_schematic_mesh::scheme_io;
+    use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
+    use cfd_schematics::geometry::generator::create_geometry;
 
     println!("🔌 Schematic to Mesh Integration Demo");
     println!("=====================================");
@@ -137,7 +137,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 scales,
                 &mut pool,
                 RegionId::new(0),
-            );
+            )
+            .expect("variable sweep should succeed");
             println!("      Generated {} faces with variable sweep.", faces.len());
             assert!(!faces.is_empty());
 

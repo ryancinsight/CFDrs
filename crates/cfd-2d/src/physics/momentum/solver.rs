@@ -16,7 +16,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::IterativeSolverConfig;
+use cfd_math::linear_solver::IterativeSolverConfig;
 
 use crate::scalar::Cfd2dScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
@@ -362,8 +362,8 @@ mod tests {
     use crate::fields::SimulationFields;
     use crate::grid::StructuredGrid2D;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-    use leto::Array1;
     use leto::geometry::Vector3;
+    use leto::Array1;
 
     #[test]
     fn moving_north_wall_assembles_nonzero_coupling_to_interior() {

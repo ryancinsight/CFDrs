@@ -16,9 +16,9 @@ use cfd_3d::fem::{FemConfig, ProjectionSolver, StokesFlowProblem};
 use cfd_core::error::Error;
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
+use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
 

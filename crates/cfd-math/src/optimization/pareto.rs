@@ -241,15 +241,17 @@ mod tests {
         assert!(!front.contains(&1));
     }
 
+    fn pareto_front_contract<T: PartialOrd + Copy>(half: T, third: T) {
+        // Candidate 0 at (half, half) dominates candidate 1 at (third, third).
+        let candidates = [[half, half], [third, third]];
+        let front = pareto_front(&candidates, &[ObjectiveSense::Maximize; 2]);
+        assert_eq!(front, vec![0]);
+    }
+
     #[test]
     fn pareto_front_is_generic_over_scalar() {
-        let candidates_f32 = [[0.5_f32, 0.5], [0.3_f32, 0.3]];
-        let front_f32 = pareto_front(&candidates_f32, &[ObjectiveSense::Maximize; 2]);
-        assert_eq!(front_f32, vec![0]);
-
-        let candidates_f64 = [[0.5_f64, 0.5], [0.3_f64, 0.3]];
-        let front_f64 = pareto_front(&candidates_f64, &[ObjectiveSense::Maximize; 2]);
-        assert_eq!(front_f64, vec![0]);
+        pareto_front_contract::<f32>(0.5, 0.3);
+        pareto_front_contract::<f64>(0.5, 0.3);
     }
 
     // ── crowding_distances ────────────────────────────────────────────────────
@@ -301,17 +303,21 @@ mod tests {
         }
     }
 
+    fn crowding_distances_contract<T: RealField>() {
+        // 3 evenly spaced points: boundaries get infinite distance, interior finite.
+        let z = T::ZERO;
+        let h = T::from_f64(0.5);
+        let o = T::ONE;
+        let front = vec![[z, o], [h, h], [o, z]];
+        let d = crowding_distances(&front);
+        assert!(!d[0].is_finite(), "boundary point should be non-finite");
+        assert!(!d[2].is_finite(), "boundary point should be non-finite");
+        assert!(d[1].is_finite(), "interior point should be finite");
+    }
+
     #[test]
     fn crowding_distances_is_generic_over_scalar() {
-        let front_f32: Vec<[f32; 2]> = (0..3)
-            .map(|i| {
-                let t = i as f32 / 2.0;
-                [t, 1.0 - t]
-            })
-            .collect();
-        let d_f32 = crowding_distances(&front_f32);
-        assert!(d_f32[0].is_infinite());
-        assert!(d_f32[2].is_infinite());
-        assert!(d_f32[1].is_finite());
+        crowding_distances_contract::<f32>();
+        crowding_distances_contract::<f64>();
     }
 }

@@ -27,8 +27,8 @@
 //!   model for wall-bounded flows.
 
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
-use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
+use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use eunomia::FloatElement;
 
 use super::constants::WALE_CW;

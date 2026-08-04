@@ -62,8 +62,8 @@ use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::VenturiMeshBuilder;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use cfd_mesh::VenturiMeshBuilder;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
@@ -1141,9 +1141,8 @@ mod tests {
             pressure_coefficients_from_throat_flux(1_000.0_f64, 0.0_f64, 1.0e-6_f64, 1.0, -0.2)
                 .expect_err("zero flow rate has no dynamic pressure scale");
 
-        assert!(
-            err.to_string()
-                .contains("positive throat area and flow rate")
-        );
+        assert!(err
+            .to_string()
+            .contains("positive throat area and flow rate"));
     }
 }

@@ -190,7 +190,11 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SigmaModel<T> {
         let denominator = sigma1 * sigma1;
         let sigma_product = if denominator > eps {
             let product = sigma3 * (sigma1 - sigma2) * (sigma2 - sigma3) / denominator;
-            if product > T::ZERO { product } else { T::ZERO }
+            if product > T::ZERO {
+                product
+            } else {
+                T::ZERO
+            }
         } else {
             T::ZERO
         };

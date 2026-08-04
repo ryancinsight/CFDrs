@@ -7,14 +7,14 @@
 //! diagnostics on the same run.
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use crate::analytical::AnalyticalSolution;
 use crate::analytical::taylor_green::{
     TaylorGreenDimension, TaylorGreenKineticEnergy, TaylorGreenVortex,
 };
+use crate::analytical::AnalyticalSolution;
 use aequitas::systems::si::quantities::{KinematicViscosity, Length, MassDensity, Time, Velocity};
 use cfd_3d::spectral::{
-    KineticEnergySpectrum, PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig,
-    kinetic_energy_spectrum,
+    kinetic_energy_spectrum, KineticEnergySpectrum, PeriodicPseudospectralDns3D,
+    PeriodicPseudospectralDnsConfig,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
@@ -630,14 +630,11 @@ mod tests {
                     .numerical_energy
         );
         assert!(benchmark.validate_history(&report.history));
-        assert!(
-            report
-                .history
-                .checkpoints
-                .iter()
-                .all(|checkpoint| checkpoint.dominant_shell
-                    <= checkpoint.spectrum.shell_energy.len())
-        );
+        assert!(report
+            .history
+            .checkpoints
+            .iter()
+            .all(|checkpoint| checkpoint.dominant_shell <= checkpoint.spectrum.shell_energy.len()));
     }
 
     #[test]
@@ -655,11 +652,9 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the Taylor-Green benchmark");
 
-        assert!(
-            benchmark
-                .validate(&result)
-                .expect("validation should be computable")
-        );
+        assert!(benchmark
+            .validate(&result)
+            .expect("validation should be computable"));
         assert!(result.metrics.contains_key("Final Relative Energy Error"));
         assert!(result.metrics.contains_key("Spectrum Samples"));
         assert!(result.values.len() >= 2);

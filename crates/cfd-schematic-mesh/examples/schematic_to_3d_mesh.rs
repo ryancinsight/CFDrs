@@ -36,8 +36,8 @@ use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};
 use cfd_mesh::domain::mesh::IndexedMesh;
 use cfd_mesh::domain::topology::halfedge::PatchType;
 use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
-use cfd_schematic_mesh::scheme_io;
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
+use cfd_schematic_mesh::scheme_io;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╔══════════════════════════════════════════╗");
@@ -162,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 scales,
                 &mut current_ch.vertices,
                 RegionId::new(0),
-            );
+            )?;
             for face in faces {
                 current_ch.faces.push(face);
             }

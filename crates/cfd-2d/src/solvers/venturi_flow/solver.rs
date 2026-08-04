@@ -1,6 +1,8 @@
 //! Discretized Venturi solver and validation against analytical solutions.
 
-use super::{BernoulliVenturi, VenturiFlowSolution, VenturiGeometry};
+use super::analytical::BernoulliVenturi;
+use super::geometry::VenturiGeometry;
+use super::solution::VenturiFlowSolution;
 use crate::scalar::Cfd2dScalar;
 use crate::scalar::{self, from_f64};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};

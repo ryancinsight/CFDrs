@@ -20,7 +20,7 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::iterative::IterativeSolverConfig;
+use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;

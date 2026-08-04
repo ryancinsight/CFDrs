@@ -74,9 +74,7 @@ criterion = "0.5"
 cfd-core = { path = "crates/cfd-core", default-features = false }
 cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
-# Shared crates consumed from their canonical remotes (default branch = latest).
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
-# publish changes there (commit + push), then `cargo update -p <crate>`.
 cfd-mesh = { version = "0.3.0", git = "https://github.com/ryancinsight/gaia", package = "gaia" }
 apollo-fft = { version = "0.25.0", git = "https://github.com/ryancinsight/apollo" }
 apollo-nufft = { version = "0.7.0", git = "https://github.com/ryancinsight/apollo" }
@@ -86,6 +84,7 @@ leto-ops = { version = "0.40.0", git = "https://github.com/ryancinsight/leto.git
 # behind the `hdf5` feature for real HDF5 output.
 consus-core = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git", default-features = false }
 consus-hdf5 = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git" }
+consus-io = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
 ritk-vtk = { version = "0.1.0", git = "https://github.com/ryancinsight/ritk" }
@@ -109,8 +108,3 @@ cfd-2d = { path = "crates/cfd-2d" }
 cfd-3d = { path = "crates/cfd-3d" }
 cfd-optim = { path = "crates/cfd-optim" }
 cfd-validation = { path = "crates/cfd-validation" }
-
-# Redirect all git sources to local working copies so the entire CFDrs dep
-# graph uses a single version of each Atlas foundation crate.
-
-# ATLAS-PATH-DEP-AUDIT-2 round-4 closure

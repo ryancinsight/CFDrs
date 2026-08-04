@@ -36,4 +36,4 @@ vtk = ["dep:ritk-vtk"]
 tempfile = "3.8"
 proptest.workspace = true
 # Memory-backed reader used to validate written HDF5 images in round-trip tests.
-consus-io = { git = "https://github.com/ryancinsight/consus.git" }
+consus-io = { workspace = true }

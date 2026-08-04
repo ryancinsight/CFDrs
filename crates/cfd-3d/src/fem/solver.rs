@@ -24,7 +24,6 @@
 
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::GMRES;
 use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
@@ -35,13 +34,13 @@ use crate::fem::leto_bridge::build_with_vector_rhs;
 use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution, scalar};
+use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
-    Matrix3x4, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
-    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
+    array1_l2_norm, array1_len, array1_subarray, matrix3_determinant, matrix3_from_columns,
+    matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed, Matrix3x4,
 };
 use crate::scalar::Cfd3dScalar;
-use moirai::{Adaptive, fold_reduce_with};
+use moirai::{fold_reduce_with, Adaptive};
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.
@@ -51,7 +50,6 @@ pub use super::mesh_utils::{extract_vertex_indices, extract_vertex_indices_cache
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: Cfd3dScalar> {
     config: FemConfig<T>,
-    _linear_solver: GMRES<T>,
     /// Reusable matrix builder to avoid O(N) allocations per iteration
     matrix_builder: Option<SparseMatrixBuilder<T>>,
     /// Reusable RHS vector
@@ -95,15 +93,7 @@ struct AssembledSystem<T> {
 impl<T: Cfd3dScalar> FemSolver<T> {
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
-        let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: config.base.convergence.max_iterations,
-            tolerance: config.base.convergence.tolerance,
-            relative_tolerance: config.base.convergence.relative_tolerance,
-            ..cfd_math::linear_solver::IterativeSolverConfig::default()
-        };
-        let linear_solver = GMRES::new(solver_config, 100);
         Self {
-            _linear_solver: linear_solver,
             config,
             matrix_builder: None,
             rhs: None,

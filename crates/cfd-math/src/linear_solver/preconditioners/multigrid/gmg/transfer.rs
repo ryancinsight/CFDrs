@@ -3,7 +3,10 @@
 //! Weighted Jacobi relaxation, full-weighting restriction, and
 //! bilinear prolongation operators.
 
-use super::{from_f64, l2_norm, matrix_vector_product, GeometricMultigrid, GmgMatrix, GmgVector};
+use super::{
+    ops::{from_f64, l2_norm, matrix_vector_product},
+    GeometricMultigrid, GmgMatrix, GmgVector,
+};
 use eunomia::{FloatElement, NumericElement, RealField};
 
 impl<T: RealField + FloatElement> GeometricMultigrid<T> {

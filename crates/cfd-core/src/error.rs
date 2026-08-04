@@ -1578,9 +1578,7 @@ impl From<leto::LetoError> for Error {
             LetoError::ConvergenceError { max_iters, .. } => {
                 Self::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max: max_iters })
             }
-            LetoError::NumericalBreakdown(_) => {
-                Self::Convergence(ConvergenceErrorKind::Breakdown)
-            }
+            LetoError::NumericalBreakdown(_) => Self::Convergence(ConvergenceErrorKind::Breakdown),
             LetoError::NotPositiveDefinite { .. } => {
                 Self::Numerical(NumericalErrorKind::NotPositiveDefinite)
             }
