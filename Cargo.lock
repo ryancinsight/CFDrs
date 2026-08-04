@@ -2919,9 +2919,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.16"
+version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fcfdb36bda0c880c5931cdc7a2bcdc8ba4556847b9d912bca70bc94708711ad"
+checksum = "ca71a6a1a566e01ad6b3b87edcbf9bd3374c27e31978c1b4e38c9fa6412557d2"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -4285,8 +4285,20 @@ name = "horae"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "moirai-http"
-version = "0.4.0"
+name = "consus-npy"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-onnx"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-zarr"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "apollo-sht"
+version = "0.7.0"
 
 [[patch.unused]]
 name = "ritk-core"
@@ -4305,6 +4317,10 @@ name = "ritk-registration"
 version = "0.53.0"
 
 [[patch.unused]]
+name = "moirai-http"
+version = "0.4.0"
+
+[[patch.unused]]
 name = "hephaestus-cuda"
 version = "0.18.0"
 
@@ -4315,19 +4331,3 @@ version = "0.18.0"
 [[patch.unused]]
 name = "hephaestus-rocm"
 version = "0.18.0"
-
-[[patch.unused]]
-name = "consus-npy"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "apollo-sht"
-version = "0.7.0"
