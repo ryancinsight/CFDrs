@@ -20,73 +20,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Materialize parent-atlas parity_artefacts/INDEX.md
-        # SUMMARY.md Appendix F (line 142) points at
-        # ../../../parity_artefacts/INDEX.md; on a default-checkout runner,
-        # those three `..` resolve to the parent of CFDrs, so the file lives
-        # at ../parity_artefacts/INDEX.md relative to $GITHUB_WORKSPACE.
-        run: |
-          set -euo pipefail
-          mkdir -p ../parity_artefacts
-          curl --fail --location --silent --show-error \
-            --max-time 60 --retry 3 --retry-delay 5 \
-            "https://raw.githubusercontent.com/ryancinsight/atlas/51d8600cf3077e6ad6aafa5603b3289444b1719f/repos/parity_artefacts/INDEX.md" \
-            --output ../parity_artefacts/INDEX.md
-          printf '%s  ../parity_artefacts/INDEX.md\n' \
-            18b7d9def0625f312776e15b2f70b681f38cbcb8838c9a9fd0b6ffb38af50a5a \
-            | sha256sum -c
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Install mdBook
-        env:
-          MDBOOK_VERSION: "0.5.4"
-        run: |
-          curl --fail --location --silent --show-error \
-            "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
-            --output mdbook.tar.gz
-          tar -xzf mdbook.tar.gz
-          echo "$PWD" >> "$GITHUB_PATH"
-          export PATH="$PWD:$PATH"
-          mdbook --version
-
-      - name: Install mdBook link checker
-        run: |
-          cargo install mdbook-linkcheck2 --version 0.12.2 --locked
-          mdbook-linkcheck2 --version
-
-      - name: Build book
-        run: |
-          mdbook build docs/book
-          test -f target/book/cfdrs/html/index.html
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: target/book/cfdrs
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-
+  book:
+    # Body owned once by Atlas (ADR 0035), pinned by SHA like any action. The
+    # shared workflow keeps the pull-request build and skips deployment there,
+    # so PRs still prove the book builds without publishing it.
+    uses: ryancinsight/atlas/.github/workflows/book-pages.yml@9772542cc9dbd53123da0b369a75f34a180da867
     permissions:
+      contents: read
+      # The shared deploy job publishes to Pages over OIDC.
       pages: write
       id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    with:
+      output-path: target/book/cfdrs
