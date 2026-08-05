@@ -41,7 +41,7 @@ aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas"
 proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
 hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
 tyche-core = { version = "0.1.0", git = "https://github.com/ryancinsight/tyche" }
-eunomia = { version = "0.7.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
+eunomia = { version = "0.8.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 iris = { version = "0.1.0", git = "https://github.com/ryancinsight/iris" }
 approx = "0.5"
 bytemuck = "1.14"
