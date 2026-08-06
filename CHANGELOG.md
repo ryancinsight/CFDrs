@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** `ShellCuboid` outer dimensions, wall thickness, and derived
+  cavity dimensions now carry Eunomia `Length<f64>` values in base metres.
+  `outer_dims_mm()`, `inner_dims_mm()`, and `shell_thickness_mm()` keep scalar
+  extraction explicit at schematic-coordinate and interchange boundaries;
+  `InterchangeShellCuboid` remains the millimetre wire DTO. The real shell
+  geometry has no complex or imaginary SI quantity.
+
 - **Breaking:** `TpmsFillSpec.period` and `AdaptiveGradient` period endpoints
   now carry Eunomia `Length<f64>` values in base metres. `period_mm()` and
   `period_at_mm()` keep scalar extraction explicit at mesh and rendering

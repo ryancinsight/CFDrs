@@ -34,22 +34,22 @@ fn main() {
         gradient: None,
     };
 
-    let shell = ShellCuboid::well_plate_96(2.0)
+    let shell = ShellCuboid::well_plate_96(Length::from_unit::<Millimeter>(2.0))
         .expect("failed to create shell cuboid")
         .with_tpms_fill(fill);
 
     tracing::info!("Shell cuboid created (96-well plate footprint):");
     tracing::info!(
         "  outer_dims : {:.2} mm × {:.2} mm",
-        shell.outer_dims.0,
-        shell.outer_dims.1
+        shell.outer_dims_mm().0,
+        shell.outer_dims_mm().1
     );
     tracing::info!(
         "  inner_dims : {:.2} mm × {:.2} mm",
-        shell.inner_dims.0,
-        shell.inner_dims.1
+        shell.inner_dims_mm().0,
+        shell.inner_dims_mm().1
     );
-    tracing::info!("  shell_thick: {} mm", shell.shell_thickness_mm);
+    tracing::info!("  shell_thick: {} mm", shell.shell_thickness_mm());
     if let Some(ref f) = shell.tpms_fill {
         tracing::info!(
             "  tpms_fill  : {} λ={:.1}mm iso={} res={}",
@@ -63,12 +63,12 @@ fn main() {
         "  inlet port : outer ({:.2}, {:.3})  →  inner ({:.2}, {:.3})",
         shell.inlet_port.0,
         shell.inlet_port.1,
-        shell.inlet_port.0 + shell.shell_thickness_mm,
+        shell.inlet_port.0 + shell.shell_thickness_mm(),
         shell.inlet_port.1,
     );
     tracing::info!(
         "  outlet port: inner ({:.2}, {:.3})  →  outer ({:.2}, {:.3})",
-        shell.outlet_port.0 - shell.shell_thickness_mm,
+        shell.outlet_port.0 - shell.shell_thickness_mm(),
         shell.outlet_port.1,
         shell.outlet_port.0,
         shell.outlet_port.1,

@@ -340,17 +340,26 @@ impl super::shell_cuboid::ShellCuboid {
     /// # Examples
     ///
     /// ```rust
+    /// use aequitas::systems::si::quantities::Length;
+    /// use aequitas::systems::si::units::Millimeter;
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
+    /// let sc = ShellCuboid::new(
+    ///     (
+    ///         Length::from_unit::<Millimeter>(80.0),
+    ///         Length::from_unit::<Millimeter>(40.0),
+    ///     ),
+    ///     Length::from_unit::<Millimeter>(2.0),
+    /// )
+    /// .expect("structural invariant");
     /// let ix = sc.to_interchange();
     /// assert_eq!(ix.length_units, "mm");
     /// assert_eq!(ix.ports.len(), 2);
     /// ```
     #[must_use]
     pub fn to_interchange(&self) -> InterchangeShellCuboid {
-        let (w, h) = self.outer_dims;
-        let t = self.shell_thickness_mm;
+        let (w, h) = self.outer_dims_mm();
+        let t = self.shell_thickness_mm();
 
         let inlet_port = InterchangeShellPort {
             label: "inlet".to_string(),
@@ -371,9 +380,9 @@ impl super::shell_cuboid::ShellCuboid {
                 env!("CARGO_PKG_VERSION")
             ),
             length_units: Self::INTERCHANGE_LENGTH_UNITS.to_string(),
-            outer_dims_mm: self.outer_dims,
-            inner_dims_mm: self.inner_dims,
-            shell_thickness_mm: self.shell_thickness_mm,
+            outer_dims_mm: self.outer_dims_mm(),
+            inner_dims_mm: self.inner_dims_mm(),
+            shell_thickness_mm: self.shell_thickness_mm(),
             ports: vec![inlet_port, outlet_port],
             tpms_fill: self.tpms_fill.clone(),
         }
@@ -384,9 +393,18 @@ impl super::shell_cuboid::ShellCuboid {
     /// # Examples
     ///
     /// ```rust
+    /// use aequitas::systems::si::quantities::Length;
+    /// use aequitas::systems::si::units::Millimeter;
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
+    /// let sc = ShellCuboid::new(
+    ///     (
+    ///         Length::from_unit::<Millimeter>(80.0),
+    ///         Length::from_unit::<Millimeter>(40.0),
+    ///     ),
+    ///     Length::from_unit::<Millimeter>(2.0),
+    /// )
+    /// .expect("structural invariant");
     /// let json = sc.to_interchange_json().expect("should serialize");
     /// assert!(json.contains("\"outer_dims_mm\""));
     /// assert!(json.contains("\"inlet\""));

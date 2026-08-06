@@ -73,7 +73,7 @@ impl PlottersRenderer {
         root: DrawingArea<DB, Shift>,
         output_path: &Path,
     ) -> VisualizationResult<()> {
-        let (w, h) = cuboid.outer_dims;
+        let (w, h) = cuboid.outer_dims_mm();
         let x_buffer = w * config.margin_fraction;
         let y_buffer = h * config.margin_fraction;
 
@@ -139,8 +139,8 @@ impl PlottersRenderer {
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
         if let Some(ref fill) = cuboid.tpms_fill {
-            let t = cuboid.shell_thickness_mm;
-            let (iw, ih) = cuboid.inner_dims;
+            let t = cuboid.shell_thickness_mm();
+            let (iw, ih) = cuboid.inner_dims_mm();
             let hatch_color = RGBColor(100, 130, 200);
             let hatch_stroke = hatch_color.stroke_width(1);
             let spacing = fill.period_mm();

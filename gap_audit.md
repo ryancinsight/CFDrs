@@ -39,13 +39,17 @@ public shell authoring and renderer boundaries as raw millimetre scalars.
 These dimensions define the physical cavity and wall geometry, not merely a
 serialized display payload.
 
-This gap is in progress. The implementation will carry the shell authoring
-dimensions as Eunomia `Length<f64>` values in base metres through construction,
-validation, and rendering consumers. Scalar extraction will remain at the
-explicit schematic-coordinate and interchange serialization boundaries;
+Closed. `ShellCuboid.outer_dims`, `shell_thickness`, and derived `inner_dims`
+now carry Eunomia `Length<f64>` values in base metres through construction,
+validation, and rendering consumers. `outer_dims_mm()`, `inner_dims_mm()`, and
+`shell_thickness_mm()` isolate scalar extraction at the explicit
+schematic-coordinate and interchange serialization boundaries;
 `InterchangeShellCuboid` remains a millimetre wire DTO for downstream mesh
-compatibility. The real shell geometry has no complex or imaginary SI
-quantity.
+compatibility. cfd-schematics Nextest passes 191/191
+(`25084464-8eb9-4daf-b141-bb1ff54c3c31`), cfd-schematic-mesh Nextest passes
+29/29 (`475a8f8b-a8dc-4c60-a360-d60297b3cba4`), and affected all-target
+check, warning-denied Clippy, 16/16 doctests, and Rustdoc pass. The real shell
+geometry has no complex or imaginary SI quantity.
 
 ## TPMS lattice period metrics (CFDRS-AEQ-MET-61, 2026-08-06)
 
