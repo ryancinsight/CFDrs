@@ -23,8 +23,12 @@ pub struct UnstructuredGrid2D<T> {
     pub centers: Vec<Vector2<T>>,
     /// Cell areas
     pub areas: Vec<T>,
-    /// Cell connectivity (adjacency list)
-    pub connectivity: Vec<Vec<usize>>,
+    /// Cell connectivity in CSR-style layout:
+    /// `connectivity_offsets[cell]..connectivity_offsets[cell + 1]`
+    /// indexes into `connectivity_indices`.
+    pub connectivity_offsets: Vec<usize>,
+    /// Flat neighbor index storage for all cells.
+    pub connectivity_indices: Vec<usize>,
     /// Boundary conditions
     pub boundaries: HashMap<usize, BoundaryType>,
     /// Grid dimensions (for compatibility)
@@ -49,10 +53,13 @@ impl<T> UnstructuredGrid2D<T> {
         let n = centers.len();
         let sqrt_n = (n as f64).sqrt() as usize;
 
+        let (connectivity_offsets, connectivity_indices) = build_connectivity_csr(&connectivity);
+
         Ok(Self {
             centers,
             areas,
-            connectivity,
+            connectivity_offsets,
+            connectivity_indices,
             boundaries: HashMap::new(),
             nx: sqrt_n,
             ny: sqrt_n,
@@ -109,11 +116,12 @@ impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
 
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
         let id = self.cell_id(i, j);
-        if id >= self.connectivity.len() {
+        if id + 1 >= self.connectivity_offsets.len() {
             return Vec::new();
         }
 
-        self.connectivity[id]
+        self.connectivity_indices
+            [self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
             .iter()
             .map(|&neighbor_id| {
                 let ni = neighbor_id % self.nx;
@@ -127,10 +135,15 @@ impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
         let id = self.cell_id(i, j);
         let nx = self.nx;
 
-        self.connectivity
-            .get(id)
-            .cloned()
-            .unwrap_or_default()
+        let neighbors: &[usize] = if id + 1 < self.connectivity_offsets.len() {
+            &self.connectivity_indices[self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
+        } else {
+            &[]
+        };
+
+        neighbors
+            .iter()
+            .copied()
             .into_iter()
             .map(move |neighbor_id| {
                 let ni = neighbor_id % nx;
@@ -148,4 +161,19 @@ impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
         let id = self.cell_id(i, j);
         self.boundaries.get(&id).copied()
     }
+}
+
+fn build_connectivity_csr(connectivity: &[Vec<usize>]) -> (Vec<usize>, Vec<usize>) {
+    let mut offsets = Vec::with_capacity(connectivity.len() + 1);
+    offsets.push(0);
+
+    let total_neighbors = connectivity.iter().map(Vec::len).sum();
+    let mut indices = Vec::with_capacity(total_neighbors);
+
+    for row in connectivity {
+        indices.extend(row.iter().copied());
+        offsets.push(indices.len());
+    }
+
+    (offsets, indices)
 }
