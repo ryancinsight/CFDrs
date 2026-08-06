@@ -14,9 +14,7 @@ fn resolved_venturi_geometry(
 ) -> ThroatGeometrySpec {
     let resolved_width_m = spec
         .channel_route(channel_id)
-        .map_or(geometry.throat_width_m * 3.0, |route| {
-            Length::from_base(route.width_m)
-        });
+        .map_or(geometry.throat_width_m * 3.0, |route| route.width_m);
 
     ThroatGeometrySpec {
         throat_width_m: geometry.throat_width_m,
@@ -175,9 +173,9 @@ mod tests {
                 ParallelChannelSpec {
                     channel_id: "straight_lane".to_string(),
                     route: ChannelRouteSpec {
-                        length_m: 10.0e-3,
-                        width_m: 2.0e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(10.0e-3),
+                        width_m: Length::from_base(2.0e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: None,
                         therapy_zone: TherapyZone::CancerTarget,
                     },
@@ -185,9 +183,9 @@ mod tests {
                 ParallelChannelSpec {
                     channel_id: "serpentine_lane".to_string(),
                     route: ChannelRouteSpec {
-                        length_m: 18.0e-3,
-                        width_m: 1.5e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(18.0e-3),
+                        width_m: Length::from_base(1.5e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: Some(SerpentineSpec {
                             wave_type: crate::topology::SerpentineWaveType::Sine,
                             segments: 4,
@@ -274,6 +272,30 @@ mod tests {
     }
 
     #[test]
+    fn typed_channel_route_round_trips_si_base_units() {
+        let route = ChannelRouteSpec {
+            length_m: Length::from_base(12.0e-3),
+            width_m: Length::from_base(1.5e-3),
+            height_m: Length::from_base(0.75e-3),
+            serpentine: None,
+            therapy_zone: TherapyZone::CancerTarget,
+        };
+
+        let encoded = serde_json::to_string(&route).expect("serialize typed channel route");
+        let decoded: ChannelRouteSpec =
+            serde_json::from_str(&encoded).expect("deserialize typed channel route");
+
+        // JSON performs one binary64 decimal round-trip; one machine epsilon
+        // at the value scale bounds the resulting representation drift.
+        let tolerance = |value: f64| f64::EPSILON * value.abs().max(1.0);
+        assert!((decoded.length_m.into_base() - 12.0e-3).abs() <= tolerance(12.0e-3));
+        assert!((decoded.width_m.into_base() - 1.5e-3).abs() <= tolerance(1.5e-3));
+        assert!((decoded.height_m.into_base() - 0.75e-3).abs() <= tolerance(0.75e-3));
+        assert_eq!(decoded.serpentine, route.serpentine);
+        assert_eq!(decoded.therapy_zone, route.therapy_zone);
+    }
+
+    #[test]
     fn branch_serpentine_modifier_updates_named_branch() {
         let spec = BlueprintTopologySpec {
             topology_id: "split".to_string(),
@@ -294,9 +316,9 @@ mod tests {
                         role: BranchRole::WbcCollection,
                         treatment_path: false,
                         route: ChannelRouteSpec {
-                            length_m: 8.0e-3,
-                            width_m: 2.0e-3,
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(8.0e-3),
+                            width_m: Length::from_base(2.0e-3),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
@@ -307,9 +329,9 @@ mod tests {
                         role: BranchRole::Treatment,
                         treatment_path: true,
                         route: ChannelRouteSpec {
-                            length_m: 8.0e-3,
-                            width_m: 2.0e-3,
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(8.0e-3),
+                            width_m: Length::from_base(2.0e-3),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::CancerTarget,
                         },
@@ -320,9 +342,9 @@ mod tests {
                         role: BranchRole::RbcBypass,
                         treatment_path: false,
                         route: ChannelRouteSpec {
-                            length_m: 8.0e-3,
-                            width_m: 2.0e-3,
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(8.0e-3),
+                            width_m: Length::from_base(2.0e-3),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },

@@ -222,7 +222,7 @@ mod tests {
         let total: f64 = spec.split_stages[0]
             .branches
             .iter()
-            .map(|branch| branch.route.width_m)
+            .map(|branch| branch.route.width_m.into_base())
             .sum();
         assert!((total - request.inlet_width_m).abs() < 1.0e-12);
     }

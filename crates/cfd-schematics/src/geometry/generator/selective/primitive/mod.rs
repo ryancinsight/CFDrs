@@ -164,11 +164,12 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
             return Ok(None);
         }
         let treatment_branch = treatment_branches[0];
-        if parent_width_m <= 0.0 || treatment_branch.route.width_m <= 0.0 {
+        let treatment_width_m = treatment_branch.route.width_m.into_base();
+        if parent_width_m <= 0.0 || treatment_width_m <= 0.0 {
             return Ok(None);
         }
 
-        let treatment_fraction = (treatment_branch.route.width_m / parent_width_m).clamp(0.0, 1.0);
+        let treatment_fraction = (treatment_width_m / parent_width_m).clamp(0.0, 1.0);
         center_serpentine =
             center_serpentine.or(treatment_branch
                 .route
@@ -203,7 +204,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
             SplitKind::NFurcation(_) => return Ok(None),
         }
 
-        parent_width_m = treatment_branch.route.width_m;
+        parent_width_m = treatment_width_m;
     }
 
     if !saw_later_trifurcation {
@@ -214,7 +215,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         .split_stages
         .first()
         .and_then(|stage| stage.branches.first())
-        .map_or(1.0e-3, |branch| branch.route.height_m);
+        .map_or(1.0e-3, |branch| branch.route.height_m.into_base());
     let strongest_venturi = spec
         .venturi_placements
         .iter()

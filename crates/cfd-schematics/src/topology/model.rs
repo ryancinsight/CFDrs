@@ -73,9 +73,9 @@ pub struct SerpentineSpec {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelRouteSpec {
-    pub length_m: f64,
-    pub width_m: f64,
-    pub height_m: f64,
+    pub length_m: Length<f64>,
+    pub width_m: Length<f64>,
+    pub height_m: Length<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub serpentine: Option<SerpentineSpec>,
     #[serde(default = "default_therapy_zone")]

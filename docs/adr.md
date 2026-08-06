@@ -737,6 +737,16 @@ including network assembly, transient transport, analyzers, blueprint
 conversion, property, and adversarial tests. Doctest, Rustdoc, and lint limits
 are recorded in the child gap audit.
 
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::ChannelRouteSpec` authoring boundary. Route length, width, and
+height now use Eunomia `Length<f64>` in base metres, with scalar extraction
+limited to validation, routing, mesh, formula, reporting, and serialization
+edges. Direct cfd-schematics and cfd-optim callers migrate in the same change;
+no adapter or parallel scalar field remains. Current all-targets checks and
+warning-denied Clippy pass for both crates; cfd-schematics Nextest passes
+183/183 and cfd-optim Nextest passes 137/137 across five binaries. The route
+contract is real-valued; no complex or imaginary SI quantity applies.
+
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 
 Context: cfd-1d channel, membrane, and organ components documented length,

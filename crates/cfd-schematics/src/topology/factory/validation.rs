@@ -88,22 +88,22 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
 
 /// Validate a single channel route specification.
 pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), String> {
-    if route.length_m <= 0.0 {
+    if route.length_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: length_m must be positive: {}",
-            route.length_m
+            route.length_m.into_base()
         ));
     }
-    if route.width_m <= 0.0 {
+    if route.width_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: width_m must be positive: {}",
-            route.width_m
+            route.width_m.into_base()
         ));
     }
-    if route.height_m <= 0.0 {
+    if route.height_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: height_m must be positive: {}",
-            route.height_m
+            route.height_m.into_base()
         ));
     }
     if let Some(ref serp) = route.serpentine {

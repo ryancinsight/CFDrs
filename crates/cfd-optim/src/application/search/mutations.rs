@@ -10,22 +10,27 @@ use cfd_schematics::{
 };
 
 fn route_serpentine(route: &cfd_schematics::ChannelRouteSpec) -> SerpentineSpec {
+    let route_width_m = route.width_m.into_base();
+    let route_height_m = route.height_m.into_base();
+    let route_length_m = route.length_m.into_base();
     route.serpentine.clone().unwrap_or(SerpentineSpec {
         segments: 4,
-        bend_radius_m: (route.width_m * 2.5).max(route.height_m),
-        segment_length_m: (route.length_m / 4.0).max(route.width_m),
+        bend_radius_m: (route_width_m * 2.5).max(route_height_m),
+        segment_length_m: (route_length_m / 4.0).max(route_width_m),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     })
 }
 
 fn route_throat_geometry(route: &cfd_schematics::ChannelRouteSpec) -> ThroatGeometrySpec {
-    let inlet_width_m = route.width_m;
-    let throat_width_m = (route.width_m * 0.22).clamp(35.0e-6, route.width_m * 0.85);
+    let inlet_width_m = route.width_m.into_base();
+    let route_height_m = route.height_m.into_base();
+    let route_length_m = route.length_m.into_base();
+    let throat_width_m = (inlet_width_m * 0.22).clamp(35.0e-6, inlet_width_m * 0.85);
     ThroatGeometrySpec {
         throat_width_m: Length::from_base(throat_width_m),
-        throat_height_m: Length::from_base(route.height_m),
+        throat_height_m: Length::from_base(route_height_m),
         throat_length_m: Length::from_base(
-            (route.length_m / 8.0).clamp(180.0e-6, route.length_m.max(220.0e-6)),
+            (route_length_m / 8.0).clamp(180.0e-6, route_length_m.max(220.0e-6)),
         ),
         inlet_width_m: Length::from_base(inlet_width_m),
         outlet_width_m: Length::from_base(inlet_width_m),
@@ -125,8 +130,11 @@ fn classify_serpentine_family(
     serpentine: &SerpentineSpec,
 ) -> &'static str {
     let neutral_segments = 4.0;
-    let neutral_bend_radius_m = (route.width_m * 2.5).max(route.height_m);
-    let neutral_segment_length_m = (route.length_m / 4.0).max(route.width_m);
+    let route_width_m = route.width_m.into_base();
+    let route_height_m = route.height_m.into_base();
+    let route_length_m = route.length_m.into_base();
+    let neutral_bend_radius_m = (route_width_m * 2.5).max(route_height_m);
+    let neutral_segment_length_m = (route_length_m / 4.0).max(route_width_m);
 
     let segments_factor = serpentine.segments as f64 / neutral_segments;
     let bend_factor = serpentine.bend_radius_m / neutral_bend_radius_m.max(1.0e-12);
@@ -169,6 +177,8 @@ fn positive_ratio(value: f64) -> f64 {
 
 fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String, SerpentineSpec)> {
     let base = route_serpentine(route);
+    let route_width_m = route.width_m.into_base();
+    let route_height_m = route.height_m.into_base();
     use cfd_schematics::SerpentineWaveType;
 
     let candidates = [
@@ -177,8 +187,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "sc",
             SerpentineSpec {
                 segments: (base.segments + 1).max(3),
-                bend_radius_m: (base.bend_radius_m * 0.8).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 0.9).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 0.8).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 0.9).max(route_width_m),
                 wave_type: SerpentineWaveType::Sine,
             },
         ),
@@ -186,8 +196,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "ss",
             SerpentineSpec {
                 segments: base.segments.saturating_sub(1).max(2),
-                bend_radius_m: (base.bend_radius_m * 1.3).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 1.15).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 1.3).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 1.15).max(route_width_m),
                 wave_type: SerpentineWaveType::Sine,
             },
         ),
@@ -195,8 +205,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "sd",
             SerpentineSpec {
                 segments: (base.segments + 3).max(4),
-                bend_radius_m: (base.bend_radius_m * 0.65).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 0.75).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 0.65).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 0.75).max(route_width_m),
                 wave_type: SerpentineWaveType::Sine,
             },
         ),
@@ -204,8 +214,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "sl",
             SerpentineSpec {
                 segments: (base.segments + 1).max(3),
-                bend_radius_m: (base.bend_radius_m * 1.05).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 1.35).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 1.05).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 1.35).max(route_width_m),
                 wave_type: SerpentineWaveType::Sine,
             },
         ),
@@ -216,8 +226,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "sq",
             SerpentineSpec {
                 segments: base.segments.max(3),
-                bend_radius_m: (base.bend_radius_m * 0.6).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 0.85).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 0.6).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 0.85).max(route_width_m),
                 wave_type: SerpentineWaveType::Square,
             },
         ),
@@ -228,8 +238,8 @@ fn serpentine_variants(route: &cfd_schematics::ChannelRouteSpec) -> Vec<(String,
             "tr",
             SerpentineSpec {
                 segments: (base.segments + 1).max(3),
-                bend_radius_m: (base.bend_radius_m * 0.9).max(route.height_m),
-                segment_length_m: (base.segment_length_m * 0.95).max(route.width_m),
+                bend_radius_m: (base.bend_radius_m * 0.9).max(route_height_m),
+                segment_length_m: (base.segment_length_m * 0.95).max(route_width_m),
                 wave_type: SerpentineWaveType::Triangular,
             },
         ),
@@ -650,7 +660,7 @@ pub fn generate_ga_mutations(
             if !branch.treatment_path {
                 continue; // Only scale treatment branches for now
             }
-            let base_w = branch.route.width_m;
+            let base_w = branch.route.width_m.into_base();
             for &(factor, label) in &[
                 (1.10, "w110"), // 10% wider → more flow → more cells (both CTC and RBC)
                 (1.20, "w120"), // 20% wider

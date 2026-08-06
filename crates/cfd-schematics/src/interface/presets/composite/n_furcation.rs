@@ -6,6 +6,7 @@ use crate::topology::{
     VenturiPlacementMode,
 };
 use crate::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::Length;
 
 fn parallel_channels_for_n_furcation(
     splits: usize,
@@ -22,9 +23,9 @@ fn parallel_channels_for_n_furcation(
                 format!("arm_{}", index + 1)
             },
             route: ChannelRouteSpec {
-                length_m,
-                width_m,
-                height_m,
+                length_m: Length::from_base(length_m),
+                width_m: Length::from_base(width_m),
+                height_m: Length::from_base(height_m),
                 serpentine: serpentine.clone(),
                 therapy_zone: TherapyZone::CancerTarget,
             },

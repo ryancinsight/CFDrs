@@ -68,7 +68,9 @@ pub fn build_component_audit(candidate: &BlueprintCandidate) -> Vec<ComponentAud
                     component_type: format!("{:?}", branch.role),
                     governing_physics: format!(
                         "Rectangular microchannel flow with width {:.6e} m, height {:.6e} m, and length {:.6e} m.",
-                        branch.route.width_m, branch.route.height_m, branch.route.length_m
+                        branch.route.width_m.into_base(),
+                        branch.route.height_m.into_base(),
+                        branch.route.length_m.into_base()
                     ),
                     safety_relevance: if branch.treatment_path {
                         "Defines the treatment-lane residence time, cavitation exposure, and CTC enrichment path.".to_string()

@@ -143,14 +143,14 @@ impl BlueprintTopologyFactory {
     /// Derive a representative channel width from the spec for `GeometryConfig`.
     pub(super) fn representative_channel_width_m(spec: &BlueprintTopologySpec) -> f64 {
         if let Some(first_series) = spec.series_channels.first() {
-            return first_series.route.width_m;
+            return first_series.route.width_m.into_base();
         }
         if let Some(first_parallel) = spec.parallel_channels.first() {
-            return first_parallel.route.width_m;
+            return first_parallel.route.width_m.into_base();
         }
         if let Some(first_stage) = spec.split_stages.first() {
             if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.width_m;
+                return first_branch.route.width_m.into_base();
             }
         }
         1.0e-3 // Default 1mm
@@ -159,14 +159,14 @@ impl BlueprintTopologyFactory {
     /// Derive a representative channel height from the spec for `GeometryConfig`.
     pub(super) fn representative_channel_height_m(spec: &BlueprintTopologySpec) -> f64 {
         if let Some(first_series) = spec.series_channels.first() {
-            return first_series.route.height_m;
+            return first_series.route.height_m.into_base();
         }
         if let Some(first_parallel) = spec.parallel_channels.first() {
-            return first_parallel.route.height_m;
+            return first_parallel.route.height_m.into_base();
         }
         if let Some(first_stage) = spec.split_stages.first() {
             if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.height_m;
+                return first_branch.route.height_m.into_base();
             }
         }
         0.5e-3 // Default 0.5mm

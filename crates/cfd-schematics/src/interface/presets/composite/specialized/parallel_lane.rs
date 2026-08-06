@@ -48,9 +48,9 @@ pub(super) fn parallel_lane(
     ParallelChannelSpec {
         channel_id: channel_id.into(),
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine,
             therapy_zone,
         },

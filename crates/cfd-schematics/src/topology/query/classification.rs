@@ -79,10 +79,9 @@ impl BlueprintTopologySpec {
 
             if !treatment_branches.is_empty() && !bypass_branches.is_empty() {
                 let treat_w = treatment_branches[0].route.width_m;
-                if bypass_branches
-                    .iter()
-                    .any(|branch| (branch.route.width_m - treat_w).abs() > 1e-12)
-                {
+                if bypass_branches.iter().any(|branch| {
+                    (branch.route.width_m.into_base() - treat_w.into_base()).abs() > 1e-12
+                }) {
                     return true;
                 }
             }
@@ -106,7 +105,7 @@ impl BlueprintTopologySpec {
             let total_width: f64 = stage
                 .branches
                 .iter()
-                .map(|branch| branch.route.width_m)
+                .map(|branch| branch.route.width_m.into_base())
                 .sum();
             if total_width <= 0.0 {
                 continue;
@@ -115,7 +114,7 @@ impl BlueprintTopologySpec {
                 .branches
                 .iter()
                 .filter(|branch| branch.treatment_path)
-                .map(|branch| branch.route.width_m)
+                .map(|branch| branch.route.width_m.into_base())
                 .sum();
             frac *= treatment_width / total_width;
         }

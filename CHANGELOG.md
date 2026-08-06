@@ -57,6 +57,13 @@ All notable changes to this project will be documented in this file.
   `Dimensionless` quantities. Scalar extraction remains at mesh, trigonometric,
   routing, and CSG formula boundaries; real geometry introduces no imaginary
   physical unit for Eunomia representations.
+
+- **Breaking:** Type `ChannelRouteSpec` length, width, and height with Eunomia
+  `Length<f64>` values in base metres. Migrate schematic builders, geometry
+  generators, optimization mutations, reporting, integration fixtures, and
+  serialization consumers without adapters; scalar extraction remains at
+  validation, routing, mesh, formula, reporting, and serialization boundaries.
+  The route contract is real-valued and has no imaginary SI quantity.
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

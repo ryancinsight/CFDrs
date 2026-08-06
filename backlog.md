@@ -90,20 +90,23 @@
   export Nextest 7/7 (`99d0c65e-4428-45ad-a3fd-a02646324ee0`); cfd-schematics
   doctests 16/16; and cfd-optim doctests 2 passed with 3 ignored.
 
-- **CFDRS-AEQ-MET-50 [major] - Type channel route geometry (in progress
-  2026-08-05; owner=current Codex session; scope=`ChannelRouteSpec` route
-  length, width, and height plus direct schematic/optimization callers).**
-  The post-MET49 scan found the public route authoring contract still stores
-  metres as raw `f64` values. Type those three dimensions with Eunomia
-  `Length<f64>`, migrate direct constructors and consumers without adapters,
-  and keep scalar extraction at validation, routing, mesh, formula, reporting,
-  and serialization boundaries. Non-goals are `SerpentineSpec`,
-  `SubBranchSpec`, and `BlueprintTopologySpec` envelope fields, which remain
-  separate audit boundaries. Acceptance is a typed public-field scan, a
-  route builder/JSON round-trip value regression, warning-denied all-targets
-  Clippy and Nextest for cfd-schematics and cfd-optim, exact current-revision
-  doctest gates, synchronized audit/changelog/ADR evidence, and confirmation
-  that the route remains real-valued with no imaginary SI unit.
+- **CFDRS-AEQ-MET-50 [major] - Type channel route geometry (done 2026-08-05;
+  owner=current Codex session; scope=`ChannelRouteSpec` route length, width,
+  and height plus direct schematic/optimization callers).** The public route
+  authoring contract now carries all three dimensions as Eunomia `Length<f64>`
+  values in base metres. Direct constructors and consumers are migrated
+  without adapters; scalar extraction remains at validation, routing, mesh,
+  formula, reporting, and serialization boundaries. `SerpentineSpec`,
+  `SubBranchSpec`, and `BlueprintTopologySpec` envelope fields remain separate
+  audit boundaries. The builder/JSON round-trip regression preserves route
+  values within the derived one-binary64-round-trip bound. Evidence: current
+  all-targets checks pass; warning-denied Clippy passes for cfd-schematics and
+  cfd-optim; cfd-schematics Nextest passes 183/183
+  (`0fc16e9a-d734-43f0-a7d3-bb93fd9d187c`); cfd-optim Nextest passes 137/137
+  across five binaries (`7747ec29-d04c-458a-a7fc-21fceee58f7d`); focused
+  schematic export passes 7/7 (`da5aef30-c34e-492b-a416-118f167f690f`);
+  cfd-schematics doctests pass 16/16; and cfd-optim doctests pass 2 with 3
+  ignored. The contract remains real-valued; no imaginary SI quantity applies.
 
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=

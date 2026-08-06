@@ -70,8 +70,8 @@ mod tests {
         assert!(stage.branches[1].treatment_path);
         assert!(!stage.branches[2].treatment_path);
 
-        let center_w = stage.branches[1].route.width_m;
-        let left_w = stage.branches[0].route.width_m;
+        let center_w = stage.branches[1].route.width_m.into_base();
+        let left_w = stage.branches[0].route.width_m.into_base();
         assert!(
             (center_w - 2e-3).abs() < 1e-9,
             "center = 33.3% of 6mm = 2mm, got {center_w}"
@@ -110,9 +110,9 @@ mod tests {
                 crate::topology::ParallelChannelSpec {
                     channel_id: "lane_a".to_string(),
                     route: crate::topology::ChannelRouteSpec {
-                        length_m: 10.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(10.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: None,
                         therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
                     },
@@ -120,9 +120,9 @@ mod tests {
                 crate::topology::ParallelChannelSpec {
                     channel_id: "lane_b".to_string(),
                     route: crate::topology::ChannelRouteSpec {
-                        length_m: 10.0e-3,
-                        width_m: 1.2e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(10.0e-3),
+                        width_m: Length::from_base(1.2e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: None,
                         therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
                     },

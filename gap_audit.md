@@ -39,13 +39,22 @@ topology builder, geometry generators, optimization mutations, reporting, and
 serialization, so unit comments do not provide dimensional protection at the
 authoring boundary.
 
-Status: in progress. The bounded slice covers only the three
-`ChannelRouteSpec` dimensions and their direct callers. `SerpentineSpec`,
-`SubBranchSpec`, and `BlueprintTopologySpec` envelope dimensions remain
-separate boundaries. The target contract is Eunomia real-valued
-`Length<f64>` in base metres, with explicit scalar extraction only at
-validation, routing, mesh, formula, reporting, and serialization edges. No
-complex or imaginary SI quantity applies.
+The gap is closed. `ChannelRouteSpec` now carries Eunomia real-valued
+`Length<f64>` values in base metres for route length, width, and height.
+Schematic builders, geometry generators, optimization mutations, reporting,
+integration fixtures, and serialization consumers are migrated without
+adapters; scalar extraction remains only at validation, routing, mesh, formula,
+reporting, and serialization edges. The builder/JSON round-trip regression
+preserves route values within the derived one-binary64-round-trip bound.
+`SerpentineSpec`, `SubBranchSpec`, and `BlueprintTopologySpec` envelope
+dimensions remain separate audit boundaries. Current all-targets checks pass;
+warning-denied Clippy passes for both crates; cfd-schematics Nextest passes
+183/183 (`0fc16e9a-d734-43f0-a7d3-bb93fd9d187c`); cfd-optim Nextest passes
+137/137 across five binaries (`7747ec29-d04c-458a-a7fc-21fceee58f7d`);
+focused schematic export passes 7/7
+(`da5aef30-c34e-492b-a416-118f167f690f`); cfd-schematics doctests pass 16/16;
+and cfd-optim doctests pass 2 with 3 ignored. The contract remains
+real-valued; no complex or imaginary SI quantity applies.
 
 ## Venturi topology authoring geometry (CFDRS-AEQ-MET-49, 2026-08-05)
 

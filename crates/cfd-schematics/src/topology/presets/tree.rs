@@ -7,6 +7,7 @@ use super::super::model::{
     TreatmentActuationMode,
 };
 use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use aequitas::systems::si::quantities::Length;
 
 /// Create an N-level asymmetric split tree spec (Option 1 seed).
 ///
@@ -80,9 +81,9 @@ pub fn asymmetric_split_tree_spec(
                         role,
                         treatment_path: treatment,
                         route: ChannelRouteSpec {
-                            length_m: trunk_length_m * 0.8,
-                            width_m: w,
-                            height_m: channel_height_m,
+                            length_m: Length::from_base(trunk_length_m * 0.8),
+                            width_m: Length::from_base(w),
+                            height_m: Length::from_base(channel_height_m),
                             serpentine: None,
                             therapy_zone,
                         },

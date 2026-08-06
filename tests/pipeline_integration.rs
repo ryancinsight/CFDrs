@@ -33,9 +33,9 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::WbcCollection,
                     treatment_path: false,
                     route: ChannelRouteSpec {
-                        length_m: 24.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(24.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
@@ -46,9 +46,9 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::Treatment,
                     treatment_path: true,
                     route: ChannelRouteSpec {
-                        length_m: 30.0e-3,
-                        width_m: 2.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(30.0e-3),
+                        width_m: Length::from_base(2.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: Some(SerpentineSpec {
                             wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
                             segments: 4,
@@ -64,9 +64,9 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
                     route: ChannelRouteSpec {
-                        length_m: 24.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(24.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },

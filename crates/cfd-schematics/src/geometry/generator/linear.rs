@@ -101,9 +101,9 @@ fn build_series_channel(
         &channel.channel_id,
         from,
         to,
-        channel.route.length_m,
-        channel.route.width_m,
-        channel.route.height_m,
+        channel.route.length_m.into_base(),
+        channel.route.width_m.into_base(),
+        channel.route.height_m.into_base(),
         0.0,
         0.0,
     );
@@ -112,7 +112,7 @@ fn build_series_channel(
             start,
             end,
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m * 1.5e3),
+            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m.into_base() * 1.5e3),
         )
     } else {
         vec![start, end]
@@ -134,14 +134,14 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
 
     for (idx, channel) in spec.series_channels.iter().enumerate() {
         if idx < channel_count - 1 {
-            current_x += channel.route.length_m * 1000.0;
+            current_x += channel.route.length_m.into_base() * 1000.0;
             nodes.push(layout_node(
                 format!("junction_{idx}"),
                 NodeKind::Junction,
                 (current_x, y_mm),
             ));
         } else {
-            current_x += channel.route.length_m * 1000.0;
+            current_x += channel.route.length_m.into_base() * 1000.0;
             nodes.push(layout_node("outlet", NodeKind::Outlet, (current_x, y_mm)));
         }
     }
@@ -198,9 +198,9 @@ fn build_parallel_channel(
         &channel.channel_id,
         inlet.id.as_str(),
         outlet.id.as_str(),
-        channel.route.length_m,
-        channel.route.width_m,
-        channel.route.height_m,
+        channel.route.length_m.into_base(),
+        channel.route.width_m.into_base(),
+        channel.route.height_m.into_base(),
         0.0,
         0.0,
     );
@@ -211,7 +211,7 @@ fn build_parallel_channel(
             (start.0 + 10.0, lane_y_mm),
             (end.0 - 10.0, lane_y_mm),
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m * 1.5e3),
+            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m.into_base() * 1.5e3),
         );
         path.insert(0, start);
         path.push(end);

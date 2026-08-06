@@ -78,7 +78,7 @@ pub fn milestone12_primitive_selective_tree_spec(
         outlet_treatment_width_m = branches
             .iter()
             .filter(|branch| branch.treatment_path)
-            .map(|branch| branch.route.width_m)
+            .map(|branch| branch.route.width_m.into_base())
             .sum::<f64>()
             .max(outlet_treatment_width_m.min(request.inlet_width_m));
 
@@ -210,13 +210,15 @@ pub fn promote_milestone12_option1_to_option2(
         )
     })?;
 
+    let representative_width_m = representative_route.width_m.into_base();
+    let representative_length_m = representative_route.length_m.into_base();
     let throat_width_m =
-        (representative_route.width_m * 0.4).clamp(60.0e-6, representative_route.width_m * 0.85);
+        (representative_width_m * 0.4).clamp(60.0e-6, representative_width_m * 0.85);
     let throat_length_m =
-        (representative_route.length_m / 8.0).clamp(300.0e-6, representative_route.length_m * 0.5);
+        (representative_length_m / 8.0).clamp(300.0e-6, representative_length_m * 0.5);
 
-    let throat_height_m = representative_route.height_m;
-    let inlet_width_m = representative_route.width_m;
+    let throat_height_m = representative_route.height_m.into_base();
+    let inlet_width_m = representative_width_m;
 
     let spec = with_venturi(
         topology.clone(),

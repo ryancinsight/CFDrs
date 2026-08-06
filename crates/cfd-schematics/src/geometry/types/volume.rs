@@ -102,6 +102,7 @@ mod tests {
     use crate::topology::presets::parallel_path_spec;
     use crate::topology::{ChannelRouteSpec, ParallelChannelSpec};
     use crate::{BlueprintTopologyFactory, TreatmentActuationMode};
+    use aequitas::systems::si::quantities::Length;
 
     #[test]
     fn summary_preserves_volume_and_unit_conversion() {
@@ -114,9 +115,9 @@ mod tests {
             vec![ParallelChannelSpec {
                 channel_id: "channel".to_string(),
                 route: ChannelRouteSpec {
-                    length_m: 10.0e-3,
-                    width_m: 1.0e-3,
-                    height_m: 1.0e-3,
+                    length_m: Length::from_base(10.0e-3),
+                    width_m: Length::from_base(1.0e-3),
+                    height_m: Length::from_base(1.0e-3),
                     serpentine: None,
                     therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
                 },
@@ -134,7 +135,10 @@ mod tests {
         // The volume is computed from schematic blueprint path coordinates (hypot
         // accumulation), which can exceed the physical channel length_m. Only check
         // that conversion is positive and that the display label is present.
-        assert!(volume_mm3 > 0.0, "volume must be positive, got {volume_mm3}");
+        assert!(
+            volume_mm3 > 0.0,
+            "volume must be positive, got {volume_mm3}"
+        );
         assert!(summary.display_label.contains("uL"));
     }
 }

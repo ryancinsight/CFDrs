@@ -869,8 +869,11 @@ fn lane_serpentine_diminishing_return(route: &cfd_schematics::ChannelRouteSpec) 
     };
 
     let neutral_segments = 4.0;
-    let neutral_bend_radius_m = (route.width_m * 2.5).max(route.height_m);
-    let neutral_segment_length_m = (route.length_m / 4.0).max(route.width_m);
+    let route_width_m = route.width_m.into_base();
+    let route_height_m = route.height_m.into_base();
+    let route_length_m = route.length_m.into_base();
+    let neutral_bend_radius_m = (route_width_m * 2.5).max(route_height_m);
+    let neutral_segment_length_m = (route_length_m / 4.0).max(route_width_m);
 
     let segments_factor = serpentine.segments as f64 / neutral_segments;
     let bend_factor = serpentine.bend_radius_m / neutral_bend_radius_m.max(1.0e-12);

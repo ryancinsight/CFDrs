@@ -66,9 +66,9 @@ mod tests {
             vec![ParallelChannelSpec {
                 channel_id: "treatment_lane".to_string(),
                 route: ChannelRouteSpec {
-                    length_m: 10.0e-3,
-                    width_m: 1.6e-3,
-                    height_m: 1.0e-3,
+                    length_m: Length::from_base(10.0e-3),
+                    width_m: Length::from_base(1.6e-3),
+                    height_m: Length::from_base(1.0e-3),
                     serpentine: None,
                     therapy_zone: TherapyZone::CancerTarget,
                 },

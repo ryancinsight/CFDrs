@@ -6,6 +6,7 @@ use crate::topology::model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, SerpentineSpec, SplitKind,
     SplitStageSpec, TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::Length;
 
 impl BlueprintTopologyFactory {
     /// Validate a spec without building (called by `NetworkBlueprint::validate`).
@@ -43,7 +44,7 @@ impl BlueprintTopologyFactory {
                     .find(|s| s.stage_id == stage_id)
                     .and_then(|s| s.branches.iter_mut().find(|b| b.label == branch_label))
                     .ok_or_else(|| format!("Branch {stage_id}/{branch_label} not found"))?;
-                branch.route.width_m = new_width_m;
+                branch.route.width_m = Length::from_base(new_width_m);
             }
             BlueprintTopologyMutation::ReplaceSplitKind {
                 stage_id,
@@ -69,9 +70,9 @@ impl BlueprintTopologyFactory {
                             role: crate::topology::model::BranchRole::Neutral,
                             treatment_path: i == 0,
                             route: crate::topology::model::ChannelRouteSpec {
-                                length_m: 10.0e-3,
-                                width_m: 1.0e-3,
-                                height_m: 0.5e-3,
+                                length_m: Length::from_base(10.0e-3),
+                                width_m: Length::from_base(1.0e-3),
+                                height_m: Length::from_base(0.5e-3),
                                 serpentine: None,
                                 therapy_zone:
                                     crate::domain::therapy_metadata::TherapyZone::MixedFlow,
@@ -286,9 +287,9 @@ fn build_inserted_treatment_stage(
     parent_route: &ChannelRouteSpec,
     treatment_serpentine: Option<SerpentineSpec>,
 ) -> Result<SplitStageSpec, String> {
-    let parent_width_m = parent_route.width_m;
-    let height_m = parent_route.height_m;
-    let length_m = parent_route.length_m.max(1.0e-3);
+    let parent_width_m = parent_route.width_m.into_base();
+    let height_m = parent_route.height_m.into_base();
+    let length_m = parent_route.length_m.into_base().max(1.0e-3);
     let branches = match split_kind {
         SplitKind::NFurcation(2) => {
             let treatment_width = parent_width_m * 0.68;
@@ -298,9 +299,9 @@ fn build_inserted_treatment_stage(
                     role: BranchRole::Treatment,
                     treatment_path: true,
                     route: ChannelRouteSpec {
-                        length_m,
-                        width_m: treatment_width,
-                        height_m,
+                        length_m: Length::from_base(length_m),
+                        width_m: Length::from_base(treatment_width),
+                        height_m: Length::from_base(height_m),
                         serpentine: treatment_serpentine.clone(),
                         therapy_zone: TherapyZone::CancerTarget,
                     },
@@ -311,9 +312,11 @@ fn build_inserted_treatment_stage(
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
                     route: ChannelRouteSpec {
-                        length_m,
-                        width_m: (parent_width_m - treatment_width).max(f64::EPSILON),
-                        height_m,
+                        length_m: Length::from_base(length_m),
+                        width_m: Length::from_base(
+                            (parent_width_m - treatment_width).max(f64::EPSILON),
+                        ),
+                        height_m: Length::from_base(height_m),
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
@@ -441,9 +444,9 @@ fn treatment_branch(
         role: BranchRole::Treatment,
         treatment_path: true,
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine,
             therapy_zone: TherapyZone::CancerTarget,
         },
@@ -463,9 +466,9 @@ fn bypass_branch(
         role,
         treatment_path: false,
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine: None,
             therapy_zone: TherapyZone::HealthyBypass,
         },

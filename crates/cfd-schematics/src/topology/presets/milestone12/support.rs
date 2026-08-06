@@ -4,6 +4,7 @@ use crate::geometry::metadata::BlueprintRenderHints;
 use crate::topology::model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, SerpentineSpec, SplitKind,
 };
+use aequitas::systems::si::quantities::Length;
 
 use super::{
     Milestone12PrimitiveSelectiveSpec, Milestone12StageBranchSpec, Milestone12StageLayout,
@@ -83,9 +84,9 @@ pub(super) fn treatment_branch(
         role,
         treatment_path: true,
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine,
             therapy_zone: TherapyZone::CancerTarget,
         },
@@ -105,9 +106,9 @@ pub(super) fn bypass_branch(
         role,
         treatment_path: false,
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine: None,
             therapy_zone: TherapyZone::HealthyBypass,
         },
