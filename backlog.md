@@ -31,15 +31,28 @@
 
 ## Active integration
 
-- **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (in progress
+- **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (done
   2026-08-05; owner=current Codex session; scope=`ChannelSpec.length_m`, its
   `NetworkBlueprint` length metrics, and direct schematic/1D/2D/mesh/optim
-  consumers).** Replace the public raw metre scalar with Eunomia
-  `Length<f64>`, keep scalar extraction at validation, solver, mesh, and
-  reporting boundaries, and add a value-semantic serialization regression.
-  `ChannelShape`, `SerpentineSpec`, `SubBranchSpec`, and
-  `BlueprintTopologySpec` envelope dimensions are non-goals for this item.
-  The contract is real-valued; no complex or imaginary SI quantity applies.
+  consumers).** `ChannelSpec.length_m`, `NetworkBlueprint::total_length_m`,
+  and `NetworkBlueprint::length_in_zone` now use Eunomia `Length<f64>` values;
+  scalar extraction remains at validation, solver, mesh, formula, and
+  reporting boundaries. The JSON value round-trip and aggregate-length
+  regression pass. `ChannelShape`, `SerpentineSpec`, `SubBranchSpec`, and
+  `BlueprintTopologySpec` envelope dimensions remain separate audit
+  boundaries. The contract is real-valued; no complex or imaginary SI
+  quantity applies. Evidence: affected package checks; warning-denied Clippy
+  for all affected packages, with only the pre-existing 47 cfd-3d test-only
+  lints remaining under its all-target gate; cfd-schematics Nextest 185/185
+  (`0b6f89e8-4ccd-4405-8712-03ff8d04d65c`), cfd-1d 736/736 with 3 skips
+  (`e5e7fd93-33d0-453d-9c35-4efabc0304a0`), cfd-2d 571/571 with 27 skips
+  (`a087098a-fac7-44df-86d4-45d49f0a222f`), cfd-schematic-mesh 29/29
+  (`17cdca1e-a771-4010-ba5a-2b9b88e1357b`), cfd-optim 137/137
+  (`19fc2f35-073c-40dc-927a-8f526d893113`), focused cfd-validation
+  cross-fidelity 26/26 (`d2caa165-c22e-4de4-90ab-6b69faa00e53`), and focused
+  cfd-3d adversarial 19/19 (`75119690-a48d-4332-a638-221933de02ec`).
+  Affected-package doctests pass; the broad cfd-validation runtime residual
+  remains tracked separately from this focused closure.
 
 - **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (done
   2026-08-05; owner=current Codex session; scope=`cfd-schematics` therapy

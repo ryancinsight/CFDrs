@@ -39,13 +39,29 @@ blueprint summaries, route validation, cfd-1d resistance and serpentine
 conversion, cfd-2d projection, mesh volume, and cfd-optim metrics, so a unit
 comment does not provide dimensional protection across those boundaries.
 
-This item is in progress. It will carry the field and the public aggregate
-length queries through Eunomia `Length<f64>`, migrate direct consumers without
-adapters, and retain scalar extraction only where a solver, mesh, formula,
-report, or external serialization contract requires it. `ChannelShape`,
-`SerpentineSpec`, `SubBranchSpec`, `BlueprintTopologySpec` envelope dimensions,
-and reporting-only DTOs remain separate audit boundaries. The contract is
-real-valued; no complex or imaginary SI quantity applies.
+The gap is closed. `ChannelSpec.length_m`,
+`NetworkBlueprint::total_length_m`, and `NetworkBlueprint::length_in_zone` now
+use Eunomia real-valued `Length<f64>` values. Schematic, cfd-1d, cfd-2d,
+cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d consumers migrate
+without adapters; scalar extraction remains only at validation, solver, mesh,
+formula, and reporting edges. The JSON value round-trip and aggregate-length
+regression preserve the authored value. `ChannelShape`, `SerpentineSpec`,
+`SubBranchSpec`, `BlueprintTopologySpec` envelope dimensions, and
+reporting-only DTOs remain separate audit boundaries.
+
+Affected package checks pass. Warning-denied Clippy passes for the affected
+packages; cfd-3d library Clippy passes, while its all-target gate retains 47
+pre-existing test-only lints outside this metric slice. Nextest passes
+cfd-schematics 185/185 (`0b6f89e8-4ccd-4405-8712-03ff8d04d65c`), cfd-1d
+736/736 with 3 skips (`e5e7fd93-33d0-453d-9c35-4efabc0304a0`), cfd-2d 571/571
+with 27 skips (`a087098a-fac7-44df-86d4-45d49f0a222f`), cfd-schematic-mesh
+29/29 (`17cdca1e-a771-4010-ba5a-2b9b88e1357b`), cfd-optim 137/137
+(`19fc2f35-073c-40dc-927a-8f526d893113`), focused cfd-validation
+cross-fidelity 26/26 (`d2caa165-c22e-4de4-90ab-6b69faa00e53`), and focused
+cfd-3d adversarial 19/19 (`75119690-a48d-4332-a638-221933de02ec`). Affected
+package doctests pass. The broad cfd-validation runtime residual remains
+tracked separately. The contract is real-valued; no complex or imaginary SI
+quantity applies.
 
 ## Cross-section authoring geometry (CFDRS-AEQ-MET-51, 2026-08-05)
 
