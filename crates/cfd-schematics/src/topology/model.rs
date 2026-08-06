@@ -1,4 +1,5 @@
 use crate::domain::therapy_metadata::TherapyZone;
+use aequitas::systems::si::quantities::{Dimensionless, Length};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,9 +156,9 @@ pub struct VenturiPlacementSpec {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub struct DeanSiteEstimate {
-    pub dean_number: f64,
-    pub curvature_radius_m: f64,
-    pub arc_length_m: f64,
+    pub dean_number: Dimensionless<f64>,
+    pub curvature_radius_m: Length<f64>,
+    pub arc_length_m: Length<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

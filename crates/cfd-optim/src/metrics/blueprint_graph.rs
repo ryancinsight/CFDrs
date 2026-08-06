@@ -142,8 +142,10 @@ pub fn solve_blueprint_candidate(
                         .flow_rates
                         .get(edge_index.index())
                         .copied()
-                        .map(VolumetricFlowRate::into_base)
-                        .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base())
+                        .map_or_else(
+                            || edge_ref.weight().flow_rate.into_base(),
+                            VolumetricFlowRate::into_base,
+                        )
                         .abs();
                 }
             }
@@ -209,8 +211,10 @@ pub fn solve_blueprint_candidate(
             .flow_rates
             .get(edge_index.index())
             .copied()
-            .map(VolumetricFlowRate::into_base)
-            .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base());
+            .map_or_else(
+                || edge_ref.weight().flow_rate.into_base(),
+                VolumetricFlowRate::into_base,
+            );
         edge_by_id.insert(edge_ref.weight().id.as_str(), (flow_m3_s, from_pressure_pa));
     }
 

@@ -49,11 +49,27 @@
   `cfd-1d` library Nextest 498/498 (`0ab2db66-61ea-4687-b1cd-0ae0b4d2c7a1`),
   the `blueprint_metadata_physics` integration target 5/5
   (`fc331715-f569-434e-ac39-878a71527903`), and focused cfd-1d/cfd-2d/mesh
-  source checks. The full cfd-schematics doctest gate ran 15/16; Windows
-  Defender quarantined the unrelated `SmoothTransitionConfig` doctest
-  executable with OS error 225 and `Trojan:Win32/Wacatac.C!ml` (ThreatID
-  `2147749372`). No exclusion or test weakening was applied; this host
-  residual is not a metric implementation failure.
+  source checks, and the exact current-revision cfd-schematics doctest gate
+  16/16. An earlier doctest attempt was transiently quarantined by Windows
+  Defender; the clean rerun passed without an exclusion, test weakening, or
+  source workaround.
+
+- **CFDRS-AEQ-MET-48 [major] - Type Dean-site topology analysis metrics (done
+  2026-08-05; owner=current Codex session; scope=`DeanSiteEstimate`
+  and its direct optimization/reporting consumer).** The public topology
+  analysis result still exposed the Dean number, curvature radius, and arc
+  length as raw values even though the downstream Venturi metrics already
+  carried the two lengths as Aequitas quantities. Carry the complete result
+  through Eunomia `Dimensionless`/`Length` values and extract only at the
+  optimization/reporting boundary. Preserve real-valued Eunomia semantics;
+  no imaginary SI quantity applies. Acceptance is a typed public-field scan,
+  a value-semantic Dean placement regression, focused cfd-schematics and
+  cfd-optim gates, and synchronized audit/changelog evidence. Evidence:
+  `cfd-schematics` check, Clippy, and Nextest 158/158
+  (`02e7d1ec-da65-4228-be11-e7971929ac4a`); cfd-optim check, warning-denied
+  Clippy, and the Dean placement Nextest 1/1
+  (`aa2e43da-1a8b-411c-b23f-462c2c38411f`) pass. The full cfd-schematics
+  doctest gate passes 16/16 at the delivered revision.
 
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=

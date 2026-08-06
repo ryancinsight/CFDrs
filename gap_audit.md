@@ -31,6 +31,24 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Dean-site topology analysis metrics (CFDRS-AEQ-MET-48, 2026-08-05)
+
+The post-MET47 public-contract scan found `DeanSiteEstimate` still exposed a
+dimensionless Dean number and its curvature/arc lengths as raw `f64` values.
+The downstream optimization metric already carried the two lengths as
+Aequitas quantities, so the raw topology-analysis result was the remaining
+boundary gap.
+
+The implementation is complete: `DeanSiteEstimate` now carries Eunomia
+`Dimensionless<f64>` and `Length<f64>` values, and cfd-optim extracts only at
+its reporting metric boundary. The Dean placement regression now also checks
+that the typed curvature radius and arc length remain positive. Focused
+`cfd-schematics` and `cfd-optim` checks, warning-denied Clippy, the
+value-semantic Nextest gates, and the exact current-revision cfd-schematics
+doctests 16/16 pass. This is a real-valued CFD result; no complex or imaginary
+SI unit applies. The remaining topology
+authoring input fields are the next separate boundary.
+
 ## Venturi geometry metadata metrics (CFDRS-AEQ-MET-47, 2026-08-05)
 
 A fresh public-contract scan found a residual unit gap below the schematic-mesh

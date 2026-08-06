@@ -40,6 +40,11 @@ All notable changes to this project will be documented in this file.
   mesh, and serialization boundaries. Canonical angle fields store radians and
   remain real-valued; no imaginary physical unit applies.
 
+- **Breaking:** Type `DeanSiteEstimate` with Eunomia `Dimensionless` and
+  `Length` quantities, preserving scalar extraction only in the downstream
+  optimization/reporting DTO. The Dean placement regression verifies the
+  typed curvature radius and arc length remain positive.
+
 - **Breaking:** Type schematic-mesh runtime geometry configuration and emitted
   centerline coordinates/diameters with Aequitas `Angle`, `Length`, and
   `Dimensionless` quantities. Scalar extraction remains at mesh, trigonometric,

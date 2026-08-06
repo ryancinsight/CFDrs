@@ -7,6 +7,7 @@ use crate::topology::model::{
     BlueprintTopologySpec, DeanSiteEstimate, SplitKind, TopologyLineageMetadata,
     TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::{Dimensionless, Length};
 
 impl BlueprintTopologyFactory {
     pub fn estimate_dean_site(
@@ -85,9 +86,9 @@ impl BlueprintTopologyFactory {
         };
 
         Some(DeanSiteEstimate {
-            dean_number: dean_num,
-            curvature_radius_m: curve_radius_m,
-            arc_length_m,
+            dean_number: Dimensionless::from_base(dean_num),
+            curvature_radius_m: Length::from_base(curve_radius_m),
+            arc_length_m: Length::from_base(arc_length_m),
         })
     }
 

@@ -345,9 +345,9 @@ pub fn compute_blueprint_venturi_metrics(
                 ),
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
                 total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
-                dean_number: dean_site.dean_number,
-                curvature_radius_m: Length::from_base(dean_site.curvature_radius_m),
-                arc_length_m: Length::from_base(dean_site.arc_length_m),
+                dean_number: dean_site.dean_number.into_base(),
+                curvature_radius_m: dean_site.curvature_radius_m,
+                arc_length_m: dean_site.arc_length_m,
                 dominant_selective_population: screening.dominant_selective_population,
                 selectivity_margin_pa: screening.selectivity_margin_pa,
                 mixture_inception_threshold_pa: screening.mixture_inception_threshold_pa,
@@ -509,6 +509,8 @@ mod tests {
             dean.placements[0].dean_number >= straight.placements[0].dean_number,
             "CurvaturePeakDeanNumber must select a Dean site at least as strong as StraightSegment"
         );
+        assert!(dean.placements[0].curvature_radius_m.into_base() > 0.0);
+        assert!(dean.placements[0].arc_length_m.into_base() > 0.0);
     }
 
     /// Zero cavitation: f(σ) = 0 for σ ≥ 1.
