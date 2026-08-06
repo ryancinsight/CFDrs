@@ -31,6 +31,24 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## ChannelSpec hydraulic metrics (CFDRS-AEQ-MET-63, 2026-08-06)
+
+The post-MET62 public-contract scan found `ChannelSpec.resistance`,
+`quad_coeff`, `pump_max_flow`, and `pump_max_pressure` still crossing the
+schematic-to-solver boundary as raw scalars. These values are hydraulic
+coefficients and operating limits, not layout or serialization metadata.
+`valve_cv` also crosses the boundary, but its conventional SI unit contains a
+square root of pressure; Eunomia's current integer-exponent SI dimensions
+represent the equivalent quadratic loss coefficient instead.
+
+In progress. The next vertical slice will carry the representable hydraulic
+metrics as Aequitas quantities through cfd-schematics and direct cfd-1d
+consumers, and will replace the valve flow-coefficient storage with an
+Aequitas-backed quadratic-loss representation at the solver boundary. Existing
+schematic coordinates remain explicit visualization/serialization data. No
+complex or imaginary SI quantity applies to this real hydraulic network
+contract.
+
 ## ShellCuboid authoring dimensions (CFDRS-AEQ-MET-62, 2026-08-06)
 
 The post-MET61 scan found `ShellCuboid.outer_dims`,

@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics
+  (in progress 2026-08-06; owner=current Codex session; scope=
+  `ChannelSpec` hydraulic coefficients and pump limits, valve loss metadata,
+  direct cfd-1d conversion, and value-semantic tests).** Replace raw
+  `resistance`, `quad_coeff`, `pump_max_flow`, and `pump_max_pressure` with
+  Eunomia-backed Aequitas quantities. Represent valve `Cv` through its
+  dimensionally exact quadratic hydraulic-loss coefficient because the current
+  provider SI axis uses integer exponents and cannot encode `sqrt(Pa)` as a
+  standalone quantity. Preserve scalar extraction only at formula and
+  serialization boundaries. The real hydraulic contract has no complex or
+  imaginary SI quantity.
+
 - **CFDRS-AEQ-MET-62 [major] - Type ShellCuboid authoring dimensions
   (done 2026-08-06; owner=current Codex session; scope=
   `ShellCuboid`, shell generator, renderer, direct examples, and
