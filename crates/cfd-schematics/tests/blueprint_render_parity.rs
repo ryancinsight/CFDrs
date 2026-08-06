@@ -1,4 +1,5 @@
-use cfd_schematics::domain::model::ChannelShape;
+use aequitas::systems::si::quantities::Length;
+use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;
 use cfd_schematics::interface::presets::{
     cascade_center_trifurcation_rect, double_trifurcation_cif_venturi_rect,
@@ -9,6 +10,28 @@ use cfd_schematics::NetworkBlueprint;
 
 fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
     bp.nodes.iter().any(|node| node.id.0 == node_id)
+}
+
+#[test]
+fn cross_section_quantities_round_trip_through_json() {
+    let cases = [
+        CrossSectionSpec::Circular {
+            diameter_m: Length::from_base(1.2e-3),
+        },
+        CrossSectionSpec::Rectangular {
+            width_m: Length::from_base(1.5e-3),
+            height_m: Length::from_base(0.75e-3),
+        },
+    ];
+
+    for section in cases {
+        let encoded = serde_json::to_string(&section).expect("cross-section JSON must encode");
+        let decoded: CrossSectionSpec =
+            serde_json::from_str(&encoded).expect("cross-section JSON must decode");
+        assert_eq!(decoded, section);
+        assert!(decoded.area().into_base() > 0.0);
+        assert!(decoded.hydraulic_diameter().into_base() > 0.0);
+    }
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {
@@ -57,7 +80,7 @@ fn staged_cif_blueprint_uses_native_geometry() {
         .expect("venturi blueprint should render a throat channel");
     match &throat.cross_section {
         cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, .. } => {
-            assert!(*width_m > 0.0);
+            assert!(width_m.into_base() > 0.0);
         }
         _ => panic!("Expected rectangular"),
     }

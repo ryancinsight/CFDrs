@@ -101,7 +101,7 @@ impl InletOutletConstraint {
             }
 
             for ch in adjacent {
-                let actual = Length::from_unit::<Meter>(ch.cross_section.hydraulic_diameter());
+                let actual = ch.cross_section.hydraulic_diameter();
                 // 1e-12 m slop guards against floating-point rounding at the tolerance boundary.
                 if (actual.in_unit::<Meter>() - REQUIRED_HYDRAULIC_DIAMETER.in_unit::<Meter>())
                     .abs()

@@ -177,8 +177,8 @@ pub(super) fn annotate_primitive_tree(
         };
 
         channel.cross_section = crate::domain::model::CrossSectionSpec::Rectangular {
-            width_m: physical_width,
-            height_m: request.channel_height_m,
+            width_m: Length::from_base(physical_width),
+            height_m: Length::from_base(request.channel_height_m),
         };
         channel.length_m = channel_length_from_points_or_endpoints(
             &points,

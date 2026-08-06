@@ -55,8 +55,8 @@ fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {
         to: NodeId::new("outlet"),
         length_m: l,
         cross_section: CrossSectionSpec::Rectangular {
-            width_m: w,
-            height_m: h,
+            width_m: Length::from_base(w),
+            height_m: Length::from_base(h),
         },
         channel_shape: ChannelShape::Straight,
         resistance: 0.0,

@@ -302,7 +302,7 @@ pub fn compute_blueprint_report_metrics(
     let mut per_channel_hemolysis = Vec::with_capacity(solve.channel_samples.len());
 
     for sample in &solve.channel_samples {
-        let area_m2 = sample.cross_section.area().max(1.0e-18);
+        let area_m2 = sample.cross_section.area().into_base().max(1.0e-18);
         let velocity_m_s = sample.flow_m3_s.into_base().abs() / area_m2;
         let shear_rate_inv_s = sample.cross_section.wall_shear_rate(velocity_m_s);
         let shear = DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S)
@@ -398,7 +398,7 @@ pub fn compute_blueprint_report_metrics(
         .channel_samples
         .iter()
         .filter(|sample| sample.is_treatment_channel)
-        .map(|sample| resonance_match(sample.cross_section.hydraulic_diameter()))
+        .map(|sample| resonance_match(sample.cross_section.hydraulic_diameter().into_base()))
         .fold(0.0_f64, f64::max);
     let throat_temperature_rise_k = if max_venturi_shear_rate_inv_s > 0.0 {
         max_venturi_shear_pa * max_venturi_shear_rate_inv_s * max_venturi_transit_time_s
@@ -505,7 +505,7 @@ pub fn compute_blueprint_report_metrics(
             .channel_samples
             .iter()
             .filter(|sample| sample.is_treatment_channel)
-            .map(|sample| sample.cross_section.dims().1)
+            .map(|sample| sample.cross_section.dims().1.into_base())
             .reduce(f64::max)
             .unwrap_or(0.0),
     );
@@ -1141,7 +1141,7 @@ mod tests {
             .channel_samples
             .iter()
             .filter(|sample| sample.is_treatment_channel)
-            .map(|sample| sample.length_m.into_base() * sample.cross_section.area())
+            .map(|sample| sample.length_m.into_base() * sample.cross_section.area().into_base())
             .sum::<f64>();
 
         assert_eq!(

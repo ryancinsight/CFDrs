@@ -108,21 +108,38 @@
   cfd-schematics doctests pass 16/16; and cfd-optim doctests pass 2 with 3
   ignored. The contract remains real-valued; no imaginary SI quantity applies.
 
-- **CFDRS-AEQ-MET-51 [major] - Type cross-section authoring geometry (in
-  progress 2026-08-05; owner=current Codex session; scope=
-  `CrossSectionSpec` diameter/width/height fields, derived diameter/area/dims
-  methods, and direct cfd-schematics/cfd-1d/cfd-optim consumers).** The public
-  cross-section enum still exposes metre and square-metre values as raw
-  scalars. Type its linear fields with Eunomia `Length<f64>`, return typed
-  `Length`/`Area` from derived geometry methods, and keep scalar extraction at
-  resistance, shear, mesh, reporting, and serialization formula boundaries.
-  Non-goals are `ChannelSpec.length_m`, `ChannelShape`, `BlueprintTopologySpec`
-  envelope fields, and reporting-only DTOs, which remain separate audit
-  boundaries. Acceptance is a typed enum-field scan, JSON value round-trip,
-  updated cfd-schematics/cfd-1d/cfd-optim callers, warning-denied all-targets
-  Clippy/Nextest, doctests, synchronized audit/changelog/ADR evidence, and
-  confirmation that cross-section quantities remain real-valued with no
-  imaginary SI unit.
+- **CFDRS-AEQ-MET-51 [major] - Type cross-section authoring geometry (done
+  2026-08-05; owner=current Codex session; scope=`CrossSectionSpec`
+  diameter/width/height fields, derived diameter/area/dims methods, and direct
+  workspace consumers).** The public cross-section enum now carries Eunomia
+  `Length<f64>` fields and returns typed `Length<f64>`/`Area<f64>` values from
+  its derived geometry methods. cfd-schematics, cfd-1d, cfd-2d,
+  cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d callers extract
+  base scalars only at resistance, shear, mesh, reporting, validation, and
+  serialization boundaries; no adapter or parallel scalar field remains.
+  A JSON round-trip regression verifies value semantics for circular and
+  rectangular sections. Non-goals remain `ChannelSpec.length_m`,
+  `ChannelShape`, `BlueprintTopologySpec` envelope fields, and reporting-only
+  DTOs, which are separate audit boundaries. The contract is real-valued; no
+  complex or imaginary SI quantity applies. Evidence: all-target checks pass
+  for cfd-schematics, cfd-1d, cfd-2d, cfd-schematic-mesh, cfd-optim,
+  cfd-validation, and cfd-3d; warning-denied Clippy passes for every affected
+  package except the pre-existing cfd-3d test-only lint debt, while
+  `cfd-3d --lib` passes; Nextest passes cfd-schematics 184/184
+  (`e9d08e3f-1b88-41b7-b8fa-a32268526683`), cfd-1d 736/736 with 3 skips
+  (`f24d4151-b5d3-43d1-b607-64bb1eb223f9`), cfd-2d 571/571 with 27 skips
+  (`be48c699-3864-4f89-b502-30ad6431cc47`), cfd-schematic-mesh 29/29
+  (`60a35f4a-e928-4db7-afef-5c482dc81c24`), cfd-optim 137/137
+  (`6d417cf5-053d-493a-951d-75c348f612fa`), focused cfd-validation
+  cross-fidelity 26/26 (`0a23f5e7-da71-41b6-8176-8e1922a7a58b`), and focused
+  cfd-3d adversarial 19/19 (`bff89a57-8394-437c-9f1e-d93d4ca02c4a`).
+  Doctests pass: cfd-schematics 16/16, cfd-1d 8/8 with 3 ignored, cfd-2d
+  1/1 with 2 ignored, cfd-schematic-mesh 0, cfd-optim 2/2 with 3 ignored,
+  cfd-validation 4/4 with 2 ignored, and cfd-3d 0 with 2 ignored. The full
+  cfd-validation package nextest attempt exceeded the 300-second command
+  budget because its broader suite contains hundreds of unrelated validation
+  cases; the focused changed-contract suite is green and the full run remains
+  a runtime residual rather than a weakened gate.
 
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=

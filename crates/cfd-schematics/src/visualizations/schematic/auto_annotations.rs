@@ -116,12 +116,12 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
         let min_w = blueprint
             .channels
             .iter()
-            .map(|ch| ch.cross_section.dims().0)
+            .map(|ch| ch.cross_section.dims().0.into_base())
             .fold(f64::INFINITY, f64::min);
         let max_w = blueprint
             .channels
             .iter()
-            .map(|ch| ch.cross_section.dims().0)
+            .map(|ch| ch.cross_section.dims().0.into_base())
             .fold(f64::NEG_INFINITY, f64::max);
         annotations.legend_note = Some(format!(
             "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm  |  line thickness ∝ channel width",

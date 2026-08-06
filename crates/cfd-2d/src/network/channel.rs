@@ -116,7 +116,7 @@ where
             let cnf = CellTrackerConfig {
                 viscosity: DynamicViscosity::from_base(entry.viscosity_pa_s),
                 fluid_density: MassDensity::from_base(1060.0),
-                hydraulic_diameter: Length::from_base(entry.cross_section.hydraulic_diameter()),
+                hydraulic_diameter: entry.cross_section.hydraulic_diameter(),
                 u_max: Velocity::from_base(u_mean.abs()),
                 ..Default::default()
             };

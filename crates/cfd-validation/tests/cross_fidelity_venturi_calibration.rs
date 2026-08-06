@@ -31,7 +31,9 @@ fn blood_fluid() -> ConstantPropertyFluid<f64> {
 
 fn rectangular_dims(cross_section: &CrossSectionSpec) -> (f64, f64) {
     match cross_section {
-        CrossSectionSpec::Rectangular { width_m, height_m } => (*width_m, *height_m),
+        CrossSectionSpec::Rectangular { width_m, height_m } => {
+            (width_m.into_base(), height_m.into_base())
+        }
         other => panic!("Expected rectangular venturi section, got {other:?}"),
     }
 }

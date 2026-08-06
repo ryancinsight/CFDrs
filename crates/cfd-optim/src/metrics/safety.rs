@@ -54,7 +54,7 @@ pub(crate) fn compute_typed_blueprint_safety_metrics(
     let cy_model = CarreauYasudaModel::<f64>::typical_blood();
 
     for sample in &solve.channel_samples {
-        let area_m2 = sample.cross_section.area().max(1.0e-18);
+        let area_m2 = sample.cross_section.area().into_base().max(1.0e-18);
         let mean_velocity = Velocity::from_base(sample.flow_m3_s.into_base().abs() / area_m2);
         let shear_rate_inv_s = sample
             .cross_section

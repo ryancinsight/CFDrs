@@ -58,9 +58,12 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
 
         let area = match spec.cross_section {
             cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
             }
             cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 T::from_f64_or_zero(width_m * height_m)
             }
         };

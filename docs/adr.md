@@ -747,6 +747,23 @@ warning-denied Clippy pass for both crates; cfd-schematics Nextest passes
 183/183 and cfd-optim Nextest passes 137/137 across five binaries. The route
 contract is real-valued; no complex or imaginary SI quantity applies.
 
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::CrossSectionSpec` authoring boundary. Circular diameter and
+rectangular width/height now use Eunomia `Length<f64>` in base metres;
+hydraulic diameter and area queries return typed `Length<f64>` and `Area<f64>`.
+Scalar extraction is limited to resistance, shear, mesh, reporting,
+validation, and serialization formula edges. Direct cfd-schematics, cfd-1d,
+cfd-2d, cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d callers
+migrate in the same change with no adapter or duplicate scalar field. The
+contract is real-valued; no complex or imaginary SI quantity applies.
+
+Verification: all-target checks pass for the affected packages; warning-denied
+Clippy passes for every affected package except the pre-existing cfd-3d
+test-only lint debt, while cfd-3d library Clippy passes. Nextest passes the
+changed-contract package suites and focused cross-fidelity/adversarial tests;
+doctest results and the full cfd-validation runtime residual are recorded in
+`gap_audit.md`.
+
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 
 Context: cfd-1d channel, membrane, and organ components documented length,

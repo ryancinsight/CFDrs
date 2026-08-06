@@ -64,6 +64,16 @@ All notable changes to this project will be documented in this file.
   serialization consumers without adapters; scalar extraction remains at
   validation, routing, mesh, formula, reporting, and serialization boundaries.
   The route contract is real-valued and has no imaginary SI quantity.
+
+- **Breaking:** Type `CrossSectionSpec` circular diameter and rectangular
+  width/height with Eunomia `Length<f64>` values, and return typed `Length` and
+  `Area` from hydraulic-diameter, area, and dimension queries. Migrate the
+  cfd-schematics, cfd-1d, cfd-2d, cfd-schematic-mesh, cfd-optim,
+  cfd-validation, and cfd-3d consumers without adapters; scalar extraction
+  remains at resistance, shear, mesh, reporting, validation, and serialization
+  boundaries. The cross-section contract is real-valued and has no complex or
+  imaginary SI quantity.
+
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

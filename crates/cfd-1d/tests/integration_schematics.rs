@@ -121,7 +121,9 @@ fn test_blueprint_negative_length_rejected() {
         to: NodeId::new("out"),
         length_m: -0.1, // Invalid negative length!
         resistance: 100.0,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 0.001 },
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(0.001),
+        },
         channel_shape: ChannelShape::Straight,
         quad_coeff: 0.0,
         valve_cv: None,
@@ -179,7 +181,9 @@ fn test_blueprint_zero_diameter_rejected() {
         to: NodeId::new("out"),
         length_m: 0.1,
         resistance: 100.0,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 }, // Invalid zero diameter
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(0.0), // Invalid zero diameter
+        },
         channel_shape: ChannelShape::Straight,
         quad_coeff: 0.0,
         valve_cv: None,

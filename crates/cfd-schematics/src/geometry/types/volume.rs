@@ -56,7 +56,7 @@ impl NetworkBlueprint {
                     channel.length_m * 1000.0
                 };
                 let centerline_length = Length::from_unit::<Millimeter>(centerline_length);
-                let cross_section_area = Area::from_base(channel.cross_section.area());
+                let cross_section_area = channel.cross_section.area();
                 let fluid_volume = centerline_length * cross_section_area;
 
                 ChannelFluidVolumeSummary {

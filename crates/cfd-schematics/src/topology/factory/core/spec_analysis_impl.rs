@@ -21,8 +21,8 @@ impl BlueprintTopologyFactory {
             .iter()
             .find(|ch| ch.id.as_str() == placement.target_channel_id)?;
 
-        let d_h = channel.cross_section.hydraulic_diameter();
-        let area = channel.cross_section.area();
+        let d_h = channel.cross_section.hydraulic_diameter().into_base();
+        let area = channel.cross_section.area().into_base();
         if area <= 0.0 || d_h <= 0.0 {
             return None;
         }

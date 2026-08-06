@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ch.id.as_str(),
             ch.from.as_str(),
             ch.to.as_str(),
-            ch.cross_section.hydraulic_diameter() * 1e3,
+            ch.cross_section.hydraulic_diameter().into_base() * 1e3,
             ch.length_m * 1e3,
             ch.resistance,
         );

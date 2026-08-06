@@ -42,8 +42,8 @@ fn rectangular_bifurcation_blueprint(
     ));
 
     let rectangular_section = |width_m: f64| CrossSectionSpec::Rectangular {
-        width_m,
-        height_m: DEPTH_M,
+        width_m: aequitas::systems::si::quantities::Length::from_base(width_m),
+        height_m: aequitas::systems::si::quantities::Length::from_base(DEPTH_M),
     };
 
     bp.add_channel(ChannelSpec {

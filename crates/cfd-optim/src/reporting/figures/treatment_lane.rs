@@ -119,7 +119,7 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
             venturi_count += 1;
         }
 
-        let width_mm = channel.cross_section.dims().0 * 1.0e3;
+        let width_mm = channel.cross_section.dims().0.into_base() * 1.0e3;
         let width_px = if is_venturi {
             8.0
         } else {

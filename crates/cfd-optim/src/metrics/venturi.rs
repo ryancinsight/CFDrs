@@ -243,7 +243,8 @@ pub fn compute_blueprint_venturi_metrics(
         let sample = &solve.channel_samples[idx];
         let phi_in = node_nuclei.get(sample.from_node).copied().unwrap_or(0.0);
 
-        let velocity = sample.flow_m3_s.into_base().abs() / sample.cross_section.area().max(1e-18);
+        let velocity =
+            sample.flow_m3_s.into_base().abs() / sample.cross_section.area().into_base().max(1e-18);
         let transit_time_s = sample.length_m.into_base() / velocity.max(1e-9);
         let phi_arrival = transport.advect_1d_dissolution(phi_in, transit_time_s);
         let mut phi_out = phi_arrival;

@@ -170,6 +170,7 @@ where
         edge.resistance = HydraulicResistance::from_base(seed_r);
         edge.area = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 if diameter_m <= 0.0 || !diameter_m.is_finite() {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Channel '{}' has invalid circular diameter: {}",
@@ -182,6 +183,8 @@ where
                 ))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 if width_m <= 0.0
                     || !width_m.is_finite()
                     || height_m <= 0.0
@@ -231,6 +234,7 @@ where
 
         let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 let d = Length::from_base(T::from_f64_or_zero(diameter_m));
                 let a = Area::from_base(T::from_f64_or_zero(
                     std::f64::consts::PI * (diameter_m / 2.0).powi(2),
@@ -246,6 +250,8 @@ where
                 )
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 let w = Length::from_base(T::from_f64_or_zero(width_m));
                 let h = Length::from_base(T::from_f64_or_zero(height_m));
                 let a = Area::from_base(T::from_f64_or_zero(width_m * height_m));
@@ -443,12 +449,12 @@ where
 
             let cross_section = match ch_spec.cross_section {
                 CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
-                    diameter: diameter_m,
+                    diameter: diameter_m.into_base(),
                 },
                 CrossSectionSpec::Rectangular { width_m, height_m } => {
                     SerpentineCrossSection::Rectangular {
-                        width: width_m,
-                        height: height_m,
+                        width: width_m.into_base(),
+                        height: height_m.into_base(),
                     }
                 }
             };

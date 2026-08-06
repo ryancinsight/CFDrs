@@ -148,6 +148,8 @@ fn cross_fidelity_blueprint_consistency() {
             .find(|t| t.channel_id == ch.id.as_str())
         {
             let (w, h) = ch.cross_section.dims();
+            let w = w.into_base();
+            let h = h.into_base();
             let is_venturi = ch.venturi_geometry.is_some();
             let throat_w = ch.venturi_geometry.as_ref().map(|v| v.throat_width_m);
 
@@ -259,6 +261,8 @@ fn cross_fidelity_blueprint_complex_branching() {
             .find(|t| t.channel_id == ch.id.as_str())
         {
             let (w, h) = ch.cross_section.dims();
+            let w = w.into_base();
+            let h = h.into_base();
             let is_venturi = ch.venturi_geometry.is_some();
             let throat_w = ch.venturi_geometry.as_ref().map(|v| v.throat_width_m);
 

@@ -3,6 +3,7 @@ use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
     JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
 };
+use aequitas::systems::si::quantities::{Area, Length};
 use serde::{Deserialize, Serialize};
 
 /// Cross-section geometry specification for a channel
@@ -15,15 +16,15 @@ use serde::{Deserialize, Serialize};
 pub enum CrossSectionSpec {
     /// Circular cross-section (e.g. tubing, blood vessels)
     Circular {
-        /// Inner diameter \[m]
-        diameter_m: f64,
+        /// Inner diameter as an Eunomia-backed SI length.
+        diameter_m: Length<f64>,
     },
     /// Rectangular cross-section (e.g. PDMS microfluidic channels)
     Rectangular {
-        /// Width \[m]
-        width_m: f64,
-        /// Height \[m]
-        height_m: f64,
+        /// Width as an Eunomia-backed SI length.
+        width_m: Length<f64>,
+        /// Height as an Eunomia-backed SI length.
+        height_m: Length<f64>,
     },
 }
 
@@ -33,21 +34,27 @@ impl CrossSectionSpec {
     /// - Circular: `D_h = d`
     /// - Rectangular: `D_h = 2wh / (w + h)`
     #[must_use]
-    pub fn hydraulic_diameter(&self) -> f64 {
+    pub fn hydraulic_diameter(&self) -> Length<f64> {
         match self {
             Self::Circular { diameter_m } => *diameter_m,
             Self::Rectangular { width_m, height_m } => {
-                2.0 * width_m * height_m / (width_m + height_m)
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
+                Length::from_base(2.0 * width_m * height_m / (width_m + height_m))
             }
         }
     }
 
     /// Cross-sectional area \[m²]
     #[must_use]
-    pub fn area(&self) -> f64 {
+    pub fn area(&self) -> Area<f64> {
         match self {
-            Self::Circular { diameter_m } => std::f64::consts::PI * (diameter_m / 2.0).powi(2),
-            Self::Rectangular { width_m, height_m } => width_m * height_m,
+            Self::Circular { diameter_m } => {
+                Area::from_base(std::f64::consts::PI * (diameter_m.into_base() / 2.0).powi(2))
+            }
+            Self::Rectangular { width_m, height_m } => {
+                Area::from_base(width_m.into_base() * height_m.into_base())
+            }
         }
     }
 
@@ -56,7 +63,7 @@ impl CrossSectionSpec {
     /// - Circular: `(d, d)`
     /// - Rectangular: `(w, h)`
     #[must_use]
-    pub fn dims(&self) -> (f64, f64) {
+    pub fn dims(&self) -> (Length<f64>, Length<f64>) {
         match self {
             Self::Circular { diameter_m } => (*diameter_m, *diameter_m),
             Self::Rectangular { width_m, height_m } => (*width_m, *height_m),
@@ -78,8 +85,8 @@ impl CrossSectionSpec {
     #[must_use]
     pub fn wall_shear_rate(&self, u_mean: f64) -> f64 {
         match self {
-            Self::Rectangular { height_m, .. } => 6.0 * u_mean / height_m.max(1e-18),
-            Self::Circular { diameter_m } => 8.0 * u_mean / diameter_m.max(1e-18),
+            Self::Rectangular { height_m, .. } => 6.0 * u_mean / height_m.into_base().max(1e-18),
+            Self::Circular { diameter_m } => 8.0 * u_mean / diameter_m.into_base().max(1e-18),
         }
     }
 }
@@ -261,7 +268,9 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m,
-            cross_section: CrossSectionSpec::Circular { diameter_m },
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(diameter_m),
+            },
             channel_shape: ChannelShape::Straight,
             resistance,
             quad_coeff,
@@ -294,7 +303,10 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m,
-            cross_section: CrossSectionSpec::Rectangular { width_m, height_m },
+            cross_section: CrossSectionSpec::Rectangular {
+                width_m: Length::from_base(width_m),
+                height_m: Length::from_base(height_m),
+            },
             channel_shape: ChannelShape::Straight,
             resistance,
             quad_coeff,
@@ -322,7 +334,9 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m: 0.0,
-            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(0.0),
+            },
             channel_shape: ChannelShape::Straight,
             resistance: 0.0,
             quad_coeff: 0.0,
@@ -351,7 +365,9 @@ impl ChannelSpec {
             from: NodeId::new(from),
             to: NodeId::new(to),
             length_m: 0.0,
-            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(0.0),
+            },
             channel_shape: ChannelShape::Straight,
             resistance: 0.0,
             quad_coeff: 0.0,
@@ -386,7 +402,7 @@ impl ChannelSpec {
 
     /// Extract the effective hydraulic width of the channel in meters.
     #[must_use]
-    pub fn effective_width_m(&self) -> f64 {
+    pub fn effective_width_m(&self) -> Length<f64> {
         match self.cross_section {
             CrossSectionSpec::Rectangular { width_m, .. } => width_m,
             CrossSectionSpec::Circular { diameter_m } => diameter_m,
@@ -395,7 +411,7 @@ impl ChannelSpec {
 
     /// Extract the effective hydraulic height of the channel in meters.
     #[must_use]
-    pub fn effective_height_m(&self) -> f64 {
+    pub fn effective_height_m(&self) -> Length<f64> {
         match self.cross_section {
             CrossSectionSpec::Rectangular { height_m, .. } => height_m,
             CrossSectionSpec::Circular { diameter_m } => diameter_m,

@@ -257,7 +257,7 @@ pub fn from_blueprint(
             let h = match ch.cross_section {
                 cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
                     height_m, ..
-                } => (height_m * 1000.0) as Real,
+                } => (height_m.into_base() * 1000.0) as Real,
                 cfd_schematics::domain::model::CrossSectionSpec::Circular { .. } => inlet_w,
             };
 
@@ -269,7 +269,7 @@ pub fn from_blueprint(
             match ch.cross_section {
                 cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
                     ChannelProfile::Circular {
-                        radius: (diameter_m as Real * 1000.0) / 2.0,
+                        radius: (diameter_m.into_base() as Real * 1000.0) / 2.0,
                         segments: channel_segments,
                     }
                 }
@@ -277,8 +277,8 @@ pub fn from_blueprint(
                     width_m,
                     height_m,
                 } => ChannelProfile::Rectangular {
-                    width: width_m as Real * 1000.0,
-                    height: height_m as Real * 1000.0,
+                    width: width_m.into_base() as Real * 1000.0,
+                    height: height_m.into_base() as Real * 1000.0,
                 },
             }
         };

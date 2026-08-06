@@ -93,8 +93,12 @@ impl NetworkBlueprint {
             .filter(|(_, channel)| channel.path.len() >= 2)
             .map(|(index, channel)| {
                 let width_mm = match channel.cross_section {
-                    super::super::CrossSectionSpec::Rectangular { width_m, .. } => width_m * 1e3,
-                    super::super::CrossSectionSpec::Circular { diameter_m } => diameter_m * 1e3,
+                    super::super::CrossSectionSpec::Rectangular { width_m, .. } => {
+                        width_m.into_base() * 1e3
+                    }
+                    super::super::CrossSectionSpec::Circular { diameter_m } => {
+                        diameter_m.into_base() * 1e3
+                    }
                 };
                 (index, width_mm)
             })

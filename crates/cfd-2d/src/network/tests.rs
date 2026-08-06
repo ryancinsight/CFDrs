@@ -42,7 +42,9 @@ fn circular_blueprint() -> NetworkBlueprint {
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
         length_m: 0.01,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 1.0e-3 },
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(1.0e-3),
+        },
         channel_shape: ChannelShape::Straight,
         resistance: 0.0,
         quad_coeff: 0.0,

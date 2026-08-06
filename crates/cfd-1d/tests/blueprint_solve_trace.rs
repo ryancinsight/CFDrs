@@ -40,7 +40,9 @@ fn pipe(id: &str, from: &str, to: &str, length_m: f64, diameter_m: f64) -> Chann
         to: NodeId::new(to),
         length_m,
         resistance: 0.0, // computed from geometry by network_from_blueprint
-        cross_section: CrossSectionSpec::Circular { diameter_m },
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(diameter_m),
+        },
         channel_shape: ChannelShape::Straight,
         quad_coeff: 0.0,
         valve_cv: None,

@@ -6,7 +6,7 @@
 //! that path end-to-end.
 
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
@@ -92,7 +92,9 @@ fn circular_straight_blueprint(diameter_m: f64, length_m: f64) -> NetworkBluepri
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
         length_m,
-        cross_section: CrossSectionSpec::Circular { diameter_m },
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: Length::from_base(diameter_m),
+        },
         channel_shape: ChannelShape::Straight,
         resistance: 0.0,
         quad_coeff: 0.0,

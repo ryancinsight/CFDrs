@@ -36,7 +36,7 @@ mod tests {
             .find(|c| c.id.as_str() == id)
             .expect("channel must exist");
         match ch.cross_section {
-            CrossSectionSpec::Rectangular { width_m, .. } => width_m,
+            CrossSectionSpec::Rectangular { width_m, .. } => width_m.into_base(),
             CrossSectionSpec::Circular { .. } => panic!("expected rectangular cross-section"),
         }
     }

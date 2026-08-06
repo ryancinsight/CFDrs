@@ -96,12 +96,12 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
 
     let cross_section = match channel.cross_section {
         CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
-            diameter: diameter_m,
+            diameter: diameter_m.into_base(),
         },
         CrossSectionSpec::Rectangular { width_m, height_m } => {
             SerpentineCrossSection::Rectangular {
-                width: width_m,
-                height: height_m,
+                width: width_m.into_base(),
+                height: height_m.into_base(),
             }
         }
     };
@@ -442,8 +442,8 @@ fn venturi_throat_width_and_length_change_coefficients() {
         throat.length_m = 1.6e-3;
         throat.path = vec![(5.0, 0.0), (6.6, 0.0)];
         throat.cross_section = cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
-            width_m: 1.8e-4,
-            height_m: 0.5e-3,
+            width_m: aequitas::systems::si::quantities::Length::from_base(1.8e-4),
+            height_m: aequitas::systems::si::quantities::Length::from_base(0.5e-3),
         };
         throat.venturi_geometry = Some(VenturiGeometryMetadata {
             throat_width_m: Length::from_base(1.8e-4),

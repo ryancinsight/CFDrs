@@ -84,11 +84,12 @@ impl BlueprintValidator {
                 )));
             }
 
-            if channel.cross_section.hydraulic_diameter() <= 0.0 {
+            let hydraulic_diameter_m = channel.cross_section.hydraulic_diameter().into_base();
+            if hydraulic_diameter_m <= 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has non-positive hydraulic diameter: {}",
                     channel.id.as_str(),
-                    channel.cross_section.hydraulic_diameter()
+                    hydraulic_diameter_m
                 )));
             }
 

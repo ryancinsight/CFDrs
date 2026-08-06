@@ -38,14 +38,25 @@ circular diameter and rectangular width/height as raw metre scalars. Its
 derived hydraulic diameter, area, and dimensions also return raw values while
 feeding cfd-1d conversion and cfd-optim reporting/validation paths.
 
-Status: in progress. The bounded slice covers the `CrossSectionSpec` fields,
-derived diameter/area/dims methods, and direct cfd-schematics, cfd-1d, and
-cfd-optim consumers. `ChannelSpec.length_m`, `ChannelShape`,
-`BlueprintTopologySpec` envelope dimensions, and reporting-only DTOs remain
-separate audit boundaries. The target contract is Eunomia real-valued
-`Length<f64>` and `Area<f64>`, with scalar extraction only at resistance,
-shear, mesh, reporting, and serialization formula edges. No complex or
-imaginary SI quantity applies.
+The gap is closed. `CrossSectionSpec` now carries Eunomia real-valued
+`Length<f64>` fields and returns typed `Length<f64>`/`Area<f64>` values from
+its hydraulic diameter, area, and dimensions methods. cfd-schematics, cfd-1d,
+cfd-2d, cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d callers
+extract base scalars only at resistance, shear, mesh, reporting, validation,
+and serialization boundaries; no adapter or parallel scalar field remains.
+The circular/rectangular JSON round-trip regression preserves value semantics.
+`ChannelSpec.length_m`, `ChannelShape`, `BlueprintTopologySpec` envelope
+dimensions, and reporting-only DTOs remain separate audit boundaries. Current
+all-target checks pass. Warning-denied Clippy passes for every affected package
+except pre-existing cfd-3d test-only lint debt; cfd-3d library Clippy passes.
+Nextest passes cfd-schematics 184/184, cfd-1d 736/736 with 3 skips, cfd-2d
+571/571 with 27 skips, cfd-schematic-mesh 29/29, cfd-optim 137/137, focused
+cfd-validation cross-fidelity 26/26, and focused cfd-3d adversarial 19/19.
+Doctests pass for every affected package. The full cfd-validation package
+nextest attempt exceeded the 300-second command budget because its broad suite
+contains hundreds of unrelated validation cases; the changed-contract suite
+is green and the runtime residual is retained without weakening the runner.
+The contract remains real-valued; no complex or imaginary SI quantity applies.
 
 ## Channel route authoring geometry (CFDRS-AEQ-MET-50, 2026-08-05)
 

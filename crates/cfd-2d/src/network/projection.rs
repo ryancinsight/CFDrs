@@ -168,8 +168,8 @@ fn transformed_centerline(
 
 fn default_half_width(channel: &ChannelSpec) -> f64 {
     match channel.cross_section {
-        CrossSectionSpec::Circular { diameter_m } => diameter_m * 0.5,
-        CrossSectionSpec::Rectangular { width_m, .. } => width_m * 0.5,
+        CrossSectionSpec::Circular { diameter_m } => diameter_m.into_base() * 0.5,
+        CrossSectionSpec::Rectangular { width_m, .. } => width_m.into_base() * 0.5,
     }
 }
 

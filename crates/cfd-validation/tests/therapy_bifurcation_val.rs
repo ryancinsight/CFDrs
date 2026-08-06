@@ -64,7 +64,7 @@ fn test_symmetric_bifurcation_constraints() {
             ch.id.as_str()
         );
         assert!(
-            ch.cross_section.area() > 0.0,
+            ch.cross_section.area().into_base() > 0.0,
             "Channel '{}' must have positive area",
             ch.id.as_str()
         );

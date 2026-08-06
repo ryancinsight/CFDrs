@@ -180,7 +180,7 @@ impl NetworkBlueprint {
                         let inlet_width_mm = venturi.inlet_width_m.into_base() * 1.0e3;
                         let throat_width_mm = venturi.throat_width_m.into_base() * 1.0e3;
                         let outlet_width_mm = venturi.outlet_width_m.into_base() * 1.0e3;
-                        let height_mm = height_m * 1.0e3;
+                        let height_mm = height_m.into_base() * 1.0e3;
                         let width_profile_mm =
                             vec![inlet_width_mm, throat_width_mm, outlet_width_mm];
                         InterchangeChannelProfile::Frustum {
@@ -199,7 +199,7 @@ impl NetworkBlueprint {
                         }
                     }
                     (CrossSectionSpec::Circular { diameter_m }, _) => {
-                        let diameter_mm = diameter_m * 1.0e3;
+                        let diameter_mm = diameter_m.into_base() * 1.0e3;
                         InterchangeChannelProfile::Circular {
                             diameter_mm,
                             cross_section_area_mm2: std::f64::consts::PI
@@ -207,8 +207,8 @@ impl NetworkBlueprint {
                         }
                     }
                     (CrossSectionSpec::Rectangular { width_m, height_m }, _) => {
-                        let width_mm = width_m * 1.0e3;
-                        let height_mm = height_m * 1.0e3;
+                        let width_mm = width_m.into_base() * 1.0e3;
+                        let height_mm = height_m.into_base() * 1.0e3;
                         let area = width_mm * height_mm;
                         InterchangeChannelProfile::Constant {
                             width_mm,

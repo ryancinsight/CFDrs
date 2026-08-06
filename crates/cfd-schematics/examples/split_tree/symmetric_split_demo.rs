@@ -36,25 +36,26 @@ fn main() {
         tracing::info!(
             "Channel ID {}: Width = {:.4} mm",
             ch.id.0,
-            (ch.effective_width_m() * 1000.0)
+            (ch.effective_width_m().into_base() * 1000.0)
         );
 
-        if ((ch.effective_width_m() * 1000.0) - 1.0).abs() < 0.001 {
+        if ((ch.effective_width_m().into_base() * 1000.0) - 1.0).abs() < 0.001 {
             inlet_found = true;
-        } else if ((ch.effective_width_m() * 1000.0) - 1.5).abs() < 0.001 {
+        } else if ((ch.effective_width_m().into_base() * 1000.0) - 1.5).abs() < 0.001 {
             center_found = true;
             tracing::info!("  -> Found expected CENTER branch (1.5mm)");
-        } else if (ch.effective_width_m() * 1000.0) > 0.0 && (ch.effective_width_m() * 1000.0) < 1.5
+        } else if (ch.effective_width_m().into_base() * 1000.0) > 0.0
+            && (ch.effective_width_m().into_base() * 1000.0) < 1.5
         {
             peripheral_count += 1;
             tracing::info!(
                 "  -> Found peripheral / merge branch ({:.4}mm)",
-                (ch.effective_width_m() * 1000.0)
+                (ch.effective_width_m().into_base() * 1000.0)
             );
         } else {
             tracing::info!(
                 "  -> Found merged/outlet branch ({:.4}mm)",
-                (ch.effective_width_m() * 1000.0)
+                (ch.effective_width_m().into_base() * 1000.0)
             );
         }
     }

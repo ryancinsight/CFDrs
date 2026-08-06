@@ -4,7 +4,7 @@ use crate::geometry::metadata::{ChannelVenturiSpec, MetadataContainer, VenturiGe
 use crate::topology::{
     TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
 };
-use aequitas::systems::si::quantities::{Dimensionless, Length};
+use aequitas::systems::si::quantities::Dimensionless;
 
 impl NetworkBlueprint {
     pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
@@ -33,13 +33,13 @@ impl NetworkBlueprint {
             let resolved_inlet_width_m = if config.throat_geometry.inlet_width_m.into_base() > 0.0 {
                 config.throat_geometry.inlet_width_m
             } else {
-                Length::from_base(channel.effective_width_m())
+                channel.effective_width_m()
             };
             let resolved_outlet_width_m = if config.throat_geometry.outlet_width_m.into_base() > 0.0
             {
                 config.throat_geometry.outlet_width_m
             } else {
-                Length::from_base(channel.effective_width_m())
+                channel.effective_width_m()
             };
             let venturi_geometry = VenturiGeometryMetadata {
                 throat_width_m: config.throat_geometry.throat_width_m,

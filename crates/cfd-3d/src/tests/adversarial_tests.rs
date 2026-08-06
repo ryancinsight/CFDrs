@@ -309,8 +309,8 @@ mod cross_fidelity_physics_tests {
             to: NodeId::new("outlet"),
             length_m: l,
             cross_section: CrossSectionSpec::Rectangular {
-                width_m: w,
-                height_m: h,
+                width_m: aequitas::systems::si::quantities::Length::from_base(w),
+                height_m: aequitas::systems::si::quantities::Length::from_base(h),
             },
             channel_shape: cfd_schematics::domain::model::ChannelShape::Straight,
             resistance: 0.0,
