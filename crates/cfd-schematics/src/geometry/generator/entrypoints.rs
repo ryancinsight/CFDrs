@@ -4,19 +4,20 @@ use super::GeometryGenerator;
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::NetworkBlueprint;
 use crate::topology::{BlueprintTopologySpec, TopologyLineageMetadata};
+use aequitas::systems::si::quantities::Length;
 
 /// Configuration for metadata generation.
 #[derive(Debug, Clone, Default)]
 pub struct MetadataConfig {
     pub track_performance: bool,
     pub track_optimization: bool,
-    pub channel_diameter_mm: Option<f64>,
+    pub channel_diameter_m: Option<Length<f64>>,
 }
 
 impl MetadataConfig {
     #[must_use]
-    pub const fn with_channel_diameter_mm(mut self, channel_diameter_mm: f64) -> Self {
-        self.channel_diameter_mm = Some(channel_diameter_mm);
+    pub const fn with_channel_diameter_m(mut self, channel_diameter_m: Length<f64>) -> Self {
+        self.channel_diameter_m = Some(channel_diameter_m);
         self
     }
 }

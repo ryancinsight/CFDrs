@@ -32,13 +32,14 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-59 [major] - Type channel-diameter metadata metrics
-  (in progress 2026-08-06; owner=current Codex session; scope=
+  (done 2026-08-06; owner=current Codex session; scope=
   `MetadataConfig`, `ChannelGeometryMetadata`, geometry-generator consumers,
-  examples, and value-semantic tests).** Public metadata generation still
-  carries `channel_diameter_mm: f64` through its authored configuration and
-  emitted channel metadata. The acceptance oracle is Eunomia `Length<f64>`
-  through both public contracts, with millimetre extraction only at internal
-  layout formulas. This real geometry contract has no complex or imaginary SI
+  examples, and value-semantic tests).** Metadata generation now carries
+  `Length<f64>` through both public contracts in base metres. Millimetres are
+  extracted only at internal layout formulas. Evidence: cfd-schematics
+  all-target check, warning-denied Clippy, nextest
+  `cdecc3ab-849e-4a51-a231-2f28bb1be8c1` (191/191), doctests (16/16), and
+  Rustdoc pass. This real geometry contract has no complex or imaginary SI
   quantity.
 
 - **CFDRS-AEQ-MET-58 [major] - Type branch boundary metadata metrics

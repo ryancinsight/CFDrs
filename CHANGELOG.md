@@ -54,6 +54,12 @@ All notable changes to this project will be documented in this file.
   confined to solver and coupling formulas. The real boundary contract has no
   complex or imaginary SI quantity.
 
+- **Breaking:** `MetadataConfig.channel_diameter_m` and
+  `ChannelGeometryMetadata.channel_diameter_m` now carry Eunomia `Length<f64>`
+  values in base metres. The geometry generator extracts millimetres only at
+  split-spacing and layout formulas. The real geometry contract has no complex
+  or imaginary SI quantity.
+
 
 - **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
   `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical

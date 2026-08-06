@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,7 +32,7 @@ crate::impl_metadata!(ManufacturingMetadata, "ManufacturingMetadata");
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChannelGeometryMetadata {
-    pub channel_diameter_mm: f64,
+    pub channel_diameter_m: Length<f64>,
 }
 
 crate::impl_metadata!(ChannelGeometryMetadata, "ChannelGeometryMetadata");

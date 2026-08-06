@@ -38,9 +38,11 @@ The post-MET58 public-contract scan found `MetadataConfig` and emitted
 with `channel_diameter_mm: f64`. This is a physical length, not a layout-only
 wire DTO: it controls branch spacing and is retained on generated channels.
 
-This gap is in progress. The implementation will carry Eunomia `Length<f64>`
-through the public configuration and emitted metadata, extracting millimetres
-only inside the existing split-spacing and layout formulas. No complex or
+Closed. `MetadataConfig.channel_diameter_m` and emitted
+`ChannelGeometryMetadata.channel_diameter_m` now carry Eunomia `Length<f64>`
+values in base metres. The generator extracts millimetres only inside the
+existing split-spacing and layout formulas; the value-semantic generator test
+preserves the configured diameter in emitted metadata. No complex or
 imaginary SI quantity applies to this real geometry contract.
 
 ## Branch boundary metadata metrics (CFDRS-AEQ-MET-58, 2026-08-06)

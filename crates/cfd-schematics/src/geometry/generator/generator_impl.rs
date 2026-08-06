@@ -248,7 +248,8 @@ impl GeometryGenerator {
     pub(super) fn effective_channel_diameter(&self) -> f64 {
         self.metadata_config
             .as_ref()
-            .and_then(|config| config.channel_diameter_mm)
+            .and_then(|config| config.channel_diameter_m)
+            .map(|diameter| diameter.into_base() * 1.0e3)
             .filter(|diameter| diameter.is_finite() && *diameter > 0.0)
             .unwrap_or(self.config.channel_width)
     }
@@ -392,13 +393,13 @@ impl GeometryGenerator {
                 }
             }
 
-            if let Some(channel_diameter_mm) = metadata_config
-                .channel_diameter_mm
-                .filter(|diameter| diameter.is_finite() && *diameter > 0.0)
+            if let Some(channel_diameter_m) =
+                metadata_config.channel_diameter_m.filter(|diameter| {
+                    let diameter_m = diameter.into_base();
+                    diameter_m.is_finite() && diameter_m > 0.0
+                })
             {
-                let geometry_metadata = ChannelGeometryMetadata {
-                    channel_diameter_mm,
-                };
+                let geometry_metadata = ChannelGeometryMetadata { channel_diameter_m };
                 channel_builder = channel_builder.with_metadata(geometry_metadata);
             }
 
