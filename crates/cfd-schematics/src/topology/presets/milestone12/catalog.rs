@@ -1,5 +1,6 @@
 use super::super::sequence::MILESTONE12_SWEEP_SEQUENCES;
 use super::Milestone12TopologyRequest;
+use aequitas::systems::si::quantities::Length;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct MirrorVariant {
@@ -49,10 +50,10 @@ pub fn enumerate_milestone12_topologies() -> Vec<Milestone12TopologyRequest> {
                 format!("pst-{}-{}", family.to_ascii_lowercase(), variant.suffix),
                 format!("{family}-{}", variant.suffix.to_ascii_uppercase()),
                 split_kinds.clone(),
-                6.0e-3,
-                1.0e-3,
-                8.0e-3,
-                8.0e-3,
+                Length::from_base(6.0e-3),
+                Length::from_base(1.0e-3),
+                Length::from_base(8.0e-3),
+                Length::from_base(8.0e-3),
             );
             request.mirror_x = variant.mirror_x;
             request.mirror_y = variant.mirror_y;

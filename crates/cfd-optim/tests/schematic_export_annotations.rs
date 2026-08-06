@@ -280,8 +280,8 @@ fn save_schematic_svg_checks_all_new_milestone12_component_schematics() {
                 cfd_schematics::Milestone12TopologyRequest {
                     treatment_mode: TreatmentActuationMode::VenturiCavitation,
                     venturi_throat_count: 2,
-                    venturi_throat_width_m: 0.4e-3,
-                    venturi_throat_length_m: 1.2e-3,
+                    venturi_throat_width_m: Length::from_base(0.4e-3),
+                    venturi_throat_length_m: Length::from_base(1.2e-3),
                     venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
                     venturi_target_channel_ids: Vec::new(),
                     ..base

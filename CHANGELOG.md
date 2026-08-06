@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** `Milestone12PrimitiveSelectiveSpec` and nested stage branch
+  geometry now use Eunomia `Length<f64>` values in base metres for plate
+  dimensions, channel dimensions, branch/outlet lengths, and venturi throat
+  dimensions. Split fractions and topology controls remain dimensionless; the
+  generic `PrimitiveSelectiveTreeRequest` remains a separate boundary.
+
+
 - **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
   `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical
   half-angle fields store base radians; conversion from raw request values is

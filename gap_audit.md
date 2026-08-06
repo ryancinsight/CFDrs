@@ -40,13 +40,22 @@ heights, branch and outlet lengths, and venturi throat dimensions. These
 values are the canonical selective-topology authoring request and are copied
 into typed topology specs only at the current build boundary.
 
-This gap is in progress. The implementation will move the request geometry to
-Eunomia real-valued `Length<f64>` values in base metres, preserving the existing
-dimensionless split fractions and enum controls. Direct consumers will migrate
-without adapters; scalar extraction will remain at layout, validation, and
-geometry boundaries. The separate generic `PrimitiveSelectiveTreeRequest` and
-`SelectiveTreeRequest` contracts remain distinct audit boundaries. No complex
-or imaginary SI quantity applies to this real-valued geometry.
+The gap is closed. `Milestone12PrimitiveSelectiveSpec` and nested stage branch
+geometry now use Eunomia real-valued `Length<f64>` values in base metres for
+plate dimensions, channel widths and heights, branch/outlet lengths, and
+venturi throat dimensions. Dimensionless split fractions and enum controls are
+unchanged. Direct consumers migrate without adapters; scalar extraction remains
+at layout, validation, and geometry boundaries. The separate generic
+`PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` contracts remain
+distinct audit boundaries. No complex or imaginary SI quantity applies to this
+real-valued geometry. All-target checks pass for cfd-schematics, cfd-optim,
+cfd-schematic-mesh, cfd-1d, and cfd-2d; warning-denied Clippy passes for the
+three directly changed packages. Nextest passes cfd-schematics 189/189
+(`902ba5cd-8da9-44d0-9622-18e6c06d7bb3`), cfd-optim 137/137
+(`176d77f8-417d-41d8-a93c-44844b042d79`), and cfd-schematic-mesh 29/29
+(`1d678bd1-d31a-47e0-8295-12619c85d30b`). Affected doctests pass
+cfd-schematics 16/16 and cfd-optim 2/2 with 3 ignored; Rustdoc builds all
+three changed packages.
 
 ## Topology envelope geometry (CFDRS-AEQ-MET-55, 2026-08-05)
 

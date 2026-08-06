@@ -1932,6 +1932,7 @@ fn relative_percent(delta: Volume<f64>, reference: Volume<f64>) -> Dimensionless
 
 #[cfg(test)]
 mod tests {
+    use aequitas::systems::si::quantities::Length;
     use cfd_schematics::interface::presets::venturi_chain;
     use cfd_schematics::topology::presets::{
         build_milestone12_blueprint, build_milestone12_topology_spec, Milestone12TopologyRequest,
@@ -2057,10 +2058,10 @@ mod tests {
                 cfd_schematics::SplitKind::NFurcation(3),
                 cfd_schematics::SplitKind::NFurcation(2),
             ],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         let spec = build_milestone12_topology_spec(&request);
         let mut bp = build_milestone12_blueprint(&request).expect("selective blueprint");
@@ -2096,10 +2097,10 @@ mod tests {
                 cfd_schematics::SplitKind::NFurcation(3),
                 cfd_schematics::SplitKind::NFurcation(2),
             ],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         let bp = build_milestone12_blueprint(&request).expect("geometry-authored selective build");
         let result = BlueprintMeshPipeline::run(

@@ -43,6 +43,7 @@
 | **Iris-owned color laws** | 2026-07-21 | `cfd-schematics` duplicated color formulas and rescanned field maps per rendered element | One direct `NamedColorMap` contract; linear range preprocessing; zero transient range allocations | Breaking overlay builders and field visibility |
 | **Hyperion-owned optical transport** | 2026-07-21 | `cfd-optim` evaluated a raw Beer-Lambert expression without the stack's validated optical types | One typed coefficient/path/optical-depth/transmission chain; zero duplicate production laws | CFDrs retains its empirical coefficient and hematocrit policy |
 | **Native schematic output paths** | 2026-07-22 | String-only renderer seams forced UTF-8 conversion at every filesystem boundary | Renderer traits borrow `Path`; public facades accept `AsRef<Path>`; sidecar naming stays in `OsStr` | Breaking change for external renderer-trait implementations |
+| **Aequitas-owned Milestone 12 request geometry** | 2026-08-05 | The canonical selective-topology request retained plate, channel, branch, outlet, and venturi dimensions as raw metre/millimetre scalars | `Length<f64>` remains typed through `Milestone12PrimitiveSelectiveSpec` and nested stage branches in base metres; layout and geometry boundaries extract explicit scalars; split fractions and enum controls remain dimensionless | Breaking change for external Milestone 12 request constructors and field literals; generic selective request families remain separate boundaries |
 
 ## Architecture Overview
 

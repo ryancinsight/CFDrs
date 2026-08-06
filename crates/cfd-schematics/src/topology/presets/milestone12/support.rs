@@ -46,7 +46,7 @@ pub(super) fn apply_request_mirror(
 ) {
     mirror_blueprint_geometry(
         blueprint,
-        request.box_dims_mm,
+        request.box_dims_mm(),
         request.mirror_x,
         request.mirror_y,
     );
@@ -74,9 +74,9 @@ pub(super) fn apply_request_mirror(
 pub(super) fn treatment_branch(
     label: &str,
     role: BranchRole,
-    width_m: f64,
-    height_m: f64,
-    length_m: f64,
+    width_m: Length<f64>,
+    height_m: Length<f64>,
+    length_m: Length<f64>,
     serpentine: Option<SerpentineSpec>,
 ) -> BranchSpec {
     BranchSpec {
@@ -84,9 +84,9 @@ pub(super) fn treatment_branch(
         role,
         treatment_path: true,
         route: ChannelRouteSpec {
-            length_m: Length::from_base(length_m),
-            width_m: Length::from_base(width_m),
-            height_m: Length::from_base(height_m),
+            length_m,
+            width_m,
+            height_m,
             serpentine,
             therapy_zone: TherapyZone::CancerTarget,
         },
@@ -96,9 +96,9 @@ pub(super) fn treatment_branch(
 
 pub(super) fn bypass_branch(
     label: &str,
-    width_m: f64,
-    height_m: f64,
-    length_m: f64,
+    width_m: Length<f64>,
+    height_m: Length<f64>,
+    length_m: Length<f64>,
     role: BranchRole,
 ) -> BranchSpec {
     BranchSpec {
@@ -106,9 +106,9 @@ pub(super) fn bypass_branch(
         role,
         treatment_path: false,
         route: ChannelRouteSpec {
-            length_m: Length::from_base(length_m),
-            width_m: Length::from_base(width_m),
-            height_m: Length::from_base(height_m),
+            length_m,
+            width_m,
+            height_m,
             serpentine: None,
             therapy_zone: TherapyZone::HealthyBypass,
         },
@@ -132,13 +132,13 @@ fn default_stage_branch_specs(
                     label: "upper".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: treatment_width,
+                    width_m: Length::from_base(treatment_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "lower".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: bypass_width,
+                    width_m: Length::from_base(bypass_width),
                 },
             ]
         }
@@ -156,19 +156,19 @@ fn default_stage_branch_specs(
                     label: "left".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: side_width,
+                    width_m: Length::from_base(side_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "center".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: center_width,
+                    width_m: Length::from_base(center_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "right".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: side_width,
+                    width_m: Length::from_base(side_width),
                 },
             ]
         }
@@ -186,25 +186,25 @@ fn default_stage_branch_specs(
                     label: "arm_0".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: bypass_width,
+                    width_m: Length::from_base(bypass_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_1".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: treatment_width,
+                    width_m: Length::from_base(treatment_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_2".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: bypass_width,
+                    width_m: Length::from_base(bypass_width),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_3".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: bypass_width,
+                    width_m: Length::from_base(bypass_width),
                 },
             ]
         }
@@ -224,7 +224,7 @@ fn default_stage_branch_specs(
                             label: "center".to_string(),
                             role: BranchRole::Treatment,
                             treatment_path: true,
-                            width_m: center_width,
+                            width_m: Length::from_base(center_width),
                         }
                     } else {
                         let role = if index < 2 {
@@ -236,7 +236,7 @@ fn default_stage_branch_specs(
                             label: format!("arm_{index}"),
                             role,
                             treatment_path: false,
-                            width_m: bypass_width,
+                            width_m: Length::from_base(bypass_width),
                         }
                     }
                 })
@@ -252,7 +252,7 @@ fn default_stage_branch_specs(
 pub fn milestone12_default_stage_layouts(
     request: &Milestone12PrimitiveSelectiveSpec,
 ) -> Vec<Milestone12StageLayout> {
-    let mut parent_width_m = request.inlet_width_m;
+    let mut parent_width_m = request.inlet_width_m.into_base();
     request
         .split_kinds
         .iter()
@@ -264,7 +264,7 @@ pub fn milestone12_default_stage_layouts(
             let treatment_width_m: f64 = branches
                 .iter()
                 .filter(|branch| branch.treatment_path)
-                .map(|branch| branch.width_m)
+                .map(|branch| branch.width_m.into_base())
                 .sum();
             parent_width_m = treatment_width_m.max(f64::EPSILON);
             Milestone12StageLayout {

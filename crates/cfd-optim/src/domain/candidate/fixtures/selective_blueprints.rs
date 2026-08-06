@@ -15,10 +15,10 @@ pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
         "option1",
         "option1",
         vec![SplitKind::NFurcation(3), SplitKind::NFurcation(2)],
-        6.0e-3,
-        1.1e-3,
-        22.0e-3,
-        14.0e-3,
+        Length::from_base(6.0e-3),
+        Length::from_base(1.1e-3),
+        Length::from_base(22.0e-3),
+        Length::from_base(14.0e-3),
     );
     request.stage_layouts = vec![
         Milestone12StageLayout {
@@ -28,19 +28,19 @@ pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
                     label: "wbc".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: 1.0e-3,
+                    width_m: Length::from_base(1.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "ctc".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: 2.0e-3,
+                    width_m: Length::from_base(2.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "rbc".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: 3.0e-3,
+                    width_m: Length::from_base(3.0e-3),
                 },
             ],
         },
@@ -51,13 +51,13 @@ pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
                     label: "ctc".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: 1.4e-3,
+                    width_m: Length::from_base(1.4e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "waste".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: 0.6e-3,
+                    width_m: Length::from_base(0.6e-3),
                 },
             ],
         },
@@ -77,8 +77,8 @@ pub(crate) fn canonical_option2_request() -> Milestone12TopologyRequest {
     request.design_name = "option2".to_string();
     request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
     request.venturi_throat_count = 2;
-    request.venturi_throat_width_m = 0.4e-3;
-    request.venturi_throat_length_m = 1.2e-3;
+    request.venturi_throat_width_m = Length::from_base(0.4e-3);
+    request.venturi_throat_length_m = Length::from_base(1.2e-3);
     request.venturi_placement_mode = VenturiPlacementMode::CurvaturePeakDeanNumber;
     request.venturi_target_channel_ids =
         vec![BlueprintTopologySpec::branch_channel_id("stage_1", "ctc")];
@@ -112,10 +112,10 @@ pub(crate) fn stage0_venturi_candidate(
         "venturi-fixture",
         "venturi-fixture",
         vec![SplitKind::NFurcation(3)],
-        6.0e-3,
-        1.1e-3,
-        24.0e-3,
-        14.0e-3,
+        Length::from_base(6.0e-3),
+        Length::from_base(1.1e-3),
+        Length::from_base(24.0e-3),
+        Length::from_base(14.0e-3),
     );
     request.stage_layouts = vec![Milestone12StageLayout {
         split_kind: SplitKind::NFurcation(3),
@@ -124,19 +124,19 @@ pub(crate) fn stage0_venturi_candidate(
                 label: "wbc".to_string(),
                 role: BranchRole::Neutral,
                 treatment_path: false,
-                width_m: 1.0e-3,
+                width_m: Length::from_base(1.0e-3),
             },
             Milestone12StageBranchSpec {
                 label: "ctc".to_string(),
                 role: BranchRole::Treatment,
                 treatment_path: true,
-                width_m: 2.0e-3,
+                width_m: Length::from_base(2.0e-3),
             },
             Milestone12StageBranchSpec {
                 label: "rbc".to_string(),
                 role: BranchRole::RbcBypass,
                 treatment_path: false,
-                width_m: 3.0e-3,
+                width_m: Length::from_base(3.0e-3),
             },
         ],
     }];
@@ -148,8 +148,8 @@ pub(crate) fn stage0_venturi_candidate(
     });
     request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
     request.venturi_throat_count = 2;
-    request.venturi_throat_width_m = 0.4e-3;
-    request.venturi_throat_length_m = 1.2e-3;
+    request.venturi_throat_width_m = Length::from_base(0.4e-3);
+    request.venturi_throat_length_m = Length::from_base(1.2e-3);
     request.venturi_placement_mode = mode;
     request.venturi_target_channel_ids =
         vec![BlueprintTopologySpec::branch_channel_id("stage_0", "ctc")];

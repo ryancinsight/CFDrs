@@ -75,12 +75,17 @@ pub fn milestone12_primitive_selective_tree_spec(
             })
             .collect::<Vec<_>>();
 
-        outlet_treatment_width_m = branches
+        let treatment_width_m = branches
             .iter()
             .filter(|branch| branch.treatment_path)
             .map(|branch| branch.route.width_m.into_base())
             .sum::<f64>()
-            .max(outlet_treatment_width_m.min(request.inlet_width_m));
+            .max(
+                outlet_treatment_width_m
+                    .into_base()
+                    .min(request.inlet_width_m.into_base()),
+            );
+        outlet_treatment_width_m = Length::from_base(treatment_width_m);
 
         split_stages.push(SplitStageSpec {
             stage_id: format!("stage_{stage_index}"),
@@ -92,14 +97,11 @@ pub fn milestone12_primitive_selective_tree_spec(
     let spec = BlueprintTopologySpec {
         topology_id: request.topology_id.clone(),
         design_name: request.design_name.clone(),
-        box_dims_m: (
-            Length::from_base(request.box_dims_mm.0 * 1.0e-3),
-            Length::from_base(request.box_dims_mm.1 * 1.0e-3),
-        ),
-        inlet_width_m: Length::from_base(request.inlet_width_m),
-        outlet_width_m: Length::from_base(outlet_treatment_width_m),
-        trunk_length_m: Length::from_base(request.branch_length_m),
-        outlet_tail_length_m: Length::from_base(request.outlet_tail_length_m),
+        box_dims_m: (request.box_dims_m.0, request.box_dims_m.1),
+        inlet_width_m: request.inlet_width_m,
+        outlet_width_m: outlet_treatment_width_m,
+        trunk_length_m: request.branch_length_m,
+        outlet_tail_length_m: request.outlet_tail_length_m,
         series_channels: Vec::new(),
         parallel_channels: Vec::new(),
         split_stages,
@@ -116,11 +118,11 @@ pub fn milestone12_primitive_selective_tree_spec(
                 target_channel_ids: request.venturi_target_channel_ids.clone(),
                 serial_throat_count: request.venturi_throat_count,
                 throat_geometry: ThroatGeometrySpec {
-                    throat_width_m: Length::from_base(request.venturi_throat_width_m),
-                    throat_height_m: Length::from_base(request.channel_height_m),
-                    throat_length_m: Length::from_base(request.venturi_throat_length_m),
-                    inlet_width_m: Length::from_base(outlet_treatment_width_m),
-                    outlet_width_m: Length::from_base(outlet_treatment_width_m),
+                    throat_width_m: request.venturi_throat_width_m,
+                    throat_height_m: request.channel_height_m,
+                    throat_length_m: request.venturi_throat_length_m,
+                    inlet_width_m: outlet_treatment_width_m,
+                    outlet_width_m: outlet_treatment_width_m,
                     convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
                     divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
                 },
