@@ -31,6 +31,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Branch boundary metadata metrics (CFDRS-AEQ-MET-58, 2026-08-06)
+
+The post-MET57 scan found raw SI fields in the public
+`BranchBoundarySpecification` pressure and volumetric-flow variants. These
+values cross serialized schematic metadata and direct cfd-1d/cfd-2d boundary
+coupling, so unit-suffixed scalar names do not protect the authoring contract.
+
+This gap is in progress. The implementation will carry Eunomia `Pressure<f64>`
+and `VolumetricFlowRate<f64>` values through the metadata boundary and direct
+consumers, extracting base scalars only at solver/formula boundaries. No
+complex or imaginary SI quantity applies to this real boundary contract.
+
 ## Generic selective-tree request geometry (CFDRS-AEQ-MET-57, 2026-08-06)
 
 The post-MET56 scan found raw geometry in the generic public

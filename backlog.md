@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-58 [major] - Type branch boundary metadata metrics
+  (in progress 2026-08-06; owner=current Codex session; scope=
+  `BranchBoundarySpecification`, `BranchBoundaryMetadata`, direct cfd-1d and
+  cfd-2d coupling consumers, and their value-semantic tests).** Public branch
+  pressure and volumetric-flow boundary conditions still store raw SI scalars.
+  The acceptance oracle is Eunomia `Pressure<f64>` and
+  `VolumetricFlowRate<f64>` through metadata and direct consumers, with scalar
+  extraction only at solver/formula boundaries. This real boundary contract
+  has no complex or imaginary SI quantity.
+
 - **CFDRS-AEQ-MET-57 [major] - Type generic selective-tree request geometry
   (done 2026-08-06; owner=current Codex session; scope=
   `PrimitiveSelectiveTreeRequest`, `SelectiveTreeRequest`, their topology
