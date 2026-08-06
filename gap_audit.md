@@ -31,16 +31,15 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
-## Delivery residual — external RecurseML status (2026-08-06)
+## Delivery closure — external RecurseML status (2026-08-06)
 
+CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
 The typed Aequitas metric implementation and repository-owned verification are
 green: the book-figure SSOT check passes, and the focused cfd-schematics and
-cfd-1d gates are recorded below. CFDrs PR #325 remains open because the
-external `recurseml/analysis` status reports `ERROR` for the committed range
-`77e8a77f..a7159b63`; a three-commit split PR reproduced the same status, so
-the error is not attributable to the metric implementation or branch size.
-No Rust diagnostic is exposed by that status. Re-open delivery when the
-external analysis service provides a green result or an actionable failure.
+cfd-1d gates are recorded below. The historical `recurseml/analysis` error
+for the pre-merge range `77e8a77f..a7159b63` was report-only and exposed no Rust
+diagnostic; it is retained as historical evidence, not an open delivery
+blocker. No CFDrs Aequitas metric gap remains in this slice.
 
 ## ChannelSpec hydraulic metrics (CFDRS-AEQ-MET-63, 2026-08-06)
 
