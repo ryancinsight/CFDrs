@@ -94,19 +94,21 @@ impl BlueprintValidator {
                 )));
             }
 
-            if channel.resistance < 0.0 {
+            let resistance = channel.resistance.into_base();
+            if resistance < 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has negative resistance: {}",
                     channel.id.as_str(),
-                    channel.resistance
+                    resistance
                 )));
             }
 
-            if channel.quad_coeff < 0.0 {
+            let quad_coeff = channel.quad_coeff.into_base();
+            if quad_coeff < 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has negative quadratic loss coefficient: {}",
                     channel.id.as_str(),
-                    channel.quad_coeff
+                    quad_coeff
                 )));
             }
         }

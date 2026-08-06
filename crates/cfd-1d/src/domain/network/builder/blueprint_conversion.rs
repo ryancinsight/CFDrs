@@ -158,14 +158,15 @@ where
             ))
         })?;
 
-        if ch_spec.resistance < 0.0 || !ch_spec.resistance.is_finite() {
+        let authored_resistance = ch_spec.resistance.into_base();
+        if authored_resistance < 0.0 || !authored_resistance.is_finite() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Channel '{}' has invalid resistance: {}",
                 ch_spec.id.as_str(),
-                ch_spec.resistance
+                authored_resistance
             )));
         }
-        let seed_r = T::from_f64_or_zero(ch_spec.resistance.max(f64::EPSILON));
+        let seed_r = T::from_f64_or_zero(authored_resistance.max(f64::EPSILON));
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = HydraulicResistance::from_base(seed_r);
         edge.area = match ch_spec.cross_section {
@@ -311,7 +312,9 @@ where
             length,
             area,
             hydraulic_diameter: dh,
-            resistance: HydraulicResistance::from_base(T::from_f64_or_zero(ch_spec.resistance)),
+            resistance: HydraulicResistance::from_base(T::from_f64_or_zero(
+                ch_spec.resistance.into_base(),
+            )),
             geometry: Some(channel_geometry),
             resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: edge_property_overrides,

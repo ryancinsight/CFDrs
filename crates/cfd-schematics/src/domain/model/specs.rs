@@ -3,7 +3,9 @@ use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
     JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
 };
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use serde::{Deserialize, Serialize};
 
 /// Cross-section geometry specification for a channel
@@ -220,12 +222,22 @@ pub struct ChannelSpec {
     /// Channel geometry shape — straight vs serpentine w/ Dean corrections.
     #[serde(default)]
     pub channel_shape: ChannelShape,
-    pub resistance: f64,
-    pub quad_coeff: f64,
+    /// Linear pressure-loss coefficient as an Eunomia-backed SI quantity.
+    pub resistance: HydraulicResistance<f64>,
+    /// Quadratic pressure-loss coefficient as an Eunomia-backed SI quantity.
+    pub quad_coeff: QuadraticHydraulicResistance<f64>,
     // Component properties
-    pub valve_cv: Option<f64>,
-    pub pump_max_flow: Option<f64>,
-    pub pump_max_pressure: Option<f64>,
+    /// Valve quadratic loss coefficient derived from the conventional `Cv` input.
+    ///
+    /// Eunomia's SI dimensions use integer exponents, so the equivalent
+    /// `1 / Cv²` coefficient is the dimensionally exact provider quantity at
+    /// this boundary; the square-root pressure form of `Cv` is not representable
+    /// as a standalone SI dimension.
+    pub valve_loss_coefficient: Option<QuadraticHydraulicResistance<f64>>,
+    /// Free-delivery pump flow limit.
+    pub pump_max_flow: Option<VolumetricFlowRate<f64>>,
+    /// Stall-point pump pressure limit.
+    pub pump_max_pressure: Option<Pressure<f64>>,
     pub visual_role: Option<crate::geometry::metadata::ChannelVisualRole>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub path: Vec<(f64, f64)>,
@@ -273,9 +285,9 @@ impl ChannelSpec {
                 diameter_m: Length::from_base(diameter_m),
             },
             channel_shape: ChannelShape::Straight,
-            resistance,
-            quad_coeff,
-            valve_cv: None,
+            resistance: HydraulicResistance::from_base(resistance),
+            quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
+            valve_loss_coefficient: None,
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -309,9 +321,9 @@ impl ChannelSpec {
                 height_m: Length::from_base(height_m),
             },
             channel_shape: ChannelShape::Straight,
-            resistance,
-            quad_coeff,
-            valve_cv: None,
+            resistance: HydraulicResistance::from_base(resistance),
+            quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
+            valve_loss_coefficient: None,
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -339,9 +351,10 @@ impl ChannelSpec {
                 diameter_m: Length::from_base(0.0),
             },
             channel_shape: ChannelShape::Straight,
-            resistance: 0.0,
-            quad_coeff: 0.0,
-            valve_cv: Some(cv),
+            resistance: HydraulicResistance::from_base(0.0),
+            quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
+            valve_loss_coefficient: (cv > 0.0)
+                .then(|| QuadraticHydraulicResistance::from_base(1.0 / (cv * cv))),
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -370,11 +383,11 @@ impl ChannelSpec {
                 diameter_m: Length::from_base(0.0),
             },
             channel_shape: ChannelShape::Straight,
-            resistance: 0.0,
-            quad_coeff: 0.0,
-            valve_cv: None,
-            pump_max_flow: Some(max_flow),
-            pump_max_pressure: Some(max_pressure),
+            resistance: HydraulicResistance::from_base(0.0),
+            quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
+            valve_loss_coefficient: None,
+            pump_max_flow: Some(VolumetricFlowRate::from_base(max_flow)),
+            pump_max_pressure: Some(Pressure::from_base(max_pressure)),
             visual_role: None,
             path: Vec::new(),
             therapy_zone: None,
@@ -417,5 +430,52 @@ impl ChannelSpec {
             CrossSectionSpec::Rectangular { height_m, .. } => height_m,
             CrossSectionSpec::Circular { diameter_m } => diameter_m,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ChannelSpec;
+
+    #[test]
+    fn hydraulic_seed_metrics_are_provider_typed() {
+        let channel = ChannelSpec::new_pipe("pipe", "in", "out", 0.25, 1.0e-3, 12.0, 3.5);
+
+        assert_eq!(channel.resistance.into_base().to_bits(), 12.0_f64.to_bits());
+        assert_eq!(channel.quad_coeff.into_base().to_bits(), 3.5_f64.to_bits());
+    }
+
+    #[test]
+    fn valve_cv_is_materialized_as_quadratic_loss() {
+        let valve = ChannelSpec::new_valve("valve", "in", "out", 0.5);
+
+        assert_eq!(
+            valve
+                .valve_loss_coefficient
+                .expect("positive Cv produces a loss coefficient")
+                .into_base()
+                .to_bits(),
+            4.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn pump_limits_are_provider_typed() {
+        let pump = ChannelSpec::new_pump("pump", "in", "out", 2.5e-6, 12_000.0);
+
+        assert_eq!(
+            pump.pump_max_flow
+                .expect("pump flow limit is present")
+                .into_base()
+                .to_bits(),
+            2.5e-6_f64.to_bits()
+        );
+        assert_eq!(
+            pump.pump_max_pressure
+                .expect("pump pressure limit is present")
+                .into_base()
+                .to_bits(),
+            12_000.0_f64.to_bits()
+        );
     }
 }

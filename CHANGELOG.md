@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Type `ChannelSpec` linear and quadratic hydraulic-loss
+  coefficients with Eunomia `HydraulicResistance` and
+  `QuadraticHydraulicResistance`, and type pump flow/pressure limits with
+  `VolumetricFlowRate` and `Pressure`. Store valve loss as the exact
+  `1/Cv²` quadratic coefficient because the current integer-exponent SI
+  provider cannot represent standalone `sqrt(Pa)` dimensions. Scalar
+  extraction remains at solver formulas; the real hydraulic contract has no
+  complex or imaginary SI quantity.
+
 - **Breaking:** `ShellCuboid` outer dimensions, wall thickness, and derived
   cavity dimensions now carry Eunomia `Length<f64>` values in base metres.
   `outer_dims_mm()`, `inner_dims_mm()`, and `shell_thickness_mm()` keep scalar

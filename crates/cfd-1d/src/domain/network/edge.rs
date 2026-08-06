@@ -34,17 +34,13 @@ use cfd_schematics::domain::model::ChannelSpec;
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
     fn from(spec: &ChannelSpec) -> Self {
-        let mut resistance = T::from_f64_or_zero(spec.resistance);
-        let mut quad_coeff = T::from_f64_or_zero(spec.quad_coeff);
+        let mut resistance = T::from_f64_or_zero(spec.resistance.into_base());
+        let mut quad_coeff = T::from_f64_or_zero(spec.quad_coeff.into_base());
 
         match spec.kind {
             EdgeKind::Valve => {
-                if let Some(cv) = spec.valve_cv {
-                    // Use the Microvalve quadratic-law coefficient from the valve theorem.
-                    if cv > 0.0 {
-                        let cv_t = T::from_f64_or_zero(cv);
-                        quad_coeff = T::one() / (cv_t * cv_t);
-                    }
+                if let Some(loss) = spec.valve_loss_coefficient {
+                    quad_coeff = T::from_f64_or_zero(loss.into_base());
                 }
                 // Ensure non-zero to pass builder validation if nothing else set
                 if <T as NumericElement>::abs(resistance) < T::default_epsilon()

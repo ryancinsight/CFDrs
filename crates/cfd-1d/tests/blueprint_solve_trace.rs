@@ -39,13 +39,13 @@ fn pipe(id: &str, from: &str, to: &str, length_m: f64, diameter_m: f64) -> Chann
         from: NodeId::new(from),
         to: NodeId::new(to),
         length_m: aequitas::systems::si::quantities::Length::from_base(length_m),
-        resistance: 0.0, // computed from geometry by network_from_blueprint
+        resistance: aequitas::systems::si::quantities::HydraulicResistance::from_base(0.0), // computed from geometry by network_from_blueprint
         cross_section: CrossSectionSpec::Circular {
             diameter_m: aequitas::systems::si::quantities::Length::from_base(diameter_m),
         },
         channel_shape: ChannelShape::Straight,
-        quad_coeff: 0.0,
-        valve_cv: None,
+        quad_coeff: aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0),
+        valve_loss_coefficient: None,
         pump_max_flow: None,
         pump_max_pressure: None,
         path: vec![],

@@ -37,17 +37,29 @@ The post-MET62 public-contract scan found `ChannelSpec.resistance`,
 `quad_coeff`, `pump_max_flow`, and `pump_max_pressure` still crossing the
 schematic-to-solver boundary as raw scalars. These values are hydraulic
 coefficients and operating limits, not layout or serialization metadata.
-`valve_cv` also crosses the boundary, but its conventional SI unit contains a
+`valve_cv` also crossed the boundary, but its conventional SI unit contains a
 square root of pressure; Eunomia's current integer-exponent SI dimensions
 represent the equivalent quadratic loss coefficient instead.
 
-In progress. The next vertical slice will carry the representable hydraulic
-metrics as Aequitas quantities through cfd-schematics and direct cfd-1d
-consumers, and will replace the valve flow-coefficient storage with an
-Aequitas-backed quadratic-loss representation at the solver boundary. Existing
-schematic coordinates remain explicit visualization/serialization data. No
-complex or imaginary SI quantity applies to this real hydraulic network
-contract.
+Closed. `ChannelSpec.resistance`, `quad_coeff`, `pump_max_flow`, and
+`pump_max_pressure` now carry Aequitas `HydraulicResistance`,
+`QuadraticHydraulicResistance`, `VolumetricFlowRate`, and `Pressure` values.
+Valve authoring converts conventional `Cv` to the provider-backed exact
+`1/Cv²` quadratic loss coefficient, and cfd-1d consumes that typed loss
+without recomputing from a raw field. Scalar extraction remains at solver,
+validation, and reporting formula boundaries. cfd-schematics and cfd-1d
+value-semantic tests pass; the combined cfd-schematics/cfd-1d Nextest run
+passes 930/930 with 3 skips (`de05acf2-aedc-4d80-ac95-2dba555b669f`), and
+the affected all-target compile passes across cfd-1d, cfd-2d, cfd-3d, and
+cfd-validation. The real hydraulic contract has no complex or imaginary SI
+quantity.
+
+The post-close residue scan still finds raw scalars in cfd-python result
+`#[pyclass]` values. Those fields are the explicit Python serialization/FFI
+boundary and are not Rust-domain storage; the underlying cfd-schematics and
+cfd-1d contracts remain typed. Schematic flow metadata, mesh coordinates,
+and interchange DTOs are likewise retained as scalar reporting/layout
+boundaries. No additional provider metric is missing in this slice.
 
 ## ShellCuboid authoring dimensions (CFDRS-AEQ-MET-62, 2026-08-06)
 

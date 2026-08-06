@@ -246,7 +246,7 @@ where
             * scale_factor;
         let area = <T as FloatElement>::from_f64(channel.cross_section.area().into_base());
         let length = <T as FloatElement>::from_f64(channel.length_m.into_base());
-        let resistance = <T as FloatElement>::from_f64(channel.resistance);
+        let resistance = <T as FloatElement>::from_f64(channel.resistance.into_base());
         let zero: T = scalar::zero();
         let mean_velocity = if area > zero { flow / area } else { zero };
 
