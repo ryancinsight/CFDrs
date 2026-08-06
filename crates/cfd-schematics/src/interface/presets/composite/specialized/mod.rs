@@ -45,7 +45,7 @@ mod tests {
         bp.channels
             .iter()
             .find(|c| c.id.as_str() == id)
-            .map_or_else(|| panic!("channel {id} must exist"), |c| c.length_m)
+            .map_or_else(|| panic!("channel {id} must exist"), |c| c.length_m.into_base())
     }
 
     #[test]

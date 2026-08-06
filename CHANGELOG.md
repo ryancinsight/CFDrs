@@ -74,6 +74,13 @@ All notable changes to this project will be documented in this file.
   boundaries. The cross-section contract is real-valued and has no complex or
   imaginary SI quantity.
 
+- **Breaking:** Type `ChannelSpec.length_m` and the aggregate blueprint length
+  queries with Eunomia `Length<f64>` values in base metres. Migrate schematic,
+  1D, 2D, mesh, optimization, validation, and 3D consumers without adapters;
+  scalar extraction remains at validation, solver, mesh, formula, and
+  reporting boundaries. The channel-length contract is real-valued and has no
+  complex or imaginary SI quantity.
+
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

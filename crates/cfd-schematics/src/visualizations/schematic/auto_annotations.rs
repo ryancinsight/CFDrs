@@ -10,9 +10,15 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
     let mut roles = classify_node_roles(blueprint);
 
     let has_target =
-        blueprint.length_in_zone(crate::domain::therapy_metadata::TherapyZone::CancerTarget) > 0.0;
+        blueprint
+            .length_in_zone(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+            .into_base()
+            > 0.0;
     let has_bypass =
-        blueprint.length_in_zone(crate::domain::therapy_metadata::TherapyZone::HealthyBypass) > 0.0;
+        blueprint
+            .length_in_zone(crate::domain::therapy_metadata::TherapyZone::HealthyBypass)
+            .into_base()
+            > 0.0;
 
     if has_target || has_bypass {
         let box_dims = blueprint.box_dims;

@@ -155,7 +155,7 @@ fn cross_fidelity_blueprint_consistency() {
 
             specs.push(CascadeChannelSpec {
                 id: ch.id.as_str().to_owned(),
-                length: Length::from_base(ch.length_m),
+                length: ch.length_m,
                 width: Length::from_base(w),
                 height: Length::from_base(h),
                 flow_rate_m3_s: VolumetricFlowRate::from_base(trace.reference_flow_rate_m3_s),
@@ -268,7 +268,7 @@ fn cross_fidelity_blueprint_complex_branching() {
 
             specs.push(CascadeChannelSpec {
                 id: ch.id.as_str().to_owned(),
-                length: Length::from_base(ch.length_m),
+                length: ch.length_m,
                 width: Length::from_base(w),
                 height: Length::from_base(h),
                 flow_rate_m3_s: VolumetricFlowRate::from_base(ch_trace.flow_rate_m3_s),

@@ -38,7 +38,7 @@ fn pipe(id: &str, from: &str, to: &str, length_m: f64, diameter_m: f64) -> Chann
         kind: EdgeKind::Pipe,
         from: NodeId::new(from),
         to: NodeId::new(to),
-        length_m,
+        length_m: aequitas::systems::si::quantities::Length::from_base(length_m),
         resistance: 0.0, // computed from geometry by network_from_blueprint
         cross_section: CrossSectionSpec::Circular {
             diameter_m: aequitas::systems::si::quantities::Length::from_base(diameter_m),

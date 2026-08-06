@@ -76,11 +76,12 @@ impl BlueprintValidator {
                 )));
             }
 
-            if channel.length_m <= 0.0 {
+            let length_m = channel.length_m.into_base();
+            if length_m <= 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has non-positive length: {}",
                     channel.id.as_str(),
-                    channel.length_m
+                    length_m
                 )));
             }
 

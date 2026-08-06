@@ -11,6 +11,7 @@ use super::path_geometry::{
 };
 use super::PendingVenturiPath;
 use crate::domain::model::{ChannelSpec, NodeId};
+use aequitas::systems::si::quantities::Length;
 
 /// Compute the midpoint Y of a channel's key waypoints, falling back to
 /// `y_fallback` when no points are available.
@@ -60,12 +61,12 @@ pub(super) fn route_pending_venturi_paths(
         );
         let channel = &mut channels[pending.channel_idx];
         channel.path = routed_path;
-        channel.length_m = channel_length_from_points_or_endpoints(
+        channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
             &channel.path,
             pending.start,
             pending.end,
             pending.fallback_length_m,
-        );
+        ));
         assigned_paths.push(channel.path.clone());
     }
 }

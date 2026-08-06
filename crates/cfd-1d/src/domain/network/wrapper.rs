@@ -92,7 +92,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
     /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
-        let length = Length::from_base(T::from_f64_or_zero(spec.length_m));
+        let length = Length::from_base(T::from_f64_or_zero(spec.length_m.into_base()));
         let resistance = HydraulicResistance::from_base(T::from_f64_or_zero(spec.resistance));
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {

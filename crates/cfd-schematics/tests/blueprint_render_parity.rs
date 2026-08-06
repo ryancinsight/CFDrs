@@ -34,6 +34,29 @@ fn cross_section_quantities_round_trip_through_json() {
     }
 }
 
+#[test]
+fn channel_length_quantity_round_trips_and_aggregates() {
+    let authored_length = Length::from_base(2.5e-3);
+    let channel = cfd_schematics::domain::model::ChannelSpec::new_pipe(
+        "length_channel",
+        "inlet",
+        "outlet",
+        authored_length.into_base(),
+        1.0e-3,
+        0.0,
+        0.0,
+    );
+    let encoded = serde_json::to_string(&channel).expect("channel JSON must encode");
+    let decoded: cfd_schematics::domain::model::ChannelSpec =
+        serde_json::from_str(&encoded).expect("channel JSON must decode");
+
+    assert_eq!(decoded.length_m, authored_length);
+
+    let mut blueprint = NetworkBlueprint::new_with_explicit_positions("lengths");
+    blueprint.add_channel(channel);
+    assert_eq!(blueprint.total_length_m(), authored_length);
+}
+
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {
     bp.channels
         .iter()

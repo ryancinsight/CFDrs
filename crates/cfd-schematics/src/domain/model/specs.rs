@@ -212,7 +212,8 @@ pub struct ChannelSpec {
     pub kind: EdgeKind,
     pub from: NodeId,
     pub to: NodeId,
-    pub length_m: f64,
+    /// Authored centerline length as an Eunomia-backed SI length.
+    pub length_m: Length<f64>,
     /// Physical cross-section geometry — used by `cfd-1d` to compute hydraulic resistance.
     /// Replaces the old `diameter_m` field with a typed, extensible spec.
     pub cross_section: CrossSectionSpec,
@@ -267,7 +268,7 @@ impl ChannelSpec {
             kind: EdgeKind::Pipe,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m,
+            length_m: Length::from_base(length_m),
             cross_section: CrossSectionSpec::Circular {
                 diameter_m: Length::from_base(diameter_m),
             },
@@ -302,7 +303,7 @@ impl ChannelSpec {
             kind: EdgeKind::Pipe,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m,
+            length_m: Length::from_base(length_m),
             cross_section: CrossSectionSpec::Rectangular {
                 width_m: Length::from_base(width_m),
                 height_m: Length::from_base(height_m),
@@ -333,7 +334,7 @@ impl ChannelSpec {
             kind: EdgeKind::Valve,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m: 0.0,
+            length_m: Length::from_base(0.0),
             cross_section: CrossSectionSpec::Circular {
                 diameter_m: Length::from_base(0.0),
             },
@@ -364,7 +365,7 @@ impl ChannelSpec {
             kind: EdgeKind::Pump,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m: 0.0,
+            length_m: Length::from_base(0.0),
             cross_section: CrossSectionSpec::Circular {
                 diameter_m: Length::from_base(0.0),
             },

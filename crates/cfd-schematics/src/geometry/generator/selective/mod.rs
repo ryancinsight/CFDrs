@@ -166,8 +166,11 @@ mod tests {
         let invalid_lengths: Vec<String> = blueprint
             .channels
             .iter()
-            .filter(|channel| !(channel.length_m.is_finite() && channel.length_m > 0.0))
-            .map(|channel| format!("{}={}", channel.id.as_str(), channel.length_m))
+            .filter(|channel| {
+                let length_m = channel.length_m.into_base();
+                !(length_m.is_finite() && length_m > 0.0)
+            })
+            .map(|channel| format!("{}={}", channel.id.as_str(), channel.length_m.into_base()))
             .collect();
 
         assert!(

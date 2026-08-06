@@ -484,7 +484,10 @@ fn synthesize_layout(
                     message: "expected linear path but traversal failed".to_string(),
                 })?;
             let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
-            let total_len_mm: Real = channels.iter().map(|ch| ch.length_m * 1000.0).sum();
+            let total_len_mm: Real = channels
+                .iter()
+                .map(|ch| ch.length_m.into_base() * 1000.0)
+                .sum();
             let scale = if total_len_mm > 1e-9 {
                 chip_w / total_len_mm
             } else {
@@ -495,7 +498,7 @@ fn synthesize_layout(
             let mut x: Real = 0.0;
             let n = channels.len();
             for (i, ch) in channels.iter().enumerate() {
-                let seg_len = ch.length_m * 1000.0 * scale;
+                let seg_len = ch.length_m.into_base() * 1000.0 * scale;
                 let start = Point3r::new(x, y_center, z_mid);
                 // Clamp the final endpoint to chip_w exactly to prevent
                 // floating-point accumulation from overshooting the routing

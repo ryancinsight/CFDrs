@@ -82,7 +82,8 @@ pub fn validate_blueprint_for_1d_solve(blueprint: &NetworkBlueprint) -> Result<(
         }
 
         let polyline_length_m = polyline_length_mm(&channel.path) * 1.0e-3;
-        let length_tolerance = LENGTH_ABS_TOL_M.max(channel.length_m.abs() * LENGTH_REL_TOL);
+        let channel_length_m = channel.length_m.into_base();
+        let length_tolerance = LENGTH_ABS_TOL_M.max(channel_length_m.abs() * LENGTH_REL_TOL);
 
         // Skip tight length checks for symbolic schematics (e.g. from selective_wrapper)
         let is_symbolic = blueprint
@@ -91,12 +92,12 @@ pub fn validate_blueprint_for_1d_solve(blueprint: &NetworkBlueprint) -> Result<(
             .and_then(|meta| meta.get::<GeometryAuthoringProvenance>())
             .is_some_and(|prov| prov.source.contains("selective_wrapper"));
 
-        if !is_symbolic && (polyline_length_m - channel.length_m).abs() > length_tolerance {
+        if !is_symbolic && (polyline_length_m - channel_length_m).abs() > length_tolerance {
             return Err(Error::InvalidConfiguration(format!(
                 "Channel '{}' path length {:.6e} m disagrees with declared length {:.6e} m",
                 channel.id.as_str(),
                 polyline_length_m,
-                channel.length_m
+                channel_length_m
             )));
         }
 

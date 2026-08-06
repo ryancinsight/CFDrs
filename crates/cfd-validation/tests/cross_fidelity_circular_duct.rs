@@ -91,7 +91,7 @@ fn circular_straight_blueprint(diameter_m: f64, length_m: f64) -> NetworkBluepri
         kind: EdgeKind::Pipe,
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
-        length_m,
+        length_m: Length::from_base(length_m),
         cross_section: CrossSectionSpec::Circular {
             diameter_m: Length::from_base(diameter_m),
         },

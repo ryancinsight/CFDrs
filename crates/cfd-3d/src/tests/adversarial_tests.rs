@@ -307,7 +307,7 @@ mod cross_fidelity_physics_tests {
             kind: EdgeKind::Pipe,
             from: NodeId::new("inlet"),
             to: NodeId::new("outlet"),
-            length_m: l,
+            length_m: aequitas::systems::si::quantities::Length::from_base(l),
             cross_section: CrossSectionSpec::Rectangular {
                 width_m: aequitas::systems::si::quantities::Length::from_base(w),
                 height_m: aequitas::systems::si::quantities::Length::from_base(h),

@@ -53,7 +53,7 @@ impl NetworkBlueprint {
                         })
                         .sum::<f64>()
                 } else {
-                    channel.length_m * 1000.0
+                    channel.length_m.into_base() * 1000.0
                 };
                 let centerline_length = Length::from_unit::<Millimeter>(centerline_length);
                 let cross_section_area = channel.cross_section.area();

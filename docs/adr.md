@@ -764,6 +764,21 @@ changed-contract package suites and focused cross-fidelity/adversarial tests;
 doctest results and the full cfd-validation runtime residual are recorded in
 `gap_audit.md`.
 
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::ChannelSpec.length_m` authoring boundary and the aggregate
+`NetworkBlueprint` length queries. Authored channel centerline length now uses
+Eunomia `Length<f64>` in base metres; direct schematic, cfd-1d, cfd-2d,
+cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d consumers extract
+base scalars only at validation, solver, mesh, formula, and reporting edges.
+No adapter or parallel scalar field remains. The channel-length contract is
+real-valued; no complex or imaginary SI quantity applies.
+
+Verification: affected package checks and warning-denied Clippy pass; Nextest
+passes cfd-schematics 185/185, cfd-1d 736/736 with 3 skips, cfd-2d 571/571
+with 27 skips, cfd-schematic-mesh 29/29, cfd-optim 137/137, focused
+cfd-validation cross-fidelity 26/26, and focused cfd-3d adversarial 19/19.
+Affected-package doctests pass.
+
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 
 Context: cfd-1d channel, membrane, and organ components documented length,

@@ -41,7 +41,7 @@ fn circular_blueprint() -> NetworkBlueprint {
         kind: EdgeKind::Pipe,
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
-        length_m: 0.01,
+        length_m: aequitas::systems::si::quantities::Length::from_base(0.01),
         cross_section: CrossSectionSpec::Circular {
             diameter_m: aequitas::systems::si::quantities::Length::from_base(1.0e-3),
         },

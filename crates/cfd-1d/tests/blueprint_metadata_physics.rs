@@ -107,7 +107,12 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
     };
 
     let fluid = water_20c::<f64>().expect("water database entry must exist");
-    let model = SerpentineModel::new(channel.length_m, segments, cross_section, bend_radius_m);
+    let model = SerpentineModel::new(
+        channel.length_m.into_base(),
+        segments,
+        cross_section,
+        bend_radius_m,
+    );
     let analysis = model
         .analyze(&fluid, &FlowConditions::new(0.25))
         .expect("serpentine analysis must succeed");
@@ -439,7 +444,7 @@ fn venturi_throat_width_and_length_change_coefficients() {
         .iter_mut()
         .find(|channel| channel.id.as_str() == "throat_section")
     {
-        throat.length_m = 1.6e-3;
+        throat.length_m = aequitas::systems::si::quantities::Length::from_base(1.6e-3);
         throat.path = vec![(5.0, 0.0), (6.6, 0.0)];
         throat.cross_section = cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
             width_m: aequitas::systems::si::quantities::Length::from_base(1.8e-4),

@@ -53,7 +53,7 @@ fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {
         kind: EdgeKind::Pipe,
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
-        length_m: l,
+            length_m: Length::from_base(l),
         cross_section: CrossSectionSpec::Rectangular {
             width_m: Length::from_base(w),
             height_m: Length::from_base(h),

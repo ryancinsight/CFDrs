@@ -119,7 +119,7 @@ fn test_blueprint_negative_length_rejected() {
         kind: EdgeKind::Pipe,
         from: NodeId::new("in"),
         to: NodeId::new("out"),
-        length_m: -0.1, // Invalid negative length!
+        length_m: aequitas::systems::si::quantities::Length::from_base(-0.1), // Invalid negative length!
         resistance: 100.0,
         cross_section: CrossSectionSpec::Circular {
             diameter_m: aequitas::systems::si::quantities::Length::from_base(0.001),
@@ -179,7 +179,7 @@ fn test_blueprint_zero_diameter_rejected() {
         kind: EdgeKind::Pipe,
         from: NodeId::new("in"),
         to: NodeId::new("out"),
-        length_m: 0.1,
+        length_m: aequitas::systems::si::quantities::Length::from_base(0.1),
         resistance: 100.0,
         cross_section: CrossSectionSpec::Circular {
             diameter_m: aequitas::systems::si::quantities::Length::from_base(0.0), // Invalid zero diameter

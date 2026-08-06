@@ -180,12 +180,12 @@ pub(super) fn annotate_primitive_tree(
             width_m: Length::from_base(physical_width),
             height_m: Length::from_base(request.channel_height_m),
         };
-        channel.length_m = channel_length_from_points_or_endpoints(
+        channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
             &points,
             start_point,
             end_point,
-            channel.length_m,
-        );
+            channel.length_m.into_base(),
+        ));
 
         let mut role = if is_treatment {
             ChannelVisualRole::CenterTreatment
@@ -229,12 +229,12 @@ pub(super) fn annotate_primitive_tree(
                     },
                 );
                 channel.path = serpentine_path;
-                channel.length_m = channel_length_from_points_or_endpoints(
+                channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
                     &channel.path,
                     start_point,
                     end_point,
-                    channel.length_m,
-                );
+                    channel.length_m.into_base(),
+                ));
                 if let Some((start, end)) = channel.path.first().zip(channel.path.last()) {
                     channel.channel_shape =
                         infer_serpentine_shape(&channel.path, *start, *end, physical_width * 1.0e3);
@@ -248,7 +248,7 @@ pub(super) fn annotate_primitive_tree(
                 start: points.first().copied().or(start_point),
                 end: points.last().copied().or(end_point),
                 preferred_y: preferred_treatment_lane_y(&points, start_point, end_point, avg_y),
-                fallback_length_m: channel.length_m,
+                fallback_length_m: channel.length_m.into_base(),
             });
             channel.visual_role = Some(ChannelVisualRole::VenturiThroat);
             channel.venturi_geometry = Some(VenturiGeometryMetadata {

@@ -1,3 +1,5 @@
+use aequitas::systems::si::quantities::Length;
+
 use super::{ChannelOverlapAnalysis, NetworkBlueprint};
 use crate::topology::BlueprintTopologyFactory;
 
@@ -35,12 +37,18 @@ impl NetworkBlueprint {
     }
 
     #[must_use]
-    pub fn total_length_m(&self) -> f64 {
-        self.channels.iter().map(|channel| channel.length_m).sum()
+    pub fn total_length_m(&self) -> Length<f64> {
+        self.channels
+            .iter()
+            .map(|channel| channel.length_m)
+            .fold(Length::default(), |total, length| total + length)
     }
 
     #[must_use]
-    pub fn length_in_zone(&self, zone: crate::domain::therapy_metadata::TherapyZone) -> f64 {
+    pub fn length_in_zone(
+        &self,
+        zone: crate::domain::therapy_metadata::TherapyZone,
+    ) -> Length<f64> {
         use crate::domain::therapy_metadata::TherapyZoneMetadata;
         self.channels
             .iter()
@@ -52,7 +60,7 @@ impl NetworkBlueprint {
                     .is_some_and(|therapy_zone| therapy_zone.zone == zone)
             })
             .map(|channel| channel.length_m)
-            .sum()
+            .fold(Length::default(), |total, length| total + length)
     }
 
     #[must_use]
@@ -190,7 +198,7 @@ impl NetworkBlueprint {
             }
         }
         let mut pipes = 0usize;
-        let mut total_len = 0.0f64;
+        let mut total_len = Length::default();
         for channel in &self.channels {
             if matches!(channel.kind, super::super::EdgeKind::Pipe) {
                 pipes += 1;
@@ -210,7 +218,7 @@ impl NetworkBlueprint {
             junctions,
             self.channels.len(),
             pipes,
-            total_len,
+            total_len.into_base(),
         )
     }
 }

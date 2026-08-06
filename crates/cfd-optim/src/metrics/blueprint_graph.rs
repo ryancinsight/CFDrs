@@ -248,12 +248,12 @@ pub fn solve_blueprint_candidate(
         if is_venturi_channel {
             venturi_flows.push(flow_m3_s.abs());
         }
-        total_volume_m3 += channel.length_m * channel.cross_section.area().into_base();
+        total_volume_m3 += channel.length_m.into_base() * channel.cross_section.area().into_base();
         channel_samples.push(BlueprintSolveSample {
             id: channel.id.as_str(),
             from_node: channel.from.as_str(),
             to_node: channel.to.as_str(),
-            length_m: Length::from_base(channel.length_m),
+            length_m: channel.length_m,
             cross_section: channel.cross_section,
             channel_shape: channel.channel_shape,
             flow_m3_s: VolumetricFlowRate::from_base(flow_m3_s),

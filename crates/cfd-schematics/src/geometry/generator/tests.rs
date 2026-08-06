@@ -106,9 +106,9 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
 
     for channel in serpentine_channels {
         let expected_length_m = polyline_length(&channel.path) * 1.0e-3;
-        assert!(channel.length_m > 0.0);
+        assert!(channel.length_m.into_base() > 0.0);
         assert!(
-            (channel.length_m - expected_length_m).abs() < 1e-9,
+            (channel.length_m.into_base() - expected_length_m).abs() < 1e-9,
             "channel {:?} length should follow stored polyline length",
             channel.id
         );

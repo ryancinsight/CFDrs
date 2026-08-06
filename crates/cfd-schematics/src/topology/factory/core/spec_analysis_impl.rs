@@ -74,9 +74,9 @@ impl BlueprintTopologyFactory {
             let segments = serpentine.segments.max(1) as f64;
             let straight_length = segments * serpentine.segment_length_m.max(0.0);
             let bend_length = segments * std::f64::consts::PI * serpentine.bend_radius_m.max(0.0);
-            (straight_length + bend_length).max(channel.length_m)
+            (straight_length + bend_length).max(channel.length_m.into_base())
         });
-        let arc_length_m = spec_arc_length_m.unwrap_or(channel.length_m);
+        let arc_length_m = spec_arc_length_m.unwrap_or(channel.length_m.into_base());
 
         // De = Re √(D_h / (2 R_c))
         let dean_num = if curve_radius_m > 0.0 {

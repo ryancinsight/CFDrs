@@ -175,6 +175,7 @@ fn default_half_width(channel: &ChannelSpec) -> f64 {
 
 #[must_use]
 pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDomain {
+    let channel_length_m = channel.length_m.into_base();
     let base_width = channel
         .venturi_geometry
         .as_ref()
@@ -191,21 +192,20 @@ pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDoma
 
     let metrics = path_metrics(&channel.path).unwrap_or(PathMetrics {
         x_min: 0.0,
-        x_max: channel.length_m,
+        x_max: channel_length_m,
         y_min: 0.0,
         y_max: base_width,
-        length: channel.length_m,
+        length: channel_length_m,
     });
 
     let width_scale = if metrics.length > 0.0 {
-        channel.length_m / metrics.length
+        channel_length_m / metrics.length
     } else {
         1.0
     };
     let layout_span_y = (metrics.y_max - metrics.y_min).max(0.0) * width_scale;
     let pad = base_width.max(1e-6);
-    let length_m = channel
-        .length_m
+    let length_m = channel_length_m
         .max((metrics.x_max - metrics.x_min) * width_scale)
         .max(1e-6);
     let width_m = ((layout_span_y * 0.1) + 2.0 * pad).max(1e-6);

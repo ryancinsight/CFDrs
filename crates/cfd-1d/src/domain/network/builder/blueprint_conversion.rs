@@ -223,14 +223,15 @@ where
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
     for (edge_idx, ch_spec) in &edge_specs {
-        if ch_spec.length_m <= 0.0 || !ch_spec.length_m.is_finite() {
+        let length_m = ch_spec.length_m.into_base();
+        if length_m <= 0.0 || !length_m.is_finite() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Channel '{}' has invalid length: {}",
                 ch_spec.id.as_str(),
-                ch_spec.length_m
+                length_m
             )));
         }
-        let length = Length::from_base(T::from_f64_or_zero(ch_spec.length_m));
+        let length = Length::from_base(T::from_f64_or_zero(length_m));
 
         let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
@@ -436,7 +437,7 @@ where
                 continue;
             };
 
-            let length_t = T::from_f64_or_zero(ch_spec.length_m);
+            let length_t = T::from_f64_or_zero(ch_spec.length_m.into_base());
             let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Channel '{}' has invalid serpentine bend radius: {}",
