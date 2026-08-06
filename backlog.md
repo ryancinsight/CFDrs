@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-61 [major] - Type TPMS lattice period metrics
+  (in progress 2026-08-06; owner=current Codex session; scope=
+  `TpmsFillSpec`, `AdaptiveGradient`, cfd-schematic-mesh TPMS construction,
+  schematic rendering, examples, and value-semantic tests).** Public TPMS
+  periods will carry Eunomia `Length<f64>` values in base metres, with scalar
+  extraction only at mesh and rendering formula boundaries. Normalized
+  fractions and iso-values remain dimensionless. Acceptance: affected
+  all-target checks, warning-denied Clippy, cfd-schematics and
+  cfd-schematic-mesh Nextest, doctests, Rustdoc, JSON value-semantic
+  round-trip coverage, and synchronized gap-audit evidence. This real geometry
+  contract has no complex or imaginary SI quantity.
+
 - **CFDRS-AEQ-MET-60 [major] - Type geometry configuration dimensions
   (done 2026-08-06; owner=current Codex session; scope=
   `GeometryConfig`, direct geometry/optimization/validation consumers, mesh and

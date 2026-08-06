@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## TPMS lattice period metrics (CFDRS-AEQ-MET-61, 2026-08-06)
+
+The post-MET60 public-contract scan found `TpmsFillSpec.period_mm` and the
+`AdaptiveGradient` period endpoints still crossing the cfd-schematics,
+cfd-schematic-mesh, and schematic-rendering boundaries as raw millimetre
+scalars. These are authored physical lattice periods, not display-only values:
+they determine the marching-cubes TPMS evaluation and the adaptive pore-scale
+field used for cell separation.
+
+This gap is in progress. The implementation will carry Eunomia `Length<f64>`
+values in base metres through both period contracts and direct consumers.
+Millimetre extraction will remain confined to mesh/rendering formula
+boundaries. The TPMS iso-value and normalized spatial fractions remain
+dimensionless. No complex or imaginary SI quantity applies to this real
+geometry contract.
+
 ## Geometry configuration dimensions (CFDRS-AEQ-MET-60, 2026-08-06)
 
 The post-MET59 public-contract scan found `GeometryConfig` still exposes
