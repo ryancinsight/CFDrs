@@ -2,7 +2,6 @@ use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use crate::geometry::metadata::{ChannelVenturiSpec, ChannelVisualRole, VenturiGeometryMetadata};
 use crate::geometry::Point2D;
-use aequitas::systems::si::quantities::Length;
 use petgraph::algo::astar;
 use petgraph::{Directed, Graph};
 use std::collections::{BTreeMap, HashMap};
@@ -432,6 +431,7 @@ fn point_at_arclength(path: &[Point2D], cumulative: &[f64], target_s: f64) -> Po
 mod tests {
     use super::*;
     use crate::domain::model::{ChannelSpec, NetworkBlueprint};
+    use aequitas::systems::si::quantities::Length;
 
     // #[test]
     // fn classify_node_roles_assigns_expected_degree_roles() {
