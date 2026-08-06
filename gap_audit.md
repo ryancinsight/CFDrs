@@ -31,6 +31,21 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Geometry configuration dimensions (CFDRS-AEQ-MET-60, 2026-08-06)
+
+The post-MET59 public-contract scan found `GeometryConfig` still exposes
+`wall_clearance`, `channel_width`, and `channel_height` as raw millimetre
+scalars. These authored dimensions feed geometry generation, optimization,
+validation, and cross-crate mesh/solver examples, so the unit comments do not
+provide dimensional protection at the configuration boundary.
+
+This gap is in progress. The implementation will carry Eunomia `Length<f64>`
+through the public configuration and direct consumers in base metres, with
+millimetre extraction confined to existing layout and numerical formula
+boundaries. Schematic coordinate/path and junction-angle metadata remain
+explicit visualization/serialization boundaries in this audit. No complex or
+imaginary SI quantity applies to this real geometry contract.
+
 ## Channel-diameter metadata metrics (CFDRS-AEQ-MET-59, 2026-08-06)
 
 The post-MET58 public-contract scan found `MetadataConfig` and emitted

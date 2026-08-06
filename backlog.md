@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-60 [major] - Type geometry configuration dimensions
+  (in progress 2026-08-06; owner=current Codex session; scope=
+  `GeometryConfig`, direct geometry/optimization/validation consumers, mesh and
+  solver examples, and value-semantic tests).** Public geometry configuration
+  still carries wall clearance, channel width, and channel height as raw
+  millimetre scalars. The acceptance oracle is Eunomia `Length<f64>` through
+  the public configuration in base metres, with millimetre extraction only at
+  layout/formula boundaries. This real geometry contract has no complex or
+  imaginary SI quantity.
+
 - **CFDRS-AEQ-MET-59 [major] - Type channel-diameter metadata metrics
   (done 2026-08-06; owner=current Codex session; scope=
   `MetadataConfig`, `ChannelGeometryMetadata`, geometry-generator consumers,
