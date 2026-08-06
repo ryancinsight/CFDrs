@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Channel route authoring geometry (CFDRS-AEQ-MET-50, 2026-08-05)
+
+The post-MET49 public-contract scan found `ChannelRouteSpec` still exposes
+route length, width, and height as raw metre scalars. These fields feed the
+topology builder, geometry generators, optimization mutations, reporting, and
+serialization, so unit comments do not provide dimensional protection at the
+authoring boundary.
+
+Status: in progress. The bounded slice covers only the three
+`ChannelRouteSpec` dimensions and their direct callers. `SerpentineSpec`,
+`SubBranchSpec`, and `BlueprintTopologySpec` envelope dimensions remain
+separate boundaries. The target contract is Eunomia real-valued
+`Length<f64>` in base metres, with explicit scalar extraction only at
+validation, routing, mesh, formula, reporting, and serialization edges. No
+complex or imaginary SI quantity applies.
+
 ## Venturi topology authoring geometry (CFDRS-AEQ-MET-49, 2026-08-05)
 
 The post-MET48 scan leaves `ThroatGeometrySpec` as the next public physical
