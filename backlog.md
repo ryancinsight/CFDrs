@@ -31,6 +31,19 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-62 [major] - Type ShellCuboid authoring dimensions
+  (in progress 2026-08-06; owner=current Codex session; scope=
+  `ShellCuboid`, shell generator, renderer, direct examples, and
+  value-semantic tests).** Public shell outer dimensions, wall thickness, and
+  derived cavity dimensions will carry Eunomia `Length<f64>` values in base
+  metres through construction and validation. Scalar extraction remains at
+  schematic-coordinate and interchange serialization boundaries;
+  `InterchangeShellCuboid` remains the explicit millimetre wire DTO.
+  Acceptance: affected all-target checks, warning-denied Clippy,
+  cfd-schematics Nextest, doctests, Rustdoc, JSON/interchange value-semantic
+  coverage, and synchronized gap-audit evidence. This real geometry contract
+  has no complex or imaginary SI quantity.
+
 - **CFDRS-AEQ-MET-61 [major] - Type TPMS lattice period metrics
   (done 2026-08-06; owner=current Codex session; scope=
   `TpmsFillSpec`, `AdaptiveGradient`, cfd-schematic-mesh TPMS construction,

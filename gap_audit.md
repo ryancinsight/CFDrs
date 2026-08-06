@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## ShellCuboid authoring dimensions (CFDRS-AEQ-MET-62, 2026-08-06)
+
+The post-MET61 scan found `ShellCuboid.outer_dims`,
+`ShellCuboid.shell_thickness_mm`, and derived `inner_dims` still crossing the
+public shell authoring and renderer boundaries as raw millimetre scalars.
+These dimensions define the physical cavity and wall geometry, not merely a
+serialized display payload.
+
+This gap is in progress. The implementation will carry the shell authoring
+dimensions as Eunomia `Length<f64>` values in base metres through construction,
+validation, and rendering consumers. Scalar extraction will remain at the
+explicit schematic-coordinate and interchange serialization boundaries;
+`InterchangeShellCuboid` remains a millimetre wire DTO for downstream mesh
+compatibility. The real shell geometry has no complex or imaginary SI
+quantity.
+
 ## TPMS lattice period metrics (CFDRS-AEQ-MET-61, 2026-08-06)
 
 The post-MET60 public-contract scan found `TpmsFillSpec.period_mm` and the
