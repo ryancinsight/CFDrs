@@ -431,6 +431,7 @@ fn point_at_arclength(path: &[Point2D], cumulative: &[f64], target_s: f64) -> Po
 mod tests {
     use super::*;
     use crate::domain::model::{ChannelSpec, NetworkBlueprint};
+    use aequitas::systems::si::quantities::Length;
 
     // #[test]
     // fn classify_node_roles_assigns_expected_degree_roles() {
@@ -448,18 +449,18 @@ mod tests {
             .with_metadata(ChannelVenturiSpec {
                 n_throats: 2,
                 is_ctc_stream: true,
-                throat_width_m: 40e-6,
-                height_m: 50e-6,
-                inter_throat_spacing_m: 1.0e-3,
+                throat_width_m: Length::from_base(40e-6),
+                height_m: Length::from_base(50e-6),
+                inter_throat_spacing_m: Length::from_base(1.0e-3),
             });
 
         let c2 = ChannelSpec::new_pipe_rect("c2", "n1", "n2", 1.0, 1.0, 1.0, 1.0, 0.0)
             .with_metadata(ChannelVenturiSpec {
                 n_throats: 3,
                 is_ctc_stream: false,
-                throat_width_m: 40e-6,
-                height_m: 50e-6,
-                inter_throat_spacing_m: 1.0e-3,
+                throat_width_m: Length::from_base(40e-6),
+                height_m: Length::from_base(50e-6),
+                inter_throat_spacing_m: Length::from_base(1.0e-3),
             });
 
         blueprint.add_channel(c1);

@@ -45,7 +45,7 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
-use aequitas::systems::si::quantities::{Dimensionless, Volume};
+use aequitas::systems::si::quantities::{Dimensionless, Length, Volume};
 use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
@@ -230,8 +230,8 @@ fn blueprint_for(name: &str) -> cfd_schematics::NetworkBlueprint {
     let box_dims = (CHIP_W_MM, CHIP_D_MM);
 
     let geom = GeometryConfig {
-        channel_width: 4.0,
-        channel_height: 4.0,
+        channel_width: Length::from_base(4.0e-3),
+        channel_height: Length::from_base(4.0e-3),
         ..GeometryConfig::default()
     };
 

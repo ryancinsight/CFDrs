@@ -11,6 +11,7 @@ use crate::geometry::metadata::ChannelVisualRole;
 use crate::topology::model::{
     BlueprintTopologySpec, TopologyLineageMetadata, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::Length;
 
 impl BlueprintTopologyFactory {
     pub(super) fn build_series_path(
@@ -49,13 +50,13 @@ impl BlueprintTopologyFactory {
         let representative_height_m = Self::representative_channel_height_m(spec);
 
         let geo_config = GeometryConfig {
-            channel_width: representative_width_m * 1e3,   // m → mm
-            channel_height: representative_height_m * 1e3, // m → mm
+            channel_width: Length::from_base(representative_width_m),
+            channel_height: Length::from_base(representative_height_m),
             ..GeometryConfig::default()
         };
 
         let mut blueprint = GeometryGeneratorBuilder::new(
-            spec.box_dims_mm,
+            spec.box_dims_mm(),
             &splits,
             &geo_config,
             &ChannelTypeConfig::AllStraight,

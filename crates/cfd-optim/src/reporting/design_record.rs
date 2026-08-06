@@ -126,7 +126,7 @@ impl Milestone12ReportDesign {
             .blueprint()
             .topology_spec()
             .and_then(|spec| spec.venturi_placements.first())
-            .map(|placement| placement.throat_geometry.throat_width_m * 1.0e6)
+            .map(|placement| placement.throat_geometry.throat_width_m.into_base() * 1.0e6)
     }
     #[must_use]
     pub fn throat_length_um(&self) -> Option<f64> {
@@ -134,7 +134,7 @@ impl Milestone12ReportDesign {
             .blueprint()
             .topology_spec()
             .and_then(|spec| spec.venturi_placements.first())
-            .map(|placement| placement.throat_geometry.throat_length_m * 1.0e6)
+            .map(|placement| placement.throat_geometry.throat_length_m.into_base() * 1.0e6)
     }
 }
 

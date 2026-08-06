@@ -11,7 +11,8 @@
 //! `cargo run -p cfd-1d --example geometry_integration_demo`
 
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, Length, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity,
+    Velocity,
 };
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
@@ -38,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
-        channel_width: 1.0, // mm
+        channel_width: Length::from_base(1.0e-3), // mm
         ..Default::default()
     };
     let channel_type_config = ChannelTypeConfig::AllStraight;

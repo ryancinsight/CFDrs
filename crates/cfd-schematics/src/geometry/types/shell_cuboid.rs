@@ -18,13 +18,17 @@
 //!  (0, 0) ──────────────────────────── (W, 0)
 //! ```
 //!
-//! - `W` = `outer_dims.0`, `H` = `outer_dims.1`, `t` = `shell_thickness_mm`.
+//! - `W` = `outer_dims.0`, `H` = `outer_dims.1`, `t` = `shell_thickness`.
 //! - Inlet port: outer corner `(0, H/2)` ↔ inner corner `(t, H/2)`.
 //! - Outlet port: inner corner `(W-t, H/2)` ↔ outer corner `(W, H/2)`.
 //! - `box_outline` contains exactly 10 segments: 4 outer + 4 inner + 2 port stubs.
 
-use crate::error::{GeometryError, GeometryResult};
 use serde::{Deserialize, Serialize};
+
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
+
+use crate::error::{GeometryError, GeometryResult};
 
 use super::tpms_fill::TpmsFillSpec;
 use super::Point2D;
@@ -33,6 +37,13 @@ use super::Point2D;
 const SCHEMA_VERSION: &str = "1.0.0";
 const PRODUCER_PREFIX: &str = "scheme";
 const LENGTH_UNITS: &str = "mm";
+
+fn dimensions_mm(dimensions: (Length<f64>, Length<f64>)) -> (f64, f64) {
+    (
+        dimensions.0.in_unit::<Millimeter>(),
+        dimensions.1.in_unit::<Millimeter>(),
+    )
+}
 
 // ── Core type ──────────────────────────────────────────────────────────────────
 
@@ -49,14 +60,14 @@ const LENGTH_UNITS: &str = "mm";
 /// to construct this type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShellCuboid {
-    /// Outer bounding-box dimensions `(width_mm, height_mm)`.
-    pub outer_dims: (f64, f64),
-    /// Uniform wall thickness applied on all four sides (mm).
-    pub shell_thickness_mm: f64,
-    /// Derived inner cavity dimensions `(width_mm, height_mm)`.
+    /// Outer bounding-box dimensions, stored as Eunomia base-metre lengths.
+    pub outer_dims: (Length<f64>, Length<f64>),
+    /// Uniform wall thickness applied on all four sides, stored in base metres.
+    pub shell_thickness: Length<f64>,
+    /// Derived inner cavity dimensions, stored as Eunomia base-metre lengths.
     ///
     /// Invariant: both components are strictly positive.
-    pub inner_dims: (f64, f64),
+    pub inner_dims: (Length<f64>, Length<f64>),
     /// Inlet port midpoint on the **outer** left wall (mm).
     pub inlet_port: Point2D,
     /// Outlet port midpoint on the **outer** right wall (mm).
@@ -79,18 +90,19 @@ impl ShellCuboid {
     ///
     /// All millifluidic designs in this project target this standard
     /// microplate form factor.
-    pub const WELL_PLATE_96_DIMS: (f64, f64) = (127.76, 85.47);
+    pub const WELL_PLATE_96_DIMS: (Length<f64>, Length<f64>) =
+        (Length::from_base(127.76e-3), Length::from_base(85.47e-3));
 
     /// Construct a `ShellCuboid` with the 96-well plate footprint.
     ///
-    /// Equivalent to `ShellCuboid::new(Self::WELL_PLATE_96_DIMS, shell_thickness_mm)`.
+    /// Equivalent to `ShellCuboid::new(Self::WELL_PLATE_96_DIMS, shell_thickness)`.
     ///
     /// # Errors
     ///
-    /// Returns [`GeometryError`] if `shell_thickness_mm` violates the
+    /// Returns [`GeometryError`] if `shell_thickness` violates the
     /// geometric invariants (see [`new`](ShellCuboid::new)).
-    pub fn well_plate_96(shell_thickness_mm: f64) -> GeometryResult<Self> {
-        Self::new(Self::WELL_PLATE_96_DIMS, shell_thickness_mm)
+    pub fn well_plate_96(shell_thickness: Length<f64>) -> GeometryResult<Self> {
+        Self::new(Self::WELL_PLATE_96_DIMS, shell_thickness)
     }
 
     /// Construct a `ShellCuboid` from outer dimensions and shell thickness.
@@ -99,14 +111,17 @@ impl ShellCuboid {
     ///
     /// Returns [`GeometryError`] when:
     /// - any outer dimension is non-positive or non-finite, or
-    /// - `shell_thickness_mm` is non-positive, non-finite, or
+    /// - `shell_thickness` is non-positive, non-finite, or
     ///   large enough that the inner cavity would be non-positive in either
     ///   dimension (i.e. `thickness ≥ outer_dim / 2`).
-    pub fn new(outer_dims: (f64, f64), shell_thickness_mm: f64) -> GeometryResult<Self> {
-        Self::validate_params(outer_dims, shell_thickness_mm)?;
+    pub fn new(
+        outer_dims: (Length<f64>, Length<f64>),
+        shell_thickness: Length<f64>,
+    ) -> GeometryResult<Self> {
+        Self::validate_params(outer_dims, shell_thickness)?;
 
-        let (w, h) = outer_dims;
-        let t = shell_thickness_mm;
+        let (w, h) = dimensions_mm(outer_dims);
+        let t = shell_thickness.in_unit::<Millimeter>();
 
         let inner_dims = (w - 2.0 * t, h - 2.0 * t);
 
@@ -143,13 +158,37 @@ impl ShellCuboid {
 
         Ok(Self {
             outer_dims,
-            shell_thickness_mm,
-            inner_dims,
+            shell_thickness,
+            inner_dims: (
+                Length::from_unit::<Millimeter>(inner_dims.0),
+                Length::from_unit::<Millimeter>(inner_dims.1),
+            ),
             inlet_port,
             outlet_port,
             box_outline,
             tpms_fill: None,
         })
+    }
+
+    /// Return the outer dimensions in millimetres for schematic-coordinate
+    /// formulas and explicit interchange conversion.
+    #[must_use]
+    pub fn outer_dims_mm(&self) -> (f64, f64) {
+        dimensions_mm(self.outer_dims)
+    }
+
+    /// Return the derived cavity dimensions in millimetres for
+    /// schematic-coordinate formulas and explicit interchange conversion.
+    #[must_use]
+    pub fn inner_dims_mm(&self) -> (f64, f64) {
+        dimensions_mm(self.inner_dims)
+    }
+
+    /// Return the wall thickness in millimetres for schematic-coordinate
+    /// formulas and explicit interchange conversion.
+    #[must_use]
+    pub fn shell_thickness_mm(&self) -> f64 {
+        self.shell_thickness.in_unit::<Millimeter>()
     }
 
     /// Attach a TPMS fill specification to fill the inner cavity.
@@ -166,13 +205,22 @@ impl ShellCuboid {
     /// Validate outer dimensions and shell thickness independently of construction.
     ///
     /// Called by [`new`](ShellCuboid::new) and [`validate`](ShellCuboid::validate).
-    fn validate_params(outer_dims: (f64, f64), shell_thickness_mm: f64) -> GeometryResult<()> {
+    fn validate_params(
+        outer_dims: (Length<f64>, Length<f64>),
+        shell_thickness: Length<f64>,
+    ) -> GeometryResult<()> {
         let (w, h) = outer_dims;
-        if !w.is_finite() || w <= 0.0 || !h.is_finite() || h <= 0.0 {
-            return Err(GeometryError::invalid_box_dimensions(w, h));
+        let w_m = w.into_base();
+        let h_m = h.into_base();
+        let w_mm = w.in_unit::<Millimeter>();
+        let h_mm = h.in_unit::<Millimeter>();
+        if !w_m.is_finite() || w_m <= 0.0 || !h_m.is_finite() || h_m <= 0.0 {
+            return Err(GeometryError::invalid_box_dimensions(w_mm, h_mm));
         }
 
-        if !shell_thickness_mm.is_finite() || shell_thickness_mm <= 0.0 {
+        let shell_thickness_m = shell_thickness.into_base();
+        let shell_thickness_mm = shell_thickness.in_unit::<Millimeter>();
+        if !shell_thickness_m.is_finite() || shell_thickness_m <= 0.0 {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
                     "shell_thickness_mm must be a finite positive value, got {shell_thickness_mm}"
@@ -180,13 +228,15 @@ impl ShellCuboid {
             });
         }
 
-        let inner_w = w - 2.0 * shell_thickness_mm;
-        let inner_h = h - 2.0 * shell_thickness_mm;
+        let inner_w = w_m - 2.0 * shell_thickness_m;
+        let inner_h = h_m - 2.0 * shell_thickness_m;
         if inner_w <= 0.0 || inner_h <= 0.0 {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
                     "shell_thickness_mm ({shell_thickness_mm}) is too large for outer_dims \
-                         ({w}×{h}): inner cavity dimensions would be ({inner_w}×{inner_h})"
+                         ({w_mm}×{h_mm}): inner cavity dimensions would be ({}×{})",
+                    inner_w * 1000.0,
+                    inner_h * 1000.0
                 ),
             });
         }
@@ -202,14 +252,17 @@ impl ShellCuboid {
     ///
     /// Returns [`GeometryError`] on any invariant violation.
     pub fn validate(&self) -> GeometryResult<()> {
-        Self::validate_params(self.outer_dims, self.shell_thickness_mm)?;
+        Self::validate_params(self.outer_dims, self.shell_thickness)?;
 
         // Derived fields must be consistent.
         let (w, h) = self.outer_dims;
-        let t = self.shell_thickness_mm;
-        let expected_inner = (w - 2.0 * t, h - 2.0 * t);
-        if (self.inner_dims.0 - expected_inner.0).abs() > 1e-9
-            || (self.inner_dims.1 - expected_inner.1).abs() > 1e-9
+        let t = self.shell_thickness;
+        let expected_inner = (
+            Length::from_base(w.into_base() - 2.0 * t.into_base()),
+            Length::from_base(h.into_base() - 2.0 * t.into_base()),
+        );
+        if (self.inner_dims.0.into_base() - expected_inner.0.into_base()).abs() > 1e-12
+            || (self.inner_dims.1.into_base() - expected_inner.1.into_base()).abs() > 1e-12
         {
             return Err(GeometryError::InvalidChannelPath {
                 reason: "inner_dims are inconsistent with outer_dims and shell_thickness_mm"
@@ -275,18 +328,25 @@ mod tests {
     use super::*;
 
     fn make_80x40() -> ShellCuboid {
-        ShellCuboid::new((80.0, 40.0), 2.0).expect("valid shell cuboid")
+        ShellCuboid::new(
+            (
+                Length::from_unit::<Millimeter>(80.0),
+                Length::from_unit::<Millimeter>(40.0),
+            ),
+            Length::from_unit::<Millimeter>(2.0),
+        )
+        .expect("valid shell cuboid")
     }
 
     #[test]
     fn shell_cuboid_positive_cavity() {
         let sc = make_80x40();
         assert!(
-            (sc.inner_dims.0 - 76.0).abs() < 1e-9,
+            (sc.inner_dims_mm().0 - 76.0).abs() < 1e-9,
             "inner width should be 76.0"
         );
         assert!(
-            (sc.inner_dims.1 - 36.0).abs() < 1e-9,
+            (sc.inner_dims_mm().1 - 36.0).abs() < 1e-9,
             "inner height should be 36.0"
         );
     }
@@ -332,7 +392,13 @@ mod tests {
     #[test]
     fn shell_cuboid_invalid_thickness_too_large() {
         // thickness ≥ half dimension on height axis (3.0 > 4.0/2 = 2.0)
-        let result = ShellCuboid::new((10.0, 4.0), 3.0);
+        let result = ShellCuboid::new(
+            (
+                Length::from_unit::<Millimeter>(10.0),
+                Length::from_unit::<Millimeter>(4.0),
+            ),
+            Length::from_unit::<Millimeter>(3.0),
+        );
         assert!(
             result.is_err(),
             "thickness larger than half-height must fail"
@@ -341,33 +407,46 @@ mod tests {
 
     #[test]
     fn shell_cuboid_invalid_zero_outer_dim() {
-        let result = ShellCuboid::new((0.0, 40.0), 2.0);
+        let result = ShellCuboid::new(
+            (
+                Length::from_unit::<Millimeter>(0.0),
+                Length::from_unit::<Millimeter>(40.0),
+            ),
+            Length::from_unit::<Millimeter>(2.0),
+        );
         assert!(result.is_err(), "zero outer width must fail");
     }
 
     #[test]
     fn shell_cuboid_invalid_negative_thickness() {
-        let result = ShellCuboid::new((80.0, 40.0), -1.0);
+        let result = ShellCuboid::new(
+            (
+                Length::from_unit::<Millimeter>(80.0),
+                Length::from_unit::<Millimeter>(40.0),
+            ),
+            Length::from_unit::<Millimeter>(-1.0),
+        );
         assert!(result.is_err(), "negative thickness must fail");
     }
 
     #[test]
     fn shell_cuboid_well_plate_96_dims() {
-        let sc = ShellCuboid::well_plate_96(2.0).expect("valid plate shell");
+        let sc = ShellCuboid::well_plate_96(Length::from_unit::<Millimeter>(2.0))
+            .expect("valid plate shell");
         assert!(
-            (sc.outer_dims.0 - 127.76).abs() < 1e-9,
+            (sc.outer_dims_mm().0 - 127.76).abs() < 1e-9,
             "width should be 127.76 mm"
         );
         assert!(
-            (sc.outer_dims.1 - 85.47).abs() < 1e-9,
+            (sc.outer_dims_mm().1 - 85.47).abs() < 1e-9,
             "height should be 85.47 mm"
         );
         assert!(
-            (sc.inner_dims.0 - 123.76).abs() < 1e-9,
+            (sc.inner_dims_mm().0 - 123.76).abs() < 1e-9,
             "inner width: 127.76 - 4"
         );
         assert!(
-            (sc.inner_dims.1 - 81.47).abs() < 1e-9,
+            (sc.inner_dims_mm().1 - 81.47).abs() < 1e-9,
             "inner height: 85.47 - 4"
         );
         assert!((sc.inlet_port.1 - 42.735).abs() < 1e-9, "inlet at midline");

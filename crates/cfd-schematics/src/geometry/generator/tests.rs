@@ -5,13 +5,14 @@ use crate::geometry::builders::{ChannelExt, NodeExt};
 use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
 use crate::geometry::types::polyline_length;
 use crate::geometry::SplitType;
+use aequitas::systems::si::quantities::Length;
 
 #[test]
 fn test_generator_with_performance_metadata() {
     let metadata_config = MetadataConfig {
         track_performance: true,
         track_optimization: false,
-        channel_diameter_mm: None,
+        channel_diameter_m: None,
     };
 
     let system = create_geometry_with_metadata(
@@ -52,7 +53,8 @@ fn test_channel_diameter_metadata_adjusts_split_spacing() {
         &baseline_metadata,
     );
 
-    let diameter_metadata = MetadataConfig::default().with_channel_diameter_mm(40.0);
+    let diameter_metadata =
+        MetadataConfig::default().with_channel_diameter_m(Length::from_base(40.0e-3));
     let diameter_system = create_geometry_with_metadata(
         box_dims,
         &splits,
@@ -81,7 +83,7 @@ fn test_channel_diameter_metadata_adjusts_split_spacing() {
         let metadata = channel
             .get_metadata::<ChannelGeometryMetadata>()
             .expect("channel should include ChannelGeometryMetadata when diameter is configured");
-        assert!((metadata.channel_diameter_mm - 40.0).abs() < 1e-10);
+        assert!((metadata.channel_diameter_m.into_base() - 40.0e-3).abs() < 1e-15);
     }
 }
 
@@ -106,9 +108,9 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
 
     for channel in serpentine_channels {
         let expected_length_m = polyline_length(&channel.path) * 1.0e-3;
-        assert!(channel.length_m > 0.0);
+        assert!(channel.length_m.into_base() > 0.0);
         assert!(
-            (channel.length_m - expected_length_m).abs() < 1e-9,
+            (channel.length_m.into_base() - expected_length_m).abs() < 1e-9,
             "channel {:?} length should follow stored polyline length",
             channel.id
         );
@@ -125,7 +127,7 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
                     channel.id
                 );
                 assert!(
-                    bend_radius_m > 0.0,
+                    bend_radius_m.into_base() > 0.0,
                     "channel {:?} should expose a positive bend radius",
                     channel.id
                 );

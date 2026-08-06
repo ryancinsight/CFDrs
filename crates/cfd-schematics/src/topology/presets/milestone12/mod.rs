@@ -2,6 +2,7 @@ use super::super::model::{
     BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
 };
 use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use aequitas::systems::si::quantities::Length;
 
 mod build;
 mod catalog;
@@ -19,7 +20,7 @@ pub struct Milestone12StageBranchSpec {
     pub label: String,
     pub role: BranchRole,
     pub treatment_path: bool,
-    pub width_m: f64,
+    pub width_m: Length<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,42 +35,54 @@ pub struct Milestone12PrimitiveSelectiveSpec {
     pub design_name: String,
     pub mirror_x: bool,
     pub mirror_y: bool,
-    pub box_dims_mm: (f64, f64),
+    pub box_dims_m: (Length<f64>, Length<f64>),
     pub split_kinds: Vec<SplitKind>,
-    pub inlet_width_m: f64,
-    pub channel_height_m: f64,
-    pub branch_length_m: f64,
-    pub outlet_tail_length_m: f64,
+    pub inlet_width_m: Length<f64>,
+    pub channel_height_m: Length<f64>,
+    pub branch_length_m: Length<f64>,
+    pub outlet_tail_length_m: Length<f64>,
     pub stage_layouts: Vec<Milestone12StageLayout>,
     pub first_trifurcation_center_frac: f64,
     pub later_trifurcation_center_frac: f64,
     pub bifurcation_treatment_frac: f64,
     pub treatment_mode: TreatmentActuationMode,
     pub venturi_throat_count: u8,
-    pub venturi_throat_width_m: f64,
-    pub venturi_throat_length_m: f64,
+    pub venturi_throat_width_m: Length<f64>,
+    pub venturi_throat_length_m: Length<f64>,
     pub center_serpentine: Option<SerpentineSpec>,
     pub venturi_placement_mode: VenturiPlacementMode,
     pub venturi_target_channel_ids: Vec<String>,
 }
 
 impl Milestone12PrimitiveSelectiveSpec {
+    /// Returns the authored plate envelope in millimetres for layout geometry.
+    #[must_use]
+    pub fn box_dims_mm(&self) -> (f64, f64) {
+        (
+            self.box_dims_m.0.into_base() * 1.0e3,
+            self.box_dims_m.1.into_base() * 1.0e3,
+        )
+    }
+
     #[must_use]
     pub fn new(
         topology_id: impl Into<String>,
         design_name: impl Into<String>,
         split_kinds: Vec<SplitKind>,
-        inlet_width_m: f64,
-        channel_height_m: f64,
-        branch_length_m: f64,
-        outlet_tail_length_m: f64,
+        inlet_width_m: Length<f64>,
+        channel_height_m: Length<f64>,
+        branch_length_m: Length<f64>,
+        outlet_tail_length_m: Length<f64>,
     ) -> Self {
         Self {
             topology_id: topology_id.into(),
             design_name: design_name.into(),
             mirror_x: false,
             mirror_y: false,
-            box_dims_mm: (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
+            box_dims_m: (
+                Length::from_base(PLATE_WIDTH_MM * 1.0e-3),
+                Length::from_base(PLATE_HEIGHT_MM * 1.0e-3),
+            ),
             split_kinds,
             inlet_width_m,
             channel_height_m,
@@ -82,7 +95,7 @@ impl Milestone12PrimitiveSelectiveSpec {
             treatment_mode: TreatmentActuationMode::UltrasoundOnly,
             venturi_throat_count: 0,
             venturi_throat_width_m: inlet_width_m,
-            venturi_throat_length_m: branch_length_m / 8.0,
+            venturi_throat_length_m: Length::from_base(branch_length_m.into_base() / 8.0),
             center_serpentine: None,
             venturi_placement_mode: VenturiPlacementMode::StraightSegment,
             venturi_target_channel_ids: Vec::new(),
@@ -118,10 +131,10 @@ mod tests {
                 SplitKind::NFurcation(4),
                 SplitKind::NFurcation(5),
             ],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         let layouts = milestone12_default_stage_layouts(&request);
         assert_eq!(layouts.len(), 4);
@@ -137,10 +150,10 @@ mod tests {
             "quad",
             "quad",
             vec![SplitKind::NFurcation(4)],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         request.stage_layouts = vec![Milestone12StageLayout {
             split_kind: SplitKind::NFurcation(4),
@@ -149,25 +162,25 @@ mod tests {
                     label: "arm_0".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: 1.0e-3,
+                    width_m: Length::from_base(1.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_1".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: 2.0e-3,
+                    width_m: Length::from_base(2.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_2".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: 2.0e-3,
+                    width_m: Length::from_base(2.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "arm_3".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: 1.0e-3,
+                    width_m: Length::from_base(1.0e-3),
                 },
             ],
         }];
@@ -189,10 +202,10 @@ mod tests {
             "tri",
             "tri",
             vec![SplitKind::NFurcation(3)],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         request.stage_layouts = vec![Milestone12StageLayout {
             split_kind: SplitKind::NFurcation(3),
@@ -201,19 +214,19 @@ mod tests {
                     label: "left".to_string(),
                     role: BranchRole::Neutral,
                     treatment_path: false,
-                    width_m: 1.0e-3,
+                    width_m: Length::from_base(1.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "center".to_string(),
                     role: BranchRole::Treatment,
                     treatment_path: true,
-                    width_m: 2.0e-3,
+                    width_m: Length::from_base(2.0e-3),
                 },
                 Milestone12StageBranchSpec {
                     label: "right".to_string(),
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
-                    width_m: 3.0e-3,
+                    width_m: Length::from_base(3.0e-3),
                 },
             ],
         }];
@@ -222,9 +235,9 @@ mod tests {
         let total: f64 = spec.split_stages[0]
             .branches
             .iter()
-            .map(|branch| branch.route.width_m)
+            .map(|branch| branch.route.width_m.into_base())
             .sum();
-        assert!((total - request.inlet_width_m).abs() < 1.0e-12);
+        assert!((total - request.inlet_width_m.into_base()).abs() < 1.0e-12);
     }
 
     #[test]

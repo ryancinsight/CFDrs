@@ -76,35 +76,39 @@ impl BlueprintValidator {
                 )));
             }
 
-            if channel.length_m <= 0.0 {
+            let length_m = channel.length_m.into_base();
+            if length_m <= 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has non-positive length: {}",
                     channel.id.as_str(),
-                    channel.length_m
+                    length_m
                 )));
             }
 
-            if channel.cross_section.hydraulic_diameter() <= 0.0 {
+            let hydraulic_diameter_m = channel.cross_section.hydraulic_diameter().into_base();
+            if hydraulic_diameter_m <= 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has non-positive hydraulic diameter: {}",
                     channel.id.as_str(),
-                    channel.cross_section.hydraulic_diameter()
+                    hydraulic_diameter_m
                 )));
             }
 
-            if channel.resistance < 0.0 {
+            let resistance = channel.resistance.into_base();
+            if resistance < 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has negative resistance: {}",
                     channel.id.as_str(),
-                    channel.resistance
+                    resistance
                 )));
             }
 
-            if channel.quad_coeff < 0.0 {
+            let quad_coeff = channel.quad_coeff.into_base();
+            if quad_coeff < 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Channel '{}' has negative quadratic loss coefficient: {}",
                     channel.id.as_str(),
-                    channel.quad_coeff
+                    quad_coeff
                 )));
             }
         }

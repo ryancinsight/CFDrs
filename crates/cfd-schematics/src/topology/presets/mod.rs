@@ -47,6 +47,7 @@ pub use tree::{asymmetric_split_tree_spec, symmetric_n_furcation_spec};
 mod tests {
     use super::*;
     use crate::topology::model::{SplitKind, VenturiConfig, VenturiPlacementMode};
+    use aequitas::systems::si::quantities::{Angle, Length};
 
     #[test]
     fn symmetric_n_furcation_spec_produces_equal_branches() {
@@ -69,8 +70,8 @@ mod tests {
         assert!(stage.branches[1].treatment_path);
         assert!(!stage.branches[2].treatment_path);
 
-        let center_w = stage.branches[1].route.width_m;
-        let left_w = stage.branches[0].route.width_m;
+        let center_w = stage.branches[1].route.width_m.into_base();
+        let left_w = stage.branches[0].route.width_m.into_base();
         assert!(
             (center_w - 2e-3).abs() < 1e-9,
             "center = 33.3% of 6mm = 2mm, got {center_w}"
@@ -109,9 +110,9 @@ mod tests {
                 crate::topology::ParallelChannelSpec {
                     channel_id: "lane_a".to_string(),
                     route: crate::topology::ChannelRouteSpec {
-                        length_m: 10.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(10.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: None,
                         therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
                     },
@@ -119,9 +120,9 @@ mod tests {
                 crate::topology::ParallelChannelSpec {
                     channel_id: "lane_b".to_string(),
                     route: crate::topology::ChannelRouteSpec {
-                        length_m: 10.0e-3,
-                        width_m: 1.2e-3,
-                        height_m: 1.0e-3,
+                        length_m: Length::from_base(10.0e-3),
+                        width_m: Length::from_base(1.2e-3),
+                        height_m: Length::from_base(1.0e-3),
                         serpentine: None,
                         therapy_zone: crate::domain::therapy_metadata::TherapyZone::CancerTarget,
                     },
@@ -135,13 +136,13 @@ mod tests {
                 target_channel_ids: vec!["lane_b".to_string()],
                 serial_throat_count: 1,
                 throat_geometry: crate::topology::ThroatGeometrySpec {
-                    throat_width_m: 60e-6,
-                    throat_height_m: 1e-3,
-                    throat_length_m: 200e-6,
-                    inlet_width_m: 0.0,
-                    outlet_width_m: 0.0,
-                    convergent_half_angle_deg: 0.0,
-                    divergent_half_angle_deg: 0.0,
+                    throat_width_m: Length::from_base(60e-6),
+                    throat_height_m: Length::from_base(1e-3),
+                    throat_length_m: Length::from_base(200e-6),
+                    inlet_width_m: Length::from_base(0.0),
+                    outlet_width_m: Length::from_base(0.0),
+                    convergent_half_angle: Angle::from_base(0.0),
+                    divergent_half_angle: Angle::from_base(0.0),
                 },
                 placement_mode: VenturiPlacementMode::StraightSegment,
             },

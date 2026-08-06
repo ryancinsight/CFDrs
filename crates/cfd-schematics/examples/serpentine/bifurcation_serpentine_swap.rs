@@ -14,6 +14,7 @@
 //!
 //! Outputs are written to `report/serpentine_swap/`.
 
+use aequitas::systems::si::quantities::Length;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::geometry::generator::create_geometry;
@@ -68,7 +69,7 @@ fn main() {
         let mut mutated = base.clone();
         let serp = ChannelShape::Serpentine {
             segments: SERP_SEGMENTS,
-            bend_radius_m: SERP_BEND_RADIUS_M,
+            bend_radius_m: Length::from_base(SERP_BEND_RADIUS_M),
             wave_type: cfd_schematics::SerpentineWaveType::default(),
         };
         mutated.channels[left_idx].channel_shape = serp;

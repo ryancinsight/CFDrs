@@ -1,7 +1,7 @@
 //! Primitive selective blueprint-candidate construction.
 use crate::constraints::{SERPENTINE_BEND_RADIUS_M, TREATMENT_WIDTH_MM};
 use crate::domain::{BlueprintCandidate, OperatingPoint};
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_schematics::topology::{
     presets::{build_milestone12_blueprint, Milestone12TopologyRequest},
     SerpentineSpec, TreatmentActuationMode, VenturiPlacementMode,
@@ -28,24 +28,24 @@ pub(crate) fn primitive_selective_candidate(
         design_name: request.design_name.clone(),
         mirror_x: request.mirror_x,
         mirror_y: request.mirror_y,
-        box_dims_mm: request.box_dims_mm,
+        box_dims_m: request.box_dims_m,
         split_kinds: request.split_kinds.clone(),
-        inlet_width_m: channel_width_m,
+        inlet_width_m: Length::from_base(channel_width_m),
         channel_height_m: request.channel_height_m,
-        branch_length_m: TREATMENT_WIDTH_MM * 1e-3,
-        outlet_tail_length_m: TREATMENT_WIDTH_MM * 1e-3,
+        branch_length_m: Length::from_base(TREATMENT_WIDTH_MM * 1e-3),
+        outlet_tail_length_m: Length::from_base(TREATMENT_WIDTH_MM * 1e-3),
         stage_layouts: request.stage_layouts.clone(),
         first_trifurcation_center_frac: cif_pretri_center_frac,
         later_trifurcation_center_frac: cif_terminal_tri_center_frac,
         bifurcation_treatment_frac: cif_terminal_bi_treat_frac,
         treatment_mode,
         venturi_throat_count: centerline_venturi_throat_count,
-        venturi_throat_width_m: throat_diameter_m,
-        venturi_throat_length_m: throat_length_m,
+        venturi_throat_width_m: Length::from_base(throat_diameter_m),
+        venturi_throat_length_m: Length::from_base(throat_length_m),
         center_serpentine: (serpentine_segments >= 2).then_some(SerpentineSpec {
             segments: serpentine_segments,
-            bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-            segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+            bend_radius_m: Length::from_base(SERPENTINE_BEND_RADIUS_M),
+            segment_length_m: Length::from_base(TREATMENT_WIDTH_MM * 1e-3),
             wave_type: cfd_schematics::SerpentineWaveType::Sine,
         }),
         venturi_placement_mode: VenturiPlacementMode::StraightSegment,

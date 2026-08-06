@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::{
@@ -41,12 +42,14 @@ fn circular_blueprint() -> NetworkBlueprint {
         kind: EdgeKind::Pipe,
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
-        length_m: 0.01,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 1.0e-3 },
+        length_m: aequitas::systems::si::quantities::Length::from_base(0.01),
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(1.0e-3),
+        },
         channel_shape: ChannelShape::Straight,
-        resistance: 0.0,
-        quad_coeff: 0.0,
-        valve_cv: None,
+        resistance: aequitas::systems::si::quantities::HydraulicResistance::from_base(0.0),
+        quad_coeff: aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0),
+        valve_loss_coefficient: None,
         pump_max_flow: None,
         pump_max_pressure: None,
         visual_role: None,
@@ -283,7 +286,7 @@ fn coupled_solve_honors_branch_boundary_metadata() {
     blueprint.add_node(NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0)));
     blueprint.add_node(
         NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0))
-            .with_metadata(BranchBoundaryMetadata::pressure(0.25)),
+            .with_metadata(BranchBoundaryMetadata::pressure(Pressure::from_base(0.25))),
     );
 
     let mut upstream =
@@ -350,8 +353,9 @@ fn coupled_solve_honors_negative_branch_flow_sink_metadata() {
     ));
     blueprint.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(
-        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0))
-            .with_metadata(BranchBoundaryMetadata::flow_rate(-2.0e-7)),
+        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0)).with_metadata(
+            BranchBoundaryMetadata::flow_rate(VolumetricFlowRate::from_base(-2.0e-7)),
+        ),
     );
     blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
 
@@ -404,8 +408,9 @@ fn reference_trace_records_branch_flow_metadata() {
     ));
     blueprint.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(
-        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0))
-            .with_metadata(BranchBoundaryMetadata::flow_rate(2.0e-7)),
+        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0)).with_metadata(
+            BranchBoundaryMetadata::flow_rate(VolumetricFlowRate::from_base(2.0e-7)),
+        ),
     );
     blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
 
@@ -451,8 +456,9 @@ fn reference_trace_records_negative_branch_flow_metadata() {
     ));
     blueprint.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(
-        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0))
-            .with_metadata(BranchBoundaryMetadata::flow_rate(-2.0e-7)),
+        NodeSpec::new_at("split", NodeKind::Junction, (0.5, 0.0)).with_metadata(
+            BranchBoundaryMetadata::flow_rate(VolumetricFlowRate::from_base(-2.0e-7)),
+        ),
     );
     blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
 
@@ -542,7 +548,9 @@ fn branch_metadata_biases_split_and_merge_coupling_weights() {
                 branch_angles_deg: vec![45.0, 60.0],
                 merge_angles_deg: vec![10.0],
             })
-            .with_metadata(BranchBoundaryMetadata::flow_rate(2.0e-7)),
+            .with_metadata(BranchBoundaryMetadata::flow_rate(
+                VolumetricFlowRate::from_base(2.0e-7),
+            )),
     );
     split_boundary_blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
 
@@ -618,7 +626,9 @@ fn branch_metadata_biases_split_and_merge_coupling_weights() {
                 branch_angles_deg: vec![25.0],
                 merge_angles_deg: vec![70.0],
             })
-            .with_metadata(BranchBoundaryMetadata::flow_rate(-2.0e-7)),
+            .with_metadata(BranchBoundaryMetadata::flow_rate(
+                VolumetricFlowRate::from_base(-2.0e-7),
+            )),
     );
     merge_boundary_blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
 

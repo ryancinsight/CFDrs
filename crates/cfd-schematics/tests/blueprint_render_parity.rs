@@ -1,14 +1,127 @@
-use cfd_schematics::domain::model::ChannelShape;
+use aequitas::systems::si::quantities::Length;
+use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;
 use cfd_schematics::interface::presets::{
     cascade_center_trifurcation_rect, double_trifurcation_cif_venturi_rect,
     incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
-use cfd_schematics::NetworkBlueprint;
+use cfd_schematics::{
+    BlueprintTopologySpec, NetworkBlueprint, SerpentineSpec, SerpentineWaveType, SubBranchSpec,
+    TreatmentActuationMode,
+};
 
 fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
     bp.nodes.iter().any(|node| node.id.0 == node_id)
+}
+
+#[test]
+fn cross_section_quantities_round_trip_through_json() {
+    let cases = [
+        CrossSectionSpec::Circular {
+            diameter_m: Length::from_base(1.2e-3),
+        },
+        CrossSectionSpec::Rectangular {
+            width_m: Length::from_base(1.5e-3),
+            height_m: Length::from_base(0.75e-3),
+        },
+    ];
+
+    for section in cases {
+        let encoded = serde_json::to_string(&section).expect("cross-section JSON must encode");
+        let decoded: CrossSectionSpec =
+            serde_json::from_str(&encoded).expect("cross-section JSON must decode");
+        assert_eq!(decoded, section);
+        assert!(decoded.area().into_base() > 0.0);
+        assert!(decoded.hydraulic_diameter().into_base() > 0.0);
+    }
+}
+
+#[test]
+fn channel_length_quantity_round_trips_and_aggregates() {
+    let authored_length = Length::from_base(2.5e-3);
+    let channel = cfd_schematics::domain::model::ChannelSpec::new_pipe(
+        "length_channel",
+        "inlet",
+        "outlet",
+        authored_length.into_base(),
+        1.0e-3,
+        0.0,
+        0.0,
+    );
+    let encoded = serde_json::to_string(&channel).expect("channel JSON must encode");
+    let decoded: cfd_schematics::domain::model::ChannelSpec =
+        serde_json::from_str(&encoded).expect("channel JSON must decode");
+
+    assert_eq!(decoded.length_m, authored_length);
+
+    let mut blueprint = NetworkBlueprint::new_with_explicit_positions("lengths");
+    blueprint.add_channel(channel);
+    assert_eq!(blueprint.total_length_m(), authored_length);
+}
+
+#[test]
+fn serpentine_quantities_round_trip_through_json() {
+    let spec = SerpentineSpec {
+        segments: 5,
+        bend_radius_m: Length::from_base(1.5e-3),
+        segment_length_m: Length::from_base(6.0e-3),
+        wave_type: SerpentineWaveType::Sine,
+    };
+    let encoded = serde_json::to_string(&spec).expect("serpentine JSON must encode");
+    let decoded: SerpentineSpec =
+        serde_json::from_str(&encoded).expect("serpentine JSON must decode");
+
+    assert_eq!(decoded, spec);
+    assert_eq!(decoded.bend_radius_m, Length::from_base(1.5e-3));
+    assert_eq!(decoded.segment_length_m, Length::from_base(6.0e-3));
+}
+
+#[test]
+fn recovery_sub_branch_quantities_round_trip_through_json() {
+    let spec = SubBranchSpec {
+        label: "recovery-arm".to_string(),
+        width_m: Length::from_base(0.45e-3),
+        height_m: Length::from_base(0.12e-3),
+    };
+    let encoded = serde_json::to_string(&spec).expect("sub-branch JSON must encode");
+    let decoded: SubBranchSpec =
+        serde_json::from_str(&encoded).expect("sub-branch JSON must decode");
+
+    assert_eq!(decoded, spec);
+    assert_eq!(decoded.width_m, Length::from_base(0.45e-3));
+    assert_eq!(decoded.height_m, Length::from_base(0.12e-3));
+}
+
+#[test]
+fn topology_envelope_quantities_round_trip_through_json() {
+    let spec = BlueprintTopologySpec {
+        topology_id: "envelope".to_string(),
+        design_name: "envelope".to_string(),
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        inlet_width_m: Length::from_base(5.0e-3),
+        outlet_width_m: Length::from_base(4.0e-3),
+        trunk_length_m: Length::from_base(20.0e-3),
+        outlet_tail_length_m: Length::from_base(14.0e-3),
+        series_channels: Vec::new(),
+        parallel_channels: Vec::new(),
+        split_stages: Vec::new(),
+        venturi_placements: Vec::new(),
+        treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+    };
+    let encoded = serde_json::to_string(&spec).expect("envelope JSON must encode");
+    let decoded: BlueprintTopologySpec =
+        serde_json::from_str(&encoded).expect("envelope JSON must decode");
+
+    assert_eq!(decoded, spec);
+    let (width_mm, height_mm) = decoded.box_dims_mm();
+    // One decimal serialization round-trip plus one metre-to-millimetre
+    // multiplication bounds the absolute error by 8ε|x| for this magnitude.
+    let envelope_bound = 8.0 * f64::EPSILON * 128.0;
+    assert!((width_mm - 127.76).abs() <= envelope_bound);
+    assert!((height_mm - 85.47).abs() <= envelope_bound);
+    assert_eq!(decoded.inlet_width_m, Length::from_base(5.0e-3));
+    assert_eq!(decoded.outlet_tail_length_m, Length::from_base(14.0e-3));
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {
@@ -57,7 +170,7 @@ fn staged_cif_blueprint_uses_native_geometry() {
         .expect("venturi blueprint should render a throat channel");
     match &throat.cross_section {
         cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, .. } => {
-            assert!(*width_m > 0.0);
+            assert!(width_m.into_base() > 0.0);
         }
         _ => panic!("Expected rectangular"),
     }
@@ -144,8 +257,8 @@ fn cct_blueprint_render_preserves_center_serpentine_lane() {
         false,
         Some(CenterSerpentineSpec {
             segments: 5,
-            bend_radius_m: 3.0e-3,
-            segment_length_m: 7.5e-3,
+            bend_radius_m: Length::from_base(3.0e-3),
+            segment_length_m: Length::from_base(7.5e-3),
         }),
     );
 
@@ -173,8 +286,8 @@ fn cct_serpentine_lane_materializes_mirrored_rotated_s_offsets() {
         false,
         Some(CenterSerpentineSpec {
             segments: 3,
-            bend_radius_m: 3.0e-3,
-            segment_length_m: 7.5e-3,
+            bend_radius_m: Length::from_base(3.0e-3),
+            segment_length_m: Length::from_base(7.5e-3),
         }),
     );
 

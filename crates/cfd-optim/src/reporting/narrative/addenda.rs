@@ -252,7 +252,12 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             spec.split_stages
                 .first()
                 .and_then(|stage| stage.branches.iter().find(|branch| branch.treatment_path))
-                .map(|branch| (spec.inlet_width_m * 1000.0, branch.route.height_m * 1000.0))
+                .map(|branch| {
+                    (
+                        spec.inlet_width_m.into_base() * 1000.0,
+                        branch.route.height_m.into_base() * 1000.0,
+                    )
+                })
         })
         .unwrap_or((0.0, 0.0));
     let _ = writeln!(

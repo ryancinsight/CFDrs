@@ -484,7 +484,10 @@ fn synthesize_layout(
                     message: "expected linear path but traversal failed".to_string(),
                 })?;
             let chip_w = SbsWellPlate96::WIDTH.in_unit::<Millimeter>();
-            let total_len_mm: Real = channels.iter().map(|ch| ch.length_m * 1000.0).sum();
+            let total_len_mm: Real = channels
+                .iter()
+                .map(|ch| ch.length_m.into_base() * 1000.0)
+                .sum();
             let scale = if total_len_mm > 1e-9 {
                 chip_w / total_len_mm
             } else {
@@ -495,7 +498,7 @@ fn synthesize_layout(
             let mut x: Real = 0.0;
             let n = channels.len();
             for (i, ch) in channels.iter().enumerate() {
-                let seg_len = ch.length_m * 1000.0 * scale;
+                let seg_len = ch.length_m.into_base() * 1000.0 * scale;
                 let start = Point3r::new(x, y_center, z_mid);
                 // Clamp the final endpoint to chip_w exactly to prevent
                 // floating-point accumulation from overshooting the routing
@@ -964,12 +967,12 @@ fn build_segment_mesh_with_policy(
 
     let profile = match seg.cross_section {
         CrossSectionSpec::Circular { diameter_m } => ChannelProfile::Circular {
-            radius: diameter_m / 2.0 * 1000.0,
+            radius: diameter_m.into_base() / 2.0 * 1000.0,
             segments: config.circular_segments,
         },
         CrossSectionSpec::Rectangular { width_m, height_m } => ChannelProfile::Rectangular {
-            width: width_m * 1000.0,
-            height: height_m * 1000.0,
+            width: width_m.into_base() * 1000.0,
+            height: height_m.into_base() * 1000.0,
         },
     };
 
@@ -1049,12 +1052,12 @@ fn build_polyline_mesh_with_policy(
 
     let profile = match layout[0].cross_section {
         CrossSectionSpec::Circular { diameter_m } => ChannelProfile::Circular {
-            radius: diameter_m / 2.0 * 1000.0,
+            radius: diameter_m.into_base() / 2.0 * 1000.0,
             segments: config.circular_segments,
         },
         CrossSectionSpec::Rectangular { width_m, height_m } => ChannelProfile::Rectangular {
-            width: width_m * 1000.0,
-            height: height_m * 1000.0,
+            width: width_m.into_base() * 1000.0,
+            height: height_m.into_base() * 1000.0,
         },
     };
 
@@ -1229,9 +1232,13 @@ fn build_venturi_chain_mesh(
     // Helper: extract numeric radius (mm) from cross-section spec.
     fn segment_radius_mm(seg: &SegmentLayout) -> f64 {
         match seg.cross_section {
-            cfd_schematics::CrossSectionSpec::Circular { diameter_m } => diameter_m / 2.0 * 1000.0,
+            cfd_schematics::CrossSectionSpec::Circular { diameter_m } => {
+                diameter_m.into_base() / 2.0 * 1000.0
+            }
             cfd_schematics::CrossSectionSpec::Rectangular { width_m, height_m } => {
                 // Use half-diagonal as effective radius for rectangular profiles.
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 0.5 * (width_m * width_m + height_m * height_m).sqrt() * 1000.0
             }
         }
@@ -1538,9 +1545,11 @@ fn label_boundaries(
 
 fn cross_section_radius_mm(cs: &CrossSectionSpec) -> Real {
     match cs {
-        CrossSectionSpec::Circular { diameter_m } => diameter_m / 2.0 * 1000.0,
+        CrossSectionSpec::Circular { diameter_m } => diameter_m.into_base() / 2.0 * 1000.0,
         CrossSectionSpec::Rectangular { width_m, height_m } => {
             // Use half-diagonal as effective radius for proximity check
+            let width_m = width_m.into_base();
+            let height_m = height_m.into_base();
             (width_m * width_m + height_m * height_m).sqrt() * 500.0
         }
     }
@@ -1552,8 +1561,10 @@ fn cross_section_radius_mm(cs: &CrossSectionSpec) -> Real {
 /// single linear measure of the tube size is needed.
 fn cross_section_diameter_mm(cs: &CrossSectionSpec) -> Real {
     match cs {
-        CrossSectionSpec::Circular { diameter_m } => diameter_m * 1000.0,
-        CrossSectionSpec::Rectangular { width_m, height_m } => width_m.max(*height_m) * 1000.0,
+        CrossSectionSpec::Circular { diameter_m } => diameter_m.into_base() * 1000.0,
+        CrossSectionSpec::Rectangular { width_m, height_m } => {
+            width_m.into_base().max(height_m.into_base()) * 1000.0
+        }
     }
 }
 
@@ -1798,7 +1809,7 @@ fn cross_sections_equal(a: &CrossSectionSpec, b: &CrossSectionSpec) -> bool {
         (
             CrossSectionSpec::Circular { diameter_m: d1 },
             CrossSectionSpec::Circular { diameter_m: d2 },
-        ) => (d1 - d2).abs() < 1e-9,
+        ) => (d1.into_base() - d2.into_base()).abs() < 1e-9,
         (
             CrossSectionSpec::Rectangular {
                 width_m: w1,
@@ -1808,7 +1819,10 @@ fn cross_sections_equal(a: &CrossSectionSpec, b: &CrossSectionSpec) -> bool {
                 width_m: w2,
                 height_m: h2,
             },
-        ) => (w1 - w2).abs() < 1e-9 && (h1 - h2).abs() < 1e-9,
+        ) => {
+            (w1.into_base() - w2.into_base()).abs() < 1e-9
+                && (h1.into_base() - h2.into_base()).abs() < 1e-9
+        }
         _ => false,
     }
 }
@@ -1918,6 +1932,7 @@ fn relative_percent(delta: Volume<f64>, reference: Volume<f64>) -> Dimensionless
 
 #[cfg(test)]
 mod tests {
+    use aequitas::systems::si::quantities::Length;
     use cfd_schematics::interface::presets::venturi_chain;
     use cfd_schematics::topology::presets::{
         build_milestone12_blueprint, build_milestone12_topology_spec, Milestone12TopologyRequest,
@@ -2043,10 +2058,10 @@ mod tests {
                 cfd_schematics::SplitKind::NFurcation(3),
                 cfd_schematics::SplitKind::NFurcation(2),
             ],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         let spec = build_milestone12_topology_spec(&request);
         let mut bp = build_milestone12_blueprint(&request).expect("selective blueprint");
@@ -2082,10 +2097,10 @@ mod tests {
                 cfd_schematics::SplitKind::NFurcation(3),
                 cfd_schematics::SplitKind::NFurcation(2),
             ],
-            6.0e-3,
-            1.0e-3,
-            8.0e-3,
-            8.0e-3,
+            Length::from_base(6.0e-3),
+            Length::from_base(1.0e-3),
+            Length::from_base(8.0e-3),
+            Length::from_base(8.0e-3),
         );
         let bp = build_milestone12_blueprint(&request).expect("geometry-authored selective build");
         let result = BlueprintMeshPipeline::run(

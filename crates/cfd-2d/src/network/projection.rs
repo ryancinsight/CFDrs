@@ -83,12 +83,12 @@ fn path_metrics(path: &[(f64, f64)]) -> Option<PathMetrics> {
 }
 
 fn venturi_width_at_x(venturi: &VenturiGeometryMetadata, x: f64, total_length: f64) -> f64 {
-    let inlet = venturi.inlet_width_m.max(1e-18);
-    let throat = venturi.throat_width_m.max(1e-18);
-    let outlet = venturi.outlet_width_m.max(1e-18);
-    let l_throat = venturi.throat_length_m.max(0.0);
+    let inlet = venturi.inlet_width_m.into_base().max(1e-18);
+    let throat = venturi.throat_width_m.into_base().max(1e-18);
+    let outlet = venturi.outlet_width_m.into_base().max(1e-18);
+    let l_throat = venturi.throat_length_m.into_base().max(0.0);
     let remaining = (total_length - l_throat).max(0.0);
-    let l_converge = remaining * venturi.throat_position.clamp(0.0, 1.0);
+    let l_converge = remaining * venturi.throat_position.into_base().clamp(0.0, 1.0);
     let l_diverge = (remaining - l_converge).max(0.0);
 
     let x_inlet_end = 0.0;
@@ -168,13 +168,14 @@ fn transformed_centerline(
 
 fn default_half_width(channel: &ChannelSpec) -> f64 {
     match channel.cross_section {
-        CrossSectionSpec::Circular { diameter_m } => diameter_m * 0.5,
-        CrossSectionSpec::Rectangular { width_m, .. } => width_m * 0.5,
+        CrossSectionSpec::Circular { diameter_m } => diameter_m.into_base() * 0.5,
+        CrossSectionSpec::Rectangular { width_m, .. } => width_m.into_base() * 0.5,
     }
 }
 
 #[must_use]
 pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDomain {
+    let channel_length_m = channel.length_m.into_base();
     let base_width = channel
         .venturi_geometry
         .as_ref()
@@ -182,29 +183,29 @@ pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDoma
             || default_half_width(channel) * 2.0,
             |geom| {
                 geom.inlet_width_m
-                    .max(geom.throat_width_m)
-                    .max(geom.outlet_width_m)
+                    .into_base()
+                    .max(geom.throat_width_m.into_base())
+                    .max(geom.outlet_width_m.into_base())
             },
         )
         .max(default_half_width(channel) * 2.0);
 
     let metrics = path_metrics(&channel.path).unwrap_or(PathMetrics {
         x_min: 0.0,
-        x_max: channel.length_m,
+        x_max: channel_length_m,
         y_min: 0.0,
         y_max: base_width,
-        length: channel.length_m,
+        length: channel_length_m,
     });
 
     let width_scale = if metrics.length > 0.0 {
-        channel.length_m / metrics.length
+        channel_length_m / metrics.length
     } else {
         1.0
     };
     let layout_span_y = (metrics.y_max - metrics.y_min).max(0.0) * width_scale;
     let pad = base_width.max(1e-6);
-    let length_m = channel
-        .length_m
+    let length_m = channel_length_m
         .max((metrics.x_max - metrics.x_min) * width_scale)
         .max(1e-6);
     let width_m = ((layout_span_y * 0.1) + 2.0 * pad).max(1e-6);

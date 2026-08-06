@@ -43,6 +43,14 @@
 | **Iris-owned color laws** | 2026-07-21 | `cfd-schematics` duplicated color formulas and rescanned field maps per rendered element | One direct `NamedColorMap` contract; linear range preprocessing; zero transient range allocations | Breaking overlay builders and field visibility |
 | **Hyperion-owned optical transport** | 2026-07-21 | `cfd-optim` evaluated a raw Beer-Lambert expression without the stack's validated optical types | One typed coefficient/path/optical-depth/transmission chain; zero duplicate production laws | CFDrs retains its empirical coefficient and hematocrit policy |
 | **Native schematic output paths** | 2026-07-22 | String-only renderer seams forced UTF-8 conversion at every filesystem boundary | Renderer traits borrow `Path`; public facades accept `AsRef<Path>`; sidecar naming stays in `OsStr` | Breaking change for external renderer-trait implementations |
+| **Aequitas-owned Milestone 12 request geometry** | 2026-08-05 | The canonical selective-topology request retained plate, channel, branch, outlet, and venturi dimensions as raw metre/millimetre scalars | `Length<f64>` remains typed through `Milestone12PrimitiveSelectiveSpec` and nested stage branches in base metres; layout and geometry boundaries extract explicit scalars; split fractions and enum controls remain dimensionless | Breaking change for external Milestone 12 request constructors and field literals; generic selective request families remain separate boundaries |
+| **Aequitas-owned generic selective request geometry** | 2026-08-05 | `PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` retained public plate, channel, branch, outlet, and topology-specific venturi dimensions as raw scalars | `Length<f64>` remains typed through both generic selective request families and direct cfd-schematics/cfd-1d/cfd-2d consumers; scalar extraction is confined to geometry/layout boundaries; routing fractions and enum controls remain dimensionless | Breaking change for external generic selective request constructors and field literals; real geometry has no complex or imaginary SI quantity |
+| **Aequitas-owned branch boundary metadata metrics** | 2026-08-06 | `BranchBoundarySpecification` exposed pressure and volumetric-flow conditions as raw SI scalars across serialized schematic metadata and cfd-1d/cfd-2d coupling | `Pressure<f64>` and `VolumetricFlowRate<f64>` remain typed through metadata and direct consumers; scalar extraction occurs only at solver and coupling formula boundaries | Breaking change for external branch-boundary constructors and field literals; the real boundary contract has no complex or imaginary SI quantity |
+| **Aequitas-owned channel-diameter metadata metrics** | 2026-08-06 | `MetadataConfig` and `ChannelGeometryMetadata` exposed the generated channel diameter as a millimetre scalar | `Length<f64>` remains typed through authored metadata configuration and emitted channel metadata in base metres; millimetre extraction is confined to split-spacing and layout formulas | Breaking change for external metadata configuration and field literals; the real geometry contract has no complex or imaginary SI quantity |
+| **Aequitas-owned geometry configuration dimensions** | 2026-08-06 | `GeometryConfig` exposed wall clearance, channel width, and channel height as raw millimetre scalars across generation, optimization, validation, and examples | `Length<f64>` remains typed through the public configuration in base metres; explicit `*_mm` projections are confined to layout and numerical formula boundaries | Breaking change for external geometry configuration field literals; the real geometry contract has no complex or imaginary SI quantity |
+| **Aequitas-owned TPMS lattice period metrics** | 2026-08-06 | `TpmsFillSpec` and `AdaptiveGradient` exposed authored lattice periods as raw millimetre scalars across schematic, mesh, and rendering boundaries | `Length<f64>` remains typed through TPMS period contracts in base metres; `period_mm()` and `period_at_mm()` are explicit mesh/rendering projections; iso-values and normalized fractions remain dimensionless | Breaking change for external TPMS field literals and period consumers; the real geometry contract has no complex or imaginary SI quantity |
+| **Aequitas-owned ShellCuboid authoring dimensions** | 2026-08-06 | `ShellCuboid` exposed outer dimensions, wall thickness, and derived cavity dimensions as raw millimetre scalars across construction, validation, and rendering | `Length<f64>` remains typed through shell authoring and validation; `outer_dims_mm()`, `inner_dims_mm()`, and `shell_thickness_mm()` are explicit schematic/interchange projections; `InterchangeShellCuboid` remains the millimetre wire DTO | Breaking change for external shell constructors and field literals; the real shell geometry has no complex or imaginary SI quantity |
+| **Aequitas-owned ChannelSpec hydraulic metrics** | 2026-08-06 | `ChannelSpec` exposed linear/quadratic hydraulic coefficients and pump limits as raw scalars, while valve `Cv` crossed the same boundary without a provider dimension | `HydraulicResistance`, `QuadraticHydraulicResistance`, `VolumetricFlowRate`, and `Pressure` remain typed through the schematic contract and direct cfd-1d conversion; valve loss is stored as the exact `1/Cv²` quadratic coefficient because the current SI provider uses integer exponents | Breaking change for external ChannelSpec field literals; the real hydraulic contract has no complex or imaginary SI quantity |
 
 ## Architecture Overview
 
@@ -736,6 +744,91 @@ Verification: locked `cfd-1d` check and Nextest pass 729/729 with 3 skips,
 including network assembly, transient transport, analyzers, blueprint
 conversion, property, and adversarial tests. Doctest, Rustdoc, and lint limits
 are recorded in the child gap audit.
+
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::ChannelRouteSpec` authoring boundary. Route length, width, and
+height now use Eunomia `Length<f64>` in base metres, with scalar extraction
+limited to validation, routing, mesh, formula, reporting, and serialization
+edges. Direct cfd-schematics and cfd-optim callers migrate in the same change;
+no adapter or parallel scalar field remains. Current all-targets checks and
+warning-denied Clippy pass for both crates; cfd-schematics Nextest passes
+183/183 and cfd-optim Nextest passes 137/137 across five binaries. The route
+contract is real-valued; no complex or imaginary SI quantity applies.
+
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::CrossSectionSpec` authoring boundary. Circular diameter and
+rectangular width/height now use Eunomia `Length<f64>` in base metres;
+hydraulic diameter and area queries return typed `Length<f64>` and `Area<f64>`.
+Scalar extraction is limited to resistance, shear, mesh, reporting,
+validation, and serialization formula edges. Direct cfd-schematics, cfd-1d,
+cfd-2d, cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d callers
+migrate in the same change with no adapter or duplicate scalar field. The
+contract is real-valued; no complex or imaginary SI quantity applies.
+
+Verification: all-target checks pass for the affected packages; warning-denied
+Clippy passes for every affected package except the pre-existing cfd-3d
+test-only lint debt, while cfd-3d library Clippy passes. Nextest passes the
+changed-contract package suites and focused cross-fidelity/adversarial tests;
+doctest results and the full cfd-validation runtime residual are recorded in
+`gap_audit.md`.
+
+Revision 2026-08-05: extend this decision to the public
+`cfd-schematics::ChannelSpec.length_m` authoring boundary and the aggregate
+`NetworkBlueprint` length queries. Authored channel centerline length now uses
+Eunomia `Length<f64>` in base metres; direct schematic, cfd-1d, cfd-2d,
+cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d consumers extract
+base scalars only at validation, solver, mesh, formula, and reporting edges.
+No adapter or parallel scalar field remains. The channel-length contract is
+real-valued; no complex or imaginary SI quantity applies.
+
+Verification: affected package checks and warning-denied Clippy pass; Nextest
+passes cfd-schematics 185/185, cfd-1d 736/736 with 3 skips, cfd-2d 571/571
+with 27 skips, cfd-schematic-mesh 29/29, cfd-optim 137/137, focused
+cfd-validation cross-fidelity 26/26, and focused cfd-3d adversarial 19/19.
+Affected-package doctests pass.
+
+Revision 2026-08-05: extend this decision to the public serpentine geometry
+boundary. `SerpentineSpec`, `ChannelShape::Serpentine`, and the public
+center-serpentine path specifications now carry Eunomia `Length<f64>` bend
+radii and segment lengths. Geometry, cfd-1d resistance, cfd-optim, rendering,
+and serialization consumers extract base scalars only at their formula
+boundaries, with no adapter or parallel scalar field. The contract remains
+real-valued; no complex or imaginary SI quantity applies.
+
+Verification: cfd-schematics, cfd-1d, cfd-2d, and cfd-optim all-target checks
+pass; warning-denied Clippy passes for cfd-schematics, cfd-1d, and cfd-optim;
+Nextest passes cfd-schematics 186/186, cfd-1d 736/736 with 3 skips, and
+cfd-optim 137/137; affected doctests pass. Detailed run identifiers and
+remaining workspace residuals are recorded in `gap_audit.md`.
+
+Revision 2026-08-05: extend this decision to recovery sub-branch geometry.
+`SubBranchSpec` width and height now use Eunomia `Length<f64>` values. The
+cfd-optim peripheral recovery flow-fraction and hydraulic-diameter formulas
+extract base scalars explicitly, with no adapter or parallel scalar field. The
+contract remains real-valued; no complex or imaginary SI quantity applies.
+
+Verification: cfd-schematics and cfd-optim all-target checks pass;
+warning-denied Clippy passes for both packages; Nextest passes cfd-schematics
+187/187 and cfd-optim 137/137; cfd-schematics doctests pass 16/16; and
+Rustdoc builds for both packages. The temporary collection timeout observed
+during an earlier cache-contended run is superseded by the clean doctest pass.
+
+Revision 2026-08-05: extend this decision to the public topology envelope.
+`BlueprintTopologySpec` now stores plate width/height, inlet/outlet widths,
+trunk length, and outlet-tail length as Eunomia `Length<f64>` values in base
+metres. The old millimetre-named field is replaced by `box_dims_m`; the
+`box_dims_mm()` method is the explicit layout projection. Topology factory,
+geometry, mesh, reporting, optimization, and serialization consumers extract
+base scalars only at their boundaries, with no adapter or duplicate scalar
+field. The contract remains real-valued; no complex or imaginary SI quantity
+applies.
+
+Verification: cfd-schematics and cfd-optim all-target checks pass;
+warning-denied Clippy passes for both packages; cfd-1d and cfd-2d all-target
+checks pass; Nextest passes cfd-schematics 188/188 and cfd-optim 137/137;
+cfd-schematics doctests pass 16/16 and cfd-optim doctests pass 2/2 with 3
+ignored; Rustdoc builds for cfd-schematics and cfd-optim. Detailed run
+identifiers and shared-stack warnings are recorded in `gap_audit.md`.
 
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 

@@ -165,7 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     height_m,
                 } = geom.cross_section
                 {
-                    if geom.length_m > 0.0 && width_m > 0.0 && height_m > 0.0 {
+                    let width_m = width_m.into_base();
+                    let height_m = height_m.into_base();
+                    if geom.length_m.into_base() > 0.0 && width_m > 0.0 && height_m > 0.0 {
                         let sep_model = CellSeparationModel::new(
                             Length::from_base(width_m),
                             Length::from_base(height_m),

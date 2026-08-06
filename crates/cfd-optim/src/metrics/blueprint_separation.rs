@@ -42,7 +42,12 @@ pub fn compute_blueprint_separation_metrics(
         let branch_dimensions = stage
             .branches
             .iter()
-            .map(|branch| (branch.route.width_m, branch.route.height_m))
+            .map(|branch| {
+                (
+                    branch.route.width_m.into_base(),
+                    branch.route.height_m.into_base(),
+                )
+            })
             .collect::<Vec<_>>();
         let branch_widths = branch_dimensions
             .iter()
@@ -62,7 +67,7 @@ pub fn compute_blueprint_separation_metrics(
             match branch.role {
                 cfd_schematics::BranchRole::Treatment => {
                     treatment_flow_fraction += q_fraction;
-                    treatment_width_m += branch.route.width_m;
+                    treatment_width_m += branch.route.width_m.into_base();
                     arm_q_fracs[0] += q_fraction;
                 }
                 cfd_schematics::BranchRole::WbcCollection => {
@@ -90,8 +95,8 @@ pub fn compute_blueprint_separation_metrics(
         }
 
         let treatment_dh_m = Length::from_base(
-            2.0 * treatment_width_m * stage.branches[0].route.height_m
-                / (treatment_width_m + stage.branches[0].route.height_m).max(1.0e-18),
+            2.0 * treatment_width_m * stage.branches[0].route.height_m.into_base()
+                / (treatment_width_m + stage.branches[0].route.height_m.into_base()).max(1.0e-18),
         );
 
         // Build peripheral recovery entries from recovery_sub_split specs.
@@ -106,15 +111,24 @@ pub fn compute_blueprint_separation_metrics(
             if let Some(ref sub_split) = branch.recovery_sub_split {
                 if n_recoveries < 4 && !sub_split.sub_branches.is_empty() {
                     let sub_widths: Vec<f64> =
-                        sub_split.sub_branches.iter().map(|sb| sb.width_m).collect();
+                        sub_split
+                            .sub_branches
+                            .iter()
+                            .map(|sub_branch| sub_branch.width_m.into_base())
+                            .collect();
                     let sub_dimensions: Vec<(f64, f64)> = sub_split
                         .sub_branches
                         .iter()
-                        .map(|sub_branch| (sub_branch.width_m, sub_branch.height_m))
+                        .map(|sub_branch| {
+                            (
+                                sub_branch.width_m.into_base(),
+                                sub_branch.height_m.into_base(),
+                            )
+                        })
                         .collect();
                     let sub_height = sub_dimensions
                         .first()
-                        .map_or(branch.route.height_m, |(_, height_m)| *height_m);
+                        .map_or(branch.route.height_m.into_base(), |(_, height_m)| *height_m);
                     let sub_q = conductance_flow_fractions(&sub_dimensions);
                     let mut sub_arm_q_fracs = [0.0_f64; 5];
                     for (i, &q) in sub_q.iter().enumerate().take(5) {
@@ -123,7 +137,9 @@ pub fn compute_blueprint_separation_metrics(
                     let recovery_w = sub_split
                         .sub_branches
                         .get(sub_split.recovery_arm_index)
-                        .map_or(sub_widths[0], |sb| sb.width_m);
+                        .map_or(sub_widths[0], |sub_branch| {
+                            sub_branch.width_m.into_base()
+                        });
                     let recovery_dh_m = Length::from_base(
                         2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18),
                     );
@@ -147,7 +163,7 @@ pub fn compute_blueprint_separation_metrics(
 
         // Compute inflow velocity. Total flow for the chip = 500 mL/min = 8.333e-6 m3/s
         let chip_flow_rate_m3_s = 500.0 / 60.0 / 1e6;
-        let parent_area_m2 = total_branch_width_m * stage.branches[0].route.height_m;
+        let parent_area_m2 = total_branch_width_m * stage.branches[0].route.height_m.into_base();
         // In a real network this would be scaled by upstream splits, but for the linear blueprint proxy
         // we assume the full chip flow (per parallel sequence) passes through this stage's parent.
         let parent_v_in_m_s = if parent_area_m2 > 1e-12 {

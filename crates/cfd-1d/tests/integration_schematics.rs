@@ -68,6 +68,7 @@ fn test_from_spec_conversion() {
     let edge: Edge<f64> = Edge::from(&c_spec);
     assert_eq!(edge.id, "c1");
     assert_eq!(edge.edge_type, EdgeKind::Valve);
+    assert_eq!(edge.quad_coeff.into_base(), 4.0);
 }
 
 #[test]
@@ -119,12 +120,14 @@ fn test_blueprint_negative_length_rejected() {
         kind: EdgeKind::Pipe,
         from: NodeId::new("in"),
         to: NodeId::new("out"),
-        length_m: -0.1, // Invalid negative length!
-        resistance: 100.0,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 0.001 },
+        length_m: aequitas::systems::si::quantities::Length::from_base(-0.1), // Invalid negative length!
+        resistance: aequitas::systems::si::quantities::HydraulicResistance::from_base(100.0),
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(0.001),
+        },
         channel_shape: ChannelShape::Straight,
-        quad_coeff: 0.0,
-        valve_cv: None,
+        quad_coeff: aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0),
+        valve_loss_coefficient: None,
         pump_max_flow: None,
         pump_max_pressure: None,
         path: vec![],
@@ -177,12 +180,14 @@ fn test_blueprint_zero_diameter_rejected() {
         kind: EdgeKind::Pipe,
         from: NodeId::new("in"),
         to: NodeId::new("out"),
-        length_m: 0.1,
-        resistance: 100.0,
-        cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 }, // Invalid zero diameter
+        length_m: aequitas::systems::si::quantities::Length::from_base(0.1),
+        resistance: aequitas::systems::si::quantities::HydraulicResistance::from_base(100.0),
+        cross_section: CrossSectionSpec::Circular {
+            diameter_m: aequitas::systems::si::quantities::Length::from_base(0.0), // Invalid zero diameter
+        },
         channel_shape: ChannelShape::Straight,
-        quad_coeff: 0.0,
-        valve_cv: None,
+        quad_coeff: aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0),
+        valve_loss_coefficient: None,
         pump_max_flow: None,
         pump_max_pressure: None,
         path: vec![],

@@ -4,6 +4,7 @@ use crate::geometry::metadata::{
 };
 use crate::topology::{BlueprintTopologySpec, ParallelChannelSpec, SeriesChannelSpec};
 use crate::visualizations::schematic::materialize_blueprint_layout;
+use aequitas::systems::si::quantities::Dimensionless;
 
 fn make_outline(box_dims: (f64, f64)) -> Vec<((f64, f64), (f64, f64))> {
     let (w, h) = box_dims;
@@ -82,9 +83,9 @@ fn series_channel_venturi(
             throat_length_m: placement.throat_geometry.throat_length_m,
             inlet_width_m: placement.throat_geometry.inlet_width_m,
             outlet_width_m: placement.throat_geometry.outlet_width_m,
-            convergent_half_angle_deg: placement.throat_geometry.convergent_half_angle_deg,
-            divergent_half_angle_deg: placement.throat_geometry.divergent_half_angle_deg,
-            throat_position: 0.5,
+            convergent_half_angle: placement.throat_geometry.convergent_half_angle,
+            divergent_half_angle: placement.throat_geometry.divergent_half_angle,
+            throat_position: Dimensionless::from_base(0.5),
         })
 }
 
@@ -100,9 +101,9 @@ fn build_series_channel(
         &channel.channel_id,
         from,
         to,
-        channel.route.length_m,
-        channel.route.width_m,
-        channel.route.height_m,
+        channel.route.length_m.into_base(),
+        channel.route.width_m.into_base(),
+        channel.route.height_m.into_base(),
         0.0,
         0.0,
     );
@@ -111,7 +112,8 @@ fn build_series_channel(
             start,
             end,
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m * 1.5e3),
+            (serpentine.bend_radius_m.into_base() * 1.0e3)
+                .max(channel.route.width_m.into_base() * 1.5e3),
         )
     } else {
         vec![start, end]
@@ -125,7 +127,8 @@ fn build_series_channel(
 
 pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let channel_count = spec.series_channels.len();
-    let y_mm = spec.box_dims_mm.1 * 0.5;
+    let box_dims_mm = spec.box_dims_mm();
+    let y_mm = box_dims_mm.1 * 0.5;
 
     let mut nodes = Vec::with_capacity(channel_count + 1);
     let mut current_x = 10.0;
@@ -133,14 +136,14 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
 
     for (idx, channel) in spec.series_channels.iter().enumerate() {
         if idx < channel_count - 1 {
-            current_x += channel.route.length_m * 1000.0;
+            current_x += channel.route.length_m.into_base() * 1000.0;
             nodes.push(layout_node(
                 format!("junction_{idx}"),
                 NodeKind::Junction,
                 (current_x, y_mm),
             ));
         } else {
-            current_x += channel.route.length_m * 1000.0;
+            current_x += channel.route.length_m.into_base() * 1000.0;
             nodes.push(layout_node("outlet", NodeKind::Outlet, (current_x, y_mm)));
         }
     }
@@ -172,8 +175,8 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
 
     let mut blueprint = NetworkBlueprint {
         name: spec.design_name.clone(),
-        box_dims: spec.box_dims_mm,
-        box_outline: make_outline(spec.box_dims_mm),
+        box_dims: box_dims_mm,
+        box_outline: make_outline(box_dims_mm),
         nodes,
         channels,
         render_hints: None,
@@ -197,9 +200,9 @@ fn build_parallel_channel(
         &channel.channel_id,
         inlet.id.as_str(),
         outlet.id.as_str(),
-        channel.route.length_m,
-        channel.route.width_m,
-        channel.route.height_m,
+        channel.route.length_m.into_base(),
+        channel.route.width_m.into_base(),
+        channel.route.height_m.into_base(),
         0.0,
         0.0,
     );
@@ -210,7 +213,8 @@ fn build_parallel_channel(
             (start.0 + 10.0, lane_y_mm),
             (end.0 - 10.0, lane_y_mm),
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m * 1.5e3),
+            (serpentine.bend_radius_m.into_base() * 1.0e3)
+                .max(channel.route.width_m.into_base() * 1.5e3),
         );
         path.insert(0, start);
         path.push(end);
@@ -227,14 +231,15 @@ fn build_parallel_channel(
 }
 
 pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
-    let inlet = layout_node("inlet", NodeKind::Inlet, (0.0, spec.box_dims_mm.1 * 0.5));
+    let box_dims_mm = spec.box_dims_mm();
+    let inlet = layout_node("inlet", NodeKind::Inlet, (0.0, box_dims_mm.1 * 0.5));
     let outlet = layout_node(
         "outlet",
         NodeKind::Outlet,
-        (spec.box_dims_mm.0, spec.box_dims_mm.1 * 0.5),
+        (box_dims_mm.0, box_dims_mm.1 * 0.5),
     );
     let channel_count = spec.parallel_channels.len().max(1);
-    let lane_spacing = spec.box_dims_mm.1 / (channel_count as f64 + 1.0);
+    let lane_spacing = box_dims_mm.1 / (channel_count as f64 + 1.0);
     let channels = spec
         .parallel_channels
         .iter()
@@ -246,8 +251,8 @@ pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> Netwo
 
     let mut blueprint = NetworkBlueprint {
         name: spec.design_name.clone(),
-        box_dims: spec.box_dims_mm,
-        box_outline: make_outline(spec.box_dims_mm),
+        box_dims: box_dims_mm,
+        box_outline: make_outline(box_dims_mm),
         nodes: vec![inlet, outlet],
         channels,
         render_hints: None,

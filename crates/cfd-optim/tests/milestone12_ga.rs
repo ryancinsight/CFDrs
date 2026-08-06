@@ -11,7 +11,7 @@
 //! 5. GA scoring includes lineage bonus and Dean number contribution
 //! 6. GA can bootstrap venturi placements from an Option 1 seed
 
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_optim::{
     build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
     generate_ga_mutations, promote_option1_candidate_to_ga_seed, BlueprintCandidate,
@@ -51,15 +51,15 @@ fn fast_venturi_seed() -> BlueprintCandidate {
     let request = cfd_schematics::Milestone12TopologyRequest {
         treatment_mode: TreatmentActuationMode::VenturiCavitation,
         venturi_throat_count: 2,
-        venturi_throat_width_m: 0.4e-3,
-        venturi_throat_length_m: 1.2e-3,
+        venturi_throat_width_m: Length::from_base(0.4e-3),
+        venturi_throat_length_m: Length::from_base(1.2e-3),
         venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
         venturi_target_channel_ids: Vec::new(),
         center_serpentine: Some(cfd_schematics::SerpentineSpec {
             wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
             segments: 4,
-            bend_radius_m: 1.0e-3,
-            segment_length_m: 6.0e-3,
+            bend_radius_m: Length::from_base(1.0e-3),
+            segment_length_m: Length::from_base(6.0e-3),
         }),
         ..base
     };
@@ -84,8 +84,8 @@ fn fast_acoustic_seed() -> BlueprintCandidate {
         center_serpentine: Some(cfd_schematics::SerpentineSpec {
             wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
             segments: 4,
-            bend_radius_m: 1.0e-3,
-            segment_length_m: 6.0e-3,
+            bend_radius_m: Length::from_base(1.0e-3),
+            segment_length_m: Length::from_base(6.0e-3),
         }),
         ..base
     };

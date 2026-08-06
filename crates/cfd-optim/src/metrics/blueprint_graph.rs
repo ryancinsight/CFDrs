@@ -142,8 +142,10 @@ pub fn solve_blueprint_candidate(
                         .flow_rates
                         .get(edge_index.index())
                         .copied()
-                        .map(VolumetricFlowRate::into_base)
-                        .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base())
+                        .map_or_else(
+                            || edge_ref.weight().flow_rate.into_base(),
+                            VolumetricFlowRate::into_base,
+                        )
                         .abs();
                 }
             }
@@ -209,8 +211,10 @@ pub fn solve_blueprint_candidate(
             .flow_rates
             .get(edge_index.index())
             .copied()
-            .map(VolumetricFlowRate::into_base)
-            .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base());
+            .map_or_else(
+                || edge_ref.weight().flow_rate.into_base(),
+                VolumetricFlowRate::into_base,
+            );
         edge_by_id.insert(edge_ref.weight().id.as_str(), (flow_m3_s, from_pressure_pa));
     }
 
@@ -244,12 +248,12 @@ pub fn solve_blueprint_candidate(
         if is_venturi_channel {
             venturi_flows.push(flow_m3_s.abs());
         }
-        total_volume_m3 += channel.length_m * channel.cross_section.area();
+        total_volume_m3 += channel.length_m.into_base() * channel.cross_section.area().into_base();
         channel_samples.push(BlueprintSolveSample {
             id: channel.id.as_str(),
             from_node: channel.from.as_str(),
             to_node: channel.to.as_str(),
-            length_m: Length::from_base(channel.length_m),
+            length_m: channel.length_m,
             cross_section: channel.cross_section,
             channel_shape: channel.channel_shape,
             flow_m3_s: VolumetricFlowRate::from_base(flow_m3_s),
@@ -360,7 +364,7 @@ fn compute_blueprint_remerge_loss(
         entry.0 += 1;
         entry.1 += sample.flow_m3_s.into_base().abs();
         let out_entry = outgoing_area.entry(sample.from_node).or_insert(0.0);
-        *out_entry = out_entry.max(sample.cross_section.area());
+        *out_entry = out_entry.max(sample.cross_section.area().into_base());
     }
 
     let mut total_loss_pa = 0.0_f64;
@@ -391,7 +395,7 @@ fn compute_blueprint_remerge_loss(
                 samples
                     .iter()
                     .filter(|sample| sample.to_node == node.id.as_str())
-                    .map(|sample| sample.cross_section.area())
+                    .map(|sample| sample.cross_section.area().into_base())
                     .sum::<f64>()
                     / incoming_count as f64
             })

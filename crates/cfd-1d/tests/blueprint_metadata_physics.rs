@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
     FlowConditions, SerpentineCrossSection, SerpentineModel,
@@ -65,14 +66,14 @@ fn blueprint_channel<'a>(bp: &'a NetworkBlueprint, edge_id: &str) -> &'a Channel
 fn selective_serpentine_blueprint(spec: CenterSerpentinePathSpec) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: format!("selective-serp-{}", spec.segments),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m: 12.0e-3,
-        branch_length_m: 10.0e-3,
-        hybrid_branch_length_m: 8.0e-3,
-        main_width_m: 1.2e-3,
-        throat_width_m: 0.4e-3,
-        throat_length_m: 3.0e-3,
-        channel_height_m: 0.5e-3,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(12.0e-3),
+        branch_length_m: Length::from_base(10.0e-3),
+        hybrid_branch_length_m: Length::from_base(8.0e-3),
+        main_width_m: Length::from_base(1.2e-3),
+        throat_width_m: Length::from_base(0.4e-3),
+        throat_length_m: Length::from_base(3.0e-3),
+        channel_height_m: Length::from_base(0.5e-3),
         topology: SelectiveTreeTopology::CascadeCenterTrifurcation {
             n_levels: 3,
             center_frac: 0.45,
@@ -89,24 +90,29 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
             segments,
             bend_radius_m,
             wave_type: _,
-        } => (segments, bend_radius_m),
+        } => (segments, bend_radius_m.into_base()),
         _ => panic!("channel must carry inferred serpentine metadata"),
     };
 
     let cross_section = match channel.cross_section {
         CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
-            diameter: diameter_m,
+            diameter: diameter_m.into_base(),
         },
         CrossSectionSpec::Rectangular { width_m, height_m } => {
             SerpentineCrossSection::Rectangular {
-                width: width_m,
-                height: height_m,
+                width: width_m.into_base(),
+                height: height_m.into_base(),
             }
         }
     };
 
     let fluid = water_20c::<f64>().expect("water database entry must exist");
-    let model = SerpentineModel::new(channel.length_m, segments, cross_section, bend_radius_m);
+    let model = SerpentineModel::new(
+        channel.length_m.into_base(),
+        segments,
+        cross_section,
+        bend_radius_m,
+    );
     let analysis = model
         .analyze(&fluid, &FlowConditions::new(0.25))
         .expect("serpentine analysis must succeed");
@@ -156,24 +162,24 @@ fn venturi_blueprint(
             0.0,
         )
         .with_venturi_geometry(VenturiGeometryMetadata {
-            throat_width_m: 2.5e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg,
-            divergent_half_angle_deg,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(2.5e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(convergent_half_angle_deg.to_radians()),
+            divergent_half_angle: Angle::from_base(divergent_half_angle_deg.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         })
         .with_metadata(VenturiGeometryMetadata {
-            throat_width_m: 2.5e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg,
-            divergent_half_angle_deg,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(2.5e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(convergent_half_angle_deg.to_radians()),
+            divergent_half_angle: Angle::from_base(divergent_half_angle_deg.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         })
         .with_path(vec![(5.0, 0.0), (5.8, 0.0)]),
     );
@@ -438,21 +444,21 @@ fn venturi_throat_width_and_length_change_coefficients() {
         .iter_mut()
         .find(|channel| channel.id.as_str() == "throat_section")
     {
-        throat.length_m = 1.6e-3;
+        throat.length_m = aequitas::systems::si::quantities::Length::from_base(1.6e-3);
         throat.path = vec![(5.0, 0.0), (6.6, 0.0)];
         throat.cross_section = cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
-            width_m: 1.8e-4,
-            height_m: 0.5e-3,
+            width_m: aequitas::systems::si::quantities::Length::from_base(1.8e-4),
+            height_m: aequitas::systems::si::quantities::Length::from_base(0.5e-3),
         };
         throat.venturi_geometry = Some(VenturiGeometryMetadata {
-            throat_width_m: 1.8e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 1.6e-3,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg: 8.0,
-            divergent_half_angle_deg: 8.0,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(1.8e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(1.6e-3),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(8.0_f64.to_radians()),
+            divergent_half_angle: Angle::from_base(8.0_f64.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         });
     }
 
@@ -474,12 +480,12 @@ fn venturi_throat_width_and_length_change_coefficients() {
 fn inferred_selective_serpentine_metadata_changes_1d_losses() {
     let tight = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 9,
-        bend_radius_m: 0.45e-3,
+        bend_radius_m: Length::from_base(0.45e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     let gentle = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 5,
-        bend_radius_m: 2.2e-3,
+        bend_radius_m: Length::from_base(2.2e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
 

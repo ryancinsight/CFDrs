@@ -7,6 +7,7 @@ use crate::topology::model::{
     BlueprintTopologySpec, DeanSiteEstimate, SplitKind, TopologyLineageMetadata,
     TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::{Dimensionless, Length};
 
 impl BlueprintTopologyFactory {
     pub fn estimate_dean_site(
@@ -20,8 +21,8 @@ impl BlueprintTopologyFactory {
             .iter()
             .find(|ch| ch.id.as_str() == placement.target_channel_id)?;
 
-        let d_h = channel.cross_section.hydraulic_diameter();
-        let area = channel.cross_section.area();
+        let d_h = channel.cross_section.hydraulic_diameter().into_base();
+        let area = channel.cross_section.area().into_base();
         if area <= 0.0 || d_h <= 0.0 {
             return None;
         }
@@ -64,18 +65,19 @@ impl BlueprintTopologyFactory {
         });
         let spec_curve_radius_m = spec_serpentine
             .as_ref()
-            .map(|serpentine| serpentine.bend_radius_m);
+            .map(|serpentine| serpentine.bend_radius_m.into_base());
         let curve_radius_m = spec_curve_radius_m
             .or(path_curve_radius_m)
             .unwrap_or(5.0e-3);
 
         let spec_arc_length_m = spec_serpentine.as_ref().map(|serpentine| {
             let segments = serpentine.segments.max(1) as f64;
-            let straight_length = segments * serpentine.segment_length_m.max(0.0);
-            let bend_length = segments * std::f64::consts::PI * serpentine.bend_radius_m.max(0.0);
-            (straight_length + bend_length).max(channel.length_m)
+            let straight_length = segments * serpentine.segment_length_m.into_base().max(0.0);
+            let bend_length =
+                segments * std::f64::consts::PI * serpentine.bend_radius_m.into_base().max(0.0);
+            (straight_length + bend_length).max(channel.length_m.into_base())
         });
-        let arc_length_m = spec_arc_length_m.unwrap_or(channel.length_m);
+        let arc_length_m = spec_arc_length_m.unwrap_or(channel.length_m.into_base());
 
         // De = Re √(D_h / (2 R_c))
         let dean_num = if curve_radius_m > 0.0 {
@@ -85,9 +87,9 @@ impl BlueprintTopologyFactory {
         };
 
         Some(DeanSiteEstimate {
-            dean_number: dean_num,
-            curvature_radius_m: curve_radius_m,
-            arc_length_m,
+            dean_number: Dimensionless::from_base(dean_num),
+            curvature_radius_m: Length::from_base(curve_radius_m),
+            arc_length_m: Length::from_base(arc_length_m),
         })
     }
 
@@ -142,14 +144,14 @@ impl BlueprintTopologyFactory {
     /// Derive a representative channel width from the spec for `GeometryConfig`.
     pub(super) fn representative_channel_width_m(spec: &BlueprintTopologySpec) -> f64 {
         if let Some(first_series) = spec.series_channels.first() {
-            return first_series.route.width_m;
+            return first_series.route.width_m.into_base();
         }
         if let Some(first_parallel) = spec.parallel_channels.first() {
-            return first_parallel.route.width_m;
+            return first_parallel.route.width_m.into_base();
         }
         if let Some(first_stage) = spec.split_stages.first() {
             if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.width_m;
+                return first_branch.route.width_m.into_base();
             }
         }
         1.0e-3 // Default 1mm
@@ -158,14 +160,14 @@ impl BlueprintTopologyFactory {
     /// Derive a representative channel height from the spec for `GeometryConfig`.
     pub(super) fn representative_channel_height_m(spec: &BlueprintTopologySpec) -> f64 {
         if let Some(first_series) = spec.series_channels.first() {
-            return first_series.route.height_m;
+            return first_series.route.height_m.into_base();
         }
         if let Some(first_parallel) = spec.parallel_channels.first() {
-            return first_parallel.route.height_m;
+            return first_parallel.route.height_m.into_base();
         }
         if let Some(first_stage) = spec.split_stages.first() {
             if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.height_m;
+                return first_branch.route.height_m.into_base();
             }
         }
         0.5e-3 // Default 0.5mm

@@ -109,7 +109,7 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
             min_bend_radius_mm = min_bend_radius_mm.min(local_min_radius_mm);
             max_bend_radius_mm = max_bend_radius_mm.max(local_max_radius_mm);
         } else if let ChannelShape::Serpentine { bend_radius_m, .. } = channel.channel_shape {
-            let radius_mm = bend_radius_m * 1.0e3;
+            let radius_mm = bend_radius_m.into_base() * 1.0e3;
             min_bend_radius_mm = min_bend_radius_mm.min(radius_mm);
             max_bend_radius_mm = max_bend_radius_mm.max(radius_mm);
         }
@@ -119,7 +119,7 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
             venturi_count += 1;
         }
 
-        let width_mm = channel.cross_section.dims().0 * 1.0e3;
+        let width_mm = channel.cross_section.dims().0.into_base() * 1.0e3;
         let width_px = if is_venturi {
             8.0
         } else {
@@ -175,7 +175,10 @@ fn display_path(channel: &ChannelSpec) -> Vec<(f64, f64)> {
             bend_radius_m,
             ..
         } if channel.path.len() >= 2 => {
-            if path_has_visible_serpentine_curvature(&channel.path, bend_radius_m * 1.0e3) {
+            if path_has_visible_serpentine_curvature(
+                &channel.path,
+                bend_radius_m.into_base() * 1.0e3,
+            ) {
                 channel.path.clone()
             } else {
                 generated_serpentine_path(
@@ -185,7 +188,7 @@ fn display_path(channel: &ChannelSpec) -> Vec<(f64, f64)> {
                         .last()
                         .expect("channel.path has at least one point"),
                     segments,
-                    bend_radius_m * 1.0e3,
+                    bend_radius_m.into_base() * 1.0e3,
                 )
             }
         }

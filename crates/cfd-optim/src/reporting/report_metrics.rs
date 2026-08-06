@@ -302,7 +302,7 @@ pub fn compute_blueprint_report_metrics(
     let mut per_channel_hemolysis = Vec::with_capacity(solve.channel_samples.len());
 
     for sample in &solve.channel_samples {
-        let area_m2 = sample.cross_section.area().max(1.0e-18);
+        let area_m2 = sample.cross_section.area().into_base().max(1.0e-18);
         let velocity_m_s = sample.flow_m3_s.into_base().abs() / area_m2;
         let shear_rate_inv_s = sample.cross_section.wall_shear_rate(velocity_m_s);
         let shear = DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S)
@@ -384,8 +384,12 @@ pub fn compute_blueprint_report_metrics(
         .venturi_placements
         .iter()
         .map(|placement| {
-            (placement.throat_geometry.inlet_width_m
-                / placement.throat_geometry.throat_width_m.max(1.0e-18))
+            (placement.throat_geometry.inlet_width_m.into_base()
+                / placement
+                    .throat_geometry
+                    .throat_width_m
+                    .into_base()
+                    .max(1.0e-18))
             .max(1.0)
         })
         .fold(1.0_f64, f64::max);
@@ -394,7 +398,7 @@ pub fn compute_blueprint_report_metrics(
         .channel_samples
         .iter()
         .filter(|sample| sample.is_treatment_channel)
-        .map(|sample| resonance_match(sample.cross_section.hydraulic_diameter()))
+        .map(|sample| resonance_match(sample.cross_section.hydraulic_diameter().into_base()))
         .fold(0.0_f64, f64::max);
     let throat_temperature_rise_k = if max_venturi_shear_rate_inv_s > 0.0 {
         max_venturi_shear_pa * max_venturi_shear_rate_inv_s * max_venturi_transit_time_s
@@ -418,9 +422,9 @@ pub fn compute_blueprint_report_metrics(
                                 || sample.id.starts_with(&spec.target_channel_id)
                         })
                         .map(|sample| {
-                            let inlet_area = (spec.throat_geometry.inlet_width_m
-                                * spec.throat_geometry.throat_height_m)
-                                .max(1.0e-18);
+                            let inlet_area = (spec.throat_geometry.inlet_width_m.into_base()
+                                * spec.throat_geometry.throat_height_m.into_base())
+                            .max(1.0e-18);
                             let upstream_velocity = sample.flow_m3_s.into_base().abs() / inlet_area;
                             let ratio = placement.effective_throat_velocity_m_s.into_base()
                                 / upstream_velocity.max(1.0e-18);
@@ -501,7 +505,7 @@ pub fn compute_blueprint_report_metrics(
             .channel_samples
             .iter()
             .filter(|sample| sample.is_treatment_channel)
-            .map(|sample| sample.cross_section.dims().1)
+            .map(|sample| sample.cross_section.dims().1.into_base())
             .reduce(f64::max)
             .unwrap_or(0.0),
     );
@@ -544,8 +548,8 @@ pub fn compute_blueprint_report_metrics(
     } else {
         0.0
     };
-    metrics.plate_fits =
-        topology.box_dims_mm.0 <= PLATE_WIDTH_MM && topology.box_dims_mm.1 <= PLATE_HEIGHT_MM;
+    let (plate_width_mm, plate_height_mm) = topology.box_dims_mm();
+    metrics.plate_fits = plate_width_mm <= PLATE_WIDTH_MM && plate_height_mm <= PLATE_HEIGHT_MM;
     let overlap = candidate.blueprint.channel_overlap_analysis();
     metrics.channel_overlap_fraction = overlap.max_overlap_fraction;
     metrics.overlap_width_ratio = overlap.width_ratio_at_worst;
@@ -693,7 +697,7 @@ pub fn compute_blueprint_report_metrics(
     // Outlet tail length and remerge proximity: applicable to all PST topologies.
     // Shorter outlet tails mean treatment-stream remerge happens closer to chip exit,
     // reducing post-therapy dilution and secondary separation of treated cells.
-    let outlet_tail_mm = topology.outlet_tail_length_m * 1.0e3;
+    let outlet_tail_mm = topology.outlet_tail_length_m.into_base() * 1.0e3;
     metrics.cif_outlet_tail_length_mm = outlet_tail_mm;
     metrics.cif_remerge_proximity_score = if outlet_tail_mm > 0.0 {
         // Exponential decay: 1 mm → 0.95, 5 mm → 0.37, 10 mm → 0.14.
@@ -1137,7 +1141,7 @@ mod tests {
             .channel_samples
             .iter()
             .filter(|sample| sample.is_treatment_channel)
-            .map(|sample| sample.length_m.into_base() * sample.cross_section.area())
+            .map(|sample| sample.length_m.into_base() * sample.cross_section.area().into_base())
             .sum::<f64>();
 
         assert_eq!(

@@ -207,14 +207,14 @@ impl SmoothStraightChannelStrategy {
         let constants = ConstantsRegistry::new();
         // For very short channels, just return straight line
         if channel_length
-            < geometry_config.channel_width * constants.get_short_channel_width_multiplier()
+            < geometry_config.channel_width_mm() * constants.get_short_channel_width_multiplier()
         {
             return vec![p1, p2];
         }
 
         let transition_length = channel_length * self.transition_config.transition_length_factor;
         let max_amplitude =
-            geometry_config.channel_width * self.transition_config.transition_amplitude_factor;
+            geometry_config.channel_width_mm() * self.transition_config.transition_amplitude_factor;
 
         // Calculate total points: transition + middle + transition
         let transition_points = self.transition_config.transition_smoothness;

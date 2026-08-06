@@ -9,6 +9,7 @@ use crate::geometry::metadata::BlueprintRenderHints;
 use crate::topology::{
     BlueprintTopologyFactory, BlueprintTopologySpec, SplitKind, TreatmentActuationMode,
 };
+use aequitas::systems::si::quantities::Length;
 
 mod annotation;
 
@@ -25,12 +26,12 @@ pub enum PrimitiveSelectiveSplitKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrimitiveSelectiveTreeRequest {
     pub name: String,
-    pub box_dims_mm: (f64, f64),
+    pub box_dims_m: (Length<f64>, Length<f64>),
     pub split_sequence: Vec<PrimitiveSelectiveSplitKind>,
-    pub main_width_m: f64,
-    pub throat_width_m: f64,
-    pub throat_length_m: f64,
-    pub channel_height_m: f64,
+    pub main_width_m: Length<f64>,
+    pub throat_width_m: Length<f64>,
+    pub throat_length_m: Length<f64>,
+    pub channel_height_m: Length<f64>,
     pub first_trifurcation_center_frac: f64,
     pub later_trifurcation_center_frac: f64,
     pub bifurcation_treatment_frac: f64,
@@ -39,9 +40,21 @@ pub struct PrimitiveSelectiveTreeRequest {
     pub center_serpentine: Option<super::super::CenterSerpentinePathSpec>,
 }
 
+impl PrimitiveSelectiveTreeRequest {
+    fn box_dims_mm(&self) -> (f64, f64) {
+        (
+            self.box_dims_m.0.into_base() * 1.0e3,
+            self.box_dims_m.1.into_base() * 1.0e3,
+        )
+    }
+}
+
 pub fn create_primitive_selective_tree_geometry(
     request: &PrimitiveSelectiveTreeRequest,
 ) -> NetworkBlueprint {
+    let box_dims_mm = request.box_dims_mm();
+    let main_width_m = request.main_width_m.into_base();
+    let channel_height_m = request.channel_height_m.into_base();
     let splits: Vec<SplitType> = request
         .split_sequence
         .iter()
@@ -61,9 +74,9 @@ pub fn create_primitive_selective_tree_geometry(
         .collect();
 
     let geometry_config = GeometryConfig {
-        wall_clearance: 1.0,
-        channel_width: (request.main_width_m * 1.0e3).clamp(0.2, 12.0),
-        channel_height: (request.channel_height_m * 1.0e3).clamp(0.2, 5.0),
+        wall_clearance: Length::from_base(1.0e-3),
+        channel_width: Length::from_base(main_width_m.clamp(0.2e-3, 12.0e-3)),
+        channel_height: Length::from_base(channel_height_m.clamp(0.2e-3, 5.0e-3)),
         ..Default::default()
     };
 
@@ -75,20 +88,16 @@ pub fn create_primitive_selective_tree_geometry(
     let mut last_blueprint = None;
 
     for retry_scale in retry_scales {
-        let internal_dims = expanded_generation_box_dims(
-            request.box_dims_mm,
-            split_depth,
-            total_branches,
-            retry_scale,
-        );
+        let internal_dims =
+            expanded_generation_box_dims(box_dims_mm, split_depth, total_branches, retry_scale);
         let mut blueprint = super::super::create_geometry(
             internal_dims,
             &splits,
             &geometry_config,
             &ChannelTypeConfig::AllStraight,
         );
-        if internal_dims != request.box_dims_mm {
-            scale_blueprint_geometry(&mut blueprint, request.box_dims_mm);
+        if internal_dims != box_dims_mm {
+            scale_blueprint_geometry(&mut blueprint, box_dims_mm);
         }
         annotate_primitive_tree(&mut blueprint, request);
         if blueprint.unresolved_channel_overlap_count() == 0 {
@@ -147,7 +156,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
     }
 
     let mut split_sequence = Vec::with_capacity(spec.split_stages.len());
-    let mut parent_width_m = spec.inlet_width_m;
+    let mut parent_width_m = spec.inlet_width_m.into_base();
     let mut first_trifurcation_center_frac = 0.5;
     let mut later_trifurcation_center_frac = 0.5;
     let mut bifurcation_treatment_frac = 0.5;
@@ -164,11 +173,12 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
             return Ok(None);
         }
         let treatment_branch = treatment_branches[0];
-        if parent_width_m <= 0.0 || treatment_branch.route.width_m <= 0.0 {
+        let treatment_width_m = treatment_branch.route.width_m.into_base();
+        if parent_width_m <= 0.0 || treatment_width_m <= 0.0 {
             return Ok(None);
         }
 
-        let treatment_fraction = (treatment_branch.route.width_m / parent_width_m).clamp(0.0, 1.0);
+        let treatment_fraction = (treatment_width_m / parent_width_m).clamp(0.0, 1.0);
         center_serpentine =
             center_serpentine.or(treatment_branch
                 .route
@@ -203,7 +213,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
             SplitKind::NFurcation(_) => return Ok(None),
         }
 
-        parent_width_m = treatment_branch.route.width_m;
+        parent_width_m = treatment_width_m;
     }
 
     if !saw_later_trifurcation {
@@ -214,7 +224,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         .split_stages
         .first()
         .and_then(|stage| stage.branches.first())
-        .map_or(1.0e-3, |branch| branch.route.height_m);
+        .map_or(1.0e-3, |branch| branch.route.height_m.into_base());
     let strongest_venturi = spec
         .venturi_placements
         .iter()
@@ -222,16 +232,20 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
 
     let request = PrimitiveSelectiveTreeRequest {
         name: spec.design_name.clone(),
-        box_dims_mm: spec.box_dims_mm,
+        box_dims_m: (
+            Length::from_base(spec.box_dims_mm().0 * 1.0e-3),
+            Length::from_base(spec.box_dims_mm().1 * 1.0e-3),
+        ),
         split_sequence,
         main_width_m: spec.inlet_width_m,
-        throat_width_m: strongest_venturi.map_or(parent_width_m, |placement| {
+        throat_width_m: strongest_venturi.map_or(Length::from_base(parent_width_m), |placement| {
             placement.throat_geometry.throat_width_m
         }),
-        throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
-            placement.throat_geometry.throat_length_m
-        }),
-        channel_height_m: representative_height_m,
+        throat_length_m: strongest_venturi.map_or(
+            Length::from_base(spec.trunk_length_m.into_base() / 8.0),
+            |placement| placement.throat_geometry.throat_length_m,
+        ),
+        channel_height_m: Length::from_base(representative_height_m),
         first_trifurcation_center_frac,
         later_trifurcation_center_frac,
         bifurcation_treatment_frac,

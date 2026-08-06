@@ -68,7 +68,9 @@ pub fn build_component_audit(candidate: &BlueprintCandidate) -> Vec<ComponentAud
                     component_type: format!("{:?}", branch.role),
                     governing_physics: format!(
                         "Rectangular microchannel flow with width {:.6e} m, height {:.6e} m, and length {:.6e} m.",
-                        branch.route.width_m, branch.route.height_m, branch.route.length_m
+                        branch.route.width_m.into_base(),
+                        branch.route.height_m.into_base(),
+                        branch.route.length_m.into_base()
                     ),
                     safety_relevance: if branch.treatment_path {
                         "Defines the treatment-lane residence time, cavitation exposure, and CTC enrichment path.".to_string()
@@ -84,8 +86,8 @@ pub fn build_component_audit(candidate: &BlueprintCandidate) -> Vec<ComponentAud
                 component_type: "VenturiPlacement".to_string(),
                 governing_physics: format!(
                     "Vena-contracta screening with throat width {:.6e} m, length {:.6e} m, and placement mode {:?}.",
-                    placement.throat_geometry.throat_width_m,
-                    placement.throat_geometry.throat_length_m,
+                    placement.throat_geometry.throat_width_m.into_base(),
+                    placement.throat_geometry.throat_length_m.into_base(),
                     placement.placement_mode,
                 ),
                 safety_relevance: "Sets cavitation inception, throat shear, and the selective exposure burden experienced by RBC and WBC populations.".to_string(),

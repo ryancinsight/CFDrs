@@ -10,32 +10,32 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     if spec.design_name.is_empty() {
         return Err("BlueprintTopologySpec.design_name is empty".into());
     }
-    let (bw, bh) = spec.box_dims_mm;
+    let (bw, bh) = spec.box_dims_mm();
     if bw <= 0.0 || bh <= 0.0 {
         return Err(format!("Box dimensions must be positive: ({bw}, {bh})"));
     }
-    if spec.inlet_width_m <= 0.0 {
+    if spec.inlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "inlet_width_m must be positive: {}",
-            spec.inlet_width_m
+            spec.inlet_width_m.into_base()
         ));
     }
-    if spec.outlet_width_m <= 0.0 {
+    if spec.outlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "outlet_width_m must be positive: {}",
-            spec.outlet_width_m
+            spec.outlet_width_m.into_base()
         ));
     }
-    if spec.trunk_length_m <= 0.0 {
+    if spec.trunk_length_m.into_base() <= 0.0 {
         return Err(format!(
             "trunk_length_m must be positive: {}",
-            spec.trunk_length_m
+            spec.trunk_length_m.into_base()
         ));
     }
-    if spec.outlet_tail_length_m <= 0.0 {
+    if spec.outlet_tail_length_m.into_base() <= 0.0 {
         return Err(format!(
             "outlet_tail_length_m must be positive: {}",
-            spec.outlet_tail_length_m
+            spec.outlet_tail_length_m.into_base()
         ));
     }
 
@@ -88,34 +88,34 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
 
 /// Validate a single channel route specification.
 pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), String> {
-    if route.length_m <= 0.0 {
+    if route.length_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: length_m must be positive: {}",
-            route.length_m
+            route.length_m.into_base()
         ));
     }
-    if route.width_m <= 0.0 {
+    if route.width_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: width_m must be positive: {}",
-            route.width_m
+            route.width_m.into_base()
         ));
     }
-    if route.height_m <= 0.0 {
+    if route.height_m.into_base() <= 0.0 {
         return Err(format!(
             "{label}: height_m must be positive: {}",
-            route.height_m
+            route.height_m.into_base()
         ));
     }
     if let Some(ref serp) = route.serpentine {
         if serp.segments == 0 {
             return Err(format!("{label}: serpentine segments must be > 0"));
         }
-        if serp.bend_radius_m <= 0.0 {
+        if serp.bend_radius_m.into_base() <= 0.0 {
             return Err(format!(
                 "{label}: serpentine bend_radius_m must be positive"
             ));
         }
-        if serp.segment_length_m <= 0.0 {
+        if serp.segment_length_m.into_base() <= 0.0 {
             return Err(format!(
                 "{label}: serpentine segment_length_m must be positive"
             ));
@@ -129,41 +129,47 @@ pub fn validate_throat_geometry(
     geometry: &ThroatGeometrySpec,
     placement_id: &str,
 ) -> Result<(), String> {
-    if geometry.throat_width_m <= 0.0 {
+    if geometry.throat_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_width_m must be positive"
         ));
     }
-    if geometry.throat_height_m <= 0.0 {
+    if geometry.throat_height_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_height_m must be positive"
         ));
     }
-    if geometry.throat_length_m <= 0.0 {
+    if geometry.throat_length_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_length_m must be positive"
         ));
     }
-    if geometry.inlet_width_m <= 0.0 {
+    if geometry.inlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': inlet_width_m must be positive"
         ));
     }
-    if geometry.outlet_width_m <= 0.0 {
+    if geometry.outlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': outlet_width_m must be positive"
         ));
     }
-    if geometry.convergent_half_angle_deg <= 0.0 || geometry.convergent_half_angle_deg >= 90.0 {
+    if geometry.convergent_half_angle.into_base() <= 0.0
+        || geometry.convergent_half_angle.into_base() >= 90.0_f64.to_radians()
+    {
         return Err(format!(
-            "Venturi '{}': convergent_half_angle_deg must be in (0, 90): {}",
-            placement_id, geometry.convergent_half_angle_deg
+            "Venturi '{}': convergent_half_angle must be in (0, 90): {} degrees",
+            placement_id,
+            geometry.convergent_half_angle.into_base().to_degrees()
         ));
     }
-    if geometry.divergent_half_angle_deg <= 0.0 || geometry.divergent_half_angle_deg >= 90.0 {
+    if geometry.divergent_half_angle.into_base() <= 0.0
+        || geometry.divergent_half_angle.into_base() >= 90.0_f64.to_radians()
+    {
         return Err(format!(
-            "Venturi '{}': divergent_half_angle_deg must be in (0, 90): {}",
-            placement_id, geometry.divergent_half_angle_deg
+            "Venturi '{}': divergent_half_angle must be in (0, 90): {} degrees",
+            placement_id,
+            geometry.divergent_half_angle.into_base().to_degrees()
         ));
     }
     Ok(())

@@ -17,6 +17,8 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
 use cfd_mesh::infrastructure::io::stl;
 use cfd_schematic_mesh::{ShellMeshPipeline, ShellPipelineConfig};
 
@@ -64,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Fill the cavity with a coarse Gyroid
         tpms_fill: Some(TpmsFillSpec {
             surface: TpmsSurfaceKind::Gyroid,
-            period_mm: 6.0,
+            period: Length::from_unit::<Millimeter>(6.0),
             iso_value: 0.0,
             resolution: 48,
             gradient: None,

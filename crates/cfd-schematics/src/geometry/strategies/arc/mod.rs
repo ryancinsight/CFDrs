@@ -320,7 +320,8 @@ impl ArcChannelStrategy {
         box_dims: (f64, f64),
         neighbor_info: Option<&[f64]>,
     ) -> f64 {
-        let wall_margin = geometry_config.wall_clearance + geometry_config.channel_width * 0.5;
+        let wall_margin =
+            geometry_config.wall_clearance_mm() + geometry_config.channel_width_mm() * 0.5;
         let (_, box_height) = box_dims;
         let wall_limit = if direction > 0.0 {
             box_height - channel_center_y - wall_margin
@@ -338,9 +339,9 @@ impl ArcChannelStrategy {
                     }
 
                     if direction > 0.0 && delta > 0.0 {
-                        Some(delta - geometry_config.channel_width)
+                        Some(delta - geometry_config.channel_width_mm())
                     } else if direction < 0.0 && delta < 0.0 {
-                        Some(-delta - geometry_config.channel_width)
+                        Some(-delta - geometry_config.channel_width_mm())
                     } else {
                         None
                     }
@@ -378,7 +379,7 @@ impl ArcChannelStrategy {
         let proximity_reduction = self.calculate_proximity_reduction(
             p1,
             p2,
-            geometry_config.channel_width,
+            geometry_config.channel_width_mm(),
             box_dims,
             total_branches,
             neighbor_info,
@@ -389,7 +390,7 @@ impl ArcChannelStrategy {
 
         // Additional safety check for very short channels
         if channel_length
-            < geometry_config.channel_width * constants.get_short_channel_width_multiplier()
+            < geometry_config.channel_width_mm() * constants.get_short_channel_width_multiplier()
         {
             adaptive_factor *= constants.get_max_curvature_reduction_factor();
         }

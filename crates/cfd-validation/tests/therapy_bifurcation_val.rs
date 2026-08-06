@@ -59,12 +59,12 @@ fn test_symmetric_bifurcation_constraints() {
     // All channels must have positive length and area.
     for ch in &bp.channels {
         assert!(
-            ch.length_m > 0.0,
+            ch.length_m.into_base() > 0.0,
             "Channel '{}' must have positive length",
             ch.id.as_str()
         );
         assert!(
-            ch.cross_section.area() > 0.0,
+            ch.cross_section.area().into_base() > 0.0,
             "Channel '{}' must have positive area",
             ch.id.as_str()
         );

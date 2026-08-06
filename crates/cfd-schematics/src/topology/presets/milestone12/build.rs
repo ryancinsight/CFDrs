@@ -4,6 +4,7 @@ use crate::topology::model::{
     VenturiConfig, VenturiPlacementMode,
 };
 use crate::topology::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::{Angle, Length};
 
 use super::super::modifiers::with_venturi;
 use super::support::{
@@ -74,12 +75,17 @@ pub fn milestone12_primitive_selective_tree_spec(
             })
             .collect::<Vec<_>>();
 
-        outlet_treatment_width_m = branches
+        let treatment_width_m = branches
             .iter()
             .filter(|branch| branch.treatment_path)
-            .map(|branch| branch.route.width_m)
+            .map(|branch| branch.route.width_m.into_base())
             .sum::<f64>()
-            .max(outlet_treatment_width_m.min(request.inlet_width_m));
+            .max(
+                outlet_treatment_width_m
+                    .into_base()
+                    .min(request.inlet_width_m.into_base()),
+            );
+        outlet_treatment_width_m = Length::from_base(treatment_width_m);
 
         split_stages.push(SplitStageSpec {
             stage_id: format!("stage_{stage_index}"),
@@ -91,7 +97,7 @@ pub fn milestone12_primitive_selective_tree_spec(
     let spec = BlueprintTopologySpec {
         topology_id: request.topology_id.clone(),
         design_name: request.design_name.clone(),
-        box_dims_mm: request.box_dims_mm,
+        box_dims_m: (request.box_dims_m.0, request.box_dims_m.1),
         inlet_width_m: request.inlet_width_m,
         outlet_width_m: outlet_treatment_width_m,
         trunk_length_m: request.branch_length_m,
@@ -117,8 +123,8 @@ pub fn milestone12_primitive_selective_tree_spec(
                     throat_length_m: request.venturi_throat_length_m,
                     inlet_width_m: outlet_treatment_width_m,
                     outlet_width_m: outlet_treatment_width_m,
-                    convergent_half_angle_deg: 7.0,
-                    divergent_half_angle_deg: 7.0,
+                    convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                    divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
                 },
                 placement_mode: request.venturi_placement_mode,
             },
@@ -209,13 +215,15 @@ pub fn promote_milestone12_option1_to_option2(
         )
     })?;
 
+    let representative_width_m = representative_route.width_m.into_base();
+    let representative_length_m = representative_route.length_m.into_base();
     let throat_width_m =
-        (representative_route.width_m * 0.4).clamp(60.0e-6, representative_route.width_m * 0.85);
+        (representative_width_m * 0.4).clamp(60.0e-6, representative_width_m * 0.85);
     let throat_length_m =
-        (representative_route.length_m / 8.0).clamp(300.0e-6, representative_route.length_m * 0.5);
+        (representative_length_m / 8.0).clamp(300.0e-6, representative_length_m * 0.5);
 
-    let throat_height_m = representative_route.height_m;
-    let inlet_width_m = representative_route.width_m;
+    let throat_height_m = representative_route.height_m.into_base();
+    let inlet_width_m = representative_width_m;
 
     let spec = with_venturi(
         topology.clone(),
@@ -223,13 +231,13 @@ pub fn promote_milestone12_option1_to_option2(
             target_channel_ids: treatment_channel_ids,
             serial_throat_count: serial_throat_count.max(1),
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m,
-                throat_height_m,
-                throat_length_m,
-                inlet_width_m,
-                outlet_width_m: inlet_width_m,
-                convergent_half_angle_deg: 7.0,
-                divergent_half_angle_deg: 7.0,
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(throat_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
+                inlet_width_m: Length::from_base(inlet_width_m),
+                outlet_width_m: Length::from_base(inlet_width_m),
+                convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
             },
             placement_mode,
         },
@@ -239,7 +247,7 @@ pub fn promote_milestone12_option1_to_option2(
     if let Some(render_hints) = blueprint.render_hints() {
         mirror_blueprint_geometry(
             &mut promoted,
-            topology.box_dims_mm,
+            topology.box_dims_mm(),
             render_hints.mirror_x,
             render_hints.mirror_y,
         );

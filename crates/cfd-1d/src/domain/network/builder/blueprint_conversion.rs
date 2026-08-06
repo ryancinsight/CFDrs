@@ -158,18 +158,20 @@ where
             ))
         })?;
 
-        if ch_spec.resistance < 0.0 || !ch_spec.resistance.is_finite() {
+        let authored_resistance = ch_spec.resistance.into_base();
+        if authored_resistance < 0.0 || !authored_resistance.is_finite() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Channel '{}' has invalid resistance: {}",
                 ch_spec.id.as_str(),
-                ch_spec.resistance
+                authored_resistance
             )));
         }
-        let seed_r = T::from_f64_or_zero(ch_spec.resistance.max(f64::EPSILON));
+        let seed_r = T::from_f64_or_zero(authored_resistance.max(f64::EPSILON));
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = HydraulicResistance::from_base(seed_r);
         edge.area = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 if diameter_m <= 0.0 || !diameter_m.is_finite() {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Channel '{}' has invalid circular diameter: {}",
@@ -182,6 +184,8 @@ where
                 ))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 if width_m <= 0.0
                     || !width_m.is_finite()
                     || height_m <= 0.0
@@ -220,17 +224,19 @@ where
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
     for (edge_idx, ch_spec) in &edge_specs {
-        if ch_spec.length_m <= 0.0 || !ch_spec.length_m.is_finite() {
+        let length_m = ch_spec.length_m.into_base();
+        if length_m <= 0.0 || !length_m.is_finite() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Channel '{}' has invalid length: {}",
                 ch_spec.id.as_str(),
-                ch_spec.length_m
+                length_m
             )));
         }
-        let length = Length::from_base(T::from_f64_or_zero(ch_spec.length_m));
+        let length = Length::from_base(T::from_f64_or_zero(length_m));
 
         let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 let d = Length::from_base(T::from_f64_or_zero(diameter_m));
                 let a = Area::from_base(T::from_f64_or_zero(
                     std::f64::consts::PI * (diameter_m / 2.0).powi(2),
@@ -246,6 +252,8 @@ where
                 )
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 let w = Length::from_base(T::from_f64_or_zero(width_m));
                 let h = Length::from_base(T::from_f64_or_zero(height_m));
                 let a = Area::from_base(T::from_f64_or_zero(width_m * height_m));
@@ -304,7 +312,9 @@ where
             length,
             area,
             hydraulic_diameter: dh,
-            resistance: HydraulicResistance::from_base(T::from_f64_or_zero(ch_spec.resistance)),
+            resistance: HydraulicResistance::from_base(T::from_f64_or_zero(
+                ch_spec.resistance.into_base(),
+            )),
             geometry: Some(channel_geometry),
             resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: edge_property_overrides,
@@ -430,7 +440,8 @@ where
                 continue;
             };
 
-            let length_t = T::from_f64_or_zero(ch_spec.length_m);
+            let length_t = T::from_f64_or_zero(ch_spec.length_m.into_base());
+            let bend_radius_m = bend_radius_m.into_base();
             let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Channel '{}' has invalid serpentine bend radius: {}",
@@ -443,12 +454,12 @@ where
 
             let cross_section = match ch_spec.cross_section {
                 CrossSectionSpec::Circular { diameter_m } => SerpentineCrossSection::Circular {
-                    diameter: diameter_m,
+                    diameter: diameter_m.into_base(),
                 },
                 CrossSectionSpec::Rectangular { width_m, height_m } => {
                     SerpentineCrossSection::Rectangular {
-                        width: width_m,
-                        height: height_m,
+                        width: width_m.into_base(),
+                        height: height_m.into_base(),
                     }
                 }
             };
@@ -535,12 +546,14 @@ where
         {
             match boundary.boundary {
                 BranchBoundarySpecification::Pressure { pressure_pa } => {
-                    let pressure = Pressure::from_base(T::from_f64_or_zero(pressure_pa));
+                    let pressure =
+                        Pressure::from_base(T::from_f64_or_zero(pressure_pa.into_base()));
                     network.set_pressure(node_idx, pressure);
                 }
                 BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
-                    let flow_rate =
-                        VolumetricFlowRate::from_base(T::from_f64_or_zero(flow_rate_m3_s));
+                    let flow_rate = VolumetricFlowRate::from_base(T::from_f64_or_zero(
+                        flow_rate_m3_s.into_base(),
+                    ));
                     network.set_neumann_flow(node_idx, flow_rate);
                 }
             }

@@ -4,6 +4,7 @@ use crate::geometry::metadata::{ChannelVenturiSpec, MetadataContainer, VenturiGe
 use crate::topology::{
     TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::Dimensionless;
 
 impl NetworkBlueprint {
     pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
@@ -29,12 +30,13 @@ impl NetworkBlueprint {
                     )
                 })?;
 
-            let resolved_inlet_width_m = if config.throat_geometry.inlet_width_m > 0.0 {
+            let resolved_inlet_width_m = if config.throat_geometry.inlet_width_m.into_base() > 0.0 {
                 config.throat_geometry.inlet_width_m
             } else {
                 channel.effective_width_m()
             };
-            let resolved_outlet_width_m = if config.throat_geometry.outlet_width_m > 0.0 {
+            let resolved_outlet_width_m = if config.throat_geometry.outlet_width_m.into_base() > 0.0
+            {
                 config.throat_geometry.outlet_width_m
             } else {
                 channel.effective_width_m()
@@ -45,9 +47,9 @@ impl NetworkBlueprint {
                 throat_length_m: config.throat_geometry.throat_length_m,
                 inlet_width_m: resolved_inlet_width_m,
                 outlet_width_m: resolved_outlet_width_m,
-                convergent_half_angle_deg: config.throat_geometry.convergent_half_angle_deg,
-                divergent_half_angle_deg: config.throat_geometry.divergent_half_angle_deg,
-                throat_position: 0.5,
+                convergent_half_angle: config.throat_geometry.convergent_half_angle,
+                divergent_half_angle: config.throat_geometry.divergent_half_angle,
+                throat_position: Dimensionless::from_base(0.5),
             };
             channel.venturi_geometry = Some(venturi_geometry.clone());
             if channel.metadata.is_none() {

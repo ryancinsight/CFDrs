@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metadata_config = MetadataConfig {
         track_performance: true,
         track_optimization: true,
-        channel_diameter_mm: None,
+        channel_diameter_m: None,
     };
 
     let start_time = std::time::Instant::now();

@@ -9,20 +9,23 @@ use crate::topology::{
     TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
 };
 use crate::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::{Angle, Length};
 
 /// Optional serpentine geometry applied only to center treatment lanes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CenterSerpentineSpec {
     pub segments: usize,
-    pub bend_radius_m: f64,
-    pub segment_length_m: f64,
+    pub bend_radius_m: Length<f64>,
+    pub segment_length_m: Length<f64>,
 }
 
 pub(super) fn normalized_center_serpentine(
     center_serpentine: Option<CenterSerpentineSpec>,
 ) -> Option<CenterSerpentineSpec> {
     center_serpentine.filter(|spec| {
-        spec.segments >= 2 && spec.bend_radius_m > 0.0 && spec.segment_length_m > 0.0
+        spec.segments >= 2
+            && spec.bend_radius_m.into_base() > 0.0
+            && spec.segment_length_m.into_base() > 0.0
     })
 }
 
@@ -47,9 +50,9 @@ pub(super) fn parallel_lane(
     ParallelChannelSpec {
         channel_id: channel_id.into(),
         route: ChannelRouteSpec {
-            length_m,
-            width_m,
-            height_m,
+            length_m: Length::from_base(length_m),
+            width_m: Length::from_base(width_m),
+            height_m: Length::from_base(height_m),
             serpentine,
             therapy_zone,
         },
@@ -103,13 +106,13 @@ pub(super) fn canonical_parallel_venturi_blueprint(
             target_channel_ids,
             serial_throat_count: 1,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m,
-                throat_height_m,
-                throat_length_m,
-                inlet_width_m: 0.0,
-                outlet_width_m: 0.0,
-                convergent_half_angle_deg: 7.0,
-                divergent_half_angle_deg: 7.0,
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(throat_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
+                inlet_width_m: Length::from_base(0.0),
+                outlet_width_m: Length::from_base(0.0),
+                convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
             },
             placement_mode: VenturiPlacementMode::StraightSegment,
         },

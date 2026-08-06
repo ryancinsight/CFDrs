@@ -177,10 +177,10 @@ impl NetworkBlueprint {
 
                 let profile = match (channel.cross_section, channel.venturi_geometry.as_ref()) {
                     (CrossSectionSpec::Rectangular { height_m, .. }, Some(venturi)) => {
-                        let inlet_width_mm = venturi.inlet_width_m * 1.0e3;
-                        let throat_width_mm = venturi.throat_width_m * 1.0e3;
-                        let outlet_width_mm = venturi.outlet_width_m * 1.0e3;
-                        let height_mm = height_m * 1.0e3;
+                        let inlet_width_mm = venturi.inlet_width_m.into_base() * 1.0e3;
+                        let throat_width_mm = venturi.throat_width_m.into_base() * 1.0e3;
+                        let outlet_width_mm = venturi.outlet_width_m.into_base() * 1.0e3;
+                        let height_mm = height_m.into_base() * 1.0e3;
                         let width_profile_mm =
                             vec![inlet_width_mm, throat_width_mm, outlet_width_mm];
                         InterchangeChannelProfile::Frustum {
@@ -199,7 +199,7 @@ impl NetworkBlueprint {
                         }
                     }
                     (CrossSectionSpec::Circular { diameter_m }, _) => {
-                        let diameter_mm = diameter_m * 1.0e3;
+                        let diameter_mm = diameter_m.into_base() * 1.0e3;
                         InterchangeChannelProfile::Circular {
                             diameter_mm,
                             cross_section_area_mm2: std::f64::consts::PI
@@ -207,8 +207,8 @@ impl NetworkBlueprint {
                         }
                     }
                     (CrossSectionSpec::Rectangular { width_m, height_m }, _) => {
-                        let width_mm = width_m * 1.0e3;
-                        let height_mm = height_m * 1.0e3;
+                        let width_mm = width_m.into_base() * 1.0e3;
+                        let height_mm = height_m.into_base() * 1.0e3;
                         let area = width_mm * height_mm;
                         InterchangeChannelProfile::Constant {
                             width_mm,
@@ -340,17 +340,26 @@ impl super::shell_cuboid::ShellCuboid {
     /// # Examples
     ///
     /// ```rust
+    /// use aequitas::systems::si::quantities::Length;
+    /// use aequitas::systems::si::units::Millimeter;
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
+    /// let sc = ShellCuboid::new(
+    ///     (
+    ///         Length::from_unit::<Millimeter>(80.0),
+    ///         Length::from_unit::<Millimeter>(40.0),
+    ///     ),
+    ///     Length::from_unit::<Millimeter>(2.0),
+    /// )
+    /// .expect("structural invariant");
     /// let ix = sc.to_interchange();
     /// assert_eq!(ix.length_units, "mm");
     /// assert_eq!(ix.ports.len(), 2);
     /// ```
     #[must_use]
     pub fn to_interchange(&self) -> InterchangeShellCuboid {
-        let (w, h) = self.outer_dims;
-        let t = self.shell_thickness_mm;
+        let (w, h) = self.outer_dims_mm();
+        let t = self.shell_thickness_mm();
 
         let inlet_port = InterchangeShellPort {
             label: "inlet".to_string(),
@@ -371,9 +380,9 @@ impl super::shell_cuboid::ShellCuboid {
                 env!("CARGO_PKG_VERSION")
             ),
             length_units: Self::INTERCHANGE_LENGTH_UNITS.to_string(),
-            outer_dims_mm: self.outer_dims,
-            inner_dims_mm: self.inner_dims,
-            shell_thickness_mm: self.shell_thickness_mm,
+            outer_dims_mm: self.outer_dims_mm(),
+            inner_dims_mm: self.inner_dims_mm(),
+            shell_thickness_mm: self.shell_thickness_mm(),
             ports: vec![inlet_port, outlet_port],
             tpms_fill: self.tpms_fill.clone(),
         }
@@ -384,9 +393,18 @@ impl super::shell_cuboid::ShellCuboid {
     /// # Examples
     ///
     /// ```rust
+    /// use aequitas::systems::si::quantities::Length;
+    /// use aequitas::systems::si::units::Millimeter;
     /// use cfd_schematics::geometry::ShellCuboid;
     ///
-    /// let sc = ShellCuboid::new((80.0, 40.0), 2.0).expect("structural invariant");
+    /// let sc = ShellCuboid::new(
+    ///     (
+    ///         Length::from_unit::<Millimeter>(80.0),
+    ///         Length::from_unit::<Millimeter>(40.0),
+    ///     ),
+    ///     Length::from_unit::<Millimeter>(2.0),
+    /// )
+    /// .expect("structural invariant");
     /// let json = sc.to_interchange_json().expect("should serialize");
     /// assert!(json.contains("\"outer_dims_mm\""));
     /// assert!(json.contains("\"inlet\""));

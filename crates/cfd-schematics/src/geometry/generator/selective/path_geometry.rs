@@ -6,6 +6,7 @@
 use super::super::super::types::Point2D;
 use super::CenterSerpentinePathSpec;
 use crate::domain::model::ChannelShape;
+use aequitas::systems::si::quantities::Length;
 
 /// Compute the total path length (mm) of a sequence of 2-D waypoints.
 pub(super) fn polyline_length_mm(points: &[Point2D]) -> f64 {
@@ -129,7 +130,7 @@ pub(super) fn build_serpentine_lobe_path(
     }
 
     let channel_diameter_mm = (width_m * 1.0e3).max(1.0e-3);
-    let bend_radius_mm = (spec.bend_radius_m * 1.0e3).max(channel_diameter_mm * 0.5);
+    let bend_radius_mm = (spec.bend_radius_m.into_base() * 1.0e3).max(channel_diameter_mm * 0.5);
     let requested_turns = spec.segments.saturating_sub(1).max(2);
     // Always materialise at least a mirrored 2-lobe rotated-S when a treatment
     // serpentine is requested. The physical bend radius still modulates the
@@ -211,7 +212,7 @@ pub(super) fn infer_serpentine_shape(
     if path.len() < 3 {
         return ChannelShape::Serpentine {
             segments: 2,
-            bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+            bend_radius_m: Length::from_base((channel_width_mm * 0.5) * 1.0e-3),
             wave_type: crate::topology::SerpentineWaveType::Sine,
         };
     }
@@ -222,7 +223,7 @@ pub(super) fn infer_serpentine_shape(
     if length <= 1e-9 {
         return ChannelShape::Serpentine {
             segments: 2,
-            bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+            bend_radius_m: Length::from_base((channel_width_mm * 0.5) * 1.0e-3),
             wave_type: crate::topology::SerpentineWaveType::Sine,
         };
     }
@@ -260,7 +261,7 @@ pub(super) fn infer_serpentine_shape(
 
     ChannelShape::Serpentine {
         segments: turns.saturating_add(1).max(2),
-        bend_radius_m: bend_radius_mm * 1.0e-3,
+        bend_radius_m: Length::from_base(bend_radius_mm * 1.0e-3),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     }
 }

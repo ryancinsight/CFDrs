@@ -31,6 +31,309 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics
+  (done 2026-08-06; owner=current Codex session; scope=
+  `ChannelSpec` hydraulic coefficients and pump limits, valve loss metadata,
+  direct cfd-1d conversion, and value-semantic tests).** Replace raw
+  `resistance`, `quad_coeff`, `pump_max_flow`, and `pump_max_pressure` with
+  Eunomia-backed Aequitas quantities. Valve `Cv` is represented through its
+  dimensionally exact quadratic hydraulic-loss coefficient because the current
+  provider SI axis uses integer exponents and cannot encode `sqrt(Pa)` as a
+  standalone quantity. Preserve scalar extraction only at formula and
+  serialization boundaries. Evidence: cfd-schematics and cfd-1d value-
+  semantic tests, cfd-schematics/cfd-1d Nextest `de05acf2-aedc-4d80-ac95-
+  2dba555b669f` (930/930, 3 skipped), affected all-target check, focused
+  warning-denied Clippy, doctests (16/16 and 8/8 with 3 ignored), and Rustdoc.
+  The real hydraulic contract has no complex or imaginary SI quantity.
+
+- **CFDRS-AEQ-MET-62 [major] - Type ShellCuboid authoring dimensions
+  (done 2026-08-06; owner=current Codex session; scope=
+  `ShellCuboid`, shell generator, renderer, direct examples, and
+  value-semantic tests).** Public shell outer dimensions, wall thickness, and
+  derived cavity dimensions will carry Eunomia `Length<f64>` values in base
+  metres through construction and validation. Scalar extraction remains at
+  schematic-coordinate and interchange serialization boundaries;
+  `InterchangeShellCuboid` remains the explicit millimetre wire DTO. Evidence:
+  cfd-schematics Nextest `25084464-8eb9-4daf-b141-bb1ff54c3c31` (191/191),
+  cfd-schematic-mesh Nextest `475a8f8b-a8dc-4c60-a360-d60297b3cba4` (29/29),
+  affected all-target check, warning-denied Clippy, 16/16 doctests, Rustdoc,
+  and JSON/interchange value-semantic coverage. This real geometry contract
+  has no complex or imaginary SI quantity.
+
+- **CFDRS-AEQ-MET-61 [major] - Type TPMS lattice period metrics
+  (done 2026-08-06; owner=current Codex session; scope=
+  `TpmsFillSpec`, `AdaptiveGradient`, cfd-schematic-mesh TPMS construction,
+  schematic rendering, examples, and value-semantic tests).** Public TPMS
+  periods now carry Eunomia `Length<f64>` values in base metres, with scalar
+  extraction only at mesh and rendering formula boundaries. Normalized
+  fractions and iso-values remain dimensionless. Evidence: affected
+  all-target check, warning-denied Clippy, cfd-schematics Nextest
+  `2d46b8a3-990a-4caa-91e2-2e1051519d5c` (191/191), cfd-schematic-mesh
+  Nextest `f8a94bb6-b0bf-462f-a27b-3beb50211c81` (29/29), 16/16 doctests,
+  Rustdoc, and JSON value-semantic round-trip coverage. This real geometry
+  contract has no complex or imaginary SI quantity.
+
+- **CFDRS-AEQ-MET-60 [major] - Type geometry configuration dimensions
+  (done 2026-08-06; owner=current Codex session; scope=
+  `GeometryConfig`, direct geometry/optimization/validation consumers, mesh and
+  solver examples, and value-semantic tests).** Public geometry configuration
+  now carries wall clearance, channel width, and channel height as Eunomia
+  `Length<f64>` values in base metres. Explicit `*_mm` projections isolate
+  layout/formula extraction. Evidence: affected all-target check, warning-
+  denied Clippy, cfd-schematics Nextest `67570438-1010-4d82-9776-8b78f1f0fb1b`
+  (191/191), cfd-1d Nextest `0b5162ea-10b3-4ca4-8443-2822f17c2b36`
+  (736/736, 3 skipped), cfd-schematic-mesh Nextest
+  `3fac81b0-e2f4-403b-833b-ce035adbae2f` (29/29), and focused validation
+  Nextest `fd6b8f06-7857-47e0-833f-91185ab4b7a0` (1/1). This real geometry
+  contract has no complex or imaginary SI quantity.
+
+- **CFDRS-AEQ-MET-59 [major] - Type channel-diameter metadata metrics
+  (done 2026-08-06; owner=current Codex session; scope=
+  `MetadataConfig`, `ChannelGeometryMetadata`, geometry-generator consumers,
+  examples, and value-semantic tests).** Metadata generation now carries
+  `Length<f64>` through both public contracts in base metres. Millimetres are
+  extracted only at internal layout formulas. Evidence: cfd-schematics
+  all-target check, warning-denied Clippy, nextest
+  `cdecc3ab-849e-4a51-a231-2f28bb1be8c1` (191/191), doctests (16/16), and
+  Rustdoc pass. This real geometry contract has no complex or imaginary SI
+  quantity.
+
+- **CFDRS-AEQ-MET-58 [major] - Type branch boundary metadata metrics
+  (done 2026-08-06; owner=current Codex session; scope=
+  `BranchBoundarySpecification`, `BranchBoundaryMetadata`, direct cfd-1d and
+  cfd-2d coupling consumers, and their value-semantic tests).** Branch pressure
+  and volumetric-flow boundary conditions now carry Eunomia `Pressure<f64>` and
+  `VolumetricFlowRate<f64>` through metadata and direct consumers. Scalar
+  extraction remains at solver/formula boundaries. Evidence: cfd-schematics
+  nextest `70497366-9939-41eb-83bd-caab78e66b58` (191/191), cfd-1d nextest
+  `496cf692-6b89-47ed-a8c8-50e3c51a4612` (736/736, 3 skipped), and cfd-2d
+  nextest `9716239d-2da5-4d0f-85b0-32fccc2d4fdf` (571/571, 27 skipped) pass;
+  warning-denied Clippy and all-target checks pass. Doctests pass cfd-1d 8/8,
+  cfd-2d 1/1, and cfd-schematics 16/16. This real boundary contract has no
+  complex or imaginary SI quantity.
+
+- **CFDRS-AEQ-MET-57 [major] - Type generic selective-tree request geometry
+  (done 2026-08-06; owner=current Codex session; scope=
+  `PrimitiveSelectiveTreeRequest`, `SelectiveTreeRequest`, their topology
+  variants, and direct cfd-schematics/cfd-1d/cfd-2d consumers).** Public
+  selective geometry requests now carry plate, channel, branch, outlet, and
+  topology-specific venturi dimensions as Eunomia `Length<f64>` values in base
+  metres. Scalar extraction is confined to geometry/layout boundaries;
+  routing fractions and enum controls remain dimensionless. Evidence:
+  cfd-schematics nextest `54ad06d6-6915-4ece-956c-ba24dded28fd` (190/190),
+  cfd-1d nextest `6726231f-94cf-4141-9c31-1ac99f88d740` (736/736, 3 skipped),
+  and cfd-2d nextest `7bd25a45-79e1-401a-aba8-adfa132ddbe0` (571/571, 27
+  skipped) pass; warning-denied Clippy and all-target checks pass for the
+  affected packages. cfd-1d and cfd-2d doctests pass 8/8 and 1/1. The
+  cfd-schematics doctest gate is 15/16 because Defender quarantined the
+  frustum doctest executable with Windows error 225; rustdoc completes with
+  pre-existing broken/private-link warnings. No complex or imaginary SI
+  quantity applies to this real-valued geometry.
+
+- **CFDRS-AEQ-MET-56 [major] - Type Milestone 12 request geometry (done
+  2026-08-05; owner=current Codex session; scope=
+  `Milestone12PrimitiveSelectiveSpec`, nested stage branch widths, and direct
+  topology/geometry/optimization consumers).** The public selective-topology
+  request now stores plate dimensions, channel dimensions, branch/outlet
+  lengths, and venturi geometry as Eunomia `Length<f64>` values in base metres.
+  Split fractions and enum controls remain dimensionless. Direct consumers
+  migrate without adapters; scalar extraction remains at layout, validation,
+  and geometry boundaries. The typed request propagation regression and
+  affected package gates pass. Complex or imaginary SI quantities are out of
+  scope because this is real geometry. Evidence: all-target checks pass for
+  cfd-schematics, cfd-optim, cfd-schematic-mesh, cfd-1d, and cfd-2d;
+  warning-denied Clippy passes for cfd-schematics, cfd-optim, and
+  cfd-schematic-mesh; Nextest passes cfd-schematics 189/189, cfd-optim
+  137/137, and cfd-schematic-mesh 29/29; cfd-schematics doctests pass 16/16,
+  cfd-optim doctests pass 2/2 with 3 ignored, and Rustdoc builds all three
+  directly changed packages.
+
+- **CFDRS-AEQ-MET-55 [major] - Type topology envelope geometry (done
+  2026-08-05; owner=current Codex session; scope=`BlueprintTopologySpec` plate
+  dimensions, inlet/outlet widths, trunk length, and outlet-tail length plus
+  direct topology, mesh, reporting, optimization, and serialization consumers).**
+  The public envelope fields now use Eunomia `Length<f64>` values in base
+  metres; `box_dims_mm` is replaced by `box_dims_m` and `box_dims_mm()` is the
+  explicit millimetre layout projection. Scalar extraction remains only at
+  mesh, reporting, validation, and formula boundaries, with no adapter or
+  duplicate scalar field. The contract is real-valued; no complex or
+  imaginary SI quantity applies. Evidence: cfd-schematics and cfd-optim
+  all-target checks pass; warning-denied Clippy passes for both; cfd-1d and
+  cfd-2d all-target checks pass; cfd-schematics Nextest 188/188
+  (`4c6c4693-f690-4b36-8cc0-94219e8e9132`); cfd-optim Nextest 137/137
+  (`8d180a7d-68f6-49de-ae6e-ab2004f3585d`); cfd-schematics doctests 16/16;
+  cfd-optim doctests 2/2 with 3 ignored; and Rustdoc builds for both affected
+  packages.
+
+- **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (done
+  2026-08-05; owner=current Codex session; scope=`SubBranchSpec.width_m` and
+  `SubBranchSpec.height_m` plus cfd-optim recovery-flow consumers and
+  serialization regression).** The public recovery sub-branch dimensions now
+  use Eunomia `Length<f64>` values. cfd-optim extracts scalars only at the
+  flow-fraction and hydraulic-diameter formula boundary, with no adapters or
+  duplicate scalar fields. `BlueprintTopologySpec` envelope dimensions remain
+  a separate audit boundary. The contract is real-valued; no complex or
+  imaginary SI quantity applies. Evidence: cfd-schematics and cfd-optim
+  all-target checks pass; warning-denied Clippy passes for both packages;
+  cfd-schematics Nextest 187/187 (`16c1a638-fb80-46e0-8407-70e3c10ada4e`);
+  cfd-optim Nextest 137/137 (`51b882b4-ba72-49ce-ac5b-c8654b901015`); and
+  Rustdoc builds for both packages. The current cfd-schematics doctest command
+  exceeded its 240-second collection allowance without a test failure summary;
+  the prior adjacent revision passed all 16 cfd-schematics doctests, and the
+  timeout remains a verification residual.
+
+- **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (done 2026-08-05;
+  owner=current Codex session; scope=`SerpentineSpec`, `ChannelShape`, and the
+  public center-serpentine path specifications plus their direct geometry/1D
+  consumers).** Serpentine bend radii and segment lengths now use Eunomia
+  `Length<f64>` values through topology authoring, generated channel shapes,
+  and center-serpentine paths. Scalar extraction remains at path, resistance,
+  rendering, optimization, and serialization formula boundaries. The JSON
+  round-trip regression and 1D serpentine conversion tests preserve value
+  semantics without adapters. `SubBranchSpec` and `BlueprintTopologySpec`
+  envelope dimensions remain separate audit boundaries. The contract is
+  real-valued; no complex or imaginary SI quantity applies. Evidence:
+  cfd-schematics, cfd-1d, cfd-2d, and cfd-optim all-target checks pass;
+  warning-denied Clippy passes for cfd-schematics, cfd-1d, and cfd-optim;
+  cfd-schematics Nextest 186/186 (`6dff7a36-00e1-47b0-8f6c-a348e2eb6992`),
+  cfd-1d 736/736 with 3 skips (`d57d1f85-d293-4127-aa6d-14865e0b7249`), and
+  cfd-optim 137/137 (`c60d0711-3e41-43ca-bb7b-b66b2914f2bf`) pass. Doctests
+  pass for cfd-schematics 16/16, cfd-1d 8/8 with 3 ignored, and cfd-optim 2/2
+  with 3 ignored.
+
+- **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (done
+  2026-08-05; owner=current Codex session; scope=`ChannelSpec.length_m`, its
+  `NetworkBlueprint` length metrics, and direct schematic/1D/2D/mesh/optim
+  consumers).** `ChannelSpec.length_m`, `NetworkBlueprint::total_length_m`,
+  and `NetworkBlueprint::length_in_zone` now use Eunomia `Length<f64>` values;
+  scalar extraction remains at validation, solver, mesh, formula, and
+  reporting boundaries. The JSON value round-trip and aggregate-length
+  regression pass. `ChannelShape`, `SerpentineSpec`, `SubBranchSpec`, and
+  `BlueprintTopologySpec` envelope dimensions remain separate audit
+  boundaries. The contract is real-valued; no complex or imaginary SI
+  quantity applies. Evidence: affected package checks; warning-denied Clippy
+  for all affected packages, with only the pre-existing 47 cfd-3d test-only
+  lints remaining under its all-target gate; cfd-schematics Nextest 185/185
+  (`0b6f89e8-4ccd-4405-8712-03ff8d04d65c`), cfd-1d 736/736 with 3 skips
+  (`e5e7fd93-33d0-453d-9c35-4efabc0304a0`), cfd-2d 571/571 with 27 skips
+  (`a087098a-fac7-44df-86d4-45d49f0a222f`), cfd-schematic-mesh 29/29
+  (`17cdca1e-a771-4010-ba5a-2b9b88e1357b`), cfd-optim 137/137
+  (`19fc2f35-073c-40dc-927a-8f526d893113`), focused cfd-validation
+  cross-fidelity 26/26 (`d2caa165-c22e-4de4-90ab-6b69faa00e53`), and focused
+  cfd-3d adversarial 19/19 (`75119690-a48d-4332-a638-221933de02ec`).
+  Affected-package doctests pass; the broad cfd-validation runtime residual
+  remains tracked separately from this focused closure.
+
+- **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (done
+  2026-08-05; owner=current Codex session; scope=`cfd-schematics` therapy
+  metadata and its direct geometry/1D consumers).** Venturi geometry metadata
+  now carries Aequitas `Length`, `Angle`, and `Dimensionless` values;
+  `ChannelVenturiSpec` carries typed geometry and returns typed pressure and
+  dose results; FDA cavitation compliance accepts typed pressure/density and
+  returns typed Mach-index values. Scalar extraction remains at 1D/2D formulas,
+  mesh conversion, and serialized interchange boundaries. The angle fields now
+  use canonical names and store Eunomia base radians. Value-semantic
+  metadata/formula tests, direct consumers, and the synchronized audit are
+  migrated. Eunomia remains real-valued for this geometry; no imaginary SI
+  unit applies. Remaining provider/linker or peer-worktree gate failures are
+  tracked separately from this metric closure. Evidence: commits `9dfd57c2`
+  and `5aa2d9f1`, `cfd-schematics` warning-denied Clippy,
+  `cfd-schematics` Nextest 158/158 (`47490ed6-44c0-448c-af2c-dad01cdf5c18`),
+  `cfd-1d` library Nextest 498/498 (`0ab2db66-61ea-4687-b1cd-0ae0b4d2c7a1`),
+  the `blueprint_metadata_physics` integration target 5/5
+  (`fc331715-f569-434e-ac39-878a71527903`), and focused cfd-1d/cfd-2d/mesh
+  source checks, and the exact current-revision cfd-schematics doctest gate
+  16/16. An earlier doctest attempt was transiently quarantined by Windows
+  Defender; the clean rerun passed without an exclusion, test weakening, or
+  source workaround.
+
+- **CFDRS-AEQ-MET-48 [major] - Type Dean-site topology analysis metrics (done
+  2026-08-05; owner=current Codex session; scope=`DeanSiteEstimate`
+  and its direct optimization/reporting consumer).** The public topology
+  analysis result still exposed the Dean number, curvature radius, and arc
+  length as raw values even though the downstream Venturi metrics already
+  carried the two lengths as Aequitas quantities. Carry the complete result
+  through Eunomia `Dimensionless`/`Length` values and extract only at the
+  optimization/reporting boundary. Preserve real-valued Eunomia semantics;
+  no imaginary SI quantity applies. Acceptance is a typed public-field scan,
+  a value-semantic Dean placement regression, focused cfd-schematics and
+  cfd-optim gates, and synchronized audit/changelog evidence. Evidence:
+  `cfd-schematics` check, Clippy, and Nextest 158/158
+  (`02e7d1ec-da65-4228-be11-e7971929ac4a`); cfd-optim check, warning-denied
+  Clippy, and the Dean placement Nextest 1/1
+  (`aa2e43da-1a8b-411c-b23f-462c2c38411f`) pass. The full cfd-schematics
+  doctest gate passes 16/16 at the delivered revision.
+
+- **CFDRS-AEQ-MET-49 [major] - Type Venturi topology authoring geometry (done
+  2026-08-05; owner=current Codex session; scope=`ThroatGeometrySpec` and its
+  direct schematic/optimization callers).** The public topology authoring
+  contract now carries throat/inlet/outlet dimensions as Aequitas `Length`
+  values and convergent/divergent half-angles as Aequitas `Angle` values.
+  Canonical angles store Eunomia base radians; raw request values convert only
+  at the authoring boundary, and scalar extraction remains at
+  validation/trig/formula/mesh/reporting/serialization boundaries. All direct
+  constructors, optimization consumers, root integration fixtures, and
+  test-only assertions are migrated without adapters. The builder/JSON
+  round-trip regression preserves value semantics within the derived one-
+  binary64-round-trip bound. The contract is real-valued; no imaginary SI
+  quantity applies. Evidence: all-targets warning-denied Clippy for
+  cfd-schematics and cfd-optim; cfd-schematics Nextest 159/159
+  (`c2805e0d-87f7-4e10-a767-589960f1b4e0`); cfd-optim Nextest 137/137 across
+  five binaries (`628fdceb-c5f0-4927-a8a1-e2dd9009c488`); focused schematic
+  export Nextest 7/7 (`99d0c65e-4428-45ad-a3fd-a02646324ee0`); cfd-schematics
+  doctests 16/16; and cfd-optim doctests 2 passed with 3 ignored.
+
+- **CFDRS-AEQ-MET-50 [major] - Type channel route geometry (done 2026-08-05;
+  owner=current Codex session; scope=`ChannelRouteSpec` route length, width,
+  and height plus direct schematic/optimization callers).** The public route
+  authoring contract now carries all three dimensions as Eunomia `Length<f64>`
+  values in base metres. Direct constructors and consumers are migrated
+  without adapters; scalar extraction remains at validation, routing, mesh,
+  formula, reporting, and serialization boundaries. `SerpentineSpec`,
+  `SubBranchSpec`, and `BlueprintTopologySpec` envelope fields remain separate
+  audit boundaries. The builder/JSON round-trip regression preserves route
+  values within the derived one-binary64-round-trip bound. Evidence: current
+  all-targets checks pass; warning-denied Clippy passes for cfd-schematics and
+  cfd-optim; cfd-schematics Nextest passes 183/183
+  (`0fc16e9a-d734-43f0-a7d3-bb93fd9d187c`); cfd-optim Nextest passes 137/137
+  across five binaries (`7747ec29-d04c-458a-a7fc-21fceee58f7d`); focused
+  schematic export passes 7/7 (`da5aef30-c34e-492b-a416-118f167f690f`);
+  cfd-schematics doctests pass 16/16; and cfd-optim doctests pass 2 with 3
+  ignored. The contract remains real-valued; no imaginary SI quantity applies.
+
+- **CFDRS-AEQ-MET-51 [major] - Type cross-section authoring geometry (done
+  2026-08-05; owner=current Codex session; scope=`CrossSectionSpec`
+  diameter/width/height fields, derived diameter/area/dims methods, and direct
+  workspace consumers).** The public cross-section enum now carries Eunomia
+  `Length<f64>` fields and returns typed `Length<f64>`/`Area<f64>` values from
+  its derived geometry methods. cfd-schematics, cfd-1d, cfd-2d,
+  cfd-schematic-mesh, cfd-optim, cfd-validation, and cfd-3d callers extract
+  base scalars only at resistance, shear, mesh, reporting, validation, and
+  serialization boundaries; no adapter or parallel scalar field remains.
+  A JSON round-trip regression verifies value semantics for circular and
+  rectangular sections. Non-goals remain `ChannelSpec.length_m`,
+  `ChannelShape`, `BlueprintTopologySpec` envelope fields, and reporting-only
+  DTOs, which are separate audit boundaries. The contract is real-valued; no
+  complex or imaginary SI quantity applies. Evidence: all-target checks pass
+  for cfd-schematics, cfd-1d, cfd-2d, cfd-schematic-mesh, cfd-optim,
+  cfd-validation, and cfd-3d; warning-denied Clippy passes for every affected
+  package except the pre-existing cfd-3d test-only lint debt, while
+  `cfd-3d --lib` passes; Nextest passes cfd-schematics 184/184
+  (`e9d08e3f-1b88-41b7-b8fa-a32268526683`), cfd-1d 736/736 with 3 skips
+  (`f24d4151-b5d3-43d1-b607-64bb1eb223f9`), cfd-2d 571/571 with 27 skips
+  (`be48c699-3864-4f89-b502-30ad6431cc47`), cfd-schematic-mesh 29/29
+  (`60a35f4a-e928-4db7-afef-5c482dc81c24`), cfd-optim 137/137
+  (`6d417cf5-053d-493a-951d-75c348f612fa`), focused cfd-validation
+  cross-fidelity 26/26 (`0a23f5e7-da71-41b6-8176-8e1922a7a58b`), and focused
+  cfd-3d adversarial 19/19 (`bff89a57-8394-437c-9f1e-d93d4ca02c4a`).
+  Doctests pass: cfd-schematics 16/16, cfd-1d 8/8 with 3 ignored, cfd-2d
+  1/1 with 2 ignored, cfd-schematic-mesh 0, cfd-optim 2/2 with 3 ignored,
+  cfd-validation 4/4 with 2 ignored, and cfd-3d 0 with 2 ignored. The full
+  cfd-validation package nextest attempt exceeded the 300-second command
+  budget because its broader suite contains hundreds of unrelated validation
+  cases; the focused changed-contract suite is green and the full run remains
+  a runtime residual rather than a weakened gate.
+
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=
   `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**
@@ -84,16 +387,12 @@
   Eunomia boundary has no complex or imaginary physical unit.
 
 - **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
-  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  (done 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-schematics` volume summaries, `cfd-schematic-mesh` volume traces
   and example consumer, plus synchronized audit/design/changelog artifacts).**
-  The public schematic and mesh volume contracts still expose length, area,
-  volume, and volume-error values as unit-suffixed `f64` fields. Replace those
-  fields with Aequitas `Length`, `Area`, and `Volume`, remove the redundant
-  millimetre/microlitre field pairs, and keep scalar extraction at mesh-volume
-  and percentage formula boundaries. Acceptance is a source migration with
-  value-semantic summary/trace assertions, focused package gates, and exact
-  Eunomia real/complex boundary documentation. The focused package check is
+  The public schematic and mesh volume contracts use Aequitas `Length`,
+  `Area`, `Volume`, and `Dimensionless` values. Scalar extraction remains at
+  mesh-volume and percentage formula boundaries. The focused package check is
   green and Nextest passes 207/207.
 
 - **CFDRS-VAL-RED-1 [patch] - Root-cause the remaining cfd-validation red set

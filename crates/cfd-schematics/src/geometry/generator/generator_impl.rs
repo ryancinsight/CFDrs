@@ -13,6 +13,7 @@ use super::super::types::{polyline_length, ChannelType, Point2D};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::topology::{BlueprintTopologySpec, TopologyLineageMetadata};
+use aequitas::systems::si::quantities::Length;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -95,7 +96,7 @@ impl GeometryGenerator {
         if path.len() < 3 {
             return ChannelShape::Serpentine {
                 segments: 2,
-                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                bend_radius_m: Length::from_base((channel_width * 0.5) * 1.0e-3),
                 wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
@@ -106,7 +107,7 @@ impl GeometryGenerator {
         if length <= 1e-9 {
             return ChannelShape::Serpentine {
                 segments: 2,
-                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                bend_radius_m: Length::from_base((channel_width * 0.5) * 1.0e-3),
                 wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
@@ -145,7 +146,7 @@ impl GeometryGenerator {
 
         ChannelShape::Serpentine {
             segments: turns.saturating_add(1).max(2),
-            bend_radius_m: bend_radius_mm * 1.0e-3,
+            bend_radius_m: Length::from_base(bend_radius_mm * 1.0e-3),
             wave_type: crate::topology::SerpentineWaveType::Sine,
         }
     }
@@ -247,9 +248,10 @@ impl GeometryGenerator {
     pub(super) fn effective_channel_diameter(&self) -> f64 {
         self.metadata_config
             .as_ref()
-            .and_then(|config| config.channel_diameter_mm)
+            .and_then(|config| config.channel_diameter_m)
+            .map(|diameter| diameter.into_base() * 1.0e3)
             .filter(|diameter| diameter.is_finite() && *diameter > 0.0)
-            .unwrap_or(self.config.channel_width)
+            .unwrap_or(self.config.channel_width_mm())
     }
 
     pub(super) fn get_or_create_node(&mut self, p: Point2D) -> usize {
@@ -329,7 +331,7 @@ impl GeometryGenerator {
         let final_channel_type =
             channel_type.unwrap_or_else(|| self.determine_channel_type(p1, p2, None));
 
-        let channel_width = width.unwrap_or(self.config.channel_width);
+        let channel_width = width.unwrap_or(self.config.channel_width_mm());
         let mut channel_path = Self::channel_path(&final_channel_type);
         if channel_path.len() < 2 {
             channel_path = vec![p1, p2];
@@ -349,12 +351,12 @@ impl GeometryGenerator {
                 from_id,
                 to_id,
                 channel_width,
-                self.config.channel_height,
+                self.config.channel_height_mm(),
                 final_channel_type.clone(),
             );
             channel_builder = channel_builder
                 .with_physical_length_m(physical_length_m)
-                .with_physical_dims_m(channel_width * 1e-3, self.config.channel_height * 1e-3)
+                .with_physical_dims_m(channel_width * 1e-3, self.config.channel_height_mm() * 1e-3)
                 .with_physical_shape(physical_shape);
 
             if metadata_config.track_performance {
@@ -391,13 +393,13 @@ impl GeometryGenerator {
                 }
             }
 
-            if let Some(channel_diameter_mm) = metadata_config
-                .channel_diameter_mm
-                .filter(|diameter| diameter.is_finite() && *diameter > 0.0)
+            if let Some(channel_diameter_m) =
+                metadata_config.channel_diameter_m.filter(|diameter| {
+                    let diameter_m = diameter.into_base();
+                    diameter_m.is_finite() && diameter_m > 0.0
+                })
             {
-                let geometry_metadata = ChannelGeometryMetadata {
-                    channel_diameter_mm,
-                };
+                let geometry_metadata = ChannelGeometryMetadata { channel_diameter_m };
                 channel_builder = channel_builder.with_metadata(geometry_metadata);
             }
 
@@ -409,7 +411,7 @@ impl GeometryGenerator {
                 format!("node_{to_id}"),
                 physical_length_m,
                 channel_width * 1e-3,
-                self.config.channel_height * 1e-3,
+                self.config.channel_height_mm() * 1e-3,
                 0.0,
                 0.0,
             );

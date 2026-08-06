@@ -1,4 +1,5 @@
 use crate::domain::therapy_metadata::TherapyZone;
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,8 +62,8 @@ pub enum SerpentineWaveType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerpentineSpec {
     pub segments: usize,
-    pub bend_radius_m: f64,
-    pub segment_length_m: f64,
+    pub bend_radius_m: Length<f64>,
+    pub segment_length_m: Length<f64>,
     /// Waveform type controlling bend geometry and 1D loss model.
     /// Defaults to `Sine` for backward compatibility with existing
     /// topology specs that omit this field.
@@ -72,9 +73,9 @@ pub struct SerpentineSpec {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelRouteSpec {
-    pub length_m: f64,
-    pub width_m: f64,
-    pub height_m: f64,
+    pub length_m: Length<f64>,
+    pub width_m: Length<f64>,
+    pub height_m: Length<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub serpentine: Option<SerpentineSpec>,
     #[serde(default = "default_therapy_zone")]
@@ -88,8 +89,8 @@ fn default_therapy_zone() -> TherapyZone {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubBranchSpec {
     pub label: String,
-    pub width_m: f64,
-    pub height_m: f64,
+    pub width_m: Length<f64>,
+    pub height_m: Length<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -126,13 +127,13 @@ pub type ParallelChannelSpec = TopologyChannelSpec;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThroatGeometrySpec {
-    pub throat_width_m: f64,
-    pub throat_height_m: f64,
-    pub throat_length_m: f64,
-    pub inlet_width_m: f64,
-    pub outlet_width_m: f64,
-    pub convergent_half_angle_deg: f64,
-    pub divergent_half_angle_deg: f64,
+    pub throat_width_m: Length<f64>,
+    pub throat_height_m: Length<f64>,
+    pub throat_length_m: Length<f64>,
+    pub inlet_width_m: Length<f64>,
+    pub outlet_width_m: Length<f64>,
+    pub convergent_half_angle: Angle<f64>,
+    pub divergent_half_angle: Angle<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -155,20 +156,20 @@ pub struct VenturiPlacementSpec {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub struct DeanSiteEstimate {
-    pub dean_number: f64,
-    pub curvature_radius_m: f64,
-    pub arc_length_m: f64,
+    pub dean_number: Dimensionless<f64>,
+    pub curvature_radius_m: Length<f64>,
+    pub arc_length_m: Length<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlueprintTopologySpec {
     pub topology_id: String,
     pub design_name: String,
-    pub box_dims_mm: (f64, f64),
-    pub inlet_width_m: f64,
-    pub outlet_width_m: f64,
-    pub trunk_length_m: f64,
-    pub outlet_tail_length_m: f64,
+    pub box_dims_m: (Length<f64>, Length<f64>),
+    pub inlet_width_m: Length<f64>,
+    pub outlet_width_m: Length<f64>,
+    pub trunk_length_m: Length<f64>,
+    pub outlet_tail_length_m: Length<f64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub series_channels: Vec<SeriesChannelSpec>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -221,6 +222,16 @@ impl Default for TopologyLineageMetadata {
 }
 
 impl BlueprintTopologySpec {
+    /// Returns the authored plate envelope in millimetres for mesh and layout
+    /// coordinates.
+    #[must_use]
+    pub fn box_dims_mm(&self) -> (f64, f64) {
+        (
+            self.box_dims_m.0.into_base() * 1.0e3,
+            self.box_dims_m.1.into_base() * 1.0e3,
+        )
+    }
+
     #[must_use]
     pub fn channel_route(&self, channel_id: &str) -> Option<&ChannelRouteSpec> {
         self.series_channels

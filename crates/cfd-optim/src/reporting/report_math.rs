@@ -115,7 +115,13 @@ pub(super) fn split_stage_flow_fractions(stages: &[SplitStageSpec]) -> (Vec<f64>
         .map(|s| {
             s.branches
                 .iter()
-                .map(|b| (b.route.width_m, b.route.height_m, b.treatment_path))
+                .map(|b| {
+                    (
+                        b.route.width_m.into_base(),
+                        b.route.height_m.into_base(),
+                        b.treatment_path,
+                    )
+                })
                 .collect()
         })
         .collect();

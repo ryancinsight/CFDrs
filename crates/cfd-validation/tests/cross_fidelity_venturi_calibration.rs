@@ -31,7 +31,9 @@ fn blood_fluid() -> ConstantPropertyFluid<f64> {
 
 fn rectangular_dims(cross_section: &CrossSectionSpec) -> (f64, f64) {
     match cross_section {
-        CrossSectionSpec::Rectangular { width_m, height_m } => (*width_m, *height_m),
+        CrossSectionSpec::Rectangular { width_m, height_m } => {
+            (width_m.into_base(), height_m.into_base())
+        }
         other => panic!("Expected rectangular venturi section, got {other:?}"),
     }
 }
@@ -113,10 +115,10 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
     let (p_inlet_1d, p_outlet_1d) = inlet_outlet_pressures(&trace_1d);
     let total_loss_coeff_1d = (p_inlet_1d - p_outlet_1d) / dynamic_pressure_pa;
 
-    let l_inlet_2d = inlet_section.length_m * 0.5;
-    let l_converge_2d = inlet_section.length_m * 0.5;
-    let l_throat = throat_section.length_m;
-    let l_diverge = diffuser_section.length_m;
+    let l_inlet_2d = inlet_section.length_m.into_base() * 0.5;
+    let l_converge_2d = inlet_section.length_m.into_base() * 0.5;
+    let l_throat = throat_section.length_m.into_base();
+    let l_diverge = diffuser_section.length_m.into_base();
     let geometry_2d = VenturiGeometry::new(
         w_inlet,
         w_throat,
@@ -132,10 +134,10 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         .expect("2D venturi solve");
     let total_loss_coeff_2d = -solution_2d.cp_recovery;
 
-    let l_inlet_3d = inlet_section.length_m * 0.5;
-    let l_converge_3d = inlet_section.length_m * 0.5;
-    let l_diverge_3d = diffuser_section.length_m * 0.5;
-    let l_outlet_3d = diffuser_section.length_m * 0.5;
+    let l_inlet_3d = inlet_section.length_m.into_base() * 0.5;
+    let l_converge_3d = inlet_section.length_m.into_base() * 0.5;
+    let l_diverge_3d = diffuser_section.length_m.into_base() * 0.5;
+    let l_outlet_3d = diffuser_section.length_m.into_base() * 0.5;
     let builder_3d = VenturiMeshBuilder::new(
         w_inlet,
         w_throat,

@@ -12,7 +12,7 @@
 
 use std::collections::HashSet;
 
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_optim::{
     evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
     orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
@@ -64,8 +64,8 @@ fn fast_venturi_candidates(n: usize) -> Vec<BlueprintCandidate> {
         let request = cfd_schematics::Milestone12TopologyRequest {
             treatment_mode: TreatmentActuationMode::VenturiCavitation,
             venturi_throat_count: 2,
-            venturi_throat_width_m: 0.4e-3,
-            venturi_throat_length_m: 1.2e-3,
+            venturi_throat_width_m: Length::from_base(0.4e-3),
+            venturi_throat_length_m: Length::from_base(1.2e-3),
             venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
             venturi_target_channel_ids: Vec::new(),
             ..base
@@ -138,8 +138,8 @@ fn fast_lineage_pairs(n: usize) -> (Vec<BlueprintCandidate>, Vec<BlueprintCandid
         let venturi_req = cfd_schematics::Milestone12TopologyRequest {
             treatment_mode: TreatmentActuationMode::VenturiCavitation,
             venturi_throat_count: 2,
-            venturi_throat_width_m: 0.4e-3,
-            venturi_throat_length_m: 1.2e-3,
+            venturi_throat_width_m: Length::from_base(0.4e-3),
+            venturi_throat_length_m: Length::from_base(1.2e-3),
             venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
             venturi_target_channel_ids: Vec::new(),
             ..base
@@ -179,7 +179,8 @@ fn option2_candidate_space_contains_venturi_topologies() {
         for placement in &spec.venturi_placements {
             let g = &placement.throat_geometry;
             assert!(
-                g.throat_width_m > 0.0 && g.throat_width_m < g.inlet_width_m,
+                g.throat_width_m.into_base() > 0.0
+                    && g.throat_width_m.into_base() < g.inlet_width_m.into_base(),
                 "throat must be narrower than inlet for '{}'",
                 candidate.id
             );

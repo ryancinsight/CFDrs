@@ -34,11 +34,130 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Type `ChannelSpec` linear and quadratic hydraulic-loss
+  coefficients with Eunomia `HydraulicResistance` and
+  `QuadraticHydraulicResistance`, and type pump flow/pressure limits with
+  `VolumetricFlowRate` and `Pressure`. Store valve loss as the exact
+  `1/Cv²` quadratic coefficient because the current integer-exponent SI
+  provider cannot represent standalone `sqrt(Pa)` dimensions. Scalar
+  extraction remains at solver formulas; the real hydraulic contract has no
+  complex or imaginary SI quantity.
+
+- **Breaking:** `ShellCuboid` outer dimensions, wall thickness, and derived
+  cavity dimensions now carry Eunomia `Length<f64>` values in base metres.
+  `outer_dims_mm()`, `inner_dims_mm()`, and `shell_thickness_mm()` keep scalar
+  extraction explicit at schematic-coordinate and interchange boundaries;
+  `InterchangeShellCuboid` remains the millimetre wire DTO. The real shell
+  geometry has no complex or imaginary SI quantity.
+
+- **Breaking:** `TpmsFillSpec.period` and `AdaptiveGradient` period endpoints
+  now carry Eunomia `Length<f64>` values in base metres. `period_mm()` and
+  `period_at_mm()` keep scalar extraction explicit at mesh and rendering
+  formula boundaries; normalized fractions and iso-values remain dimensionless.
+  The real TPMS geometry contract has no complex or imaginary SI quantity.
+
+- **Breaking:** `GeometryConfig.wall_clearance`, `channel_width`, and
+  `channel_height` now carry Eunomia `Length<f64>` values in base metres.
+  Millimetre extraction is explicit through `*_mm` layout/formula projections;
+  the real geometry contract has no complex or imaginary SI quantity.
+
+- **Breaking:** `Milestone12PrimitiveSelectiveSpec` and nested stage branch
+  geometry now use Eunomia `Length<f64>` values in base metres for plate
+  dimensions, channel dimensions, branch/outlet lengths, and venturi throat
+  dimensions. Split fractions and topology controls remain dimensionless; the
+  generic `PrimitiveSelectiveTreeRequest` remains a separate boundary.
+
+- **Breaking:** `PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` now
+  store plate, channel, branch, outlet, and venturi geometry as Eunomia
+  `Length<f64>` values in base metres, including topology-specific outlet-tail
+  and inter-throat spacing values. Scalar extraction occurs only at geometry
+  and layout boundaries; routing fractions and topology controls remain
+  dimensionless.
+
+- **Breaking:** `BranchBoundarySpecification` now stores branch pressure and
+  volumetric-flow conditions as Eunomia `Pressure<f64>` and
+  `VolumetricFlowRate<f64>` values. Serialized schematic metadata and direct
+  cfd-1d/cfd-2d consumers retain the typed contract; base-scalar extraction is
+  confined to solver and coupling formulas. The real boundary contract has no
+  complex or imaginary SI quantity.
+
+- **Breaking:** `MetadataConfig.channel_diameter_m` and
+  `ChannelGeometryMetadata.channel_diameter_m` now carry Eunomia `Length<f64>`
+  values in base metres. The geometry generator extracts millimetres only at
+  split-spacing and layout formulas. The real geometry contract has no complex
+  or imaginary SI quantity.
+
+
+- **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
+  `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical
+  half-angle fields store base radians; conversion from raw request values is
+  confined to the authoring boundary, while validation, formulas, mesh, and
+  serialization use explicit base-scalar extraction. The contract remains
+  real-valued; no complex or imaginary SI unit applies.
+
+- **Breaking:** Type Venturi geometry metadata with Aequitas `Length`,
+  `Angle`, and `Dimensionless` values, and type `ChannelVenturiSpec` pressure
+  and cavitation-dose results. Extract Eunomia base scalars only at numerical,
+  mesh, and serialization boundaries. Canonical angle fields store radians and
+  remain real-valued; no imaginary physical unit applies.
+
+- **Breaking:** Type `DeanSiteEstimate` with Eunomia `Dimensionless` and
+  `Length` quantities, preserving scalar extraction only in the downstream
+  optimization/reporting DTO. The Dean placement regression verifies the
+  typed curvature radius and arc length remain positive.
+
 - **Breaking:** Type schematic-mesh runtime geometry configuration and emitted
   centerline coordinates/diameters with Aequitas `Angle`, `Length`, and
   `Dimensionless` quantities. Scalar extraction remains at mesh, trigonometric,
   routing, and CSG formula boundaries; real geometry introduces no imaginary
   physical unit for Eunomia representations.
+
+- **Breaking:** Type `ChannelRouteSpec` length, width, and height with Eunomia
+  `Length<f64>` values in base metres. Migrate schematic builders, geometry
+  generators, optimization mutations, reporting, integration fixtures, and
+  serialization consumers without adapters; scalar extraction remains at
+  validation, routing, mesh, formula, reporting, and serialization boundaries.
+  The route contract is real-valued and has no imaginary SI quantity.
+
+- **Breaking:** Type `CrossSectionSpec` circular diameter and rectangular
+  width/height with Eunomia `Length<f64>` values, and return typed `Length` and
+  `Area` from hydraulic-diameter, area, and dimension queries. Migrate the
+  cfd-schematics, cfd-1d, cfd-2d, cfd-schematic-mesh, cfd-optim,
+  cfd-validation, and cfd-3d consumers without adapters; scalar extraction
+  remains at resistance, shear, mesh, reporting, validation, and serialization
+  boundaries. The cross-section contract is real-valued and has no complex or
+  imaginary SI quantity.
+
+- **Breaking:** Type `ChannelSpec.length_m` and the aggregate blueprint length
+  queries with Eunomia `Length<f64>` values in base metres. Migrate schematic,
+  1D, 2D, mesh, optimization, validation, and 3D consumers without adapters;
+  scalar extraction remains at validation, solver, mesh, formula, and
+  reporting boundaries. The channel-length contract is real-valued and has no
+  complex or imaginary SI quantity.
+
+- **Breaking:** Type `SerpentineSpec`, `ChannelShape::Serpentine`, and the
+  public center-serpentine path specifications with Eunomia `Length<f64>` bend
+  radii and segment lengths. Migrate geometry, 1D resistance, optimization,
+  rendering, and serialization consumers without adapters; scalar extraction
+  remains at path, resistance, rendering, optimization, and serialization
+  formula boundaries. The serpentine contract is real-valued and has no
+  complex or imaginary SI quantity.
+
+- **Breaking:** Type `SubBranchSpec` recovery-arm width and height with Eunomia
+  `Length<f64>` values. Migrate cfd-optim peripheral recovery flow-fraction
+  and hydraulic-diameter consumers without adapters; scalar extraction remains
+  at the flow and resistance formula boundary. The recovery geometry contract
+  is real-valued and has no complex or imaginary SI quantity.
+
+- **Breaking:** Type `BlueprintTopologySpec` plate envelope dimensions, inlet
+  and outlet widths, trunk length, and outlet-tail length with Eunomia
+  `Length<f64>` values in base metres. Rename `box_dims_mm` to `box_dims_m` and
+  expose millimetre coordinates only through the explicit layout projection.
+  Migrate topology, factory, mesh, reporting, optimization, and serialization
+  consumers without adapters; scalar extraction remains at those formula and
+  layout boundaries. The envelope contract is real-valued and has no complex
+  or imaginary SI quantity.
+
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

@@ -56,7 +56,7 @@ impl GeometryGenerator {
 
     fn generate_first_half(&self, splits: &[SplitType]) -> (Vec<(Point2D, Point2D)>, Vec<f64>) {
         let (length, width) = self.box_dims;
-        let effective_width = (-2.0f64).mul_add(self.config.wall_clearance, width);
+        let effective_width = (-2.0f64).mul_add(self.config.wall_clearance_mm(), width);
         let half_l = length / 2.0;
         let num_splits = splits.len() as u32;
         let num_segments_per_half = f64::from(num_splits).mul_add(2.0, 1.0);
@@ -64,7 +64,7 @@ impl GeometryGenerator {
 
         let mut y_coords: Vec<f64> = vec![width / 2.0];
         let mut y_ranges: Vec<f64> = vec![effective_width];
-        let mut current_widths: Vec<f64> = vec![self.config.channel_width]; // Initial width
+        let mut current_widths: Vec<f64> = vec![self.config.channel_width_mm()]; // Initial width
         let mut current_x = 0.0;
         let mut lines = Vec::new();
         let mut line_widths = Vec::new(); // Defines width for each line segment pushed
@@ -167,7 +167,7 @@ impl GeometryGenerator {
             // proportionally (which effectively narrows the rendered channels
             // in the schematic).
             let total_child_width: f64 = child_widths.iter().sum();
-            let min_gap = self.config.wall_clearance;
+            let min_gap = self.config.wall_clearance_mm();
             let slots: Vec<f64> = if total_child_width > 0.0 {
                 let ideal: Vec<f64> = child_widths
                     .iter()
@@ -300,7 +300,7 @@ impl GeometryGenerator {
     fn gaussian_width_scale(&self, y: f64) -> f64 {
         let (_length, height) = self.box_dims;
         let y_center = height / 2.0;
-        let effective_height = (-2.0f64).mul_add(self.config.wall_clearance, height);
+        let effective_height = (-2.0f64).mul_add(self.config.wall_clearance_mm(), height);
         // σ = effective_height / 6  →  ~28% reduction at single-trifurcation
         // peripherals, ~50% at plate edges.  Provides visible but physically
         // reasonable differentiation across branching topologies.
@@ -317,7 +317,7 @@ impl GeometryGenerator {
         let effective_channel_diameter = self.effective_channel_diameter();
 
         let curvature_padding = if self.requires_curved_spacing() {
-            effective_channel_diameter.mul_add(1.5, self.config.wall_clearance * 0.5)
+            effective_channel_diameter.mul_add(1.5, self.config.wall_clearance_mm() * 0.5)
         } else {
             effective_channel_diameter * 0.5
         };
@@ -325,13 +325,13 @@ impl GeometryGenerator {
         // Cap at 25% of y_range, but guarantee at least wall_clearance when
         // the range is large enough to accommodate it.
         let max_fraction = y_range * 0.25;
-        let min_usable = self.config.wall_clearance.min(y_range * 0.15);
+        let min_usable = self.config.wall_clearance_mm().min(y_range * 0.15);
         curvature_padding.min(max_fraction).max(min_usable)
     }
 
     fn generate_second_half(&mut self, splits: &[SplitType], _center_widths: &[f64]) {
         let (length, width) = self.box_dims;
-        let effective_width = (-2.0f64).mul_add(self.config.wall_clearance, width);
+        let effective_width = (-2.0f64).mul_add(self.config.wall_clearance_mm(), width);
         let half_l = length / 2.0;
         let num_splits = splits.len() as u32;
         let num_segments_per_half = f64::from(num_splits).mul_add(2.0, 1.0);
@@ -345,7 +345,7 @@ impl GeometryGenerator {
         // We should probably just re-run the splits to get current state (position)
         let mut y_coords = vec![width / 2.0];
         let mut y_ranges = vec![effective_width];
-        let mut current_widths = vec![self.config.channel_width]; // THIS IS WRONG. Center widths are passed in.
+        let mut current_widths = vec![self.config.channel_width_mm()]; // THIS IS WRONG. Center widths are passed in.
 
         // Wait, generate_second_half repeats the split logic to calculate y_coords?
         // Yes, lines 461-466: "Apply all splits to get the final state"

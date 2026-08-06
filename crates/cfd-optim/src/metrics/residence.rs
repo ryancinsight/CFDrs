@@ -44,7 +44,7 @@ pub(crate) fn compute_typed_residence_metrics(
         if !sample.is_treatment_channel {
             continue;
         }
-        let area_m2 = sample.cross_section.area().max(1.0e-18);
+        let area_m2 = sample.cross_section.area().into_base().max(1.0e-18);
         let volume = sample.length_m * Area::from_base(area_m2);
         let flow = VolumetricFlowRate::from_base(sample.flow_m3_s.into_base().abs().max(1.0e-18));
         treatment_volume += volume;
@@ -67,7 +67,7 @@ pub(crate) fn compute_typed_residence_metrics(
         .iter()
         .filter(|s| s.is_treatment_channel)
         .map(|s| {
-            let area = s.cross_section.area().max(1.0e-18);
+            let area = s.cross_section.area().into_base().max(1.0e-18);
             let volume = s.length_m * Area::from_base(area);
             let flow = VolumetricFlowRate::from_base(s.flow_m3_s.into_base().abs().max(1.0e-18));
             let residence = volume / flow;

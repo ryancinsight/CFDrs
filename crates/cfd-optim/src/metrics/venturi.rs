@@ -243,7 +243,8 @@ pub fn compute_blueprint_venturi_metrics(
         let sample = &solve.channel_samples[idx];
         let phi_in = node_nuclei.get(sample.from_node).copied().unwrap_or(0.0);
 
-        let velocity = sample.flow_m3_s.into_base().abs() / sample.cross_section.area().max(1e-18);
+        let velocity =
+            sample.flow_m3_s.into_base().abs() / sample.cross_section.area().into_base().max(1e-18);
         let transit_time_s = sample.length_m.into_base() / velocity.max(1e-9);
         let phi_arrival = transport.advect_1d_dissolution(phi_in, transit_time_s);
         let mut phi_out = phi_arrival;
@@ -252,12 +253,12 @@ pub fn compute_blueprint_venturi_metrics(
             let placement = &topology.venturi_placements[p_idx];
             let mut resolved_placement = placement.clone();
             resolved_placement.target_channel_id = sample.id.to_string();
-            let area_inlet_m2 = (placement.throat_geometry.inlet_width_m
-                * placement.throat_geometry.throat_height_m)
-                .max(1.0e-18);
-            let area_throat_m2 = (placement.throat_geometry.throat_width_m
-                * placement.throat_geometry.throat_height_m)
-                .max(1.0e-18);
+            let area_inlet_m2 = (placement.throat_geometry.inlet_width_m.into_base()
+                * placement.throat_geometry.throat_height_m.into_base())
+            .max(1.0e-18);
+            let area_throat_m2 = (placement.throat_geometry.throat_width_m.into_base()
+                * placement.throat_geometry.throat_height_m.into_base())
+            .max(1.0e-18);
             let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_inlet_m2;
             let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_throat_m2;
             let upstream_dynamic_pressure_pa =
@@ -273,13 +274,13 @@ pub fn compute_blueprint_venturi_metrics(
                 upstream_velocity_m_s: Velocity::from_base(upstream_velocity_m_s),
                 throat_velocity_m_s: Velocity::from_base(throat_velocity_m_s),
                 throat_hydraulic_diameter_m: Length::from_base(
-                    2.0 * placement.throat_geometry.throat_width_m
-                        * placement.throat_geometry.throat_height_m
-                        / (placement.throat_geometry.throat_width_m
-                            + placement.throat_geometry.throat_height_m)
-                            .max(1.0e-18),
+                    2.0 * placement.throat_geometry.throat_width_m.into_base()
+                        * placement.throat_geometry.throat_height_m.into_base()
+                        / (placement.throat_geometry.throat_width_m.into_base()
+                            + placement.throat_geometry.throat_height_m.into_base())
+                        .max(1.0e-18),
                 ),
-                throat_length_m: Length::from_base(placement.throat_geometry.throat_length_m),
+                throat_length_m: placement.throat_geometry.throat_length_m,
                 density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
                 viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
                 vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),
@@ -345,9 +346,9 @@ pub fn compute_blueprint_venturi_metrics(
                 ),
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
                 total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
-                dean_number: dean_site.dean_number,
-                curvature_radius_m: Length::from_base(dean_site.curvature_radius_m),
-                arc_length_m: Length::from_base(dean_site.arc_length_m),
+                dean_number: dean_site.dean_number.into_base(),
+                curvature_radius_m: dean_site.curvature_radius_m,
+                arc_length_m: dean_site.arc_length_m,
                 dominant_selective_population: screening.dominant_selective_population,
                 selectivity_margin_pa: screening.selectivity_margin_pa,
                 mixture_inception_threshold_pa: screening.mixture_inception_threshold_pa,
@@ -509,6 +510,8 @@ mod tests {
             dean.placements[0].dean_number >= straight.placements[0].dean_number,
             "CurvaturePeakDeanNumber must select a Dean site at least as strong as StraightSegment"
         );
+        assert!(dean.placements[0].curvature_radius_m.into_base() > 0.0);
+        assert!(dean.placements[0].arc_length_m.into_base() > 0.0);
     }
 
     /// Zero cavitation: f(σ) = 0 for σ ≥ 1.
@@ -563,12 +566,12 @@ mod tests {
             .find(|sample| sample.id == placement_metrics.target_channel_id)
             .expect("resolved venturi sample");
 
-        let inlet_area_m2 = (placement_spec.throat_geometry.inlet_width_m
-            * placement_spec.throat_geometry.throat_height_m)
-            .max(1.0e-18);
-        let throat_area_m2 = (placement_spec.throat_geometry.throat_width_m
-            * placement_spec.throat_geometry.throat_height_m)
-            .max(1.0e-18);
+        let inlet_area_m2 = (placement_spec.throat_geometry.inlet_width_m.into_base()
+            * placement_spec.throat_geometry.throat_height_m.into_base())
+        .max(1.0e-18);
+        let throat_area_m2 = (placement_spec.throat_geometry.throat_width_m.into_base()
+            * placement_spec.throat_geometry.throat_height_m.into_base())
+        .max(1.0e-18);
         let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / inlet_area_m2;
         let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / throat_area_m2;
         let screening = evaluate_venturi_screening(VenturiScreeningInput {
@@ -582,13 +585,13 @@ mod tests {
             upstream_velocity_m_s: Velocity::from_base(upstream_velocity_m_s),
             throat_velocity_m_s: Velocity::from_base(throat_velocity_m_s),
             throat_hydraulic_diameter_m: Length::from_base(
-                2.0 * placement_spec.throat_geometry.throat_width_m
-                    * placement_spec.throat_geometry.throat_height_m
-                    / (placement_spec.throat_geometry.throat_width_m
-                        + placement_spec.throat_geometry.throat_height_m)
-                        .max(1.0e-18),
+                2.0 * placement_spec.throat_geometry.throat_width_m.into_base()
+                    * placement_spec.throat_geometry.throat_height_m.into_base()
+                    / (placement_spec.throat_geometry.throat_width_m.into_base()
+                        + placement_spec.throat_geometry.throat_height_m.into_base())
+                    .max(1.0e-18),
             ),
-            throat_length_m: Length::from_base(placement_spec.throat_geometry.throat_length_m),
+            throat_length_m: placement_spec.throat_geometry.throat_length_m,
             density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
             viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
             vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),

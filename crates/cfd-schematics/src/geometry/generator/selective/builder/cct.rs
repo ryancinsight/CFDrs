@@ -1,8 +1,10 @@
+use super::super::SelectiveTreeGeometry;
 use super::{
     CenterSerpentinePathSpec, ChannelShape, ChannelVisualRole, JunctionFamily, NodeKind,
-    SelectiveTreeBuilder, SelectiveTreeRequest, VenturiGeometryMetadata,
+    SelectiveTreeBuilder, VenturiGeometryMetadata,
 };
 use crate::domain::therapy_metadata::TherapyZone;
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 
 impl SelectiveTreeBuilder {
     pub(in super::super) fn build_cct(
@@ -11,7 +13,7 @@ impl SelectiveTreeBuilder {
         center_frac: f64,
         venturi: bool,
         center_serp: Option<CenterSerpentinePathSpec>,
-        req: &SelectiveTreeRequest,
+        req: &SelectiveTreeGeometry,
     ) {
         let y_mid = self.y_mid();
         self.add_node("inlet", (0.0, y_mid), NodeKind::Inlet, None);
@@ -118,7 +120,7 @@ impl SelectiveTreeBuilder {
                 TherapyZone::CancerTarget,
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
-                    bend_radius_m: 0.0,
+                    bend_radius_m: aequitas::systems::si::quantities::Length::from_base(0.0),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,
@@ -139,14 +141,14 @@ impl SelectiveTreeBuilder {
                 zone,
                 None,
                 Some(VenturiGeometryMetadata {
-                    throat_width_m: req.throat_width_m,
-                    throat_height_m: req.channel_height_m,
-                    throat_length_m: req.throat_length_m,
-                    inlet_width_m: center_width,
-                    outlet_width_m: center_width,
-                    convergent_half_angle_deg: 15.0,
-                    divergent_half_angle_deg: 15.0,
-                    throat_position: 0.5,
+                    throat_width_m: Length::from_base(req.throat_width_m),
+                    throat_height_m: Length::from_base(req.channel_height_m),
+                    throat_length_m: Length::from_base(req.throat_length_m),
+                    inlet_width_m: Length::from_base(center_width),
+                    outlet_width_m: Length::from_base(center_width),
+                    convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                    divergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                    throat_position: Dimensionless::from_base(0.5),
                 }),
             );
         } else {
@@ -171,7 +173,7 @@ impl SelectiveTreeBuilder {
                 zone,
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
-                    bend_radius_m: 0.0,
+                    bend_radius_m: aequitas::systems::si::quantities::Length::from_base(0.0),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,

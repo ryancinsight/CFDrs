@@ -17,6 +17,8 @@
 //! - `cfd-schematics/output/examples/shell_cuboid_demo/shell_cuboid_demo.svg`  — schematic SVG
 //! - Stdout — interchange JSON for downstream mesh/CFD toolchains
 
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
 use cfd_schematics::geometry::{ShellCuboid, TpmsFillSpec, TpmsSurfaceKind};
 use cfd_schematics::visualizations::{PlottersRenderer, RenderConfig};
 use std::fs;
@@ -26,33 +28,33 @@ fn main() {
     // 96-well plate footprint: 127.76 × 85.47 mm  |  Shell thickness: 2 mm
     let fill = TpmsFillSpec {
         surface: TpmsSurfaceKind::Gyroid,
-        period_mm: 5.0,
+        period: Length::from_unit::<Millimeter>(5.0),
         iso_value: 0.0,
         resolution: 64,
         gradient: None,
     };
 
-    let shell = ShellCuboid::well_plate_96(2.0)
+    let shell = ShellCuboid::well_plate_96(Length::from_unit::<Millimeter>(2.0))
         .expect("failed to create shell cuboid")
         .with_tpms_fill(fill);
 
     tracing::info!("Shell cuboid created (96-well plate footprint):");
     tracing::info!(
         "  outer_dims : {:.2} mm × {:.2} mm",
-        shell.outer_dims.0,
-        shell.outer_dims.1
+        shell.outer_dims_mm().0,
+        shell.outer_dims_mm().1
     );
     tracing::info!(
         "  inner_dims : {:.2} mm × {:.2} mm",
-        shell.inner_dims.0,
-        shell.inner_dims.1
+        shell.inner_dims_mm().0,
+        shell.inner_dims_mm().1
     );
-    tracing::info!("  shell_thick: {} mm", shell.shell_thickness_mm);
+    tracing::info!("  shell_thick: {} mm", shell.shell_thickness_mm());
     if let Some(ref f) = shell.tpms_fill {
         tracing::info!(
             "  tpms_fill  : {} λ={:.1}mm iso={} res={}",
             f.surface.label(),
-            f.period_mm,
+            f.period_mm(),
             f.iso_value,
             f.resolution
         );
@@ -61,12 +63,12 @@ fn main() {
         "  inlet port : outer ({:.2}, {:.3})  →  inner ({:.2}, {:.3})",
         shell.inlet_port.0,
         shell.inlet_port.1,
-        shell.inlet_port.0 + shell.shell_thickness_mm,
+        shell.inlet_port.0 + shell.shell_thickness_mm(),
         shell.inlet_port.1,
     );
     tracing::info!(
         "  outlet port: inner ({:.2}, {:.3})  →  outer ({:.2}, {:.3})",
-        shell.outlet_port.0 - shell.shell_thickness_mm,
+        shell.outlet_port.0 - shell.shell_thickness_mm(),
         shell.outlet_port.1,
         shell.outlet_port.0,
         shell.outlet_port.1,

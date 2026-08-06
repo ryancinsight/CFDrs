@@ -3,6 +3,9 @@ use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::metadata::{
     JunctionGeometryMetadata, NodeLayoutMetadata, VenturiGeometryMetadata,
 };
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use serde::{Deserialize, Serialize};
 
 /// Cross-section geometry specification for a channel
@@ -15,15 +18,15 @@ use serde::{Deserialize, Serialize};
 pub enum CrossSectionSpec {
     /// Circular cross-section (e.g. tubing, blood vessels)
     Circular {
-        /// Inner diameter \[m]
-        diameter_m: f64,
+        /// Inner diameter as an Eunomia-backed SI length.
+        diameter_m: Length<f64>,
     },
     /// Rectangular cross-section (e.g. PDMS microfluidic channels)
     Rectangular {
-        /// Width \[m]
-        width_m: f64,
-        /// Height \[m]
-        height_m: f64,
+        /// Width as an Eunomia-backed SI length.
+        width_m: Length<f64>,
+        /// Height as an Eunomia-backed SI length.
+        height_m: Length<f64>,
     },
 }
 
@@ -33,21 +36,27 @@ impl CrossSectionSpec {
     /// - Circular: `D_h = d`
     /// - Rectangular: `D_h = 2wh / (w + h)`
     #[must_use]
-    pub fn hydraulic_diameter(&self) -> f64 {
+    pub fn hydraulic_diameter(&self) -> Length<f64> {
         match self {
             Self::Circular { diameter_m } => *diameter_m,
             Self::Rectangular { width_m, height_m } => {
-                2.0 * width_m * height_m / (width_m + height_m)
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
+                Length::from_base(2.0 * width_m * height_m / (width_m + height_m))
             }
         }
     }
 
     /// Cross-sectional area \[m²]
     #[must_use]
-    pub fn area(&self) -> f64 {
+    pub fn area(&self) -> Area<f64> {
         match self {
-            Self::Circular { diameter_m } => std::f64::consts::PI * (diameter_m / 2.0).powi(2),
-            Self::Rectangular { width_m, height_m } => width_m * height_m,
+            Self::Circular { diameter_m } => {
+                Area::from_base(std::f64::consts::PI * (diameter_m.into_base() / 2.0).powi(2))
+            }
+            Self::Rectangular { width_m, height_m } => {
+                Area::from_base(width_m.into_base() * height_m.into_base())
+            }
         }
     }
 
@@ -56,7 +65,7 @@ impl CrossSectionSpec {
     /// - Circular: `(d, d)`
     /// - Rectangular: `(w, h)`
     #[must_use]
-    pub fn dims(&self) -> (f64, f64) {
+    pub fn dims(&self) -> (Length<f64>, Length<f64>) {
         match self {
             Self::Circular { diameter_m } => (*diameter_m, *diameter_m),
             Self::Rectangular { width_m, height_m } => (*width_m, *height_m),
@@ -78,8 +87,8 @@ impl CrossSectionSpec {
     #[must_use]
     pub fn wall_shear_rate(&self, u_mean: f64) -> f64 {
         match self {
-            Self::Rectangular { height_m, .. } => 6.0 * u_mean / height_m.max(1e-18),
-            Self::Circular { diameter_m } => 8.0 * u_mean / diameter_m.max(1e-18),
+            Self::Rectangular { height_m, .. } => 6.0 * u_mean / height_m.into_base().max(1e-18),
+            Self::Circular { diameter_m } => 8.0 * u_mean / diameter_m.into_base().max(1e-18),
         }
     }
 }
@@ -189,8 +198,8 @@ pub enum ChannelShape {
     Serpentine {
         /// Number of straight segments between turns.
         segments: usize,
-        /// Radius of curvature at U-turn bends \[m\].
-        bend_radius_m: f64,
+        /// Radius of curvature at U-turn bends.
+        bend_radius_m: Length<f64>,
         /// Waveform type (sine, square, triangular).  Controls the bend
         /// K-factor model: square waves use `BendType::Sharp`, sine and
         /// triangular use `BendType::Smooth` with the specified R/D_h.
@@ -205,19 +214,30 @@ pub struct ChannelSpec {
     pub kind: EdgeKind,
     pub from: NodeId,
     pub to: NodeId,
-    pub length_m: f64,
+    /// Authored centerline length as an Eunomia-backed SI length.
+    pub length_m: Length<f64>,
     /// Physical cross-section geometry — used by `cfd-1d` to compute hydraulic resistance.
     /// Replaces the old `diameter_m` field with a typed, extensible spec.
     pub cross_section: CrossSectionSpec,
     /// Channel geometry shape — straight vs serpentine w/ Dean corrections.
     #[serde(default)]
     pub channel_shape: ChannelShape,
-    pub resistance: f64,
-    pub quad_coeff: f64,
+    /// Linear pressure-loss coefficient as an Eunomia-backed SI quantity.
+    pub resistance: HydraulicResistance<f64>,
+    /// Quadratic pressure-loss coefficient as an Eunomia-backed SI quantity.
+    pub quad_coeff: QuadraticHydraulicResistance<f64>,
     // Component properties
-    pub valve_cv: Option<f64>,
-    pub pump_max_flow: Option<f64>,
-    pub pump_max_pressure: Option<f64>,
+    /// Valve quadratic loss coefficient derived from the conventional `Cv` input.
+    ///
+    /// Eunomia's SI dimensions use integer exponents, so the equivalent
+    /// `1 / Cv²` coefficient is the dimensionally exact provider quantity at
+    /// this boundary; the square-root pressure form of `Cv` is not representable
+    /// as a standalone SI dimension.
+    pub valve_loss_coefficient: Option<QuadraticHydraulicResistance<f64>>,
+    /// Free-delivery pump flow limit.
+    pub pump_max_flow: Option<VolumetricFlowRate<f64>>,
+    /// Stall-point pump pressure limit.
+    pub pump_max_pressure: Option<Pressure<f64>>,
     pub visual_role: Option<crate::geometry::metadata::ChannelVisualRole>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub path: Vec<(f64, f64)>,
@@ -260,12 +280,14 @@ impl ChannelSpec {
             kind: EdgeKind::Pipe,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m,
-            cross_section: CrossSectionSpec::Circular { diameter_m },
+            length_m: Length::from_base(length_m),
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(diameter_m),
+            },
             channel_shape: ChannelShape::Straight,
-            resistance,
-            quad_coeff,
-            valve_cv: None,
+            resistance: HydraulicResistance::from_base(resistance),
+            quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
+            valve_loss_coefficient: None,
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -293,12 +315,15 @@ impl ChannelSpec {
             kind: EdgeKind::Pipe,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m,
-            cross_section: CrossSectionSpec::Rectangular { width_m, height_m },
+            length_m: Length::from_base(length_m),
+            cross_section: CrossSectionSpec::Rectangular {
+                width_m: Length::from_base(width_m),
+                height_m: Length::from_base(height_m),
+            },
             channel_shape: ChannelShape::Straight,
-            resistance,
-            quad_coeff,
-            valve_cv: None,
+            resistance: HydraulicResistance::from_base(resistance),
+            quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
+            valve_loss_coefficient: None,
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -321,12 +346,15 @@ impl ChannelSpec {
             kind: EdgeKind::Valve,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m: 0.0,
-            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            length_m: Length::from_base(0.0),
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(0.0),
+            },
             channel_shape: ChannelShape::Straight,
-            resistance: 0.0,
-            quad_coeff: 0.0,
-            valve_cv: Some(cv),
+            resistance: HydraulicResistance::from_base(0.0),
+            quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
+            valve_loss_coefficient: (cv > 0.0)
+                .then(|| QuadraticHydraulicResistance::from_base(1.0 / (cv * cv))),
             pump_max_flow: None,
             pump_max_pressure: None,
             visual_role: None,
@@ -350,14 +378,16 @@ impl ChannelSpec {
             kind: EdgeKind::Pump,
             from: NodeId::new(from),
             to: NodeId::new(to),
-            length_m: 0.0,
-            cross_section: CrossSectionSpec::Circular { diameter_m: 0.0 },
+            length_m: Length::from_base(0.0),
+            cross_section: CrossSectionSpec::Circular {
+                diameter_m: Length::from_base(0.0),
+            },
             channel_shape: ChannelShape::Straight,
-            resistance: 0.0,
-            quad_coeff: 0.0,
-            valve_cv: None,
-            pump_max_flow: Some(max_flow),
-            pump_max_pressure: Some(max_pressure),
+            resistance: HydraulicResistance::from_base(0.0),
+            quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
+            valve_loss_coefficient: None,
+            pump_max_flow: Some(VolumetricFlowRate::from_base(max_flow)),
+            pump_max_pressure: Some(Pressure::from_base(max_pressure)),
             visual_role: None,
             path: Vec::new(),
             therapy_zone: None,
@@ -386,7 +416,7 @@ impl ChannelSpec {
 
     /// Extract the effective hydraulic width of the channel in meters.
     #[must_use]
-    pub fn effective_width_m(&self) -> f64 {
+    pub fn effective_width_m(&self) -> Length<f64> {
         match self.cross_section {
             CrossSectionSpec::Rectangular { width_m, .. } => width_m,
             CrossSectionSpec::Circular { diameter_m } => diameter_m,
@@ -395,10 +425,57 @@ impl ChannelSpec {
 
     /// Extract the effective hydraulic height of the channel in meters.
     #[must_use]
-    pub fn effective_height_m(&self) -> f64 {
+    pub fn effective_height_m(&self) -> Length<f64> {
         match self.cross_section {
             CrossSectionSpec::Rectangular { height_m, .. } => height_m,
             CrossSectionSpec::Circular { diameter_m } => diameter_m,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ChannelSpec;
+
+    #[test]
+    fn hydraulic_seed_metrics_are_provider_typed() {
+        let channel = ChannelSpec::new_pipe("pipe", "in", "out", 0.25, 1.0e-3, 12.0, 3.5);
+
+        assert_eq!(channel.resistance.into_base().to_bits(), 12.0_f64.to_bits());
+        assert_eq!(channel.quad_coeff.into_base().to_bits(), 3.5_f64.to_bits());
+    }
+
+    #[test]
+    fn valve_cv_is_materialized_as_quadratic_loss() {
+        let valve = ChannelSpec::new_valve("valve", "in", "out", 0.5);
+
+        assert_eq!(
+            valve
+                .valve_loss_coefficient
+                .expect("positive Cv produces a loss coefficient")
+                .into_base()
+                .to_bits(),
+            4.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn pump_limits_are_provider_typed() {
+        let pump = ChannelSpec::new_pump("pump", "in", "out", 2.5e-6, 12_000.0);
+
+        assert_eq!(
+            pump.pump_max_flow
+                .expect("pump flow limit is present")
+                .into_base()
+                .to_bits(),
+            2.5e-6_f64.to_bits()
+        );
+        assert_eq!(
+            pump.pump_max_pressure
+                .expect("pump pressure limit is present")
+                .into_base()
+                .to_bits(),
+            12_000.0_f64.to_bits()
+        );
     }
 }

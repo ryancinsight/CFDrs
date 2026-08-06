@@ -222,7 +222,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .channels
             .iter()
             .find(|c| c.id.as_str() == edge.id)
-            .map(|c| c.cross_section.dims())
+            .map(|c| {
+                let (width, height) = c.cross_section.dims();
+                (width.into_base(), height.into_base())
+            })
             .unwrap_or((width_m, height_m));
         let tau_w = 6.0 * BLOOD_VISCOSITY * q.abs() / (w * h * h);
 

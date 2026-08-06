@@ -34,17 +34,13 @@ use cfd_schematics::domain::model::ChannelSpec;
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
     fn from(spec: &ChannelSpec) -> Self {
-        let mut resistance = T::from_f64_or_zero(spec.resistance);
-        let mut quad_coeff = T::from_f64_or_zero(spec.quad_coeff);
+        let mut resistance = T::from_f64_or_zero(spec.resistance.into_base());
+        let mut quad_coeff = T::from_f64_or_zero(spec.quad_coeff.into_base());
 
         match spec.kind {
             EdgeKind::Valve => {
-                if let Some(cv) = spec.valve_cv {
-                    // Use the Microvalve quadratic-law coefficient from the valve theorem.
-                    if cv > 0.0 {
-                        let cv_t = T::from_f64_or_zero(cv);
-                        quad_coeff = T::one() / (cv_t * cv_t);
-                    }
+                if let Some(loss) = spec.valve_loss_coefficient {
+                    quad_coeff = T::from_f64_or_zero(loss.into_base());
                 }
                 // Ensure non-zero to pass builder validation if nothing else set
                 if <T as NumericElement>::abs(resistance) < T::default_epsilon()
@@ -58,9 +54,12 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
 
         let area = match spec.cross_section {
             cfd_schematics::domain::model::CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
             }
             cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 T::from_f64_or_zero(width_m * height_m)
             }
         };

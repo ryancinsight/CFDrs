@@ -147,11 +147,11 @@ fn explicit_or_generated_path(
         if !channel_spec.path.is_empty() {
             return if path_has_visible_serpentine_curvature(
                 &channel_spec.path,
-                bend_radius_m * 1.0e3,
+                bend_radius_m.into_base() * 1.0e3,
             ) {
                 channel_spec.path.clone()
             } else {
-                generated_serpentine_path(from, to, segments, bend_radius_m * 1.0e3)
+                generated_serpentine_path(from, to, segments, bend_radius_m.into_base() * 1.0e3)
             };
         }
     }
@@ -178,7 +178,7 @@ fn explicit_or_generated_path(
             segments,
             bend_radius_m,
             ..
-        } => generated_serpentine_path(from, to, segments, bend_radius_m * 1.0e3),
+        } => generated_serpentine_path(from, to, segments, bend_radius_m.into_base() * 1.0e3),
         ChannelShape::Straight => vec![from, to],
     }
 }

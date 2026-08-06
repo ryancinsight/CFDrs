@@ -7,6 +7,7 @@ use super::super::model::{
     VenturiPlacementMode, VenturiPlacementSpec,
 };
 use super::plate_presets::{series_channel, throat_geometry, PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use aequitas::systems::si::quantities::Length;
 
 /// Create a canonical linear series-path topology spec.
 #[must_use]
@@ -23,11 +24,14 @@ pub fn series_path_spec(
     BlueprintTopologySpec {
         topology_id: format!("{name}_topology"),
         design_name: name.to_string(),
-        box_dims_mm: (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
-        inlet_width_m,
-        outlet_width_m,
-        trunk_length_m,
-        outlet_tail_length_m,
+        box_dims_m: (
+            Length::from_base(PLATE_WIDTH_MM * 1.0e-3),
+            Length::from_base(PLATE_HEIGHT_MM * 1.0e-3),
+        ),
+        inlet_width_m: Length::from_base(inlet_width_m),
+        outlet_width_m: Length::from_base(outlet_width_m),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        outlet_tail_length_m: Length::from_base(outlet_tail_length_m),
         series_channels,
         parallel_channels: Vec::new(),
         split_stages: Vec::new(),
@@ -190,8 +194,8 @@ pub fn serpentine_series_spec(
     let segment_count = segments.max(1);
     let serpentine = (segment_count > 1).then_some(SerpentineSpec {
         segments: segment_count,
-        bend_radius_m: width_m * 0.5,
-        segment_length_m,
+        bend_radius_m: Length::from_base(width_m * 0.5),
+        segment_length_m: Length::from_base(segment_length_m),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let series_channels = (0..segment_count)
@@ -234,8 +238,8 @@ pub fn venturi_serpentine_series_spec(
     let segment_count = segments.max(1);
     let serpentine = (segment_count > 1).then_some(SerpentineSpec {
         segments: segment_count,
-        bend_radius_m: main_width_m * 0.5,
-        segment_length_m,
+        bend_radius_m: Length::from_base(main_width_m * 0.5),
+        segment_length_m: Length::from_base(segment_length_m),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let mut series_channels = vec![
@@ -310,8 +314,8 @@ pub fn serpentine_bend_venturi_series_spec(
     let l_taper = 5.0 * (width_m + throat_width_m) * 0.5;
     let serpentine = Some(SerpentineSpec {
         segments: segment_count,
-        bend_radius_m,
-        segment_length_m,
+        bend_radius_m: Length::from_base(bend_radius_m),
+        segment_length_m: Length::from_base(segment_length_m),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let mut series_channels = Vec::with_capacity(segment_count + n_venturis * 3);
@@ -438,8 +442,8 @@ pub fn spiral_serpentine_series_spec(
                 TherapyZone::CancerTarget,
                 Some(SerpentineSpec {
                     segments: 4,
-                    bend_radius_m,
-                    segment_length_m: turn_length_m * 0.25,
+                    bend_radius_m: Length::from_base(bend_radius_m),
+                    segment_length_m: Length::from_base(turn_length_m * 0.25),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
             )

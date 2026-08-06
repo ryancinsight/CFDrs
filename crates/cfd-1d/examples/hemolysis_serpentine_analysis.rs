@@ -14,7 +14,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example hemolysis_serpentine_analysis`
 
-use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
+use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let box_dims = (80.0, 40.0); // mm — fits within 96-well plate footprint
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
-        channel_width: 0.8, // 800 µm — millifluidic scale
+        channel_width: Length::from_base(0.8e-3), // 800 µm — millifluidic scale
         ..Default::default()
     };
     let serpentine_config = smooth_serpentine();

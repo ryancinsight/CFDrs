@@ -10,9 +10,15 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
     let mut roles = classify_node_roles(blueprint);
 
     let has_target =
-        blueprint.length_in_zone(crate::domain::therapy_metadata::TherapyZone::CancerTarget) > 0.0;
+        blueprint
+            .length_in_zone(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+            .into_base()
+            > 0.0;
     let has_bypass =
-        blueprint.length_in_zone(crate::domain::therapy_metadata::TherapyZone::HealthyBypass) > 0.0;
+        blueprint
+            .length_in_zone(crate::domain::therapy_metadata::TherapyZone::HealthyBypass)
+            .into_base()
+            > 0.0;
 
     if has_target || has_bypass {
         let box_dims = blueprint.box_dims;
@@ -116,12 +122,12 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
         let min_w = blueprint
             .channels
             .iter()
-            .map(|ch| ch.cross_section.dims().0)
+            .map(|ch| ch.cross_section.dims().0.into_base())
             .fold(f64::INFINITY, f64::min);
         let max_w = blueprint
             .channels
             .iter()
-            .map(|ch| ch.cross_section.dims().0)
+            .map(|ch| ch.cross_section.dims().0.into_base())
             .fold(f64::NEG_INFINITY, f64::max);
         annotations.legend_note = Some(format!(
             "{}  |  seq: {}  |  layers: {}  |  throats: {}  |  width: {:.2}-{:.2} mm  |  line thickness ∝ channel width",

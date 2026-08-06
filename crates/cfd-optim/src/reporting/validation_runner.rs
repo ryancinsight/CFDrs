@@ -93,9 +93,9 @@ fn validate_venturi_candidate(
 
     let input = VenturiValidationInput {
         label: candidate.id.clone(),
-        inlet_diameter_m: venturi.throat_geometry.inlet_width_m,
-        throat_diameter_m: venturi.throat_geometry.throat_width_m,
-        throat_length_m: venturi.throat_geometry.throat_length_m,
+        inlet_diameter_m: venturi.throat_geometry.inlet_width_m.into_base(),
+        throat_diameter_m: venturi.throat_geometry.throat_width_m.into_base(),
+        throat_length_m: venturi.throat_geometry.throat_length_m.into_base(),
         flow_rate_m3_s: q,
         inlet_gauge_pa: candidate.operating_point.inlet_gauge_pa.into_base(),
     };

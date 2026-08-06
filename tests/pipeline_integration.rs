@@ -4,7 +4,7 @@
 //! blueprint-native physics metrics, plus mesh generation from
 //! `NetworkBlueprint`.
 
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Angle, Length, Pressure, VolumetricFlowRate};
 use cfd_optim::{evaluate_blueprint_candidate, BlueprintCandidate, OperatingPoint};
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
@@ -33,9 +33,9 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::WbcCollection,
                     treatment_path: false,
                     route: ChannelRouteSpec {
-                        length_m: 24.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(24.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
@@ -46,14 +46,14 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::Treatment,
                     treatment_path: true,
                     route: ChannelRouteSpec {
-                        length_m: 30.0e-3,
-                        width_m: 2.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(30.0e-3),
+                        width_m: Length::from_base(2.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: Some(SerpentineSpec {
                             wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
                             segments: 4,
-                            bend_radius_m: 1.0e-3,
-                            segment_length_m: 6.0e-3,
+                            bend_radius_m: Length::from_base(1.0e-3),
+                            segment_length_m: Length::from_base(6.0e-3),
                         }),
                         therapy_zone: TherapyZone::CancerTarget,
                     },
@@ -64,9 +64,9 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                     role: BranchRole::RbcBypass,
                     treatment_path: false,
                     route: ChannelRouteSpec {
-                        length_m: 24.0e-3,
-                        width_m: 1.0e-3,
-                        height_m: 0.5e-3,
+                        length_m: Length::from_base(24.0e-3),
+                        width_m: Length::from_base(1.0e-3),
+                        height_m: Length::from_base(0.5e-3),
                         serpentine: None,
                         therapy_zone: TherapyZone::HealthyBypass,
                     },
@@ -79,13 +79,13 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
             target_channel_id: BlueprintTopologySpec::branch_channel_id("stage0", "ctc"),
             serial_throat_count: 1,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m: 50e-6,
-                throat_height_m: 0.5e-3,
-                throat_length_m: 100e-6,
-                inlet_width_m: 2.0e-3,
-                outlet_width_m: 2.0e-3,
-                convergent_half_angle_deg: 15.0,
-                divergent_half_angle_deg: 9.0,
+                throat_width_m: Length::from_base(50e-6),
+                throat_height_m: Length::from_base(0.5e-3),
+                throat_length_m: Length::from_base(100e-6),
+                inlet_width_m: Length::from_base(2.0e-3),
+                outlet_width_m: Length::from_base(2.0e-3),
+                convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(9.0_f64.to_radians()),
             },
             placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
         }],

@@ -4,6 +4,7 @@ use crate::domain::therapy_metadata::TherapyZone;
 
 use super::super::model::{BlueprintTopologySpec, ParallelChannelSpec, TreatmentActuationMode};
 use super::plate_presets::{parallel_channel, PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use aequitas::systems::si::quantities::Length;
 
 /// Create a canonical parallel-channel topology spec.
 #[must_use]
@@ -19,11 +20,14 @@ pub fn parallel_path_spec(
     BlueprintTopologySpec {
         topology_id: format!("{name}_topology"),
         design_name: name.to_string(),
-        box_dims_mm: (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
-        inlet_width_m,
-        outlet_width_m,
-        trunk_length_m,
-        outlet_tail_length_m,
+        box_dims_m: (
+            Length::from_base(PLATE_WIDTH_MM * 1.0e-3),
+            Length::from_base(PLATE_HEIGHT_MM * 1.0e-3),
+        ),
+        inlet_width_m: Length::from_base(inlet_width_m),
+        outlet_width_m: Length::from_base(outlet_width_m),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        outlet_tail_length_m: Length::from_base(outlet_tail_length_m),
         series_channels: Vec::new(),
         parallel_channels,
         split_stages: Vec::new(),

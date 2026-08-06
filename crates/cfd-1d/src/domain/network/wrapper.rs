@@ -92,11 +92,13 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
     /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
-        let length = Length::from_base(T::from_f64_or_zero(spec.length_m));
-        let resistance = HydraulicResistance::from_base(T::from_f64_or_zero(spec.resistance));
+        let length = Length::from_base(T::from_f64_or_zero(spec.length_m.into_base()));
+        let resistance =
+            HydraulicResistance::from_base(T::from_f64_or_zero(spec.resistance.into_base()));
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
+                let diameter_m = diameter_m.into_base();
                 let d = Length::from_base(T::from_f64_or_zero(diameter_m));
                 let a = Area::from_base(T::from_f64_or_zero(
                     std::f64::consts::PI * (diameter_m / 2.0).powi(2),
@@ -104,6 +106,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
                 (CrossSection::Circular { diameter: d }, a, Some(d))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let width_m = width_m.into_base();
+                let height_m = height_m.into_base();
                 let w = Length::from_base(T::from_f64_or_zero(width_m));
                 let h = Length::from_base(T::from_f64_or_zero(height_m));
                 let a = Area::from_base(T::from_f64_or_zero(width_m * height_m));

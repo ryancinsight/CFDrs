@@ -225,9 +225,9 @@ pub(super) fn optimize_nelder_mead(
 
     let path_length = calculate_path_length(&final_path);
     let min_wall_distance =
-        calculate_min_wall_distance(&final_path, box_dims, geometry_config.channel_width);
+        calculate_min_wall_distance(&final_path, box_dims, geometry_config.channel_width_mm());
     let min_neighbor_distance = if let Some(neighbors) = neighbor_info {
-        calculate_min_neighbor_distance(&final_path, neighbors, geometry_config.channel_width)
+        calculate_min_neighbor_distance(&final_path, neighbors, geometry_config.channel_width_mm())
     } else {
         f64::INFINITY
     };
@@ -241,8 +241,8 @@ pub(super) fn optimize_nelder_mead(
         path_length,
         min_wall_distance,
         min_neighbor_distance,
-        is_valid: min_wall_distance >= geometry_config.wall_clearance
-            && min_neighbor_distance >= geometry_config.wall_clearance,
+        is_valid: min_wall_distance >= geometry_config.wall_clearance_mm()
+            && min_neighbor_distance >= geometry_config.wall_clearance_mm(),
         iterations,
         optimization_time: start_time.elapsed(),
     }

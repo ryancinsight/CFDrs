@@ -11,7 +11,7 @@ use super::super::super::types::Point2D;
 use super::path_geometry::{
     build_serpentine_lobe_path, infer_serpentine_shape, polyline_length_mm,
 };
-use super::{CenterSerpentinePathSpec, SelectiveTreeRequest};
+use super::CenterSerpentinePathSpec;
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::geometry::metadata::{
     ChannelVisualRole, GeometryAuthoringProvenance, JunctionFamily, VenturiGeometryMetadata,
@@ -106,7 +106,7 @@ impl SelectiveTreeBuilder {
                 bend_radius_m,
                 wave_type,
             }) => {
-                if bend_radius_m == 0.0 {
+                if bend_radius_m.into_base() == 0.0 {
                     path.first()
                         .zip(path.last())
                         .map_or(ChannelShape::Straight, |(start, end)| {

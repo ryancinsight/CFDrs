@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Angle, Length};
 use cfd_optim::save_blueprint_schematic_svg;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
@@ -36,9 +37,9 @@ fn selective_blueprint(
                         role: BranchRole::Treatment,
                         treatment_path: true,
                         route: ChannelRouteSpec {
-                            length_m: 22.0e-3,
-                            width_m: if index == 0 { 1.4e-3 } else { 1.0e-3 },
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(22.0e-3),
+                            width_m: Length::from_base(if index == 0 { 1.4e-3 } else { 1.0e-3 }),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::CancerTarget,
                         },
@@ -49,9 +50,9 @@ fn selective_blueprint(
                         role: BranchRole::Neutral,
                         treatment_path: false,
                         route: ChannelRouteSpec {
-                            length_m: 18.0e-3,
-                            width_m: if index == 0 { 0.6e-3 } else { 0.7e-3 },
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(18.0e-3),
+                            width_m: Length::from_base(if index == 0 { 0.6e-3 } else { 0.7e-3 }),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
@@ -64,9 +65,9 @@ fn selective_blueprint(
                         role: BranchRole::WbcCollection,
                         treatment_path: false,
                         route: ChannelRouteSpec {
-                            length_m: 24.0e-3,
-                            width_m: if index == 0 { 1.0e-3 } else { 0.45e-3 },
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(24.0e-3),
+                            width_m: Length::from_base(if index == 0 { 1.0e-3 } else { 0.45e-3 }),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
@@ -77,9 +78,9 @@ fn selective_blueprint(
                         role: BranchRole::Treatment,
                         treatment_path: true,
                         route: ChannelRouteSpec {
-                            length_m: 28.0e-3,
-                            width_m: if index == 0 { 2.0e-3 } else { 1.0e-3 },
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(28.0e-3),
+                            width_m: Length::from_base(if index == 0 { 2.0e-3 } else { 1.0e-3 }),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::CancerTarget,
                         },
@@ -90,9 +91,9 @@ fn selective_blueprint(
                         role: BranchRole::RbcBypass,
                         treatment_path: false,
                         route: ChannelRouteSpec {
-                            length_m: 24.0e-3,
-                            width_m: if index == 0 { 1.0e-3 } else { 0.45e-3 },
-                            height_m: 1.0e-3,
+                            length_m: Length::from_base(24.0e-3),
+                            width_m: Length::from_base(if index == 0 { 1.0e-3 } else { 0.45e-3 }),
+                            height_m: Length::from_base(1.0e-3),
                             serpentine: None,
                             therapy_zone: TherapyZone::HealthyBypass,
                         },
@@ -109,13 +110,13 @@ fn selective_blueprint(
             target_channel_id: BlueprintTopologySpec::branch_channel_id(&last_stage_id, "ctc"),
             serial_throat_count: 2,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m: 45e-6,
-                throat_height_m: 1.0e-3,
-                throat_length_m: 250e-6,
-                inlet_width_m: 1.4e-3,
-                outlet_width_m: 1.4e-3,
-                convergent_half_angle_deg: 15.0,
-                divergent_half_angle_deg: 9.0,
+                throat_width_m: Length::from_base(45e-6),
+                throat_height_m: Length::from_base(1.0e-3),
+                throat_length_m: Length::from_base(250e-6),
+                inlet_width_m: Length::from_base(1.4e-3),
+                outlet_width_m: Length::from_base(1.4e-3),
+                convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(9.0_f64.to_radians()),
             },
             placement_mode: VenturiPlacementMode::StraightSegment,
         }]
@@ -125,11 +126,11 @@ fn selective_blueprint(
     let spec = BlueprintTopologySpec {
         topology_id: id.to_string(),
         design_name: id.to_string(),
-        box_dims_mm: (127.76, 85.47),
-        inlet_width_m: 5.0e-3,
-        outlet_width_m: 4.0e-3,
-        trunk_length_m: 20.0e-3,
-        outlet_tail_length_m: 14.0e-3,
+        box_dims_m: (Length::from_base(127.76e-3), Length::from_base(85.47e-3)),
+        inlet_width_m: Length::from_base(5.0e-3),
+        outlet_width_m: Length::from_base(4.0e-3),
+        trunk_length_m: Length::from_base(20.0e-3),
+        outlet_tail_length_m: Length::from_base(14.0e-3),
         split_stages,
         venturi_placements,
         series_channels: Vec::new(),
@@ -279,8 +280,8 @@ fn save_schematic_svg_checks_all_new_milestone12_component_schematics() {
                 cfd_schematics::Milestone12TopologyRequest {
                     treatment_mode: TreatmentActuationMode::VenturiCavitation,
                     venturi_throat_count: 2,
-                    venturi_throat_width_m: 0.4e-3,
-                    venturi_throat_length_m: 1.2e-3,
+                    venturi_throat_width_m: Length::from_base(0.4e-3),
+                    venturi_throat_length_m: Length::from_base(1.2e-3),
                     venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
                     venturi_target_channel_ids: Vec::new(),
                     ..base

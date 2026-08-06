@@ -183,7 +183,7 @@ impl PlottersRenderer {
             let mut lo = f64::INFINITY;
             let mut hi = f64::NEG_INFINITY;
             for channel in &system.channels {
-                let w = (channel.cross_section.dims().0 * 1e3 * 1e6).round() / 1e6; // to mm
+                let w = (channel.cross_section.dims().0.into_base() * 1e3 * 1e6).round() / 1e6; // to mm
                 lo = lo.min(w);
                 hi = hi.max(w);
             }
@@ -226,7 +226,7 @@ impl PlottersRenderer {
                 config.channel_type_styles.get_style(category).clone()
             };
 
-            let channel_width_mm = channel.cross_section.dims().0 * 1e3;
+            let channel_width_mm = channel.cross_section.dims().0.into_base() * 1e3;
             let stroke = if max_width > min_width {
                 (base_style.width * f64::from(width_multiplier(channel_width_mm))).round() as u32
             } else {

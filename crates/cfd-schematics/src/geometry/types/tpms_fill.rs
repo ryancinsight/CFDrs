@@ -10,6 +10,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
+
 use crate::error::{GeometryError, GeometryResult};
 
 // ── TPMS surface enumeration ──────────────────────────────────────────────────
@@ -82,12 +85,12 @@ impl TpmsSurfaceKind {
 /// |------|----------|--------|---------|
 /// | Separation | `0 → sep_frac` | `λ(y)`: periphery → center | RBC (7 µm) blocked at walls |
 /// | Transition | `sep_frac → sep_frac + trans_frac` | Linear blend → uniform | Gradual pore equalisation |
-/// | Remerging | remainder | Uniform `period_center_mm` | Blood reconverges before outlet |
+/// | Remerging | remainder | Uniform `period_center` | Blood reconverges before outlet |
 ///
 /// ## Cell-size anchoring
 ///
-/// - `period_periphery_mm` → pore throat < 7 µm (blocks RBCs + lymphocytes)
-/// - `period_center_mm` → pore throat > 17.5 µm (passes WBCs + CTCs)
+/// - `period_periphery` → pore throat < 7 µm (blocks RBCs + lymphocytes)
+/// - `period_center` → pore throat > 17.5 µm (passes WBCs + CTCs)
 ///
 /// ## Invariant
 ///
@@ -95,16 +98,16 @@ impl TpmsSurfaceKind {
 /// remerging zone.  Both fractions must be in `(0, 1)`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AdaptiveGradient {
-    /// Period at the peripheral walls \[mm] (fine pores → block RBCs).
+    /// Period at the peripheral walls (fine pores → block RBCs).
     ///
-    /// Must be positive and finite.  Typical: 0.5–2.0 mm for millifluidic
-    /// devices targeting 7 µm RBC exclusion.
-    pub period_periphery_mm: f64,
-    /// Period at the center \[mm] (coarse pores → pass WBCs/CTCs).
+    /// Stored in Eunomia base metres. Must be positive and finite. Typical:
+    /// 0.5–2.0 mm for millifluidic devices targeting 7 µm RBC exclusion.
+    pub period_periphery: Length<f64>,
+    /// Period at the center (coarse pores → pass WBCs/CTCs).
     ///
-    /// Must be positive, finite, and ≥ `period_periphery_mm`.
-    /// Typical: 5.0–15.0 mm.
-    pub period_center_mm: f64,
+    /// Stored in Eunomia base metres. Must be positive, finite, and at least
+    /// `period_periphery`. Typical: 5.0–15.0 mm.
+    pub period_center: Length<f64>,
     /// Fraction of cavity X-length devoted to the graded separation zone.
     ///
     /// Range: `(0, 1)`.  Typical: 0.5–0.7.
@@ -132,11 +135,11 @@ impl AdaptiveGradient {
     /// - `y_frac ∈ [0, 1]` — fractional position across the cavity width
     ///   (0 = bottom wall, 1 = top wall, 0.5 = center).
     ///
-    /// Returns the period \[mm] at this spatial position.
+    /// Returns the period at this spatial position in Eunomia base metres.
     #[must_use]
-    pub fn period_at(&self, x_frac: f64, y_frac: f64) -> f64 {
-        let p_periph = self.period_periphery_mm;
-        let p_center = self.period_center_mm;
+    pub fn period_at(&self, x_frac: f64, y_frac: f64) -> Length<f64> {
+        let p_periph = self.period_periphery.into_base();
+        let p_center = self.period_center.into_base();
         let sf = self.separation_fraction;
         let tf = self.transition_fraction;
 
@@ -144,7 +147,7 @@ impl AdaptiveGradient {
         let y_wall_dist = (2.0 * (y_frac - 0.5)).abs(); // 0 at center, 1 at walls
         let y_period = p_center + (p_periph - p_center) * y_wall_dist;
 
-        if x_frac <= sf {
+        let period = if x_frac <= sf {
             // Separation zone: full Y-gradient.
             y_period
         } else if x_frac <= sf + tf {
@@ -154,32 +157,41 @@ impl AdaptiveGradient {
         } else {
             // Remerging zone: uniform center period.
             p_center
-        }
+        };
+
+        Length::from_base(period)
+    }
+
+    /// Return the local period in millimetres for an explicit mesh or
+    /// rendering formula boundary.
+    #[must_use]
+    pub fn period_at_mm(&self, x_frac: f64, y_frac: f64) -> f64 {
+        self.period_at(x_frac, y_frac).in_unit::<Millimeter>()
     }
 
     /// Validate all gradient parameters.
     pub(crate) fn validate(&self) -> GeometryResult<()> {
-        if !self.period_periphery_mm.is_finite() || self.period_periphery_mm <= 0.0 {
+        let period_periphery_mm = self.period_periphery.in_unit::<Millimeter>();
+        let period_center_mm = self.period_center.in_unit::<Millimeter>();
+
+        if !period_periphery_mm.is_finite() || period_periphery_mm <= 0.0 {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
-                    "period_periphery_mm must be finite and positive, got {}",
-                    self.period_periphery_mm
+                    "period_periphery_mm must be finite and positive, got {period_periphery_mm}"
                 ),
             });
         }
-        if !self.period_center_mm.is_finite() || self.period_center_mm <= 0.0 {
+        if !period_center_mm.is_finite() || period_center_mm <= 0.0 {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
-                    "period_center_mm must be finite and positive, got {}",
-                    self.period_center_mm
+                    "period_center_mm must be finite and positive, got {period_center_mm}"
                 ),
             });
         }
-        if self.period_center_mm < self.period_periphery_mm {
+        if period_center_mm < period_periphery_mm {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
-                    "period_center_mm ({}) must be >= period_periphery_mm ({})",
-                    self.period_center_mm, self.period_periphery_mm
+                    "period_center_mm ({period_center_mm}) must be >= period_periphery_mm ({period_periphery_mm})"
                 ),
             });
         }
@@ -212,8 +224,8 @@ impl Default for AdaptiveGradient {
     /// Periphery 1.5 mm (fine pores), center 8.0 mm (coarse pores).
     fn default() -> Self {
         Self {
-            period_periphery_mm: 1.5,
-            period_center_mm: 8.0,
+            period_periphery: Length::from_unit::<Millimeter>(1.5),
+            period_center: Length::from_unit::<Millimeter>(8.0),
             separation_fraction: 0.6,
             transition_fraction: 0.2,
         }
@@ -230,10 +242,11 @@ impl Default for AdaptiveGradient {
 pub struct TpmsFillSpec {
     /// Which TPMS surface to extract.
     pub surface: TpmsSurfaceKind,
-    /// Baseline unit-cell period \[mm] (used when `gradient` is `None`).
+    /// Baseline unit-cell period, stored in Eunomia base metres (used when
+    /// `gradient` is `None`).
     ///
     /// Typical range for millifluidic devices: 2–10 mm.
-    pub period_mm: f64,
+    pub period: Length<f64>,
     /// Level-set iso-value.  `0.0` = the exact minimal surface mid-sheet.
     /// Positive values thicken the lattice walls; negative values thin them.
     pub iso_value: f64,
@@ -244,7 +257,7 @@ pub struct TpmsFillSpec {
     ///
     /// When `Some`, the period varies spatially across the cavity
     /// (fine at periphery, coarse at center, uniform at outlet).
-    /// When `None`, the uniform `period_mm` is used everywhere.
+    /// When `None`, the uniform `period` is used everywhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gradient: Option<AdaptiveGradient>,
 }
@@ -254,7 +267,7 @@ impl Default for TpmsFillSpec {
     fn default() -> Self {
         Self {
             surface: TpmsSurfaceKind::Gyroid,
-            period_mm: 5.0,
+            period: Length::from_unit::<Millimeter>(5.0),
             iso_value: 0.0,
             resolution: 64,
             gradient: None,
@@ -263,6 +276,13 @@ impl Default for TpmsFillSpec {
 }
 
 impl TpmsFillSpec {
+    /// Return the uniform period in millimetres for an explicit mesh or
+    /// rendering formula boundary.
+    #[must_use]
+    pub fn period_mm(&self) -> f64 {
+        self.period.in_unit::<Millimeter>()
+    }
+
     /// Validate parameter ranges.
     ///
     /// # Errors
@@ -270,11 +290,11 @@ impl TpmsFillSpec {
     /// Returns [`GeometryError`] if period is non-positive / non-finite
     /// or resolution is below 4.
     pub fn validate(&self) -> GeometryResult<()> {
-        if !self.period_mm.is_finite() || self.period_mm <= 0.0 {
+        let period_mm = self.period_mm();
+        if !period_mm.is_finite() || period_mm <= 0.0 {
             return Err(GeometryError::InvalidChannelPath {
                 reason: format!(
-                    "tpms_fill period_mm must be a finite positive value, got {}",
-                    self.period_mm
+                    "tpms_fill period_mm must be a finite positive value, got {period_mm}"
                 ),
             });
         }
@@ -316,7 +336,7 @@ mod tests {
     fn fill_spec_json_roundtrip() {
         let spec = TpmsFillSpec {
             surface: TpmsSurfaceKind::SchwarzP,
-            period_mm: 3.0,
+            period: Length::from_unit::<Millimeter>(3.0),
             iso_value: 0.1,
             resolution: 32,
             gradient: None,
@@ -329,7 +349,7 @@ mod tests {
     #[test]
     fn fill_spec_rejects_zero_period() {
         let spec = TpmsFillSpec {
-            period_mm: 0.0,
+            period: Length::from_unit::<Millimeter>(0.0),
             ..TpmsFillSpec::default()
         };
         assert!(spec.validate().is_err());
@@ -388,10 +408,10 @@ mod tests {
     #[test]
     fn gradient_period_at_separation_center() {
         let g = make_default_gradient();
-        // (x=0.3 → separation zone, y=0.5 → center) → period_center_mm
+        // (x=0.3 → separation zone, y=0.5 → center) → period_center
         let p = g.period_at(0.3, 0.5);
         assert!(
-            (p - g.period_center_mm).abs() < 1e-9,
+            (p.into_base() - g.period_center.into_base()).abs() < 1e-9,
             "center of separation zone should be center period"
         );
     }
@@ -399,10 +419,10 @@ mod tests {
     #[test]
     fn gradient_period_at_separation_wall() {
         let g = make_default_gradient();
-        // (x=0.3 → separation zone, y=0.0 → bottom wall) → period_periphery_mm
+        // (x=0.3 → separation zone, y=0.0 → bottom wall) → period_periphery
         let p = g.period_at(0.3, 0.0);
         assert!(
-            (p - g.period_periphery_mm).abs() < 1e-9,
+            (p.into_base() - g.period_periphery.into_base()).abs() < 1e-9,
             "wall of separation zone should be periphery period"
         );
     }
@@ -410,11 +430,11 @@ mod tests {
     #[test]
     fn gradient_period_at_remerging() {
         let g = make_default_gradient();
-        // x=0.9 → remerging zone → always period_center_mm regardless of y
+        // x=0.9 → remerging zone → always period_center regardless of y
         let p_center = g.period_at(0.9, 0.5);
         let p_wall = g.period_at(0.9, 0.0);
-        assert!((p_center - g.period_center_mm).abs() < 1e-9);
-        assert!((p_wall - g.period_center_mm).abs() < 1e-9);
+        assert!((p_center.into_base() - g.period_center.into_base()).abs() < 1e-9);
+        assert!((p_wall.into_base() - g.period_center.into_base()).abs() < 1e-9);
     }
 
     #[test]
@@ -423,10 +443,11 @@ mod tests {
         // x=0.7 → midway through transition (0.6..0.8), y=0.0 → wall
         let p = g.period_at(0.7, 0.0);
         // Expected: 50% blend between periphery (at wall) and center
-        let expected = g.period_periphery_mm * 0.5 + g.period_center_mm * 0.5;
+        let expected = g.period_periphery.into_base() * 0.5 + g.period_center.into_base() * 0.5;
         assert!(
-            (p - expected).abs() < 1e-9,
-            "midpoint transition should be 50/50 blend, got {p}"
+            (p.into_base() - expected).abs() < 1e-9,
+            "midpoint transition should be 50/50 blend, got {} mm",
+            p.in_unit::<Millimeter>()
         );
     }
 
@@ -443,8 +464,8 @@ mod tests {
     #[test]
     fn gradient_rejects_center_less_than_periphery() {
         let g = AdaptiveGradient {
-            period_periphery_mm: 10.0,
-            period_center_mm: 5.0,
+            period_periphery: Length::from_unit::<Millimeter>(10.0),
+            period_center: Length::from_unit::<Millimeter>(5.0),
             ..AdaptiveGradient::default()
         };
         assert!(g.validate().is_err(), "center < periphery must fail");

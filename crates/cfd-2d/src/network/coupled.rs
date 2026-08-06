@@ -694,13 +694,19 @@ fn branch_run_weight(
 
 fn boundary_coupling_weight(boundary: &BranchBoundaryMetadata, is_outgoing: bool) -> f64 {
     let (source_like, source_strength, sink_strength) = match boundary.boundary {
-        BranchBoundarySpecification::Pressure { pressure_pa } if pressure_pa.is_finite() => {
+        BranchBoundarySpecification::Pressure { pressure_pa }
+            if pressure_pa.into_base().is_finite() =>
+        {
+            let pressure_pa = pressure_pa.into_base();
             if pressure_pa == 0.0 {
                 return 1.0;
             }
             (pressure_pa > 0.0, 1.04, 0.96)
         }
-        BranchBoundarySpecification::FlowRate { flow_rate_m3_s } if flow_rate_m3_s.is_finite() => {
+        BranchBoundarySpecification::FlowRate { flow_rate_m3_s }
+            if flow_rate_m3_s.into_base().is_finite() =>
+        {
+            let flow_rate_m3_s = flow_rate_m3_s.into_base();
             if flow_rate_m3_s == 0.0 {
                 return 1.0;
             }

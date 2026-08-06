@@ -257,8 +257,7 @@ mod tests {
             let wall_velocity = flow.velocity(flow.radius, t).into_base();
             assert!(
                 wall_velocity.abs() < 1e-10,
-                "Womersley wall velocity must satisfy no-slip; got {wall_velocity} at t={}",
-                t_base
+                "Womersley wall velocity must satisfy no-slip; got {wall_velocity} at t={t_base}",
             );
         }
     }

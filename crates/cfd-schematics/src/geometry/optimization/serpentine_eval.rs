@@ -16,7 +16,7 @@ fn calculate_safe_full_periods(
     geometry_config: &GeometryConfig,
     base_wavelength: f64,
 ) -> usize {
-    let channel_width = geometry_config.channel_width;
+    let channel_width = geometry_config.channel_width_mm();
     let min_cycle_span = base_wavelength
         .max(amplitude.mul_add(2.75, channel_width * 4.0))
         .max(channel_width * 8.0);
@@ -98,8 +98,9 @@ pub(super) fn generate_optimization_serpentine_path(
     let available_space = available_space_above.min(available_space_below);
 
     // Calculate and validate wavelength for manufacturing constraints
-    let initial_wavelength = serpentine_config.wavelength_factor * geometry_config.channel_width;
-    let min_separation = geometry_config.channel_width;
+    let initial_wavelength =
+        serpentine_config.wavelength_factor * geometry_config.channel_width_mm();
+    let min_separation = geometry_config.channel_width_mm();
     let min_wavelength = min_separation * 3.0; // Conservative constraint for proper spacing
     let base_wavelength = initial_wavelength.max(min_wavelength);
 
@@ -107,7 +108,7 @@ pub(super) fn generate_optimization_serpentine_path(
     let space_constrained_amplitude = available_space.max(0.0);
 
     // Calculate wavelength-constrained amplitude for manufacturing
-    let min_separation_distance = geometry_config.channel_width;
+    let min_separation_distance = geometry_config.channel_width_mm();
     let wavelength_constrained_amplitude = if base_wavelength > min_separation_distance * 2.0 {
         // If wavelength is reasonable, allow full amplitude utilization
         space_constrained_amplitude // Use full available space
@@ -127,7 +128,7 @@ pub(super) fn generate_optimization_serpentine_path(
         for &neighbor_y in neighbor_info {
             let distance_to_neighbor = (channel_center_y - neighbor_y).abs();
             let safe_amplitude =
-                ((distance_to_neighbor - geometry_config.channel_width) * 0.5).max(0.0);
+                ((distance_to_neighbor - geometry_config.channel_width_mm()) * 0.5).max(0.0);
             min_neighbor_amplitude = min_neighbor_amplitude.min(safe_amplitude);
         }
 
@@ -240,7 +241,7 @@ fn calculate_optimized_amplitude(
     let final_amplitude = enhanced_amplitude * serpentine_config.fill_factor;
 
     // Ensure minimum visibility
-    let min_amplitude = geometry_config.channel_width * 0.08;
+    let min_amplitude = geometry_config.channel_width_mm() * 0.08;
     final_amplitude.max(min_amplitude)
 }
 
@@ -254,8 +255,8 @@ fn calculate_available_space(
 ) -> f64 {
     let channel_center_y = f64::midpoint(p1.1, p2.1);
     let box_height = box_dims.1;
-    let channel_width = geometry_config.channel_width;
-    let wall_margin = geometry_config.wall_clearance + channel_width * 0.5;
+    let channel_width = geometry_config.channel_width_mm();
+    let wall_margin = geometry_config.wall_clearance_mm() + channel_width * 0.5;
 
     if let Some(neighbors) = neighbor_info {
         // Find the closest neighbors above and below
@@ -303,8 +304,9 @@ fn calculate_optimized_wavelength(
     geometry_config: &GeometryConfig,
     serpentine_config: &SerpentineConfig,
 ) -> f64 {
-    let initial_wavelength = serpentine_config.wavelength_factor * geometry_config.channel_width;
-    let min_separation = geometry_config.channel_width;
+    let initial_wavelength =
+        serpentine_config.wavelength_factor * geometry_config.channel_width_mm();
+    let min_separation = geometry_config.channel_width_mm();
     let min_wavelength = min_separation * 3.0; // Conservative minimum for proper spacing
 
     initial_wavelength.max(min_wavelength)

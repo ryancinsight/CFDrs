@@ -7,6 +7,7 @@
 //! Run with: cargo run -p gaia --example schematic_to_mesh_demo
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
     use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_schematic_mesh::scheme_io;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
@@ -19,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Generating schematic...");
     let box_dims = (100.0, 50.0);
     let config = GeometryConfig {
-        channel_width: 1.0,  // 1mm width
-        channel_height: 0.5, // 0.5mm height
+        channel_width: Length::from_base(1.0e-3),  // 1mm width
+        channel_height: Length::from_base(0.5e-3), // 0.5mm height
         ..GeometryConfig::default()
     };
 
@@ -55,14 +56,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     frustum_channel.path = frustum_path;
     frustum_channel.venturi_geometry = Some(VenturiGeometryMetadata {
-        throat_width_m: 0.2 / 1000.0,
-        throat_height_m: 0.5 / 1000.0,
-        throat_length_m: 1.0 / 1000.0,
-        inlet_width_m: 1.0 / 1000.0,
-        outlet_width_m: 1.0 / 1000.0,
-        convergent_half_angle_deg: 45.0,
-        divergent_half_angle_deg: 45.0,
-        throat_position: 0.5,
+        throat_width_m: Length::from_base(0.2 / 1000.0),
+        throat_height_m: Length::from_base(0.5 / 1000.0),
+        throat_length_m: Length::from_base(1.0 / 1000.0),
+        inlet_width_m: Length::from_base(1.0 / 1000.0),
+        outlet_width_m: Length::from_base(1.0 / 1000.0),
+        convergent_half_angle: Angle::from_base(45.0_f64.to_radians()),
+        divergent_half_angle: Angle::from_base(45.0_f64.to_radians()),
+        throat_position: Dimensionless::from_base(0.5),
     });
 
     // Clone system and add frustum with its own isolated nodes
@@ -131,14 +132,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Mesh with variable sweep
-            let faces = mesher.sweep_variable(
-                &channel_def.profile,
-                &channel_def.path,
-                scales,
-                &mut pool,
-                RegionId::new(0),
-            )
-            .expect("variable sweep should succeed");
+            let faces = mesher
+                .sweep_variable(
+                    &channel_def.profile,
+                    &channel_def.path,
+                    scales,
+                    &mut pool,
+                    RegionId::new(0),
+                )
+                .expect("variable sweep should succeed");
             println!("      Generated {} faces with variable sweep.", faces.len());
             assert!(!faces.is_empty());
 

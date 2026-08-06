@@ -93,7 +93,7 @@ where
                         channel.id.as_str()
                     ))
                 })?;
-            let cross_section_area_m2 = channel.cross_section.area();
+            let cross_section_area_m2 = channel.cross_section.area().into_base();
             let q_ch = <T as NumericElement>::to_f64(channel_reference.flow_rate_m3_s);
             let mean_velocity_m_s = q_ch / cross_section_area_m2.max(1e-18);
 
