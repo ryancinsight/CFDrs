@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Channel length geometry (CFDRS-AEQ-MET-52, 2026-08-05)
+
+The post-MET51 public-contract scan found `ChannelSpec.length_m` still exposes
+the authored channel centerline length as a raw metre scalar. The field feeds
+blueprint summaries, route validation, cfd-1d resistance and serpentine
+conversion, cfd-2d projection, mesh volume, and cfd-optim metrics, so a unit
+comment does not provide dimensional protection across those boundaries.
+
+This item is in progress. It will carry the field and the public aggregate
+length queries through Eunomia `Length<f64>`, migrate direct consumers without
+adapters, and retain scalar extraction only where a solver, mesh, formula,
+report, or external serialization contract requires it. `ChannelShape`,
+`SerpentineSpec`, `SubBranchSpec`, `BlueprintTopologySpec` envelope dimensions,
+and reporting-only DTOs remain separate audit boundaries. The contract is
+real-valued; no complex or imaginary SI quantity applies.
+
 ## Cross-section authoring geometry (CFDRS-AEQ-MET-51, 2026-08-05)
 
 The post-MET50 public-contract scan found `CrossSectionSpec` still exposes

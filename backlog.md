@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (in progress
+  2026-08-05; owner=current Codex session; scope=`ChannelSpec.length_m`, its
+  `NetworkBlueprint` length metrics, and direct schematic/1D/2D/mesh/optim
+  consumers).** Replace the public raw metre scalar with Eunomia
+  `Length<f64>`, keep scalar extraction at validation, solver, mesh, and
+  reporting boundaries, and add a value-semantic serialization regression.
+  `ChannelShape`, `SerpentineSpec`, `SubBranchSpec`, and
+  `BlueprintTopologySpec` envelope dimensions are non-goals for this item.
+  The contract is real-valued; no complex or imaginary SI quantity applies.
+
 - **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (done
   2026-08-05; owner=current Codex session; scope=`cfd-schematics` therapy
   metadata and its direct geometry/1D consumers).** Venturi geometry metadata
