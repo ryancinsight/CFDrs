@@ -16,7 +16,7 @@ impl SerpentineChannelStrategy {
         wavelength: f64,
     ) -> f64 {
         let constants = ConstantsRegistry::new();
-        let channel_width = context.geometry_config.channel_width;
+        let channel_width = context.geometry_config.channel_width_mm();
 
         let space_metrics = self.analyze_space_metrics(p1, p2, context);
         if space_metrics.available_space <= constants.get_geometric_tolerance() {
@@ -55,8 +55,8 @@ impl SerpentineChannelStrategy {
     ) -> SpaceMetrics {
         let channel_center_y = f64::midpoint(p1.1, p2.1);
         let box_height = context.box_dims.1;
-        let wall_clearance = context.geometry_config.wall_clearance;
-        let channel_width = context.geometry_config.channel_width;
+        let wall_clearance = context.geometry_config.wall_clearance_mm();
+        let channel_width = context.geometry_config.channel_width_mm();
 
         let available_space = if self.config.adaptive_config.enable_neighbor_avoidance {
             if let Some(neighbor_info) = context.neighbor_info {
@@ -162,9 +162,9 @@ impl SerpentineChannelStrategy {
 
         let mut guard_fraction = MIN_GUARD_FRACTION;
 
-        let channel_diameter = context.geometry_config.channel_width;
+        let channel_diameter = context.geometry_config.channel_width_mm();
         let physical_guard_length =
-            context.geometry_config.wall_clearance + channel_diameter * 20.0;
+            context.geometry_config.wall_clearance_mm() + channel_diameter * 20.0;
         let physical_guard_fraction = if channel_length > 1e-6 {
             (physical_guard_length / channel_length).clamp(MIN_GUARD_FRACTION, 0.45)
         } else {
@@ -201,11 +201,11 @@ impl SerpentineChannelStrategy {
         context: &ChannelGenerationContext,
     ) -> f64 {
         let normal_y_factor = perp_y_abs.max(0.1);
-        let channel_diameter = context.geometry_config.channel_width;
+        let channel_diameter = context.geometry_config.channel_width_mm();
         let mut amplitude_cap = f64::INFINITY;
 
         if self.config.adaptive_config.enable_wall_proximity_scaling {
-            let wall_margin = context.geometry_config.wall_clearance + channel_diameter * 0.5;
+            let wall_margin = context.geometry_config.wall_clearance_mm() + channel_diameter * 0.5;
             let wall_available =
                 (base_y - wall_margin).min(context.box_dims.1 - base_y - wall_margin);
             amplitude_cap = amplitude_cap.min((wall_available / normal_y_factor).max(0.0));

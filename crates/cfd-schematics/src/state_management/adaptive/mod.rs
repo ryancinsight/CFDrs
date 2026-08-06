@@ -139,7 +139,7 @@ impl ChannelGenerationContext {
     pub fn wall_distances(&self) -> (f64, f64, f64, f64) {
         let center = self.channel_center();
         let (width, height) = self.box_dims;
-        let half_channel = self.geometry_config.channel_width / 2.0;
+        let half_channel = self.geometry_config.channel_width_mm() / 2.0;
 
         (
             center.0 - half_channel,          // left

@@ -3,14 +3,15 @@ use crate::config::channel::arc::ArcConfig;
 use crate::config::channel::serpentine::{OptimizationProfile, SerpentineConfig, WaveShape};
 use crate::config::constants::primitives as constants;
 use crate::config::geometry::{GeometryConfig, GeometryGenerationConfig};
+use aequitas::systems::si::quantities::Length;
 
 /// Preset for microfluidic devices with fine features
 #[must_use]
 pub const fn fine_features() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: 0.2,
-        channel_width: 0.5,
-        channel_height: 0.3,
+        wall_clearance: Length::from_base(0.2e-3),
+        channel_width: Length::from_base(0.5e-3),
+        channel_height: Length::from_base(0.3e-3),
         generation: GeometryGenerationConfig::high_quality(),
     }
 }
@@ -25,9 +26,9 @@ pub fn standard() -> GeometryConfig {
 #[must_use]
 pub const fn large_scale() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: 2.0,
-        channel_width: 5.0,
-        channel_height: 2.0,
+        wall_clearance: Length::from_base(2.0e-3),
+        channel_width: Length::from_base(5.0e-3),
+        channel_height: Length::from_base(2.0e-3),
         generation: GeometryGenerationConfig::fast(),
     }
 }
@@ -186,9 +187,9 @@ pub const fn subtle_arcs() -> ArcConfig {
 #[must_use]
 pub const fn high_quality_generation() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: constants::DEFAULT_WALL_CLEARANCE,
-        channel_width: constants::DEFAULT_CHANNEL_WIDTH,
-        channel_height: constants::DEFAULT_CHANNEL_HEIGHT,
+        wall_clearance: Length::from_base(constants::DEFAULT_WALL_CLEARANCE * 1.0e-3),
+        channel_width: Length::from_base(constants::DEFAULT_CHANNEL_WIDTH * 1.0e-3),
+        channel_height: Length::from_base(constants::DEFAULT_CHANNEL_HEIGHT * 1.0e-3),
         generation: GeometryGenerationConfig::high_quality(),
     }
 }
@@ -197,9 +198,9 @@ pub const fn high_quality_generation() -> GeometryConfig {
 #[must_use]
 pub const fn fast_generation() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: constants::DEFAULT_WALL_CLEARANCE,
-        channel_width: constants::DEFAULT_CHANNEL_WIDTH,
-        channel_height: constants::DEFAULT_CHANNEL_HEIGHT,
+        wall_clearance: Length::from_base(constants::DEFAULT_WALL_CLEARANCE * 1.0e-3),
+        channel_width: Length::from_base(constants::DEFAULT_CHANNEL_WIDTH * 1.0e-3),
+        channel_height: Length::from_base(constants::DEFAULT_CHANNEL_HEIGHT * 1.0e-3),
         generation: GeometryGenerationConfig::fast(),
     }
 }
@@ -208,9 +209,9 @@ pub const fn fast_generation() -> GeometryConfig {
 #[must_use]
 pub const fn research_grade() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: 0.3,
-        channel_width: 0.8,
-        channel_height: 0.5,
+        wall_clearance: Length::from_base(0.3e-3),
+        channel_width: Length::from_base(0.8e-3),
+        channel_height: Length::from_base(0.5e-3),
         generation: GeometryGenerationConfig::high_quality(),
     }
 }
@@ -219,9 +220,9 @@ pub const fn research_grade() -> GeometryConfig {
 #[must_use]
 pub const fn manufacturing_grade() -> GeometryConfig {
     GeometryConfig {
-        wall_clearance: 1.0,
-        channel_width: 2.0,
-        channel_height: 1.5,
+        wall_clearance: Length::from_base(1.0e-3),
+        channel_width: Length::from_base(2.0e-3),
+        channel_height: Length::from_base(1.5e-3),
         generation: GeometryGenerationConfig::fast(),
     }
 }

@@ -23,7 +23,7 @@ fn main() {
     );
 
     println!("Generated {} channels", system.channels.len());
-    println!("Base Channel Width: {:.3} mm", config.channel_width);
+    println!("Base Channel Width: {:.3} mm", config.channel_width_mm());
 
     let mut passed = true;
     let mut base_width_found = false;
@@ -43,13 +43,15 @@ fn main() {
         min_width = min_width.min(ch.effective_width_m().into_base() * 1000.0);
         max_width = max_width.max(ch.effective_width_m().into_base() * 1000.0);
 
-        if ((ch.effective_width_m().into_base() * 1000.0) - config.channel_width).abs() < 0.05 {
+        if ((ch.effective_width_m().into_base() * 1000.0) - config.channel_width_mm()).abs()
+            < 0.05
+        {
             base_width_found = true;
             println!("  -> Found base-width trunk or merge channel");
-        } else if (ch.effective_width_m().into_base() * 1000.0) > config.channel_width * 1.10 {
+        } else if (ch.effective_width_m().into_base() * 1000.0) > config.channel_width_mm() * 1.10 {
             wider_than_base_found = true;
             println!("  -> Found widened asymmetric branch");
-        } else if (ch.effective_width_m().into_base() * 1000.0) < config.channel_width * 0.90 {
+        } else if (ch.effective_width_m().into_base() * 1000.0) < config.channel_width_mm() * 0.90 {
             narrower_than_base_found = true;
             println!("  -> Found narrowed asymmetric branch");
         } else {

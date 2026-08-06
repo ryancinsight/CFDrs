@@ -34,6 +34,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** `GeometryConfig.wall_clearance`, `channel_width`, and
+  `channel_height` now carry Eunomia `Length<f64>` values in base metres.
+  Millimetre extraction is explicit through `*_mm` layout/formula projections;
+  the real geometry contract has no complex or imaginary SI quantity.
+
 - **Breaking:** `Milestone12PrimitiveSelectiveSpec` and nested stage branch
   geometry now use Eunomia `Length<f64>` values in base metres for plate
   dimensions, channel dimensions, branch/outlet lengths, and venturi throat

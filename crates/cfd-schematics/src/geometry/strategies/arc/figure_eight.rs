@@ -51,8 +51,8 @@ impl ArcChannelStrategy {
         const MIN_GUARD_FRACTION: f64 = 0.15;
         const MAX_GUARD_FRACTION: f64 = 0.40;
 
-        let channel_diameter = geometry_config.channel_width;
-        let physical_guard_length = geometry_config.wall_clearance + channel_diameter * 20.0;
+        let channel_diameter = geometry_config.channel_width_mm();
+        let physical_guard_length = geometry_config.wall_clearance_mm() + channel_diameter * 20.0;
         let mut guard_fraction = if channel_length > 1e-6 {
             (physical_guard_length / channel_length).clamp(MIN_GUARD_FRACTION, 0.45)
         } else {

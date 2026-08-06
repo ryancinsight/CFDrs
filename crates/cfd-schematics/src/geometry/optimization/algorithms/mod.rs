@@ -80,8 +80,8 @@ fn optimize_fast(
     start_time: std::time::Instant,
 ) -> OptimizationResult {
     // Fast optimization with limited parameter exploration
-    let min_clearance = geometry_config.wall_clearance;
-    let channel_width = geometry_config.channel_width;
+    let min_clearance = geometry_config.wall_clearance_mm();
+    let channel_width = geometry_config.channel_width_mm();
 
     // Get configurable parameter search ranges from constants registry
     let constants_reg = ConstantsRegistry::new();
@@ -245,9 +245,9 @@ fn evaluate_objective_function(
     // Calculate metrics
     let path_length = calculate_path_length(&test_path);
     let min_wall_distance =
-        calculate_min_wall_distance(&test_path, box_dims, geometry_config.channel_width);
+        calculate_min_wall_distance(&test_path, box_dims, geometry_config.channel_width_mm());
     let min_neighbor_distance = if let Some(neighbors) = neighbor_info {
-        calculate_min_neighbor_distance(&test_path, neighbors, geometry_config.channel_width)
+        calculate_min_neighbor_distance(&test_path, neighbors, geometry_config.channel_width_mm())
     } else {
         f64::INFINITY
     };
@@ -256,7 +256,7 @@ fn evaluate_objective_function(
     let penalty = calculate_constraint_penalty(
         min_wall_distance,
         min_neighbor_distance,
-        geometry_config.wall_clearance,
+        geometry_config.wall_clearance_mm(),
     );
 
     // Return objective score (maximize length, minimize penalty)

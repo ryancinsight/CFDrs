@@ -74,9 +74,9 @@ pub fn create_primitive_selective_tree_geometry(
         .collect();
 
     let geometry_config = GeometryConfig {
-        wall_clearance: 1.0,
-        channel_width: (main_width_m * 1.0e3).clamp(0.2, 12.0),
-        channel_height: (channel_height_m * 1.0e3).clamp(0.2, 5.0),
+        wall_clearance: Length::from_base(1.0e-3),
+        channel_width: Length::from_base(main_width_m.clamp(0.2e-3, 12.0e-3)),
+        channel_height: Length::from_base(channel_height_m.clamp(0.2e-3, 5.0e-3)),
         ..Default::default()
     };
 

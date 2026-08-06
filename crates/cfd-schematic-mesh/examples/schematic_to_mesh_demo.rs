@@ -20,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Generating schematic...");
     let box_dims = (100.0, 50.0);
     let config = GeometryConfig {
-        channel_width: 1.0,  // 1mm width
-        channel_height: 0.5, // 0.5mm height
+        channel_width: Length::from_base(1.0e-3),  // 1mm width
+        channel_height: Length::from_base(0.5e-3), // 0.5mm height
         ..GeometryConfig::default()
     };
 

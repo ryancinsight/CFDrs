@@ -22,7 +22,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example medical_millifluidic_screening`
 
-use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
+use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_1d::BloodShearLimits;
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let box_dims = (90.0, 42.0); // mm — within ANSI/SLAS 1-2004 constraints
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
-        channel_width: 1.0, // 1 mm — millifluidic scale
+        channel_width: Length::from_base(1.0e-3), // 1 mm — millifluidic scale
         ..Default::default()
     };
     let serpentine = smooth_serpentine();
@@ -388,7 +388,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "application": "Sonodynamic Therapy (SDT)",
             "standard": "ANSI/SLAS 1-2004 (96-well)",
             "footprint_mm": [box_dims.0, box_dims.1],
-            "channel_width_mm": geo_config.channel_width,
+            "channel_width_mm": geo_config.channel_width_mm(),
             "topology": {
                 "num_nodes": system.nodes.len(),
                 "num_channels": system.channels.len(),

@@ -246,7 +246,7 @@ impl AdaptiveParameter<f64, ChannelGenerationContext> for LengthBasedWavelengthA
             });
         }
 
-        let channel_width = context.geometry_config.channel_width;
+        let channel_width = context.geometry_config.channel_width_mm();
         if channel_width <= 0.0 {
             return Err(AdaptationError::InvalidContext {
                 reason: "Channel width must be positive".to_string(),

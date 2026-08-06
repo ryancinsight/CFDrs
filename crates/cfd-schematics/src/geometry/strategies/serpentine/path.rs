@@ -96,10 +96,10 @@ impl SerpentineChannelStrategy {
         context: &ChannelGenerationContext,
     ) -> Vec<Point2D> {
         let initial_wavelength =
-            self.config.wavelength_factor * context.geometry_config.channel_width;
+            self.config.wavelength_factor * context.geometry_config.channel_width_mm();
         let wavelength = self.validate_wavelength_for_diameter(
             initial_wavelength,
-            context.geometry_config.channel_width,
+            context.geometry_config.channel_width_mm(),
         );
         let amplitude = self.calculate_adaptive_amplitude(p1, p2, context, wavelength);
 
@@ -122,16 +122,16 @@ impl SerpentineChannelStrategy {
             .max(1.0);
 
         let initial_wavelength =
-            self.config.wavelength_factor * context.geometry_config.channel_width;
+            self.config.wavelength_factor * context.geometry_config.channel_width_mm();
         let base_wavelength = self.validate_wavelength_for_diameter(
             initial_wavelength,
-            context.geometry_config.channel_width,
+            context.geometry_config.channel_width_mm(),
         );
 
         let initial_amplitude = self.calculate_adaptive_amplitude(p1, p2, context, base_wavelength);
         let start_guard = self.calculate_junction_guard_fraction(p1.1, channel_length, context);
         let end_guard = self.calculate_junction_guard_fraction(p2.1, channel_length, context);
-        let channel_diameter = context.geometry_config.channel_width;
+        let channel_diameter = context.geometry_config.channel_width_mm();
         let effective_wavelength = self.calculate_effective_wavelength(
             base_wavelength,
             initial_amplitude,
@@ -269,10 +269,10 @@ impl SerpentineChannelStrategy {
         context: &ChannelGenerationContext,
     ) -> Vec<Point2D> {
         let initial_wavelength =
-            self.config.wavelength_factor * context.geometry_config.channel_width;
+            self.config.wavelength_factor * context.geometry_config.channel_width_mm();
         let wavelength = self.validate_wavelength_for_diameter(
             initial_wavelength,
-            context.geometry_config.channel_width,
+            context.geometry_config.channel_width_mm(),
         );
         let amplitude = self.calculate_adaptive_amplitude(p1, p2, context, wavelength);
 

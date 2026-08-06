@@ -1,5 +1,6 @@
 #[test]
 fn test_schematics2mesh_stl_output() {
+    use aequitas::systems::si::quantities::Length;
     use cfd_mesh::application::channel::sweep::SweepMesher;
     use cfd_mesh::domain::core::index::RegionId;
     use cfd_mesh::domain::mesh::IndexedMesh;
@@ -13,8 +14,8 @@ fn test_schematics2mesh_stl_output() {
     // 1. Generate 2D geometry (a simple symmetric bifurcation)
     let box_dims = (20.0, 10.0);
     let config = GeometryConfig {
-        channel_width: 4.0, // 4mm
-        channel_height: 4.0,
+        channel_width: Length::from_base(4.0e-3), // 4mm
+        channel_height: Length::from_base(4.0e-3),
         ..Default::default()
     };
 

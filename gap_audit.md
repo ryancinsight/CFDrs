@@ -39,10 +39,11 @@ scalars. These authored dimensions feed geometry generation, optimization,
 validation, and cross-crate mesh/solver examples, so the unit comments do not
 provide dimensional protection at the configuration boundary.
 
-This gap is in progress. The implementation will carry Eunomia `Length<f64>`
-through the public configuration and direct consumers in base metres, with
-millimetre extraction confined to existing layout and numerical formula
-boundaries. Schematic coordinate/path and junction-angle metadata remain
+Closed. `GeometryConfig.wall_clearance`, `channel_width`, and `channel_height`
+now carry Eunomia `Length<f64>` values in base metres through the public
+configuration and direct geometry/optimization/validation consumers.
+Millimetre extraction is confined to explicit `*_mm` layout/formula
+projections. Schematic coordinate/path and junction-angle metadata remain
 explicit visualization/serialization boundaries in this audit. No complex or
 imaginary SI quantity applies to this real geometry contract.
 

@@ -96,8 +96,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let box_dims = (90.0, 42.0); // mm — 96-well plate footprint
         let splits = vec![SplitType::Bifurcation];
         let geo_config = GeometryConfig {
-            channel_width: frustum_config.inlet_width,
-            channel_height: 0.5, // 500 µm depth
+            channel_width: Length::from_base(frustum_config.inlet_width * 1.0e-3),
+            channel_height: Length::from_base(0.5e-3), // 500 µm depth
             ..Default::default()
         };
         let channel_type = ChannelTypeConfig::AllFrustum(*frustum_config);

@@ -14,7 +14,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example cavitation_venturi_analysis`
 
-use aequitas::systems::si::quantities::{MassDensity, Pressure, Velocity};
+use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
-        channel_width: 1.5, // 1.5 mm — wider inlet for venturi acceleration
+        channel_width: Length::from_base(1.5e-3), // 1.5 mm — wider inlet for venturi acceleration
         ..Default::default()
     };
     let channel_type = ChannelTypeConfig::AllStraight;
