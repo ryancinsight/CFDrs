@@ -125,7 +125,7 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
                     channel.id
                 );
                 assert!(
-                    bend_radius_m > 0.0,
+                    bend_radius_m.into_base() > 0.0,
                     "channel {:?} should expose a positive bend radius",
                     channel.id
                 );

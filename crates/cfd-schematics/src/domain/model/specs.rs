@@ -196,8 +196,8 @@ pub enum ChannelShape {
     Serpentine {
         /// Number of straight segments between turns.
         segments: usize,
-        /// Radius of curvature at U-turn bends \[m\].
-        bend_radius_m: f64,
+        /// Radius of curvature at U-turn bends.
+        bend_radius_m: Length<f64>,
         /// Waveform type (sine, square, triangular).  Controls the bend
         /// K-factor model: square waves use `BendType::Sharp`, sine and
         /// triangular use `BendType::Smooth` with the specified R/D_h.

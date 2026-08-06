@@ -1,7 +1,7 @@
 //! Primitive selective blueprint-candidate construction.
 use crate::constraints::{SERPENTINE_BEND_RADIUS_M, TREATMENT_WIDTH_MM};
 use crate::domain::{BlueprintCandidate, OperatingPoint};
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_schematics::topology::{
     presets::{build_milestone12_blueprint, Milestone12TopologyRequest},
     SerpentineSpec, TreatmentActuationMode, VenturiPlacementMode,
@@ -44,8 +44,8 @@ pub(crate) fn primitive_selective_candidate(
         venturi_throat_length_m: throat_length_m,
         center_serpentine: (serpentine_segments >= 2).then_some(SerpentineSpec {
             segments: serpentine_segments,
-            bend_radius_m: SERPENTINE_BEND_RADIUS_M,
-            segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+            bend_radius_m: Length::from_base(SERPENTINE_BEND_RADIUS_M),
+            segment_length_m: Length::from_base(TREATMENT_WIDTH_MM * 1e-3),
             wave_type: cfd_schematics::SerpentineWaveType::Sine,
         }),
         venturi_placement_mode: VenturiPlacementMode::StraightSegment,

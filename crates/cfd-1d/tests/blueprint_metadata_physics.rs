@@ -90,7 +90,7 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
             segments,
             bend_radius_m,
             wave_type: _,
-        } => (segments, bend_radius_m),
+        } => (segments, bend_radius_m.into_base()),
         _ => panic!("channel must carry inferred serpentine metadata"),
     };
 
@@ -480,12 +480,12 @@ fn venturi_throat_width_and_length_change_coefficients() {
 fn inferred_selective_serpentine_metadata_changes_1d_losses() {
     let tight = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 9,
-        bend_radius_m: 0.45e-3,
+        bend_radius_m: Length::from_base(0.45e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     let gentle = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 5,
-        bend_radius_m: 2.2e-3,
+        bend_radius_m: Length::from_base(2.2e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
 

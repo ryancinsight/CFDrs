@@ -141,6 +141,7 @@ mod tests {
     use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
     use crate::geometry::metadata::NodeLayoutMetadata;
     use crate::geometry::ChannelTypeCategory;
+    use aequitas::systems::si::quantities::Length;
 
     #[test]
     fn generated_serpentine_path_has_mirrored_two_lobe_offsets() {
@@ -186,7 +187,7 @@ mod tests {
         );
         channel.channel_shape = ChannelShape::Serpentine {
             segments: 5,
-            bend_radius_m: 2.0e-3,
+            bend_radius_m: Length::from_base(2.0e-3),
             wave_type: crate::topology::SerpentineWaveType::Sine,
         };
         assert_eq!(

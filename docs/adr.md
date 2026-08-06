@@ -779,6 +779,20 @@ with 27 skips, cfd-schematic-mesh 29/29, cfd-optim 137/137, focused
 cfd-validation cross-fidelity 26/26, and focused cfd-3d adversarial 19/19.
 Affected-package doctests pass.
 
+Revision 2026-08-05: extend this decision to the public serpentine geometry
+boundary. `SerpentineSpec`, `ChannelShape::Serpentine`, and the public
+center-serpentine path specifications now carry Eunomia `Length<f64>` bend
+radii and segment lengths. Geometry, cfd-1d resistance, cfd-optim, rendering,
+and serialization consumers extract base scalars only at their formula
+boundaries, with no adapter or parallel scalar field. The contract remains
+real-valued; no complex or imaginary SI quantity applies.
+
+Verification: cfd-schematics, cfd-1d, cfd-2d, and cfd-optim all-target checks
+pass; warning-denied Clippy passes for cfd-schematics, cfd-1d, and cfd-optim;
+Nextest passes cfd-schematics 186/186, cfd-1d 736/736 with 3 skips, and
+cfd-optim 137/137; affected doctests pass. Detailed run identifiers and
+remaining workspace residuals are recorded in `gap_audit.md`.
+
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 
 Context: cfd-1d channel, membrane, and organ components documented length,

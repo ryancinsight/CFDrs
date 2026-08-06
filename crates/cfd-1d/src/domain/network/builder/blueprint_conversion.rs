@@ -438,6 +438,7 @@ where
             };
 
             let length_t = T::from_f64_or_zero(ch_spec.length_m.into_base());
+            let bend_radius_m = bend_radius_m.into_base();
             let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Channel '{}' has invalid serpentine bend radius: {}",

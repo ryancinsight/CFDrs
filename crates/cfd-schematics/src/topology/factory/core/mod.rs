@@ -249,8 +249,8 @@ mod tests {
                 treatment_serpentine: Some(SerpentineSpec {
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                     segments: 4,
-                    bend_radius_m: 1.2e-3,
-                    segment_length_m: 4.0e-3,
+                    bend_radius_m: Length::from_base(1.2e-3),
+                    segment_length_m: Length::from_base(4.0e-3),
                 }),
                 venturi_serial_throat_count: Some(2),
                 venturi_throat_geometry: Some(crate::ThroatGeometrySpec {

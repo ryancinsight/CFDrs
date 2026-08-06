@@ -128,8 +128,8 @@ pub fn with_branch_serpentine(
         .find(|b| b.label == branch_label)?;
     branch.route.serpentine = Some(SerpentineSpec {
         segments,
-        bend_radius_m,
-        segment_length_m,
+        bend_radius_m: Length::from_base(bend_radius_m),
+        segment_length_m: Length::from_base(segment_length_m),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     Some(spec)
@@ -189,8 +189,8 @@ mod tests {
                         serpentine: Some(SerpentineSpec {
                             wave_type: crate::topology::SerpentineWaveType::Sine,
                             segments: 4,
-                            bend_radius_m: 1.2e-3,
-                            segment_length_m: 4.5e-3,
+                            bend_radius_m: Length::from_base(1.2e-3),
+                            segment_length_m: Length::from_base(4.5e-3),
                         }),
                         therapy_zone: TherapyZone::CancerTarget,
                     },
@@ -363,8 +363,8 @@ mod tests {
             Some(SerpentineSpec {
                 wave_type: crate::topology::SerpentineWaveType::Sine,
                 segments: 5,
-                bend_radius_m: 1.8e-3,
-                segment_length_m: 4.0e-3,
+                bend_radius_m: Length::from_base(1.8e-3),
+                segment_length_m: Length::from_base(4.0e-3),
             })
         );
     }

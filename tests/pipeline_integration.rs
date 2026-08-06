@@ -52,8 +52,8 @@ fn selective_venturi_spec() -> BlueprintTopologySpec {
                         serpentine: Some(SerpentineSpec {
                             wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
                             segments: 4,
-                            bend_radius_m: 1.0e-3,
-                            segment_length_m: 6.0e-3,
+                            bend_radius_m: Length::from_base(1.0e-3),
+                            segment_length_m: Length::from_base(6.0e-3),
                         }),
                         therapy_zone: TherapyZone::CancerTarget,
                     },

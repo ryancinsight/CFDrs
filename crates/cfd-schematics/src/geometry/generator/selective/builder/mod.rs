@@ -106,7 +106,7 @@ impl SelectiveTreeBuilder {
                 bend_radius_m,
                 wave_type,
             }) => {
-                if bend_radius_m == 0.0 {
+                if bend_radius_m.into_base() == 0.0 {
                     path.first()
                         .zip(path.last())
                         .map_or(ChannelShape::Straight, |(start, end)| {

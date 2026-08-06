@@ -40,12 +40,24 @@ validation, generated path geometry, Dean-number resistance conversion, and
 serialized topology, so unit-suffixed names do not provide dimensional
 protection across the authoring and solver boundaries.
 
-Implementation is in progress. The acceptance boundary is Eunomia
-real-valued `Length<f64>` storage for every public serpentine radius and
-segment-length field, with scalar extraction only at path, resistance,
-rendering, and serialization formulas. `SubBranchSpec` and
+The gap is closed. Serpentine bend radii and segment lengths now use Eunomia
+real-valued `Length<f64>` storage through topology authoring, generated channel
+shapes, and center-serpentine paths. Scalar extraction remains at path,
+resistance, rendering, optimization, and serialization formula boundaries;
+direct consumers migrate without adapters. The JSON round-trip regression and
+1D serpentine conversion tests preserve value semantics. `SubBranchSpec` and
 `BlueprintTopologySpec` envelope dimensions remain separate audit boundaries.
 No complex or imaginary SI quantity applies to this real-valued geometry.
+
+Affected all-target checks pass for cfd-schematics, cfd-1d, cfd-2d, and
+cfd-optim. Warning-denied Clippy passes for cfd-schematics, cfd-1d, and
+cfd-optim. Nextest passes cfd-schematics 186/186 (`6dff7a36-00e1-47b0-8f6c-
+a348e2eb6992`), cfd-1d 736/736 with 3 skips
+(`d57d1f85-d293-4127-aa6d-14865e0b7249`), and cfd-optim 137/137
+(`c60d0711-3e41-43ca-bb7b-b66b2914f2bf`). Doctests pass for cfd-schematics
+16/16, cfd-1d 8/8 with 3 ignored, and cfd-optim 2/2 with 3 ignored. The broad
+cfd-validation runtime residual and pre-existing cfd-3d test-only lint debt
+remain tracked separately.
 
 ## Channel length geometry (CFDRS-AEQ-MET-52, 2026-08-05)
 

@@ -28,6 +28,7 @@ mod tests {
     use super::*;
     use crate::domain::model::{ChannelShape, CrossSectionSpec, NetworkBlueprint};
     use crate::geometry::metadata::IncrementalFiltrationParams;
+    use aequitas::systems::si::quantities::Length;
 
     fn rect_width(bp: &NetworkBlueprint, id: &str) -> f64 {
         let ch = bp
@@ -166,8 +167,8 @@ mod tests {
     fn staged_cif_acoustic_serpentine_omits_throat_and_keeps_bypass_straight() {
         let serpentine = CenterSerpentineSpec {
             segments: 5,
-            bend_radius_m: 3.5e-3,
-            segment_length_m: 8.0e-3,
+            bend_radius_m: Length::from_base(3.5e-3),
+            segment_length_m: Length::from_base(8.0e-3),
         };
         let bp = incremental_filtration_tri_bi_rect_staged(
             "cif-acoustic-serp",

@@ -15,15 +15,17 @@ use aequitas::systems::si::quantities::{Angle, Length};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CenterSerpentineSpec {
     pub segments: usize,
-    pub bend_radius_m: f64,
-    pub segment_length_m: f64,
+    pub bend_radius_m: Length<f64>,
+    pub segment_length_m: Length<f64>,
 }
 
 pub(super) fn normalized_center_serpentine(
     center_serpentine: Option<CenterSerpentineSpec>,
 ) -> Option<CenterSerpentineSpec> {
     center_serpentine.filter(|spec| {
-        spec.segments >= 2 && spec.bend_radius_m > 0.0 && spec.segment_length_m > 0.0
+        spec.segments >= 2
+            && spec.bend_radius_m.into_base() > 0.0
+            && spec.segment_length_m.into_base() > 0.0
     })
 }
 

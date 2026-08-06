@@ -13,6 +13,7 @@ use super::super::types::{polyline_length, ChannelType, Point2D};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::topology::{BlueprintTopologySpec, TopologyLineageMetadata};
+use aequitas::systems::si::quantities::Length;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -95,7 +96,7 @@ impl GeometryGenerator {
         if path.len() < 3 {
             return ChannelShape::Serpentine {
                 segments: 2,
-                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                bend_radius_m: Length::from_base((channel_width * 0.5) * 1.0e-3),
                 wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
@@ -106,7 +107,7 @@ impl GeometryGenerator {
         if length <= 1e-9 {
             return ChannelShape::Serpentine {
                 segments: 2,
-                bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                bend_radius_m: Length::from_base((channel_width * 0.5) * 1.0e-3),
                 wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
@@ -145,7 +146,7 @@ impl GeometryGenerator {
 
         ChannelShape::Serpentine {
             segments: turns.saturating_add(1).max(2),
-            bend_radius_m: bend_radius_mm * 1.0e-3,
+            bend_radius_m: Length::from_base(bend_radius_mm * 1.0e-3),
             wave_type: crate::topology::SerpentineWaveType::Sine,
         }
     }

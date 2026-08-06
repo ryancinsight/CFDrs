@@ -62,8 +62,8 @@ pub enum SerpentineWaveType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerpentineSpec {
     pub segments: usize,
-    pub bend_radius_m: f64,
-    pub segment_length_m: f64,
+    pub bend_radius_m: Length<f64>,
+    pub segment_length_m: Length<f64>,
     /// Waveform type controlling bend geometry and 1D loss model.
     /// Defaults to `Sine` for backward compatibility with existing
     /// topology specs that omit this field.

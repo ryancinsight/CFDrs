@@ -6,7 +6,7 @@ use cfd_schematics::interface::presets::{
     incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
-use cfd_schematics::NetworkBlueprint;
+use cfd_schematics::{NetworkBlueprint, SerpentineSpec, SerpentineWaveType};
 
 fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
     bp.nodes.iter().any(|node| node.id.0 == node_id)
@@ -55,6 +55,23 @@ fn channel_length_quantity_round_trips_and_aggregates() {
     let mut blueprint = NetworkBlueprint::new_with_explicit_positions("lengths");
     blueprint.add_channel(channel);
     assert_eq!(blueprint.total_length_m(), authored_length);
+}
+
+#[test]
+fn serpentine_quantities_round_trip_through_json() {
+    let spec = SerpentineSpec {
+        segments: 5,
+        bend_radius_m: Length::from_base(1.5e-3),
+        segment_length_m: Length::from_base(6.0e-3),
+        wave_type: SerpentineWaveType::Sine,
+    };
+    let encoded = serde_json::to_string(&spec).expect("serpentine JSON must encode");
+    let decoded: SerpentineSpec =
+        serde_json::from_str(&encoded).expect("serpentine JSON must decode");
+
+    assert_eq!(decoded, spec);
+    assert_eq!(decoded.bend_radius_m, Length::from_base(1.5e-3));
+    assert_eq!(decoded.segment_length_m, Length::from_base(6.0e-3));
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {
@@ -190,8 +207,8 @@ fn cct_blueprint_render_preserves_center_serpentine_lane() {
         false,
         Some(CenterSerpentineSpec {
             segments: 5,
-            bend_radius_m: 3.0e-3,
-            segment_length_m: 7.5e-3,
+            bend_radius_m: Length::from_base(3.0e-3),
+            segment_length_m: Length::from_base(7.5e-3),
         }),
     );
 
@@ -219,8 +236,8 @@ fn cct_serpentine_lane_materializes_mirrored_rotated_s_offsets() {
         false,
         Some(CenterSerpentineSpec {
             segments: 3,
-            bend_radius_m: 3.0e-3,
-            segment_length_m: 7.5e-3,
+            bend_radius_m: Length::from_base(3.0e-3),
+            segment_length_m: Length::from_base(7.5e-3),
         }),
     );
 

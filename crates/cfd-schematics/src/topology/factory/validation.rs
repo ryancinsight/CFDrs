@@ -110,12 +110,12 @@ pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), Strin
         if serp.segments == 0 {
             return Err(format!("{label}: serpentine segments must be > 0"));
         }
-        if serp.bend_radius_m <= 0.0 {
+        if serp.bend_radius_m.into_base() <= 0.0 {
             return Err(format!(
                 "{label}: serpentine bend_radius_m must be positive"
             ));
         }
-        if serp.segment_length_m <= 0.0 {
+        if serp.segment_length_m.into_base() <= 0.0 {
             return Err(format!(
                 "{label}: serpentine segment_length_m must be positive"
             ));

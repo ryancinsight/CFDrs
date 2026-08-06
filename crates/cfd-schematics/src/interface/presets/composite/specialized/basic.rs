@@ -16,6 +16,7 @@ use crate::topology::presets::{
 };
 use crate::topology::{SerpentineSpec, TreatmentActuationMode};
 use crate::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::Length;
 
 pub fn primitive_selective_split_tree_rect(
     name: impl Into<String>,
@@ -150,8 +151,8 @@ pub fn asymmetric_bifurcation_serpentine_rect(
     let name = name.into();
     let serpentine = Some(SerpentineSpec {
         segments: segments.max(2),
-        bend_radius_m: wide_width_m * 0.5,
-        segment_length_m,
+        bend_radius_m: Length::from_base(wide_width_m * 0.5),
+        segment_length_m: Length::from_base(segment_length_m),
         wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     canonical_parallel_blueprint(
@@ -176,8 +177,8 @@ pub fn asymmetric_bifurcation_serpentine_rect(
                 TherapyZone::HealthyBypass,
                 Some(SerpentineSpec {
                     segments: segments.max(2),
-                    bend_radius_m: narrow_width_m * 0.5,
-                    segment_length_m,
+                    bend_radius_m: Length::from_base(narrow_width_m * 0.5),
+                    segment_length_m: Length::from_base(segment_length_m),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
             ),

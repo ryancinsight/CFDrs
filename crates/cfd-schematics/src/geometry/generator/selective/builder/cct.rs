@@ -119,7 +119,7 @@ impl SelectiveTreeBuilder {
                 TherapyZone::CancerTarget,
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
-                    bend_radius_m: 0.0,
+                    bend_radius_m: aequitas::systems::si::quantities::Length::from_base(0.0),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,
@@ -172,7 +172,7 @@ impl SelectiveTreeBuilder {
                 zone,
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
-                    bend_radius_m: 0.0,
+                    bend_radius_m: aequitas::systems::si::quantities::Length::from_base(0.0),
                     wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,

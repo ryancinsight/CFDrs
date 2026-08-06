@@ -11,11 +11,12 @@ pub use primitive::{
 
 use super::super::types::Point2D;
 use crate::domain::model::NetworkBlueprint;
+use aequitas::systems::si::quantities::Length;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CenterSerpentinePathSpec {
     pub segments: usize,
-    pub bend_radius_m: f64,
+    pub bend_radius_m: Length<f64>,
     /// Waveform type for the serpentine path.  Defaults to Sine when
     /// constructed from legacy topology specs that omit this field.
     pub wave_type: crate::topology::SerpentineWaveType,
@@ -141,6 +142,7 @@ mod tests {
         create_primitive_selective_tree_geometry, CenterSerpentinePathSpec,
         PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
     };
+    use aequitas::systems::si::quantities::Length;
 
     #[test]
     fn primitive_selective_tree_annotation_preserves_positive_channel_lengths() {
@@ -365,7 +367,7 @@ mod tests {
             treatment_branch_throat_count: 1,
             center_serpentine: Some(CenterSerpentinePathSpec {
                 segments: 5,
-                bend_radius_m: 3.0e-3,
+                bend_radius_m: Length::from_base(3.0e-3),
                 wave_type: crate::SerpentineWaveType::default(),
             }),
         });
@@ -446,7 +448,7 @@ mod tests {
             treatment_branch_throat_count: 1,
             center_serpentine: Some(CenterSerpentinePathSpec {
                 segments: 5,
-                bend_radius_m: 3.0e-3,
+                bend_radius_m: Length::from_base(3.0e-3),
                 wave_type: crate::SerpentineWaveType::default(),
             }),
         });

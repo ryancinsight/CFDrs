@@ -31,17 +31,24 @@
 
 ## Active integration
 
-- **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (in progress
-  2026-08-05; owner=current Codex session; scope=`SerpentineSpec`,
-  `ChannelShape`, and the public center-serpentine path specifications plus
-  their direct geometry/1D consumers).** Bend radii and segment lengths remain
-  raw metre scalars across topology authoring and the generated channel-shape
-  contract. The acceptance oracle is one Eunomia `Length<f64>` representation
-  through those public geometry boundaries, explicit base-scalar extraction at
-  path, resistance, and serialization edges, and value-semantic JSON and
-  solver-conversion regressions. `SubBranchSpec` and
-  `BlueprintTopologySpec` envelope dimensions remain separate boundaries. The
-  contract is real-valued; no complex or imaginary SI quantity applies.
+- **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (done 2026-08-05;
+  owner=current Codex session; scope=`SerpentineSpec`, `ChannelShape`, and the
+  public center-serpentine path specifications plus their direct geometry/1D
+  consumers).** Serpentine bend radii and segment lengths now use Eunomia
+  `Length<f64>` values through topology authoring, generated channel shapes,
+  and center-serpentine paths. Scalar extraction remains at path, resistance,
+  rendering, optimization, and serialization formula boundaries. The JSON
+  round-trip regression and 1D serpentine conversion tests preserve value
+  semantics without adapters. `SubBranchSpec` and `BlueprintTopologySpec`
+  envelope dimensions remain separate audit boundaries. The contract is
+  real-valued; no complex or imaginary SI quantity applies. Evidence:
+  cfd-schematics, cfd-1d, cfd-2d, and cfd-optim all-target checks pass;
+  warning-denied Clippy passes for cfd-schematics, cfd-1d, and cfd-optim;
+  cfd-schematics Nextest 186/186 (`6dff7a36-00e1-47b0-8f6c-a348e2eb6992`),
+  cfd-1d 736/736 with 3 skips (`d57d1f85-d293-4127-aa6d-14865e0b7249`), and
+  cfd-optim 137/137 (`c60d0711-3e41-43ca-bb7b-b66b2914f2bf`) pass. Doctests
+  pass for cfd-schematics 16/16, cfd-1d 8/8 with 3 ignored, and cfd-optim 2/2
+  with 3 ignored.
 
 - **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (done
   2026-08-05; owner=current Codex session; scope=`ChannelSpec.length_m`, its

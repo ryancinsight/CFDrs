@@ -112,7 +112,8 @@ fn build_series_channel(
             start,
             end,
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m.into_base() * 1.5e3),
+            (serpentine.bend_radius_m.into_base() * 1.0e3)
+                .max(channel.route.width_m.into_base() * 1.5e3),
         )
     } else {
         vec![start, end]
@@ -211,7 +212,8 @@ fn build_parallel_channel(
             (start.0 + 10.0, lane_y_mm),
             (end.0 - 10.0, lane_y_mm),
             serpentine.segments,
-            (serpentine.bend_radius_m * 1.0e3).max(channel.route.width_m.into_base() * 1.5e3),
+            (serpentine.bend_radius_m.into_base() * 1.0e3)
+                .max(channel.route.width_m.into_base() * 1.5e3),
         );
         path.insert(0, start);
         path.push(end);

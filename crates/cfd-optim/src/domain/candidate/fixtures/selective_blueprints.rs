@@ -1,4 +1,5 @@
 use crate::domain::{BlueprintCandidate, OperatingPoint};
+use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::topology::presets::{
     build_milestone12_blueprint, Milestone12StageBranchSpec, Milestone12StageLayout,
@@ -63,8 +64,8 @@ pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
     ];
     request.center_serpentine = Some(SerpentineSpec {
         segments: 4,
-        bend_radius_m: 1.3e-3,
-        segment_length_m: 5.0e-3,
+        bend_radius_m: Length::from_base(1.3e-3),
+        segment_length_m: Length::from_base(5.0e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     request
@@ -141,8 +142,8 @@ pub(crate) fn stage0_venturi_candidate(
     }];
     request.center_serpentine = Some(SerpentineSpec {
         segments: 6,
-        bend_radius_m: 1.1e-3,
-        segment_length_m: 4.0e-3,
+        bend_radius_m: Length::from_base(1.1e-3),
+        segment_length_m: Length::from_base(4.0e-3),
         wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
