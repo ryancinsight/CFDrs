@@ -31,6 +31,17 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-56 [major] - Type Milestone 12 request geometry (in
+  progress 2026-08-05; owner=current Codex session; scope=
+  `Milestone12PrimitiveSelectiveSpec`, nested stage branch widths, and direct
+  topology/geometry/optimization consumers).** The public selective-topology
+  request still stores plate dimensions, channel dimensions, and venturi
+  geometry as raw metre/millimetre scalars. The acceptance oracle is one
+  Eunomia `Length<f64>` contract in base metres through request construction,
+  with scalar extraction only at layout, validation, and geometry boundaries;
+  JSON/value regressions and affected package gates must pass. Complex or
+  imaginary SI quantities are out of scope because this is real geometry.
+
 - **CFDRS-AEQ-MET-55 [major] - Type topology envelope geometry (done
   2026-08-05; owner=current Codex session; scope=`BlueprintTopologySpec` plate
   dimensions, inlet/outlet widths, trunk length, and outlet-tail length plus

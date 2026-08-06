@@ -31,6 +31,23 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Milestone 12 request geometry (CFDRS-AEQ-MET-56, 2026-08-05)
+
+The post-MET55 public-contract scan found raw geometry in
+`Milestone12PrimitiveSelectiveSpec` and its nested
+`Milestone12StageBranchSpec`: plate envelope dimensions, channel widths and
+heights, branch and outlet lengths, and venturi throat dimensions. These
+values are the canonical selective-topology authoring request and are copied
+into typed topology specs only at the current build boundary.
+
+This gap is in progress. The implementation will move the request geometry to
+Eunomia real-valued `Length<f64>` values in base metres, preserving the existing
+dimensionless split fractions and enum controls. Direct consumers will migrate
+without adapters; scalar extraction will remain at layout, validation, and
+geometry boundaries. The separate generic `PrimitiveSelectiveTreeRequest` and
+`SelectiveTreeRequest` contracts remain distinct audit boundaries. No complex
+or imaginary SI quantity applies to this real-valued geometry.
+
 ## Topology envelope geometry (CFDRS-AEQ-MET-55, 2026-08-05)
 
 The post-MET54 public-contract scan found raw envelope dimensions in
