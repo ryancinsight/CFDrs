@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Serpentine geometry (CFDRS-AEQ-MET-53, 2026-08-05)
+
+The post-MET52 public-contract scan found raw metre fields in `SerpentineSpec`,
+the `ChannelShape::Serpentine` domain enum, and the public center-serpentine
+path specifications. Bend radius and segment length participate in topology
+validation, generated path geometry, Dean-number resistance conversion, and
+serialized topology, so unit-suffixed names do not provide dimensional
+protection across the authoring and solver boundaries.
+
+Implementation is in progress. The acceptance boundary is Eunomia
+real-valued `Length<f64>` storage for every public serpentine radius and
+segment-length field, with scalar extraction only at path, resistance,
+rendering, and serialization formulas. `SubBranchSpec` and
+`BlueprintTopologySpec` envelope dimensions remain separate audit boundaries.
+No complex or imaginary SI quantity applies to this real-valued geometry.
+
 ## Channel length geometry (CFDRS-AEQ-MET-52, 2026-08-05)
 
 The post-MET51 public-contract scan found `ChannelSpec.length_m` still exposes

@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (in progress
+  2026-08-05; owner=current Codex session; scope=`SerpentineSpec`,
+  `ChannelShape`, and the public center-serpentine path specifications plus
+  their direct geometry/1D consumers).** Bend radii and segment lengths remain
+  raw metre scalars across topology authoring and the generated channel-shape
+  contract. The acceptance oracle is one Eunomia `Length<f64>` representation
+  through those public geometry boundaries, explicit base-scalar extraction at
+  path, resistance, and serialization edges, and value-semantic JSON and
+  solver-conversion regressions. `SubBranchSpec` and
+  `BlueprintTopologySpec` envelope dimensions remain separate boundaries. The
+  contract is real-valued; no complex or imaginary SI quantity applies.
+
 - **CFDRS-AEQ-MET-52 [major] - Type channel length geometry (done
   2026-08-05; owner=current Codex session; scope=`ChannelSpec.length_m`, its
   `NetworkBlueprint` length metrics, and direct schematic/1D/2D/mesh/optim
