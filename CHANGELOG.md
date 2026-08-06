@@ -40,6 +40,13 @@ All notable changes to this project will be documented in this file.
   dimensions. Split fractions and topology controls remain dimensionless; the
   generic `PrimitiveSelectiveTreeRequest` remains a separate boundary.
 
+- **Breaking:** `PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` now
+  store plate, channel, branch, outlet, and venturi geometry as Eunomia
+  `Length<f64>` values in base metres, including topology-specific outlet-tail
+  and inter-throat spacing values. Scalar extraction occurs only at geometry
+  and layout boundaries; routing fractions and topology controls remain
+  dimensionless.
+
 
 - **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
   `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical

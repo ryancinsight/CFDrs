@@ -32,14 +32,22 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-57 [major] - Type generic selective-tree request geometry
-  (in progress 2026-08-05; owner=current Codex session; scope=
+  (done 2026-08-06; owner=current Codex session; scope=
   `PrimitiveSelectiveTreeRequest`, `SelectiveTreeRequest`, their topology
-  variants, and direct cfd-schematics/cfd-1d/cfd-2d consumers).** These public
-  geometry requests still store plate, channel, branch, outlet, and venturi
-  dimensions as raw metre/millimetre scalars. The acceptance oracle is one
-  Eunomia `Length<f64>` contract in base metres through authoring and explicit
-  scalar extraction at geometry/layout boundaries. Complex or imaginary SI
-  quantities are out of scope for this real geometry.
+  variants, and direct cfd-schematics/cfd-1d/cfd-2d consumers).** Public
+  selective geometry requests now carry plate, channel, branch, outlet, and
+  topology-specific venturi dimensions as Eunomia `Length<f64>` values in base
+  metres. Scalar extraction is confined to geometry/layout boundaries;
+  routing fractions and enum controls remain dimensionless. Evidence:
+  cfd-schematics nextest `54ad06d6-6915-4ece-956c-ba24dded28fd` (190/190),
+  cfd-1d nextest `6726231f-94cf-4141-9c31-1ac99f88d740` (736/736, 3 skipped),
+  and cfd-2d nextest `7bd25a45-79e1-401a-aba8-adfa132ddbe0` (571/571, 27
+  skipped) pass; warning-denied Clippy and all-target checks pass for the
+  affected packages. cfd-1d and cfd-2d doctests pass 8/8 and 1/1. The
+  cfd-schematics doctest gate is 15/16 because Defender quarantined the
+  frustum doctest executable with Windows error 225; rustdoc completes with
+  pre-existing broken/private-link warnings. No complex or imaginary SI
+  quantity applies to this real-valued geometry.
 
 - **CFDRS-AEQ-MET-56 [major] - Type Milestone 12 request geometry (done
   2026-08-05; owner=current Codex session; scope=

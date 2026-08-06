@@ -1,4 +1,7 @@
 use aequitas::systems::si::quantities::Length;
+use cfd_schematics::geometry::generator::{
+    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+};
 use cfd_schematics::{
     build_milestone12_blueprint, build_milestone12_topology_spec, BlueprintTopologyFactory,
     BlueprintTopologySpec, BranchRole, Milestone12TopologyRequest, SplitKind,
@@ -118,6 +121,37 @@ fn selective_factory_build_uses_canonical_geometry_authoring() {
     blueprint
         .validate()
         .expect("canonical selective blueprint should remain structurally valid");
+}
+
+#[test]
+fn generic_selective_request_quantities_reach_geometry_builder() {
+    let request = SelectiveTreeRequest {
+        name: "typed-selective-request".to_string(),
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(12.0e-3),
+        branch_length_m: Length::from_base(10.0e-3),
+        hybrid_branch_length_m: Length::from_base(8.0e-3),
+        main_width_m: Length::from_base(1.2e-3),
+        throat_width_m: Length::from_base(0.4e-3),
+        throat_length_m: Length::from_base(3.0e-3),
+        channel_height_m: Length::from_base(0.5e-3),
+        topology: SelectiveTreeTopology::TriBiTriSelective {
+            first_center_frac: 0.45,
+            bi_treat_frac: 0.68,
+            second_center_frac: 0.45,
+        },
+    };
+
+    let blueprint = create_selective_tree_geometry(&request);
+
+    let envelope_bound = 8.0 * f64::EPSILON * 128.0;
+    assert!((blueprint.box_dims.0 - 127.76).abs() <= envelope_bound);
+    assert!((blueprint.box_dims.1 - 85.47).abs() <= envelope_bound);
+    assert!(blueprint.is_geometry_authored());
+    assert!(blueprint
+        .channels
+        .iter()
+        .all(|channel| channel.length_m.into_base().is_finite()));
 }
 
 #[test]

@@ -1,21 +1,21 @@
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::validate_blueprint_for_1d_solve;
 use cfd_schematics::geometry::generator::{
     create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
     PrimitiveSelectiveTreeRequest,
 };
-
 fn selective_blueprint() -> cfd_schematics::NetworkBlueprint {
     create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
         name: "tri_tri".to_string(),
-        box_dims_mm: (127.76, 85.47),
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
         split_sequence: vec![
             PrimitiveSelectiveSplitKind::Tri,
             PrimitiveSelectiveSplitKind::Tri,
         ],
-        main_width_m: 5.5e-3,
-        throat_width_m: 45e-6,
-        throat_length_m: 250e-6,
-        channel_height_m: 1.0e-3,
+        main_width_m: Length::from_base(5.5e-3),
+        throat_width_m: Length::from_base(45e-6),
+        throat_length_m: Length::from_base(250e-6),
+        channel_height_m: Length::from_base(1.0e-3),
         first_trifurcation_center_frac: 0.55,
         later_trifurcation_center_frac: 0.65,
         bifurcation_treatment_frac: 0.68,

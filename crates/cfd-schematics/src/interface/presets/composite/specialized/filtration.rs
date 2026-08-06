@@ -4,6 +4,7 @@ use crate::domain::model::NetworkBlueprint;
 use crate::geometry::generator::{
     create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
 };
+use aequitas::systems::si::quantities::Length;
 
 pub fn cascade_center_trifurcation_rect(
     name: impl Into<String>,
@@ -20,14 +21,14 @@ pub fn cascade_center_trifurcation_rect(
 ) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: name.into(),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m,
-        branch_length_m,
-        hybrid_branch_length_m: branch_length_m,
-        main_width_m,
-        throat_width_m,
-        throat_length_m,
-        channel_height_m: height_m,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        branch_length_m: Length::from_base(branch_length_m),
+        hybrid_branch_length_m: Length::from_base(branch_length_m),
+        main_width_m: Length::from_base(main_width_m),
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_length_m: Length::from_base(throat_length_m),
+        channel_height_m: Length::from_base(height_m),
         topology: SelectiveTreeTopology::CascadeCenterTrifurcation {
             n_levels: n_levels.clamp(1, 5) as usize,
             center_frac: center_frac.clamp(0.20, 0.70),
@@ -163,14 +164,14 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
 ) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: name.into(),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m,
-        branch_length_m: pretri_branch_length_m,
-        hybrid_branch_length_m,
-        main_width_m,
-        throat_width_m,
-        throat_length_m,
-        channel_height_m: height_m,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        branch_length_m: Length::from_base(pretri_branch_length_m),
+        hybrid_branch_length_m: Length::from_base(hybrid_branch_length_m),
+        main_width_m: Length::from_base(main_width_m),
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_length_m: Length::from_base(throat_length_m),
+        channel_height_m: Length::from_base(height_m),
         topology: SelectiveTreeTopology::IncrementalFiltrationTriBi {
             n_pretri: n_pretri.clamp(1, 3) as usize,
             pretri_center_frac: pretri_center_frac.clamp(0.20, 0.70),
@@ -178,7 +179,7 @@ pub fn incremental_filtration_tri_bi_rect_staged_remerge(
             bi_treat_frac: bi_treat_frac.clamp(0.50, 0.85),
             venturi_treatment_enabled,
             center_serpentine: generator_center_serpentine(center_serpentine),
-            outlet_tail_length_m: outlet_tail_length_m.max(throat_width_m),
+            outlet_tail_length_m: Length::from_base(outlet_tail_length_m.max(throat_width_m)),
         },
     };
     create_selective_tree_geometry(&request)

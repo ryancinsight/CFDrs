@@ -24,6 +24,11 @@ pub(super) fn annotate_primitive_tree(
         return;
     }
 
+    let main_width_m = request.main_width_m.into_base();
+    let throat_width_m = request.throat_width_m.into_base();
+    let throat_length_m = request.throat_length_m.into_base();
+    let channel_height_m = request.channel_height_m.into_base();
+
     let mid_x = system.box_dims.0 * 0.5;
     let mid_y = system.box_dims.1 * 0.5;
     let inlet_node = system
@@ -100,16 +105,14 @@ pub(super) fn annotate_primitive_tree(
         Some(PrimitiveSelectiveSplitKind::Tri)
     );
     let bypass_width = if first_tri {
-        (request.main_width_m * (1.0 - request.first_trifurcation_center_frac) * 0.5)
-            .max(request.throat_width_m)
+        (main_width_m * (1.0 - request.first_trifurcation_center_frac) * 0.5).max(throat_width_m)
     } else {
-        (request.main_width_m * (1.0 - request.bifurcation_treatment_frac))
-            .max(request.throat_width_m)
+        (main_width_m * (1.0 - request.bifurcation_treatment_frac)).max(throat_width_m)
     };
     let treatment_width = if first_tri {
-        (request.main_width_m * request.first_trifurcation_center_frac).max(request.throat_width_m)
+        (main_width_m * request.first_trifurcation_center_frac).max(throat_width_m)
     } else {
-        (request.main_width_m * request.bifurcation_treatment_frac).max(request.throat_width_m)
+        (main_width_m * request.bifurcation_treatment_frac).max(throat_width_m)
     };
 
     for node in &mut system.nodes {
@@ -169,7 +172,7 @@ pub(super) fn annotate_primitive_tree(
         let is_trunk = touches_inlet || touches_outlet;
 
         let physical_width = if touches_inlet || touches_outlet {
-            request.main_width_m
+            main_width_m
         } else if is_treatment {
             treatment_width
         } else {
@@ -178,7 +181,7 @@ pub(super) fn annotate_primitive_tree(
 
         channel.cross_section = crate::domain::model::CrossSectionSpec::Rectangular {
             width_m: Length::from_base(physical_width),
-            height_m: Length::from_base(request.channel_height_m),
+            height_m: Length::from_base(channel_height_m),
         };
         channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
             &points,
@@ -252,9 +255,9 @@ pub(super) fn annotate_primitive_tree(
             });
             channel.visual_role = Some(ChannelVisualRole::VenturiThroat);
             channel.venturi_geometry = Some(VenturiGeometryMetadata {
-                throat_width_m: Length::from_base(request.throat_width_m),
-                throat_height_m: Length::from_base(request.channel_height_m),
-                throat_length_m: Length::from_base(request.throat_length_m),
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(channel_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
                 inlet_width_m: Length::from_base(physical_width),
                 outlet_width_m: Length::from_base(physical_width),
                 convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
@@ -265,9 +268,9 @@ pub(super) fn annotate_primitive_tree(
             metadata.insert(ChannelVenturiSpec {
                 n_throats: request.treatment_branch_throat_count.max(1),
                 is_ctc_stream: true,
-                throat_width_m: Length::from_base(request.throat_width_m),
-                height_m: Length::from_base(request.channel_height_m),
-                inter_throat_spacing_m: Length::from_base(request.throat_length_m * 2.0),
+                throat_width_m: Length::from_base(throat_width_m),
+                height_m: Length::from_base(channel_height_m),
+                inter_throat_spacing_m: Length::from_base(throat_length_m * 2.0),
             });
             metadata.insert(
                 channel
@@ -280,9 +283,9 @@ pub(super) fn annotate_primitive_tree(
             metadata.insert(ChannelVenturiSpec {
                 n_throats: 0,
                 is_ctc_stream: false,
-                throat_width_m: Length::from_base(request.throat_width_m),
-                height_m: Length::from_base(request.channel_height_m),
-                inter_throat_spacing_m: Length::from_base(request.throat_length_m * 2.0),
+                throat_width_m: Length::from_base(throat_width_m),
+                height_m: Length::from_base(channel_height_m),
+                inter_throat_spacing_m: Length::from_base(throat_length_m * 2.0),
             });
         }
     }

@@ -31,7 +31,7 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
-## Generic selective-tree request geometry (CFDRS-AEQ-MET-57, 2026-08-05)
+## Generic selective-tree request geometry (CFDRS-AEQ-MET-57, 2026-08-06)
 
 The post-MET56 scan found raw geometry in the generic public
 `PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` contracts, including
@@ -39,11 +39,23 @@ their topology-variant outlet-tail and inter-throat spacing fields. These
 requests feed the cfd-schematics geometry builders and direct cfd-1d/cfd-2d
 validation consumers.
 
-This gap is in progress. The implementation will move all unit-bearing request
-geometry to Eunomia real-valued `Length<f64>` values in base metres, preserving
-dimensionless routing fractions and enum controls. Scalar extraction will occur
-once at the geometry/layout boundary, with no adapter or duplicate scalar path.
-No complex or imaginary SI quantity applies to this real-valued geometry.
+Closed. Both request families now carry plate, channel, branch, outlet, and
+topology-specific venturi geometry as Eunomia real-valued `Length<f64>` values
+in base metres. Direct constructors and validation consumers use the typed
+contract without adapters; scalar extraction is confined to geometry/layout
+boundaries. Routing fractions and enum controls remain dimensionless. The
+cfd-schematics nextest run `54ad06d6-6915-4ece-956c-ba24dded28fd` passed
+190/190. cfd-1d nextest run `6726231f-94cf-4141-9c31-1ac99f88d740` passed
+736/736 with 3 skipped, and cfd-2d nextest run
+`7bd25a45-79e1-401a-aba8-adfa132ddbe0` passed 571/571 with 27 skipped.
+Warning-denied Clippy and all-target checks passed for the affected packages;
+the typed request propagation regression is included in the cfd-schematics
+suite. cfd-1d and cfd-2d doctests passed 8/8 and 1/1. The cfd-schematics
+doctest pass was 15/16 because Defender quarantined the
+`FrustumChannelStrategy` doctest executable with Windows error 225; this is an
+environmental coverage blocker, not a Rust diagnostic. Rustdoc completed with
+pre-existing broken/private intra-doc-link warnings. No complex or imaginary
+SI quantity applies to this real-valued geometry.
 
 ## Milestone 12 request geometry (CFDRS-AEQ-MET-56, 2026-08-05)
 

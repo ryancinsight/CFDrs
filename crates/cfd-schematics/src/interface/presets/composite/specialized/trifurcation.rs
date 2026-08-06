@@ -5,6 +5,7 @@ use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::{
     create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
 };
+use aequitas::systems::si::quantities::Length;
 
 pub fn asymmetric_trifurcation_venturi_rect(
     name: impl Into<String>,
@@ -94,14 +95,14 @@ pub fn cascade_tri_bi_tri_selective_rect(
 ) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: name.into(),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m,
-        branch_length_m,
-        hybrid_branch_length_m: branch_length_m,
-        main_width_m,
-        throat_width_m,
-        throat_length_m,
-        channel_height_m: height_m,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        branch_length_m: Length::from_base(branch_length_m),
+        hybrid_branch_length_m: Length::from_base(branch_length_m),
+        main_width_m: Length::from_base(main_width_m),
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_length_m: Length::from_base(throat_length_m),
+        channel_height_m: Length::from_base(height_m),
         topology: SelectiveTreeTopology::TriBiTriSelective {
             first_center_frac: tri1_center_frac.clamp(0.25, 0.65),
             bi_treat_frac: bi_treat_frac.clamp(0.50, 0.85),
@@ -163,19 +164,19 @@ pub fn double_trifurcation_cif_venturi_rect(
 ) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: name.into(),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m,
-        branch_length_m,
-        hybrid_branch_length_m: branch_length_m,
-        main_width_m,
-        throat_width_m,
-        throat_length_m,
-        channel_height_m: height_m,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        branch_length_m: Length::from_base(branch_length_m),
+        hybrid_branch_length_m: Length::from_base(branch_length_m),
+        main_width_m: Length::from_base(main_width_m),
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_length_m: Length::from_base(throat_length_m),
+        channel_height_m: Length::from_base(height_m),
         topology: SelectiveTreeTopology::DoubleTrifurcationCif {
             split1_center_frac: split1_center_frac.clamp(0.25, 0.65),
             split2_center_frac: split2_center_frac.clamp(0.25, 0.65),
             center_throat_count: center_throat_count.min(4),
-            inter_throat_spacing_m,
+            inter_throat_spacing_m: Length::from_base(inter_throat_spacing_m),
         },
     };
     create_selective_tree_geometry(&request)

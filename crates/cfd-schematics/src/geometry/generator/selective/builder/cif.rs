@@ -1,6 +1,7 @@
+use super::super::SelectiveTreeGeometry;
 use super::{
     CenterSerpentinePathSpec, ChannelShape, ChannelVisualRole, JunctionFamily, NodeKind,
-    SelectiveTreeBuilder, SelectiveTreeRequest, VenturiGeometryMetadata,
+    SelectiveTreeBuilder, VenturiGeometryMetadata,
 };
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::builders::ChannelExt;
@@ -17,7 +18,7 @@ impl SelectiveTreeBuilder {
         venturi: bool,
         center_serp: Option<CenterSerpentinePathSpec>,
         outlet_tail_length_m: f64,
-        req: &SelectiveTreeRequest,
+        req: &SelectiveTreeGeometry,
     ) {
         let y_mid = self.y_mid();
         for (name, x, kind, family) in [

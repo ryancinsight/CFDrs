@@ -1,6 +1,6 @@
+use super::super::SelectiveTreeGeometry;
 use super::{
-    ChannelVisualRole, JunctionFamily, NodeKind, SelectiveTreeBuilder, SelectiveTreeRequest,
-    VenturiGeometryMetadata,
+    ChannelVisualRole, JunctionFamily, NodeKind, SelectiveTreeBuilder, VenturiGeometryMetadata,
 };
 use crate::domain::therapy_metadata::TherapyZone;
 use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
@@ -11,7 +11,7 @@ impl SelectiveTreeBuilder {
         first_center_frac: f64,
         bi_treat_frac: f64,
         second_center_frac: f64,
-        req: &SelectiveTreeRequest,
+        req: &SelectiveTreeGeometry,
     ) {
         let y_mid = self.y_mid();
         for (name, x, kind, family) in [

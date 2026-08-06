@@ -46,7 +46,7 @@ pub enum SelectiveTreeTopology {
         bi_treat_frac: f64,
         venturi_treatment_enabled: bool,
         center_serpentine: Option<CenterSerpentinePathSpec>,
-        outlet_tail_length_m: f64,
+        outlet_tail_length_m: Length<f64>,
     },
     TriBiTriSelective {
         first_center_frac: f64,
@@ -57,26 +57,61 @@ pub enum SelectiveTreeTopology {
         split1_center_frac: f64,
         split2_center_frac: f64,
         center_throat_count: u8,
-        inter_throat_spacing_m: f64,
+        inter_throat_spacing_m: Length<f64>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SelectiveTreeRequest {
     pub name: String,
-    pub box_dims_mm: (f64, f64),
-    pub trunk_length_m: f64,
-    pub branch_length_m: f64,
-    pub hybrid_branch_length_m: f64,
-    pub main_width_m: f64,
-    pub throat_width_m: f64,
-    pub throat_length_m: f64,
-    pub channel_height_m: f64,
+    pub box_dims_m: (Length<f64>, Length<f64>),
+    pub trunk_length_m: Length<f64>,
+    pub branch_length_m: Length<f64>,
+    pub hybrid_branch_length_m: Length<f64>,
+    pub main_width_m: Length<f64>,
+    pub throat_width_m: Length<f64>,
+    pub throat_length_m: Length<f64>,
+    pub channel_height_m: Length<f64>,
     pub topology: SelectiveTreeTopology,
 }
 
+impl SelectiveTreeRequest {
+    fn box_dims_mm(&self) -> (f64, f64) {
+        (
+            self.box_dims_m.0.into_base() * 1.0e3,
+            self.box_dims_m.1.into_base() * 1.0e3,
+        )
+    }
+
+    fn geometry(&self) -> SelectiveTreeGeometry {
+        SelectiveTreeGeometry {
+            box_dims_mm: self.box_dims_mm(),
+            trunk_length_m: self.trunk_length_m.into_base(),
+            branch_length_m: self.branch_length_m.into_base(),
+            hybrid_branch_length_m: self.hybrid_branch_length_m.into_base(),
+            main_width_m: self.main_width_m.into_base(),
+            throat_width_m: self.throat_width_m.into_base(),
+            throat_length_m: self.throat_length_m.into_base(),
+            channel_height_m: self.channel_height_m.into_base(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SelectiveTreeGeometry {
+    box_dims_mm: (f64, f64),
+    trunk_length_m: f64,
+    branch_length_m: f64,
+    hybrid_branch_length_m: f64,
+    main_width_m: f64,
+    throat_width_m: f64,
+    throat_length_m: f64,
+    channel_height_m: f64,
+}
+
 pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> NetworkBlueprint {
-    let mut builder = SelectiveTreeBuilder::new(request.name.clone(), request.box_dims_mm);
+    let geometry = request.geometry();
+    let mut builder = SelectiveTreeBuilder::new(request.name.clone(), geometry.box_dims_mm);
     match &request.topology {
         SelectiveTreeTopology::CascadeCenterTrifurcation {
             n_levels,
@@ -88,7 +123,7 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
             *center_frac,
             *venturi_treatment_enabled,
             *center_serpentine,
-            request,
+            &geometry,
         ),
         SelectiveTreeTopology::IncrementalFiltrationTriBi {
             n_pretri,
@@ -105,8 +140,8 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
             *bi_treat_frac,
             *venturi_treatment_enabled,
             *center_serpentine,
-            *outlet_tail_length_m,
-            request,
+            outlet_tail_length_m.into_base(),
+            &geometry,
         ),
         SelectiveTreeTopology::TriBiTriSelective {
             first_center_frac,
@@ -116,7 +151,7 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
             *first_center_frac,
             *bi_treat_frac,
             *second_center_frac,
-            request,
+            &geometry,
         ),
         SelectiveTreeTopology::DoubleTrifurcationCif {
             split1_center_frac,
@@ -127,8 +162,8 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
             *split1_center_frac,
             *split2_center_frac,
             *center_throat_count,
-            *inter_throat_spacing_m,
-            request,
+            inter_throat_spacing_m.into_base(),
+            &geometry,
         ),
     }
     builder.finish()
@@ -148,15 +183,15 @@ mod tests {
     fn primitive_selective_tree_annotation_preserves_positive_channel_lengths() {
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "primitive-selective-lengths".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Tri,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 8.0e-3,
-            throat_width_m: 55.0e-6,
-            throat_length_m: 110.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(8.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.55,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,
@@ -186,15 +221,15 @@ mod tests {
     fn primitive_selective_venturi_paths_have_no_unresolved_crossings() {
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "primitive-selective-no-crossings".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Tri,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 8.0e-3,
-            throat_width_m: 55.0e-6,
-            throat_length_m: 110.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(8.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.55,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,
@@ -228,16 +263,16 @@ mod tests {
     fn primitive_selective_penta_quad_tri_is_geometry_authorable() {
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "primitive-selective-penta-quad-tri".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Penta,
                 PrimitiveSelectiveSplitKind::Quad,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 4.0e-3,
-            throat_width_m: 35.0e-6,
-            throat_length_m: 180.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(4.0e-3),
+            throat_width_m: Length::from_base(35.0e-6),
+            throat_length_m: Length::from_base(180.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.45,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,
@@ -246,7 +281,9 @@ mod tests {
             center_serpentine: None,
         });
 
-        assert_eq!(blueprint.box_dims, (127.76, 85.47));
+        let envelope_bound = 8.0 * f64::EPSILON * 128.0;
+        assert!((blueprint.box_dims.0 - 127.76).abs() <= envelope_bound);
+        assert!((blueprint.box_dims.1 - 85.47).abs() <= envelope_bound);
         assert_eq!(blueprint.unresolved_channel_overlap_count(), 0);
         blueprint
             .validate()
@@ -257,15 +294,15 @@ mod tests {
     fn primitive_selective_tri_tri_retains_multiple_treatment_window_lanes() {
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "primitive-selective-tritri-lanes".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Tri,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 8.0e-3,
-            throat_width_m: 55.0e-6,
-            throat_length_m: 110.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(8.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.55,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,
@@ -351,15 +388,15 @@ mod tests {
         use crate::domain::model::ChannelShape;
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "serp-mirror-check".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Tri,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 4.0e-3,
-            throat_width_m: 55.0e-6,
-            throat_length_m: 110.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(4.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.55,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,
@@ -432,15 +469,15 @@ mod tests {
         use crate::geometry::metadata::ChannelVisualRole;
         let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
             name: "role-mirror-check".to_string(),
-            box_dims_mm: (127.76, 85.47),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
             split_sequence: vec![
                 PrimitiveSelectiveSplitKind::Tri,
                 PrimitiveSelectiveSplitKind::Tri,
             ],
-            main_width_m: 4.0e-3,
-            throat_width_m: 55.0e-6,
-            throat_length_m: 110.0e-6,
-            channel_height_m: 1.0e-3,
+            main_width_m: Length::from_base(4.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
             first_trifurcation_center_frac: 0.55,
             later_trifurcation_center_frac: 0.45,
             bifurcation_treatment_frac: 0.68,

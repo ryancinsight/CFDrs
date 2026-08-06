@@ -35,12 +35,15 @@ pub fn primitive_selective_split_tree_rect(
 ) -> NetworkBlueprint {
     let request = PrimitiveSelectiveTreeRequest {
         name: name.into(),
-        box_dims_mm,
+        box_dims_m: (
+            Length::from_base(box_dims_mm.0 * 1.0e-3),
+            Length::from_base(box_dims_mm.1 * 1.0e-3),
+        ),
         split_sequence: split_sequence.to_vec(),
-        main_width_m,
-        throat_width_m,
-        throat_length_m,
-        channel_height_m: height_m,
+        main_width_m: Length::from_base(main_width_m),
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_length_m: Length::from_base(throat_length_m),
+        channel_height_m: Length::from_base(height_m),
         first_trifurcation_center_frac,
         later_trifurcation_center_frac,
         bifurcation_treatment_frac,

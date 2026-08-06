@@ -66,14 +66,14 @@ fn blueprint_channel<'a>(bp: &'a NetworkBlueprint, edge_id: &str) -> &'a Channel
 fn selective_serpentine_blueprint(spec: CenterSerpentinePathSpec) -> NetworkBlueprint {
     let request = SelectiveTreeRequest {
         name: format!("selective-serp-{}", spec.segments),
-        box_dims_mm: (127.76, 85.47),
-        trunk_length_m: 12.0e-3,
-        branch_length_m: 10.0e-3,
-        hybrid_branch_length_m: 8.0e-3,
-        main_width_m: 1.2e-3,
-        throat_width_m: 0.4e-3,
-        throat_length_m: 3.0e-3,
-        channel_height_m: 0.5e-3,
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        trunk_length_m: Length::from_base(12.0e-3),
+        branch_length_m: Length::from_base(10.0e-3),
+        hybrid_branch_length_m: Length::from_base(8.0e-3),
+        main_width_m: Length::from_base(1.2e-3),
+        throat_width_m: Length::from_base(0.4e-3),
+        throat_length_m: Length::from_base(3.0e-3),
+        channel_height_m: Length::from_base(0.5e-3),
         topology: SelectiveTreeTopology::CascadeCenterTrifurcation {
             n_levels: 3,
             center_frac: 0.45,

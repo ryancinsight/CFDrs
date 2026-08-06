@@ -11,7 +11,7 @@ use super::super::super::types::Point2D;
 use super::path_geometry::{
     build_serpentine_lobe_path, infer_serpentine_shape, polyline_length_mm,
 };
-use super::{CenterSerpentinePathSpec, SelectiveTreeRequest};
+use super::CenterSerpentinePathSpec;
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::geometry::metadata::{
     ChannelVisualRole, GeometryAuthoringProvenance, JunctionFamily, VenturiGeometryMetadata,

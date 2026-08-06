@@ -1,6 +1,7 @@
+use super::super::SelectiveTreeGeometry;
 use super::{
     CenterSerpentinePathSpec, ChannelShape, ChannelVisualRole, JunctionFamily, NodeKind,
-    SelectiveTreeBuilder, SelectiveTreeRequest, VenturiGeometryMetadata,
+    SelectiveTreeBuilder, VenturiGeometryMetadata,
 };
 use crate::domain::therapy_metadata::TherapyZone;
 use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
@@ -12,7 +13,7 @@ impl SelectiveTreeBuilder {
         center_frac: f64,
         venturi: bool,
         center_serp: Option<CenterSerpentinePathSpec>,
-        req: &SelectiveTreeRequest,
+        req: &SelectiveTreeGeometry,
     ) {
         let y_mid = self.y_mid();
         self.add_node("inlet", (0.0, y_mid), NodeKind::Inlet, None);
