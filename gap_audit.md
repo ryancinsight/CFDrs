@@ -31,6 +31,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Cross-section authoring geometry (CFDRS-AEQ-MET-51, 2026-08-05)
+
+The post-MET50 public-contract scan found `CrossSectionSpec` still exposes
+circular diameter and rectangular width/height as raw metre scalars. Its
+derived hydraulic diameter, area, and dimensions also return raw values while
+feeding cfd-1d conversion and cfd-optim reporting/validation paths.
+
+Status: in progress. The bounded slice covers the `CrossSectionSpec` fields,
+derived diameter/area/dims methods, and direct cfd-schematics, cfd-1d, and
+cfd-optim consumers. `ChannelSpec.length_m`, `ChannelShape`,
+`BlueprintTopologySpec` envelope dimensions, and reporting-only DTOs remain
+separate audit boundaries. The target contract is Eunomia real-valued
+`Length<f64>` and `Area<f64>`, with scalar extraction only at resistance,
+shear, mesh, reporting, and serialization formula edges. No complex or
+imaginary SI quantity applies.
+
 ## Channel route authoring geometry (CFDRS-AEQ-MET-50, 2026-08-05)
 
 The post-MET49 public-contract scan found `ChannelRouteSpec` still exposes

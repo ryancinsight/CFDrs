@@ -108,6 +108,22 @@
   cfd-schematics doctests pass 16/16; and cfd-optim doctests pass 2 with 3
   ignored. The contract remains real-valued; no imaginary SI quantity applies.
 
+- **CFDRS-AEQ-MET-51 [major] - Type cross-section authoring geometry (in
+  progress 2026-08-05; owner=current Codex session; scope=
+  `CrossSectionSpec` diameter/width/height fields, derived diameter/area/dims
+  methods, and direct cfd-schematics/cfd-1d/cfd-optim consumers).** The public
+  cross-section enum still exposes metre and square-metre values as raw
+  scalars. Type its linear fields with Eunomia `Length<f64>`, return typed
+  `Length`/`Area` from derived geometry methods, and keep scalar extraction at
+  resistance, shear, mesh, reporting, and serialization formula boundaries.
+  Non-goals are `ChannelSpec.length_m`, `ChannelShape`, `BlueprintTopologySpec`
+  envelope fields, and reporting-only DTOs, which remain separate audit
+  boundaries. Acceptance is a typed enum-field scan, JSON value round-trip,
+  updated cfd-schematics/cfd-1d/cfd-optim callers, warning-denied all-targets
+  Clippy/Nextest, doctests, synchronized audit/changelog/ADR evidence, and
+  confirmation that cross-section quantities remain real-valued with no
+  imaginary SI unit.
+
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=
   `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**
