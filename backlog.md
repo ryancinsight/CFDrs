@@ -71,6 +71,25 @@
   (`aa2e43da-1a8b-411c-b23f-462c2c38411f`) pass. The full cfd-schematics
   doctest gate passes 16/16 at the delivered revision.
 
+- **CFDRS-AEQ-MET-49 [major] - Type Venturi topology authoring geometry (done
+  2026-08-05; owner=current Codex session; scope=`ThroatGeometrySpec` and its
+  direct schematic/optimization callers).** The public topology authoring
+  contract now carries throat/inlet/outlet dimensions as Aequitas `Length`
+  values and convergent/divergent half-angles as Aequitas `Angle` values.
+  Canonical angles store Eunomia base radians; raw request values convert only
+  at the authoring boundary, and scalar extraction remains at
+  validation/trig/formula/mesh/reporting/serialization boundaries. All direct
+  constructors, optimization consumers, root integration fixtures, and
+  test-only assertions are migrated without adapters. The builder/JSON
+  round-trip regression preserves value semantics within the derived one-
+  binary64-round-trip bound. The contract is real-valued; no imaginary SI
+  quantity applies. Evidence: all-targets warning-denied Clippy for
+  cfd-schematics and cfd-optim; cfd-schematics Nextest 159/159
+  (`c2805e0d-87f7-4e10-a767-589960f1b4e0`); cfd-optim Nextest 137/137 across
+  five binaries (`628fdceb-c5f0-4927-a8a1-e2dd9009c488`); focused schematic
+  export Nextest 7/7 (`99d0c65e-4428-45ad-a3fd-a02646324ee0`); cfd-schematics
+  doctests 16/16; and cfd-optim doctests 2 passed with 3 ignored.
+
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=
   `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**

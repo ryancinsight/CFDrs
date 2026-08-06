@@ -384,8 +384,12 @@ pub fn compute_blueprint_report_metrics(
         .venturi_placements
         .iter()
         .map(|placement| {
-            (placement.throat_geometry.inlet_width_m
-                / placement.throat_geometry.throat_width_m.max(1.0e-18))
+            (placement.throat_geometry.inlet_width_m.into_base()
+                / placement
+                    .throat_geometry
+                    .throat_width_m
+                    .into_base()
+                    .max(1.0e-18))
             .max(1.0)
         })
         .fold(1.0_f64, f64::max);
@@ -418,9 +422,9 @@ pub fn compute_blueprint_report_metrics(
                                 || sample.id.starts_with(&spec.target_channel_id)
                         })
                         .map(|sample| {
-                            let inlet_area = (spec.throat_geometry.inlet_width_m
-                                * spec.throat_geometry.throat_height_m)
-                                .max(1.0e-18);
+                            let inlet_area = (spec.throat_geometry.inlet_width_m.into_base()
+                                * spec.throat_geometry.throat_height_m.into_base())
+                            .max(1.0e-18);
                             let upstream_velocity = sample.flow_m3_s.into_base().abs() / inlet_area;
                             let ratio = placement.effective_throat_velocity_m_s.into_base()
                                 / upstream_velocity.max(1.0e-18);

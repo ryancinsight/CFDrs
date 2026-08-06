@@ -47,6 +47,7 @@ pub use tree::{asymmetric_split_tree_spec, symmetric_n_furcation_spec};
 mod tests {
     use super::*;
     use crate::topology::model::{SplitKind, VenturiConfig, VenturiPlacementMode};
+    use aequitas::systems::si::quantities::{Angle, Length};
 
     #[test]
     fn symmetric_n_furcation_spec_produces_equal_branches() {
@@ -135,13 +136,13 @@ mod tests {
                 target_channel_ids: vec!["lane_b".to_string()],
                 serial_throat_count: 1,
                 throat_geometry: crate::topology::ThroatGeometrySpec {
-                    throat_width_m: 60e-6,
-                    throat_height_m: 1e-3,
-                    throat_length_m: 200e-6,
-                    inlet_width_m: 0.0,
-                    outlet_width_m: 0.0,
-                    convergent_half_angle_deg: 0.0,
-                    divergent_half_angle_deg: 0.0,
+                    throat_width_m: Length::from_base(60e-6),
+                    throat_height_m: Length::from_base(1e-3),
+                    throat_length_m: Length::from_base(200e-6),
+                    inlet_width_m: Length::from_base(0.0),
+                    outlet_width_m: Length::from_base(0.0),
+                    convergent_half_angle: Angle::from_base(0.0),
+                    divergent_half_angle: Angle::from_base(0.0),
                 },
                 placement_mode: VenturiPlacementMode::StraightSegment,
             },

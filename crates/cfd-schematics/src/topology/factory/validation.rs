@@ -129,41 +129,47 @@ pub fn validate_throat_geometry(
     geometry: &ThroatGeometrySpec,
     placement_id: &str,
 ) -> Result<(), String> {
-    if geometry.throat_width_m <= 0.0 {
+    if geometry.throat_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_width_m must be positive"
         ));
     }
-    if geometry.throat_height_m <= 0.0 {
+    if geometry.throat_height_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_height_m must be positive"
         ));
     }
-    if geometry.throat_length_m <= 0.0 {
+    if geometry.throat_length_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': throat_length_m must be positive"
         ));
     }
-    if geometry.inlet_width_m <= 0.0 {
+    if geometry.inlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': inlet_width_m must be positive"
         ));
     }
-    if geometry.outlet_width_m <= 0.0 {
+    if geometry.outlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "Venturi '{placement_id}': outlet_width_m must be positive"
         ));
     }
-    if geometry.convergent_half_angle_deg <= 0.0 || geometry.convergent_half_angle_deg >= 90.0 {
+    if geometry.convergent_half_angle.into_base() <= 0.0
+        || geometry.convergent_half_angle.into_base() >= 90.0_f64.to_radians()
+    {
         return Err(format!(
-            "Venturi '{}': convergent_half_angle_deg must be in (0, 90): {}",
-            placement_id, geometry.convergent_half_angle_deg
+            "Venturi '{}': convergent_half_angle must be in (0, 90): {} degrees",
+            placement_id,
+            geometry.convergent_half_angle.into_base().to_degrees()
         ));
     }
-    if geometry.divergent_half_angle_deg <= 0.0 || geometry.divergent_half_angle_deg >= 90.0 {
+    if geometry.divergent_half_angle.into_base() <= 0.0
+        || geometry.divergent_half_angle.into_base() >= 90.0_f64.to_radians()
+    {
         return Err(format!(
-            "Venturi '{}': divergent_half_angle_deg must be in (0, 90): {}",
-            placement_id, geometry.divergent_half_angle_deg
+            "Venturi '{}': divergent_half_angle must be in (0, 90): {} degrees",
+            placement_id,
+            geometry.divergent_half_angle.into_base().to_degrees()
         ));
     }
     Ok(())

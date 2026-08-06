@@ -53,6 +53,7 @@ mod tests {
         ChannelRouteSpec, ParallelChannelSpec, VenturiConfig, VenturiPlacementMode,
     };
     use crate::{BlueprintTopologyFactory, TreatmentActuationMode};
+    use aequitas::systems::si::quantities::{Angle, Length};
 
     #[test]
     fn add_venturi_attaches_metadata_to_existing_parallel_channel() {
@@ -82,13 +83,13 @@ mod tests {
                 target_channel_ids: vec!["treatment_lane".to_string()],
                 serial_throat_count: 2,
                 throat_geometry: crate::topology::ThroatGeometrySpec {
-                    throat_width_m: 80.0e-6,
-                    throat_height_m: 1.0e-3,
-                    throat_length_m: 300.0e-6,
-                    inlet_width_m: 0.0,
-                    outlet_width_m: 0.0,
-                    convergent_half_angle_deg: 7.0,
-                    divergent_half_angle_deg: 7.0,
+                    throat_width_m: Length::from_base(80.0e-6),
+                    throat_height_m: Length::from_base(1.0e-3),
+                    throat_length_m: Length::from_base(300.0e-6),
+                    inlet_width_m: Length::from_base(0.0),
+                    outlet_width_m: Length::from_base(0.0),
+                    convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                    divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
                 },
                 placement_mode: VenturiPlacementMode::StraightSegment,
             })

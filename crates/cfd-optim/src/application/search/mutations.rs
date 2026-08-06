@@ -1,7 +1,7 @@
 use crate::application::objectives::evaluate_goal;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Angle, Length, Pressure, VolumetricFlowRate};
 use cfd_schematics::{
     domain::model::NetworkBlueprint, promote_milestone12_option1_to_option2,
     BlueprintTopologyFactory, BlueprintTopologyMutation, SerpentineSpec, SplitKind,
@@ -22,13 +22,15 @@ fn route_throat_geometry(route: &cfd_schematics::ChannelRouteSpec) -> ThroatGeom
     let inlet_width_m = route.width_m;
     let throat_width_m = (route.width_m * 0.22).clamp(35.0e-6, route.width_m * 0.85);
     ThroatGeometrySpec {
-        throat_width_m,
-        throat_height_m: route.height_m,
-        throat_length_m: (route.length_m / 8.0).clamp(180.0e-6, route.length_m.max(220.0e-6)),
-        inlet_width_m,
-        outlet_width_m: inlet_width_m,
-        convergent_half_angle_deg: 7.0,
-        divergent_half_angle_deg: 7.0,
+        throat_width_m: Length::from_base(throat_width_m),
+        throat_height_m: Length::from_base(route.height_m),
+        throat_length_m: Length::from_base(
+            (route.length_m / 8.0).clamp(180.0e-6, route.length_m.max(220.0e-6)),
+        ),
+        inlet_width_m: Length::from_base(inlet_width_m),
+        outlet_width_m: Length::from_base(inlet_width_m),
+        convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+        divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
     }
 }
 
@@ -500,7 +502,8 @@ pub fn generate_ga_mutations(
             (2, 1.3, "v2w"), // wider throat → higher σ, less hemolysis
         ] {
             let mut varied_geom = venturi_geometry.clone();
-            varied_geom.throat_width_m *= width_factor;
+            varied_geom.throat_width_m =
+                Length::from_base(varied_geom.throat_width_m.into_base() * width_factor);
             let venturi_mutation = apply_labeled_mutation(
                 &seed.blueprint,
                 BlueprintTopologyMutation::SetTreatmentChannelVenturi {

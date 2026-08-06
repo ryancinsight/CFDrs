@@ -4,6 +4,7 @@ use crate::topology::model::{
     VenturiConfig, VenturiPlacementMode,
 };
 use crate::topology::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::{Angle, Length};
 
 use super::super::modifiers::with_venturi;
 use super::support::{
@@ -112,13 +113,13 @@ pub fn milestone12_primitive_selective_tree_spec(
                 target_channel_ids: request.venturi_target_channel_ids.clone(),
                 serial_throat_count: request.venturi_throat_count,
                 throat_geometry: ThroatGeometrySpec {
-                    throat_width_m: request.venturi_throat_width_m,
-                    throat_height_m: request.channel_height_m,
-                    throat_length_m: request.venturi_throat_length_m,
-                    inlet_width_m: outlet_treatment_width_m,
-                    outlet_width_m: outlet_treatment_width_m,
-                    convergent_half_angle_deg: 7.0,
-                    divergent_half_angle_deg: 7.0,
+                    throat_width_m: Length::from_base(request.venturi_throat_width_m),
+                    throat_height_m: Length::from_base(request.channel_height_m),
+                    throat_length_m: Length::from_base(request.venturi_throat_length_m),
+                    inlet_width_m: Length::from_base(outlet_treatment_width_m),
+                    outlet_width_m: Length::from_base(outlet_treatment_width_m),
+                    convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                    divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
                 },
                 placement_mode: request.venturi_placement_mode,
             },
@@ -223,13 +224,13 @@ pub fn promote_milestone12_option1_to_option2(
             target_channel_ids: treatment_channel_ids,
             serial_throat_count: serial_throat_count.max(1),
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m,
-                throat_height_m,
-                throat_length_m,
-                inlet_width_m,
-                outlet_width_m: inlet_width_m,
-                convergent_half_angle_deg: 7.0,
-                divergent_half_angle_deg: 7.0,
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(throat_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
+                inlet_width_m: Length::from_base(inlet_width_m),
+                outlet_width_m: Length::from_base(inlet_width_m),
+                convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
             },
             placement_mode,
         },

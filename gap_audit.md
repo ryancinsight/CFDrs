@@ -31,6 +31,26 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Venturi topology authoring geometry (CFDRS-AEQ-MET-49, 2026-08-05)
+
+The post-MET48 scan leaves `ThroatGeometrySpec` as the next public physical
+boundary: throat/inlet/outlet dimensions are raw metres and half-angles are
+raw degrees until the builder creates typed Venturi metadata. This item
+tracks the authoring contract separately from the already typed metadata and
+Dean-site result.
+
+The gap is closed. `ThroatGeometrySpec` now carries Eunomia real-valued
+`Length<f64>` dimensions in base metres and `Angle<f64>` half-angles in base
+radians. Every schematic, optimization, test, and integration constructor was
+migrated without an adapter; scalar extraction remains only at validation,
+trigonometric, formula, mesh, reporting, and serialization edges. The builder
+and JSON round-trip regression preserve the typed values within the one-
+binary64-round-trip bound. `cfd-schematics` all-targets Clippy and Nextest pass
+159/159; `cfd-optim` all-targets Clippy and Nextest pass 137/137 across five
+binaries, its schematic-export target passes 7/7, and the exact current-
+revision cfd-schematics doctest gate passes 16/16. The contract is real-valued;
+no complex or imaginary SI quantity applies.
+
 ## Dean-site topology analysis metrics (CFDRS-AEQ-MET-48, 2026-08-05)
 
 The post-MET47 public-contract scan found `DeanSiteEstimate` still exposed a

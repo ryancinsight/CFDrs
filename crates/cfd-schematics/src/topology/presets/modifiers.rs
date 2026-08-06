@@ -4,7 +4,8 @@ use super::super::model::{
     BlueprintTopologySpec, SerpentineSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiConfig, VenturiPlacementMode, VenturiPlacementSpec,
 };
-use super::plate_presets::VENTURI_HALF_ANGLE_DEG;
+use super::plate_presets::default_venturi_half_angle;
+use aequitas::systems::si::quantities::Length;
 
 fn resolved_venturi_geometry(
     spec: &BlueprintTopologySpec,
@@ -13,31 +14,33 @@ fn resolved_venturi_geometry(
 ) -> ThroatGeometrySpec {
     let resolved_width_m = spec
         .channel_route(channel_id)
-        .map_or(geometry.throat_width_m * 3.0, |route| route.width_m);
+        .map_or(geometry.throat_width_m * 3.0, |route| {
+            Length::from_base(route.width_m)
+        });
 
     ThroatGeometrySpec {
         throat_width_m: geometry.throat_width_m,
         throat_height_m: geometry.throat_height_m,
         throat_length_m: geometry.throat_length_m,
-        inlet_width_m: if geometry.inlet_width_m > 0.0 {
+        inlet_width_m: if geometry.inlet_width_m.into_base() > 0.0 {
             geometry.inlet_width_m
         } else {
             resolved_width_m
         },
-        outlet_width_m: if geometry.outlet_width_m > 0.0 {
+        outlet_width_m: if geometry.outlet_width_m.into_base() > 0.0 {
             geometry.outlet_width_m
         } else {
             resolved_width_m
         },
-        convergent_half_angle_deg: if geometry.convergent_half_angle_deg > 0.0 {
-            geometry.convergent_half_angle_deg
+        convergent_half_angle: if geometry.convergent_half_angle.into_base() > 0.0 {
+            geometry.convergent_half_angle
         } else {
-            VENTURI_HALF_ANGLE_DEG
+            default_venturi_half_angle()
         },
-        divergent_half_angle_deg: if geometry.divergent_half_angle_deg > 0.0 {
-            geometry.divergent_half_angle_deg
+        divergent_half_angle: if geometry.divergent_half_angle.into_base() > 0.0 {
+            geometry.divergent_half_angle
         } else {
-            VENTURI_HALF_ANGLE_DEG
+            default_venturi_half_angle()
         },
     }
 }
@@ -91,13 +94,13 @@ pub fn with_venturi_placements(
             target_channel_ids: Vec::new(),
             serial_throat_count,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m,
-                throat_height_m,
-                throat_length_m,
-                inlet_width_m: 0.0,
-                outlet_width_m: 0.0,
-                convergent_half_angle_deg: VENTURI_HALF_ANGLE_DEG,
-                divergent_half_angle_deg: VENTURI_HALF_ANGLE_DEG,
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(throat_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
+                inlet_width_m: Length::from_base(0.0),
+                outlet_width_m: Length::from_base(0.0),
+                convergent_half_angle: default_venturi_half_angle(),
+                divergent_half_angle: default_venturi_half_angle(),
             },
             placement_mode,
         },
@@ -155,6 +158,7 @@ mod tests {
     use crate::topology::model::{
         BranchRole, BranchSpec, ChannelRouteSpec, ParallelChannelSpec, SplitKind, SplitStageSpec,
     };
+    use aequitas::systems::si::quantities::Angle;
 
     #[test]
     fn venturi_modifier_targets_explicit_parallel_channel_ids() {
@@ -208,13 +212,13 @@ mod tests {
                 ],
                 serial_throat_count: 2,
                 throat_geometry: ThroatGeometrySpec {
-                    throat_width_m: 80.0e-6,
-                    throat_height_m: 1.0e-3,
-                    throat_length_m: 300.0e-6,
-                    inlet_width_m: 0.0,
-                    outlet_width_m: 0.0,
-                    convergent_half_angle_deg: 0.0,
-                    divergent_half_angle_deg: 0.0,
+                    throat_width_m: Length::from_base(80.0e-6),
+                    throat_height_m: Length::from_base(1.0e-3),
+                    throat_length_m: Length::from_base(300.0e-6),
+                    inlet_width_m: Length::from_base(0.0),
+                    outlet_width_m: Length::from_base(0.0),
+                    convergent_half_angle: Angle::from_base(0.0),
+                    divergent_half_angle: Angle::from_base(0.0),
                 },
                 placement_mode: VenturiPlacementMode::StraightSegment,
             },
@@ -226,7 +230,46 @@ mod tests {
             "straight_lane"
         );
         assert!(
-            (updated.venturi_placements[1].throat_geometry.inlet_width_m - 1.5e-3).abs() < 1.0e-12
+            (updated.venturi_placements[1]
+                .throat_geometry
+                .inlet_width_m
+                .into_base()
+                - 1.5e-3)
+                .abs()
+                < 1.0e-12
+        );
+    }
+
+    #[test]
+    fn typed_venturi_geometry_round_trips_si_base_units() {
+        let geometry = ThroatGeometrySpec {
+            throat_width_m: Length::from_base(80.0e-6),
+            throat_height_m: Length::from_base(1.0e-3),
+            throat_length_m: Length::from_base(300.0e-6),
+            inlet_width_m: Length::from_base(1.5e-3),
+            outlet_width_m: Length::from_base(1.5e-3),
+            convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+            divergent_half_angle: Angle::from_base(9.0_f64.to_radians()),
+        };
+
+        let encoded = serde_json::to_string(&geometry).expect("serialize typed geometry");
+        let decoded: ThroatGeometrySpec =
+            serde_json::from_str(&encoded).expect("deserialize typed geometry");
+
+        assert!((decoded.throat_width_m.into_base() - 80.0e-6).abs() <= f64::EPSILON);
+        assert!((decoded.throat_height_m.into_base() - 1.0e-3).abs() <= f64::EPSILON);
+        assert!((decoded.throat_length_m.into_base() - 300.0e-6).abs() <= f64::EPSILON);
+        assert!((decoded.inlet_width_m.into_base() - 1.5e-3).abs() <= f64::EPSILON);
+        assert!((decoded.outlet_width_m.into_base() - 1.5e-3).abs() <= f64::EPSILON);
+        // JSON performs one binary64 decimal round-trip; one machine epsilon
+        // at the value's scale bounds the resulting representation drift.
+        let angle_tolerance = f64::EPSILON * 7.0_f64.to_radians().abs().max(1.0);
+        assert!(
+            (decoded.convergent_half_angle.into_base() - 7.0_f64.to_radians()).abs()
+                <= angle_tolerance
+        );
+        assert!(
+            (decoded.divergent_half_angle.into_base() - 9.0_f64.to_radians()).abs() <= f64::EPSILON
         );
     }
 

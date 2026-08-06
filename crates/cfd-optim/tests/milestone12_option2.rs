@@ -179,7 +179,8 @@ fn option2_candidate_space_contains_venturi_topologies() {
         for placement in &spec.venturi_placements {
             let g = &placement.throat_geometry;
             assert!(
-                g.throat_width_m > 0.0 && g.throat_width_m < g.inlet_width_m,
+                g.throat_width_m.into_base() > 0.0
+                    && g.throat_width_m.into_base() < g.inlet_width_m.into_base(),
                 "throat must be narrower than inlet for '{}'",
                 candidate.id
             );

@@ -9,6 +9,7 @@ use crate::topology::{
     VenturiConfig, VenturiPlacementMode,
 };
 use crate::BlueprintTopologyFactory;
+use aequitas::systems::si::quantities::{Angle, Length};
 
 fn venturi_lane(
     channel_id: impl Into<String>,
@@ -54,13 +55,13 @@ fn venturi_bundle_blueprint(
                 .collect(),
             serial_throat_count: 1,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m,
-                throat_height_m: channel_height_m,
-                throat_length_m,
-                inlet_width_m: 0.0,
-                outlet_width_m: 0.0,
-                convergent_half_angle_deg: 7.0,
-                divergent_half_angle_deg: 7.0,
+                throat_width_m: Length::from_base(throat_width_m),
+                throat_height_m: Length::from_base(channel_height_m),
+                throat_length_m: Length::from_base(throat_length_m),
+                inlet_width_m: Length::from_base(0.0),
+                outlet_width_m: Length::from_base(0.0),
+                convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
             },
             placement_mode: VenturiPlacementMode::StraightSegment,
         },

@@ -226,10 +226,10 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         split_sequence,
         main_width_m: spec.inlet_width_m,
         throat_width_m: strongest_venturi.map_or(parent_width_m, |placement| {
-            placement.throat_geometry.throat_width_m
+            placement.throat_geometry.throat_width_m.into_base()
         }),
         throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
-            placement.throat_geometry.throat_length_m
+            placement.throat_geometry.throat_length_m.into_base()
         }),
         channel_height_m: representative_height_m,
         first_trifurcation_center_frac,

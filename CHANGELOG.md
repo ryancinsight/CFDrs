@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
+  `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical
+  half-angle fields store base radians; conversion from raw request values is
+  confined to the authoring boundary, while validation, formulas, mesh, and
+  serialization use explicit base-scalar extraction. The contract remains
+  real-valued; no complex or imaginary SI unit applies.
+
 - **Breaking:** Type Venturi geometry metadata with Aequitas `Length`,
   `Angle`, and `Dimensionless` values, and type `ChannelVenturiSpec` pressure
   and cavitation-dose results. Extract Eunomia base scalars only at numerical,

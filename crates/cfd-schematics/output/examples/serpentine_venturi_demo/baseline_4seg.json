@@ -185,8 +185,8 @@
         "throat_length_m": 0.003,
         "inlet_width_m": 0.002,
         "outlet_width_m": 0.002,
-        "convergent_half_angle_deg": 7.0,
-        "divergent_half_angle_deg": 7.0,
+        "convergent_half_angle": 0.12217304763960307,
+        "divergent_half_angle": 0.12217304763960307,
         "throat_position": 0.5
       }
     },
@@ -275,8 +275,8 @@
         "throat_length_m": 0.003,
         "inlet_width_m": 0.002,
         "outlet_width_m": 0.002,
-        "convergent_half_angle_deg": 7.0,
-        "divergent_half_angle_deg": 7.0,
+        "convergent_half_angle": 0.12217304763960307,
+        "divergent_half_angle": 0.12217304763960307,
         "throat_position": 0.5
       }
     },
@@ -365,8 +365,8 @@
         "throat_length_m": 0.003,
         "inlet_width_m": 0.002,
         "outlet_width_m": 0.002,
-        "convergent_half_angle_deg": 7.0,
-        "divergent_half_angle_deg": 7.0,
+        "convergent_half_angle": 0.12217304763960307,
+        "divergent_half_angle": 0.12217304763960307,
         "throat_position": 0.5
       }
     },
@@ -573,8 +573,8 @@
           "throat_length_m": 0.003,
           "inlet_width_m": 0.002,
           "outlet_width_m": 0.002,
-          "convergent_half_angle_deg": 7.0,
-          "divergent_half_angle_deg": 7.0
+          "convergent_half_angle": 0.12217304763960307,
+          "divergent_half_angle": 0.12217304763960307
         },
         "placement_mode": "CurvaturePeakDeanNumber"
       },
@@ -588,8 +588,8 @@
           "throat_length_m": 0.003,
           "inlet_width_m": 0.002,
           "outlet_width_m": 0.002,
-          "convergent_half_angle_deg": 7.0,
-          "divergent_half_angle_deg": 7.0
+          "convergent_half_angle": 0.12217304763960307,
+          "divergent_half_angle": 0.12217304763960307
         },
         "placement_mode": "CurvaturePeakDeanNumber"
       },
@@ -603,8 +603,8 @@
           "throat_length_m": 0.003,
           "inlet_width_m": 0.002,
           "outlet_width_m": 0.002,
-          "convergent_half_angle_deg": 7.0,
-          "divergent_half_angle_deg": 7.0
+          "convergent_half_angle": 0.12217304763960307,
+          "divergent_half_angle": 0.12217304763960307
         },
         "placement_mode": "CurvaturePeakDeanNumber"
       }

@@ -731,7 +731,7 @@ fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignatu
     let throat_width_m = topology
         .venturi_placements
         .iter()
-        .map(|placement| placement.throat_geometry.throat_width_m)
+        .map(|placement| placement.throat_geometry.throat_width_m.into_base())
         .fold(f64::INFINITY, f64::min);
     let max_dean = candidate
         .evaluation

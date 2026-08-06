@@ -1,5 +1,5 @@
 use crate::domain::therapy_metadata::TherapyZone;
-use aequitas::systems::si::quantities::{Dimensionless, Length};
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,13 +127,13 @@ pub type ParallelChannelSpec = TopologyChannelSpec;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThroatGeometrySpec {
-    pub throat_width_m: f64,
-    pub throat_height_m: f64,
-    pub throat_length_m: f64,
-    pub inlet_width_m: f64,
-    pub outlet_width_m: f64,
-    pub convergent_half_angle_deg: f64,
-    pub divergent_half_angle_deg: f64,
+    pub throat_width_m: Length<f64>,
+    pub throat_height_m: Length<f64>,
+    pub throat_length_m: Length<f64>,
+    pub inlet_width_m: Length<f64>,
+    pub outlet_width_m: Length<f64>,
+    pub convergent_half_angle: Angle<f64>,
+    pub divergent_half_angle: Angle<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Angle, Length};
 use cfd_optim::save_blueprint_schematic_svg;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
@@ -109,13 +110,13 @@ fn selective_blueprint(
             target_channel_id: BlueprintTopologySpec::branch_channel_id(&last_stage_id, "ctc"),
             serial_throat_count: 2,
             throat_geometry: ThroatGeometrySpec {
-                throat_width_m: 45e-6,
-                throat_height_m: 1.0e-3,
-                throat_length_m: 250e-6,
-                inlet_width_m: 1.4e-3,
-                outlet_width_m: 1.4e-3,
-                convergent_half_angle_deg: 15.0,
-                divergent_half_angle_deg: 9.0,
+                throat_width_m: Length::from_base(45e-6),
+                throat_height_m: Length::from_base(1.0e-3),
+                throat_length_m: Length::from_base(250e-6),
+                inlet_width_m: Length::from_base(1.4e-3),
+                outlet_width_m: Length::from_base(1.4e-3),
+                convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(9.0_f64.to_radians()),
             },
             placement_mode: VenturiPlacementMode::StraightSegment,
         }]

@@ -140,6 +140,13 @@ mod tests {
         Dimensionless, Length, MassDensity, Pressure, VolumetricFlowRate,
     };
 
+    fn assert_close(actual: f64, expected: f64) {
+        // The tested formulas have fewer than eight binary64 rounding steps;
+        // eight machine epsilons at the expected-value scale is conservative.
+        let tolerance = 8.0 * f64::EPSILON * expected.abs().max(1.0);
+        assert!((actual - expected).abs() <= tolerance);
+    }
+
     #[test]
     fn cumulative_cavitation_dose_compounds_per_throat() {
         let spec = ChannelVenturiSpec {
@@ -150,10 +157,10 @@ mod tests {
             inter_throat_spacing_m: Length::from_base(1.0),
         };
 
-        assert_eq!(
+        assert_close(
             spec.cumulative_cavitation_dose(Dimensionless::from_base(0.5))
                 .into_base(),
-            0.75
+            0.75,
         );
     }
 
@@ -173,7 +180,7 @@ mod tests {
             Dimensionless::from_base(0.25),
         );
 
-        assert_eq!(pressure.into_base(), 4.5);
+        assert_close(pressure.into_base(), 4.5);
     }
 
     #[test]
@@ -183,7 +190,7 @@ mod tests {
             MassDensity::from_base(2.0),
         );
 
-        assert_eq!(compliance.mi_equiv.into_base(), 2.0_f64.sqrt() / 1540.0);
+        assert_close(compliance.mi_equiv.into_base(), 2.0_f64.sqrt() / 1540.0);
         assert_eq!(
             compliance.therapeutic_mi_lower,
             Dimensionless::from_base(0.3)
