@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-55 [major] - Type topology envelope geometry (claimed
+  2026-08-05; owner=current Codex session; scope=`BlueprintTopologySpec` plate
+  dimensions, inlet/outlet widths, trunk length, and outlet-tail length plus
+  direct topology, mesh, reporting, optimization, and serialization consumers).**
+  Replace the public envelope raw scalars with Eunomia `Length<f64>` values in
+  base metres, rename the millimetre field to its base-metre contract, and
+  extract scalars only at mesh, reporting, validation, and formula boundaries.
+  No adapter or duplicate scalar field is permitted. The contract is
+  real-valued; no complex or imaginary SI quantity applies. Acceptance is a
+  residue-free source scan for the envelope fields, JSON value-semantic
+  coverage, affected package checks, warning-denied Clippy, focused Nextest,
+  doctests or an explicitly recorded environment residual, and synchronized
+  audit/ADR/changelog evidence.
+
 - **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (done
   2026-08-05; owner=current Codex session; scope=`SubBranchSpec.width_m` and
   `SubBranchSpec.height_m` plus cfd-optim recovery-flow consumers and

@@ -31,6 +31,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Topology envelope geometry (CFDRS-AEQ-MET-55, claimed 2026-08-05)
+
+The post-MET54 public-contract scan found raw envelope dimensions in
+`BlueprintTopologySpec`: `box_dims_mm`, inlet and outlet widths, trunk length,
+and outlet-tail length. These values cross topology authoring, mesh placement,
+optimization/reporting, validation, and serialized blueprint metadata. The
+existing millimetre field name also conflicts with the base-metre contract
+used by typed Eunomia lengths.
+
+The implementation is in progress. This real-valued envelope geometry has no
+complex or imaginary SI quantity.
+
 ## Recovery sub-branch geometry (CFDRS-AEQ-MET-54, 2026-08-05)
 
 The post-MET53 public-contract scan found raw metre fields in
