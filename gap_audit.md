@@ -56,13 +56,23 @@ fields. Topology authoring structs remain a separate follow-up domain: their
 raw degree/metre inputs are converted at the typed metadata boundary.
 
 Static verification passes with `cargo metadata --offline --locked
---no-deps`, targeted rustfmt, `git diff --check`, and residue scans. Two
-`cargo check -p cfd-schematics --lib --offline -j 1` attempts were bounded at
-124 seconds and 184 seconds while peer workspace checks held the shared Atlas
-target/build lock; they produced no source diagnostic before timeout. Native
-Nextest, package Clippy, and doctest collection remain pending on that shared
-build resource. A shared Atlas target-cache failure or provider/linker failure
-is verification evidence about the environment, not a remaining metric gap.
+--no-deps`, targeted rustfmt, `git diff --check`, and residue scans. The
+warning-denied `cfd-schematics` Clippy gate passes, and its focused Nextest
+passes 158/158 (`47490ed6-44c0-448c-af2c-dad01cdf5c18`). The `cfd-1d` library
+Nextest passes 498/498 (`0ab2db66-61ea-4687-b1cd-0ae0b4d2c7a1`) and its
+`blueprint_metadata_physics` integration target passes 5/5
+(`fc331715-f569-434e-ac39-878a71527903`). Focused source checks pass for
+`cfd-1d`, `cfd-2d`, and `cfd-schematic-mesh` (library/example). The full
+`cfd-schematics` doctest gate ran 15/16; the unrelated
+`SmoothTransitionConfig` doctest executable was quarantined by Windows
+Defender with OS error 225 and `Trojan:Win32/Wacatac.C!ml` (ThreatID
+`2147749372`). A targeted retry was blocked by the shared target queue and
+timed out before producing a second Rust result. No Defender exclusion, test
+weakening, or source workaround was applied. The doctest result is therefore
+a host verification residual, not a remaining metric gap. The unused local
+`[patch]` and `profile.test.env` warnings are existing stack configuration
+warnings outside this slice; provider/linker failures remain separately
+tracked.
 
 ## Schematic mesh geometry metrics (CFDRS-AEQ-MET-46, 2026-08-02)
 

@@ -31,7 +31,7 @@
 
 ## Active integration
 
-- **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (in progress
+- **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (done
   2026-08-05; owner=current Codex session; scope=`cfd-schematics` therapy
   metadata and its direct geometry/1D consumers).** Venturi geometry metadata
   now carries Aequitas `Length`, `Angle`, and `Dimensionless` values;
@@ -43,7 +43,17 @@
   metadata/formula tests, direct consumers, and the synchronized audit are
   migrated. Eunomia remains real-valued for this geometry; no imaginary SI
   unit applies. Remaining provider/linker or peer-worktree gate failures are
-  tracked separately from this metric closure.
+  tracked separately from this metric closure. Evidence: commits `9dfd57c2`
+  and `5aa2d9f1`, `cfd-schematics` warning-denied Clippy,
+  `cfd-schematics` Nextest 158/158 (`47490ed6-44c0-448c-af2c-dad01cdf5c18`),
+  `cfd-1d` library Nextest 498/498 (`0ab2db66-61ea-4687-b1cd-0ae0b4d2c7a1`),
+  the `blueprint_metadata_physics` integration target 5/5
+  (`fc331715-f569-434e-ac39-878a71527903`), and focused cfd-1d/cfd-2d/mesh
+  source checks. The full cfd-schematics doctest gate ran 15/16; Windows
+  Defender quarantined the unrelated `SmoothTransitionConfig` doctest
+  executable with OS error 225 and `Trojan:Win32/Wacatac.C!ml` (ThreatID
+  `2147749372`). No exclusion or test weakening was applied; this host
+  residual is not a metric implementation failure.
 
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=
