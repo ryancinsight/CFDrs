@@ -31,6 +31,19 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (claimed
+  2026-08-05; owner=current Codex session; scope=`SubBranchSpec.width_m` and
+  `SubBranchSpec.height_m` plus cfd-optim recovery-flow consumers and
+  serialization regression).** Carry the public recovery sub-branch dimensions
+  through Eunomia `Length<f64>` values, extract scalars only at the flow-
+  fraction/resistance formula boundary, and migrate direct callers without
+  adapters. `BlueprintTopologySpec` envelope dimensions remain a separate
+  audit boundary. The contract is real-valued; no complex or imaginary SI
+  quantity applies. Acceptance is a residue-free source scan for this type,
+  JSON value-semantic coverage, affected package checks, warning-denied
+  Clippy, focused Nextest, doctests, and synchronized audit/ADR/changelog
+  evidence.
+
 - **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (done 2026-08-05;
   owner=current Codex session; scope=`SerpentineSpec`, `ChannelShape`, and the
   public center-serpentine path specifications plus their direct geometry/1D

@@ -31,6 +31,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Recovery sub-branch geometry (CFDRS-AEQ-MET-54, claimed 2026-08-05)
+
+The post-MET53 public-contract scan found raw metre fields in
+`SubBranchSpec.width_m` and `SubBranchSpec.height_m`. These dimensions are
+serialized as recovery topology metadata and feed cfd-optim's peripheral
+recovery flow-fraction and hydraulic-diameter calculations. The unit-suffixed
+names do not protect the public authoring boundary, and scalar extraction must
+remain at the formula boundary.
+
+The implementation is in progress. `BlueprintTopologySpec` envelope dimensions
+remain a separate audit boundary. This real-valued geometry has no complex or
+imaginary SI quantity.
+
 ## Serpentine geometry (CFDRS-AEQ-MET-53, 2026-08-05)
 
 The post-MET52 public-contract scan found raw metre fields in `SerpentineSpec`,
