@@ -31,6 +31,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Channel-diameter metadata metrics (CFDRS-AEQ-MET-59, 2026-08-06)
+
+The post-MET58 public-contract scan found `MetadataConfig` and emitted
+`ChannelGeometryMetadata` still crossing the geometry-generator metadata path
+with `channel_diameter_mm: f64`. This is a physical length, not a layout-only
+wire DTO: it controls branch spacing and is retained on generated channels.
+
+This gap is in progress. The implementation will carry Eunomia `Length<f64>`
+through the public configuration and emitted metadata, extracting millimetres
+only inside the existing split-spacing and layout formulas. No complex or
+imaginary SI quantity applies to this real geometry contract.
+
 ## Branch boundary metadata metrics (CFDRS-AEQ-MET-58, 2026-08-06)
 
 The post-MET57 scan found raw SI fields in the public
