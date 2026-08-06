@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,13 +44,15 @@ crate::impl_metadata!(ChannelGeometryMetadata, "ChannelGeometryMetadata");
 /// `NodeKind` inference in reduced-order solvers.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BranchBoundarySpecification {
-    /// Fixed pressure boundary \[Pa].
-    Pressure { pressure_pa: f64 },
-    /// Fixed volumetric flow boundary [m^3/s].
+    /// Fixed pressure boundary.
+    Pressure { pressure_pa: Pressure<f64> },
+    /// Fixed volumetric flow boundary.
     ///
     /// The sign convention matches the 1D solver: positive values act as a
     /// source term, negative values as a sink term.
-    FlowRate { flow_rate_m3_s: f64 },
+    FlowRate {
+        flow_rate_m3_s: VolumetricFlowRate<f64>,
+    },
 }
 
 /// Node-level branch boundary metadata.
@@ -64,7 +67,7 @@ pub struct BranchBoundaryMetadata {
 impl BranchBoundaryMetadata {
     /// Create a fixed-pressure branch boundary.
     #[must_use]
-    pub fn pressure(pressure_pa: f64) -> Self {
+    pub fn pressure(pressure_pa: Pressure<f64>) -> Self {
         Self {
             boundary: BranchBoundarySpecification::Pressure { pressure_pa },
         }
@@ -72,7 +75,7 @@ impl BranchBoundaryMetadata {
 
     /// Create a fixed-flow branch boundary.
     #[must_use]
-    pub fn flow_rate(flow_rate_m3_s: f64) -> Self {
+    pub fn flow_rate(flow_rate_m3_s: VolumetricFlowRate<f64>) -> Self {
         Self {
             boundary: BranchBoundarySpecification::FlowRate { flow_rate_m3_s },
         }
@@ -80,6 +83,34 @@ impl BranchBoundaryMetadata {
 }
 
 crate::impl_metadata!(BranchBoundaryMetadata, "BranchBoundaryMetadata");
+
+#[cfg(test)]
+mod tests {
+    use super::{BranchBoundaryMetadata, BranchBoundarySpecification};
+    use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+
+    #[test]
+    fn branch_boundary_metadata_preserves_typed_values_through_json() {
+        let authored = BranchBoundaryMetadata::pressure(Pressure::from_base(125.0));
+        let encoded = serde_json::to_string(&authored).expect("metadata serializes");
+        let decoded: BranchBoundaryMetadata =
+            serde_json::from_str(&encoded).expect("metadata deserializes");
+
+        assert_eq!(decoded, authored);
+        assert_eq!(
+            decoded.boundary,
+            BranchBoundarySpecification::Pressure {
+                pressure_pa: Pressure::from_base(125.0),
+            }
+        );
+
+        let flow = BranchBoundaryMetadata::flow_rate(VolumetricFlowRate::from_base(-2.5e-7));
+        let flow_encoded = serde_json::to_string(&flow).expect("flow serializes");
+        let decoded_flow: BranchBoundaryMetadata =
+            serde_json::from_str(&flow_encoded).expect("flow deserializes");
+        assert_eq!(decoded_flow, flow);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptimizationMetadata {

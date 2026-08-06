@@ -47,6 +47,13 @@ All notable changes to this project will be documented in this file.
   and layout boundaries; routing fractions and topology controls remain
   dimensionless.
 
+- **Breaking:** `BranchBoundarySpecification` now stores branch pressure and
+  volumetric-flow conditions as Eunomia `Pressure<f64>` and
+  `VolumetricFlowRate<f64>` values. Serialized schematic metadata and direct
+  cfd-1d/cfd-2d consumers retain the typed contract; base-scalar extraction is
+  confined to solver and coupling formulas. The real boundary contract has no
+  complex or imaginary SI quantity.
+
 
 - **Breaking:** Type `ThroatGeometrySpec` authoring dimensions with Eunomia
   `Length<f64>` values and half-angles with `Angle<f64>` values. Canonical

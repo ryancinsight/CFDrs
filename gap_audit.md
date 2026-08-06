@@ -38,10 +38,12 @@ The post-MET57 scan found raw SI fields in the public
 values cross serialized schematic metadata and direct cfd-1d/cfd-2d boundary
 coupling, so unit-suffixed scalar names do not protect the authoring contract.
 
-This gap is in progress. The implementation will carry Eunomia `Pressure<f64>`
-and `VolumetricFlowRate<f64>` values through the metadata boundary and direct
-consumers, extracting base scalars only at solver/formula boundaries. No
-complex or imaginary SI quantity applies to this real boundary contract.
+Closed. `BranchBoundarySpecification` now carries Eunomia `Pressure<f64>` and
+`VolumetricFlowRate<f64>` values through serialized schematic metadata. The
+cfd-1d network conversion and cfd-2d coupling weight formula extract base
+scalars only at their solver/formula boundaries. The JSON round-trip regression
+preserves the typed values and the branch-boundary consumer suites pass. The
+real boundary contract has no complex or imaginary SI quantity.
 
 ## Generic selective-tree request geometry (CFDRS-AEQ-MET-57, 2026-08-06)
 

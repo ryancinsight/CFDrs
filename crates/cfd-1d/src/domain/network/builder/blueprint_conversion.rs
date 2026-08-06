@@ -543,12 +543,14 @@ where
         {
             match boundary.boundary {
                 BranchBoundarySpecification::Pressure { pressure_pa } => {
-                    let pressure = Pressure::from_base(T::from_f64_or_zero(pressure_pa));
+                    let pressure =
+                        Pressure::from_base(T::from_f64_or_zero(pressure_pa.into_base()));
                     network.set_pressure(node_idx, pressure);
                 }
                 BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
-                    let flow_rate =
-                        VolumetricFlowRate::from_base(T::from_f64_or_zero(flow_rate_m3_s));
+                    let flow_rate = VolumetricFlowRate::from_base(T::from_f64_or_zero(
+                        flow_rate_m3_s.into_base(),
+                    ));
                     network.set_neumann_flow(node_idx, flow_rate);
                 }
             }
