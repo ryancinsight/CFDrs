@@ -793,6 +793,20 @@ Nextest passes cfd-schematics 186/186, cfd-1d 736/736 with 3 skips, and
 cfd-optim 137/137; affected doctests pass. Detailed run identifiers and
 remaining workspace residuals are recorded in `gap_audit.md`.
 
+Revision 2026-08-05: extend this decision to recovery sub-branch geometry.
+`SubBranchSpec` width and height now use Eunomia `Length<f64>` values. The
+cfd-optim peripheral recovery flow-fraction and hydraulic-diameter formulas
+extract base scalars explicitly, with no adapter or parallel scalar field. The
+contract remains real-valued; no complex or imaginary SI quantity applies.
+
+Verification: cfd-schematics and cfd-optim all-target checks pass;
+warning-denied Clippy passes for both packages; Nextest passes cfd-schematics
+187/187 and cfd-optim 137/137; Rustdoc builds for both packages. The current
+cfd-schematics doctest command exceeded its 240-second collection allowance
+without a test failure summary; the prior adjacent serpentine revision passed
+all 16 cfd-schematics doctests, and the timeout is retained as a verification
+residual in `gap_audit.md`.
+
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 
 Context: cfd-1d channel, membrane, and organ components documented length,

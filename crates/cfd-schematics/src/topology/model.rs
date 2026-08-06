@@ -89,8 +89,8 @@ fn default_therapy_zone() -> TherapyZone {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubBranchSpec {
     pub label: String,
-    pub width_m: f64,
-    pub height_m: f64,
+    pub width_m: Length<f64>,
+    pub height_m: Length<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

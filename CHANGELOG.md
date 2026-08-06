@@ -89,6 +89,12 @@ All notable changes to this project will be documented in this file.
   formula boundaries. The serpentine contract is real-valued and has no
   complex or imaginary SI quantity.
 
+- **Breaking:** Type `SubBranchSpec` recovery-arm width and height with Eunomia
+  `Length<f64>` values. Migrate cfd-optim peripheral recovery flow-fraction
+  and hydraulic-diameter consumers without adapters; scalar extraction remains
+  at the flow and resistance formula boundary. The recovery geometry contract
+  is real-valued and has no complex or imaginary SI quantity.
+
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

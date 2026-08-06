@@ -6,7 +6,7 @@ use cfd_schematics::interface::presets::{
     incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
-use cfd_schematics::{NetworkBlueprint, SerpentineSpec, SerpentineWaveType};
+use cfd_schematics::{NetworkBlueprint, SerpentineSpec, SerpentineWaveType, SubBranchSpec};
 
 fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
     bp.nodes.iter().any(|node| node.id.0 == node_id)
@@ -72,6 +72,22 @@ fn serpentine_quantities_round_trip_through_json() {
     assert_eq!(decoded, spec);
     assert_eq!(decoded.bend_radius_m, Length::from_base(1.5e-3));
     assert_eq!(decoded.segment_length_m, Length::from_base(6.0e-3));
+}
+
+#[test]
+fn recovery_sub_branch_quantities_round_trip_through_json() {
+    let spec = SubBranchSpec {
+        label: "recovery-arm".to_string(),
+        width_m: Length::from_base(0.45e-3),
+        height_m: Length::from_base(0.12e-3),
+    };
+    let encoded = serde_json::to_string(&spec).expect("sub-branch JSON must encode");
+    let decoded: SubBranchSpec =
+        serde_json::from_str(&encoded).expect("sub-branch JSON must decode");
+
+    assert_eq!(decoded, spec);
+    assert_eq!(decoded.width_m, Length::from_base(0.45e-3));
+    assert_eq!(decoded.height_m, Length::from_base(0.12e-3));
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {

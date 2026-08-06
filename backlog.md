@@ -31,18 +31,22 @@
 
 ## Active integration
 
-- **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (claimed
+- **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (done
   2026-08-05; owner=current Codex session; scope=`SubBranchSpec.width_m` and
   `SubBranchSpec.height_m` plus cfd-optim recovery-flow consumers and
-  serialization regression).** Carry the public recovery sub-branch dimensions
-  through Eunomia `Length<f64>` values, extract scalars only at the flow-
-  fraction/resistance formula boundary, and migrate direct callers without
-  adapters. `BlueprintTopologySpec` envelope dimensions remain a separate
-  audit boundary. The contract is real-valued; no complex or imaginary SI
-  quantity applies. Acceptance is a residue-free source scan for this type,
-  JSON value-semantic coverage, affected package checks, warning-denied
-  Clippy, focused Nextest, doctests, and synchronized audit/ADR/changelog
-  evidence.
+  serialization regression).** The public recovery sub-branch dimensions now
+  use Eunomia `Length<f64>` values. cfd-optim extracts scalars only at the
+  flow-fraction and hydraulic-diameter formula boundary, with no adapters or
+  duplicate scalar fields. `BlueprintTopologySpec` envelope dimensions remain
+  a separate audit boundary. The contract is real-valued; no complex or
+  imaginary SI quantity applies. Evidence: cfd-schematics and cfd-optim
+  all-target checks pass; warning-denied Clippy passes for both packages;
+  cfd-schematics Nextest 187/187 (`16c1a638-fb80-46e0-8407-70e3c10ada4e`);
+  cfd-optim Nextest 137/137 (`51b882b4-ba72-49ce-ac5b-c8654b901015`); and
+  Rustdoc builds for both packages. The current cfd-schematics doctest command
+  exceeded its 240-second collection allowance without a test failure summary;
+  the prior adjacent revision passed all 16 cfd-schematics doctests, and the
+  timeout remains a verification residual.
 
 - **CFDRS-AEQ-MET-53 [major] - Type serpentine geometry (done 2026-08-05;
   owner=current Codex session; scope=`SerpentineSpec`, `ChannelShape`, and the

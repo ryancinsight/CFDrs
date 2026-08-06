@@ -31,7 +31,7 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
-## Recovery sub-branch geometry (CFDRS-AEQ-MET-54, claimed 2026-08-05)
+## Recovery sub-branch geometry (CFDRS-AEQ-MET-54, 2026-08-05)
 
 The post-MET53 public-contract scan found raw metre fields in
 `SubBranchSpec.width_m` and `SubBranchSpec.height_m`. These dimensions are
@@ -40,9 +40,23 @@ recovery flow-fraction and hydraulic-diameter calculations. The unit-suffixed
 names do not protect the public authoring boundary, and scalar extraction must
 remain at the formula boundary.
 
-The implementation is in progress. `BlueprintTopologySpec` envelope dimensions
-remain a separate audit boundary. This real-valued geometry has no complex or
+The gap is closed. `SubBranchSpec.width_m` and `SubBranchSpec.height_m` now
+use Eunomia real-valued `Length<f64>` values. cfd-optim extracts base scalars
+only at the peripheral recovery flow-fraction and hydraulic-diameter formulas;
+no adapter or duplicate scalar field remains. The JSON round-trip regression
+preserves value semantics. `BlueprintTopologySpec` envelope dimensions remain
+a separate audit boundary. This real-valued geometry has no complex or
 imaginary SI quantity.
+
+A cfd-schematics all-target check and warning-denied Clippy pass, as do the
+cfd-optim all-target check and warning-denied Clippy. Nextest passes
+cfd-schematics 187/187 (`16c1a638-fb80-46e0-8407-70e3c10ada4e`) and cfd-optim
+137/137 (`51b882b4-ba72-49ce-ac5b-c8654b901015`). Rustdoc builds for both
+packages. The current cfd-schematics doctest command exceeded its
+240-second collection allowance without a test failure summary; the prior
+adjacent serpentine revision passed all 16 cfd-schematics doctests. This
+collection timeout is retained as a verification residual, not classified as
+a source or metric defect.
 
 ## Serpentine geometry (CFDRS-AEQ-MET-53, 2026-08-05)
 
