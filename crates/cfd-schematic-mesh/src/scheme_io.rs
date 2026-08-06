@@ -152,7 +152,8 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 
         defs.push(ChannelDef {
             id,
-            path: ChannelPath::new(points).expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points)
+                .expect("invariant: channel path from schematic points is valid"),
             profile: ChannelProfile::Circular {
                 radius: diameter / 2.0,
                 segments,
@@ -233,9 +234,9 @@ pub fn from_blueprint(
         let mut width_scales = None;
 
         let profile = if let Some(vg) = &ch.venturi_geometry {
-            let inlet_w = (vg.inlet_width_m * 1000.0) as Real;
-            let throat_w = (vg.throat_width_m * 1000.0) as Real;
-            let outlet_w = (vg.outlet_width_m * 1000.0) as Real;
+            let inlet_w = (vg.inlet_width_m.into_base() * 1000.0) as Real;
+            let throat_w = (vg.throat_width_m.into_base() * 1000.0) as Real;
+            let outlet_w = (vg.outlet_width_m.into_base() * 1000.0) as Real;
 
             // Reconstruct frustum width profile matching the lifted centerline.
             let n = centerline_2d.len();
@@ -284,7 +285,8 @@ pub fn from_blueprint(
 
         channels.push(ChannelDef {
             id: ch.id.as_str().to_string(),
-            path: ChannelPath::new(points).expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points)
+                .expect("invariant: channel path from schematic points is valid"),
             profile,
             width_scales,
         });

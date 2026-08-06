@@ -4,6 +4,7 @@ use crate::geometry::metadata::{ChannelVenturiSpec, MetadataContainer, VenturiGe
 use crate::topology::{
     TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
 };
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 
 impl NetworkBlueprint {
     pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
@@ -40,14 +41,21 @@ impl NetworkBlueprint {
                 channel.effective_width_m()
             };
             let venturi_geometry = VenturiGeometryMetadata {
-                throat_width_m: config.throat_geometry.throat_width_m,
-                throat_height_m: config.throat_geometry.throat_height_m,
-                throat_length_m: config.throat_geometry.throat_length_m,
-                inlet_width_m: resolved_inlet_width_m,
-                outlet_width_m: resolved_outlet_width_m,
-                convergent_half_angle_deg: config.throat_geometry.convergent_half_angle_deg,
-                divergent_half_angle_deg: config.throat_geometry.divergent_half_angle_deg,
-                throat_position: 0.5,
+                throat_width_m: Length::from_base(config.throat_geometry.throat_width_m),
+                throat_height_m: Length::from_base(config.throat_geometry.throat_height_m),
+                throat_length_m: Length::from_base(config.throat_geometry.throat_length_m),
+                inlet_width_m: Length::from_base(resolved_inlet_width_m),
+                outlet_width_m: Length::from_base(resolved_outlet_width_m),
+                convergent_half_angle: Angle::from_base(
+                    config
+                        .throat_geometry
+                        .convergent_half_angle_deg
+                        .to_radians(),
+                ),
+                divergent_half_angle: Angle::from_base(
+                    config.throat_geometry.divergent_half_angle_deg.to_radians(),
+                ),
+                throat_position: Dimensionless::from_base(0.5),
             };
             channel.venturi_geometry = Some(venturi_geometry.clone());
             if channel.metadata.is_none() {
@@ -63,9 +71,9 @@ impl NetworkBlueprint {
                 is_ctc_stream: channel
                     .therapy_zone
                     .is_some_and(|zone| zone == TherapyZone::CancerTarget),
-                throat_width_m: config.throat_geometry.throat_width_m,
-                height_m: config.throat_geometry.throat_height_m,
-                inter_throat_spacing_m: config.throat_geometry.throat_length_m,
+                throat_width_m: Length::from_base(config.throat_geometry.throat_width_m),
+                height_m: Length::from_base(config.throat_geometry.throat_height_m),
+                inter_throat_spacing_m: Length::from_base(config.throat_geometry.throat_length_m),
             });
 
             placements.push(VenturiPlacementSpec {

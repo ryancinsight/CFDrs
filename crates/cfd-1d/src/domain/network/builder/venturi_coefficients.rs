@@ -51,15 +51,19 @@ where
         }
     };
 
-    let inlet_width = validate_positive("inlet width", metadata.inlet_width_m)?;
-    let throat_width = validate_positive("throat width", metadata.throat_width_m)?;
-    let throat_height = validate_positive("throat height", metadata.throat_height_m)?;
-    let outlet_width = validate_positive("outlet width", metadata.outlet_width_m)?;
-    let throat_length = validate_positive("throat length", metadata.throat_length_m)?;
-    let convergent_angle =
-        validate_angle("convergent half-angle", metadata.convergent_half_angle_deg)?;
-    let divergent_angle =
-        validate_angle("divergent half-angle", metadata.divergent_half_angle_deg)?;
+    let inlet_width = validate_positive("inlet width", metadata.inlet_width_m.into_base())?;
+    let throat_width = validate_positive("throat width", metadata.throat_width_m.into_base())?;
+    let throat_height = validate_positive("throat height", metadata.throat_height_m.into_base())?;
+    let outlet_width = validate_positive("outlet width", metadata.outlet_width_m.into_base())?;
+    let throat_length = validate_positive("throat length", metadata.throat_length_m.into_base())?;
+    let convergent_angle = validate_angle(
+        "convergent half-angle",
+        metadata.convergent_half_angle.into_base().to_degrees(),
+    )?;
+    let divergent_angle = validate_angle(
+        "divergent half-angle",
+        metadata.divergent_half_angle.into_base().to_degrees(),
+    )?;
 
     let hydraulic_diameter =
         |width_m: f64, height_m: f64| 2.0 * width_m * height_m / (width_m + height_m);
@@ -94,6 +98,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::venturi_coefficients;
+    use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
     use cfd_core::physics::fluid::database::water_20c;
     use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
     use eunomia::assert_relative_eq;
@@ -107,14 +112,14 @@ mod tests {
         use crate::{discharge_coefficient_from_convergent_half_angle_deg, venturi_taper_length_m};
 
         let metadata = VenturiGeometryMetadata {
-            throat_width_m: 4.0e-4,
-            throat_height_m: 2.0e-4,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.2e-3,
-            convergent_half_angle_deg: 7.0,
-            divergent_half_angle_deg: 5.0,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(4.0e-4),
+            throat_height_m: Length::from_base(2.0e-4),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.2e-3),
+            convergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+            divergent_half_angle: Angle::from_base(5.0_f64.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         };
         let fluid = water_20c::<f64>()?;
 
@@ -122,36 +127,35 @@ mod tests {
 
         let hydraulic_diameter =
             |width_m: f64, height_m: f64| 2.0 * width_m * height_m / (width_m + height_m);
-        let inlet_d = hydraulic_diameter(metadata.inlet_width_m, metadata.throat_height_m);
-        let throat_d = hydraulic_diameter(metadata.throat_width_m, metadata.throat_height_m);
-        let outlet_d = hydraulic_diameter(metadata.outlet_width_m, metadata.throat_height_m);
-        let conv_len = venturi_taper_length_m(
-            metadata.inlet_width_m,
-            metadata.throat_width_m,
-            metadata.convergent_half_angle_deg,
-        )?;
-        let diff_len = venturi_taper_length_m(
-            metadata.outlet_width_m,
-            metadata.throat_width_m,
-            metadata.divergent_half_angle_deg,
-        )?;
-        let total_length = metadata.throat_length_m + conv_len + diff_len;
+        let inlet_width = metadata.inlet_width_m.into_base();
+        let throat_width = metadata.throat_width_m.into_base();
+        let throat_height = metadata.throat_height_m.into_base();
+        let outlet_width = metadata.outlet_width_m.into_base();
+        let throat_length = metadata.throat_length_m.into_base();
+        let convergent_angle = metadata.convergent_half_angle.into_base().to_degrees();
+        let divergent_angle = metadata.divergent_half_angle.into_base().to_degrees();
+        let inlet_d = hydraulic_diameter(inlet_width, throat_height);
+        let throat_d = hydraulic_diameter(throat_width, throat_height);
+        let outlet_d = hydraulic_diameter(outlet_width, throat_height);
+        let conv_len = venturi_taper_length_m(inlet_width, throat_width, convergent_angle)?;
+        let diff_len = venturi_taper_length_m(outlet_width, throat_width, divergent_angle)?;
+        let total_length = throat_length + conv_len + diff_len;
 
         let inlet_d_t = inlet_d;
         let throat_d_t = throat_d;
         let outlet_d_t = outlet_d;
-        let throat_len_t = metadata.throat_length_m;
+        let throat_len_t = throat_length;
         let total_len_t = total_length;
 
         let manual =
             VenturiModel::new(inlet_d_t, throat_d_t, outlet_d_t, throat_len_t, total_len_t)
                 .with_geometry(VenturiGeometry::Custom {
                     discharge_coefficient: discharge_coefficient_from_convergent_half_angle_deg(
-                        metadata.convergent_half_angle_deg,
+                        convergent_angle,
                     )?,
                 })
                 .with_expansion(ExpansionType::Gradual {
-                    half_angle_deg: metadata.divergent_half_angle_deg,
+                    half_angle_deg: divergent_angle,
                 });
 
         let conditions = ModelFlowConditions::from_flow_rate(1.0e-12);
@@ -172,14 +176,14 @@ mod tests {
         use crate::{discharge_coefficient_from_convergent_half_angle_deg, venturi_taper_length_m};
 
         let metadata = VenturiGeometryMetadata {
-            throat_width_m: 4.0e-4,
-            throat_height_m: 2.0e-4,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.2e-3,
-            convergent_half_angle_deg: 12.0,
-            divergent_half_angle_deg: 7.0,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(4.0e-4),
+            throat_height_m: Length::from_base(2.0e-4),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.2e-3),
+            convergent_half_angle: Angle::from_base(12.0_f64.to_radians()),
+            divergent_half_angle: Angle::from_base(7.0_f64.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         };
         let fluid = water_20c::<f64>()?;
 
@@ -187,36 +191,29 @@ mod tests {
 
         let hydraulic_diameter =
             |width_m: f64, height_m: f64| 2.0 * width_m * height_m / (width_m + height_m);
-        let inlet_d = hydraulic_diameter(metadata.inlet_width_m, metadata.throat_height_m);
-        let throat_d = hydraulic_diameter(metadata.throat_width_m, metadata.throat_height_m);
-        let outlet_d = hydraulic_diameter(metadata.outlet_width_m, metadata.throat_height_m);
-        let conv_len = venturi_taper_length_m(
-            metadata.inlet_width_m,
-            metadata.throat_width_m,
-            metadata.convergent_half_angle_deg,
-        )?;
-        let diff_len = venturi_taper_length_m(
-            metadata.outlet_width_m,
-            metadata.throat_width_m,
-            metadata.divergent_half_angle_deg,
-        )?;
-        let total_length = metadata.throat_length_m + conv_len + diff_len;
+        let inlet_width = metadata.inlet_width_m.into_base();
+        let throat_width = metadata.throat_width_m.into_base();
+        let throat_height = metadata.throat_height_m.into_base();
+        let outlet_width = metadata.outlet_width_m.into_base();
+        let throat_length = metadata.throat_length_m.into_base();
+        let convergent_angle = metadata.convergent_half_angle.into_base().to_degrees();
+        let divergent_angle = metadata.divergent_half_angle.into_base().to_degrees();
+        let inlet_d = hydraulic_diameter(inlet_width, throat_height);
+        let throat_d = hydraulic_diameter(throat_width, throat_height);
+        let outlet_d = hydraulic_diameter(outlet_width, throat_height);
+        let conv_len = venturi_taper_length_m(inlet_width, throat_width, convergent_angle)?;
+        let diff_len = venturi_taper_length_m(outlet_width, throat_width, divergent_angle)?;
+        let total_length = throat_length + conv_len + diff_len;
 
-        let manual = VenturiModel::new(
-            inlet_d,
-            throat_d,
-            outlet_d,
-            metadata.throat_length_m,
-            total_length,
-        )
-        .with_geometry(VenturiGeometry::Custom {
-            discharge_coefficient: discharge_coefficient_from_convergent_half_angle_deg(
-                metadata.convergent_half_angle_deg,
-            )?,
-        })
-        .with_expansion(ExpansionType::Gradual {
-            half_angle_deg: metadata.divergent_half_angle_deg,
-        });
+        let manual = VenturiModel::new(inlet_d, throat_d, outlet_d, throat_length, total_length)
+            .with_geometry(VenturiGeometry::Custom {
+                discharge_coefficient: discharge_coefficient_from_convergent_half_angle_deg(
+                    convergent_angle,
+                )?,
+            })
+            .with_expansion(ExpansionType::Gradual {
+                half_angle_deg: divergent_angle,
+            });
 
         let flow_probe = ModelFlowConditions::from_flow_rate(1.0e-12);
         let (_, flow_probe_k) = manual.calculate_coefficients(&fluid, &flow_probe)?;

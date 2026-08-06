@@ -177,9 +177,9 @@ impl NetworkBlueprint {
 
                 let profile = match (channel.cross_section, channel.venturi_geometry.as_ref()) {
                     (CrossSectionSpec::Rectangular { height_m, .. }, Some(venturi)) => {
-                        let inlet_width_mm = venturi.inlet_width_m * 1.0e3;
-                        let throat_width_mm = venturi.throat_width_m * 1.0e3;
-                        let outlet_width_mm = venturi.outlet_width_m * 1.0e3;
+                        let inlet_width_mm = venturi.inlet_width_m.into_base() * 1.0e3;
+                        let throat_width_mm = venturi.throat_width_m.into_base() * 1.0e3;
+                        let outlet_width_mm = venturi.outlet_width_m.into_base() * 1.0e3;
                         let height_mm = height_m * 1.0e3;
                         let width_profile_mm =
                             vec![inlet_width_mm, throat_width_mm, outlet_width_mm];

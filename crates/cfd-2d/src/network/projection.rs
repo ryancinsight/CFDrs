@@ -83,12 +83,12 @@ fn path_metrics(path: &[(f64, f64)]) -> Option<PathMetrics> {
 }
 
 fn venturi_width_at_x(venturi: &VenturiGeometryMetadata, x: f64, total_length: f64) -> f64 {
-    let inlet = venturi.inlet_width_m.max(1e-18);
-    let throat = venturi.throat_width_m.max(1e-18);
-    let outlet = venturi.outlet_width_m.max(1e-18);
-    let l_throat = venturi.throat_length_m.max(0.0);
+    let inlet = venturi.inlet_width_m.into_base().max(1e-18);
+    let throat = venturi.throat_width_m.into_base().max(1e-18);
+    let outlet = venturi.outlet_width_m.into_base().max(1e-18);
+    let l_throat = venturi.throat_length_m.into_base().max(0.0);
     let remaining = (total_length - l_throat).max(0.0);
-    let l_converge = remaining * venturi.throat_position.clamp(0.0, 1.0);
+    let l_converge = remaining * venturi.throat_position.into_base().clamp(0.0, 1.0);
     let l_diverge = (remaining - l_converge).max(0.0);
 
     let x_inlet_end = 0.0;
@@ -182,8 +182,9 @@ pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDoma
             || default_half_width(channel) * 2.0,
             |geom| {
                 geom.inlet_width_m
-                    .max(geom.throat_width_m)
-                    .max(geom.outlet_width_m)
+                    .into_base()
+                    .max(geom.throat_width_m.into_base())
+                    .max(geom.outlet_width_m.into_base())
             },
         )
         .max(default_half_width(channel) * 2.0);

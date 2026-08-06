@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
     FlowConditions, SerpentineCrossSection, SerpentineModel,
@@ -156,24 +157,24 @@ fn venturi_blueprint(
             0.0,
         )
         .with_venturi_geometry(VenturiGeometryMetadata {
-            throat_width_m: 2.5e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg,
-            divergent_half_angle_deg,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(2.5e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(convergent_half_angle_deg.to_radians()),
+            divergent_half_angle: Angle::from_base(divergent_half_angle_deg.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         })
         .with_metadata(VenturiGeometryMetadata {
-            throat_width_m: 2.5e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 8.0e-4,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg,
-            divergent_half_angle_deg,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(2.5e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(8.0e-4),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(convergent_half_angle_deg.to_radians()),
+            divergent_half_angle: Angle::from_base(divergent_half_angle_deg.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         })
         .with_path(vec![(5.0, 0.0), (5.8, 0.0)]),
     );
@@ -445,14 +446,14 @@ fn venturi_throat_width_and_length_change_coefficients() {
             height_m: 0.5e-3,
         };
         throat.venturi_geometry = Some(VenturiGeometryMetadata {
-            throat_width_m: 1.8e-4,
-            throat_height_m: 0.5e-3,
-            throat_length_m: 1.6e-3,
-            inlet_width_m: 1.0e-3,
-            outlet_width_m: 1.0e-3,
-            convergent_half_angle_deg: 8.0,
-            divergent_half_angle_deg: 8.0,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(1.8e-4),
+            throat_height_m: Length::from_base(0.5e-3),
+            throat_length_m: Length::from_base(1.6e-3),
+            inlet_width_m: Length::from_base(1.0e-3),
+            outlet_width_m: Length::from_base(1.0e-3),
+            convergent_half_angle: Angle::from_base(8.0_f64.to_radians()),
+            divergent_half_angle: Angle::from_base(8.0_f64.to_radians()),
+            throat_position: Dimensionless::from_base(0.5),
         });
     }
 

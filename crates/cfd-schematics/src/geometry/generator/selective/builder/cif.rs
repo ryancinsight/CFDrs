@@ -5,6 +5,7 @@ use super::{
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::builders::ChannelExt;
 use crate::geometry::metadata::IncrementalFiltrationParams;
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 
 impl SelectiveTreeBuilder {
     pub(in super::super) fn build_cif(
@@ -79,7 +80,7 @@ impl SelectiveTreeBuilder {
                 pretri_center_frac,
                 terminal_tri_center_frac,
                 bi_treat_frac,
-                outlet_tail_length_m,
+                outlet_tail_length_m: Length::from_base(outlet_tail_length_m),
             });
         }
 
@@ -259,14 +260,14 @@ impl SelectiveTreeBuilder {
                 TherapyZone::CancerTarget,
                 None,
                 Some(VenturiGeometryMetadata {
-                    throat_width_m: req.throat_width_m,
-                    throat_height_m: req.channel_height_m,
-                    throat_length_m: req.throat_length_m,
-                    inlet_width_m: treat_w,
-                    outlet_width_m: treat_w,
-                    convergent_half_angle_deg: 15.0,
-                    divergent_half_angle_deg: 15.0,
-                    throat_position: 0.5,
+                    throat_width_m: Length::from_base(req.throat_width_m),
+                    throat_height_m: Length::from_base(req.channel_height_m),
+                    throat_length_m: Length::from_base(req.throat_length_m),
+                    inlet_width_m: Length::from_base(treat_w),
+                    outlet_width_m: Length::from_base(treat_w),
+                    convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                    divergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                    throat_position: Dimensionless::from_base(0.5),
                 }),
             );
         } else {

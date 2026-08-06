@@ -31,6 +31,39 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Venturi geometry metadata metrics (CFDRS-AEQ-MET-47, 2026-08-05)
+
+A fresh public-contract scan found a residual unit gap below the schematic-mesh
+geometry closure: `VenturiGeometryMetadata` exposed channel widths, lengths,
+angles, and throat position as scalar metadata, while `ChannelVenturiSpec`
+returned scalar cavitation dose and pressure-drop results. The direct 1D
+coefficient builder, 2D projection, schematic interchange, mesh converter,
+examples, and physics fixtures consumed those fields as untyped values.
+
+The gap is closed. `VenturiGeometryMetadata` now carries Aequitas `Length`,
+`Angle`, and `Dimensionless`; `ChannelVenturiSpec` carries typed `Length` and
+returns `Dimensionless` cavitation dose and `Pressure` pressure drop from typed
+`VolumetricFlowRate`, `MassDensity`, and `Dimensionless` inputs. FDA cavitation
+compliance now carries typed Mach-index results and accepts typed pressure and
+density. Angle fields use canonical names and store Eunomia base radians.
+Scalar extraction is limited to 1D/2D numerical formulas, mesh/interchange
+conversion, and other explicit representation boundaries. No compatibility
+adapter remains.
+
+The Venturi geometry is real-valued under Eunomia. No complex or imaginary SI
+quantity applies; complex values remain reserved for genuine phasor/Fourier
+fields. Topology authoring structs remain a separate follow-up domain: their
+raw degree/metre inputs are converted at the typed metadata boundary.
+
+Static verification passes with `cargo metadata --offline --locked
+--no-deps`, targeted rustfmt, `git diff --check`, and residue scans. Two
+`cargo check -p cfd-schematics --lib --offline -j 1` attempts were bounded at
+124 seconds and 184 seconds while peer workspace checks held the shared Atlas
+target/build lock; they produced no source diagnostic before timeout. Native
+Nextest, package Clippy, and doctest collection remain pending on that shared
+build resource. A shared Atlas target-cache failure or provider/linker failure
+is verification evidence about the environment, not a remaining metric gap.
+
 ## Schematic mesh geometry metrics (CFDRS-AEQ-MET-46, 2026-08-02)
 
 The audit found a remaining public Aequitas gap in `cfd-schematic-mesh`:

@@ -14,6 +14,7 @@ use crate::geometry::metadata::{
     ChannelVenturiSpec, ChannelVisualRole, JunctionFamily, JunctionGeometryMetadata,
     MetadataContainer, VenturiGeometryMetadata,
 };
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 
 pub(super) fn annotate_primitive_tree(
     system: &mut NetworkBlueprint,
@@ -251,22 +252,22 @@ pub(super) fn annotate_primitive_tree(
             });
             channel.visual_role = Some(ChannelVisualRole::VenturiThroat);
             channel.venturi_geometry = Some(VenturiGeometryMetadata {
-                throat_width_m: request.throat_width_m,
-                throat_height_m: request.channel_height_m,
-                throat_length_m: request.throat_length_m,
-                inlet_width_m: physical_width,
-                outlet_width_m: physical_width,
-                convergent_half_angle_deg: 15.0,
-                divergent_half_angle_deg: 15.0,
-                throat_position: 0.5,
+                throat_width_m: Length::from_base(request.throat_width_m),
+                throat_height_m: Length::from_base(request.channel_height_m),
+                throat_length_m: Length::from_base(request.throat_length_m),
+                inlet_width_m: Length::from_base(physical_width),
+                outlet_width_m: Length::from_base(physical_width),
+                convergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                divergent_half_angle: Angle::from_base(15.0_f64.to_radians()),
+                throat_position: Dimensionless::from_base(0.5),
             });
             let metadata = channel.metadata.get_or_insert_with(MetadataContainer::new);
             metadata.insert(ChannelVenturiSpec {
                 n_throats: request.treatment_branch_throat_count.max(1),
                 is_ctc_stream: true,
-                throat_width_m: request.throat_width_m,
-                height_m: request.channel_height_m,
-                inter_throat_spacing_m: request.throat_length_m * 2.0,
+                throat_width_m: Length::from_base(request.throat_width_m),
+                height_m: Length::from_base(request.channel_height_m),
+                inter_throat_spacing_m: Length::from_base(request.throat_length_m * 2.0),
             });
             metadata.insert(
                 channel
@@ -279,9 +280,9 @@ pub(super) fn annotate_primitive_tree(
             metadata.insert(ChannelVenturiSpec {
                 n_throats: 0,
                 is_ctc_stream: false,
-                throat_width_m: request.throat_width_m,
-                height_m: request.channel_height_m,
-                inter_throat_spacing_m: request.throat_length_m * 2.0,
+                throat_width_m: Length::from_base(request.throat_width_m),
+                height_m: Length::from_base(request.channel_height_m),
+                inter_throat_spacing_m: Length::from_base(request.throat_length_m * 2.0),
             });
         }
     }

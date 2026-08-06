@@ -100,7 +100,7 @@ mod tests {
         assert!((params.pretri_center_frac - 0.45).abs() < 1e-12);
         assert!((params.terminal_tri_center_frac - 0.55).abs() < 1e-12);
         assert!((params.bi_treat_frac - 0.76).abs() < 1e-12);
-        assert!((params.outlet_tail_length_m - 12e-3).abs() < 1e-12);
+        assert!((params.outlet_tail_length_m.into_base() - 12e-3).abs() < 1e-12);
     }
 
     #[test]

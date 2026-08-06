@@ -4,6 +4,7 @@ use crate::geometry::metadata::{
 };
 use crate::topology::{BlueprintTopologySpec, ParallelChannelSpec, SeriesChannelSpec};
 use crate::visualizations::schematic::materialize_blueprint_layout;
+use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 
 fn make_outline(box_dims: (f64, f64)) -> Vec<((f64, f64), (f64, f64))> {
     let (w, h) = box_dims;
@@ -77,14 +78,24 @@ fn series_channel_venturi(
         .iter()
         .find(|placement| placement.target_channel_id == channel_id)
         .map(|placement| VenturiGeometryMetadata {
-            throat_width_m: placement.throat_geometry.throat_width_m,
-            throat_height_m: placement.throat_geometry.throat_height_m,
-            throat_length_m: placement.throat_geometry.throat_length_m,
-            inlet_width_m: placement.throat_geometry.inlet_width_m,
-            outlet_width_m: placement.throat_geometry.outlet_width_m,
-            convergent_half_angle_deg: placement.throat_geometry.convergent_half_angle_deg,
-            divergent_half_angle_deg: placement.throat_geometry.divergent_half_angle_deg,
-            throat_position: 0.5,
+            throat_width_m: Length::from_base(placement.throat_geometry.throat_width_m),
+            throat_height_m: Length::from_base(placement.throat_geometry.throat_height_m),
+            throat_length_m: Length::from_base(placement.throat_geometry.throat_length_m),
+            inlet_width_m: Length::from_base(placement.throat_geometry.inlet_width_m),
+            outlet_width_m: Length::from_base(placement.throat_geometry.outlet_width_m),
+            convergent_half_angle: Angle::from_base(
+                placement
+                    .throat_geometry
+                    .convergent_half_angle_deg
+                    .to_radians(),
+            ),
+            divergent_half_angle: Angle::from_base(
+                placement
+                    .throat_geometry
+                    .divergent_half_angle_deg
+                    .to_radians(),
+            ),
+            throat_position: Dimensionless::from_base(0.5),
         })
 }
 

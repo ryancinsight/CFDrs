@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-47 [major] - Type Venturi geometry metadata (in progress
+  2026-08-05; owner=current Codex session; scope=`cfd-schematics` therapy
+  metadata and its direct geometry/1D consumers).** Venturi geometry metadata
+  now carries Aequitas `Length`, `Angle`, and `Dimensionless` values;
+  `ChannelVenturiSpec` carries typed geometry and returns typed pressure and
+  dose results; FDA cavitation compliance accepts typed pressure/density and
+  returns typed Mach-index values. Scalar extraction remains at 1D/2D formulas,
+  mesh conversion, and serialized interchange boundaries. The angle fields now
+  use canonical names and store Eunomia base radians. Value-semantic
+  metadata/formula tests, direct consumers, and the synchronized audit are
+  migrated. Eunomia remains real-valued for this geometry; no imaginary SI
+  unit applies. Remaining provider/linker or peer-worktree gate failures are
+  tracked separately from this metric closure.
+
 - **CFDRS-AEQ-MET-46 [major] - Type schematic mesh geometry configuration
   (done 2026-08-02; owner=current Codex session; scope=
   `cfd-schematic-mesh` pipeline configuration and emitted centerline geometry).**
@@ -84,16 +98,12 @@
   Eunomia boundary has no complex or imaginary physical unit.
 
 - **CFDRS-AEQ-MET-43 [major] - Type schematic volume metrics
-  (VERIFIED 2026-07-31; owner=current Codex session; claimed 2026-07-31;
+  (done 2026-07-31; owner=current Codex session; claimed 2026-07-31;
   scope=`cfd-schematics` volume summaries, `cfd-schematic-mesh` volume traces
   and example consumer, plus synchronized audit/design/changelog artifacts).**
-  The public schematic and mesh volume contracts still expose length, area,
-  volume, and volume-error values as unit-suffixed `f64` fields. Replace those
-  fields with Aequitas `Length`, `Area`, and `Volume`, remove the redundant
-  millimetre/microlitre field pairs, and keep scalar extraction at mesh-volume
-  and percentage formula boundaries. Acceptance is a source migration with
-  value-semantic summary/trace assertions, focused package gates, and exact
-  Eunomia real/complex boundary documentation. The focused package check is
+  The public schematic and mesh volume contracts use Aequitas `Length`,
+  `Area`, `Volume`, and `Dimensionless` values. Scalar extraction remains at
+  mesh-volume and percentage formula boundaries. The focused package check is
   green and Nextest passes 207/207.
 
 - **CFDRS-VAL-RED-1 [patch] - Root-cause the remaining cfd-validation red set

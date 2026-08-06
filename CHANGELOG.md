@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Type Venturi geometry metadata with Aequitas `Length`,
+  `Angle`, and `Dimensionless` values, and type `ChannelVenturiSpec` pressure
+  and cavitation-dose results. Extract Eunomia base scalars only at numerical,
+  mesh, and serialization boundaries. Canonical angle fields store radians and
+  remain real-valued; no imaginary physical unit applies.
+
 - **Breaking:** Type schematic-mesh runtime geometry configuration and emitted
   centerline coordinates/diameters with Aequitas `Angle`, `Length`, and
   `Dimensionless` quantities. Scalar extraction remains at mesh, trigonometric,
