@@ -233,7 +233,7 @@ impl ShellMeshPipeline {
                 // Map world coordinate (px, py) to normalised fractional (x_frac, y_frac)
                 let x_frac = ((px - x0) / w).clamp(0.0, 1.0);
                 let y_frac = ((py - y0) / h).clamp(0.0, 1.0);
-                grad_clone.period_at(x_frac, y_frac)
+                grad_clone.period_at_mm(x_frac, y_frac)
             };
 
             let mesh =
@@ -244,7 +244,7 @@ impl ShellMeshPipeline {
             // Uniform TPMS
             let params = TpmsBoxParams {
                 bounds: *bounds,
-                period: fill.period_mm,
+                period: fill.period_mm(),
                 resolution: fill.resolution,
                 iso_value: fill.iso_value,
             };

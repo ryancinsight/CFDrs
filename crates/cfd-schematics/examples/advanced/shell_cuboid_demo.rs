@@ -17,6 +17,8 @@
 //! - `cfd-schematics/output/examples/shell_cuboid_demo/shell_cuboid_demo.svg`  — schematic SVG
 //! - Stdout — interchange JSON for downstream mesh/CFD toolchains
 
+use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::units::Millimeter;
 use cfd_schematics::geometry::{ShellCuboid, TpmsFillSpec, TpmsSurfaceKind};
 use cfd_schematics::visualizations::{PlottersRenderer, RenderConfig};
 use std::fs;
@@ -26,7 +28,7 @@ fn main() {
     // 96-well plate footprint: 127.76 × 85.47 mm  |  Shell thickness: 2 mm
     let fill = TpmsFillSpec {
         surface: TpmsSurfaceKind::Gyroid,
-        period_mm: 5.0,
+        period: Length::from_unit::<Millimeter>(5.0),
         iso_value: 0.0,
         resolution: 64,
         gradient: None,
@@ -52,7 +54,7 @@ fn main() {
         tracing::info!(
             "  tpms_fill  : {} λ={:.1}mm iso={} res={}",
             f.surface.label(),
-            f.period_mm,
+            f.period_mm(),
             f.iso_value,
             f.resolution
         );

@@ -143,7 +143,7 @@ impl PlottersRenderer {
             let (iw, ih) = cuboid.inner_dims;
             let hatch_color = RGBColor(100, 130, 200);
             let hatch_stroke = hatch_color.stroke_width(1);
-            let spacing = fill.period_mm;
+            let spacing = fill.period_mm();
             let diag = iw + ih;
             let mut offset = -ih;
             while offset < diag {
@@ -161,7 +161,7 @@ impl PlottersRenderer {
                 }
                 offset += spacing;
             }
-            let label = format!("{} λ={:.1}mm", fill.surface.label(), fill.period_mm);
+            let label = format!("{} λ={:.1}mm", fill.surface.label(), fill.period_mm());
             let cx = t + iw / 2.0;
             let cy = t + ih / 2.0;
             chart

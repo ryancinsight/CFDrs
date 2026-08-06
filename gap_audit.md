@@ -40,12 +40,15 @@ scalars. These are authored physical lattice periods, not display-only values:
 they determine the marching-cubes TPMS evaluation and the adaptive pore-scale
 field used for cell separation.
 
-This gap is in progress. The implementation will carry Eunomia `Length<f64>`
-values in base metres through both period contracts and direct consumers.
-Millimetre extraction will remain confined to mesh/rendering formula
-boundaries. The TPMS iso-value and normalized spatial fractions remain
-dimensionless. No complex or imaginary SI quantity applies to this real
-geometry contract.
+Closed. `TpmsFillSpec.period` and the `AdaptiveGradient` period endpoints now
+carry Eunomia `Length<f64>` values in base metres through the public contracts.
+`period_mm()` and `period_at_mm()` isolate extraction at the existing mesh and
+rendering formula boundaries. The TPMS iso-value and normalized spatial
+fractions remain dimensionless. cfd-schematics Nextest passes 191/191
+(`2d46b8a3-990a-4caa-91e2-2e1051519d5c`), cfd-schematic-mesh Nextest passes
+29/29 (`f8a94bb6-b0bf-462f-a27b-3beb50211c81`), and affected all-target
+check, warning-denied Clippy, 16/16 doctests, and Rustdoc pass. This real
+geometry contract has no complex or imaginary SI quantity.
 
 ## Geometry configuration dimensions (CFDRS-AEQ-MET-60, 2026-08-06)
 

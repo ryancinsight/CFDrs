@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** `TpmsFillSpec.period` and `AdaptiveGradient` period endpoints
+  now carry Eunomia `Length<f64>` values in base metres. `period_mm()` and
+  `period_at_mm()` keep scalar extraction explicit at mesh and rendering
+  formula boundaries; normalized fractions and iso-values remain dimensionless.
+  The real TPMS geometry contract has no complex or imaginary SI quantity.
+
 - **Breaking:** `GeometryConfig.wall_clearance`, `channel_width`, and
   `channel_height` now carry Eunomia `Length<f64>` values in base metres.
   Millimetre extraction is explicit through `*_mm` layout/formula projections;
