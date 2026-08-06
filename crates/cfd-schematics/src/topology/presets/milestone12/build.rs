@@ -92,11 +92,14 @@ pub fn milestone12_primitive_selective_tree_spec(
     let spec = BlueprintTopologySpec {
         topology_id: request.topology_id.clone(),
         design_name: request.design_name.clone(),
-        box_dims_mm: request.box_dims_mm,
-        inlet_width_m: request.inlet_width_m,
-        outlet_width_m: outlet_treatment_width_m,
-        trunk_length_m: request.branch_length_m,
-        outlet_tail_length_m: request.outlet_tail_length_m,
+        box_dims_m: (
+            Length::from_base(request.box_dims_mm.0 * 1.0e-3),
+            Length::from_base(request.box_dims_mm.1 * 1.0e-3),
+        ),
+        inlet_width_m: Length::from_base(request.inlet_width_m),
+        outlet_width_m: Length::from_base(outlet_treatment_width_m),
+        trunk_length_m: Length::from_base(request.branch_length_m),
+        outlet_tail_length_m: Length::from_base(request.outlet_tail_length_m),
         series_channels: Vec::new(),
         parallel_channels: Vec::new(),
         split_stages,
@@ -242,7 +245,7 @@ pub fn promote_milestone12_option1_to_option2(
     if let Some(render_hints) = blueprint.render_hints() {
         mirror_blueprint_geometry(
             &mut promoted,
-            topology.box_dims_mm,
+            topology.box_dims_mm(),
             render_hints.mirror_x,
             render_hints.mirror_y,
         );

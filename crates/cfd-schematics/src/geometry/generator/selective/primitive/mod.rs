@@ -147,7 +147,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
     }
 
     let mut split_sequence = Vec::with_capacity(spec.split_stages.len());
-    let mut parent_width_m = spec.inlet_width_m;
+    let mut parent_width_m = spec.inlet_width_m.into_base();
     let mut first_trifurcation_center_frac = 0.5;
     let mut later_trifurcation_center_frac = 0.5;
     let mut bifurcation_treatment_frac = 0.5;
@@ -223,15 +223,16 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
 
     let request = PrimitiveSelectiveTreeRequest {
         name: spec.design_name.clone(),
-        box_dims_mm: spec.box_dims_mm,
+        box_dims_mm: spec.box_dims_mm(),
         split_sequence,
-        main_width_m: spec.inlet_width_m,
+        main_width_m: spec.inlet_width_m.into_base(),
         throat_width_m: strongest_venturi.map_or(parent_width_m, |placement| {
             placement.throat_geometry.throat_width_m.into_base()
         }),
-        throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
-            placement.throat_geometry.throat_length_m.into_base()
-        }),
+        throat_length_m: strongest_venturi
+            .map_or(spec.trunk_length_m.into_base() / 8.0, |placement| {
+                placement.throat_geometry.throat_length_m.into_base()
+            }),
         channel_height_m: representative_height_m,
         first_trifurcation_center_frac,
         later_trifurcation_center_frac,

@@ -31,19 +31,22 @@
 
 ## Active integration
 
-- **CFDRS-AEQ-MET-55 [major] - Type topology envelope geometry (claimed
+- **CFDRS-AEQ-MET-55 [major] - Type topology envelope geometry (done
   2026-08-05; owner=current Codex session; scope=`BlueprintTopologySpec` plate
   dimensions, inlet/outlet widths, trunk length, and outlet-tail length plus
   direct topology, mesh, reporting, optimization, and serialization consumers).**
-  Replace the public envelope raw scalars with Eunomia `Length<f64>` values in
-  base metres, rename the millimetre field to its base-metre contract, and
-  extract scalars only at mesh, reporting, validation, and formula boundaries.
-  No adapter or duplicate scalar field is permitted. The contract is
-  real-valued; no complex or imaginary SI quantity applies. Acceptance is a
-  residue-free source scan for the envelope fields, JSON value-semantic
-  coverage, affected package checks, warning-denied Clippy, focused Nextest,
-  doctests or an explicitly recorded environment residual, and synchronized
-  audit/ADR/changelog evidence.
+  The public envelope fields now use Eunomia `Length<f64>` values in base
+  metres; `box_dims_mm` is replaced by `box_dims_m` and `box_dims_mm()` is the
+  explicit millimetre layout projection. Scalar extraction remains only at
+  mesh, reporting, validation, and formula boundaries, with no adapter or
+  duplicate scalar field. The contract is real-valued; no complex or
+  imaginary SI quantity applies. Evidence: cfd-schematics and cfd-optim
+  all-target checks pass; warning-denied Clippy passes for both; cfd-1d and
+  cfd-2d all-target checks pass; cfd-schematics Nextest 188/188
+  (`4c6c4693-f690-4b36-8cc0-94219e8e9132`); cfd-optim Nextest 137/137
+  (`8d180a7d-68f6-49de-ae6e-ab2004f3585d`); cfd-schematics doctests 16/16;
+  cfd-optim doctests 2/2 with 3 ignored; and Rustdoc builds for both affected
+  packages.
 
 - **CFDRS-AEQ-MET-54 [major] - Type recovery sub-branch geometry (done
   2026-08-05; owner=current Codex session; scope=`SubBranchSpec.width_m` and

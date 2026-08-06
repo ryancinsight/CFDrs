@@ -165,11 +165,11 @@ pub struct DeanSiteEstimate {
 pub struct BlueprintTopologySpec {
     pub topology_id: String,
     pub design_name: String,
-    pub box_dims_mm: (f64, f64),
-    pub inlet_width_m: f64,
-    pub outlet_width_m: f64,
-    pub trunk_length_m: f64,
-    pub outlet_tail_length_m: f64,
+    pub box_dims_m: (Length<f64>, Length<f64>),
+    pub inlet_width_m: Length<f64>,
+    pub outlet_width_m: Length<f64>,
+    pub trunk_length_m: Length<f64>,
+    pub outlet_tail_length_m: Length<f64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub series_channels: Vec<SeriesChannelSpec>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -222,6 +222,16 @@ impl Default for TopologyLineageMetadata {
 }
 
 impl BlueprintTopologySpec {
+    /// Returns the authored plate envelope in millimetres for mesh and layout
+    /// coordinates.
+    #[must_use]
+    pub fn box_dims_mm(&self) -> (f64, f64) {
+        (
+            self.box_dims_m.0.into_base() * 1.0e3,
+            self.box_dims_m.1.into_base() * 1.0e3,
+        )
+    }
+
     #[must_use]
     pub fn channel_route(&self, channel_id: &str) -> Option<&ChannelRouteSpec> {
         self.series_channels

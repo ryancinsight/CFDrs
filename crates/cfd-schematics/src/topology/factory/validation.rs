@@ -10,32 +10,32 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     if spec.design_name.is_empty() {
         return Err("BlueprintTopologySpec.design_name is empty".into());
     }
-    let (bw, bh) = spec.box_dims_mm;
+    let (bw, bh) = spec.box_dims_mm();
     if bw <= 0.0 || bh <= 0.0 {
         return Err(format!("Box dimensions must be positive: ({bw}, {bh})"));
     }
-    if spec.inlet_width_m <= 0.0 {
+    if spec.inlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "inlet_width_m must be positive: {}",
-            spec.inlet_width_m
+            spec.inlet_width_m.into_base()
         ));
     }
-    if spec.outlet_width_m <= 0.0 {
+    if spec.outlet_width_m.into_base() <= 0.0 {
         return Err(format!(
             "outlet_width_m must be positive: {}",
-            spec.outlet_width_m
+            spec.outlet_width_m.into_base()
         ));
     }
-    if spec.trunk_length_m <= 0.0 {
+    if spec.trunk_length_m.into_base() <= 0.0 {
         return Err(format!(
             "trunk_length_m must be positive: {}",
-            spec.trunk_length_m
+            spec.trunk_length_m.into_base()
         ));
     }
-    if spec.outlet_tail_length_m <= 0.0 {
+    if spec.outlet_tail_length_m.into_base() <= 0.0 {
         return Err(format!(
             "outlet_tail_length_m must be positive: {}",
-            spec.outlet_tail_length_m
+            spec.outlet_tail_length_m.into_base()
         ));
     }
 

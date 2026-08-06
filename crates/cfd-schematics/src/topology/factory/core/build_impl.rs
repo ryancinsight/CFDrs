@@ -55,7 +55,7 @@ impl BlueprintTopologyFactory {
         };
 
         let mut blueprint = GeometryGeneratorBuilder::new(
-            spec.box_dims_mm,
+            spec.box_dims_mm(),
             &splits,
             &geo_config,
             &ChannelTypeConfig::AllStraight,

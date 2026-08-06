@@ -801,11 +801,26 @@ contract remains real-valued; no complex or imaginary SI quantity applies.
 
 Verification: cfd-schematics and cfd-optim all-target checks pass;
 warning-denied Clippy passes for both packages; Nextest passes cfd-schematics
-187/187 and cfd-optim 137/137; Rustdoc builds for both packages. The current
-cfd-schematics doctest command exceeded its 240-second collection allowance
-without a test failure summary; the prior adjacent serpentine revision passed
-all 16 cfd-schematics doctests, and the timeout is retained as a verification
-residual in `gap_audit.md`.
+187/187 and cfd-optim 137/137; cfd-schematics doctests pass 16/16; and
+Rustdoc builds for both packages. The temporary collection timeout observed
+during an earlier cache-contended run is superseded by the clean doctest pass.
+
+Revision 2026-08-05: extend this decision to the public topology envelope.
+`BlueprintTopologySpec` now stores plate width/height, inlet/outlet widths,
+trunk length, and outlet-tail length as Eunomia `Length<f64>` values in base
+metres. The old millimetre-named field is replaced by `box_dims_m`; the
+`box_dims_mm()` method is the explicit layout projection. Topology factory,
+geometry, mesh, reporting, optimization, and serialization consumers extract
+base scalars only at their boundaries, with no adapter or duplicate scalar
+field. The contract remains real-valued; no complex or imaginary SI quantity
+applies.
+
+Verification: cfd-schematics and cfd-optim all-target checks pass;
+warning-denied Clippy passes for both packages; cfd-1d and cfd-2d all-target
+checks pass; Nextest passes cfd-schematics 188/188 and cfd-optim 137/137;
+cfd-schematics doctests pass 16/16 and cfd-optim doctests pass 2/2 with 3
+ignored; Rustdoc builds for cfd-schematics and cfd-optim. Detailed run
+identifiers and shared-stack warnings are recorded in `gap_audit.md`.
 
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 

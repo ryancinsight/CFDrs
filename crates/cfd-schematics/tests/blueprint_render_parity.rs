@@ -6,7 +6,10 @@ use cfd_schematics::interface::presets::{
     incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
-use cfd_schematics::{NetworkBlueprint, SerpentineSpec, SerpentineWaveType, SubBranchSpec};
+use cfd_schematics::{
+    BlueprintTopologySpec, NetworkBlueprint, SerpentineSpec, SerpentineWaveType, SubBranchSpec,
+    TreatmentActuationMode,
+};
 
 fn node_has_point(bp: &NetworkBlueprint, node_id: &str) -> bool {
     bp.nodes.iter().any(|node| node.id.0 == node_id)
@@ -88,6 +91,37 @@ fn recovery_sub_branch_quantities_round_trip_through_json() {
     assert_eq!(decoded, spec);
     assert_eq!(decoded.width_m, Length::from_base(0.45e-3));
     assert_eq!(decoded.height_m, Length::from_base(0.12e-3));
+}
+
+#[test]
+fn topology_envelope_quantities_round_trip_through_json() {
+    let spec = BlueprintTopologySpec {
+        topology_id: "envelope".to_string(),
+        design_name: "envelope".to_string(),
+        box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+        inlet_width_m: Length::from_base(5.0e-3),
+        outlet_width_m: Length::from_base(4.0e-3),
+        trunk_length_m: Length::from_base(20.0e-3),
+        outlet_tail_length_m: Length::from_base(14.0e-3),
+        series_channels: Vec::new(),
+        parallel_channels: Vec::new(),
+        split_stages: Vec::new(),
+        venturi_placements: Vec::new(),
+        treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+    };
+    let encoded = serde_json::to_string(&spec).expect("envelope JSON must encode");
+    let decoded: BlueprintTopologySpec =
+        serde_json::from_str(&encoded).expect("envelope JSON must decode");
+
+    assert_eq!(decoded, spec);
+    let (width_mm, height_mm) = decoded.box_dims_mm();
+    // One decimal serialization round-trip plus one metre-to-millimetre
+    // multiplication bounds the absolute error by 8ε|x| for this magnitude.
+    let envelope_bound = 8.0 * f64::EPSILON * 128.0;
+    assert!((width_mm - 127.76).abs() <= envelope_bound);
+    assert!((height_mm - 85.47).abs() <= envelope_bound);
+    assert_eq!(decoded.inlet_width_m, Length::from_base(5.0e-3));
+    assert_eq!(decoded.outlet_tail_length_m, Length::from_base(14.0e-3));
 }
 
 fn channel_path(bp: &NetworkBlueprint, channel_id: &str) -> Vec<(f64, f64)> {

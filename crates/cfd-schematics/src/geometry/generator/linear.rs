@@ -127,7 +127,8 @@ fn build_series_channel(
 
 pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let channel_count = spec.series_channels.len();
-    let y_mm = spec.box_dims_mm.1 * 0.5;
+    let box_dims_mm = spec.box_dims_mm();
+    let y_mm = box_dims_mm.1 * 0.5;
 
     let mut nodes = Vec::with_capacity(channel_count + 1);
     let mut current_x = 10.0;
@@ -174,8 +175,8 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
 
     let mut blueprint = NetworkBlueprint {
         name: spec.design_name.clone(),
-        box_dims: spec.box_dims_mm,
-        box_outline: make_outline(spec.box_dims_mm),
+        box_dims: box_dims_mm,
+        box_outline: make_outline(box_dims_mm),
         nodes,
         channels,
         render_hints: None,
@@ -230,14 +231,15 @@ fn build_parallel_channel(
 }
 
 pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
-    let inlet = layout_node("inlet", NodeKind::Inlet, (0.0, spec.box_dims_mm.1 * 0.5));
+    let box_dims_mm = spec.box_dims_mm();
+    let inlet = layout_node("inlet", NodeKind::Inlet, (0.0, box_dims_mm.1 * 0.5));
     let outlet = layout_node(
         "outlet",
         NodeKind::Outlet,
-        (spec.box_dims_mm.0, spec.box_dims_mm.1 * 0.5),
+        (box_dims_mm.0, box_dims_mm.1 * 0.5),
     );
     let channel_count = spec.parallel_channels.len().max(1);
-    let lane_spacing = spec.box_dims_mm.1 / (channel_count as f64 + 1.0);
+    let lane_spacing = box_dims_mm.1 / (channel_count as f64 + 1.0);
     let channels = spec
         .parallel_channels
         .iter()
@@ -249,8 +251,8 @@ pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> Netwo
 
     let mut blueprint = NetworkBlueprint {
         name: spec.design_name.clone(),
-        box_dims: spec.box_dims_mm,
-        box_outline: make_outline(spec.box_dims_mm),
+        box_dims: box_dims_mm,
+        box_outline: make_outline(box_dims_mm),
         nodes: vec![inlet, outlet],
         channels,
         render_hints: None,

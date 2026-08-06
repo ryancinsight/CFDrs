@@ -548,8 +548,8 @@ pub fn compute_blueprint_report_metrics(
     } else {
         0.0
     };
-    metrics.plate_fits =
-        topology.box_dims_mm.0 <= PLATE_WIDTH_MM && topology.box_dims_mm.1 <= PLATE_HEIGHT_MM;
+    let (plate_width_mm, plate_height_mm) = topology.box_dims_mm();
+    metrics.plate_fits = plate_width_mm <= PLATE_WIDTH_MM && plate_height_mm <= PLATE_HEIGHT_MM;
     let overlap = candidate.blueprint.channel_overlap_analysis();
     metrics.channel_overlap_fraction = overlap.max_overlap_fraction;
     metrics.overlap_width_ratio = overlap.width_ratio_at_worst;
@@ -697,7 +697,7 @@ pub fn compute_blueprint_report_metrics(
     // Outlet tail length and remerge proximity: applicable to all PST topologies.
     // Shorter outlet tails mean treatment-stream remerge happens closer to chip exit,
     // reducing post-therapy dilution and secondary separation of treated cells.
-    let outlet_tail_mm = topology.outlet_tail_length_m * 1.0e3;
+    let outlet_tail_mm = topology.outlet_tail_length_m.into_base() * 1.0e3;
     metrics.cif_outlet_tail_length_mm = outlet_tail_mm;
     metrics.cif_remerge_proximity_score = if outlet_tail_mm > 0.0 {
         // Exponential decay: 1 mm → 0.95, 5 mm → 0.37, 10 mm → 0.14.

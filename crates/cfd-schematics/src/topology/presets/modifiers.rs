@@ -163,11 +163,11 @@ mod tests {
         let spec = BlueprintTopologySpec {
             topology_id: "parallel".to_string(),
             design_name: "parallel".to_string(),
-            box_dims_mm: (127.76, 85.47),
-            inlet_width_m: 2.0e-3,
-            outlet_width_m: 2.0e-3,
-            trunk_length_m: 12.0e-3,
-            outlet_tail_length_m: 12.0e-3,
+            box_dims_m: (Length::from_base(127.76e-3), Length::from_base(85.47e-3)),
+            inlet_width_m: Length::from_base(2.0e-3),
+            outlet_width_m: Length::from_base(2.0e-3),
+            trunk_length_m: Length::from_base(12.0e-3),
+            outlet_tail_length_m: Length::from_base(12.0e-3),
             series_channels: Vec::new(),
             parallel_channels: vec![
                 ParallelChannelSpec {
@@ -300,11 +300,11 @@ mod tests {
         let spec = BlueprintTopologySpec {
             topology_id: "split".to_string(),
             design_name: "split".to_string(),
-            box_dims_mm: (127.76, 85.47),
-            inlet_width_m: 6.0e-3,
-            outlet_width_m: 2.0e-3,
-            trunk_length_m: 8.0e-3,
-            outlet_tail_length_m: 8.0e-3,
+            box_dims_m: (Length::from_base(127.76e-3), Length::from_base(85.47e-3)),
+            inlet_width_m: Length::from_base(6.0e-3),
+            outlet_width_m: Length::from_base(2.0e-3),
+            trunk_length_m: Length::from_base(8.0e-3),
+            outlet_tail_length_m: Length::from_base(8.0e-3),
             series_channels: Vec::new(),
             parallel_channels: Vec::new(),
             split_stages: vec![SplitStageSpec {

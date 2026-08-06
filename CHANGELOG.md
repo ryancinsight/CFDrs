@@ -95,6 +95,15 @@ All notable changes to this project will be documented in this file.
   at the flow and resistance formula boundary. The recovery geometry contract
   is real-valued and has no complex or imaginary SI quantity.
 
+- **Breaking:** Type `BlueprintTopologySpec` plate envelope dimensions, inlet
+  and outlet widths, trunk length, and outlet-tail length with Eunomia
+  `Length<f64>` values in base metres. Rename `box_dims_mm` to `box_dims_m` and
+  expose millimetre coordinates only through the explicit layout projection.
+  Migrate topology, factory, mesh, reporting, optimization, and serialization
+  consumers without adapters; scalar extraction remains at those formula and
+  layout boundaries. The envelope contract is real-valued and has no complex
+  or imaginary SI quantity.
+
 - Refresh the standalone provider lock and Atlas checkout pin to the current
   `moirai-runtime`/`mnemosyne-memory` graph so the focused `cfd-schematic-mesh`
   locked package check resolves and passes.

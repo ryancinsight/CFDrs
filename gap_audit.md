@@ -31,7 +31,7 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
-## Topology envelope geometry (CFDRS-AEQ-MET-55, claimed 2026-08-05)
+## Topology envelope geometry (CFDRS-AEQ-MET-55, 2026-08-05)
 
 The post-MET54 public-contract scan found raw envelope dimensions in
 `BlueprintTopologySpec`: `box_dims_mm`, inlet and outlet widths, trunk length,
@@ -40,8 +40,22 @@ optimization/reporting, validation, and serialized blueprint metadata. The
 existing millimetre field name also conflicts with the base-metre contract
 used by typed Eunomia lengths.
 
-The implementation is in progress. This real-valued envelope geometry has no
-complex or imaginary SI quantity.
+The gap is closed. `BlueprintTopologySpec` now stores these dimensions as
+Eunomia real-valued `Length<f64>` values in base metres; `box_dims_mm` is
+replaced by `box_dims_m`, and `box_dims_mm()` is the explicit millimetre layout
+projection. Topology factory, geometry, mesh, reporting, optimization, and
+serialization consumers extract scalars only at their formula or layout
+boundaries. No adapter or duplicate scalar field remains. The JSON round-trip
+and millimetre projection regression preserve value semantics. This geometry
+has no complex or imaginary SI quantity.
+
+A cfd-schematics and cfd-optim all-target check pass, as does warning-denied
+Clippy for both packages. cfd-1d and cfd-2d all-target checks pass. Nextest
+passes cfd-schematics 188/188 (`4c6c4693-f690-4b36-8cc0-94219e8e9132`) and
+cfd-optim 137/137 (`8d180a7d-68f6-49de-ae6e-ab2004f3585d`). Doctests pass
+for cfd-schematics 16/16 and cfd-optim 2/2 with 3 ignored; Rustdoc builds for
+both affected packages. Shared-stack unused-patch/config warnings remain
+environment warnings, not metric defects.
 
 ## Recovery sub-branch geometry (CFDRS-AEQ-MET-54, 2026-08-05)
 
@@ -64,11 +78,9 @@ A cfd-schematics all-target check and warning-denied Clippy pass, as do the
 cfd-optim all-target check and warning-denied Clippy. Nextest passes
 cfd-schematics 187/187 (`16c1a638-fb80-46e0-8407-70e3c10ada4e`) and cfd-optim
 137/137 (`51b882b4-ba72-49ce-ac5b-c8654b901015`). Rustdoc builds for both
-packages. The current cfd-schematics doctest command exceeded its
-240-second collection allowance without a test failure summary; the prior
-adjacent serpentine revision passed all 16 cfd-schematics doctests. This
-collection timeout is retained as a verification residual, not classified as
-a source or metric defect.
+packages. cfd-schematics doctests pass 16/16. An earlier cache-contended
+collection timeout is superseded by this clean doctest pass and is not a
+source or metric defect.
 
 ## Serpentine geometry (CFDRS-AEQ-MET-53, 2026-08-05)
 

@@ -243,7 +243,7 @@ impl BlueprintTopologyFactory {
             if source_hints.mirror_x || source_hints.mirror_y {
                 Self::mirror_blueprint_geometry(
                     &mut result,
-                    new_spec.box_dims_mm,
+                    new_spec.box_dims_mm(),
                     source_hints.mirror_x,
                     source_hints.mirror_y,
                 );

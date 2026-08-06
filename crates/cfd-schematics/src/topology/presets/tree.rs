@@ -103,11 +103,18 @@ pub fn asymmetric_split_tree_spec(
     BlueprintTopologySpec {
         topology_id: format!("{name}_topology"),
         design_name: name.to_string(),
-        box_dims_mm: (PLATE_WIDTH_MM, PLATE_HEIGHT_MM),
-        inlet_width_m: branch_widths_m[0].iter().map(|(w, _, _)| *w).sum::<f64>(),
-        outlet_width_m: branch_widths_m[0].iter().map(|(w, _, _)| *w).sum::<f64>(),
-        trunk_length_m,
-        outlet_tail_length_m: trunk_length_m,
+        box_dims_m: (
+            Length::from_base(PLATE_WIDTH_MM * 1.0e-3),
+            Length::from_base(PLATE_HEIGHT_MM * 1.0e-3),
+        ),
+        inlet_width_m: Length::from_base(
+            branch_widths_m[0].iter().map(|(w, _, _)| *w).sum::<f64>(),
+        ),
+        outlet_width_m: Length::from_base(
+            branch_widths_m[0].iter().map(|(w, _, _)| *w).sum::<f64>(),
+        ),
+        trunk_length_m: Length::from_base(trunk_length_m),
+        outlet_tail_length_m: Length::from_base(trunk_length_m),
         series_channels: Vec::new(),
         parallel_channels: Vec::new(),
         split_stages: stages,
