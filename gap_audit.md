@@ -31,6 +31,20 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Generic selective-tree request geometry (CFDRS-AEQ-MET-57, 2026-08-05)
+
+The post-MET56 scan found raw geometry in the generic public
+`PrimitiveSelectiveTreeRequest` and `SelectiveTreeRequest` contracts, including
+their topology-variant outlet-tail and inter-throat spacing fields. These
+requests feed the cfd-schematics geometry builders and direct cfd-1d/cfd-2d
+validation consumers.
+
+This gap is in progress. The implementation will move all unit-bearing request
+geometry to Eunomia real-valued `Length<f64>` values in base metres, preserving
+dimensionless routing fractions and enum controls. Scalar extraction will occur
+once at the geometry/layout boundary, with no adapter or duplicate scalar path.
+No complex or imaginary SI quantity applies to this real-valued geometry.
+
 ## Milestone 12 request geometry (CFDRS-AEQ-MET-56, 2026-08-05)
 
 The post-MET55 public-contract scan found raw geometry in

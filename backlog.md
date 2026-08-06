@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-57 [major] - Type generic selective-tree request geometry
+  (in progress 2026-08-05; owner=current Codex session; scope=
+  `PrimitiveSelectiveTreeRequest`, `SelectiveTreeRequest`, their topology
+  variants, and direct cfd-schematics/cfd-1d/cfd-2d consumers).** These public
+  geometry requests still store plate, channel, branch, outlet, and venturi
+  dimensions as raw metre/millimetre scalars. The acceptance oracle is one
+  Eunomia `Length<f64>` contract in base metres through authoring and explicit
+  scalar extraction at geometry/layout boundaries. Complex or imaginary SI
+  quantities are out of scope for this real geometry.
+
 - **CFDRS-AEQ-MET-56 [major] - Type Milestone 12 request geometry (done
   2026-08-05; owner=current Codex session; scope=
   `Milestone12PrimitiveSelectiveSpec`, nested stage branch widths, and direct
