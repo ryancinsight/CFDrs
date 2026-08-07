@@ -21,6 +21,12 @@
       storage access; cfd-math Nextest remains 198/198.
 - [x] Replace cfd-math performance-monitor lock/output violations and DG
       solver println output; focused cfd-math library Clippy and Nextest pass.
+- [x] Document the exported `cfd-schematics::topology::model` contract,
+      including fields, variants, aliases, and lookup methods; package Clippy
+      missing-documentation residue decreases from 712 to 611.
+- [ ] Continue the cfd-schematics documentation ratchet from the remaining
+      611 diagnostics, then address cfd-core test/bench lint debt and format
+      baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 

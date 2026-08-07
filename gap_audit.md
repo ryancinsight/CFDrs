@@ -70,6 +70,16 @@
   Nextest remains 198/198. Workspace all-target closure is still open on
   cfd-schematics docs, cfd-core test/bench lint debt, and format debt.
 
+## cfd-schematics topology model documentation — partial closure (2026-08-07)
+
+- The exported topology specification contract now documents its model types,
+  fields, enum variants, aliases, and route lookup methods in
+  `src/topology/model.rs`.
+- `cargo clippy -p cfd-schematics --lib` still fails only on the existing
+  documentation floor at this stage; diagnostics decrease from 712 to 611.
+- Residual: 611 missing-documentation diagnostics remain across the package's
+  other modules. No crate-wide lint suppression was added.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
