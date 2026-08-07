@@ -73,6 +73,11 @@
   Clippy residual decreases from 508 to 506. The current working tree reports
   492 because peer-owned documentation changes are also present in
   `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
+- cfd-schematics selective-tree documentation slice: document the public path
+  specification, topology variants, request fields, and generator entrypoint
+  in `geometry/generator/selective/mod.rs`; the package Clippy residual
+  decreases from 506 to 468. The current working tree reports 454 with the
+  peer-owned blueprint-analysis documentation still present.
 
 ## Active integration
 
