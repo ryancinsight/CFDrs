@@ -62,4 +62,3 @@ Atlas stack — are used by `helios` and `kwavers` but not by CFDrs; see
 ## Further Reading
 
 - [Atlas Dependency Map](appendix_dependencies.md)
-- [`BOOK_ORGANIZATION.md`](BOOK_ORGANIZATION.md) — forward roadmap

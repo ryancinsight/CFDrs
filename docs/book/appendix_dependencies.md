@@ -42,4 +42,3 @@ CFDrs — and these properties are enforced rather than asserted:
 ## Further Reading
 
 - [Chapter 17 — GPU Detection and Performance Profiling](performance_and_atlas.md)
-- [`BOOK_ORGANIZATION.md`](BOOK_ORGANIZATION.md) — forward roadmap

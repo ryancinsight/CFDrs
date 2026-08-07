@@ -79,10 +79,7 @@ CFDrs is mid-migration to the Atlas stack.  Where a crate already declares
 Atlas crates in `Cargo.toml`, the migration is considered **complete**; where
 `ndarray` or `nalgebra` is still in the manifest, the crate is in
 **bulk-migration** phase.  See [Atlas Dependency Map](appendix_dependencies.md)
-for the per-crate table and [Atlas Stack Integration — Migration Reference]
-for the migration chapters.  Migration progress also lives in
-[`BOOK_ORGANIZATION.md`](BOOK_ORGANIZATION.md) and the per-crate roadmap
-sections.
+for the per-crate table.
 
 ## Examples Referenced by This Chapter
 

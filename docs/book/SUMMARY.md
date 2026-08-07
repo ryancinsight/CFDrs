@@ -114,6 +114,3 @@
 
 - [A. Atlas Crate Dependency Map](appendix_dependencies.md)
 - [B. Glossary](appendix_glossary.md)
-- [C. Changelog](appendix_changelog.md)
-- [D. Book Organization](BOOK_ORGANIZATION.md)
-- [E. Parity Artefacts Archive](parity_archive.md)
