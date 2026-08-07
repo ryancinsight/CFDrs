@@ -17,7 +17,7 @@ pub struct DocsFigureRef {
     pub source_file: String,
     /// 1-indexed line number in the source file.
     pub line_no: usize,
-    /// Filename portion (e.g. "poiseuille_parabolic_profile.svg"), without
+    /// Filename portion (e.g. `poiseuille_parabolic_profile.svg`), without
     /// the "figures/" prefix.
     pub figure_file: String,
 }
@@ -66,7 +66,11 @@ fn parse_figure_refs(path: &Path) -> Result<(String, Vec<DocsFigureRef>)> {
             }
             let candidate = &line[abs_start..end];
             if let Some(stripped) = candidate.strip_prefix("figures/") {
-                if stripped.ends_with(".svg") && !stripped.contains('/') {
+                if Path::new(stripped)
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("svg"))
+                    && !stripped.contains('/')
+                {
                     refs.push(DocsFigureRef {
                         source_file: source_file.clone(),
                         line_no: lineno + 1,

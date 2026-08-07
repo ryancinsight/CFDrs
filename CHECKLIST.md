@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
+
+- [x] Declare the Atlas `[workspace.lints]` floor and inherit it from all
+      workspace packages plus `xtask`.
+- [x] Remove the input-dependent `cfd-core` plugin dependency-map unwrap and
+      route `xtask` CLI lines through a checked writer so the deny floor remains
+      active.
+- [x] Verify `cargo clippy -p xtask --all-targets`,
+      `cargo clippy -p cfd-core --lib`, cfd-core Nextest (246/246), cfd-core
+      doctests (3/3), and the explicit legacy-migration audit.
+- [ ] Continue the workspace ratchet: cfd-math unwrap/output sites,
+      cfd-schematics missing-docs debt, cfd-core test/bench lint debt, and the
+      pre-existing all-target formatting baseline remain open.
+
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 
 - [x] Regenerate `Cargo.lock` outside the Atlas development overlay after the

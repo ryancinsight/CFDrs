@@ -129,7 +129,7 @@ impl DependencyResolver {
                     .entry(dep.clone())
                     .or_default()
                     .push(plugin.clone());
-                *in_degree.get_mut(plugin).unwrap() += 1;
+                *in_degree.entry(plugin.clone()).or_insert(0) += 1;
             }
         }
 

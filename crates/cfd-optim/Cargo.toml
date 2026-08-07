@@ -60,3 +60,6 @@ path = "examples/milestone12_option2.rs"
 [[example]]
 name = "milestone12_ga"
 path = "examples/milestone12_ga.rs"
+
+[lints]
+workspace = true

@@ -1,4 +1,4 @@
-//! Prebook / figure-management for the CFDrs mdbook.
+//! Prebook / figure-management for the `CFDrs` mdBook.
 //!
 //! Build the deterministic figure set committed at `docs/book/figures/`
 //! and emit a `MANIFEST.json` manifest that downstream tooling
@@ -30,7 +30,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// A figure referenced by the CFDrs mdbook.
+/// A figure referenced by the `CFDrs` mdBook.
 ///
 /// `source_example` is `Some(_)` for figures that mirror a runnable
 /// example's deterministic stdout / staged PNG; `None` for purely
@@ -193,6 +193,6 @@ pub fn sha256_hex_first_16(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let digest = hasher.finalize();
-    let hex = format!("{:x}", digest);
+    let hex = format!("{digest:x}");
     hex[..16].to_owned()
 }

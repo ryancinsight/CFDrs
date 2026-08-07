@@ -31,6 +31,20 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Lint-floor gate — partial closure (2026-08-06)
+
+- The root workspace now owns the Atlas lint floor; every CFDrs workspace
+  package and `xtask` inherit it.
+- Passing evidence: `cargo clippy -p xtask --all-targets`,
+  `cargo clippy -p cfd-core --lib`, `cargo nextest run -p cfd-core --lib`
+  (246/246), `cargo test --doc -p cfd-core` (3/3), and
+  `cargo run --manifest-path xtask/Cargo.toml -- legacy-migration-audit`
+  (zero legacy dependencies, zero legacy source tokens, clean allowlist).
+- Residual: the workspace all-target Clippy gate is not green because existing
+  cfd-math unwrap/output sites, cfd-schematics missing docs, cfd-core test/bench
+  lint debt, and unrelated format debt still need ratchet increments. This
+  increment does not claim full workspace closure.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
