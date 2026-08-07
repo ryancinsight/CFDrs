@@ -13,6 +13,9 @@
 - [ ] Continue the workspace ratchet: cfd-math unwrap/output sites,
       cfd-schematics missing-docs debt, cfd-core test/bench lint debt, and the
       pre-existing all-target formatting baseline remain open.
+- [x] Replace the cfd-math multigrid coarsening `partial_cmp().unwrap()` calls
+      with deterministic NaN-safe ordering and add its value-semantic test;
+      cfd-math Nextest passes 198/198.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 

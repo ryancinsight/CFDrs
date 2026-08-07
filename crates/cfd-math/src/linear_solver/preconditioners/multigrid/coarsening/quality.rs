@@ -2,6 +2,8 @@
 //!
 //! Reference: Cleary, A. J., Falgout, R. D., Henson, V. E., & Jones, J. E. (2001)
 
+use core::cmp::Ordering;
+
 use super::super::SparseMatrix;
 use super::CoarseningResult;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -107,7 +109,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicDistances<T> {
             <T as NumericElement>::ZERO
         };
 
-        high_distance_points.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        high_distance_points.sort_by(|a, b| descending_total_order(&a.1, &b.1));
 
         Self {
             distances,
@@ -176,6 +178,21 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicDistances<T> {
         }
 
         quality
+    }
+}
+
+/// Orders finite values by descending magnitude and places unordered values
+/// after finite values. The coarsening report remains deterministic when a
+/// numerical input produces NaN instead of panicking while sorting diagnostics.
+fn descending_total_order<T: PartialOrd>(left: &T, right: &T) -> Ordering {
+    let left_unordered = left.partial_cmp(left).is_none();
+    let right_unordered = right.partial_cmp(right).is_none();
+
+    match (left_unordered, right_unordered) {
+        (true, true) => Ordering::Equal,
+        (true, false) => Ordering::Greater,
+        (false, true) => Ordering::Less,
+        (false, false) => right.partial_cmp(left).unwrap_or(Ordering::Equal),
     }
 }
 
@@ -331,5 +348,21 @@ impl CoarseningQuality {
             && self.coarsening_ratio > 0.1
             && self.coarsening_ratio < 0.8
             && self.max_interpolation_points <= 10
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::descending_total_order;
+    use core::cmp::Ordering;
+
+    #[test]
+    fn descending_total_order_places_unordered_values_after_finite_values() {
+        assert_eq!(descending_total_order(&f64::NAN, &1.0), Ordering::Greater);
+        assert_eq!(descending_total_order(&1.0, &f64::NAN), Ordering::Less);
+        assert_eq!(
+            descending_total_order(&f64::NAN, &f64::NAN),
+            Ordering::Equal
+        );
     }
 }

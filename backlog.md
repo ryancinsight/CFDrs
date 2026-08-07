@@ -40,6 +40,11 @@
   all-target Clippy still reports pre-existing cfd-math unwrap/output debt,
   cfd-schematics missing documentation, and test/bench lint debt; the existing
   all-target format baseline is also red outside this increment.
+- Follow-up cfd-math slice: replace floating-point `partial_cmp().unwrap()`
+  ordering in multigrid coarsening with deterministic NaN-safe ordering and
+  add a regression test. cfd-math Nextest is 198/198; its library Clippy
+  residue is reduced from 51 to 48 diagnostics, with the remaining debt
+  recorded for subsequent slices.
 
 ## Active integration
 
