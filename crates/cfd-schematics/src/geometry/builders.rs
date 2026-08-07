@@ -37,18 +37,21 @@ impl NodeBuilder {
         }
     }
 
+    /// Sets the optional human-readable node name.
     #[must_use]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
+    /// Sets the node's domain kind.
     #[must_use]
     pub const fn with_kind(mut self, kind: NodeKind) -> Self {
         self.kind = Some(kind);
         self
     }
 
+    /// Sets geometric metadata for a junction node.
     #[must_use]
     pub fn with_junction_geometry(mut self, geometry: JunctionGeometryMetadata) -> Self {
         self.junction_geometry = Some(geometry);
@@ -143,24 +146,28 @@ impl ChannelBuilder {
         }
     }
 
+    /// Sets the optional human-readable channel name.
     #[must_use]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
+    /// Sets the visual role used when rendering the channel.
     #[must_use]
     pub const fn with_visual_role(mut self, role: ChannelVisualRole) -> Self {
         self.visual_role = Some(role);
         self
     }
 
+    /// Sets the physical channel length in metres.
     #[must_use]
     pub const fn with_physical_length_m(mut self, length_m: f64) -> Self {
         self.physical_length_m = Some(length_m);
         self
     }
 
+    /// Sets the physical channel width and height in metres.
     #[must_use]
     pub const fn with_physical_dims_m(mut self, width_m: f64, height_m: f64) -> Self {
         self.physical_width_m = Some(width_m);
@@ -168,18 +175,21 @@ impl ChannelBuilder {
         self
     }
 
+    /// Sets the physical cross-sectional shape.
     #[must_use]
     pub const fn with_physical_shape(mut self, shape: ChannelShape) -> Self {
         self.physical_shape = Some(shape);
         self
     }
 
+    /// Sets the therapy zone served by the channel.
     #[must_use]
     pub const fn with_therapy_zone(mut self, zone: TherapyZone) -> Self {
         self.therapy_zone = Some(zone);
         self
     }
 
+    /// Sets Venturi geometry metadata for the channel.
     #[must_use]
     pub fn with_venturi_geometry(mut self, geometry: VenturiGeometryMetadata) -> Self {
         self.venturi_geometry = Some(geometry);

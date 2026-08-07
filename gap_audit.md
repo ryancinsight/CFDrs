@@ -89,6 +89,14 @@
 - Residual: 534 missing-documentation diagnostics remain across geometry,
   domain, interface, infrastructure, and topology modules outside this scope.
 
+## cfd-schematics geometry builders — partial closure (2026-08-07)
+
+- The public node and channel builder setters now document their domain
+  effects, including names, geometry, visual roles, therapy zones, and Venturi
+  metadata.
+- The package documentation-floor residual decreases from 534 to 524
+  diagnostics. No runtime behavior or builder defaults changed.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.

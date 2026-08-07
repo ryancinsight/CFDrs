@@ -61,6 +61,9 @@
   `ConstantsRegistry` contract, adaptive primitive constants, and public config
   module manifests. Package Clippy diagnostics decrease from 611 to 534; the
   remaining missing-documentation debt is outside this configuration scope.
+- cfd-schematics geometry-builder documentation slice: document the ten public
+  node/channel builder setters in `geometry/builders.rs`; the package Clippy
+  residual decreases from 534 to 524.
 
 ## Active integration
 
