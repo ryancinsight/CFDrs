@@ -97,6 +97,14 @@
 - The package documentation-floor residual decreases from 534 to 524
   diagnostics. No runtime behavior or builder defaults changed.
 
+## cfd-schematics geometry-generator entrypoints — partial closure (2026-08-07)
+
+- The metadata configuration, generation entry points, and fluent builder now
+  document their public contracts, including metadata, topology, lineage, and
+  rendering inputs.
+- The package documentation-floor residual decreases from 524 to 508
+  diagnostics. No runtime behavior or generation defaults changed.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
