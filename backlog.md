@@ -68,6 +68,11 @@
   the metadata configuration, generation functions, and builder contract in
   `geometry/generator/entrypoints.rs`; the package Clippy residual decreases
   from 524 to 508.
+- cfd-schematics linear-generator documentation slice: document the series and
+  parallel geometry builders in `geometry/generator/linear.rs`; the package
+  Clippy residual decreases from 508 to 506. The current working tree reports
+  492 because peer-owned documentation changes are also present in
+  `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
 
 ## Active integration
 
