@@ -93,6 +93,11 @@ pub struct SerpentineSpec {
 }
 
 /// Geometric and therapy metadata for one channel route.
+/// Authoring specification for a flow channel between two endpoints.
+///
+/// Composes a rectangular duct cross-section with an optional serpentine
+/// waveform and the therapy-zone semantic tag driving mesh refinement and
+/// physics coupling downstream of topology authoring.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelRouteSpec {
     /// Total route length.
