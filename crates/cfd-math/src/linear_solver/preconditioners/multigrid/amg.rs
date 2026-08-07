@@ -238,7 +238,10 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             // Use cached operators to build coarse matrices
             for (restriction, interpolation) in &hierarchy.operators {
                 let coarse_matrix = {
-                    let current_level = self.levels.last_mut().unwrap();
+                    let current_level = self
+                        .levels
+                        .last_mut()
+                        .expect("invariant: cached hierarchy starts from the finest level");
                     let temp_matrix = sparse_product(restriction, &current_level.matrix)?;
                     let coarse_matrix = sparse_product(&temp_matrix, interpolation)?;
 
@@ -256,14 +259,24 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
                     interpolation: None,
                     smoother,
                 });
-                self.statistics
-                    .level_sizes
-                    .push(self.levels.last().unwrap().matrix.nrows());
+                self.statistics.level_sizes.push(
+                    self.levels
+                        .last()
+                        .expect("invariant: cached hierarchy level was just inserted")
+                        .matrix
+                        .nrows(),
+                );
             }
         } else {
             // Standard build
             while self.levels.len() < self.config.max_levels
-                && self.levels.last().unwrap().matrix.nrows() > self.config.min_coarse_size
+                && self
+                    .levels
+                    .last()
+                    .expect("invariant: AMG setup created the finest level")
+                    .matrix
+                    .nrows()
+                    > self.config.min_coarse_size
             {
                 self.build_next_level()?;
             }
@@ -281,7 +294,10 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
     /// Build the next coarser level in the hierarchy
     fn build_next_level(&mut self) -> Result<()> {
         let (restriction, interpolation, coarse_matrix) = {
-            let current_level = self.levels.last().unwrap();
+            let current_level = self
+                .levels
+                .last()
+                .expect("invariant: AMG hierarchy has a current level");
 
             // Perform coarsening using the configured strategy
             let coarsening_result = match self.config.coarsening_strategy {
@@ -440,7 +456,10 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 
             // 3. Restriction: r_coarse = R * r
             sparse_apply_into(
-                current_level.restriction.as_ref().unwrap(),
+                current_level
+                    .restriction
+                    .as_ref()
+                    .expect("invariant: non-coarsest AMG level has restriction"),
                 r,
                 &mut current_workspace.coarse_residual,
             )
@@ -459,7 +478,10 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 
             // 5. Interpolation: e = P * e_coarse
             sparse_apply_into(
-                current_level.interpolation.as_ref().unwrap(),
+                current_level
+                    .interpolation
+                    .as_ref()
+                    .expect("invariant: non-coarsest AMG level has interpolation"),
                 &current_workspace.coarse_solution,
                 &mut current_workspace.correction,
             )

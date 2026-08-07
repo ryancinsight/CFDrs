@@ -16,6 +16,9 @@
 - [x] Replace the cfd-math multigrid coarsening `partial_cmp().unwrap()` calls
       with deterministic NaN-safe ordering and add its value-semantic test;
       cfd-math Nextest passes 198/198.
+- [x] Replace remaining cfd-math multigrid/interpolation unwraps with
+      invariant-checked expectations and centralize C-contiguous JFNK/spectral
+      storage access; cfd-math Nextest remains 198/198.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 

@@ -132,7 +132,8 @@ pub fn create_classical_interpolation<T: RealField + Copy + FloatElement + LetoS
                     let neg_diag_inv = <T as NumericElement>::ONE / -diagonal;
 
                     for &j in &c_i {
-                        let coarse_local_idx = coarse_map[j].unwrap();
+                        let coarse_local_idx = coarse_map[j]
+                            .expect("invariant: every classical interpolation C-point is mapped");
 
                         // A_ij (direct connection)
                         let mut a_ij = <T as NumericElement>::ZERO;
@@ -236,7 +237,10 @@ pub fn create_standard_interpolation<T: RealField + Copy + FloatElement + LetoSc
     for fine_i in 0..fine_n {
         if coarse_points.contains(&fine_i) {
             // Direct injection for coarse points
-            let coarse_idx = coarse_points.iter().position(|&x| x == fine_i).unwrap();
+            let coarse_idx = coarse_points
+                .iter()
+                .position(|&x| x == fine_i)
+                .expect("invariant: a listed coarse point has a local index");
             col_indices.push(coarse_idx);
             values.push(<T as NumericElement>::ONE);
         } else {

@@ -228,7 +228,11 @@ impl SpectralMesh1D {
     pub fn find_element(&self, x: f64) -> Option<usize> {
         for (e, _element) in self.elements.iter().enumerate() {
             let x0 = self.node_coord(self.element_connectivity[e][0]);
-            let x1 = self.node_coord(*self.element_connectivity[e].last().unwrap());
+            let x1 = self.node_coord(
+                *self.element_connectivity[e]
+                    .last()
+                    .expect("invariant: spectral element connectivity is non-empty"),
+            );
 
             // Use [x0, x1) for all but the last element, which is [x0, x1]
             let is_last = e == self.num_elements - 1;
@@ -278,7 +282,11 @@ impl SpectralMesh1D {
 
             // Compute element contribution to error
             let x0 = self.node_coord(conn[0]);
-            let x1 = self.node_coord(*conn.last().unwrap());
+            let x1 = self.node_coord(
+                *conn
+                    .last()
+                    .expect("invariant: spectral element connectivity is non-empty"),
+            );
 
             // Use Gauss quadrature for more accurate error computation
             let quad_points = 10; // Number of quadrature points per element

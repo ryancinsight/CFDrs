@@ -91,7 +91,12 @@ fn dot(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
         rhs.shape(),
         "invariant: dot operands must have equal length"
     );
-    leto_ops::Scalar::dot_slice(lhs.as_slice().unwrap(), rhs.as_slice().unwrap())
+    leto_ops::Scalar::dot_slice(
+        lhs.as_slice()
+            .expect("invariant: spectral vectors are C-contiguous"),
+        rhs.as_slice()
+            .expect("invariant: spectral vectors are C-contiguous"),
+    )
 }
 
 fn stiffness_matrix(derivative: &Array2<f64>, mass: &Array2<f64>) -> Array2<f64> {

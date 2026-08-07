@@ -45,6 +45,10 @@
   add a regression test. cfd-math Nextest is 198/198; its library Clippy
   residue is reduced from 51 to 48 diagnostics, with the remaining debt
   recorded for subsequent slices.
+- Follow-up cfd-math storage/invariant slice: replace multigrid hierarchy and
+  interpolation unwraps with invariant-checked `expect` calls, and centralize
+  C-contiguous JFNK slices plus spectral connectivity checks. cfd-math Nextest
+  remains 198/198; its library Clippy residue is now 22 diagnostics.
 
 ## Active integration
 
