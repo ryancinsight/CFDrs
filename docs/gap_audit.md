@@ -2,6 +2,19 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.171 resolution: cfd-3d example-stream coverage for spectral Poisson
+
+### RESOLVED-198: No `book_` example covering 3D spectral Poisson setup
+- **Location**: `crates/cfd-3d/examples/`.
+- **Issue**: the example stream lacked a mdBook-oriented `book_*.rs` entry for
+  a compact spectral Poisson workflow in `cfd-3d`.
+- **Remediation**: added
+  `book_spectral_poisson_3d.rs`, which demonstrates a minimal spectral setup
+  and Poisson solve path using existing CFDrs APIs.
+- **Evidence**: focused example check and warning-denied Clippy passed; full
+  `cfd-3d` Nextest passed 399/399; `xtask legacy-migration-audit` remains
+  clean.
+
 ## Sprint 1.96.170 resolution: cfd-core example-stream coverage for compute placement
 
 ### RESOLVED-197: No `book_` example covering compute backend selection + placement hint seam

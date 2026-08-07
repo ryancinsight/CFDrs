@@ -1,3 +1,21 @@
+# Sprint 1.96.171 Checklist: cfd-3d spectral Poisson book example
+**Goal**: Add a `book_*.rs` example that demonstrates a compact spectral
+Poisson setup in `cfd-3d`.
+
+**Success Criteria**:
+- [x] Added `crates/cfd-3d/examples/book_spectral_poisson_3d.rs`.
+- [x] Example configures a compact 3D spectral Poisson workflow using existing
+      crate APIs without introducing legacy math dependencies.
+- [x] Focused `cargo check -p cfd-3d --examples` passes.
+- [x] Warning-denied Clippy for examples passes.
+- [x] `cargo nextest run -p cfd-3d` passes.
+- [x] `cargo run -p xtask -- legacy-migration-audit` remains clean.
+
+**Closure**: Implemented and focused-verified on 2026-08-07 as an
+examples-only increment with disjoint scope from peer-owned `cfd-math` WIP.
+
+---
+
 # Sprint 1.96.170 Checklist: cfd-core compute-placement book example
 **Goal**: Add a `book_*.rs` example that demonstrates the existing compute
 backend-selection and placement-hint seam in `cfd-core`.

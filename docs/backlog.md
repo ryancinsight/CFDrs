@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.171: cfd-3d spectral Poisson book example
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] examples-only
+**Start Date**: August 7, 2026
+
+### Scope
+- Add a mdBook-oriented compiling example under `cfd-3d/examples/` with
+  `book_` prefix.
+- Demonstrate a compact spectral Poisson setup in 3D without changing solver,
+  mesh, or turbulence behavior.
+- Keep scope disjoint from peer-dirty `cfd-math` files.
+
+### Claimed Files
+- `crates/cfd-3d/examples/book_spectral_poisson_3d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+### Verification
+- `cargo check -p cfd-3d --examples`
+- `cargo clippy -p cfd-3d --examples -- -D warnings`
+- `cargo nextest run -p cfd-3d` (399/399)
+- `cargo run -p xtask -- legacy-migration-audit` (clean)
+
 ## Sprint 1.96.170: cfd-core compute-placement book example
 **Status**: Completed
 **Owner**: current session
