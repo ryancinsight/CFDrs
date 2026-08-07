@@ -2,10 +2,18 @@
 //!
 //! Provides operations on flow fields including vorticity, divergence,
 //! and other fluid mechanical quantities.
+//!
+//! The parallel writes are routed through the branded Melinoe partition
+//! seam (`melinoe::brand_scope` + `moirai::par_partition_for_each`): the
+//! disjoint shards carry compile-time write-capability evidence, so a
+//! concurrent write to overlapping cells is a type error, not a race
+//! (ATLAS-THEMIS-MELINOE-ADOPTION-001).
 
 use eunomia::{NumericElement, RealField};
 use leto::geometry::Vector3;
-use moirai::prelude::{ParallelSlice, ParallelSliceMut};
+use melinoe::MelinoeCell;
+use moirai::melinoe_ext::par_partition_for_each;
+use moirai::ParallelSlice;
 
 use super::fields::VelocityField;
 
@@ -21,13 +29,30 @@ impl FlowOperations {
         let (nx, ny, nz) = velocity.dimensions;
         let mut vorticity = vec![Vector3::zeros(); nx * ny * nz];
 
-        // Use parallel iteration for better performance
-        vorticity.par_mut().enumerate(|idx, vort| {
-            let k = idx / (nx * ny);
-            let j = (idx % (nx * ny)) / nx;
-            let i = idx % nx;
-
-            *vort = vorticity_at_point(velocity, i, j, k, nx, ny, nz);
+        // Branded parallel write: the buffer is reborrowed as a
+        // `&mut [MelinoeCell]` (zero cost — transparent layout), partitioned
+        // into disjoint shards, and each shard is written independently on
+        // the Moirai pool. The brand fuses the shards to one scope; overlap
+        // would fail to typecheck.
+        melinoe::brand_scope(|_token| {
+            // SAFETY: MelinoeCell<T> is repr(transparent) over UnsafeCell<T>
+            // over T, so &mut [T] and &mut [MelinoeCell<T>] share the layout.
+            // The unique &mut borrow guarantees no aliasing for the duration.
+            let cells: &mut [MelinoeCell<'_, Vector3<T>>] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    vorticity.as_mut_ptr().cast::<MelinoeCell<'_, Vector3<T>>>(),
+                    vorticity.len(),
+                )
+            };
+            par_partition_for_each(cells, 4096, |start, mut shard| {
+                for (offset, cell) in shard.iter_mut().enumerate() {
+                    let idx = start + offset;
+                    let k = idx / (nx * ny);
+                    let j = (idx % (nx * ny)) / nx;
+                    let i = idx % nx;
+                    *cell = vorticity_at_point(velocity, i, j, k, nx, ny, nz);
+                }
+            });
         });
 
         vorticity
@@ -42,38 +67,50 @@ impl FlowOperations {
         let mut divergence = vec![<T as NumericElement>::ZERO; nx * ny * nz];
         let two = two::<T>();
 
-        // Use parallel iteration for better performance
-        divergence.par_mut().enumerate(|idx, div| {
-            let k = idx / (nx * ny);
-            let j = (idx % (nx * ny)) / nx;
-            let i = idx % nx;
-
-            // Central differences with boundary handling
-            let dudx = if i > 0 && i < nx - 1 {
-                let idx_plus = k * nx * ny + j * nx + (i + 1);
-                let idx_minus = k * nx * ny + j * nx + (i - 1);
-                (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / two
-            } else {
-                <T as NumericElement>::ZERO
+        melinoe::brand_scope(|_token| {
+            // SAFETY: MelinoeCell<T> is repr(transparent) over UnsafeCell<T>
+            // over T, so &mut [T] and &mut [MelinoeCell<T>] share the layout.
+            let cells: &mut [MelinoeCell<'_, T>] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    divergence.as_mut_ptr().cast::<MelinoeCell<'_, T>>(),
+                    divergence.len(),
+                )
             };
+            par_partition_for_each(cells, 4096, |start, mut shard| {
+                for (offset, cell) in shard.iter_mut().enumerate() {
+                    let idx = start + offset;
+                    let k = idx / (nx * ny);
+                    let j = (idx % (nx * ny)) / nx;
+                    let i = idx % nx;
 
-            let dvdy = if j > 0 && j < ny - 1 {
-                let idx_plus = k * nx * ny + (j + 1) * nx + i;
-                let idx_minus = k * nx * ny + (j - 1) * nx + i;
-                (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / two
-            } else {
-                <T as NumericElement>::ZERO
-            };
+                    // Central differences with boundary handling
+                    let dudx = if i > 0 && i < nx - 1 {
+                        let idx_plus = k * nx * ny + j * nx + (i + 1);
+                        let idx_minus = k * nx * ny + j * nx + (i - 1);
+                        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / two
+                    } else {
+                        <T as NumericElement>::ZERO
+                    };
 
-            let dwdz = if k > 0 && k < nz - 1 {
-                let idx_plus = (k + 1) * nx * ny + j * nx + i;
-                let idx_minus = (k - 1) * nx * ny + j * nx + i;
-                (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / two
-            } else {
-                <T as NumericElement>::ZERO
-            };
+                    let dvdy = if j > 0 && j < ny - 1 {
+                        let idx_plus = k * nx * ny + (j + 1) * nx + i;
+                        let idx_minus = k * nx * ny + (j - 1) * nx + i;
+                        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / two
+                    } else {
+                        <T as NumericElement>::ZERO
+                    };
 
-            *div = dudx + dvdy + dwdz;
+                    let dwdz = if k > 0 && k < nz - 1 {
+                        let idx_plus = (k + 1) * nx * ny + j * nx + i;
+                        let idx_minus = (k - 1) * nx * ny + j * nx + i;
+                        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / two
+                    } else {
+                        <T as NumericElement>::ZERO
+                    };
+
+                    *cell = dudx + dvdy + dwdz;
+                }
+            });
         });
 
         divergence
