@@ -214,12 +214,12 @@ impl DGSolver {
             && (self.step_count.is_multiple_of(self.params.output_interval)
                 || self.t >= self.params.t_final)
         {
-            println!(
-                "Step {}: t = {:.6}, dt = {:.2e}, |u| = {:.6e}",
-                self.step_count,
-                self.t,
+            tracing::info!(
+                step = self.step_count,
+                time = self.t,
                 dt,
-                matrix_norm(&self.u)
+                solution_norm = matrix_norm(&self.u),
+                "DG step"
             );
         }
 
@@ -251,11 +251,13 @@ impl DGSolver {
         let start_time = Instant::now();
 
         if self.params.verbose {
-            println!("Starting time integration...");
-            println!("  Method: {:?}", self.params.method);
-            println!("  t_final: {}", self.params.t_final);
-            println!("  Initial dt: {}", self.dt);
-            println!("  Max steps: {}", self.params.max_steps);
+            tracing::info!(
+                method = ?self.params.method,
+                final_time = self.params.t_final,
+                initial_dt = self.dt,
+                max_steps = self.params.max_steps,
+                "Starting DG time integration"
+            );
         }
 
         // Main time-stepping loop
@@ -266,7 +268,7 @@ impl DGSolver {
 
             if !result.converged {
                 if self.params.verbose {
-                    println!("Warning: Time step failed at t = {}", self.t);
+                    tracing::warn!(time = self.t, "DG time step failed");
                 }
 
                 if self.dt <= self.params.dt_min {
@@ -281,7 +283,7 @@ impl DGSolver {
                 self.nrejected += 1;
 
                 if self.params.verbose {
-                    println!("  Reducing time step to dt = {}", self.dt);
+                    tracing::warn!(new_dt = self.dt, "Reducing DG time step");
                 }
 
                 continue;
@@ -293,16 +295,16 @@ impl DGSolver {
         let elapsed = start_time.elapsed();
 
         if self.params.verbose {
-            println!(
-                "Time integration completed in {:.3} seconds",
-                elapsed.as_secs_f64()
+            tracing::info!(
+                elapsed_seconds = elapsed.as_secs_f64(),
+                final_time = self.t,
+                time_steps = self.step_count,
+                rejected_steps = self.nrejected,
+                function_evaluations = self.nfev,
+                jacobian_evaluations = self.njev,
+                linear_solves = self.nlinsolve,
+                "DG time integration completed"
             );
-            println!("  Final time: {}", self.t);
-            println!("  Time steps: {}", self.step_count);
-            println!("  Rejected steps: {}", self.nrejected);
-            println!("  Function evaluations: {}", self.nfev);
-            println!("  Jacobian evaluations: {}", self.njev);
-            println!("  Linear solves: {}", self.nlinsolve);
         }
 
         if self.t < self.params.t_final && self.step_count >= self.params.max_steps {

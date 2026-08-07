@@ -49,6 +49,10 @@
   interpolation unwraps with invariant-checked `expect` calls, and centralize
   C-contiguous JFNK slices plus spectral connectivity checks. cfd-math Nextest
   remains 198/198; its library Clippy residue is now 22 diagnostics.
+- cfd-math closure slice: replace performance-monitor lock unwraps with
+  invariant diagnostics and route calibration output through tracing; replace
+  DG solver println output with structured tracing events. cfd-math library
+  Clippy now passes and Nextest remains 198/198.
 
 ## Active integration
 
