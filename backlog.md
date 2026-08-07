@@ -53,6 +53,10 @@
   invariant diagnostics and route calibration output through tracing; replace
   DG solver println output with structured tracing events. cfd-math library
   Clippy now passes and Nextest remains 198/198.
+- cfd-schematics topology-model documentation slice: document the exported
+  topology specification types, fields, enum variants, aliases, and lookup
+  methods in `topology/model.rs`. Package Clippy diagnostics decrease from 712
+  to 611; the remaining missing-documentation debt is outside this model.
 
 ## Active integration
 
