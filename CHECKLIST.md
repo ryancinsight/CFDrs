@@ -27,8 +27,10 @@
 - [x] Document the `ConstantsRegistry` contract, adaptive primitive constants,
       and public config module manifests; package Clippy residue decreases from
       611 to 534.
+- [x] Document the ten public node/channel builder setters in
+      `geometry/builders.rs`; package Clippy residue decreases from 534 to 524.
 - [ ] Continue the cfd-schematics documentation ratchet from the remaining
-      534 diagnostics, then address cfd-core test/bench lint debt and format
+      524 diagnostics, then address cfd-core test/bench lint debt and format
       baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
