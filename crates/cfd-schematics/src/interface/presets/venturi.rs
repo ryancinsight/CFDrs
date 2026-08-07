@@ -2,6 +2,7 @@ use super::finalize_preset_blueprint;
 use crate::topology::presets::single_venturi_series_spec;
 use crate::BlueprintTopologyFactory;
 
+/// Circular cross-section venturi chain on a shared trunk.
 #[must_use]
 pub fn venturi_chain(
     name: impl Into<String>,

@@ -37,6 +37,7 @@ pub struct ChannelFluidVolumeSummary {
 }
 
 impl NetworkBlueprint {
+    /// Compute per-channel fluid-volume summaries from the blueprint geometry.
     #[must_use]
     pub fn channel_fluid_volume_summaries(&self) -> Vec<ChannelFluidVolumeSummary> {
         self.channels
@@ -71,6 +72,7 @@ impl NetworkBlueprint {
             .collect()
     }
 
+    /// Compute the aggregate fluid-volume summary for the whole system.
     #[must_use]
     pub fn fluid_volume_summary(&self) -> FluidVolumeSummary {
         let channel_summaries = self.channel_fluid_volume_summaries();

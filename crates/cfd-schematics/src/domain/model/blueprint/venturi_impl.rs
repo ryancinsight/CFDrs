@@ -7,6 +7,12 @@ use crate::topology::{
 use aequitas::systems::si::quantities::Dimensionless;
 
 impl NetworkBlueprint {
+    /// Augment the blueprint with venturi placements on the target channels.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when no target channel is given, a target channel does
+    /// not exist, or a throat geometry cannot be resolved.
     pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
         let target_channel_ids = if config.target_channel_ids.is_empty() {
             self.treatment_channel_ids()

@@ -1,4 +1,4 @@
-﻿//! Specialized composite presets: cell separation, asymmetric, constriction,
+//! Specialized composite presets: cell separation, asymmetric, constriction,
 //! spiral, parallel microchannel array, and selective tree topologies.
 
 mod basic;
@@ -46,7 +46,10 @@ mod tests {
         bp.channels
             .iter()
             .find(|c| c.id.as_str() == id)
-            .map_or_else(|| panic!("channel {id} must exist"), |c| c.length_m.into_base())
+            .map_or_else(
+                || panic!("channel {id} must exist"),
+                |c| c.length_m.into_base(),
+            )
     }
 
     #[test]

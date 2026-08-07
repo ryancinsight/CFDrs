@@ -3,37 +3,59 @@ use crate::visualizations::annotations::SchematicAnnotations;
 /// Configuration for rendering operations.
 #[derive(Debug, Clone)]
 pub struct RenderConfig {
+    /// Output width in pixels.
     pub width: u32,
+    /// Output height in pixels.
     pub height: u32,
+    /// Background color of the rendered image.
     pub background_color: Color,
+    /// Title rendered above the schematic.
     pub title: String,
+    /// Whether coordinate axes are drawn.
     pub show_axes: bool,
+    /// Whether a background grid is drawn.
     pub show_grid: bool,
+    /// Fraction of the canvas reserved as margin on each side.
     pub margin_fraction: f64,
+    /// Style for channel paths.
     pub channel_style: LineStyle,
+    /// Style for boundary paths.
     pub boundary_style: LineStyle,
+    /// Style for axis tick labels.
     pub axis_label_style: TextStyle,
+    /// Style for the schematic title.
     pub title_style: TextStyle,
+    /// Style per channel geometry category.
     pub channel_type_styles: ChannelTypeStyles,
+    /// Style per visual role when rendering selective trees.
     pub role_styles: Option<VisualRoleStyles>,
+    /// Annotations overlaid on the schematic.
     pub annotations: Option<SchematicAnnotations>,
 }
 
 /// Channel type-specific styling configuration.
 #[derive(Debug, Clone)]
 pub struct ChannelTypeStyles {
+    /// Style for straight channels.
     pub straight_style: LineStyle,
+    /// Style for curved channels.
     pub curved_style: LineStyle,
+    /// Style for tapered channels.
     pub tapered_style: LineStyle,
 }
 
 /// Role-based styling for selective-tree schematics.
 #[derive(Debug, Clone)]
 pub struct VisualRoleStyles {
+    /// Style for trunk segments.
     pub trunk: LineStyle,
+    /// Style for center-treatment segments.
     pub center_treatment: LineStyle,
+    /// Style for peripheral-bypass segments.
     pub peripheral_bypass: LineStyle,
+    /// Style for merge-collector segments.
     pub merge_collector: LineStyle,
+    /// Style for venturi-throat segments.
     pub venturi_throat: LineStyle,
 }
 
@@ -77,6 +99,7 @@ impl Default for ChannelTypeStyles {
 }
 
 impl ChannelTypeStyles {
+    /// Return the line style for the given channel category.
     #[must_use]
     pub const fn get_style(&self, category: crate::geometry::ChannelTypeCategory) -> &LineStyle {
         use crate::geometry::ChannelTypeCategory;
@@ -126,6 +149,7 @@ impl Default for RenderConfig {
 }
 
 impl RenderConfig {
+    /// Return a configuration sized for a 96-well plate schematic.
     #[must_use]
     pub fn well_plate_96() -> Self {
         Self {
@@ -136,6 +160,8 @@ impl RenderConfig {
         }
     }
 
+    /// Return a 96-well plate configuration with report annotations and
+    /// default role styling applied.
     #[must_use]
     pub fn well_plate_96_report_annotated() -> Self {
         let mut config = Self::well_plate_96();
@@ -148,13 +174,18 @@ impl RenderConfig {
 /// Supported output formats for schematic rendering.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputFormat {
+    /// Portable Network Graphics.
     PNG,
+    /// Scalable Vector Graphics.
     SVG,
+    /// Portable Document Format.
     PDF,
+    /// Joint Photographic Experts Group.
     JPEG,
 }
 
 impl OutputFormat {
+    /// Return the file extension for this format, without a leading dot.
     #[must_use]
     pub const fn extension(&self) -> &'static str {
         match self {
@@ -169,37 +200,46 @@ impl OutputFormat {
 /// Color representation using RGBA values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Color {
+    /// Red channel, 0-255.
     pub r: u8,
+    /// Green channel, 0-255.
     pub g: u8,
+    /// Blue channel, 0-255.
     pub b: u8,
+    /// Alpha channel, 0-255.
     pub a: u8,
 }
 
 impl Color {
+    /// Opaque white.
     pub const WHITE: Self = Self {
         r: 255,
         g: 255,
         b: 255,
         a: 255,
     };
+    /// Opaque black.
     pub const BLACK: Self = Self {
         r: 0,
         g: 0,
         b: 0,
         a: 255,
     };
+    /// Opaque red.
     pub const RED: Self = Self {
         r: 255,
         g: 0,
         b: 0,
         a: 255,
     };
+    /// Opaque green.
     pub const GREEN: Self = Self {
         r: 0,
         g: 255,
         b: 0,
         a: 255,
     };
+    /// Opaque blue.
     pub const BLUE: Self = Self {
         r: 0,
         g: 0,
@@ -207,11 +247,13 @@ impl Color {
         a: 255,
     };
 
+    /// Construct an opaque color from RGB channels.
     #[must_use]
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b, a: 255 }
     }
 
+    /// Construct a color from RGBA channels.
     #[must_use]
     pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
@@ -228,12 +270,16 @@ impl From<iris::color::Rgba> for Color {
 /// Style configuration for drawing lines.
 #[derive(Debug, Clone)]
 pub struct LineStyle {
+    /// Stroke color.
     pub color: Color,
+    /// Stroke width in points.
     pub width: f64,
+    /// Optional dash pattern: alternating on/off segment lengths.
     pub dash_pattern: Option<Vec<f64>>,
 }
 
 impl LineStyle {
+    /// Construct a solid line style.
     #[must_use]
     pub const fn solid(color: Color, width: f64) -> Self {
         Self {
@@ -243,6 +289,7 @@ impl LineStyle {
         }
     }
 
+    /// Construct a dashed line style with the given dash pattern.
     #[must_use]
     pub const fn dashed(color: Color, width: f64, dash_pattern: Vec<f64>) -> Self {
         Self {
@@ -256,12 +303,16 @@ impl LineStyle {
 /// Style configuration for drawing text.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
+    /// Text color.
     pub color: Color,
+    /// Font size in points.
     pub font_size: f64,
+    /// Font family name.
     pub font_family: String,
 }
 
 impl TextStyle {
+    /// Construct a text style.
     #[must_use]
     pub fn new(color: Color, font_size: f64, font_family: &str) -> Self {
         Self {

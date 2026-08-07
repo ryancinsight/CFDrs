@@ -108,6 +108,7 @@ fn width_scaled_by_trifurcation(label: &str, main_width_m: f64, center_frac: f64
 }
 
 #[must_use]
+/// Build a two-stage bifurcation→bifurcation venturi bundle blueprint.
 pub fn double_bifurcation_venturi_rect(
     name: impl Into<String>,
     trunk_length_m: f64,
@@ -143,6 +144,8 @@ pub fn double_bifurcation_venturi_rect(
 }
 
 #[must_use]
+/// Build a three-stage bifurcation→bifurcation→bifurcation venturi bundle
+/// blueprint.
 pub fn triple_bifurcation_venturi_rect(
     name: impl Into<String>,
     trunk_length_m: f64,
@@ -180,6 +183,8 @@ pub fn triple_bifurcation_venturi_rect(
 
 #[must_use]
 #[allow(clippy::too_many_arguments)]
+/// Build a three-stage trifurcation→trifurcation→trifurcation venturi bundle
+/// blueprint.
 pub fn triple_trifurcation_venturi_rect(
     name: impl Into<String>,
     trunk_length_m: f64,
@@ -218,6 +223,8 @@ pub fn triple_trifurcation_venturi_rect(
 
 #[must_use]
 #[allow(clippy::too_many_arguments)]
+/// Build a four-stage trifurcation→trifurcation→trifurcation→trifurcation
+/// venturi bundle blueprint.
 pub fn quad_trifurcation_venturi_rect(
     name: impl Into<String>,
     trunk_length_m: f64,

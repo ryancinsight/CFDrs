@@ -17,10 +17,13 @@ pub enum TherapyZone {
 /// Implements `cfd_schematics::geometry::metadata::Metadata`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TherapyZoneMetadata {
+    /// Therapy routing zone for the tagged channel or node.
     pub zone: TherapyZone,
 }
 
 impl TherapyZoneMetadata {
+    /// Create metadata tagging a zone.
+    #[must_use]
     pub fn new(zone: TherapyZone) -> Self {
         Self { zone }
     }

@@ -33,6 +33,7 @@ fn parallel_channels_for_n_furcation(
         .collect()
 }
 
+/// N-furcation trunk with a straight venturi throat in the central channel.
 #[must_use]
 pub fn n_furcation_venturi_rect(
     name: impl Into<String>,
@@ -66,6 +67,7 @@ pub fn n_furcation_venturi_rect(
     )
 }
 
+/// N-furcation trunk with serpentine segments in each arm channel.
 #[must_use]
 pub fn n_furcation_serpentine_rect(
     name: impl Into<String>,

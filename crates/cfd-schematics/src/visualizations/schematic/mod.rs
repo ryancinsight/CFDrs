@@ -18,6 +18,7 @@ pub(crate) use channel_system::channel_system_from_blueprint;
 use channel_system::resolved_channel_paths;
 use layout::blueprint_node_positions;
 
+/// Plot a blueprint with default render configuration and auto-annotations.
 pub fn plot_geometry(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -25,6 +26,7 @@ pub fn plot_geometry(
     plot_blueprint_auto_annotated(blueprint, output_path, &RenderConfig::default())
 }
 
+/// Plot a blueprint with the given render configuration.
 pub fn plot_geometry_with_config(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -34,6 +36,7 @@ pub fn plot_geometry_with_config(
     renderer.render_system(blueprint, output_path.as_ref(), config)
 }
 
+/// Plot a blueprint with explicit annotations.
 pub fn plot_geometry_with_annotations(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -46,6 +49,7 @@ pub fn plot_geometry_with_annotations(
     renderer.render_system(blueprint, output_path.as_ref(), &annotated_config)
 }
 
+/// Plot a blueprint with the given render configuration.
 pub fn plot_blueprint(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -54,6 +58,7 @@ pub fn plot_blueprint(
     plot_geometry_with_config(blueprint, output_path, config)
 }
 
+/// Plot a blueprint with explicit annotations.
 pub fn plot_blueprint_with_annotations(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -63,6 +68,7 @@ pub fn plot_blueprint_with_annotations(
     plot_geometry_with_annotations(blueprint, output_path, config, annotations)
 }
 
+/// Plot a blueprint with auto-generated annotations.
 pub fn plot_blueprint_auto_annotated(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -103,6 +109,7 @@ pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
     }
 }
 
+/// Plot a blueprint with auto-generated annotations (default config).
 pub fn plot_geometry_auto_annotated(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,
@@ -111,6 +118,7 @@ pub fn plot_geometry_auto_annotated(
     plot_blueprint_auto_annotated(blueprint, output_path, config)
 }
 
+/// Plot a blueprint with an explicit renderer implementation.
 pub fn plot_geometry_with_renderer<R: SchematicRenderer>(
     blueprint: &NetworkBlueprint,
     output_path: impl AsRef<Path>,

@@ -6,6 +6,7 @@ use crate::geometry::generator::{
 };
 use aequitas::systems::si::quantities::Length;
 
+/// Cascade center-trifurcation selective tree with optional venturi treatment.
 pub fn cascade_center_trifurcation_rect(
     name: impl Into<String>,
     trunk_length_m: f64,

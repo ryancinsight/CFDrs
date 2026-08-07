@@ -44,9 +44,13 @@ pub enum PrimitiveSplitSequence {
     TriTriBi,
     /// Trifurcation → trifurcation → trifurcation (27 leaves).
     TriTriTri,
+    /// Single quadfurcation (4 leaves).
     Quad,
+    /// Single pentafurcation (5 leaves).
     Penta,
+    /// Trifurcation → quadfurcation (12 leaves).
     TriQuad,
+    /// Trifurcation → pentafurcation (15 leaves).
     TriPenta,
     /// Quadfurcation → bifurcation (8 leaves).
     QuadBi,

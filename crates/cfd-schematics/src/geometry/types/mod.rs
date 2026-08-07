@@ -30,8 +30,11 @@ pub type Point2D = (f64, f64);
 /// Categories of channel types for visualization and analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChannelTypeCategory {
+    /// Channels without curvature or taper.
     Straight,
+    /// Channels with directional change.
     Curved,
+    /// Channels with varying width along their length.
     Tapered,
 }
 
@@ -48,30 +51,46 @@ impl From<&ChannelType> for ChannelTypeCategory {
 /// Represents the different types of channels that can be generated.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ChannelType {
+    /// Straight channel.
     #[default]
     Straight,
+    /// Smoothly curved channel following the given path.
     SmoothStraight {
+        /// Centerline waypoints.
         path: Vec<Point2D>,
     },
+    /// Serpentine channel following the given path.
     Serpentine {
+        /// Centerline waypoints.
         path: Vec<Point2D>,
     },
+    /// Circular-arc channel following the given path.
     Arc {
+        /// Centerline waypoints.
         path: Vec<Point2D>,
     },
+    /// Tapered channel with authored inlet, throat, and outlet widths.
     Frustum {
+        /// Centerline waypoints.
         path: Vec<Point2D>,
+        /// Per-waypoint widths along the centerline.
         widths: Vec<f64>,
+        /// Inlet width of the taper.
         #[serde(default = "default_frustum_inlet_width")]
         inlet_width: f64,
+        /// Narrowest width of the taper.
         #[serde(default = "default_frustum_throat_width")]
         throat_width: f64,
+        /// Outlet width of the taper.
         #[serde(default = "default_frustum_outlet_width")]
         outlet_width: f64,
+        /// Profile governing the transition between widths.
         #[serde(default = "default_frustum_taper_profile")]
         taper_profile: TaperProfile,
+        /// Normalized position of the throat along the centerline.
         #[serde(default = "default_frustum_throat_position")]
         throat_position: f64,
+        /// Whether the taper represents a venturi throat.
         #[serde(default = "default_has_venturi_throat")]
         has_venturi_throat: bool,
     },
@@ -104,15 +123,28 @@ fn default_frustum_outlet_width() -> f64 {
 /// Defines the type of channel splitting pattern.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SplitType {
+    /// Two-way split.
     Bifurcation,
-    AsymmetricBifurcation { ratio: f64 },
+    /// Two-way split with an asymmetric width ratio.
+    AsymmetricBifurcation {
+        /// Ratio of the wider branch to the inlet width.
+        ratio: f64,
+    },
+    /// Three-way split.
     Trifurcation,
-    SymmetricTrifurcation { center_ratio: f64 },
+    /// Three-way split with a symmetric center branch.
+    SymmetricTrifurcation {
+        /// Center-branch width fraction.
+        center_ratio: f64,
+    },
+    /// Four-way split.
     Quadfurcation,
+    /// Five-way split.
     Pentafurcation,
 }
 
 impl SplitType {
+    /// Number of outlet branches for this split pattern.
     #[must_use]
     pub const fn branch_count(&self) -> usize {
         match self {

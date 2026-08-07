@@ -10,6 +10,12 @@ use crate::topology::model::{
 use aequitas::systems::si::quantities::{Dimensionless, Length};
 
 impl BlueprintTopologyFactory {
+    /// Estimate Dean number and curvature geometry for a venturi placement.
+    ///
+    /// The curvature radius is taken from the spec serpentine when present,
+    /// otherwise estimated from the channel polyline by three-point
+    /// circumradius. Returns `None` when the target channel or a positive
+    /// hydraulic area is unavailable.
     pub fn estimate_dean_site(
         blueprint: &NetworkBlueprint,
         placement: &VenturiPlacementSpec,

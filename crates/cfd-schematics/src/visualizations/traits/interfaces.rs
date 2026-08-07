@@ -60,6 +60,7 @@ pub trait SchematicRenderer {
 
 /// Trait for drawing basic geometric primitives.
 pub trait GeometricDrawer {
+    /// Draw a straight line segment.
     fn draw_line(
         &mut self,
         from: Point2D,
@@ -67,8 +68,10 @@ pub trait GeometricDrawer {
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
+    /// Draw a polyline through the given points.
     fn draw_path(&mut self, points: &[Point2D], style: &LineStyle) -> VisualizationResult<()>;
 
+    /// Draw an axis-aligned rectangle outline.
     fn draw_rectangle(
         &mut self,
         top_left: Point2D,
@@ -76,6 +79,7 @@ pub trait GeometricDrawer {
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
+    /// Fill an axis-aligned rectangle.
     fn fill_rectangle(
         &mut self,
         top_left: Point2D,
@@ -83,6 +87,7 @@ pub trait GeometricDrawer {
         color: &Color,
     ) -> VisualizationResult<()>;
 
+    /// Draw text at the given position.
     fn draw_text(
         &mut self,
         position: Point2D,
@@ -93,29 +98,34 @@ pub trait GeometricDrawer {
 
 /// High-level visualization operations.
 pub trait VisualizationEngine {
+    /// Visualize a full channel system with the given configuration.
     fn visualize_system(
         &mut self,
         system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
 
+    /// Visualize only the channel paths.
     fn visualize_channels(
         &mut self,
         system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
+    /// Visualize only the plate boundary.
     fn visualize_boundary(
         &mut self,
         system: &NetworkBlueprint,
         style: &LineStyle,
     ) -> VisualizationResult<()>;
 
+    /// Add plot axes with the given configuration.
     fn add_axes(
         &mut self,
         system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
 
+    /// Add a title to the plot.
     fn add_title(&mut self, title: &str, style: &TextStyle) -> VisualizationResult<()>;
 }

@@ -169,6 +169,7 @@ impl SmoothTransitionConfig {
 }
 
 impl SmoothStraightChannelStrategy {
+    /// Create a smooth-straight channel strategy with the given transition config.
     #[must_use]
     pub const fn new(config: SmoothTransitionConfig) -> Self {
         Self {
