@@ -36,6 +36,8 @@
   public API documentation; the documentation ratchet remains open.
 - cfd-schematics node and channel builder setters now carry public API
   documentation.
+- cfd-schematics geometry-generator entry points and metadata builder now carry
+  public API documentation.
 
 - Removed stale legacy-migration audit exemptions for the fully Eunomia/Leto
   `cfd-1d` and `cfd-3d` scalar seams.

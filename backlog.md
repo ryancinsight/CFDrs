@@ -64,6 +64,10 @@
 - cfd-schematics geometry-builder documentation slice: document the ten public
   node/channel builder setters in `geometry/builders.rs`; the package Clippy
   residual decreases from 534 to 524.
+- cfd-schematics geometry-generator entrypoint documentation slice: document
+  the metadata configuration, generation functions, and builder contract in
+  `geometry/generator/entrypoints.rs`; the package Clippy residual decreases
+  from 524 to 508.
 
 ## Active integration
 

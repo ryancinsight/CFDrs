@@ -29,8 +29,11 @@
       611 to 534.
 - [x] Document the ten public node/channel builder setters in
       `geometry/builders.rs`; package Clippy residue decreases from 534 to 524.
+- [x] Document the metadata configuration, generation functions, and builder
+      contract in `geometry/generator/entrypoints.rs`; package Clippy residue
+      decreases from 524 to 508.
 - [ ] Continue the cfd-schematics documentation ratchet from the remaining
-      524 diagnostics, then address cfd-core test/bench lint debt and format
+      508 diagnostics, then address cfd-core test/bench lint debt and format
       baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
