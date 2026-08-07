@@ -53,6 +53,14 @@
 - `cargo nextest run -p cfd-math --lib` passes 198/198. Focused cfd-math
   library Clippy remains red at 48 existing diagnostics after this slice.
 
+## cfd-math hierarchy and storage invariants — follow-up (2026-08-06)
+
+- Multigrid hierarchy/interpolation state now uses invariant-checked
+  expectations instead of bare unwraps. JFNK and spectral operations use named
+  C-contiguous storage helpers or explicit connectivity invariants.
+- `cargo nextest run -p cfd-math --lib` passes 198/198. Focused cfd-math
+  library Clippy remains red at 22 existing diagnostics after this slice.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.

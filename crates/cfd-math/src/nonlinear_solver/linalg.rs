@@ -3,6 +3,20 @@ use leto::Array1;
 use leto_ops::Scalar;
 
 #[inline]
+fn contiguous_slice<T>(vector: &Array1<T>) -> &[T] {
+    vector
+        .as_slice()
+        .expect("invariant: JFNK Array1 storage is C-contiguous")
+}
+
+#[inline]
+fn contiguous_slice_mut<T>(vector: &mut Array1<T>) -> &mut [T] {
+    vector
+        .as_slice_mut()
+        .expect("invariant: JFNK Array1 storage is C-contiguous")
+}
+
+#[inline]
 pub(super) fn vector_zeros<T: Scalar>(len: usize) -> Array1<T> {
     Array1::from_elem([len], T::ZERO)
 }
@@ -19,7 +33,7 @@ pub(super) fn dot<T: Scalar>(lhs: &Array1<T>, rhs: &Array1<T>) -> T {
         vector_len(rhs),
         "invariant: vector dot requires equal lengths"
     );
-    T::dot_slice(lhs.as_slice().unwrap(), rhs.as_slice().unwrap())
+    T::dot_slice(contiguous_slice(lhs), contiguous_slice(rhs))
 }
 
 #[inline]
@@ -37,9 +51,9 @@ pub(super) fn add<T: Scalar>(lhs: &Array1<T>, rhs: &Array1<T>) -> Array1<T> {
     let n = vector_len(lhs);
     let mut out = Array1::from_elem([n], T::ZERO);
     T::add_slice(
-        lhs.as_slice().unwrap(),
-        rhs.as_slice().unwrap(),
-        out.as_slice_mut().unwrap(),
+        contiguous_slice(lhs),
+        contiguous_slice(rhs),
+        contiguous_slice_mut(&mut out),
     );
     out
 }
@@ -54,9 +68,9 @@ pub(super) fn sub<T: Scalar>(lhs: &Array1<T>, rhs: &Array1<T>) -> Array1<T> {
     let n = vector_len(lhs);
     let mut out = Array1::from_elem([n], T::ZERO);
     T::sub_slice(
-        lhs.as_slice().unwrap(),
-        rhs.as_slice().unwrap(),
-        out.as_slice_mut().unwrap(),
+        contiguous_slice(lhs),
+        contiguous_slice(rhs),
+        contiguous_slice_mut(&mut out),
     );
     out
 }
@@ -69,7 +83,7 @@ pub(super) fn add_scaled<T: Scalar>(lhs: &Array1<T>, rhs: &Array1<T>, scale: T) 
         "invariant: scaled vector addition requires equal lengths"
     );
     let mut out = lhs.clone();
-    T::axpy_slice(scale, rhs.as_slice().unwrap(), out.as_slice_mut().unwrap());
+    T::axpy_slice(scale, contiguous_slice(rhs), contiguous_slice_mut(&mut out));
     out
 }
 
@@ -80,7 +94,7 @@ pub(super) fn add_scaled_in_place<T: Scalar>(lhs: &mut Array1<T>, rhs: &Array1<T
         vector_len(rhs),
         "invariant: scaled vector update requires equal lengths"
     );
-    T::axpy_slice(scale, rhs.as_slice().unwrap(), lhs.as_slice_mut().unwrap());
+    T::axpy_slice(scale, contiguous_slice(rhs), contiguous_slice_mut(lhs));
 }
 
 #[inline]
@@ -94,8 +108,8 @@ pub(super) fn scale<T: Scalar>(vector: &Array1<T>, factor: T) -> Array1<T> {
     let mut out = Array1::from_elem([n], T::ZERO);
     T::axpy_slice(
         factor,
-        vector.as_slice().unwrap(),
-        out.as_slice_mut().unwrap(),
+        contiguous_slice(vector),
+        contiguous_slice_mut(&mut out),
     );
     out
 }
