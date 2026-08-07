@@ -29,6 +29,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## Active lint-floor increment
+
+- **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex
+  session):** wire every workspace package and `xtask` to the canonical Atlas
+  `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and
+  centralize `xtask` CLI output through its checked writer. `cfd-core` library
+  Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the
+  explicit legacy-migration audit pass. Full closure remains open: workspace
+  all-target Clippy still reports pre-existing cfd-math unwrap/output debt,
+  cfd-schematics missing documentation, and test/bench lint debt; the existing
+  all-target format baseline is also red outside this increment.
+
 ## Active integration
 
 - **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics

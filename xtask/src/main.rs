@@ -24,8 +24,25 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use std::env;
+use std::fmt;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use xshell::{cmd, Shell};
+
+pub(crate) fn write_cli_line(args: fmt::Arguments<'_>) {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    writeln!(handle, "{args}").expect("invariant: CLI stdout remains writable");
+}
+
+macro_rules! println {
+    () => {
+        $crate::write_cli_line(format_args!(""))
+    };
+    ($($arg:tt)*) => {
+        $crate::write_cli_line(format_args!($($arg)*))
+    };
+}
 
 mod check_figures;
 mod migration_audit;
@@ -121,7 +138,7 @@ enum Commands {
     /// byte fingerprint each file currently has on disk; re-running on
     /// unchanged inputs produces byte-identical output (CI evidence chain).
     Prebook,
-    /// Verify SUMMARY.md + README.md figure links are listed in FIGURE_SPECS.
+    /// Verify SUMMARY.md + README.md figure links are listed in `FIGURE_SPECS`.
     /// Returns exit code 1 on drift so the CI gate fails loudly when the
     /// SSOT contract between figures and book source breaks.
     CheckFigures,
@@ -198,7 +215,7 @@ fn project_root() -> PathBuf {
     Path::new(&env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(1)
-        .unwrap()
+        .expect("invariant: CARGO_MANIFEST_DIR has the workspace root parent")
         .to_path_buf()
 }
 
@@ -331,7 +348,7 @@ fn install_deps(sh: &Shell, venv_path: &Path, with_fenics: bool) -> Result<()> {
         bail!("Virtual environment not found. Run: cargo xtask setup-venv");
     }
 
-    let pip_str = pip.to_str().unwrap();
+    let pip_str = pip.to_str().context("venv pip path is not valid UTF-8")?;
 
     // Upgrade pip
     println!("Upgrading pip...");
@@ -447,7 +464,9 @@ fn validate(sh: &Shell, venv_path: &Path, plot: bool, quick: bool, category: &st
         bail!("Virtual environment not found. Run: cargo xtask setup-venv");
     }
 
-    let python_str = python.to_str().unwrap();
+    let python_str = python
+        .to_str()
+        .context("venv Python path is not valid UTF-8")?;
 
     // Check if cfd_python is installed
     let check_result = cmd!(sh, "{python_str} -c \"import cfd_python\"")

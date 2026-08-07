@@ -108,3 +108,46 @@ cfd-2d = { path = "crates/cfd-2d" }
 cfd-3d = { path = "crates/cfd-3d" }
 cfd-optim = { path = "crates/cfd-optim" }
 cfd-validation = { path = "crates/cfd-validation" }
+
+[workspace.lints.rust]
+# Floor: warn. Per-crate `#![deny(missing_docs)]` is the strict escalation
+# surface (each crate decides its own missing-docs tier; the workspace floor
+# stays at warn so existing crates without missing-docs discipline remain
+# warning-only and promotion is incremental).
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# Canonical Atlas floor (template SSOT: repos/apollo/Cargo.toml L88-L107).
+# `all` + `pedantic` at warn, priority = -1 so they evaluate before
+# crate-level allows. The `allow` set below mirrors apollo's template
+# verbatim so atlas-wide existing-debt stays non-regressive.
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Canonical Atlas library hygiene: deny the four output/panic-erasure
+# patterns at workspace level. Pre-existing violations carry per-site
+# `#[expect(lint, reason="ratchet cfd-<id>")]`; the floor itself never
+# `allow`s them — that would erase the ratchet signal.
+unwrap_used = "deny"
+print_stderr = "deny"
+print_stdout = "deny"
+dbg_macro = "deny"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+default_constructed_unit_structs = "allow"
+doc_lazy_continuation = "allow"
+needless_range_loop = "allow"
+too_many_arguments = "allow"
+manual_is_multiple_of = "allow"
+manual_div_ceil = "allow"
+manual_slice_size_calculation = "allow"
+len_zero = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+items_after_statements = "allow"
+range_minus_one = "allow"
+default_trait_access = "allow"
+useless_conversion = "allow"
