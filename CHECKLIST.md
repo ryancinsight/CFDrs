@@ -32,8 +32,12 @@
 - [x] Document the metadata configuration, generation functions, and builder
       contract in `geometry/generator/entrypoints.rs`; package Clippy residue
       decreases from 524 to 508.
+- [x] Document the series and parallel geometry builders in
+      `geometry/generator/linear.rs`; package Clippy residue decreases from
+      508 to 506. Current working-tree Clippy reports 492 with peer-owned
+      `analysis_impl.rs` documentation changes present but uncommitted.
 - [ ] Continue the cfd-schematics documentation ratchet from the remaining
-      508 diagnostics, then address cfd-core test/bench lint debt and format
+      506 diagnostics, then address cfd-core test/bench lint debt and format
       baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31

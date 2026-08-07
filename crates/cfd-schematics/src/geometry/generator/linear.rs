@@ -125,6 +125,7 @@ fn build_series_channel(
     )
 }
 
+/// Builds a geometry-authored blueprint for the specification's series channels.
 pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let channel_count = spec.series_channels.len();
     let box_dims_mm = spec.box_dims_mm();
@@ -230,6 +231,7 @@ fn build_parallel_channel(
     apply_series_channel_metadata(built, &channel.route, None)
 }
 
+/// Builds a geometry-authored blueprint for the specification's parallel channels.
 pub fn create_parallel_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let box_dims_mm = spec.box_dims_mm();
     let inlet = layout_node("inlet", NodeKind::Inlet, (0.0, box_dims_mm.1 * 0.5));

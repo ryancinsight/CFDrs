@@ -105,6 +105,15 @@
 - The package documentation-floor residual decreases from 524 to 508
   diagnostics. No runtime behavior or generation defaults changed.
 
+## cfd-schematics linear geometry generators — partial closure (2026-08-07)
+
+- The series and parallel geometry builders now document their specification-
+  driven blueprint construction contracts.
+- The package documentation-floor residual decreases from 508 to 506
+  diagnostics. No runtime behavior or generated geometry changed. The current
+  working tree reports 492 because peer-owned documentation changes are also
+  present in `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
