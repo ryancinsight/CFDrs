@@ -36,8 +36,13 @@
       `geometry/generator/linear.rs`; package Clippy residue decreases from
       508 to 506. Current working-tree Clippy reports 492 with peer-owned
       `analysis_impl.rs` documentation changes present but uncommitted.
+- [x] Document the public selective-tree path specification, topology
+      variants, request fields, and generator entrypoint in
+      `geometry/generator/selective/mod.rs`; package Clippy residue decreases
+      from 506 to 468. Current working-tree Clippy reports 454 with the same
+      peer-owned documentation changes present.
 - [ ] Continue the cfd-schematics documentation ratchet from the remaining
-      506 diagnostics, then address cfd-core test/bench lint debt and format
+      468 diagnostics, then address cfd-core test/bench lint debt and format
       baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31

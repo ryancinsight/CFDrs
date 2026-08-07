@@ -40,6 +40,8 @@
   public API documentation.
 - cfd-schematics series and parallel geometry generators now carry public API
   documentation.
+- cfd-schematics selective-tree path, topology, request, and generator
+  contracts now carry public API documentation.
 
 - Removed stale legacy-migration audit exemptions for the fully Eunomia/Leto
   `cfd-1d` and `cfd-3d` scalar seams.

@@ -114,6 +114,16 @@
   working tree reports 492 because peer-owned documentation changes are also
   present in `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
 
+## cfd-schematics selective-tree generator — partial closure (2026-08-07)
+
+- The public selective-tree path specification, topology variants, request
+  fields, and generator entrypoint now document their physical and topology
+  contracts.
+- The package documentation-floor residual decreases from 506 to 468
+  diagnostics. The current working tree reports 454 because peer-owned
+  documentation changes remain uncommitted in
+  `domain/model/blueprint/analysis_impl.rs`.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
