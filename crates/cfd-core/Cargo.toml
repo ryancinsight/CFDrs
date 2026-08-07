@@ -24,6 +24,8 @@ leto.workspace = true
 eunomia.workspace = true
 indexmap.workspace = true
 moirai.workspace = true
+themis.workspace = true
+melinoe = { workspace = true, features = ["std"] }
 hephaestus-wgpu = { workspace = true, optional = true }
 
 [features]

@@ -2,6 +2,7 @@
 
 use super::traits::ComputeBackend;
 use std::sync::Arc;
+use themis::{NumaNodeId, PlacementHint};
 
 /// Compute capability information
 #[derive(Debug, Clone)]
@@ -18,6 +19,13 @@ pub struct ComputeCapability {
     pub available_memory: usize,
     /// Preferred backend based on problem size
     pub preferred_backend: ComputeBackend,
+    /// NUMA node the calling thread is currently bound to.
+    ///
+    /// Derived from [`themis::current_numa_node`] at detection time. Buffer
+    /// allocations and worker placement made from this context should carry
+    /// [`PlacementHint::Numa`] with this node so first-touch lands on the
+    /// right memory tier (see ATLAS-THEMIS-MELINOE-ADOPTION-001).
+    pub numa_node: NumaNodeId,
 }
 
 impl ComputeCapability {
@@ -38,6 +46,7 @@ impl ComputeCapability {
             backends.push(ComputeBackend::Hybrid);
         }
 
+        let numa_node = themis::current_numa_node();
         let compute_units = num_cpus::get();
         let available_memory = Self::estimate_available_memory();
 
@@ -57,6 +66,7 @@ impl ComputeCapability {
             compute_units,
             available_memory,
             preferred_backend,
+            numa_node,
         }
     }
 
@@ -79,6 +89,16 @@ impl ComputeCapability {
         } else {
             ComputeBackend::Cpu
         }
+    }
+
+    /// Placement hint carrying this capability's NUMA node.
+    ///
+    /// Consumers that allocate buffers or schedule work derived from this
+    /// capability should pass the hint to the placement-aware provider so
+    /// first-touch lands on the detected node.
+    #[must_use]
+    pub const fn placement_hint(&self) -> PlacementHint {
+        PlacementHint::Numa(self.numa_node)
     }
 }
 

@@ -25,21 +25,41 @@ analytical Poiseuille solution for the same pressure gradient.
 ## Key Code Snippet
 
 ```rust
-use cfd_2d::solvers::{PoiseuilleConfig, PoiseuilleFlow2D, BloodModel};
+use cfd_2d::solvers::{BloodModel, PoiseuilleConfig, PoiseuilleFlow2D};
+use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
 
-// Newtonian reference viscosity: 3.5 mPa·s (canonical whole-blood)
-let mu_newtonian = 3.5e-3;
+fn main() -> Result<()> {
+    let config = PoiseuilleConfig::<f64> {
+        height: 200e-6,
+        width: 200e-6,
+        length: 1e-3,
+        ny: 64,
+        pressure_gradient: 500.0,
+        tolerance: 1e-8,
+        max_iterations: 200,
+        ..Default::default()
+    };
+    let blood = BloodModel::Casson(CassonBlood::normal_blood());
+    let mut solver = PoiseuilleFlow2D::new(config, blood);
+    let iterations = solver.solve()?;
 
-// Casson fluid: tau_y ≈ 0.0056 Pa, mu_inf ≈ 0.00345 Pa·s
-let blood = CassonBlood::normal_blood();
+    // Newtonian reference viscosity: 3.5 mPa·s (canonical whole-blood).
+    let analytical = solver.analytical_solution(3.5e-3);
+    let profile = solver.velocity_profile();
+    let mut err_sq = 0.0;
+    let mut norm_sq = 0.0;
+    for (u_num, u_ref) in profile.iter().zip(&analytical) {
+        err_sq += (u_num - u_ref).powi(2);
+        norm_sq += u_ref.powi(2);
+    }
+    let relative_l2_error = (err_sq / norm_sq).sqrt();
 
-let flow = PoiseuilleFlow2D::new(&config, BloodModel::Casson(blood));
-flow.solve().expect("Poiseuille solve failed");
-let u_numerical = flow.max_velocity();
-let u_analytical = flow.analytical_solution(mu_newtonian).max_velocity();
-let l2_error = flow.velocity_profile()
-    .l2_against(&flow.analytical_solution(mu_newtonian).velocity_profile());
+    println!("Converged in {iterations} iterations");
+    println!("Numerical peak velocity: {:.6e} m/s", solver.max_velocity());
+    println!("Relative L2 error: {relative_l2_error:.4e}");
+    Ok(())
+}
 ```
 
 ## Physics Background

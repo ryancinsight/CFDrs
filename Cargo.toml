@@ -94,6 +94,11 @@ hermes-simd = { version = "0.5.0", git = "https://github.com/ryancinsight/hermes
 # moirai: unified concurrency runtime replacing tokio + rayon. Moirai's parallel,
 # Mnemosyne, and Melinoe surfaces are enabled for the CFDrs workspace.
 moirai = { version = "0.4.0", git = "https://github.com/ryancinsight/Moirai", package = "moirai-runtime", default-features = false, features = ["parallel", "mnemosyne-memory", "melinoe"] }
+# themis: typed NUMA/topology placement law (consumed by the compute layer for
+# first-touch buffer locality; the melinoe feature enables branded placement).
+themis = { version = "0.10.1", git = "https://github.com/ryancinsight/themis", package = "themis-topology" }
+# melinoe: branded capability evidence (ZST tokens/permits) for compute seams.
+melinoe = { version = "0.9.0", git = "https://github.com/ryancinsight/melinoe.git", default-features = false }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
 hephaestus-wgpu = { version = "0.18.0", git = "https://github.com/ryancinsight/hephaestus" }
