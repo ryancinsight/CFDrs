@@ -4,6 +4,7 @@ use super::{ChannelOverlapAnalysis, NetworkBlueprint};
 use crate::topology::BlueprintTopologyFactory;
 
 impl NetworkBlueprint {
+    /// Number of nodes marked `NodeKind::Inlet` in the network.
     #[must_use]
     pub fn inlet_count(&self) -> usize {
         self.nodes
@@ -12,6 +13,7 @@ impl NetworkBlueprint {
             .count()
     }
 
+    /// Number of nodes marked `NodeKind::Outlet` in the network.
     #[must_use]
     pub fn outlet_count(&self) -> usize {
         self.nodes
@@ -20,6 +22,7 @@ impl NetworkBlueprint {
             .count()
     }
 
+    /// Number of nodes marked `NodeKind::Junction` between connected channels.
     #[must_use]
     pub fn junction_count(&self) -> usize {
         self.nodes
@@ -28,6 +31,7 @@ impl NetworkBlueprint {
             .count()
     }
 
+    /// Number of channels carrying the `EdgeKind::Pipe` flow segment.
     #[must_use]
     pub fn pipe_count(&self) -> usize {
         self.channels
@@ -36,6 +40,7 @@ impl NetworkBlueprint {
             .count()
     }
 
+    /// Aggregate length of every channel in the network.
     #[must_use]
     pub fn total_length_m(&self) -> Length<f64> {
         self.channels
@@ -44,6 +49,9 @@ impl NetworkBlueprint {
             .fold(Length::default(), |total, length| total + length)
     }
 
+    /// Aggregate length of channels that carry the requested therapy-zone
+    /// metadata, summed over channels whose `MetadataContainer` exposes a
+    /// matching `TherapyZoneMetadata`.
     #[must_use]
     pub fn length_in_zone(
         &self,
@@ -63,6 +71,8 @@ impl NetworkBlueprint {
             .fold(Length::default(), |total, length| total + length)
     }
 
+    /// Channels that carry an authored Venturi geometry or its derived
+    /// `VenturiGeometryMetadata`.
     #[must_use]
     pub fn venturi_channels(&self) -> Vec<&super::super::ChannelSpec> {
         self.channels
@@ -78,20 +88,28 @@ impl NetworkBlueprint {
             .collect()
     }
 
+    /// Insert intersection nodes for any channel crossings in place and report
+    /// the resulting geometry intersection outcome.
     pub fn resolve_channel_overlaps(&mut self) -> crate::geometry::IntersectionResult {
         crate::geometry::insert_intersection_nodes(self)
     }
 
+    /// Number of channel crossings not yet represented by an intersection node.
     #[must_use]
     pub fn unresolved_channel_overlap_count(&self) -> usize {
         crate::geometry::unresolved_intersection_count(self)
     }
 
+    /// Whether any channel crossing remains unrepresented by an intersection
+    /// node.
     #[must_use]
     pub fn has_unresolved_channel_overlaps(&self) -> bool {
         self.unresolved_channel_overlap_count() > 0
     }
 
+    /// Worst-case channel-pair crossing analysis across the authored paths,
+    /// reporting the maximum overlap fraction, width ratio at that worst pair,
+    /// and the count of overlapping pairs found.
     #[must_use]
     pub fn channel_overlap_analysis(&self) -> ChannelOverlapAnalysis {
         let channels_with_paths: Vec<(usize, f64)> = self
@@ -134,11 +152,21 @@ impl NetworkBlueprint {
         worst
     }
 
+    /// Maximum overlap fraction reported between any channel pair,
+    /// normalized by the narrower channel width.
     #[must_use]
     pub fn max_channel_overlap_fraction(&self) -> f64 {
         self.channel_overlap_analysis().max_overlap_fraction
     }
 
+    /// Fail when the network is empty, references dangling endpoint nodes,
+    /// contains unresolved interior channel crossings, or carries a
+    /// selective-routing topology without authored geometry.  Returns a
+    /// human-readable description of the first failure encountered.
+    ///
+    /// # Errors
+    /// Returns a non-empty `String` describing the first structural defect
+    /// found, in the order above.
     pub fn validate(&self) -> Result<(), String> {
         if self.nodes.is_empty() {
             return Err("NetworkBlueprint has no nodes".to_string());
@@ -184,6 +212,8 @@ impl NetworkBlueprint {
         Ok(())
     }
 
+    /// Render a compact human-readable summary of node and channel counts
+    /// and the total channel length, suitable for diagnostic CLI output.
     #[must_use]
     pub fn describe(&self) -> String {
         let mut inlets = 0usize;
