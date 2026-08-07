@@ -24,8 +24,11 @@
 - [x] Document the exported `cfd-schematics::topology::model` contract,
       including fields, variants, aliases, and lookup methods; package Clippy
       missing-documentation residue decreases from 712 to 611.
+- [x] Document the `ConstantsRegistry` contract, adaptive primitive constants,
+      and public config module manifests; package Clippy residue decreases from
+      611 to 534.
 - [ ] Continue the cfd-schematics documentation ratchet from the remaining
-      611 diagnostics, then address cfd-core test/bench lint debt and format
+      534 diagnostics, then address cfd-core test/bench lint debt and format
       baseline debt.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31

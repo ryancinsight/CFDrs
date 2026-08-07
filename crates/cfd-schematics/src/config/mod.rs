@@ -13,10 +13,14 @@
 //! - **Composability**: Complex configurations are built from simpler ones
 //! - **Discoverability**: Presets and builders make common configurations easy
 
+/// Adaptive geometry configuration.
 pub mod adaptive;
+/// Channel geometry configuration and strategies.
 pub mod channel;
 pub mod constants;
+/// Geometry generation configuration.
 pub mod geometry;
+/// Reusable configuration presets.
 pub mod presets;
 
 // Re-export constants module content

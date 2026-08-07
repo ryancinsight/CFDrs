@@ -57,6 +57,10 @@
   topology specification types, fields, enum variants, aliases, and lookup
   methods in `topology/model.rs`. Package Clippy diagnostics decrease from 712
   to 611; the remaining missing-documentation debt is outside this model.
+- cfd-schematics constants/config-manifest documentation slice: document the
+  `ConstantsRegistry` contract, adaptive primitive constants, and public config
+  module manifests. Package Clippy diagnostics decrease from 611 to 534; the
+  remaining missing-documentation debt is outside this configuration scope.
 
 ## Active integration
 

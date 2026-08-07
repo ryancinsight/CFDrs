@@ -32,6 +32,8 @@
   mutex access and structured tracing output.
 - cfd-schematics topology specification types and lookup methods now carry
   public API documentation; the package documentation ratchet remains open.
+- cfd-schematics configuration constants and public config manifests now carry
+  public API documentation; the documentation ratchet remains open.
 
 - Removed stale legacy-migration audit exemptions for the fully Eunomia/Leto
   `cfd-1d` and `cfd-3d` scalar seams.
