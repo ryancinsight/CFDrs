@@ -1,3 +1,21 @@
+# Sprint 1.96.170 Checklist: cfd-core compute-placement book example
+**Goal**: Add a `book_*.rs` example that demonstrates the existing compute
+backend-selection and placement-hint seam in `cfd-core`.
+
+**Success Criteria**:
+- [x] Added `crates/cfd-core/examples/book_compute_placement.rs`.
+- [x] Example uses `ComputeCapability::detect`, `select_backend`, and
+      `placement_hint` without introducing new domain-layer vocabulary.
+- [x] Focused `cargo check -p cfd-core --examples` passes.
+- [x] Warning-denied Clippy for examples passes.
+- [x] `cargo nextest run -p cfd-core` passes.
+- [x] `cargo run -p xtask -- legacy-migration-audit` remains clean.
+
+**Closure**: Implemented and focused-verified on 2026-08-07 as an
+examples-only increment with disjoint scope from peer-owned `cfd-math` WIP.
+
+---
+
 # Sprint 1.96.168 Checklist: typed 2D cell-tracking metrics
 **Goal**: Carry the public cell-tracking physical contract through Aequitas
 without changing the real-valued particle model.

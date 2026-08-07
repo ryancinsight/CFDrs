@@ -2,6 +2,20 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.170 resolution: cfd-core example-stream coverage for compute placement
+
+### RESOLVED-197: No `book_` example covering compute backend selection + placement hint seam
+- **Location**: `crates/cfd-core/examples/`.
+- **Issue**: the example stream lacked a mdBook-oriented `book_*.rs` entry for
+  the compute-layer placement contract, despite active Themis seam adoption.
+- **Remediation**: added
+  `book_compute_placement.rs`, which demonstrates
+  `ComputeCapability::detect`, backend selection over representative problem
+  sizes, and propagation of `placement_hint()`.
+- **Evidence**: focused example check and warning-denied Clippy passed; full
+  `cfd-core` Nextest passed 265/265; `xtask legacy-migration-audit` remains
+  clean.
+
 **Auditor Persona**: Elite Mathematically-Verified Code Auditor
 **Date**: November 18, 2025 (Updated: February 23, 2026 - Sprint 1.95.0)
 **Status**: ✅ ALL CRITICAL ISSUES RESOLVED

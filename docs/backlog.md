@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.170: cfd-core compute-placement book example
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] examples-only
+**Start Date**: August 7, 2026
+
+### Scope
+- Add a mdBook-oriented compiling example under `cfd-core/examples/` with
+  `book_` prefix.
+- Exercise existing compute-layer backend selection and Themis placement-hint
+  seams without changing solver or physics behavior.
+- Keep scope disjoint from peer-dirty `cfd-math` files.
+
+### Claimed Files
+- `crates/cfd-core/examples/book_compute_placement.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+### Verification
+- `cargo check -p cfd-core --examples`
+- `cargo clippy -p cfd-core --examples -- -D warnings`
+- `cargo nextest run -p cfd-core` (265/265)
+- `cargo run -p xtask -- legacy-migration-audit` (clean)
+
 ## Sprint 1.96.167: cfd-math native sparse-LU result ownership
 **Status**: Completed
 **Owner**: Codex `/root`
