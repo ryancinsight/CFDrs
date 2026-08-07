@@ -28,6 +28,8 @@
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.
+- cfd-math performance and DG progress reporting now use invariant-checked
+  mutex access and structured tracing output.
 
 - Removed stale legacy-migration audit exemptions for the fully Eunomia/Leto
   `cfd-1d` and `cfd-3d` scalar seams.

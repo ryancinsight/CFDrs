@@ -19,6 +19,8 @@
 - [x] Replace remaining cfd-math multigrid/interpolation unwraps with
       invariant-checked expectations and centralize C-contiguous JFNK/spectral
       storage access; cfd-math Nextest remains 198/198.
+- [x] Replace cfd-math performance-monitor lock/output violations and DG
+      solver println output; focused cfd-math library Clippy and Nextest pass.
 
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 
