@@ -2,6 +2,20 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.172 resolution: cfd-2d example-stream coverage for Venturi flow
+
+### RESOLVED-199: No `book_` example covering compact 2D Venturi workflow
+- **Location**: `crates/cfd-2d/examples/`.
+- **Issue**: the example stream lacked a mdBook-oriented `book_*.rs` entry for
+  a compact 2D Venturi workflow in `cfd-2d`.
+- **Remediation**: added
+  `book_venturi_flow_2d.rs`, which demonstrates `VenturiSolver2D` setup,
+  throat pressure-drop validation, and Bernoulli comparison using existing
+  APIs.
+- **Evidence**: focused example check and warning-denied Clippy passed; full
+  `cfd-2d` Nextest passed 571/571 (27 skipped); `xtask legacy-migration-audit`
+  remains clean.
+
 ## Sprint 1.96.171 resolution: cfd-3d example-stream coverage for spectral Poisson
 
 ### RESOLVED-198: No `book_` example covering 3D spectral Poisson setup

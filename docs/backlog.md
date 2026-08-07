@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.172: cfd-2d Venturi book example
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] examples-only
+**Start Date**: August 7, 2026
+
+### Scope
+- Add a mdBook-oriented compiling example under `cfd-2d/examples/` with
+  `book_` prefix.
+- Demonstrate a compact 2D Venturi workflow and Bernoulli comparison using
+  existing `cfd-2d` solver APIs.
+- Keep scope disjoint from peer-dirty `cfd-math` files.
+
+### Claimed Files
+- `crates/cfd-2d/examples/book_venturi_flow_2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+### Verification
+- `cargo check -p cfd-2d --examples`
+- `cargo clippy -p cfd-2d --examples -- -D warnings`
+- `cargo nextest run -p cfd-2d` (571/571, 27 skipped)
+- `cargo run -p xtask -- legacy-migration-audit` (clean)
+
 ## Sprint 1.96.171: cfd-3d spectral Poisson book example
 **Status**: Completed
 **Owner**: current session

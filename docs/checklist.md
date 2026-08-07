@@ -1,3 +1,21 @@
+# Sprint 1.96.172 Checklist: cfd-2d Venturi book example
+**Goal**: Add a `book_*.rs` example that demonstrates a compact 2D Venturi
+solver workflow in `cfd-2d`.
+
+**Success Criteria**:
+- [x] Added `crates/cfd-2d/examples/book_venturi_flow_2d.rs`.
+- [x] Example uses existing Venturi solver APIs and writes outputs under
+      `env!("CARGO_MANIFEST_DIR").join("outputs")`.
+- [x] Focused `cargo check -p cfd-2d --examples` passes.
+- [x] Warning-denied Clippy for examples passes.
+- [x] `cargo nextest run -p cfd-2d` passes.
+- [x] `cargo run -p xtask -- legacy-migration-audit` remains clean.
+
+**Closure**: Implemented and focused-verified on 2026-08-07 as an
+examples-only increment with disjoint scope from peer-owned `cfd-math` WIP.
+
+---
+
 # Sprint 1.96.171 Checklist: cfd-3d spectral Poisson book example
 **Goal**: Add a `book_*.rs` example that demonstrates a compact spectral
 Poisson setup in `cfd-3d`.
