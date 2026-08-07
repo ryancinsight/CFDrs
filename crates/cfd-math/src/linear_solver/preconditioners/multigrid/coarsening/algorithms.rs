@@ -255,7 +255,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     }
 
     let mut sorted_indices: Vec<usize> = (0..n).collect();
-    sorted_indices.sort_by(|&a, &b| measures[b].partial_cmp(&measures[a]).unwrap());
+    sorted_indices.sort_by(|&a, &b| measures[b].total_cmp(&measures[a]));
 
     let lambda = 4.0 / 3.0;
     let mut status = vec![0; n];
@@ -330,7 +330,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     let priorities: Vec<f64> = (0..n).map(|_| rng.gen()).collect();
 
     let mut sorted_indices: Vec<usize> = (0..n).collect();
-    sorted_indices.sort_by(|&a, &b| priorities[b].partial_cmp(&priorities[a]).unwrap());
+    sorted_indices.sort_by(|&a, &b| priorities[b].total_cmp(&priorities[a]));
 
     for &i in &sorted_indices {
         if status[i] != 0 {

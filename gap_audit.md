@@ -45,6 +45,14 @@
   lint debt, and unrelated format debt still need ratchet increments. This
   increment does not claim full workspace closure.
 
+## cfd-math coarsening ordering slice — committed follow-up (2026-08-06)
+
+- Multigrid coarsening no longer unwraps floating-point partial comparisons;
+  finite values sort before unordered values, preserving deterministic
+  diagnostics for NaN inputs. The regression test covers finite/NaN ordering.
+- `cargo nextest run -p cfd-math --lib` passes 198/198. Focused cfd-math
+  library Clippy remains red at 48 existing diagnostics after this slice.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.
