@@ -80,6 +80,15 @@
 - Residual: 611 missing-documentation diagnostics remain across the package's
   other modules. No crate-wide lint suppression was added.
 
+## cfd-schematics constants and config manifests — partial closure (2026-08-07)
+
+- The `ConstantsRegistry` getters and fields, adaptive primitive constants, and
+  public config module manifests now carry API documentation.
+- `cargo clippy -p cfd-schematics --lib` still fails only on the existing
+  documentation floor at this stage; diagnostics decrease from 611 to 534.
+- Residual: 534 missing-documentation diagnostics remain across geometry,
+  domain, interface, infrastructure, and topology modules outside this scope.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.

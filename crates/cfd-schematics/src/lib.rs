@@ -116,10 +116,15 @@ pub mod state_management;
 pub mod visualizations;
 
 // ── CFDrs network / topology layer ───────────────────────────────────────────
+/// Application services for generating network designs.
 pub mod application;
+/// Domain models and invariants for schematic networks.
 pub mod domain;
+/// Infrastructure adapters for graph and persistence integrations.
 pub mod infrastructure;
+/// Public preset and use-case interfaces.
 pub mod interface;
+/// Typed topology specifications, factories, and queries.
 pub mod topology;
 
 // ── Flat convenience re-exports ───────────────────────────────────────────────
