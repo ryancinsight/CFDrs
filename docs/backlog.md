@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.173: cfd-1d Venturi screening book example
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] examples-only
+**Start Date**: August 7, 2026
+
+### Scope
+- Add a mdBook-oriented compiling example under `cfd-1d/examples/` with
+  `book_` prefix.
+- Demonstrate a compact 1D Venturi selective-screening workflow using existing
+  public `cfd-1d` API surfaces.
+- Keep scope disjoint from peer-dirty `cfd-math` files.
+
+### Claimed Files
+- `crates/cfd-1d/examples/book_venturi_screening_1d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+### Verification
+- `cargo check -p cfd-1d --examples`
+- `cargo clippy -p cfd-1d --examples -- -D warnings`
+- `cargo nextest run -p cfd-1d` (736/736, 3 skipped)
+- `cargo run -p xtask -- legacy-migration-audit` (clean)
+
 ## Sprint 1.96.172: cfd-2d Venturi book example
 **Status**: Completed
 **Owner**: current session

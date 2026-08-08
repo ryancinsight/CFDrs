@@ -1,3 +1,21 @@
+# Sprint 1.96.173 Checklist: cfd-1d Venturi screening book example
+**Goal**: Add a `book_*.rs` example that demonstrates a compact 1D Venturi
+selective-screening workflow in `cfd-1d`.
+
+**Success Criteria**:
+- [x] Added `crates/cfd-1d/examples/book_venturi_screening_1d.rs`.
+- [x] Example uses existing public `cfd-1d` screening APIs and writes outputs
+      under `env!("CARGO_MANIFEST_DIR").join("outputs")`.
+- [x] Focused `cargo check -p cfd-1d --examples` passes.
+- [x] Warning-denied Clippy for examples passes.
+- [x] `cargo nextest run -p cfd-1d` passes.
+- [x] `cargo run -p xtask -- legacy-migration-audit` remains clean.
+
+**Closure**: Implemented and focused-verified on 2026-08-07 as an
+examples-only increment with disjoint scope from peer-owned `cfd-math` WIP.
+
+---
+
 # Sprint 1.96.172 Checklist: cfd-2d Venturi book example
 **Goal**: Add a `book_*.rs` example that demonstrates a compact 2D Venturi
 solver workflow in `cfd-2d`.

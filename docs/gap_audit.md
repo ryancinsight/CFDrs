@@ -2,6 +2,20 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.173 resolution: cfd-1d example-stream coverage for Venturi screening
+
+### RESOLVED-200: No `book_` example covering compact 1D Venturi screening workflow
+- **Location**: `crates/cfd-1d/examples/`.
+- **Issue**: the example stream lacked a mdBook-oriented `book_*.rs` entry for
+  compact 1D Venturi screening using current public APIs.
+- **Remediation**: added
+  `book_venturi_screening_1d.rs`, which demonstrates
+  `VenturiScreeningInput`, `evaluate_venturi_screening`, and
+  `assess_venturi_screening` with bounded trust-boundary validation.
+- **Evidence**: focused example check and warning-denied Clippy passed; full
+  `cfd-1d` Nextest passed 736/736 (3 skipped); `xtask legacy-migration-audit`
+  remains clean.
+
 ## Sprint 1.96.172 resolution: cfd-2d example-stream coverage for Venturi flow
 
 ### RESOLVED-199: No `book_` example covering compact 2D Venturi workflow
