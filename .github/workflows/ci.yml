@@ -19,11 +19,11 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@11581413ddd1da6fd849dd2c4ad11fdbb6ce673a
+        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@1a7cdcafce845bfa625e4917436c22566ad3486
         with:
           manifest: Cargo.toml
           destination: ..
-          atlas_ref: 11581413ddd1da6fd849dd2c4ad11fdbb6ce673a
+          atlas_ref: 1a7cdcafce845bfa625e4917436c22566ad3486
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
