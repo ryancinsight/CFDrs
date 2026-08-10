@@ -29,6 +29,56 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## Active lint-floor increment
+
+- **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex
+  session):** wire every workspace package and `xtask` to the canonical Atlas
+  `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and
+  centralize `xtask` CLI output through its checked writer. `cfd-core` library
+  Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the
+  explicit legacy-migration audit pass. Full closure remains open: workspace
+  all-target Clippy still reports pre-existing cfd-math unwrap/output debt,
+  cfd-schematics missing documentation, and test/bench lint debt; the existing
+  all-target format baseline is also red outside this increment.
+- Follow-up cfd-math slice: replace floating-point `partial_cmp().unwrap()`
+  ordering in multigrid coarsening with deterministic NaN-safe ordering and
+  add a regression test. cfd-math Nextest is 198/198; its library Clippy
+  residue is reduced from 51 to 48 diagnostics, with the remaining debt
+  recorded for subsequent slices.
+- Follow-up cfd-math storage/invariant slice: replace multigrid hierarchy and
+  interpolation unwraps with invariant-checked `expect` calls, and centralize
+  C-contiguous JFNK slices plus spectral connectivity checks. cfd-math Nextest
+  remains 198/198; its library Clippy residue is now 22 diagnostics.
+- cfd-math closure slice: replace performance-monitor lock unwraps with
+  invariant diagnostics and route calibration output through tracing; replace
+  DG solver println output with structured tracing events. cfd-math library
+  Clippy now passes and Nextest remains 198/198.
+- cfd-schematics topology-model documentation slice: document the exported
+  topology specification types, fields, enum variants, aliases, and lookup
+  methods in `topology/model.rs`. Package Clippy diagnostics decrease from 712
+  to 611; the remaining missing-documentation debt is outside this model.
+- cfd-schematics constants/config-manifest documentation slice: document the
+  `ConstantsRegistry` contract, adaptive primitive constants, and public config
+  module manifests. Package Clippy diagnostics decrease from 611 to 534; the
+  remaining missing-documentation debt is outside this configuration scope.
+- cfd-schematics geometry-builder documentation slice: document the ten public
+  node/channel builder setters in `geometry/builders.rs`; the package Clippy
+  residual decreases from 534 to 524.
+- cfd-schematics geometry-generator entrypoint documentation slice: document
+  the metadata configuration, generation functions, and builder contract in
+  `geometry/generator/entrypoints.rs`; the package Clippy residual decreases
+  from 524 to 508.
+- cfd-schematics linear-generator documentation slice: document the series and
+  parallel geometry builders in `geometry/generator/linear.rs`; the package
+  Clippy residual decreases from 508 to 506. The current working tree reports
+  492 because peer-owned documentation changes are also present in
+  `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
+- cfd-schematics selective-tree documentation slice: document the public path
+  specification, topology variants, request fields, and generator entrypoint
+  in `geometry/generator/selective/mod.rs`; the package Clippy residual
+  decreases from 506 to 468. The current working tree reports 454 with the
+  peer-owned blueprint-analysis documentation still present.
+
 ## Active integration
 
 - **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics

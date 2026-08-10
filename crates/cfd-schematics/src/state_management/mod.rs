@@ -49,6 +49,7 @@ pub use self::{
 
 /// Re-export commonly used types for convenience
 pub type ParameterResult<T> = Result<T, ParameterError>;
+/// State-management operation result alias.
 pub type StateResult<T> = Result<T, StateManagementError>;
 
 /// Version information for the state management system

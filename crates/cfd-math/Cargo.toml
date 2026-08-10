@@ -68,3 +68,6 @@ harness = false
 [[bench]]
 name = "cg_bench"
 harness = false
+
+[lints]
+workspace = true

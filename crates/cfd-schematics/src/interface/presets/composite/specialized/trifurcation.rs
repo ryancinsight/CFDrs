@@ -7,6 +7,7 @@ use crate::geometry::generator::{
 };
 use aequitas::systems::si::quantities::Length;
 
+/// Asymmetric trifurcation with a venturi throat on the center arm.
 pub fn asymmetric_trifurcation_venturi_rect(
     name: impl Into<String>,
     trunk_length_m: f64,

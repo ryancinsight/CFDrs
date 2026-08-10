@@ -14,8 +14,11 @@ use aequitas::systems::si::quantities::{Angle, Length};
 /// Optional serpentine geometry applied only to center treatment lanes.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CenterSerpentineSpec {
+    /// Number of serpentine segments.
     pub segments: usize,
+    /// Serpentine bend radius.
     pub bend_radius_m: Length<f64>,
+    /// Length of each serpentine segment.
     pub segment_length_m: Length<f64>,
 }
 

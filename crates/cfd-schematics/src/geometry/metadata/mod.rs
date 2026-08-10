@@ -13,9 +13,13 @@ pub use self::{blueprint::*, flow_metadata::*, schematic::*, therapy::*};
 
 /// Base trait for all metadata types.
 pub trait Metadata: Any + Debug + Send + Sync {
+    /// Stable type name used for diagnostics and storage keys.
     fn metadata_type_name(&self) -> &'static str;
+    /// Clone this metadata as a boxed trait object.
     fn clone_metadata(&self) -> Box<dyn Metadata>;
+    /// Downcast access to the concrete value.
     fn as_any(&self) -> &dyn Any;
+    /// Mutable downcast access to the concrete value.
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
@@ -26,6 +30,7 @@ pub struct MetadataContainer {
 }
 
 impl MetadataContainer {
+    /// Create an empty metadata container.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -33,10 +38,12 @@ impl MetadataContainer {
         }
     }
 
+    /// Insert a typed metadata value, replacing any value of the same type.
     pub fn insert<T: Metadata + Clone + 'static>(&mut self, metadata: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(metadata));
     }
 
+    /// Borrow the stored metadata value of type `T`, if present.
     #[must_use]
     pub fn get<T: Metadata + 'static>(&self) -> Option<&T> {
         self.data
@@ -44,21 +51,25 @@ impl MetadataContainer {
             .and_then(|boxed| boxed.as_any().downcast_ref::<T>())
     }
 
+    /// Mutably borrow the stored metadata value of type `T`, if present.
     pub fn get_mut<T: Metadata + 'static>(&mut self) -> Option<&mut T> {
         self.data
             .get_mut(&TypeId::of::<T>())
             .and_then(|boxed| boxed.as_any_mut().downcast_mut::<T>())
     }
 
+    /// Remove and return the stored metadata value of type `T`, if present.
     pub fn remove<T: Metadata + 'static>(&mut self) -> Option<Box<dyn Metadata>> {
         self.data.remove(&TypeId::of::<T>())
     }
 
+    /// Whether a metadata value of type `T` is stored.
     #[must_use]
     pub fn contains<T: Metadata + 'static>(&self) -> bool {
         self.data.contains_key(&TypeId::of::<T>())
     }
 
+    /// Stable type names of all stored metadata values.
     #[must_use]
     pub fn metadata_types(&self) -> Vec<&'static str> {
         self.data
@@ -67,11 +78,13 @@ impl MetadataContainer {
             .collect()
     }
 
+    /// Whether the container holds no metadata.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Number of stored metadata values.
     #[must_use]
     pub fn len(&self) -> usize {
         self.data.len()

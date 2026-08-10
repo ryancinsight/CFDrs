@@ -18,6 +18,7 @@ pub struct PlottersDrawer<'area, 'chart, DB: DrawingBackend> {
 }
 
 impl<'area, 'chart, DB: DrawingBackend> PlottersDrawer<'area, 'chart, DB> {
+    /// Create a drawer bound to a drawing area and optional chart context.
     #[must_use]
     pub const fn new(
         drawing_area: &'area DrawingArea<DB, Shift>,
@@ -31,11 +32,13 @@ impl<'area, 'chart, DB: DrawingBackend> PlottersDrawer<'area, 'chart, DB> {
         }
     }
 
+    /// Borrow the underlying drawing area.
     #[must_use]
     pub const fn drawing_area(&self) -> &DrawingArea<DB, Shift> {
         self.drawing_area
     }
 
+    /// Borrow the chart context, or fail when none is configured.
     fn chart_mut(
         &mut self,
     ) -> VisualizationResult<
@@ -138,6 +141,7 @@ pub struct PlottersVisualizationEngine<'area, 'chart, DB: DrawingBackend> {
 }
 
 impl<'area, 'chart, DB: DrawingBackend> PlottersVisualizationEngine<'area, 'chart, DB> {
+    /// Create an engine wrapping the given drawer.
     #[must_use]
     pub const fn new(drawer: PlottersDrawer<'area, 'chart, DB>) -> Self {
         Self { drawer }

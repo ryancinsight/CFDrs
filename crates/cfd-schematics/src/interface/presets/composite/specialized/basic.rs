@@ -18,6 +18,7 @@ use crate::topology::{SerpentineSpec, TreatmentActuationMode};
 use crate::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::Length;
 
+/// Rectangular primitive selective split-tree blueprint with venturi treatment.
 pub fn primitive_selective_split_tree_rect(
     name: impl Into<String>,
     box_dims_mm: (f64, f64),

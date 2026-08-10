@@ -43,3 +43,6 @@ path = "examples/schematic_to_openfoam.rs"
 [[example]]
 name = "millifluidic_shell_tpms"
 path = "examples/millifluidic_shell_tpms.rs"
+
+[lints]
+workspace = true

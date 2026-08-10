@@ -15,28 +15,47 @@ mod annotation;
 
 use annotation::annotate_primitive_tree;
 
+/// Split kind of a primitive selective tree stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrimitiveSelectiveSplitKind {
+    /// Two-way split.
     Bi,
+    /// Three-way split.
     Tri,
+    /// Four-way split.
     Quad,
+    /// Five-way split.
     Penta,
 }
 
+/// Request describing a primitive selective tree geometry.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrimitiveSelectiveTreeRequest {
+    /// Blueprint name.
     pub name: String,
+    /// Authored plate envelope in meters.
     pub box_dims_m: (Length<f64>, Length<f64>),
+    /// Ordered split kinds per stage.
     pub split_sequence: Vec<PrimitiveSelectiveSplitKind>,
+    /// Inlet trunk width.
     pub main_width_m: Length<f64>,
+    /// Venturi throat width.
     pub throat_width_m: Length<f64>,
+    /// Venturi throat length.
     pub throat_length_m: Length<f64>,
+    /// Uniform channel height.
     pub channel_height_m: Length<f64>,
+    /// Center-line fraction for the first trifurcation stage.
     pub first_trifurcation_center_frac: f64,
+    /// Center-line fraction for later trifurcation stages.
     pub later_trifurcation_center_frac: f64,
+    /// Fraction of the bifurcation consumed by the treatment path.
     pub bifurcation_treatment_frac: f64,
+    /// Whether the treatment branch carries venturi throats.
     pub treatment_branch_venturi_enabled: bool,
+    /// Number of serial venturi throats on the treatment branch.
     pub treatment_branch_throat_count: u8,
+    /// Serpentine applied to the center branch, if any.
     pub center_serpentine: Option<super::super::CenterSerpentinePathSpec>,
 }
 
@@ -49,6 +68,10 @@ impl PrimitiveSelectiveTreeRequest {
     }
 }
 
+/// Build a primitive selective tree geometry from a request.
+///
+/// Generation expands the authored plate envelope to resolve channel overlap,
+/// then scales the resulting geometry back to the target dimensions.
 pub fn create_primitive_selective_tree_geometry(
     request: &PrimitiveSelectiveTreeRequest,
 ) -> NetworkBlueprint {

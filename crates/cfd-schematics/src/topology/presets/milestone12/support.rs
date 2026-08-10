@@ -248,6 +248,10 @@ fn default_stage_branch_specs(
     }
 }
 
+/// Derive default per-stage branch layouts for a Milestone 12 request.
+///
+/// Widths propagate from the inlet width; the parent width for each stage is
+/// the accumulated treatment-branch width of the previous stage.
 #[must_use]
 pub fn milestone12_default_stage_layouts(
     request: &Milestone12PrimitiveSelectiveSpec,

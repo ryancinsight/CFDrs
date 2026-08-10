@@ -43,8 +43,7 @@ fn main() {
         min_width = min_width.min(ch.effective_width_m().into_base() * 1000.0);
         max_width = max_width.max(ch.effective_width_m().into_base() * 1000.0);
 
-        if ((ch.effective_width_m().into_base() * 1000.0) - config.channel_width_mm()).abs()
-            < 0.05
+        if ((ch.effective_width_m().into_base() * 1000.0) - config.channel_width_mm()).abs() < 0.05
         {
             base_width_found = true;
             println!("  -> Found base-width trunk or merge channel");

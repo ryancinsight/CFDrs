@@ -15,17 +15,26 @@ pub use geometry::{
 /// Marker role for node/throat annotation points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MarkerRole {
+    /// Inlet node.
     Inlet,
+    /// Outlet node.
     Outlet,
+    /// Split junction.
     Split,
+    /// Merge junction.
     Merge,
+    /// Venturi throat point.
     VenturiThroat,
+    /// Therapy target point.
     TherapyTarget,
+    /// Bypass route point.
     Bypass,
+    /// Internal point.
     Internal,
 }
 
 impl MarkerRole {
+    /// Human-readable legend label for this role.
     #[must_use]
     pub const fn legend_label(self) -> &'static str {
         match self {
@@ -44,8 +53,11 @@ impl MarkerRole {
 /// Text label density control for annotations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelDensity {
+    /// No labels rendered.
     None,
+    /// Only critical labels rendered.
     Critical,
+    /// All labels rendered.
     All,
 }
 
@@ -108,14 +120,18 @@ impl AnnotationStyle {
 /// A single schematic marker.
 #[derive(Debug, Clone)]
 pub struct AnnotationMarker {
+    /// Marker position in schematic coordinates.
     pub point: Point2D,
+    /// Role of the marker.
     pub role: MarkerRole,
+    /// Optional label text.
     pub label: Option<String>,
     /// True when this label should still be shown under `LabelDensity::Critical`.
     pub critical_label: bool,
 }
 
 impl AnnotationMarker {
+    /// Create an unlabelled marker at the given point.
     #[must_use]
     pub fn new(point: Point2D, role: MarkerRole) -> Self {
         Self {
@@ -126,6 +142,7 @@ impl AnnotationMarker {
         }
     }
 
+    /// Attach a label to the marker.
     #[must_use]
     pub fn with_label(mut self, label: impl Into<String>, critical_label: bool) -> Self {
         self.label = Some(label.into());
@@ -137,8 +154,11 @@ impl AnnotationMarker {
 /// Full annotation payload for one render.
 #[derive(Debug, Clone)]
 pub struct SchematicAnnotations {
+    /// Markers to render.
     pub markers: Vec<AnnotationMarker>,
+    /// Label density governing which labels render.
     pub label_density: LabelDensity,
+    /// Rendering style.
     pub style: AnnotationStyle,
     /// Optional free-text legend note (e.g. throat count summary).
     pub legend_note: Option<String>,

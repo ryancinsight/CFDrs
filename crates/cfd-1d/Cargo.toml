@@ -42,3 +42,6 @@ harness = false
 [[bench]]
 name = "direct_solver_cutoff"
 harness = false
+
+[lints]
+workspace = true

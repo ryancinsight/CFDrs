@@ -31,6 +31,99 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Lint-floor gate — partial closure (2026-08-06)
+
+- The root workspace now owns the Atlas lint floor; every CFDrs workspace
+  package and `xtask` inherit it.
+- Passing evidence: `cargo clippy -p xtask --all-targets`,
+  `cargo clippy -p cfd-core --lib`, `cargo nextest run -p cfd-core --lib`
+  (246/246), `cargo test --doc -p cfd-core` (3/3), and
+  `cargo run --manifest-path xtask/Cargo.toml -- legacy-migration-audit`
+  (zero legacy dependencies, zero legacy source tokens, clean allowlist).
+- Residual: the workspace all-target Clippy gate is not green because existing
+  cfd-math unwrap/output sites, cfd-schematics missing docs, cfd-core test/bench
+  lint debt, and unrelated format debt still need ratchet increments. This
+  increment does not claim full workspace closure.
+
+## cfd-math coarsening ordering slice — committed follow-up (2026-08-06)
+
+- Multigrid coarsening no longer unwraps floating-point partial comparisons;
+  finite values sort before unordered values, preserving deterministic
+  diagnostics for NaN inputs. The regression test covers finite/NaN ordering.
+- `cargo nextest run -p cfd-math --lib` passes 198/198. Focused cfd-math
+  library Clippy remains red at 48 existing diagnostics after this slice.
+
+## cfd-math hierarchy and storage invariants — follow-up (2026-08-06)
+
+- Multigrid hierarchy/interpolation state now uses invariant-checked
+  expectations instead of bare unwraps. JFNK and spectral operations use named
+  C-contiguous storage helpers or explicit connectivity invariants.
+- `cargo nextest run -p cfd-math --lib` passes 198/198. Focused cfd-math
+  library Clippy remains red at 22 existing diagnostics after this slice.
+
+## cfd-math diagnostics and DG output — closure slice (2026-08-06)
+
+- Performance-monitor mutex accesses now carry invariant diagnostics and its
+  calibration messages use structured tracing. DG progress, warnings, and
+  completion metrics also use structured tracing instead of stdout writes.
+- `cargo clippy -p cfd-math --lib` passes with the Atlas floor; cfd-math
+  Nextest remains 198/198. Workspace all-target closure is still open on
+  cfd-schematics docs, cfd-core test/bench lint debt, and format debt.
+
+## cfd-schematics topology model documentation — partial closure (2026-08-07)
+
+- The exported topology specification contract now documents its model types,
+  fields, enum variants, aliases, and route lookup methods in
+  `src/topology/model.rs`.
+- `cargo clippy -p cfd-schematics --lib` still fails only on the existing
+  documentation floor at this stage; diagnostics decrease from 712 to 611.
+- Residual: 611 missing-documentation diagnostics remain across the package's
+  other modules. No crate-wide lint suppression was added.
+
+## cfd-schematics constants and config manifests — partial closure (2026-08-07)
+
+- The `ConstantsRegistry` getters and fields, adaptive primitive constants, and
+  public config module manifests now carry API documentation.
+- `cargo clippy -p cfd-schematics --lib` still fails only on the existing
+  documentation floor at this stage; diagnostics decrease from 611 to 534.
+- Residual: 534 missing-documentation diagnostics remain across geometry,
+  domain, interface, infrastructure, and topology modules outside this scope.
+
+## cfd-schematics geometry builders — partial closure (2026-08-07)
+
+- The public node and channel builder setters now document their domain
+  effects, including names, geometry, visual roles, therapy zones, and Venturi
+  metadata.
+- The package documentation-floor residual decreases from 534 to 524
+  diagnostics. No runtime behavior or builder defaults changed.
+
+## cfd-schematics geometry-generator entrypoints — partial closure (2026-08-07)
+
+- The metadata configuration, generation entry points, and fluent builder now
+  document their public contracts, including metadata, topology, lineage, and
+  rendering inputs.
+- The package documentation-floor residual decreases from 524 to 508
+  diagnostics. No runtime behavior or generation defaults changed.
+
+## cfd-schematics linear geometry generators — partial closure (2026-08-07)
+
+- The series and parallel geometry builders now document their specification-
+  driven blueprint construction contracts.
+- The package documentation-floor residual decreases from 508 to 506
+  diagnostics. No runtime behavior or generated geometry changed. The current
+  working tree reports 492 because peer-owned documentation changes are also
+  present in `domain/model/blueprint/analysis_impl.rs` and remain uncommitted.
+
+## cfd-schematics selective-tree generator — partial closure (2026-08-07)
+
+- The public selective-tree path specification, topology variants, request
+  fields, and generator entrypoint now document their physical and topology
+  contracts.
+- The package documentation-floor residual decreases from 506 to 468
+  diagnostics. The current working tree reports 454 because peer-owned
+  documentation changes remain uncommitted in
+  `domain/model/blueprint/analysis_impl.rs`.
+
 ## Delivery closure — external RecurseML status (2026-08-06)
 
 CFDrs PR #325 is merged at `fa29c5174c29ac84f5c14e385b4c73866164f712`.

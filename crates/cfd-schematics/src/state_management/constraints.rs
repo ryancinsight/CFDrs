@@ -19,22 +19,37 @@ where
     T: ConstraintValue,
 {
     /// Value must be within specified range (inclusive)
-    Range { min: T, max: T },
+    Range {
+        /// Minimum acceptable value.
+        min: T,
+        /// Maximum acceptable value.
+        max: T,
+    },
 
     /// Value must be one of the specified values
     Set(Vec<T>),
 
     /// Custom validation function with parameters
     Custom {
+        /// Name of the custom constraint.
         name: String,
+        /// Validation function returning a violation message on failure.
         validator: fn(&T) -> Result<(), String>,
     },
 
     /// Length range constraint for strings
-    LengthRange { min: usize, max: usize },
+    LengthRange {
+        /// Minimum acceptable length.
+        min: usize,
+        /// Maximum acceptable length.
+        max: usize,
+    },
 
     /// Contains pattern constraint for strings
-    Contains { pattern: String },
+    Contains {
+        /// Required substring.
+        pattern: String,
+    },
 
     /// Composite constraint (all must pass)
     All(Vec<ParameterConstraints<T>>),

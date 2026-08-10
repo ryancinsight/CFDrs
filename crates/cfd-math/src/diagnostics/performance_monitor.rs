@@ -57,7 +57,10 @@ impl AdaptivePerformanceMonitor {
 
     /// Record performance measurement for an operation
     pub fn record_measurement(&self, operation: &str, array_size: usize, execution_time_ns: u64) {
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self
+            .metrics
+            .lock()
+            .expect("invariant: performance monitor metrics mutex is not poisoned");
         let op_metrics = metrics.entry(operation.to_string()).or_default();
         let (old_avg, old_std, old_count) = {
             let size_metrics = op_metrics.entry(array_size).or_default();
@@ -111,7 +114,10 @@ impl AdaptivePerformanceMonitor {
 
     /// Get optimal threshold for switching between algorithms
     pub fn get_optimal_threshold(&self, operation: &str) -> Option<usize> {
-        let metrics = self.metrics.lock().unwrap();
+        let metrics = self
+            .metrics
+            .lock()
+            .expect("invariant: performance monitor metrics mutex is not poisoned");
         let op_metrics = metrics.get(operation)?;
 
         // Find crossover point where SIMD becomes beneficial
@@ -159,13 +165,16 @@ impl AdaptivePerformanceMonitor {
 
     /// Check if calibration is needed
     pub fn needs_calibration(&self) -> bool {
-        let last_calibration = *self.last_calibration.lock().unwrap();
+        let last_calibration = *self
+            .last_calibration
+            .lock()
+            .expect("invariant: calibration mutex is not poisoned");
         last_calibration.elapsed() > self.calibration_interval
     }
 
     /// Run performance calibration suite
     pub fn run_calibration(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Running performance calibration...");
+        tracing::info!("Running performance calibration");
         let sizes = [64usize, 128, 256, 512, 1024, 2048, 4096, 8192];
 
         for size in sizes {
@@ -256,9 +265,12 @@ impl AdaptivePerformanceMonitor {
             self.record_measurement("spmv", size, avg);
         }
 
-        *self.last_calibration.lock().unwrap() = Instant::now();
+        *self
+            .last_calibration
+            .lock()
+            .expect("invariant: calibration mutex is not poisoned") = Instant::now();
 
-        println!("Performance calibration completed");
+        tracing::info!("Performance calibration completed");
         Ok(())
     }
 
@@ -289,7 +301,10 @@ impl AdaptivePerformanceMonitor {
 
     /// Get performance report
     pub fn get_performance_report(&self) -> HashMap<String, HashMap<usize, PerformanceMetrics>> {
-        self.metrics.lock().unwrap().clone()
+        self.metrics
+            .lock()
+            .expect("invariant: performance monitor metrics mutex is not poisoned")
+            .clone()
     }
 }
 

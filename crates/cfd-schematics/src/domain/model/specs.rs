@@ -93,33 +93,47 @@ impl CrossSectionSpec {
     }
 }
 
+/// Role of a node in the network topology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeKind {
+    /// Fluid entry point into the network.
     Inlet,
+    /// Fluid exit point from the network.
     Outlet,
+    /// Pressure reservoir boundary.
     Reservoir,
+    /// Internal branch point connecting multiple edges.
     Junction,
 }
 
+/// Node placement and role specification for a network blueprint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSpec {
+    /// Stable identifier of the node.
     pub id: NodeId,
+    /// Role of the node in the topology.
     pub kind: NodeKind,
+    /// Placement `(x, y)` in schematic coordinates.
     pub point: (f64, f64),
+    /// Optional layout metadata for the node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<NodeLayoutMetadata>,
+    /// Optional junction geometry metadata for the node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub junction_geometry: Option<JunctionGeometryMetadata>,
+    /// Extension metadata attached to the node.
     #[serde(skip)]
     pub metadata: Option<crate::geometry::metadata::MetadataContainer>,
 }
 
 impl NodeSpec {
+    /// Construct a node at the origin with the given id and kind.
     #[must_use]
     pub fn new(id: impl Into<String>, kind: NodeKind) -> Self {
         Self::new_at(id, kind, (0.0, 0.0))
     }
 
+    /// Construct a node at the given point with the given id and kind.
     #[must_use]
     pub fn new_at(id: impl Into<String>, kind: NodeKind, point: (f64, f64)) -> Self {
         Self {
@@ -132,12 +146,14 @@ impl NodeSpec {
         }
     }
 
+    /// Set the placement point.
     #[must_use]
     pub fn with_point(mut self, point: (f64, f64)) -> Self {
         self.point = point;
         self
     }
 
+    /// Set the layout metadata and align the placement point to it.
     #[must_use]
     pub fn with_layout(mut self, layout: NodeLayoutMetadata) -> Self {
         self.point = (layout.x_mm, layout.y_mm);
@@ -145,12 +161,14 @@ impl NodeSpec {
         self
     }
 
+    /// Attach junction geometry metadata.
     #[must_use]
     pub fn with_junction_geometry(mut self, geometry: JunctionGeometryMetadata) -> Self {
         self.junction_geometry = Some(geometry);
         self
     }
 
+    /// Attach a typed metadata entry to the node.
     #[must_use]
     pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(
         mut self,
@@ -167,10 +185,14 @@ impl NodeSpec {
     }
 }
 
+/// Role of an edge in the network topology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EdgeKind {
+    /// Passive channel with hydraulic resistance.
     Pipe,
+    /// Flow-control valve.
     Valve,
+    /// Active pump with flow and pressure limits.
     Pump,
 }
 
@@ -208,11 +230,16 @@ pub enum ChannelShape {
     },
 }
 
+/// Edge specification connecting two nodes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelSpec {
+    /// Stable identifier of the edge.
     pub id: EdgeId,
+    /// Role of the edge.
     pub kind: EdgeKind,
+    /// Origin node identifier.
     pub from: NodeId,
+    /// Destination node identifier.
     pub to: NodeId,
     /// Authored centerline length as an Eunomia-backed SI length.
     pub length_m: Length<f64>,
@@ -238,18 +265,24 @@ pub struct ChannelSpec {
     pub pump_max_flow: Option<VolumetricFlowRate<f64>>,
     /// Stall-point pump pressure limit.
     pub pump_max_pressure: Option<Pressure<f64>>,
+    /// Visual role used when rendering the edge.
     pub visual_role: Option<crate::geometry::metadata::ChannelVisualRole>,
+    /// Authored centerline waypoints in schematic coordinates.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub path: Vec<(f64, f64)>,
+    /// Therapy zone the edge belongs to, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub therapy_zone: Option<TherapyZone>,
+    /// Venturi geometry metadata for therapy channels.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub venturi_geometry: Option<VenturiGeometryMetadata>,
+    /// Extension metadata attached to the edge.
     #[serde(skip)]
     pub metadata: Option<crate::geometry::metadata::MetadataContainer>,
 }
 
 impl ChannelSpec {
+    /// Attach a typed metadata entry to the channel.
     pub fn with_metadata<T: crate::geometry::metadata::Metadata + Clone + 'static>(
         mut self,
         meta: T,
@@ -334,6 +367,7 @@ impl ChannelSpec {
         }
     }
 
+    /// Create a valve channel spec from a conventional `Cv` loss coefficient.
     #[must_use]
     pub fn new_valve(
         id: impl Into<String>,
@@ -365,6 +399,8 @@ impl ChannelSpec {
         }
     }
 
+    /// Create a pump channel spec with free-delivery flow and stall pressure
+    /// limits.
     #[must_use]
     pub fn new_pump(
         id: impl Into<String>,
@@ -396,18 +432,21 @@ impl ChannelSpec {
         }
     }
 
+    /// Set the authored centerline waypoints.
     #[must_use]
     pub fn with_path(mut self, path: Vec<(f64, f64)>) -> Self {
         self.path = path;
         self
     }
 
+    /// Set the visual role used when rendering the edge.
     #[must_use]
     pub fn with_visual_role(mut self, role: crate::geometry::metadata::ChannelVisualRole) -> Self {
         self.visual_role = Some(role);
         self
     }
 
+    /// Attach venturi geometry metadata for therapy channels.
     #[must_use]
     pub fn with_venturi_geometry(mut self, geometry: VenturiGeometryMetadata) -> Self {
         self.venturi_geometry = Some(geometry);

@@ -3,15 +3,24 @@ use aequitas::systems::si::quantities::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Dimensional metadata describing a venturi-like geometry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiGeometryMetadata {
+    /// Throat channel width.
     pub throat_width_m: Length<f64>,
+    /// Throat channel height.
     pub throat_height_m: Length<f64>,
+    /// Axial length of the throat section.
     pub throat_length_m: Length<f64>,
+    /// Width of the inlet section.
     pub inlet_width_m: Length<f64>,
+    /// Width of the outlet section.
     pub outlet_width_m: Length<f64>,
+    /// Half-angle of the convergent section.
     pub convergent_half_angle: Angle<f64>,
+    /// Half-angle of the divergent section.
     pub divergent_half_angle: Angle<f64>,
+    /// Fractional position of the throat along the channel.
     #[serde(default = "default_throat_position")]
     pub throat_position: Dimensionless<f64>,
 }
@@ -22,44 +31,65 @@ fn default_throat_position() -> Dimensionless<f64> {
 
 crate::impl_metadata!(VenturiGeometryMetadata, "VenturiGeometryMetadata");
 
+/// Parameters describing a cascade of filtration levels.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CascadeParams {
+    /// Number of cascade levels.
     pub n_levels: u8,
+    /// Fractional position of the cascade center along the channel.
     pub center_frac: f64,
 }
 
 crate::impl_metadata!(CascadeParams, "CascadeParams");
 
+/// Parameters describing incremental filtration with a tri-level prefilter.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IncrementalFiltrationParams {
+    /// Number of pre-treatment tri-levels.
     pub n_pretri: u8,
+    /// Fractional center position of the pre-treatment tri-levels.
     pub pretri_center_frac: f64,
+    /// Fractional center position of the terminal tri-levels.
     pub terminal_tri_center_frac: f64,
+    /// Fractional extent of the bi-treatment section.
     pub bi_treat_frac: f64,
+    /// Axial length of the outlet tail.
     pub outlet_tail_length_m: Length<f64>,
 }
 
 crate::impl_metadata!(IncrementalFiltrationParams, "IncrementalFiltrationParams");
 
+/// Parameters describing an asymmetric trifurcation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AsymmetricTrifurcationParams {
+    /// Fractional center position of the trifurcation.
     pub center_frac: f64,
+    /// Fractional flow share toward the left branch.
     pub left_frac: f64,
+    /// Fractional flow share toward the right branch.
     pub right_frac: f64,
 }
 
 crate::impl_metadata!(AsymmetricTrifurcationParams, "AsymmetricTrifurcationParams");
 
+/// Specification for a channel containing venturi throat segments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChannelVenturiSpec {
+    /// Number of venturi throat segments in the channel.
     pub n_throats: u8,
+    /// Whether the stream is a CTC (center-to-cavity) stream.
     pub is_ctc_stream: bool,
+    /// Throat segment width.
     pub throat_width_m: Length<f64>,
+    /// Channel height.
     pub height_m: Length<f64>,
+    /// Axial spacing between successive throats.
     pub inter_throat_spacing_m: Length<f64>,
 }
 
 impl ChannelVenturiSpec {
+    /// Return the cumulative cavitation dose after all throats, compounding
+    /// the per-throat probability of a non-cavitating pass.
     #[must_use]
     pub fn cumulative_cavitation_dose(
         &self,
@@ -72,6 +102,8 @@ impl ChannelVenturiSpec {
         Dimensionless::from_base((1.0 - (1.0 - p).powi(i32::from(self.n_throats))).clamp(0.0, 1.0))
     }
 
+    /// Return the total pressure drop across all throats for the given flow
+    /// rate, blood density, and diffuser recovery coefficient.
     #[must_use]
     pub fn total_throat_pressure_drop(
         &self,
@@ -101,19 +133,28 @@ impl ChannelVenturiSpec {
 
 crate::impl_metadata!(ChannelVenturiSpec, "ChannelVenturiSpec");
 
+/// FDA cavitation-compliance assessment for a therapy geometry.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FdaCavitationCompliance {
+    /// Mechanical-index equivalent derived from the throat pressure drop.
     pub mi_equiv: Dimensionless<f64>,
+    /// Whether the mechanical-index equivalent stays below the FDA limit.
     pub fda_mi_compliant: bool,
+    /// Lower bound of the therapeutic mechanical-index window.
     pub therapeutic_mi_lower: Dimensionless<f64>,
+    /// Whether the mechanical-index equivalent lies in the therapeutic window.
     pub in_therapeutic_window: bool,
 }
 
 impl FdaCavitationCompliance {
+    /// FDA exposure limit for the mechanical index.
     pub const FDA_MI_LIMIT: Dimensionless<f64> = Dimensionless::from_base(1.9);
+    /// Mechanical-index threshold below which inertial cavitation is negligible.
     pub const INERTIAL_CAV_THRESHOLD_MI: Dimensionless<f64> = Dimensionless::from_base(0.3);
+    /// Reference sound speed in blood.
     pub const SOUND_SPEED_BLOOD_M_S: Velocity<f64> = Velocity::from_base(1540.0);
 
+    /// Assess compliance from a throat pressure drop and blood density.
     #[must_use]
     pub fn from_throat_dp(dp_throat: Pressure<f64>, blood_density: MassDensity<f64>) -> Self {
         let dp_throat = dp_throat.into_base();

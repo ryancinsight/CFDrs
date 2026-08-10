@@ -44,3 +44,6 @@ leto-ops.workspace = true
 name = "turbulence_benchmark"
 harness = false
 required-features = ["gpu"]
+
+[lints]
+workspace = true

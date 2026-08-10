@@ -1,5 +1,50 @@
 # CFDrs Work Checklist
 
+## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
+
+- [x] Declare the Atlas `[workspace.lints]` floor and inherit it from all
+      workspace packages plus `xtask`.
+- [x] Remove the input-dependent `cfd-core` plugin dependency-map unwrap and
+      route `xtask` CLI lines through a checked writer so the deny floor remains
+      active.
+- [x] Verify `cargo clippy -p xtask --all-targets`,
+      `cargo clippy -p cfd-core --lib`, cfd-core Nextest (246/246), cfd-core
+      doctests (3/3), and the explicit legacy-migration audit.
+- [ ] Continue the workspace ratchet: cfd-math unwrap/output sites,
+      cfd-schematics missing-docs debt, cfd-core test/bench lint debt, and the
+      pre-existing all-target formatting baseline remain open.
+- [x] Replace the cfd-math multigrid coarsening `partial_cmp().unwrap()` calls
+      with deterministic NaN-safe ordering and add its value-semantic test;
+      cfd-math Nextest passes 198/198.
+- [x] Replace remaining cfd-math multigrid/interpolation unwraps with
+      invariant-checked expectations and centralize C-contiguous JFNK/spectral
+      storage access; cfd-math Nextest remains 198/198.
+- [x] Replace cfd-math performance-monitor lock/output violations and DG
+      solver println output; focused cfd-math library Clippy and Nextest pass.
+- [x] Document the exported `cfd-schematics::topology::model` contract,
+      including fields, variants, aliases, and lookup methods; package Clippy
+      missing-documentation residue decreases from 712 to 611.
+- [x] Document the `ConstantsRegistry` contract, adaptive primitive constants,
+      and public config module manifests; package Clippy residue decreases from
+      611 to 534.
+- [x] Document the ten public node/channel builder setters in
+      `geometry/builders.rs`; package Clippy residue decreases from 534 to 524.
+- [x] Document the metadata configuration, generation functions, and builder
+      contract in `geometry/generator/entrypoints.rs`; package Clippy residue
+      decreases from 524 to 508.
+- [x] Document the series and parallel geometry builders in
+      `geometry/generator/linear.rs`; package Clippy residue decreases from
+      508 to 506. Current working-tree Clippy reports 492 with peer-owned
+      `analysis_impl.rs` documentation changes present but uncommitted.
+- [x] Document the public selective-tree path specification, topology
+      variants, request fields, and generator entrypoint in
+      `geometry/generator/selective/mod.rs`; package Clippy residue decreases
+      from 506 to 468. Current working-tree Clippy reports 454 with the same
+      peer-owned documentation changes present.
+- [ ] Continue the cfd-schematics documentation ratchet from the remaining
+      468 diagnostics, then address cfd-core test/bench lint debt and format
+      baseline debt.
+
 ## Owner: current Codex session — CFDRS-CI-LOCK-1 standalone provider lock and hosted gates — done 2026-07-31
 
 - [x] Regenerate `Cargo.lock` outside the Atlas development overlay after the

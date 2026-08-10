@@ -2,6 +2,7 @@ use super::finalize_preset_blueprint;
 use crate::topology::presets::{serial_double_venturi_series_spec, venturi_serpentine_series_spec};
 use crate::BlueprintTopologyFactory;
 
+/// Venturi throat upstream of a serpentine residence segment in series.
 #[must_use]
 pub fn venturi_serpentine_rect(
     name: impl Into<String>,
@@ -28,6 +29,7 @@ pub fn venturi_serpentine_rect(
     )
 }
 
+/// Two venturi throats in series with an inter-throat straight segment.
 #[must_use]
 pub fn serial_double_venturi_rect(
     name: impl Into<String>,

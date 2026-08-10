@@ -69,3 +69,6 @@ path = "examples/topology/unified_generator_demo.rs"
 [[example]]
 name = "shell_cuboid_demo"
 path = "examples/advanced/shell_cuboid_demo.rs"
+
+[lints]
+workspace = true

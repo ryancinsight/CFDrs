@@ -5,8 +5,10 @@ use cfd_core::error::{Error, Result};
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::HashMap;
 
+/// Petgraph adjacency-graph representation of a network blueprint.
 pub type DesignGraph = DiGraph<NodeSpec, ChannelSpec>;
 
+/// `GraphSink` adapter that builds a [`DesignGraph`] from a blueprint.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PetgraphGraphSink;
 
@@ -45,6 +47,7 @@ impl GraphSink for PetgraphGraphSink {
     }
 }
 
+/// Build a design graph from a blueprint through the default graph sink.
 pub fn build_design_graph(blueprint: &NetworkBlueprint) -> Result<DesignGraph> {
     NetworkGenerationService::new(PetgraphGraphSink).generate(blueprint)
 }

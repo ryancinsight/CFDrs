@@ -3,6 +3,7 @@ use crate::topology::presets::{serpentine_bend_venturi_series_spec, serpentine_s
 use crate::BlueprintTopologyFactory;
 
 #[must_use]
+/// Build a serpentine chain blueprint with the given segment count.
 pub fn serpentine_chain(
     name: impl Into<String>,
     segments: usize,
@@ -18,6 +19,7 @@ pub fn serpentine_chain(
 }
 
 #[must_use]
+/// Build a serpentine rectangle blueprint with the given segment count.
 pub fn serpentine_rect(
     name: impl Into<String>,
     segments: usize,
@@ -33,6 +35,7 @@ pub fn serpentine_rect(
 }
 
 #[must_use]
+/// Build a serpentine venturi blueprint with a throat at each bend.
 pub fn serpentine_venturi_rect(
     name: impl Into<String>,
     segments: usize,

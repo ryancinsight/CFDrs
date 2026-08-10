@@ -13,6 +13,12 @@ use super::support::{
 };
 use super::{Milestone12PrimitiveSelectiveSpec, Milestone12TopologyRequest};
 
+/// Build the raw Milestone 12 primitive selective split-tree topology spec
+/// (before mirror and venturi placement are applied).
+///
+/// Stage layouts default to [`milestone12_default_stage_layouts`] when the
+/// request carries none, and the split-kind/branch-count consistency of every
+/// stage is asserted before construction.
 #[must_use]
 pub fn milestone12_primitive_selective_tree_spec(
     request: &Milestone12PrimitiveSelectiveSpec,

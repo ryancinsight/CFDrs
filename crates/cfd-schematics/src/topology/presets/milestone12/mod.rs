@@ -15,42 +15,72 @@ pub use build::{
 pub use catalog::enumerate_milestone12_topologies;
 pub use support::milestone12_default_stage_layouts;
 
+/// Branch specification within a Milestone 12 stage layout.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Milestone12StageBranchSpec {
+    /// Branch label used to derive channel identifiers.
     pub label: String,
+    /// Branch role within the treatment network.
     pub role: BranchRole,
+    /// Whether this branch carries the treatment path.
     pub treatment_path: bool,
+    /// Authored branch width.
     pub width_m: Length<f64>,
 }
 
+/// Stage layout within a Milestone 12 topology.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Milestone12StageLayout {
+    /// Split kind of the stage.
     pub split_kind: SplitKind,
+    /// Branch specifications for the stage.
     pub branches: Vec<Milestone12StageBranchSpec>,
 }
 
+/// Canonical declarative Milestone 12 topology request.
 #[derive(Debug, Clone)]
 pub struct Milestone12PrimitiveSelectiveSpec {
+    /// Stable topology identifier.
     pub topology_id: String,
+    /// Human-readable design name used for catalog lookup.
     pub design_name: String,
+    /// Mirror the geometry about the vertical axis.
     pub mirror_x: bool,
+    /// Mirror the geometry about the horizontal axis.
     pub mirror_y: bool,
+    /// Authored plate envelope in meters.
     pub box_dims_m: (Length<f64>, Length<f64>),
+    /// Ordered split kinds per stage.
     pub split_kinds: Vec<SplitKind>,
+    /// Inlet channel width.
     pub inlet_width_m: Length<f64>,
+    /// Uniform channel height.
     pub channel_height_m: Length<f64>,
+    /// Authored branch segment length.
     pub branch_length_m: Length<f64>,
+    /// Length of the outlet tail segments.
     pub outlet_tail_length_m: Length<f64>,
+    /// Explicit stage layouts, overriding derived defaults when non-empty.
     pub stage_layouts: Vec<Milestone12StageLayout>,
+    /// Center-line fraction for the first trifurcation stage.
     pub first_trifurcation_center_frac: f64,
+    /// Center-line fraction for later trifurcation stages.
     pub later_trifurcation_center_frac: f64,
+    /// Fraction of the bifurcation consumed by the treatment path.
     pub bifurcation_treatment_frac: f64,
+    /// Treatment actuation mode.
     pub treatment_mode: TreatmentActuationMode,
+    /// Number of serial venturi throats.
     pub venturi_throat_count: u8,
+    /// Venturi throat width.
     pub venturi_throat_width_m: Length<f64>,
+    /// Venturi throat length.
     pub venturi_throat_length_m: Length<f64>,
+    /// Serpentine applied to the center branch, if any.
     pub center_serpentine: Option<SerpentineSpec>,
+    /// Placement mode for venturi throats.
     pub venturi_placement_mode: VenturiPlacementMode,
+    /// Explicit venturi target channel identifiers.
     pub venturi_target_channel_ids: Vec<String>,
 }
 
@@ -64,6 +94,8 @@ impl Milestone12PrimitiveSelectiveSpec {
         )
     }
 
+    /// Construct a primitive selective spec from its structural inputs,
+    /// applying canonical Milestone 12 defaults for the remaining fields.
     #[must_use]
     pub fn new(
         topology_id: impl Into<String>,
@@ -103,7 +135,7 @@ impl Milestone12PrimitiveSelectiveSpec {
     }
 }
 
-/// Canonical declarative Milestone 12 topology request.
+/// Alias of the canonical Milestone 12 topology request shape.
 ///
 /// This is the single-source request shape consumed by
 /// [`build_milestone12_blueprint`] and

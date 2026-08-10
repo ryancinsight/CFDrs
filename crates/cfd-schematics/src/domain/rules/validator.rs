@@ -2,9 +2,17 @@ use crate::domain::model::{NetworkBlueprint, NodeKind};
 use cfd_core::error::{Error, Result};
 use std::collections::HashSet;
 
+/// Stateless validator enforcing structural integrity of a network blueprint.
 pub struct BlueprintValidator;
 
 impl BlueprintValidator {
+    /// Validate blueprint structure: non-empty node/channel sets, at least one
+    /// inlet and outlet, unique identifiers, and resolvable, physically
+    /// positive channel geometry.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidConfiguration` on the first violated rule.
     pub fn validate(blueprint: &NetworkBlueprint) -> Result<()> {
         if blueprint.nodes.is_empty() {
             return Err(Error::InvalidConfiguration(
