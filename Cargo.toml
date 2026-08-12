@@ -87,7 +87,7 @@ consus-hdf5 = { version = "0.1.0", git = "https://github.com/ryancinsight/consus
 consus-io = { version = "0.1.0", git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
-ritk-vtk = { version = "0.1.0", git = "https://github.com/ryancinsight/ritk" }
+ritk-vtk = { version = "0.2.0", git = "https://github.com/ryancinsight/ritk" }
 # hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
 # SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
 hermes-simd = { version = "0.6.0", git = "https://github.com/ryancinsight/hermes.git" }
