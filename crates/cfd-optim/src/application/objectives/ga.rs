@@ -1,3 +1,4 @@
+use eunomia::FloatElement;
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
@@ -20,7 +21,7 @@ fn acoustic_residence_support_score(evaluation: &BlueprintEvaluation) -> f64 {
         + 0.12 * flow_frac
         + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).nth_root(4);
     (base + synergy).clamp(0.0, 1.0)
 }
 
@@ -149,7 +150,7 @@ pub fn evaluate_blueprint_genetic_refinement(
         * residence_norm
         * healthy_cell_protection
         * dean_norm;
-    let synergy = 0.18 * synergy_base.powf(0.2);
+    let synergy = 0.18 * synergy_base.nth_root(5);
     let screening_reasons = [(
         evaluation.safety.main_channel_margin <= 0.0,
         "main-channel safety margin must remain positive",

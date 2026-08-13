@@ -12,7 +12,7 @@
 //!   engineering applications". AIAA Journal, 32(8), 1598-1605.
 
 use cfd_2d::physics::turbulence::{k_epsilon::KEpsilonModel, traits::TurbulenceModel};
-use eunomia::assert_relative_eq;
+use eunomia::{assert_relative_eq, FloatElement};
 
 /// Flat plate boundary layer test case per White (2006)
 ///
@@ -30,7 +30,7 @@ fn test_k_epsilon_flat_plate_boundary_layer() {
     let x = re_x * nu / u_inf; // ≈ 1.5 m
 
     // Expected boundary layer thickness: δ ≈ 0.37 x / Re_x^(1/5)
-    let delta = 0.37 * x / re_x.powf(0.2); // ≈ 0.0148 m
+    let delta = 0.37 * x / re_x.nth_root(5); // ≈ 0.0148 m
 
     // k-ε model initialization
     let nx = 100;
@@ -55,7 +55,7 @@ fn test_k_epsilon_flat_plate_boundary_layer() {
 
     // Skin friction coefficient: C_f = 2 τ_w / (ρ U∞²)
     // For turbulent flat plate: C_f ≈ 0.058 / Re_x^(1/5) (White correlation)
-    let cf_white = 0.058 / re_x.powf(0.2); // ≈ 0.00296
+    let cf_white = 0.058 / re_x.nth_root(5); // ≈ 0.00296
 
     // Turbulent viscosity ratio near wall
     let nu_t_ratio = nu_t / rho / nu;

@@ -1,3 +1,4 @@
+use eunomia::FloatElement;
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
@@ -62,7 +63,7 @@ pub fn evaluate_selective_acoustic_residence_separation(
         + 0.12 * flow_frac
         + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).nth_root(4);
     let screening_reasons = [
         (
             evaluation.residence.treatment_flow_fraction <= 0.0,
@@ -119,6 +120,6 @@ pub fn score_selective_acoustic_residence_separation(
         + 0.12 * flow_frac
         + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).nth_root(4);
     Some((base + synergy).clamp(0.0, 1.0))
 }

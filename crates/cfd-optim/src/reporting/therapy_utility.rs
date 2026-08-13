@@ -27,6 +27,7 @@
 //! generating objective, while ultrasound-only designs are not misclassified as
 //! non-cavitating merely because they have no venturi throat.
 
+use eunomia::FloatElement;
 use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::SdtMetrics;
 
@@ -94,7 +95,7 @@ pub fn therapy_utility_components(metrics: &SdtMetrics) -> TherapyUtilityCompone
         0.0
     };
     let synergy = if has_cavitation_delivery {
-        0.10 * (cavitation_delivery * healthy_cell_protection * routing * residence).powf(0.25)
+        0.10 * (cavitation_delivery * healthy_cell_protection * routing * residence).nth_root(4)
     } else {
         0.0
     };

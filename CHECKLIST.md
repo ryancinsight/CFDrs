@@ -1,5 +1,39 @@
 # CFDrs Work Checklist
 
+## CFDRS-LEGACY-AUDIT-HARDEN-001 — Harden legacy-migration-audit coverage — done 2026-08-13
+
+- [x] Add `approx`, `num-traits`, `rustfft` to the audit's legacy manifest
+      dep list and `approx::`/`num_traits::`/`rustfft::` to its source-token
+      list (matching kwavers coverage).
+- [x] Add two unit tests locking manifest-dep and source-token detection for
+      the three crates.
+- [x] Verify `cargo test -p xtask` (2/2), a clean `legacy-migration-audit`
+      run, `cargo fmt -p xtask -- --check`, and `cargo clippy -p xtask
+      --all-targets -- -D warnings`.
+
+## CFDRS-LEGACY-APPROX-001 — Remove orphaned approx workspace dep — done 2026-08-13
+
+- [x] Remove the orphaned `approx = "0.5"` workspace dependency: zero
+      consumers (`approx::`), zero manifest references, and absent from
+      `Cargo.lock`. CFDrs float comparison is already Eunomia-backed, so the
+      legacy comparison crate is fully superseded.
+- [x] Verify `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged) and
+      `cargo check --workspace --offline` rc=0 after the removal.
+
+## CFDRS-FLOATELEMENT-ROOTS-001 — Migrate powf root emulation to FloatElement — done 2026-08-13
+
+- [x] Replace `powf`-emulated scalar roots with the sign-preserving Eunomia
+      `FloatElement` surface across 18 files (cfd-1d/2d/3d, cfd-optim,
+      cfd-validation): `powf(1/3)` → `.cbrt()`, `powf(-1/3)` →
+      `.cbrt().recip()`, `powf(-0.5)` → `.rsqrt()`, `powf(0.25)` →
+      `.nth_root(4)`, `powf(0.2)` → `.nth_root(5)`, `powf(1/7)` →
+      `.nth_root(7)`.
+- [x] Add the missing `eunomia` workspace dep to `cfd-optim` and the
+      `FloatElement` import to each consumer file that needs it.
+- [x] Verify `cargo check --workspace --all-targets` rc=0 and
+      `cargo nextest run` (cfd-1d/2d/3d/optim/validation) 2277 passed /
+      0 failed.
+
 ## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
 
 - [x] Declare the Atlas `[workspace.lints]` floor and inherit it from all

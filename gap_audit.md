@@ -31,6 +31,40 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Legacy-audit coverage gap — approx/num-traits/rustfft unclassified (2026-08-13)
+
+- Closed: the `xtask` legacy-migration-audit only classified `nalgebra`,
+  `ndarray`, `burn`, `tokio`, and `rayon`, so `approx`, `num-traits`, and
+  `rustfft` could regress silently (this is how the orphaned
+  `approx = "0.5"` workspace dep evaded detection until
+  CFDRS-LEGACY-APPROX-001). The lists now include all three, matching the
+  kwavers audit surface, and two unit tests lock the detection.
+- Evidence: `cargo test -p xtask` 2/2, clean audit (0 legacy deps, 0 legacy
+  tokens), `cargo fmt -p xtask -- --check` and `cargo clippy -p xtask
+  --all-targets -- -D warnings` rc=0.
+
+## Legacy-dep closure — orphaned approx workspace dependency (2026-08-13)
+
+- Closed: removed the `approx = "0.5"` workspace dependency. It was an
+  orphaned legacy comparison crate with zero direct or transitive consumers —
+  not present in `Cargo.lock` and not in the resolved crate graph. CFDrs float
+  comparison is already Eunomia-backed (`assert_relative_eq!` / `FloatElement`),
+  so `approx` is fully superseded and the manifest entry was pure residue.
+- Evidence: `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged),
+  `cargo check --workspace --offline` rc=0, `cargo tree -i approx` rc=101
+  (package absent from the resolved graph), and a tree-wide grep showing zero
+  `approx::` / `use approx` residue.
+
+## Legacy root-emulation closure — powf → FloatElement cbrt/rsqrt/nth_root (2026-08-13)
+
+- Closed: swept `powf`-emulated scalar roots out of the tree in favor of the
+  sign-preserving Eunomia `FloatElement` surface. Covers 18 files: 13
+  cube-root sites, 1 reciprocal cube-root, 2 rsqrt, 9 4th-root, 4 5th-root,
+  and 1 7th-root. `cfd-optim` gained the `eunomia` workspace dependency it
+  was missing.
+- Evidence: `cargo check --workspace --all-targets` rc=0; `cargo nextest run`
+  (cfd-1d/2d/3d/optim/validation) 2277 passed / 0 failed / 30 skipped.
+
 ## Lint-floor gate — partial closure (2026-08-06)
 
 - The root workspace now owns the Atlas lint floor; every CFDrs workspace

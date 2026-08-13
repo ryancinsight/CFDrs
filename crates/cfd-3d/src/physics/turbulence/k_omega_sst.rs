@@ -285,7 +285,7 @@ mod tests {
             .expect("initialize_state must populate SST state");
         let expected_k = 1.5 * (4.0 * turbulence_intensity).powi(2);
         let c_mu = cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU;
-        let expected_omega = expected_k.sqrt() / (c_mu.powf(0.25) * length_scale);
+        let expected_omega = expected_k.sqrt() / (c_mu.nth_root(4) * length_scale);
 
         assert_relative_eq!(state.k[0], expected_k, epsilon = 1e-12);
         assert_relative_eq!(state.omega[0], expected_omega, epsilon = 1e-12);

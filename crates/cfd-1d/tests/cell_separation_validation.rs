@@ -26,7 +26,7 @@ use cfd_1d::physics::cell_separation::{
     CellProperties, CellSeparationModel,
 };
 use cfd_1d::physics::resistance::{FlowConditions, VenturiModel};
-use eunomia::assert_relative_eq;
+use eunomia::{assert_relative_eq, FloatElement};
 
 // ── Blood properties (Casson model at 37°C) ───────────────────────────────────
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³
@@ -337,7 +337,7 @@ fn test_dean_flow_enhances_separation() {
 #[test]
 fn test_murray_law_symmetric_bifurcation() {
     // Murray's law: D_parent = 2^(1/3) × D_daughter for symmetric bifurcation
-    let murray_ratio = 2.0_f64.powf(1.0 / 3.0); // ≈ 1.2599
+    let murray_ratio = 2.0_f64.cbrt(); // ≈ 1.2599
 
     // Choose a parent diameter and compute the optimal daughter diameter
     let d_parent = 1.0e-3; // 1 mm parent vessel
@@ -381,7 +381,7 @@ fn test_murray_law_symmetric_bifurcation() {
     // R_parallel / R_parent = 0.5 * 2^(4/3) = 2^(-1) * 2^(4/3) = 2^(1/3)
     // We computed ratio = R_parent / R_parallel, so it should be 1 / 2^(1/3) = 2^(-1/3)
     let resistance_ratio = r_parent / r_daughters_parallel;
-    let expected_ratio = 2.0_f64.powf(-1.0 / 3.0); // = 2^(-1/3)
+    let expected_ratio = 2.0_f64.cbrt().recip(); // = 2^(-1/3)
     assert_relative_eq!(resistance_ratio, expected_ratio, epsilon = 1e-6);
 }
 
@@ -391,7 +391,7 @@ fn test_murray_law_symmetric_bifurcation() {
 /// → D_parent / D_daughter = 3^(1/3) ≈ 1.4422
 #[test]
 fn test_murray_law_symmetric_trifurcation() {
-    let murray_ratio_tri = 3.0_f64.powf(1.0 / 3.0); // ≈ 1.4422
+    let murray_ratio_tri = 3.0_f64.cbrt(); // ≈ 1.4422
 
     let d_parent = 1.0e-3;
     let d_daughter = d_parent / murray_ratio_tri;

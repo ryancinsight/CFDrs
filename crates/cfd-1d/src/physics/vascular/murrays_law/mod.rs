@@ -88,7 +88,7 @@ mod tests {
         let d0 = 10.0;
         let d_daughter = murray.symmetric_daughter_diameter(d0);
 
-        let expected = d0 / 2.0_f64.powf(1.0 / 3.0);
+        let expected = d0 / 2.0_f64.cbrt();
         assert_relative_eq!(d_daughter, expected, epsilon = 1e-10);
         assert_relative_eq!(d_daughter, 7.937, epsilon = 0.001);
     }
@@ -148,7 +148,7 @@ mod tests {
     fn test_ideal_area_ratio_k3() {
         let murray = MurraysLaw::<f64>::new();
         let ratio = murray.ideal_area_ratio();
-        assert_relative_eq!(ratio, 2.0_f64.powf(1.0 / 3.0), epsilon = 1e-10);
+        assert_relative_eq!(ratio, 2.0_f64.cbrt(), epsilon = 1e-10);
         assert_relative_eq!(ratio, 1.26, epsilon = 0.01);
     }
 
@@ -207,7 +207,7 @@ mod tests {
         let d1 = 6.0_f64;
         let d2 = 5.0_f64;
         let d3_cubed = d0.powi(3) - d1.powi(3) - d2.powi(3);
-        let d3 = d3_cubed.powf(1.0 / 3.0);
+        let d3 = d3_cubed.cbrt();
         let sum = d1.powi(3) + d2.powi(3) + d3.powi(3);
         assert_relative_eq!(d0.powi(3), sum, epsilon = 1e-10);
     }

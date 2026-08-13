@@ -29,6 +29,7 @@
 
 use std::sync::Arc;
 
+use eunomia::FloatElement;
 use moirai::{fold_reduce_with, Adaptive};
 
 use crate::application::objectives::BlueprintObjectiveEvaluation;
@@ -149,7 +150,7 @@ impl ScoringSnapshot {
             + 0.12 * flow_frac
             + 0.22 * healthy_cell_protection
             + 0.10 * safety;
-        let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
+        let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).nth_root(4);
 
         Some((base + synergy).clamp(0.0, 1.0))
     }
@@ -229,7 +230,7 @@ impl ScoringSnapshot {
                 + 0.22 * acoustic_healthy_cell_protection
                 + 0.10 * safety;
             let synergy = 0.12
-                * (sep * cancer * residence_norm * acoustic_healthy_cell_protection).powf(0.25);
+                * (sep * cancer * residence_norm * acoustic_healthy_cell_protection).nth_root(4);
             (base + synergy).clamp(0.0, 1.0)
         };
 
@@ -249,7 +250,7 @@ impl ScoringSnapshot {
                 * residence_norm
                 * healthy_cell_protection
                 * dean_norm)
-                .powf(0.2);
+                .nth_root(5);
 
         Some((base + synergy).clamp(0.0, 1.0))
     }

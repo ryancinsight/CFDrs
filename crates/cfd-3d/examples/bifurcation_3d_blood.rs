@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Murray's law analysis
-    let d_murray = d_parent / 2.0_f64.powf(1.0 / 3.0);
+    let d_murray = d_parent / 2.0_f64.cbrt();
     let murray_error = ((d_daughter - d_murray) / d_murray).abs() * 100.0;
 
     println!("Geometry:");

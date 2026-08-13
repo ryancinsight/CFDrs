@@ -234,7 +234,7 @@ mod tests {
         let murray = MurraysLaw::<f64>::new();
         let d0: f64 = 1.0e-3;
         let dd = murray.symmetric_daughter_diameter(d0);
-        let expected = d0 / 2.0_f64.powf(1.0 / 3.0);
+        let expected = d0 / 2.0_f64.cbrt();
         assert_relative_eq!(dd, expected, max_relative = 1e-12);
     }
 
@@ -248,7 +248,7 @@ mod tests {
         let d2 = murray
             .asymmetric_daughter_diameter(d0, d1)
             .expect("valid bifurcation");
-        let expected = (d0.powi(3) - d1.powi(3)).powf(1.0 / 3.0);
+        let expected = (d0.powi(3) - d1.powi(3)).cbrt();
         assert_relative_eq!(d2, expected, max_relative = 1e-12);
     }
 
@@ -271,7 +271,7 @@ mod tests {
     fn ideal_area_ratio_k3() {
         let murray = MurraysLaw::<f64>::new();
         let ar = murray.ideal_area_ratio();
-        let expected = 2.0_f64.powf(1.0 / 3.0);
+        let expected = 2.0_f64.cbrt();
         assert_relative_eq!(ar, expected, max_relative = 1e-12);
     }
 
