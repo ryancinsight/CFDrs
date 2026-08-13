@@ -31,7 +31,10 @@ jobs:
       pages: write
       id-token: write
     with:
-      output-path: target/book/cfdrs
+      # With a second renderer configured ([output.linkcheck2]) mdbook writes
+      # each backend into its own subdirectory, so the HTML lands in html/
+      # rather than at build-dir. gaia points at the same subdirectory.
+      output-path: target/book/cfdrs/html
       # book.toml declares [output.linkcheck2] without optional = true, so
       # mdbook fails the render unless the backend binary is installed.
       mdbook-linkcheck2-version: "0.12.2"
