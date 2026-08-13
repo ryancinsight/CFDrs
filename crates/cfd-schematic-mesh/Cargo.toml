@@ -6,10 +6,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation.workspace = true
-readme.workspace = true
+documentation = "https://docs.rs/cfd-schematic-mesh"
+readme = "README.md"
 description = "Millifluidic schematic-to-mesh bridge: converts a CFDrs network blueprint into watertight surface meshes."
 keywords = ["cfd", "mesh", "millifluidic", "geometry", "simulation"]
+categories = ["science", "simulation"]
 
 [dependencies]
 aequitas = { workspace = true, features = ["serde"] }

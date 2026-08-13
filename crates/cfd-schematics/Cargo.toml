@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-schematics"
+readme = "README.md"
 description = "Schematic network design, geometry generation, and metadata export for microfluidic/millifluidic devices"
+keywords = ["microfluidics", "millifluidics", "schematic", "geometry", "cfd"]
+categories = ["science", "simulation"]
 
 [features]
 default = []

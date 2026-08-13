@@ -1,9 +1,16 @@
 [package]
 name = "cfd-python"
-version = "0.1.0"
-edition = "2021"
-description = "Python bindings for CFD-rs solvers using PyO3"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-python"
 readme = "README.md"
+description = "Python bindings for CFD-rs solvers using PyO3"
+keywords = ["cfd", "python", "pyo3", "bindings", "simulation"]
+categories = ["science", "simulation", "api-bindings"]
 
 [lib]
 name = "cfd_python"

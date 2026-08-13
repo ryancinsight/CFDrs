@@ -4,12 +4,16 @@ build-backend = "maturin"
 
 [project]
 name = "cfd-python"
-version = "0.1.0"
+# Single source of truth: maturin reads the version from Cargo.toml, which
+# inherits the workspace version.
+dynamic = ["version"]
 description = "Python bindings for CFD-rs CFD solvers"
 readme = "README.md"
+# Matches the abi3-py38 floor declared in Cargo.toml.
 requires-python = ">=3.8"
+license = { text = "MIT OR Apache-2.0" }
 authors = [
-    {name = "CFD-rs Contributors", email = "info@cfd-rs.dev"}
+    {name = "Ryan Clanton", email = "ryan@clanton.dev"}
 ]
 classifiers = [
     "Programming Language :: Rust",
@@ -19,7 +23,14 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering :: Physics",
 ]
+
+[project.urls]
+Homepage = "https://ryancinsight.github.io/CFDrs/"
+Repository = "https://github.com/ryancinsight/CFDrs"
+Documentation = "https://ryancinsight.github.io/CFDrs/"
 
 [project.optional-dependencies]
 dev = [

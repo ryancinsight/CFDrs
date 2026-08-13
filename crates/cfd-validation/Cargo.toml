@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-validation"
+readme = "README.md"
 description = "Validation framework and benchmark problems for CFD simulations"
+keywords = ["cfd", "validation", "benchmark", "convergence", "mms"]
+categories = ["science", "development-tools::testing"]
 
 [dependencies]
 cfd-core.workspace = true

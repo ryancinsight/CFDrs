@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-io"
+readme = "README.md"
 description = "I/O operations and file format support for CFD simulations"
+keywords = ["cfd", "vtk", "hdf5", "checkpoint", "io"]
+categories = ["science", "filesystem"]
 
 [dependencies]
 thiserror.workspace = true

@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-core"
+readme = "README.md"
 description = "Core abstractions and plugin system for the CFD simulation suite"
+keywords = ["cfd", "simulation", "fluid-dynamics", "physics", "plugin"]
+categories = ["science", "simulation"]
 
 [dependencies]
 aequitas = { workspace = true, features = ["serde"] }

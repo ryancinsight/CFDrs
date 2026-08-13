@@ -21,9 +21,12 @@ version = "0.3.0"
 edition = "2021"
 authors = ["Ryan Clanton <ryan@clanton.dev>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/ryancinsight/cfd-suite"
-homepage = "https://github.com/ryancinsight/cfd-suite"
-documentation = "https://docs.rs/cfd-suite"
+repository = "https://github.com/ryancinsight/CFDrs"
+homepage = "https://ryancinsight.github.io/CFDrs/"
+# Per-crate `documentation` points at that crate's own docs.rs page; this
+# workspace default is the project book, which is the only documentation URL
+# that is correct for every member. There is no `cfd-suite` package.
+documentation = "https://ryancinsight.github.io/CFDrs/"
 readme = "README.md"
 keywords = ["cfd", "simulation", "fluid-dynamics", "computational", "physics"]
 categories = ["science", "simulation"]

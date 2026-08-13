@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-1d"
+readme = "README.md"
 description = "1D CFD simulations for microfluidic networks"
+keywords = ["cfd", "microfluidics", "network", "hagen-poiseuille", "droplet"]
+categories = ["science", "simulation"]
 
 [features]
 default = []

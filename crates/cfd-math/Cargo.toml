@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-math"
+readme = "README.md"
 description = "Mathematical utilities and numerical methods for CFD simulations"
+keywords = ["cfd", "linear-solver", "numerical", "sparse", "multigrid"]
+categories = ["science", "mathematics"]
 
 [dependencies]
 aequitas.workspace = true

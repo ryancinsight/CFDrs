@@ -83,6 +83,35 @@
 //! - **stability**: CFL and stability analysis utilities
 //! - **constants**: Physical and numerical constants
 //!
+//! # Quick Start
+//!
+//! Construct a validated fluid and a structured grid, and derive a physical
+//! quantity from them. Both constructors are fallible and share
+//! [`cfd_core::error::Error`], so a single `?` chain covers them.
+//!
+//! ```
+//! use cfd_2d::grid::{Grid2D, StructuredGrid2D};
+//! use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
+//!
+//! # fn main() -> Result<(), cfd_core::error::Error> {
+//! // Water at 20 °C. Properties are range-checked during construction.
+//! let water = ConstantPropertyFluid::<f64>::water_20c()?;
+//! let nu = water.dynamic_viscosity().into_base() / water.density().into_base();
+//!
+//! // 64x64 structured grid over the unit square [0,1] x [0,1].
+//! let grid = StructuredGrid2D::<f64>::unit_square(64, 64)?;
+//! assert_eq!(grid.num_cells(), 64 * 64);
+//!
+//! // Kinematic viscosity of water at 20 °C: 1.002e-3 / 998.2 ~= 1.004e-6 m^2/s.
+//! assert!((nu - 1.004e-6).abs() < 1e-9);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! This covers construction and property access only. Driving a solver to
+//! convergence requires a boundary-condition set and a time or iteration loop;
+//! see the [`solvers`] module and the repository `examples/` directory.
+//!
 //! # Discrete Invariants
 //!
 //! For the supported incompressible formulations, the implementation is expected to preserve

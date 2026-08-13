@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
-description = "3D CFD solvers with CSGrs mesh integration"
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-3d"
+readme = "README.md"
+description = "3D CFD solvers: FEM, spectral, immersed boundary, and multiphase methods"
+keywords = ["cfd", "fem", "spectral", "multiphase", "cavitation"]
+categories = ["science", "simulation"]
 
 [dependencies]
 cfd-1d.workspace = true
