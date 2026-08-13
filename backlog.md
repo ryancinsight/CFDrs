@@ -81,6 +81,20 @@
 
 ## Active integration
 
+- **CFDRS-LEGACY-APPROX-001 [patch] - Remove orphaned approx workspace dep
+  (done 2026-08-13; owner=current Codex session; scope=workspace
+  `Cargo.toml` only).** The `approx = "0.5"` workspace dependency had zero
+  consumers — no `approx::` reference in any source file, no
+  `approx = { workspace = true }` in any package manifest, and no
+  `[[package]]` entry in `Cargo.lock` (the graph never resolved it). CFDrs
+  float comparison already routes through the Eunomia
+  `assert_relative_eq!`/`FloatElement` surface, so the legacy comparison
+  crate is fully superseded and the manifest entry was pure residue.
+  Evidence: `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged),
+  `cargo check --workspace --offline` rc=0, `cargo tree -i approx` rc=101
+  (no such package in the resolved graph), and a tree-wide grep showing zero
+  `approx::`/`use approx` residue.
+
 - **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics
   (done 2026-08-06; owner=current Codex session; scope=
   `ChannelSpec` hydraulic coefficients and pump limits, valve loss metadata,

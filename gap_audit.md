@@ -31,6 +31,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Legacy-dep closure — orphaned approx workspace dependency (2026-08-13)
+
+- Closed: removed the `approx = "0.5"` workspace dependency. It was an
+  orphaned legacy comparison crate with zero direct or transitive consumers —
+  not present in `Cargo.lock` and not in the resolved crate graph. CFDrs float
+  comparison is already Eunomia-backed (`assert_relative_eq!` / `FloatElement`),
+  so `approx` is fully superseded and the manifest entry was pure residue.
+- Evidence: `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged),
+  `cargo check --workspace --offline` rc=0, `cargo tree -i approx` rc=101
+  (package absent from the resolved graph), and a tree-wide grep showing zero
+  `approx::` / `use approx` residue.
+
 ## Lint-floor gate — partial closure (2026-08-06)
 
 - The root workspace now owns the Atlas lint floor; every CFDrs workspace

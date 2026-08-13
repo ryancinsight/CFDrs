@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-LEGACY-APPROX-001 — Remove orphaned approx workspace dep — done 2026-08-13
+
+- [x] Remove the orphaned `approx = "0.5"` workspace dependency: zero
+      consumers (`approx::`), zero manifest references, and absent from
+      `Cargo.lock`. CFDrs float comparison is already Eunomia-backed, so the
+      legacy comparison crate is fully superseded.
+- [x] Verify `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged) and
+      `cargo check --workspace --offline` rc=0 after the removal.
+
 ## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
 
 - [x] Declare the Atlas `[workspace.lints]` floor and inherit it from all
