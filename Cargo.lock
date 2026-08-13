@@ -555,6 +555,7 @@ dependencies = [
  "cfd-schematics",
  "cfd-validation",
  "chrono",
+ "eunomia",
  "gaia-mesh",
  "hyperion",
  "moirai-runtime",
