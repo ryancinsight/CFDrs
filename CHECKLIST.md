@@ -20,6 +20,20 @@
 - [x] Verify `cargo metadata --locked --no-deps` rc=0 (lockfile unchanged) and
       `cargo check --workspace --offline` rc=0 after the removal.
 
+## CFDRS-FLOATELEMENT-ROOTS-001 — Migrate powf root emulation to FloatElement — done 2026-08-13
+
+- [x] Replace `powf`-emulated scalar roots with the sign-preserving Eunomia
+      `FloatElement` surface across 18 files (cfd-1d/2d/3d, cfd-optim,
+      cfd-validation): `powf(1/3)` → `.cbrt()`, `powf(-1/3)` →
+      `.cbrt().recip()`, `powf(-0.5)` → `.rsqrt()`, `powf(0.25)` →
+      `.nth_root(4)`, `powf(0.2)` → `.nth_root(5)`, `powf(1/7)` →
+      `.nth_root(7)`.
+- [x] Add the missing `eunomia` workspace dep to `cfd-optim` and the
+      `FloatElement` import to each consumer file that needs it.
+- [x] Verify `cargo check --workspace --all-targets` rc=0 and
+      `cargo nextest run` (cfd-1d/2d/3d/optim/validation) 2277 passed /
+      0 failed.
+
 ## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
 
 - [x] Declare the Atlas `[workspace.lints]` floor and inherit it from all

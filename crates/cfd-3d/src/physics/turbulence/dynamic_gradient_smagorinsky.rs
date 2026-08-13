@@ -310,7 +310,7 @@ mod tests {
 
         let gradient_norm_sq: f64 = gradient.iter().flatten().map(|value| value * value).sum();
         let gradient_magnitude = (2.0 * gradient_norm_sq).sqrt();
-        let delta = (dx * dy * dz).powf(1.0 / 3.0);
+        let delta = (dx * dy * dz).cbrt();
         let delta_hat = delta * model.test_filter_ratio;
         let scale = -2.0 * (delta_hat * delta_hat - delta * delta) * gradient_magnitude;
         let covariance = [

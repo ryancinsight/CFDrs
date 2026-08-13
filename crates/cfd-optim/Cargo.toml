@@ -31,6 +31,7 @@ cfd-math.workspace = true
 cfd-schematics.workspace = true
 cfd-validation.workspace = true
 aequitas = { workspace = true, features = ["serde"] }
+eunomia.workspace = true
 hyperion.workspace = true
 tyche-core.workspace = true
 tracing.workspace = true

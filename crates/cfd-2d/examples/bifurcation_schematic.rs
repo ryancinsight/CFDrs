@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Murray's law: r_parent³ = r_d1³ + r_d2³ → r_d = r_p / 2^(1/3)
     // Using 1 mm parent radius → 0.794 mm daughter radius
     let r_parent = 1.0_f64; // mm
-    let r_daughter = r_parent / 2.0_f64.powf(1.0 / 3.0); // ≈ 0.794 mm
+    let r_daughter = r_parent / 2.0_f64.cbrt(); // ≈ 0.794 mm
     let w_parent = r_parent * 2.0;
     let w_daughter = r_daughter * 2.0;
 

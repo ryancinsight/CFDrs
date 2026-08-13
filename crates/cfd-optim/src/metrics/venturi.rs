@@ -6,6 +6,7 @@ use cfd_core::physics::cavitation::{
     CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
     SelectiveCavitationInput, SelectiveCavitationPopulation,
 };
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -36,7 +37,7 @@ fn venturi_selectivity_geometric_synergy(
     healthy_cell_protection: f64,
 ) -> f64 {
     0.15 * (cavitation_term * selective_margin_term * cancer_enrich * healthy_cell_protection)
-        .powf(0.25)
+        .nth_root(4)
 }
 
 fn selective_cavitation_input(

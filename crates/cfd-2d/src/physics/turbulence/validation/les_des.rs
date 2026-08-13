@@ -6,7 +6,7 @@ use crate::physics::turbulence::traits::TurbulenceModel;
 use crate::physics::turbulence::{
     DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES,
 };
-use eunomia::RealField as EunomiaRealField;
+use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
 use leto::Array2;
 
@@ -178,7 +178,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                 let idx = i * ny + j;
                 let y_over_delta = j as f64 / (ny - 1) as f64;
                 let u_velocity = if y_over_delta < 1.0 {
-                    free_stream_velocity * y_over_delta.powf(1.0 / 7.0)
+                    free_stream_velocity * y_over_delta.nth_root(7)
                 } else {
                     free_stream_velocity
                 };

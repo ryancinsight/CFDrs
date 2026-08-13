@@ -180,7 +180,7 @@ mod tests {
     fn test_bifurcation_flow_3d_murray_and_mass() {
         let d_parent = 100e-6_f64;
         // Murray-optimal daughter diameter: D_d = D_p / 2^(1/3)
-        let d_daughter = d_parent / (2.0_f64.powf(1.0 / 3.0));
+        let d_daughter = d_parent / (2.0_f64.cbrt());
         let angle = PI / 6.0; // 30° half-angle
 
         let geometry = Bifurcation3D::symmetric(

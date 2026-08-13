@@ -107,6 +107,18 @@
   (no such package in the resolved graph), and a tree-wide grep showing zero
   `approx::`/`use approx` residue.
 
+- **CFDRS-FLOATELEMENT-ROOTS-001 [patch] - Migrate powf root emulation to
+  FloatElement cbrt/rsqrt/nth_root (done 2026-08-13; owner=current Codex
+  session; scope=18 source files across cfd-1d/2d/3d, cfd-optim, and
+  cfd-validation).** Swept `powf`-emulated scalar roots onto the
+  sign-preserving Eunomia `FloatElement` surface: `powf(1/3)` → `.cbrt()`,
+  `powf(-1/3)` → `.cbrt().recip()`, `powf(-0.5)` → `.rsqrt()`,
+  `powf(0.25)` → `.nth_root(4)`, `powf(0.2)` → `.nth_root(5)`, and
+  `powf(1/7)` → `.nth_root(7)`. Added the missing `eunomia` workspace dep
+  to `cfd-optim`. Evidence: `cargo check --workspace --all-targets` rc=0;
+  `cargo nextest run` (cfd-1d/2d/3d/optim/validation) 2277 passed /
+  0 failed.
+
 - **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics
   (done 2026-08-06; owner=current Codex session; scope=
   `ChannelSpec` hydraulic coefficients and pump limits, valve loss metadata,

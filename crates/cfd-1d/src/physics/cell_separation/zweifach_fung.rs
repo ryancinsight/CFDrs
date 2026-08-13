@@ -55,6 +55,7 @@
 
 use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
+use eunomia::FloatElement;
 
 /// Mean human RBC diameter \[µm].
 const RBC_DIAMETER_M: f64 = 8.0e-6;
@@ -119,13 +120,13 @@ pub fn critical_fractional_flow(channel_diameter: Length) -> f64 {
     let kappa = confinement_ratio(channel_diameter);
     // For kappa → 0 (very large channels), the 1/sqrt(kappa) term diverges,
     // so we clamp output to [0.5, 0.99].
-    (0.5 + 0.14 * kappa.powf(-0.5)).clamp(0.5, 0.99)
+    (0.5 + 0.14 * kappa.rsqrt()).clamp(0.5, 0.99)
 }
 
 /// Checked critical fractional flow evaluation for the Zweifach-Fung transition.
 pub fn checked_critical_fractional_flow(channel_diameter: Length) -> Result<f64> {
     let kappa = checked_confinement_ratio(channel_diameter)?;
-    Ok((0.5 + 0.14 * kappa.powf(-0.5)).clamp(0.5, 0.99))
+    Ok((0.5 + 0.14 * kappa.rsqrt()).clamp(0.5, 0.99))
 }
 
 /// Transition sharpness parameter for the sigmoid model.

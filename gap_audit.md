@@ -55,6 +55,16 @@
   (package absent from the resolved graph), and a tree-wide grep showing zero
   `approx::` / `use approx` residue.
 
+## Legacy root-emulation closure — powf → FloatElement cbrt/rsqrt/nth_root (2026-08-13)
+
+- Closed: swept `powf`-emulated scalar roots out of the tree in favor of the
+  sign-preserving Eunomia `FloatElement` surface. Covers 18 files: 13
+  cube-root sites, 1 reciprocal cube-root, 2 rsqrt, 9 4th-root, 4 5th-root,
+  and 1 7th-root. `cfd-optim` gained the `eunomia` workspace dependency it
+  was missing.
+- Evidence: `cargo check --workspace --all-targets` rc=0; `cargo nextest run`
+  (cfd-1d/2d/3d/optim/validation) 2277 passed / 0 failed / 30 skipped.
+
 ## Lint-floor gate — partial closure (2026-08-06)
 
 - The root workspace now owns the Atlas lint floor; every CFDrs workspace

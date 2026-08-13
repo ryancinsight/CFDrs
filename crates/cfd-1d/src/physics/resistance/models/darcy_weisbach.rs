@@ -500,7 +500,7 @@ mod tests {
         // Re=100000, roughness=0 => Blasius: f = 0.316/Re^0.25 ~ 0.01778
         let model = DarcyWeisbachModel::circular(0.01, 1.0, 0.0);
         let f = model.calculate_friction_factor(100_000.0);
-        let blasius = 0.316 / 100_000.0_f64.powf(0.25);
+        let blasius = 0.316 / 100_000.0_f64.nth_root(4);
         assert_relative_eq!(f, blasius, max_relative = 0.05);
     }
 

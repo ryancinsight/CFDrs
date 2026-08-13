@@ -237,7 +237,7 @@ mod tests {
         // Multiplier = 1 + 0.17 * (1mm / 2mm) * (72000)^(1/3)
         // 72000^(1/3) = ~41.6016
         // Mult = 1 + 0.17 * 0.5 * 41.6016 = 4.536
-        let expected_mult = 1.0 + 0.17 * 0.5 * (72000.0_f64).powf(1.0 / 3.0);
+        let expected_mult = 1.0 + 0.17 * 0.5 * (72000.0_f64).cbrt();
         let expected_r = r_base * expected_mult;
 
         assert_relative_eq!(r1, expected_r, max_relative = 1e-10);
