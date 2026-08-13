@@ -31,6 +31,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Legacy-audit coverage gap — approx/num-traits/rustfft unclassified (2026-08-13)
+
+- Closed: the `xtask` legacy-migration-audit only classified `nalgebra`,
+  `ndarray`, `burn`, `tokio`, and `rayon`, so `approx`, `num-traits`, and
+  `rustfft` could regress silently (this is how the orphaned
+  `approx = "0.5"` workspace dep evaded detection until
+  CFDRS-LEGACY-APPROX-001). The lists now include all three, matching the
+  kwavers audit surface, and two unit tests lock the detection.
+- Evidence: `cargo test -p xtask` 2/2, clean audit (0 legacy deps, 0 legacy
+  tokens), `cargo fmt -p xtask -- --check` and `cargo clippy -p xtask
+  --all-targets -- -D warnings` rc=0.
+
 ## Legacy-dep closure — orphaned approx workspace dependency (2026-08-13)
 
 - Closed: removed the `approx = "0.5"` workspace dependency. It was an

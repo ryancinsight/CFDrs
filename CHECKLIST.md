@@ -1,5 +1,16 @@
 # CFDrs Work Checklist
 
+## CFDRS-LEGACY-AUDIT-HARDEN-001 — Harden legacy-migration-audit coverage — done 2026-08-13
+
+- [x] Add `approx`, `num-traits`, `rustfft` to the audit's legacy manifest
+      dep list and `approx::`/`num_traits::`/`rustfft::` to its source-token
+      list (matching kwavers coverage).
+- [x] Add two unit tests locking manifest-dep and source-token detection for
+      the three crates.
+- [x] Verify `cargo test -p xtask` (2/2), a clean `legacy-migration-audit`
+      run, `cargo fmt -p xtask -- --check`, and `cargo clippy -p xtask
+      --all-targets -- -D warnings`.
+
 ## CFDRS-LEGACY-APPROX-001 — Remove orphaned approx workspace dep — done 2026-08-13
 
 - [x] Remove the orphaned `approx = "0.5"` workspace dependency: zero

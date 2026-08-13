@@ -11,6 +11,9 @@ const LEGACY_MANIFEST_DEPS: &[&str] = &[
     "burn-ndarray",
     "tokio",
     "rayon",
+    "approx",
+    "num-traits",
+    "rustfft",
 ];
 
 const LEGACY_SOURCE_TOKENS: &[&str] = &[
@@ -20,6 +23,9 @@ const LEGACY_SOURCE_TOKENS: &[&str] = &[
     "burn_ndarray",
     "tokio::",
     "rayon::",
+    "approx::",
+    "num_traits::",
+    "rustfft::",
 ];
 
 const ATLAS_MANIFEST_DEPS: &[&str] = &["moirai", "leto", "hephaestus", "coeus"];
@@ -297,4 +303,65 @@ fn source_allowlist_entry(path: &Path) -> String {
 
 fn normalized(path: &Path) -> String {
     path.display().to_string().replace('\\', "/")
+}
+
+#[cfg(test)]
+#[expect(clippy::unwrap_used, reason = "test fixtures panic on setup/teardown failure")]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn audit_flags_approx_num_traits_rustfft_manifest_surface() {
+        let root = temp_root();
+        fs::create_dir_all(root.join("crates/cfd-test")).unwrap();
+        fs::write(
+            root.join("crates/cfd-test/Cargo.toml"),
+            "[dependencies]\napprox = \"0.5\"\nnum-traits = \"0.2\"\nrustfft = \"6.0\"\n",
+        )
+        .unwrap();
+
+        let report = scan_legacy_migration_surface(&root).unwrap();
+
+        assert_eq!(
+            report.manifest_dependencies,
+            vec![PathBuf::from("crates/cfd-test/Cargo.toml")]
+        );
+        assert!(report.source_references.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn audit_flags_approx_num_traits_rustfft_source_tokens() {
+        let root = temp_root();
+        let source = root.join("crates/cfd-test/src/lib.rs");
+        fs::create_dir_all(source.parent().unwrap()).unwrap();
+        fs::write(
+            &source,
+            "use approx::AbsDiffEq;\nuse num_traits::Float;\nuse rustfft::FftPlanner;\n",
+        )
+        .unwrap();
+
+        let report = scan_legacy_migration_surface(&root).unwrap();
+
+        assert!(report.manifest_dependencies.is_empty());
+        assert_eq!(
+            report.source_references,
+            vec![SourceReference {
+                path: PathBuf::from("crates/cfd-test/src/lib.rs"),
+                count: 3,
+            }]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn temp_root() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("cfdrs-migration-audit-{nanos}"))
+    }
 }

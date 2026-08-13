@@ -81,6 +81,18 @@
 
 ## Active integration
 
+- **CFDRS-LEGACY-AUDIT-HARDEN-001 [patch] - Harden legacy-migration-audit
+  coverage (done 2026-08-13; owner=current Codex session; scope=
+  `xtask/src/migration_audit.rs` only).** The audit's legacy classification
+  omitted `approx`, `num-traits`, and `rustfft` (manifest) plus
+  `approx::`/`num_traits::`/`rustfft::` (source tokens) — which is how the
+  orphaned `approx = "0.5"` workspace dep evaded CFDRS-LEGACY-APPROX-001.
+  The lists now match the kwavers audit coverage, and two unit tests lock
+  manifest-dep and source-token detection for all three crates. Evidence:
+  `cargo test -p xtask` 2/2, `cargo run -p xtask -- legacy-migration-audit`
+  clean (0 deps, 0 tokens), `cargo fmt -p xtask -- --check`,
+  `cargo clippy -p xtask --all-targets -- -D warnings` all rc=0.
+
 - **CFDRS-LEGACY-APPROX-001 [patch] - Remove orphaned approx workspace dep
   (done 2026-08-13; owner=current Codex session; scope=workspace
   `Cargo.toml` only).** The `approx = "0.5"` workspace dependency had zero
