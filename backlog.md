@@ -117,7 +117,7 @@
   `powf(1/7)` → `.nth_root(7)`. Added the missing `eunomia` workspace dep
   to `cfd-optim`. Evidence: `cargo check --workspace --all-targets` rc=0;
   `cargo nextest run` (cfd-1d/2d/3d/optim/validation) 2277 passed /
-  0 failed.
+  0 failed. Merged as CFDrs PR #341 (`e30704b2`).
 
 - **CFDRS-AEQ-MET-63 [major] - Type ChannelSpec hydraulic metrics
   (done 2026-08-06; owner=current Codex session; scope=

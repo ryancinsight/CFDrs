@@ -33,6 +33,8 @@
 - [x] Verify `cargo check --workspace --all-targets` rc=0 and
       `cargo nextest run` (cfd-1d/2d/3d/optim/validation) 2277 passed /
       0 failed.
+- [x] Merge as CFDrs PR #341 (`e30704b2`); the standalone lock gains the
+      `cfd-optim` → `eunomia` edge.
 
 ## Owner: current Codex session — CFDRS-LINT-FLOOR-001 — in progress 2026-08-06
 
