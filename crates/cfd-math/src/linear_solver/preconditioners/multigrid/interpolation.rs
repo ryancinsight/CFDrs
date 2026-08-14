@@ -1,5 +1,13 @@
 //! Interpolation operators for AMG multigrid methods
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{csr_from_parts, csr_value, SparseMatrix};
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -410,6 +418,7 @@ pub struct InterpolationQuality {
 
 impl InterpolationQuality {
     /// Check if interpolation quality is acceptable
+    #[must_use]
     pub fn is_acceptable(&self) -> bool {
         (self.avg_c_point_row_sum - 1.0).abs() < 1e-10
             && (self.avg_f_point_row_sum - 1.0).abs() < 1e-10

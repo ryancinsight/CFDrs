@@ -19,7 +19,7 @@ pub struct SerpentineAnalysis<T> {
     pub reynolds: T,
     /// Dean number
     pub dean_number: T,
-    /// Curvature enhancement ratio f_curved/f_straight
+    /// Curvature enhancement ratio `f_curved/f_straight`
     pub curvature_enhancement: T,
     /// Base straight-channel friction factor
     pub friction_factor_straight: T,
@@ -142,7 +142,7 @@ impl<T: CfdScalar> SerpentineModel<T> {
 /// f_curved / f_straight = 1 + 0.085 · De^0.48
 /// ```
 ///
-/// where De = Re·√(D_h / (2R)) is the Dean number.
+/// where De = `Re·√(D_h` / (2R)) is the Dean number.
 ///
 /// This correlation provides improved accuracy over the classical Ito (1959)
 /// formula for millifluidic Reynolds numbers (Re < 500) and rectangular
@@ -151,6 +151,7 @@ impl<T: CfdScalar> SerpentineModel<T> {
 ///
 /// **Reference**: Bayat, P. & Rezai, P. (2017). "Semi-Empirical Estimation
 /// of Dean Flow Velocity in Curved Microchannels", *Sci. Rep.* 7:13655.
+#[must_use]
 pub fn bayat_rezai_enhancement(dean_number: f64) -> f64 {
     1.0 + 0.085 * dean_number.max(0.0).powf(0.48)
 }

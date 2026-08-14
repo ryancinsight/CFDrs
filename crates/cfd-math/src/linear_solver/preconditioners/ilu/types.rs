@@ -89,6 +89,7 @@ impl<T: RealField + Copy + LetoScalar> IncompleteLU<T> {
     }
 
     /// Get the fill level k
+    #[must_use]
     pub fn fill_level(&self) -> usize {
         self.fill_level
     }

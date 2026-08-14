@@ -27,7 +27,7 @@ pub struct ThreeWayBranchJunction<T: CfdScalar + Copy> {
     pub daughter2: Channel<T>,
     /// Third daughter channel
     pub daughter3: Channel<T>,
-    /// Flow distribution ratios: (Q_1/Q_0, Q_2/Q_0, Q_3/Q_0)
+    /// Flow distribution ratios: (`Q_1/Q_0`, `Q_2/Q_0`, `Q_3/Q_0`)
     ///
     /// `solve()` computes a pressure-compatible split. Use
     /// `solve_with_prescribed_split()` when these stored ratios are the desired

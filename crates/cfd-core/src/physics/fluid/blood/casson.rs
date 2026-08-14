@@ -17,7 +17,7 @@ use aequitas::systems::si::quantities::{
 /// ```
 ///
 /// where B = 1500 K (empirical constant for whole blood, Merrill 1969),
-/// T_ref = 310 K (37 °C reference temperature).
+/// `T_ref` = 310 K (37 °C reference temperature).
 ///
 /// # Arguments
 /// * `temp_c` — Blood temperature [°C]
@@ -67,14 +67,14 @@ use serde::{Deserialize, Serialize};
 /// ```
 ///
 /// # Literature Validation
-/// - Yield stress τ_y ≈ 0.0056 Pa for normal blood (H_t = 45%)
+/// - Yield stress `τ_y` ≈ 0.0056 Pa for normal blood (`H_t` = 45%)
 /// - Infinite shear viscosity μ_∞ ≈ 0.00345 Pa·s
 /// - Reference: Merrill et al. (1969), Fung (1993)
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CassonBlood<T> {
     /// Blood density [kg/m³]
     pub density: MassDensity<T>,
-    /// Yield stress τ_y \[Pa]
+    /// Yield stress `τ_y` \[Pa]
     /// Literature value: 0.0056 Pa for normal blood (Merrill 1969)
     pub yield_stress: Pressure<T>,
     /// Infinite-shear (Casson) viscosity μ_∞ [Pa·s]
@@ -99,9 +99,9 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     /// Create Casson blood model with literature-validated parameters for normal blood
     ///
     /// Uses parameters from Merrill et al. (1969) and Fung (1993):
-    /// - τ_y = 0.0056 Pa
+    /// - `τ_y` = 0.0056 Pa
     /// - μ_∞ = 0.00345 Pa·s
-    /// - H_t = 0.45
+    /// - `H_t` = 0.45
     ///
     /// # Example
     /// ```
@@ -111,6 +111,7 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     /// let viscosity = blood.apparent_viscosity(100.0); // At γ̇ = 100 s⁻¹
     /// assert!(viscosity > 0.003 && viscosity < 0.01);
     /// ```
+    #[must_use]
     pub fn normal_blood() -> Self {
         Self {
             density: MassDensity::from_base(<T as FloatElement>::from_f64(
@@ -172,8 +173,8 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     /// Create blood model with hematocrit-dependent properties
     ///
     /// Yields stress and viscosity scale with hematocrit using empirical correlations:
-    /// - τ_y(H_t) = τ_y,ref · (H_t / H_t,ref)^3  (Chien 1970)
-    /// - μ_∞(H_t) = μ_plasma · exp(k · H_t / (1 - H_t))  (Quemada 1978)
+    /// - `τ_y(H_t)` = `τ_y,ref` · (`H_t` / `H_t,ref)^3`  (Chien 1970)
+    /// - μ_∞(`H_t`) = `μ_plasma` · exp(k · `H_t` / (1 - `H_t`))  (Quemada 1978)
     pub fn with_hematocrit(hematocrit: Dimensionless<T>) -> Self {
         let h_ref = <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT);
         let tau_ref = <T as FloatElement>::from_f64(constants::YIELD_STRESS);
@@ -233,7 +234,7 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     /// * `shear_rate` - Shear rate γ̇ [1/s]
     ///
     /// # Returns
-    /// Apparent dynamic viscosity μ_app [Pa·s]
+    /// Apparent dynamic viscosity `μ_app` [Pa·s]
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
         // Apply regularization for numerical stability
         let gamma_eff = if shear_rate < self.regularization_shear_rate.into_base() {
@@ -253,7 +254,7 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
 
     /// Calculate shear stress from shear rate
     ///
-    /// τ = (√τ_y + √(μ_∞ · γ̇))²
+    /// τ = (√`τ_y` + √(μ_∞ · γ̇))²
     pub fn shear_stress(&self, shear_rate: T) -> T {
         self.apparent_viscosity(shear_rate) * shear_rate
     }
@@ -266,7 +267,7 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     ///   μ(T) = μ(37 °C) × exp(B × (1/T_ref − 1/T))
     /// ```
     ///
-    /// where B ≈ 1500 K (empirical blood constant), T_ref = 310 K (37 °C).
+    /// where B ≈ 1500 K (empirical blood constant), `T_ref` = 310 K (37 °C).
     ///
     /// # Arguments
     /// * `shear_rate` — Wall shear rate [s⁻¹]

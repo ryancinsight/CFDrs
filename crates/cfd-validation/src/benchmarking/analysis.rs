@@ -3,6 +3,14 @@
 //! Provides statistical analysis, trend detection, and performance regression
 //! monitoring for CFD operations.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::suite::BenchmarkResult;
 use crate::reporting::PerformanceMetrics;
 use cfd_core::error::{Error, Result};
@@ -126,6 +134,7 @@ impl PerformanceAnalyzer {
     ///
     /// * `config` - Regression detection configuration specifying thresholds, confidence levels,
     ///   and analysis window parameters for performance monitoring
+    #[must_use]
     pub fn new(config: RegressionConfig) -> Self {
         Self {
             config,
@@ -142,6 +151,7 @@ impl PerformanceAnalyzer {
     /// - 10-run lookback window for trend analysis
     ///
     /// Suitable for most CFD benchmarking scenarios without requiring manual configuration tuning.
+    #[must_use]
     pub fn with_default_config() -> Self {
         Self::new(RegressionConfig::default())
     }
@@ -334,7 +344,7 @@ pub struct RegressionAlert {
     /// Performance degradation rate as percentage change from baseline
     ///
     /// Quantified performance loss expressed as percentage (e.g., 15.7 means 15.7% slower).
-    /// Computed as (current_time - baseline_time) / baseline_time * 100.
+    /// Computed as (`current_time` - `baseline_time`) / `baseline_time` * 100.
     /// Positive values indicate performance degradation (slower execution).
     pub degradation_rate: f64,
 

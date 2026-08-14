@@ -38,6 +38,7 @@ pub struct PressureAnalysis<T: CfdScalar + Copy> {
 
 impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis<T> {
     /// Create a new pressure analysis
+    #[must_use]
     pub fn new() -> Self {
         Self {
             pressures: HashMap::new(),

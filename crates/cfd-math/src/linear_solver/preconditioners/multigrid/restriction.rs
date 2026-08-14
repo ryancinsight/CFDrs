@@ -1,5 +1,13 @@
 //! Restriction operators for AMG multigrid methods
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use leto::{Array1, Array2};
 use leto_ops::MatrixProduct;
 
@@ -23,7 +31,8 @@ fn vector_entry(vector: &RestrictionVector, row: usize) -> f64 {
 /// Create restriction operator from interpolation operator
 ///
 /// The restriction operator is typically the transpose of the interpolation operator.
-/// This ensures that the Galerkin condition (coarse_matrix = R * fine_matrix * P) is satisfied.
+/// This ensures that the Galerkin condition (`coarse_matrix` = R * `fine_matrix` * P) is satisfied.
+#[must_use]
 pub fn create_restriction_from_interpolation(
     interpolation: &RestrictionMatrix,
 ) -> RestrictionMatrix {
@@ -37,6 +46,7 @@ pub fn create_restriction_from_interpolation(
 ///
 /// Simple injection: each fine point contributes only to its corresponding coarse point.
 /// This is the transpose of direct interpolation.
+#[must_use]
 pub fn create_injection_restriction(
     fine_to_coarse_map: &[Option<usize>],
     fine_n: usize,
@@ -59,6 +69,7 @@ pub fn create_injection_restriction(
 ///
 /// Full weighting averages all fine values in a neighborhood.
 /// This is commonly used for geometric multigrid.
+#[must_use]
 pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> RestrictionMatrix {
     // Assuming 1D grid for simplicity
     // In practice, this would depend on the grid topology
@@ -83,6 +94,7 @@ pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> Rest
 /// Create half weighting restriction operator
 ///
 /// Half weighting uses a weighted average with emphasis on direct neighbors.
+#[must_use]
 pub fn create_half_weighting_restriction(fine_n: usize, coarse_n: usize) -> RestrictionMatrix {
     // Assuming 1D grid for simplicity
     let mut restriction = RestrictionMatrix::zeros([coarse_n, fine_n]);
@@ -188,6 +200,7 @@ pub struct RestrictionQuality {
 
 impl RestrictionQuality {
     /// Check if restriction quality is acceptable
+    #[must_use]
     pub fn is_acceptable(&self) -> bool {
         self.transpose_error < 1e-10 && self.avg_row_sum > 0.0 && self.sparsity_ratio < 0.1
         // Less than 10% non-zeros
@@ -195,6 +208,7 @@ impl RestrictionQuality {
 }
 
 /// Apply restriction operator to a vector
+#[must_use]
 pub fn restrict_vector(
     restriction: &RestrictionMatrix,
     fine_vector: &RestrictionVector,

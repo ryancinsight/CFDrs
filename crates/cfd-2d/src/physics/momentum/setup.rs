@@ -17,13 +17,14 @@ use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 
-/// Builder for configuring boundary conditions for the MomentumSolver
+/// Builder for configuring boundary conditions for the `MomentumSolver`
 pub struct BoundarySetup<T: CfdScalar + Copy> {
     conditions: HashMap<String, BoundaryCondition<T>>,
 }
 
 impl<T: CfdScalar + Copy> BoundarySetup<T> {
-    /// Create a new BoundarySetup
+    /// Create a new `BoundarySetup`
+    #[must_use]
     pub fn new() -> Self {
         Self {
             conditions: HashMap::new(),

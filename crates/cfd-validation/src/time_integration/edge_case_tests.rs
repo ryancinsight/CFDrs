@@ -7,6 +7,14 @@
 //! - Hairer, Nørsett & Wanner (1993). Solving Ordinary Differential Equations I. Springer.
 //! - Press et al. (2007). Numerical Recipes (3rd ed.). Cambridge University Press.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod time_integration_edge_tests {
     use crate::time_integration::integrators::{

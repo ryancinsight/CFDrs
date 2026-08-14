@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_schematics::domain::model::NodeKind;
 use cfd_schematics::interface::presets::symmetric_bifurcation;
 

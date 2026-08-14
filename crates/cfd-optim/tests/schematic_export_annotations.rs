@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{Angle, Length};
 use cfd_optim::save_blueprint_schematic_svg;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;

@@ -5,27 +5,27 @@
 //!
 //! # Theorem — Moment Consistency
 //!
-//! **Statement**: For any distribution $\{f_q\}$ the following zeroth and
+//! **Statement**: For any distribution $\{`f_q`\}$ the following zeroth and
 //! first moments are exact (no approximation):
 //!
-//! $$\rho = \sum_{q=0}^{8} f_q, \qquad \rho \mathbf{u} = \sum_{q=0}^{8} f_q \mathbf{e}_q$$
+//! $$\rho = \sum_{q=0}^{8} `f_q`, \qquad \rho \mathbf{u} = \sum_{q=0}^{8} `f_q` \mathbf{e}_q$$
 //!
 //! **Proof**:
 //!
-//! 1. The mapping $(f_q) \mapsto (\rho, \mathbf{j})$ is a linear projection whose
+//! 1. The mapping $(`f_q`) \mapsto (\rho, \mathbf{j})$ is a linear projection whose
 //!    correctness follows directly from the definitions; no truncation is performed.
-//! 2. At equilibrium $f_q = f_q^{eq}$, the Chapman-Enskog analysis shows
+//! 2. At equilibrium $`f_q` = `f_q^{eq`}$, the Chapman-Enskog analysis shows
 //!    $\rho^{eq} = \rho$ and $\mathbf{j}^{eq} = \rho\mathbf{u}$ — the moments are
 //!    consistent with the macroscopic fields by construction. □
 //!
 //! # Theorem — LBM Pressure Relation
 //!
-//! **Statement**: The LBM pressure is $p = c_s^2 \rho$ with $c_s^2 = 1/3$
+//! **Statement**: The LBM pressure is $p = `c_s^2` \rho$ with $`c_s^2` = 1/3$
 //! (in lattice units).
 //!
 //! **Proof sketch**: From the Chapman-Enskog expansion at $O(\epsilon^0)$,
-//! the leading-order equation of state is the ideal gas law $p = \rho c_s^2$
-//! where $c_s = 1/\sqrt{3}$ is the lattice sound speed. This is exact
+//! the leading-order equation of state is the ideal gas law $p = \rho `c_s^2`$
+//! where $`c_s` = 1/\sqrt{3}$ is the lattice sound speed. This is exact
 //! within the weakly-compressible limit $Ma \ll 1$. □
 
 use crate::scalar::{one, zero};
@@ -88,8 +88,8 @@ impl<T: FloatElement> MacroscopicQuantities<T> {
     /// Update all macroscopic fields from the flat distribution buffer.
     ///
     /// # Invariant (Theorem — Moment Consistency)
-    /// After this call, `density[j, i]` equals $\sum_q f_q(i,j)$ and
-    /// `velocity[j, i]` equals $(\sum_q e_{q,x} f_q) / \rho$, both exact.
+    /// After this call, `density[j, i]` equals $\`sum_q` `f_q(i,j)`$ and
+    /// `velocity[j, i]` equals $(\`sum_q` e_{q,x} `f_q`) / \rho$, both exact.
     pub fn update_from_distributions(&mut self, f: &[T], g: Option<&[T]>) {
         let nx = self.nx;
         let ny = self.ny;
@@ -116,12 +116,14 @@ impl<T: FloatElement> MacroscopicQuantities<T> {
 
     /// Get density at node (i, j).
     #[inline]
+    #[must_use]
     pub fn density_at(&self, i: usize, j: usize) -> T {
         self.density[j * self.nx + i]
     }
 
-    /// Get velocity at node (i, j) as [u_x, u_y].
+    /// Get velocity at node (i, j) as [`u_x`, `u_y`].
     #[inline]
+    #[must_use]
     pub fn velocity_at(&self, i: usize, j: usize) -> [T; 2] {
         let base = (j * self.nx + i) * 2;
         [self.velocity[base], self.velocity[base + 1]]
@@ -130,7 +132,7 @@ impl<T: FloatElement> MacroscopicQuantities<T> {
 
 /// Compute density at node (i, j) from the flat buffer.
 ///
-/// ρ(i,j) = ∑_{q=0}^{8} f_q(i,j)
+/// ρ(i,j) = ∑_{q=0}^{8} `f_q(i,j)`
 #[inline]
 pub fn compute_density_flat<T: FloatElement>(f: &[T], j: usize, i: usize, nx: usize) -> T {
     let mut rho = zero();
@@ -142,7 +144,7 @@ pub fn compute_density_flat<T: FloatElement>(f: &[T], j: usize, i: usize, nx: us
 
 /// Compute velocity at node (i, j) from the flat buffer.
 ///
-/// **u**(i,j) = (∑_q **e**_q f_q(i,j)) / ρ(i,j)
+/// **u**(i,j) = (∑_q **e**_q `f_q(i,j)`) / ρ(i,j)
 #[inline]
 pub fn compute_velocity_flat<T: FloatElement>(
     f: &[T],
@@ -184,12 +186,12 @@ pub fn compute_velocity<T: FloatElement>(f_node: &[T; 9], density: T) -> [T; 2] 
     [ux / density, uy / density]
 }
 
-/// LBM equation of state: p = c_s² ρ with c_s² = 1/3 (Theorem — LBM Pressure Relation).
+/// LBM equation of state: p = `c_s²` ρ with `c_s²` = 1/3 (Theorem — LBM Pressure Relation).
 pub fn compute_pressure<T: FloatElement>(density: T) -> T {
     <T as FloatElement>::from_f64(1.0 / 3.0) * density
 }
 
-/// Compute stress tensor Π_{αβ} = ∑_q e_{q,α} e_{q,β} (f_q - f_q^eq).
+/// Compute stress tensor Π_{αβ} = ∑_q e_{q,α} e_{q,β} (`f_q` - `f_q^eq`).
 pub fn compute_stress_tensor<T: FloatElement>(f_node: &[T; 9], f_eq: &[T; 9]) -> [[T; 2]; 2] {
     let mut stress = [[zero(); 2]; 2];
     for q in 0..9 {
@@ -205,7 +207,7 @@ pub fn compute_stress_tensor<T: FloatElement>(f_node: &[T; 9], f_eq: &[T; 9]) ->
     stress
 }
 
-/// Compute kinetic energy density: E_k = ½ ρ |**u**|².
+/// Compute kinetic energy density: `E_k` = ½ ρ |**u**|².
 pub fn compute_kinetic_energy<T: FloatElement>(density: T, velocity: &[T; 2]) -> T {
     <T as FloatElement>::from_f64(0.5)
         * density

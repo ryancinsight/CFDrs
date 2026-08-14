@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;

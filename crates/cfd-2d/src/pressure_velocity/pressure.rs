@@ -55,7 +55,7 @@ impl<T: CfdScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
     ///
     /// - **GMRES**: Industry standard for SIMPLE/PISO (default).
     ///   Reference: Saad (2003), Patankar (1980).
-    /// - **BiCGSTAB**: Good alternative for non-symmetric systems.
+    /// - **`BiCGSTAB`**: Good alternative for non-symmetric systems.
     /// - **CG**: Only for symmetric systems.
     pub fn new(
         grid: StructuredGrid2D<T>,

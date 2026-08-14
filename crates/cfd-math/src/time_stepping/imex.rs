@@ -37,16 +37,31 @@
 //! ## Theorem Statement
 //!
 //! **Theorem (Additive Runge-Kutta Order Conditions)**: For the IMEX ARK method
-//! with tableaux (A_exp, b_exp, c) and (A_imp, b_imp, c), the order conditions are:
+//! with tableaux (`A_exp`, `b_exp`, c) and (`A_imp`, `b_imp`, c), the order conditions are:
 //!
-//! - **Order 1**: Σ b_exp + Σ b_imp = 1
-//! - **Order 2**: Σ b_exp * c + Σ b_imp * c = 1/2
-//! - **Order 3**: Σ b_exp * c² + Σ b_imp * c² = 1/3, and coupling conditions
+//! - **Order 1**: Σ `b_exp` + Σ `b_imp` = 1
+//! - **Order 2**: Σ `b_exp` * c + Σ `b_imp` * c = 1/2
+//! - **Order 3**: Σ `b_exp` * c² + Σ `b_imp` * c² = 1/3, and coupling conditions
 //!
 //! ## References
 //!
 //! - Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
 //!   for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{
     one, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState, TimeStepper,
@@ -59,7 +74,7 @@ use leto_ops::{solve, RealScalar};
 /// IMEX Runge-Kutta method for systems with mixed stiffness
 ///
 /// Splits the RHS into explicit (non-stiff) and implicit (stiff) parts:
-/// du/dt = f_explicit(t,u) + f_implicit(t,u)
+/// du/dt = `f_explicit(t,u)` + `f_implicit(t,u)`
 pub struct IMEXTimeStepper<T: RealField + Copy> {
     /// Explicit method coefficients
     explicit_a: Vec<Vec<T>>,
@@ -69,7 +84,7 @@ pub struct IMEXTimeStepper<T: RealField + Copy> {
     explicit_b: Vec<T>,
     /// Implicit solution weights
     implicit_b: Vec<T>,
-    /// Implicit diagonal coefficients (a_ii)
+    /// Implicit diagonal coefficients (`a_ii`)
     implicit_diagonal: Vec<T>,
     /// Time evaluation points
     c: Vec<T>,
@@ -85,7 +100,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
 
     /// Compute stage solution for RHS evaluation from previous stages
     ///
-    /// Implements: u_stage = u + Σ_{j=0}^{stage-1} dt * (a_exp_j * k_exp_j + a_imp_j * k_imp_j)
+    /// Implements: `u_stage` = u + Σ_{j=0}^{stage-1} dt * (`a_exp_j` * `k_exp_j` + `a_imp_j` * `k_imp_j`)
     fn compute_stage_solution(
         &self,
         stage: usize,
@@ -122,7 +137,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
 
     /// Solve implicit stage using Newton iteration
     ///
-    /// Solves: u_stage = u_stage_explicit + dt * a_ii * f_implicit(t_stage, u_stage)
+    /// Solves: `u_stage` = `u_stage_explicit` + dt * `a_ii` * `f_implicit(t_stage`, `u_stage`)
     fn solve_implicit_stage<F, J>(
         &self,
         u_stage_explicit: &TimeState<T>,
@@ -193,6 +208,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
     /// # Reference
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
+    #[must_use]
     pub fn ars343() -> Self {
         let half: T = <T as FloatElement>::from_f64(0.5);
         let two: T = <T as FloatElement>::from_f64(2.0);

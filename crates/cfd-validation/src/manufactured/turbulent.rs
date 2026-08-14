@@ -3,6 +3,14 @@
 //! Implements manufactured solutions for turbulent Navier-Stokes equations
 //! including k-ε, k-ω, and Spalart-Allmaras turbulence models.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use super::{ManufacturedFunctions, ManufacturedSolution};
 use crate::scalar;
 use eunomia::{FloatElement, RealField};

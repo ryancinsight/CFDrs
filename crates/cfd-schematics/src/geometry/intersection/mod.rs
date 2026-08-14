@@ -7,7 +7,7 @@
 //!
 //! # Theorem — Line Segment Intersection
 //!
-//! Two line segments $P_1 P_2$ and $P_3 P_4$ intersect if and only if
+//! Two line segments $`P_1` `P_2`$ and $`P_3` `P_4`$ intersect if and only if
 //! the cross-product signs differ:
 //!
 //! ```text

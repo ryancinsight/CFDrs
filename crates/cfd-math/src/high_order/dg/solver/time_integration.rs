@@ -122,6 +122,7 @@ impl Default for TimeIntegrationParams {
 
 impl TimeIntegrationParams {
     /// Create a new set of time integration parameters
+    #[must_use]
     pub fn new(method: TimeIntegration) -> Self {
         Self {
             method,
@@ -130,24 +131,28 @@ impl TimeIntegrationParams {
     }
 
     /// Set the time step size
+    #[must_use]
     pub fn with_dt(mut self, dt: f64) -> Self {
         self.dt = Some(dt);
         self
     }
 
     /// Set the final time
+    #[must_use]
     pub fn with_t_final(mut self, t_final: f64) -> Self {
         self.t_final = t_final;
         self
     }
 
     /// Set the maximum number of time steps
+    #[must_use]
     pub fn with_max_steps(mut self, max_steps: usize) -> Self {
         self.max_steps = max_steps;
         self
     }
 
     /// Set the tolerance for adaptive time stepping
+    #[must_use]
     pub fn with_tolerance(mut self, rtol: f64, atol: f64) -> Self {
         self.rtol = rtol;
         self.atol = atol;
@@ -155,12 +160,14 @@ impl TimeIntegrationParams {
     }
 
     /// Set the safety factor for adaptive time stepping
+    #[must_use]
     pub fn with_safety_factor(mut self, safety_factor: f64) -> Self {
         self.safety_factor = safety_factor;
         self
     }
 
     /// Set the minimum and maximum time step sizes
+    #[must_use]
     pub fn with_dt_limits(mut self, dt_min: f64, dt_max: f64) -> Self {
         self.dt_min = dt_min;
         self.dt_max = dt_max;
@@ -168,18 +175,21 @@ impl TimeIntegrationParams {
     }
 
     /// Enable or disable adaptive time stepping
+    #[must_use]
     pub fn with_adaptive(mut self, adaptive: bool) -> Self {
         self.stepping.adaptive = adaptive;
         self
     }
 
     /// Enable or disable local time stepping
+    #[must_use]
     pub fn with_local_time_stepping(mut self, local_time_stepping: bool) -> Self {
         self.stepping.local = local_time_stepping;
         self
     }
 
     /// Enable or disable CFL-based time stepping
+    #[must_use]
     pub fn with_cfl(mut self, cfl: f64) -> Self {
         self.stepping.use_cfl = true;
         self.cfl = cfl;
@@ -187,12 +197,14 @@ impl TimeIntegrationParams {
     }
 
     /// Enable or disable verbose output
+    #[must_use]
     pub fn with_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self
     }
 
     /// Set the output interval
+    #[must_use]
     pub fn with_output_interval(mut self, output_interval: usize) -> Self {
         self.output_interval = output_interval;
         self
@@ -410,7 +422,8 @@ impl Default for ImplicitEuler {
 }
 
 impl ImplicitEuler {
-    /// Create a new ImplicitEuler solver with custom parameters
+    /// Create a new `ImplicitEuler` solver with custom parameters
+    #[must_use]
     pub fn new(tol: f64, max_iter: usize) -> Self {
         Self { tol, max_iter }
     }
@@ -538,6 +551,7 @@ pub struct TimeIntegratorFactory;
 
 impl TimeIntegratorFactory {
     /// Create a new time integrator
+    #[must_use]
     pub fn create(method: TimeIntegration) -> Box<dyn TimeIntegrator> {
         match method {
             TimeIntegration::ForwardEuler => Box::new(ForwardEuler),

@@ -1,5 +1,14 @@
 //! Linear solver validation against analytical solutions
 
+#![expect(
+    clippy::print_stderr,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_core::error::Result;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
 use cfd_math::linear_solver::IterativeSolverConfig;
@@ -111,10 +120,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let _report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -154,10 +164,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let _report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {

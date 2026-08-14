@@ -21,6 +21,11 @@
 //! [`FidelityBreakdown1D`] of the 1D model so discrepancies are
 //! self-documenting rather than requiring post-hoc explanation.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -119,7 +124,7 @@ impl VenturiValidationInput {
 /// Detailed 1D pressure-drop breakdown from the `cfd-1d` Venturi model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FidelityBreakdown1D {
-    /// Pressure drop from Bernoulli contraction + C_d correction \[Pa].
+    /// Pressure drop from Bernoulli contraction + `C_d` correction \[Pa].
     pub dp_contraction_pa: f64,
     /// Darcy–Weisbach friction in the throat \[Pa].
     pub dp_friction_pa: f64,
@@ -198,9 +203,9 @@ pub struct VenturiCrossFidelityResult {
     pub result_3d: Fidelity3DResult,
 
     // ── Diagnostics ──
-    /// |dp_1d − dp_2d| / dp_1d × 100.
+    /// |`dp_1d` − `dp_2d`| / `dp_1d` × 100.
     pub diff_1d_2d_pct: f64,
-    /// |dp_2d − dp_3d| / dp_2d × 100.
+    /// |`dp_2d` − `dp_3d`| / `dp_2d` × 100.
     pub diff_2d_3d_pct: f64,
     /// 3D relative mass-balance error × 100.
     pub mass_error_3d_pct: f64,
@@ -763,6 +768,7 @@ fn run_3d(input: &VenturiValidationInput) -> Fidelity3DResult {
 ///
 /// Orchestrates the 1D, 2D, and 3D solvers and computes agreement
 /// metrics.  The caller is responsible for interpreting validity flags.
+#[must_use]
 pub fn validate_venturi(input: &VenturiValidationInput) -> VenturiCrossFidelityResult {
     let breakdown_1d = run_1d(input);
     let result_2d = run_2d(input);

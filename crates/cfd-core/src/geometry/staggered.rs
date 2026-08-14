@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FloatElement> StaggeredGrid2D<T> {
     /// from 0 to `ly`.
     ///
     /// # Panics
-    /// Panics if dimensions are invalid or y_face_coords has wrong length.
+    /// Panics if dimensions are invalid or `y_face_coords` has wrong length.
     #[must_use]
     pub fn new_stretched_y(nx: usize, ny: usize, lx: T, y_face_coords: Vec<T>) -> Self {
         assert!(nx > 0 && ny > 0, "Grid dimensions must be positive");

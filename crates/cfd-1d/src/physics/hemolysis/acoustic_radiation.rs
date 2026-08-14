@@ -17,12 +17,12 @@
 //!
 //! where:
 //! - k = 2π/λ = 2πf/c (wavenumber)
-//! - E_ac = p₀²/(4ρc²) (acoustic energy density) \[J/m³\]
+//! - `E_ac` = p₀²/(4ρc²) (acoustic energy density) \[J/m³\]
 //! - Φ = f₁/3 + f₂/2 (acoustic contrast factor)
-//! - f₁ = 1 − κ_p/κ_m (compressibility contrast)
-//! - f₂ = 2(ρ_p − ρ_m)/(2ρ_p + ρ_m) (density contrast)
+//! - f₁ = 1 − `κ_p/κ_m` (compressibility contrast)
+//! - f₂ = `2(ρ_p` − `ρ_m)/(2ρ_p` + `ρ_m`) (density contrast)
 //!
-//! For blood cells in plasma (ρ_m = 1025 kg/m³, κ_m = 4.5e-10 Pa⁻¹):
+//! For blood cells in plasma (`ρ_m` = 1025 kg/m³, `κ_m` = 4.5e-10 Pa⁻¹):
 //! - CTCs (ρ ≈ 1050 kg/m³, κ ≈ 4.2e-10 Pa⁻¹): Φ ≈ 0.030 (positive → moves to node)
 //! - RBCs (ρ ≈ 1090 kg/m³, κ ≈ 3.4e-10 Pa⁻¹): Φ ≈ 0.102 (positive → moves to node)
 //! - WBCs (ρ ≈ 1060 kg/m³, κ ≈ 3.9e-10 Pa⁻¹): Φ ≈ 0.056

@@ -5,6 +5,14 @@
 //! - Automatic conversion from external error types
 //! - Context extension trait for adding error context
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use std::fmt;
 use thiserror::Error;
 

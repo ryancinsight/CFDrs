@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_schematics::interface::presets::{
     asymmetric_trifurcation_venturi_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_rect,

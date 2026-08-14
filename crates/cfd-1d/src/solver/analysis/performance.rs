@@ -8,7 +8,7 @@
 //! W_total = Σ_{e ∈ E} Q_e · ΔP_e = Σ_{e ∈ E} R_e · Q_e²   \[W]
 //! ```
 //!
-//! This follows directly from Ohm's analogy for hydraulic networks (ΔP_e = R_e · Q_e)
+//! This follows directly from Ohm's analogy for hydraulic networks (`ΔP_e` = `R_e` · `Q_e`)
 //! and applies to **linear** (Hagen-Poiseuille) resistances. For nonlinear components
 //! with `ΔP = R_lin · Q + k · Q²`, the dissipated power is `Q · (R_lin Q + k Q²)`.
 //!

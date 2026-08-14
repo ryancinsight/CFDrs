@@ -7,18 +7,18 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
 /// Smagorinsky LES model configuration
 #[derive(Debug, Clone)]
 pub struct SmagorinskyConfig {
-    /// Smagorinsky constant (C_S)
+    /// Smagorinsky constant (`C_S`)
     pub smagorinsky_constant: f64,
-    /// Use dynamic procedure to compute C_S locally
+    /// Use dynamic procedure to compute `C_S` locally
     pub dynamic_procedure: bool,
     /// Wall-damping coefficient
     pub wall_damping: bool,
@@ -46,6 +46,7 @@ impl Default for SmagorinskyConfig {
 
 impl SmagorinskyConfig {
     /// Create a new configuration with custom Smagorinsky constant
+    #[must_use]
     pub const fn with_constant(smagorinsky_constant: f64) -> Self {
         Self {
             smagorinsky_constant,
@@ -57,12 +58,14 @@ impl SmagorinskyConfig {
     }
 
     /// Enable dynamic procedure
+    #[must_use]
     pub const fn with_dynamic(mut self) -> Self {
         self.dynamic_procedure = true;
         self
     }
 
     /// Disable wall damping
+    #[must_use]
     pub const fn without_wall_damping(mut self) -> Self {
         self.wall_damping = false;
         self

@@ -6,6 +6,14 @@
 //! which is an M-matrix system under upwind convection, guaranteeing a unique solution
 //! by the Gauss-Seidel or Krylov solver.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::scalar;

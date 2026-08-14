@@ -2,7 +2,7 @@
 //!
 //! # Invariant
 //!
-//! SIMPLEC permits $\alpha_p = 1$, PIMPLE requires $n_{\text{correctors}} \ge 1$.
+//! SIMPLEC permits $\`alpha_p` = 1$, PIMPLE requires $n_{\text{correctors}} \ge 1$.
 //! All tolerances must be strictly positive.
 
 use crate::pressure_velocity::PressureLinearSolver;
@@ -27,9 +27,9 @@ pub struct SimplecPimpleConfig<T: CfdScalar + Copy> {
     pub algorithm: AlgorithmType,
     /// Time step size
     pub dt: T,
-    /// Velocity under-relaxation factor (0 < α_u ≤ 1)
+    /// Velocity under-relaxation factor (0 < `α_u` ≤ 1)
     pub alpha_u: T,
-    /// Pressure under-relaxation factor (0 < α_p ≤ 1)
+    /// Pressure under-relaxation factor (0 < `α_p` ≤ 1)
     pub alpha_p: T,
     /// Number of outer PIMPLE iterations (only used for PIMPLE)
     pub n_outer_correctors: usize,
@@ -67,6 +67,7 @@ impl<T: CfdScalar + Copy + FloatElement> Default for SimplecPimpleConfig<T> {
 
 impl<T: CfdScalar + Copy + FloatElement> SimplecPimpleConfig<T> {
     /// Create configuration for SIMPLEC algorithm
+    #[must_use]
     pub fn simplec() -> Self {
         Self {
             algorithm: AlgorithmType::Simplec,
@@ -75,6 +76,7 @@ impl<T: CfdScalar + Copy + FloatElement> SimplecPimpleConfig<T> {
     }
 
     /// Create configuration for PIMPLE algorithm
+    #[must_use]
     pub fn pimple() -> Self {
         Self {
             algorithm: AlgorithmType::Pimple,

@@ -262,7 +262,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
     /// Perform von Neumann stability analysis for linear PDEs
     ///
     /// For a PDE ∂u/∂t = L u, where L is a linear spatial operator,
-    /// the von Neumann method assumes solutions of the form u_j^n = g^n * e^(i k x_j)
+    /// the von Neumann method assumes solutions of the form `u_j^n` = g^n * e^(i k `x_j`)
     /// and analyzes the amplification factor |g| <= 1 for stability.
     ///
     /// # Arguments
@@ -318,7 +318,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
 
     /// Perform von Neumann stability analysis using an explicit Runge-Kutta method.
     ///
-    /// For a linear semi-discrete system $u_t = \hat L(k) u$, an explicit RK method has
+    /// For a linear semi-discrete system $`u_t` = \hat L(k) u$, an explicit RK method has
     /// amplification factor $g(k) = R(\Delta t\,\hat L(k))$.
     pub fn von_neumann_analysis_explicit_rk<F>(
         &self,

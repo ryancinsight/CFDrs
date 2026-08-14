@@ -3,6 +3,14 @@
 //! This service coordinates complex fluid mechanics operations and
 //! business logic that doesn't naturally fit into a single domain entity.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use crate::error::Result;
 use crate::physics::fluid::ConstantPropertyFluid;
 use crate::physics::fluid_dynamics::flow_regimes::{FlowClassifier, FlowRegime};

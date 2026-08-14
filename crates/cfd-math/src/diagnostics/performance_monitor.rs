@@ -47,6 +47,7 @@ pub struct AdaptivePerformanceMonitor {
 
 impl AdaptivePerformanceMonitor {
     /// Create new performance monitor
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(Mutex::new(HashMap::new())),
@@ -113,6 +114,7 @@ impl AdaptivePerformanceMonitor {
     }
 
     /// Get optimal threshold for switching between algorithms
+    #[must_use]
     pub fn get_optimal_threshold(&self, operation: &str) -> Option<usize> {
         let metrics = self
             .metrics
@@ -164,6 +166,7 @@ impl AdaptivePerformanceMonitor {
     }
 
     /// Check if calibration is needed
+    #[must_use]
     pub fn needs_calibration(&self) -> bool {
         let last_calibration = *self
             .last_calibration
@@ -300,6 +303,7 @@ impl AdaptivePerformanceMonitor {
     }
 
     /// Get performance report
+    #[must_use]
     pub fn get_performance_report(&self) -> HashMap<String, HashMap<usize, PerformanceMetrics>> {
         self.metrics
             .lock()
@@ -322,6 +326,7 @@ pub struct PerformanceAwareSelector {
 
 impl PerformanceAwareSelector {
     /// Create new selector with default thresholds
+    #[must_use]
     pub fn new() -> Self {
         let mut default_thresholds = HashMap::new();
         default_thresholds.insert("vector_add".to_string(), 500);
@@ -359,6 +364,7 @@ impl PerformanceAwareSelector {
     }
 
     /// Get current performance monitor
+    #[must_use]
     pub fn monitor(&self) -> &AdaptivePerformanceMonitor {
         &self.monitor
     }

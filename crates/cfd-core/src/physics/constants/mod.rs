@@ -1,7 +1,7 @@
 //! Centralized constants for CFD simulations.
 //!
 //! This module provides a single source of truth for all mathematical, physical,
-//! and numerical constants used throughout the CFDrs suite.
+//! and numerical constants used throughout the `CFDrs` suite.
 
 /// Mathematical constants
 pub mod mathematical {
@@ -122,7 +122,7 @@ pub mod physics {
     /// Turbulence model constants
     pub mod turbulence {
         /// k-epsilon model constants (Launder & Spalding 1974)
-        /// C_mu constant for eddy viscosity calculation
+        /// `C_mu` constant for eddy viscosity calculation
         pub const K_EPSILON_C_MU: f64 = 0.09;
         /// C1 constant for epsilon production
         pub const K_EPSILON_C1: f64 = 1.44;

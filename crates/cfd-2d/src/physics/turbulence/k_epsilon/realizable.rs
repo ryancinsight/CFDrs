@@ -29,9 +29,9 @@ use crate::physics::turbulence::constants::{EPSILON_MIN, REALIZABLE_A0};
 use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, TWO};
 use eunomia::{FloatElement, NumericElement, RealField};
 
-/// Compute the Realizable C_μ from local strain rate, k, and ε.
+/// Compute the Realizable `C_μ` from local strain rate, k, and ε.
 ///
-/// Returns the local realizable C_μ value, bounded in (0, 1/A₀].
+/// Returns the local realizable `C_μ` value, bounded in (0, 1/A₀].
 pub fn realizable_c_mu<T: RealField>(
     model: &KEpsilonModel<T>,
     velocity_gradient: &[[T; 2]; 2],

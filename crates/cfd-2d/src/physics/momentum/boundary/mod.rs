@@ -14,16 +14,16 @@
 //!
 //! At the wall, the viscous stress term ν∇²u dominates, and for no-slip:
 //!
-//! u(y=0) = u_wall, v(y=0) = v_wall
+//! u(y=0) = `u_wall`, v(y=0) = `v_wall`
 //!
-//! The wall shear stress τ_wall = μ(∂u/∂y)|_wall determines the boundary layer behavior.
+//! The wall shear stress `τ_wall` = μ(∂u/∂y)|_wall determines the boundary layer behavior.
 //!
 //! ### Implementation
 //!
 //! For finite difference discretization, the no-slip condition is implemented as:
 //!
-//! u_{i,0} = u_wall  (for west/east walls)
-//! v_{0,j} = v_wall  (for south/north walls)
+//! u_{i,0} = `u_wall`  (for west/east walls)
+//! v_{0,j} = `v_wall`  (for south/north walls)
 //!
 //! ## Characteristic-Based Inlet/Outlet Conditions
 //!
@@ -54,10 +54,10 @@
 //!
 //! ### Log-Law Wall Function
 //!
-//! τ_wall = (κ u_* / ln(y^+)) * ρ u_*^2
+//! `τ_wall` = (κ u_* / ln(y^+)) * ρ u_*^2
 //!
 //! where:
-//! - u_* = √(τ_wall/ρ) is the friction velocity
+//! - u_* = √(`τ_wall/ρ`) is the friction velocity
 //! - y^+ = u_* y / ν is the dimensionless wall distance
 //! - κ ≈ 0.41 is the von Kármán constant
 //!

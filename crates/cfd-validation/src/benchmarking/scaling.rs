@@ -3,6 +3,18 @@
 //! Analyzes weak and strong scaling behavior, parallel efficiency,
 //! and identifies scaling bottlenecks in CFD algorithms.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use crate::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 use cfd_core::error::{Error, Result};
 use std::collections::HashMap;
@@ -17,7 +29,7 @@ pub struct ScalingResult {
     pub problem_sizes: Vec<usize>,
     /// Number of processors/threads
     pub processor_counts: Vec<usize>,
-    /// Execution times for each (problem_size, processor_count) pair
+    /// Execution times for each (`problem_size`, `processor_count`) pair
     pub execution_times: HashMap<(usize, usize), f64>,
     /// Speedup factors
     pub speedup_factors: HashMap<(usize, usize), f64>,
@@ -84,7 +96,7 @@ impl Default for ScalingConfig {
     fn default() -> Self {
         Self {
             min_processors: 1,
-            max_processors: std::thread::available_parallelism().map_or(4, |p| p.get()),
+            max_processors: std::thread::available_parallelism().map_or(4, std::num::NonZero::get),
             processor_multiplier: 2,
             efficiency_threshold: 0.5, // 50% efficiency threshold
             reference_timing: None,
@@ -99,6 +111,7 @@ pub struct ScalingAnalysis {
 
 impl ScalingAnalysis {
     /// Create new scaling analysis with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: ScalingConfig::default(),
@@ -106,6 +119,7 @@ impl ScalingAnalysis {
     }
 
     /// Create with custom configuration
+    #[must_use]
     pub fn with_config(config: ScalingConfig) -> Self {
         Self { config }
     }
@@ -136,7 +150,7 @@ impl ScalingAnalysis {
                 timing_results
                     .iter()
                     .map(|(_, time)| *time)
-                    .min_by(|a, b| a.total_cmp(b))
+                    .min_by(f64::total_cmp)
             })
             .ok_or_else(|| Error::InvalidInput("No reference timing found".to_string()))?;
 
@@ -338,6 +352,7 @@ impl ScalingAnalysis {
     }
 
     /// Generate scaling recommendations
+    #[must_use]
     pub fn generate_recommendations(&self, result: &ScalingResult) -> Vec<String> {
         let mut recommendations = Vec::new();
 
@@ -412,6 +427,7 @@ impl CfdScalingAnalysis {
     /// communication overhead evaluation, and scalability metrics calculation.
     /// Configured with CFD-appropriate scaling evaluation parameters for
     /// Navier-Stokes solvers, turbulence models, and multi-physics simulations.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             analyzer: ScalingAnalysis::new(),

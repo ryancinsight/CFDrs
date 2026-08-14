@@ -1,10 +1,15 @@
 //! DNS Channel Flow reference database.
 //!
-//! Contains tabulated DNS data from Moser, Kim & Mansour (1999) at Re_τ = 590
+//! Contains tabulated DNS data from Moser, Kim & Mansour (1999) at `Re_τ` = 590
 //! for turbulence model validation.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 /// DNS Channel Flow Database (Moser et al. 1999)
-/// Re_τ = 590, channel half-height based
+/// `Re_τ` = 590, channel half-height based
 pub struct DnsChannelFlowDatabase {
     /// Friction Reynolds number
     pub re_tau: f64,
@@ -23,7 +28,8 @@ pub struct DnsChannelFlowDatabase {
 }
 
 impl DnsChannelFlowDatabase {
-    /// Load Moser et al. (1999) DNS data for Re_τ = 590
+    /// Load Moser et al. (1999) DNS data for `Re_τ` = 590
+    #[must_use]
     pub fn moser_1999_re590() -> Self {
         let mean_velocity_profile = vec![
             (0.0, 0.0),
@@ -109,26 +115,31 @@ impl DnsChannelFlowDatabase {
     }
 
     /// Interpolate DNS data at given y+ location
+    #[must_use]
     pub fn interpolate_velocity(&self, y_plus: f64) -> f64 {
         self.interpolate_profile(&self.mean_velocity_profile, y_plus)
     }
 
     /// Interpolate Reynolds stress ⟨u'v'⟩ at given y+ location
+    #[must_use]
     pub fn interpolate_reynolds_stress(&self, y_plus: f64) -> f64 {
         self.interpolate_profile(&self.reynolds_stress_profile, y_plus)
     }
 
     /// Interpolate turbulent kinetic energy at given y+ location
+    #[must_use]
     pub fn interpolate_tke(&self, y_plus: f64) -> f64 {
         self.interpolate_profile(&self.turbulent_ke_profile, y_plus)
     }
 
     /// Interpolate dissipation rate ε at given y+ location
+    #[must_use]
     pub fn interpolate_dissipation(&self, y_plus: f64) -> f64 {
         self.interpolate_profile(&self.dissipation_profile, y_plus)
     }
 
     /// Interpolate specific dissipation rate ω at given y+ location
+    #[must_use]
     pub fn interpolate_omega(&self, y_plus: f64) -> f64 {
         self.interpolate_profile(&self.omega_profile, y_plus)
     }

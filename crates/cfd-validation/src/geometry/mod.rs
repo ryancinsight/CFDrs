@@ -6,6 +6,14 @@
 //! References:
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use eunomia::RealField;
 
 // Submodules
@@ -56,17 +64,17 @@ pub enum BoundaryCondition<T: RealField> {
 /// Boundary face identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryFace {
-    /// Bottom boundary (y = y_min)
+    /// Bottom boundary (y = `y_min`)
     Bottom,
-    /// Top boundary (y = y_max)
+    /// Top boundary (y = `y_max`)
     Top,
-    /// Left boundary (x = x_min)
+    /// Left boundary (x = `x_min`)
     Left,
-    /// Right boundary (x = x_max)
+    /// Right boundary (x = `x_max`)
     Right,
-    /// Front boundary (z = z_min) - for 3D
+    /// Front boundary (z = `z_min`) - for 3D
     Front,
-    /// Back boundary (z = z_max) - for 3D
+    /// Back boundary (z = `z_max`) - for 3D
     Back,
     /// Inner boundary (e.g., for annular domains)
     Inner,

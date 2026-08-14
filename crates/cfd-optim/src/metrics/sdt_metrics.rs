@@ -5,6 +5,8 @@
 //! converted once into this serialized display-unit DTO. The scalar fields
 //! here are therefore an I/O contract, not the physical computation boundary.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Per-channel hemolysis decomposition for a single channel segment.

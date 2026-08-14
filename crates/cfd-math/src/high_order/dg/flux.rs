@@ -47,6 +47,7 @@ impl Default for FluxParams {
 
 impl FluxParams {
     /// Create a new set of flux parameters
+    #[must_use]
     pub fn new(flux_type: FluxType) -> Self {
         Self {
             flux_type,
@@ -55,12 +56,14 @@ impl FluxParams {
     }
 
     /// Set the wave speed scaling factor
+    #[must_use]
     pub fn with_alpha(mut self, alpha: f64) -> Self {
         self.alpha = alpha;
         self
     }
 
     /// Set the entropy fix parameter
+    #[must_use]
     pub fn with_epsilon(mut self, epsilon: f64) -> Self {
         self.epsilon = epsilon;
         self
@@ -86,7 +89,7 @@ pub trait NumericalFlux {
 ///
 /// # Theorem (Energy Conservation)
 ///
-/// The central flux $F^* = \tfrac{1}{2}(u_L + u_R)$ conserves kinetic energy
+/// The central flux $F^* = \`tfrac{1}{2}(u_L` + `u_R`)$ conserves kinetic energy
 /// but introduces no numerical dissipation. It requires explicit stabilisation
 /// (e.g., interior penalty or filtering) for stability.
 ///
@@ -119,11 +122,11 @@ impl NumericalFlux for CentralFlux {
 ///
 /// # Theorem (Entropy Stability)
 ///
-/// The Lax-Friedrichs flux $F^* = \tfrac{1}{2}(F(u_L) + F(u_R)) - \tfrac{1}{2}\alpha(u_R - u_L)$
-/// is entropy-stable and monotone for scalar conservation laws when $\alpha \ge \max_{u \in [u_L, u_R]} |f'(u)|$.
+/// The Lax-Friedrichs flux $F^* = \`tfrac{1}{2}(F(u_L)` + `F(u_R)`) - \`tfrac{1}{2}\alpha(u_R` - `u_L`)$
+/// is entropy-stable and monotone for scalar conservation laws when $\alpha \ge \max_{u \in [`u_L`, `u_R`]} |f'(u)|$.
 ///
-/// **Proof sketch**: Monotonicity follows because $\partial F^*/\partial u_L = \tfrac{1}{2}(f'(u_L) + \alpha) \ge 0$
-/// and $\partial F^*/\partial u_R = \tfrac{1}{2}(f'(u_R) - \alpha) \le 0$ whenever $\alpha \ge |f'|$. By the
+/// **Proof sketch**: Monotonicity follows because $\partial F^*/\partial `u_L` = \tfrac{1}{2}(f'(`u_L`) + \alpha) \ge 0$
+/// and $\partial F^*/\partial `u_R` = \tfrac{1}{2}(f'(`u_R`) - \alpha) \le 0$ whenever $\alpha \ge |f'|$. By the
 /// Crandall–Majda theorem, monotone fluxes are entropy-stable.
 #[derive(Debug, Clone, Copy)]
 pub struct LaxFriedrichsFlux;
@@ -175,11 +178,11 @@ impl NumericalFlux for LaxFriedrichsFlux {
 /// # Theorem (Positivity Preservation)
 ///
 /// The HLL flux preserves positivity of density/energy for the Euler equations
-/// when the wave speed estimates satisfy $S_L \le \lambda_{\min}$ and
-/// $S_R \ge \lambda_{\max}$ (the true minimum and maximum wave speeds).
+/// when the wave speed estimates satisfy $`S_L` \le \lambda_{\min}$ and
+/// $`S_R` \ge \lambda_{\max}$ (the true minimum and maximum wave speeds).
 ///
 /// **Proof sketch**: The HLL intermediate state
-/// $u^* = (S_R u_R - S_L u_L + F_L - F_R)/(S_R - S_L)$ is a convex combination of the
+/// $u^* = (`S_R` `u_R` - `S_L` `u_L` + `F_L` - `F_R)/(S_R` - `S_L`)$ is a convex combination of the
 /// left and right states weighted by the wave speed bounds, ensuring non-negativity
 /// of conserved quantities when the bound conditions are met.
 #[derive(Debug, Clone, Copy)]
@@ -230,8 +233,8 @@ impl NumericalFlux for HLLFlux {
 impl HLLFlux {
     /// Compute the left-going wave speed estimate (Davis estimate).
     ///
-    /// For matching dimensions: $S_L = \min(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
-    /// For general systems: uses $-\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
+    /// For matching dimensions: $`S_L` = \`min(u_L` \cdot \hat{n},\, `u_R` \cdot \hat{n})$.
+    /// For general systems: uses $-\max(\|`u_L`\|_\infty, \|`u_R`\|_\infty)$.
     fn wave_speed_left(self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
         let n_norm = vector_norm(n);
         if n_norm < f64::EPSILON {
@@ -249,8 +252,8 @@ impl HLLFlux {
 
     /// Compute the right-going wave speed estimate (Davis estimate).
     ///
-    /// For matching dimensions: $S_R = \max(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
-    /// For general systems: uses $\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
+    /// For matching dimensions: $`S_R` = \`max(u_L` \cdot \hat{n},\, `u_R` \cdot \hat{n})$.
+    /// For general systems: uses $\max(\|`u_L`\|_\infty, \|`u_R`\|_\infty)$.
     fn wave_speed_right(self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
         let n_norm = vector_norm(n);
         if n_norm < f64::EPSILON {
@@ -310,6 +313,7 @@ pub struct FluxFactory;
 impl FluxFactory {
     /// Create a new numerical flux function
     #[inline]
+    #[must_use]
     pub fn create(flux_type: FluxType) -> FluxImpl {
         match flux_type {
             FluxType::Central => FluxImpl::Central(CentralFlux),
@@ -323,6 +327,7 @@ impl FluxFactory {
 
 /// Compute the numerical flux at an interface
 #[inline]
+#[must_use]
 pub fn numerical_flux(
     u_l: &Array1<f64>,
     u_r: &Array1<f64>,
@@ -334,6 +339,7 @@ pub fn numerical_flux(
 }
 
 /// Compute the maximum wave speed at an interface
+#[must_use]
 pub fn max_wave_speed(
     u_l: &Array1<f64>,
     u_r: &Array1<f64>,
@@ -345,6 +351,7 @@ pub fn max_wave_speed(
 }
 
 /// Compute the Rusanov (local Lax-Friedrichs) flux
+#[must_use]
 pub fn rusanov_flux(
     f_l: &Array1<f64>,
     f_r: &Array1<f64>,
@@ -359,6 +366,7 @@ pub fn rusanov_flux(
 }
 
 /// Compute the upwind flux for a scalar conservation law
+#[must_use]
 pub fn upwind_flux(
     f_l: &Array1<f64>,
     f_r: &Array1<f64>,
@@ -375,6 +383,7 @@ pub fn upwind_flux(
 
 /// Compute the HLLC flux for the Euler equations
 #[allow(clippy::too_many_arguments)]
+#[must_use]
 pub fn hllc_flux(
     rho_l: f64,
     u_l: f64,

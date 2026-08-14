@@ -15,6 +15,11 @@
 //! We verify that all three fidelity levels agree on core invariants: mass
 //! conservation, directional pressure relationships, and wall shear ordering.
 
+#![expect(
+    clippy::print_stderr,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
     VolumetricFlowRate,
@@ -53,7 +58,7 @@ fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {
         kind: EdgeKind::Pipe,
         from: NodeId::new("inlet"),
         to: NodeId::new("outlet"),
-            length_m: Length::from_base(l),
+        length_m: Length::from_base(l),
         cross_section: CrossSectionSpec::Rectangular {
             width_m: Length::from_base(w),
             height_m: Length::from_base(h),

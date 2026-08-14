@@ -6,7 +6,7 @@
 //! equation, with support for periodic and Dirichlet-zero boundary conditions.
 //!
 //! References:
-//! - R. J. LeVeque, "Finite Volume Methods for Hyperbolic Problems", Cambridge University Press.
+//! - R. J. `LeVeque`, "Finite Volume Methods for Hyperbolic Problems", Cambridge University Press.
 //! - C. Hirsch, "Numerical Computation of Internal and External Flows", Vol. 2.
 
 use super::traits::{

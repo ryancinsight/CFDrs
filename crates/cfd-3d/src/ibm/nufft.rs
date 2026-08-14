@@ -1,5 +1,13 @@
 //! NUFFT-backed coupling helpers for immersed-boundary marker and probe transfer.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::atlas_array::{fft_3d_array, ifft_3d_array, map, nufft_type1_3d, nufft_type2_3d, value};
 use apollo_fft::Complex64;
 use apollo_nufft::UniformGrid3D;

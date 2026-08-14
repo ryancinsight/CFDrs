@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeId, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnnotationMarker, MarkerRole, RenderConfig, SchematicAnnotations,

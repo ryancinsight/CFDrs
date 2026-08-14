@@ -75,6 +75,7 @@ pub struct BenchmarkResult<T: RealField + Copy> {
 
 impl<T: RealField + Copy> BenchmarkResult<T> {
     /// Create a new benchmark result
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),

@@ -13,6 +13,14 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;

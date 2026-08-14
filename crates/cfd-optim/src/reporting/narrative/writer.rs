@@ -1,5 +1,7 @@
 //! Milestone 12 narrative report generation from template + canonical results.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

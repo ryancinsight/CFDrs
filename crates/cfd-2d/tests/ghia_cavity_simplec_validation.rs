@@ -13,6 +13,15 @@
 //! reference data within 5% L2 error. This is a critical validation for
 //! pressure-velocity coupling algorithms.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
@@ -1172,7 +1181,15 @@ fn test_simplec_higher_reynolds_validation() {
                     // Get Ghia reference data for this Reynolds number
                     let cavity = LidDrivenCavity::new(1.0, 1.0, reynolds);
                     let ghia_data = cavity.ghia_u_centerline(reynolds);
-                    if !ghia_data.is_empty() {
+                    if ghia_data.is_empty() {
+                        println!("⚠ No reference data available for Re={}", reynolds);
+                        // At least verify convergence
+                        assert!(
+                            final_residual < config.tolerance * 5.0,
+                            "Re={} failed to converge sufficiently",
+                            reynolds
+                        );
+                    } else {
                         let (ref_y, ref_u) =
                             ghia_data.into_iter().unzip::<_, _, Vec<f64>, Vec<f64>>();
                         // Interpolate numerical solution to match Ghia reference points
@@ -1213,14 +1230,6 @@ fn test_simplec_higher_reynolds_validation() {
                             reynolds,
                             l2_error * 100.0,
                             max_error * 100.0
-                        );
-                    } else {
-                        println!("⚠ No reference data available for Re={}", reynolds);
-                        // At least verify convergence
-                        assert!(
-                            final_residual < config.tolerance * 5.0,
-                            "Re={} failed to converge sufficiently",
-                            reynolds
                         );
                     }
                 } else {

@@ -8,11 +8,11 @@
 //!
 //! $$ \frac{\partial C}{\partial t} + u(t) \frac{\partial C}{\partial x} = 0 $$
 //!
-//! **Discrete State Theorem**: For a well-mixed uniform segment control volume $V_e$,
-//! the rate of change of species mass $M_e = C_e V_e$ strictly satisfies the
+//! **Discrete State Theorem**: For a well-mixed uniform segment control volume $`V_e`$,
+//! the rate of change of species mass $`M_e` = `C_e` `V_e`$ strictly satisfies the
 //! discrete mass balance:
 //!
-//! $$ \frac{d M_e}{dt} = \sum_{in} Q_{in} C_{in} - \sum_{out} Q_{out} C_e $$
+//! $$ \frac{d `M_e}{dt`} = \sum_{in} Q_{in} C_{in} - \sum_{out} Q_{out} `C_e` $$
 //!
 //! Exact volumetric tracking is achieved by discretizing time such that the Courant
 //! number $\text{CFL} = \frac{u \Delta t}{L} \le 1$, ensuring no mass overshoots

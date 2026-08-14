@@ -54,20 +54,20 @@
 //! \bar{S}_{ij}^d = \frac{1}{2} \left( \bar{g}_{ik} \bar{g}_{jk} - \frac{1}{3} \bar{g}_{kk}^2 \delta_{ij} \right)
 //! ```
 //!
-//! with $\bar{g}_{ij} = \frac{\partial \bar{u}_i}{\partial x_j}$ being the velocity gradient tensor.
+//! with $\bar{g}_{ij} = \frac{\partial \bar{u}_i}{\partial `x_j`}$ being the velocity gradient tensor.
 //!
 //! **WALE SGS Viscosity:**
 //! ```math
 //! \nu_{sgs} = (C_w \Delta)^2 \frac{(\bar{S}_{ij}^d \bar{S}_{ij}^d)^{3/2}}{(\bar{S}_{ij} \bar{S}_{ij})^{5/2} + (\bar{S}_{ij}^d \bar{S}_{ij}^d)^{5/4}}
 //! ```
 //!
-//! where $C_w = 0.325$ is the WALE constant.
+//! where $`C_w` = 0.325$ is the WALE constant.
 //!
 //! ### Dynamic Smagorinsky Model (Germano et al., 1991)
 //!
 //! **Germano Identity:**
 //!
-//! The dynamic procedure computes $C_s$ locally using the Germano identity:
+//! The dynamic procedure computes $`C_s`$ locally using the Germano identity:
 //!
 //! ```math
 //! L_{ij} = \hat{\tau}_{ij} - \hat{\bar{\tau}}_{ij}
@@ -149,7 +149,7 @@
 //!
 //! 1. **Filter width limitation**: $\Delta \leq \min(\Delta x, \Delta y)$
 //! 2. **Time step restriction**: CFL condition for SGS terms
-//! 3. **Dynamic constant clipping**: $C_s \in [0, C_{s,\max}] $ to prevent instability
+//! 3. **Dynamic constant clipping**: $`C_s` \in [0, C_{s,\max}] $ to prevent instability
 //!
 //! ## Validation and Accuracy
 //!
@@ -178,17 +178,17 @@
 //!
 //! ### Known Limitations
 //!
-//! 1. **Model constant**: $C_s$ varies with flow type and requires tuning
+//! 1. **Model constant**: $`C_s`$ varies with flow type and requires tuning
 //! 2. **Near-wall behavior**: Requires damping functions or wall models
 //! 3. **Backscatter**: Standard Smagorinsky cannot produce backscatter
 //! 4. **Compressible flows**: Requires modifications for high-speed flows
 //!
 //! ### Common Extensions
 //!
-//! 1. **Dynamic procedure**: Locally computes $C_s$ from resolved scales
+//! 1. **Dynamic procedure**: Locally computes $`C_s`$ from resolved scales
 //! 2. **Scale-similarity models**: Use resolved scales to model SGS stresses
 //! 3. **Mixed models**: Combine Smagorinsky with scale-similarity
-//! 4. **Wall-adapting models**: Adjust $C_s$ near walls (WALE model)
+//! 4. **Wall-adapting models**: Adjust $`C_s`$ near walls (WALE model)
 //!
 //! ## Implementation Notes
 //!
@@ -218,9 +218,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -259,6 +259,7 @@ pub struct SmagorinskyLES {
 
 impl SmagorinskyLES {
     /// Create a new Smagorinsky LES model
+    #[must_use]
     pub fn new(nx: usize, ny: usize, dx: f64, dy: f64, config: SmagorinskyConfig) -> Self {
         let mut filter_width = Array2::zeros([nx, ny]);
 
@@ -371,11 +372,13 @@ impl SmagorinskyLES {
     }
 
     /// Get the model configuration (for testing/debugging)
+    #[must_use]
     pub const fn config(&self) -> &SmagorinskyConfig {
         &self.config
     }
 
     /// Get the filter width field
+    #[must_use]
     pub const fn filter_width(&self) -> &Array2<f64> {
         &self.filter_width
     }
@@ -483,7 +486,7 @@ mod tests {
 
         // Check filter width calculation
         let expected_delta = (0.1f64 * 0.1f64).sqrt();
-        for &delta in les.filter_width.iter() {
+        for &delta in &les.filter_width {
             assert_relative_eq!(delta, expected_delta, epsilon = 1e-10);
         }
     }
@@ -600,7 +603,7 @@ mod tests {
 
         // Check that filter width was updated
         let expected_delta = (0.2f64 * 0.2f64).sqrt();
-        for &delta in les.filter_width.iter() {
+        for &delta in &les.filter_width {
             assert_relative_eq!(delta, expected_delta, epsilon = 1e-10);
         }
     }

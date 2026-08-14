@@ -22,7 +22,7 @@ pub struct AdaptiveTimeIntegrator<T: CfdScalar + Copy> {
 }
 
 impl<T: CfdScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
-    /// Update the y_prev buffer used by Richardson-extrapolation error estimators.
+    /// Update the `y_prev` buffer used by Richardson-extrapolation error estimators.
     ///
     /// AUDIT: allocates ONCE on the first call (when the `Option` is `None`),
     /// then reuses the existing `Array1` buffer on every subsequent call via
@@ -61,7 +61,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
     /// * `dy` - Grid spacing in y-direction
     ///
     /// # Returns
-    /// (solution, new_time, new_dt, step_accepted)
+    /// (solution, `new_time`, `new_dt`, `step_accepted`)
     pub fn step_cfl_adaptive<F>(
         &mut self,
         f: F,
@@ -97,7 +97,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
     /// * `t` - Current time
     ///
     /// # Returns
-    /// (solution, new_time, new_dt, step_accepted)
+    /// (solution, `new_time`, `new_dt`, `step_accepted`)
     pub fn step_error_adaptive<F>(
         &mut self,
         f: F,
@@ -168,7 +168,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
     /// * `dy` - Grid spacing in y-direction
     ///
     /// # Returns
-    /// (solution, new_time, new_dt, step_accepted)
+    /// (solution, `new_time`, `new_dt`, `step_accepted`)
     pub fn step_combined_adaptive<F>(
         &mut self,
         f: F,

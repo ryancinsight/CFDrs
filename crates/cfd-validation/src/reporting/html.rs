@@ -11,6 +11,7 @@ pub struct HtmlReporter;
 
 impl HtmlReporter {
     /// Create a new HTML reporter
+    #[must_use]
     pub fn new() -> Self {
         Self
     }

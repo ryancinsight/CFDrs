@@ -7,6 +7,15 @@
 //! - Bubble dynamics integration
 //! - Conservation properties
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     Dimensionless, Length, MassDensity, NumberDensity, Pressure, SurfaceTension, Time, Velocity,
 };

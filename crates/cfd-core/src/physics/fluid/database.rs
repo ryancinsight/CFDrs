@@ -16,7 +16,7 @@ use eunomia::RealField;
 
 /// Create water at 20°C and 1 atm
 ///
-/// Properties from NIST Chemistry WebBook
+/// Properties from NIST Chemistry `WebBook`
 ///
 /// # Errors
 /// This constructor currently has no input-dependent failure path.
@@ -43,7 +43,7 @@ pub fn water_20c<T: RealField + FloatElement + Copy>() -> Result<ConstantPropert
 
 /// Create air at 20°C and 1 atm
 ///
-/// Properties from NIST Chemistry WebBook
+/// Properties from NIST Chemistry `WebBook`
 ///
 /// # Errors
 /// This constructor currently has no input-dependent failure path.

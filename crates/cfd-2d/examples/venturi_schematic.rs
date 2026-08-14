@@ -14,6 +14,11 @@
 //! Run with:
 //! `cargo run -p cfd-2d --example venturi_schematic`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, VenturiSolver2D};
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};

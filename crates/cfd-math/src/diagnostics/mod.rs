@@ -16,7 +16,7 @@
 //! n* = argmin_{k} [ RSS(T[1..k]) + RSS(T[k+1..N]) ]
 //! ```
 //!
-//! where RSS(S) = Σ(T_i - (α·nᵢ + β))². The algorithm runs in O(N²) with N
+//! where RSS(S) = `Σ(T_i` - (α·nᵢ + β))². The algorithm runs in O(N²) with N
 //! data points; for the typical calibration grid of 8 sizes this is negligible.
 //!
 //! ## Invariants

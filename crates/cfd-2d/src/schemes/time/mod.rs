@@ -12,7 +12,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -53,7 +53,7 @@ impl<T: CfdScalar + Copy + FloatElement + Clone> TimeIntegrator<T> {
     ///
     /// # Implementation Notes
     ///
-    /// - **Implicit schemes** (BackwardEuler, CrankNicolson): Use fixed-point iteration
+    /// - **Implicit schemes** (`BackwardEuler`, CrankNicolson): Use fixed-point iteration
     ///   to solve the implicit equations. For stiff systems, consider using
     ///   `step_with_history()` with BDF2/BDF3 for better stability.
     ///
@@ -113,10 +113,10 @@ impl<T: CfdScalar + Copy + FloatElement + Clone> TimeIntegrator<T> {
     /// # Arguments
     ///
     /// * `f` - Right-hand side function f(t, y) for dy/dt = f(t, y)
-    /// * `y_curr` - Current solution at time t_n
+    /// * `y_curr` - Current solution at time `t_n`
     /// * `y_prev` - Previous solution at time t_{n-1} (required for multi-step methods)
     /// * `y_prev2` - Second previous solution at time t_{n-2} (required for BDF3)
-    /// * `t` - Current time t_n
+    /// * `t` - Current time `t_n`
     /// * `dt` - Time step size
     ///
     /// # Returns

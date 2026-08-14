@@ -3,9 +3,9 @@
 //! This module provides zero-copy sparse matrix operations optimized for CFD applications
 //! with support for parallel assembly and iterator-based construction.
 //!
-//! ## Theorem — CSR SpMV Complexity
+//! ## Theorem — CSR `SpMV` Complexity
 //!
-//! **Theorem (CSR SpMV Time & Space Complexity)**: For a sparse matrix A ∈ ℝ^{m×n}
+//! **Theorem (CSR `SpMV` Time & Space Complexity)**: For a sparse matrix A ∈ ℝ^{m×n}
 //! stored in Compressed Sparse Row (CSR) format with nnz non-zeros:
 //!
 //! - **Time**: O(nnz) per matrix-vector product Ax — each non-zero contributes
@@ -14,7 +14,7 @@
 //!   value arrays of length nnz.
 //!
 //! **Theorem (CSR vs Dense)**: For matrices with density d = nnz/(m·n) < 1/2,
-//! CSR SpMV is faster than dense GEMV, which costs O(m·n) time and O(m·n) space.
+//! CSR `SpMV` is faster than dense GEMV, which costs O(m·n) time and O(m·n) space.
 //! CFD discretization matrices typically have d = O(1/n) (e.g., 5-7 non-zeros per row
 //! for FD/FVM stencils), giving O(n) sparse vs O(n²) dense.
 //!

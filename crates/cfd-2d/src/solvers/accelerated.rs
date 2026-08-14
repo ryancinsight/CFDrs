@@ -9,6 +9,21 @@
 //! operation scheduling. The Jacobi/Red-Black Gauss-Seidel stencil coefficients
 //! are identical across backends.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 use cfd_core::error::{Error, Result};

@@ -1,11 +1,11 @@
 //! Dissipation and turbulent transport terms for the RSTM.
 //!
-//! ### Dissipation Tensor ε_ij (Launder, 1975)
+//! ### Dissipation Tensor `ε_ij` (Launder, 1975)
 //! Uses the anisotropic dissipation components stored in [`ReynoldsStressTensor`]
 //! when they are populated; otherwise applies the isotropic closure
 //! `ε_ij = (2/3) ε δ_ij`.
 //!
-//! ### Turbulent Transport T_ij (Launder et al., 1975)
+//! ### Turbulent Transport `T_ij` (Launder et al., 1975)
 //! Triple-correlation modelling via Daly & Harlow (1970):
 //! `⟨u_i'u_j'u_k'⟩ ≈ −C_s (k³/ε²) ∂⟨u_i'u_j'⟩/∂x_k`
 //!
@@ -13,9 +13,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -31,6 +31,7 @@ fn c<T: RealField + Copy>(v: f64) -> T {
 /// Uses the stored anisotropic components when available and otherwise applies
 /// the isotropic closure.
 #[inline]
+#[must_use]
 pub fn dissipation_tensor<T: RealField + Copy>(
     rs: &ReynoldsStressTensor<T>,
     i: usize,

@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_1d::domain::channel::{Channel, ChannelGeometry};
 use cfd_1d::domain::junctions::branching::{ThreeWayBranchJunction, TwoWayBranchJunction};
 use cfd_core::physics::fluid::blood::CassonBlood;

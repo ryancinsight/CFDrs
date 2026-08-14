@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::algorithm::SimpleAlgorithm;
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
@@ -460,7 +465,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
             ..Default::default()
         };
         let pp = self.p_prime.as_mut().unwrap();
-        krylov::converged_or_none(
+        let _report = krylov::converged_or_none(
             "SIMPLE pressure correction",
             krylov::bicgstab(matrix, self.rhs.as_ref().unwrap(), pp, &solver_config),
         )

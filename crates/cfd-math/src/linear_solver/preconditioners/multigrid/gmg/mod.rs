@@ -26,6 +26,14 @@
 //! - Trottenberg, U., et al. (2001). *Multigrid*. Academic Press. Chapter 4.
 //! - Wesseling, P. (1992). *An introduction to multigrid methods*. Wiley.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod multigrid;
 mod ops;
 mod transfer;

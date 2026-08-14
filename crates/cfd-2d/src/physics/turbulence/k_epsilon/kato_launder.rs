@@ -25,17 +25,18 @@
 //! Around Stationary and Vibrating Square Cylinders", *Proc. 9th Symposium
 //! on Turbulent Shear Flows*, Kyoto, pp. 10.4.1–10.4.6.
 
-/// Compute Kato-Launder production P_k = ν_t · S · Ω from the 2D velocity
+/// Compute Kato-Launder production `P_k` = `ν_t` · S · Ω from the 2D velocity
 /// gradient tensor.
 ///
 /// # Arguments
 ///
 /// * `velocity_gradient` — 2×2 tensor [[du/dx, du/dy], [dv/dx, dv/dy]]
-/// * `turbulent_viscosity` — eddy viscosity ν_t
+/// * `turbulent_viscosity` — eddy viscosity `ν_t`
 ///
 /// # Returns
 ///
 /// Non-negative production term [m²/s³].
+#[must_use]
 pub fn kato_launder_production(velocity_gradient: &[[f64; 2]; 2], turbulent_viscosity: f64) -> f64 {
     // Strain rate tensor: S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
     let s_xx = velocity_gradient[0][0];

@@ -11,12 +11,12 @@
 //! u(y) = u_c · [1 - |y/H|^((n+1)/n)]^(n/(n+1))
 //! ```
 //! where:
-//! - u_c = centerline velocity
+//! - `u_c` = centerline velocity
 //! - n = power-law index (n<1: shear-thinning, n>1: shear-thickening, n=1: Newtonian)
 //! - K = consistency index [Pa·sⁿ]
 //!
 //! ## Casson Blood Model
-//! For Casson fluid: √τ = √τ_y + √(μ_∞·γ̇)
+//! For Casson fluid: √τ = √`τ_y` + √(μ_∞·γ̇)
 //! The velocity profile must be solved numerically, but satisfies:
 //! ```text
 //! γ̇(y) = -du/dy > 0 for y > 0
@@ -193,7 +193,7 @@ impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
         }
     }
 
-    /// Centerline velocity u_c
+    /// Centerline velocity `u_c`
     ///
     /// For power-law fluid:
     /// ```text
@@ -252,7 +252,7 @@ impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
         AreaPerTime::from_base(two * u_c * h * factor)
     }
 
-    /// Wall shear stress τ_w \[Pa]
+    /// Wall shear stress `τ_w` \[Pa]
     ///
     /// ```text
     /// τ_w = H · dp/dx
@@ -261,9 +261,9 @@ impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
         Pressure::from_base(self.half_width.into_base() * self.pressure_gradient.into_base())
     }
 
-    /// Wall shear rate γ̇_w [1/s]
+    /// Wall shear rate `γ̇_w` [1/s]
     ///
-    /// From τ_w = K·γ̇_w^n:
+    /// From `τ_w` = `K·γ̇_w^n`:
     /// ```text
     /// γ̇_w = (τ_w / K)^(1/n)
     /// ```
@@ -380,7 +380,7 @@ pub struct CassonPoiseuille<T: CfdScalar> {
     pub pressure_gradient: PressureGradient<T>,
     /// Channel length \[m]
     pub length: Length<T>,
-    /// Plug flow radius (where τ < τ_y) \[m]
+    /// Plug flow radius (where τ < `τ_y`) \[m]
     pub plug_radius: Length<T>,
 }
 
@@ -419,10 +419,10 @@ impl<T: CfdScalar> CassonPoiseuille<T> {
         }
     }
 
-    /// Velocity in plug region (|y| ≤ y_p)
+    /// Velocity in plug region (|y| ≤ `y_p`)
     ///
-    /// In the plug region where τ < τ_y, the fluid moves as a rigid body
-    /// with velocity equal to the boundary velocity at y = y_p.
+    /// In the plug region where τ < `τ_y`, the fluid moves as a rigid body
+    /// with velocity equal to the boundary velocity at y = `y_p`.
     pub fn plug_velocity(&self) -> Velocity<T> {
         // Integrate from plug boundary to wall
         // This requires numerical integration of du/dy = γ̇(y)

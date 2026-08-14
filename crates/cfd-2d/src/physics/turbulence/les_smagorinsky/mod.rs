@@ -8,19 +8,19 @@
 //!
 //! The SGS stress tensor is modeled as:
 //!
-//! τ_ij = -2ν_SGS S_ij
+//! `τ_ij` = -`2ν_SGS` `S_ij`
 //!
-//! where ν_SGS = (C_S Δ)² |S| is the SGS viscosity,
-//! C_S is the Smagorinsky constant (typically 0.1-0.2),
+//! where `ν_SGS` = (`C_S` Δ)² |S| is the SGS viscosity,
+//! `C_S` is the Smagorinsky constant (typically 0.1-0.2),
 //! Δ is the filter width, and |S| is the magnitude of the strain rate.
 //!
 //! ## Dynamic Procedure
 //!
-//! The dynamic Smagorinsky model computes C_S locally using:
+//! The dynamic Smagorinsky model computes `C_S` locally using:
 //!
-//! C_S² = <L_ij M_ij> / <M_ij M_ij>
+//! `C_S²` = <`L_ij` `M_ij`> / <`M_ij` `M_ij`>
 //!
-//! where L_ij and M_ij are computed from resolved scales.
+//! where `L_ij` and `M_ij` are computed from resolved scales.
 //!
 //! ## References
 //!
@@ -49,9 +49,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 

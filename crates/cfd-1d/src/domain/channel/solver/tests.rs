@@ -1,5 +1,10 @@
 //! Tests for channel solver decomposed modules.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use crate::domain::channel::flow::{Channel, FlowRegime};
 use crate::domain::channel::geometry::ChannelGeometry;
 use eunomia::assert_relative_eq;

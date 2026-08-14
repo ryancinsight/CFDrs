@@ -4,6 +4,11 @@
 //! Bounded Context: Timing and Profiling
 //! Architectural Pattern: Utility
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use std::time::{Duration, Instant};
 
 /// High-precision timer for benchmarking
@@ -15,6 +20,7 @@ pub struct BenchmarkTimer {
 
 impl BenchmarkTimer {
     /// Create a new timer
+    #[must_use]
     pub fn new() -> Self {
         Self {
             start: None,
@@ -52,11 +58,13 @@ impl BenchmarkTimer {
     }
 
     /// Get all lap times
+    #[must_use]
     pub fn laps(&self) -> &[Duration] {
         &self.laps
     }
 
     /// Get the last lap time
+    #[must_use]
     pub fn last_lap(&self) -> Option<Duration> {
         self.laps.last().copied()
     }
@@ -92,6 +100,7 @@ pub struct BenchmarkStats {
 
 impl BenchmarkStats {
     /// Compute statistics from a set of measurements
+    #[must_use]
     pub fn from_measurements(measurements: &[f64]) -> Self {
         if measurements.is_empty() {
             return Self {
@@ -133,6 +142,7 @@ impl BenchmarkStats {
     }
 
     /// Check if measurements are within acceptable variation
+    #[must_use]
     pub fn is_stable(&self, max_cv: f64) -> bool {
         if self.mean == 0.0 {
             return true;
@@ -141,7 +151,8 @@ impl BenchmarkStats {
         cv < max_cv
     }
 
-    /// Compute coefficient of variation (CV = std_dev / mean)
+    /// Compute coefficient of variation (CV = `std_dev` / mean)
+    #[must_use]
     pub fn coefficient_of_variation(&self) -> f64 {
         if self.mean == 0.0 {
             0.0

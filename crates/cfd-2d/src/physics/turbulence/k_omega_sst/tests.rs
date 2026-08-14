@@ -3,7 +3,7 @@
 use super::limiter::limit_production;
 use crate::physics::turbulence::constants::SST_BETA_STAR;
 
-/// When P_k is smaller than the limiter threshold (10 * beta_star * k * omega),
+/// When `P_k` is smaller than the limiter threshold (10 * `beta_star` * k * omega),
 /// the production term should pass through unchanged.
 #[test]
 fn test_sst_limiter_passes_small_production() {
@@ -19,8 +19,8 @@ fn test_sst_limiter_passes_small_production() {
     );
 }
 
-/// When P_k exceeds the limiter threshold, it should be clipped to
-/// C_lim * beta_star * k * omega.
+/// When `P_k` exceeds the limiter threshold, it should be clipped to
+/// `C_lim` * `beta_star` * k * omega.
 #[test]
 fn test_sst_limiter_clips_large_production() {
     let beta_star = SST_BETA_STAR; // 0.09

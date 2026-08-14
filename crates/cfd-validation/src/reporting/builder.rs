@@ -16,6 +16,7 @@ pub struct ReportBuilder {
 
 impl ReportBuilder {
     /// Create a new report builder with the specified title
+    #[must_use]
     pub fn new(title: String) -> Self {
         Self {
             title,
@@ -28,36 +29,42 @@ impl ReportBuilder {
     }
 
     /// Set the validation summary
+    #[must_use]
     pub fn with_summary(mut self, summary: ValidationSummary) -> Self {
         self.summary = summary;
         self
     }
 
     /// Add a test category result
+    #[must_use]
     pub fn add_test_category(mut self, category: TestCategory) -> Self {
         self.test_results.insert(category.name.clone(), category);
         self
     }
 
     /// Add a performance benchmark report
+    #[must_use]
     pub fn add_performance_report(mut self, report: PerformanceReport) -> Self {
         self.performance.push(report);
         self
     }
 
     /// Set code quality metrics
+    #[must_use]
     pub fn with_code_quality(mut self, quality: CodeQualityReport) -> Self {
         self.code_quality = quality;
         self
     }
 
     /// Add a recommendation for improvement
+    #[must_use]
     pub fn add_recommendation(mut self, recommendation: String) -> Self {
         self.recommendations.push(recommendation);
         self
     }
 
     /// Build the final validation report
+    #[must_use]
     pub fn build(self) -> ValidationReport {
         ValidationReport {
             timestamp: SystemTime::now(),

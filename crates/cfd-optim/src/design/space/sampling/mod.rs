@@ -9,6 +9,14 @@
 //! its stratification proof. This module owns only the mapping from unit-space
 //! samples into CFD candidate parameters.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use core::num::NonZeroU32;
 use std::sync::Arc;
 

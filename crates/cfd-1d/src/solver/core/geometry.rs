@@ -11,7 +11,7 @@
 //!
 //! - **Dimension**: The intrinsic computational dimension is 1 (axial flow).
 //! - **Volume/Measure**: The domain measure is the sum of the characteristic lengths
-//!   of all segments, $\mathcal{L} = \sum_{e \in \mathcal{E}} L_e$.
+//!   of all segments, $\mathcal{L} = \sum_{e \in \mathcal{E}} `L_e`$.
 //!
 //! This discrete 1D formulation reduces the Navier-Stokes equations to systems of ordinary
 //! differential equations or algebraic equations, neglecting purely transverse momentum transport.

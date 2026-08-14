@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use crate::application::orchestration::{
     ensure_release_reports, fast_env, fast_mode, ga_matches_lineage_sequence, init_tracing,
     is_selective_report_topology, milestone12_ranked_pool_size, resolve_output_directories,

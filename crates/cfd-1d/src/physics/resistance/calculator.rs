@@ -21,6 +21,14 @@
 //! The quadratic term is non-zero only for turbulent or geometry-dependent models
 //! (Darcy-Weisbach, Venturi expansion losses).
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Resistance and quadratic coefficient calculation dispatch.
 pub mod coefficients;
 pub mod dispatch;

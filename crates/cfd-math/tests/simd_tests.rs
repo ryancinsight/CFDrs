@@ -8,6 +8,11 @@
 //! - Accuracy validation across different vector sizes
 //! - CFD integration tests
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_math::simd::SimdOps;
 use eunomia::assert_relative_eq;
 

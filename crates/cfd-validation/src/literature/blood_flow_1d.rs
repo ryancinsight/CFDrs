@@ -9,6 +9,14 @@
 //!   Journal of Biomechanics, 32(6), 617-623.
 //! - Ku, D. N. (1997). "Blood flow in arteries." Annual review of fluid mechanics, 29(1), 399-434.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar;
 use aequitas::systems::si::quantities::{
@@ -50,8 +58,15 @@ pub struct StenosisValidation<T: CfdScalar> {
     accuracy: T,
 }
 
+impl<T: CfdScalar> Default for StenosisValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: CfdScalar> StenosisValidation<T> {
     /// Create a new stenosis validation test
+    #[must_use]
     pub fn new() -> Self {
         Self {
             accuracy: <T as FloatElement>::from_f64(1e-2), // 1% accuracy target
@@ -265,8 +280,15 @@ pub struct BifurcationValidation<T: CfdScalar> {
     accuracy: T,
 }
 
+impl<T: CfdScalar> Default for BifurcationValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: CfdScalar> BifurcationValidation<T> {
     /// Create a new bifurcation validation test
+    #[must_use]
     pub fn new() -> Self {
         Self {
             accuracy: <T as FloatElement>::from_f64(1e-2),

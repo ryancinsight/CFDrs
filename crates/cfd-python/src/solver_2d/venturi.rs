@@ -1,5 +1,7 @@
 //! 2D and 1D Venturi solver `PyO3` wrappers.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
@@ -175,7 +177,7 @@ impl PyVenturiResult2D {
 ///
 /// `ΔP_total` = `ΔP_contraction` + `ΔP_friction` + `ΔP_expansion`
 /// `ΔP_contraction` = (`ρV_t²/2)(1` - `β⁴)/C_d²` where β = `D_t/D_1`
-/// `ΔP_friction` = f*(`L_t/D_t`)*(ρV_t²/2)
+/// `ΔP_friction` = f*(`L_t/D_t`)*(`ρV_t²/2`)
 /// `ΔP_expansion` = `K_exp`*(ρ/2)*(`V_t` - `V_3)²`
 #[pyclass(name = "VenturiSolver1D", skip_from_py_object)]
 pub struct PyVenturiSolver1D {

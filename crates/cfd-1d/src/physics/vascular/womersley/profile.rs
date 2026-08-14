@@ -97,7 +97,7 @@ impl<T: CfdScalar + FloatElement + Copy> WomersleyProfile<T> {
 
     /// Calculate wall shear stress using exact Bessel functions
     ///
-    /// τ_w(t) = -μ · (∂u/∂r)|_{r=R}
+    /// `τ_w(t)` = -μ · (∂u/∂r)|_{r=R}
     pub fn wall_shear_stress(&self, t: Time<T>) -> Pressure<T> {
         let alpha = self.womersley.value().into_base();
         let r = self.womersley.radius.into_base();

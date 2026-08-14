@@ -4,7 +4,7 @@
 //!
 //! A micropump is a **pressure source**, not a passive hydraulic resistor. In the
 //! 1D network formulation the system matrix `A x = b` is a Laplacian of conductances.
-//! All off-diagonal entries must be non-positive (G_ij ≥ 0) and the diagonal must be
+//! All off-diagonal entries must be non-positive (`G_ij` ≥ 0) and the diagonal must be
 //! strictly positive. A negative resistance would violate positive-definiteness and
 //! corrupt the solution.
 //!
@@ -25,9 +25,17 @@
 //! ```text
 //! Q = Q_max * (1 − ΔP / ΔP_max)
 //! ```
-//! At the stall point `ΔP = ΔP_max`, Q = 0. At free delivery `ΔP = 0`, Q = Q_max.
+//! At the stall point `ΔP = ΔP_max`, Q = 0. At free delivery `ΔP = 0`, Q = `Q_max`.
 //! The hydraulic power delivered is `P_hyd = ΔP · Q`.
 //! Pump efficiency: `η = P_hyd / P_input`, typical range 0.1–0.7.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::{constants, real_from_f64, Component};
 use cfd_core::conversion::SafeFromF64;
@@ -61,7 +69,7 @@ pub struct Micropump<T: CfdScalar + Copy> {
     pub max_flow_rate: T,
     /// Maximum pressure \[Pa] (stall point, Q = 0)
     pub max_pressure: T,
-    /// Pump efficiency η [-] (P_hyd / P_input)
+    /// Pump efficiency η [-] (`P_hyd` / `P_input`)
     pub efficiency: T,
     /// Operating point on the pump curve (0 = stall, 1 = free delivery)
     pub operating_point: T,
@@ -85,7 +93,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Micropump<T> {
 impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for Micropump<T> {
     /// Returns **zero** — pumps contribute no passive resistance to the conductance matrix.
     ///
-    /// **Invariant**: A pump is a Neumann source (Q_pump injected at the driven node), not
+    /// **Invariant**: A pump is a Neumann source (`Q_pump` injected at the driven node), not
     /// a negative-resistance element. Negative resistance corrupts the matrix Laplacian.
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         T::ZERO

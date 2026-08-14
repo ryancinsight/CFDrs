@@ -11,6 +11,11 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example fda_shear_limit_screening`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::{
     BloodShearLimits, EdgeProperties, Network, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,

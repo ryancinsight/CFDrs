@@ -1,5 +1,13 @@
 //! Dynamic figure generation and manifest assembly for Milestone 12 narrative.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stderr,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use std::path::Path;
 
 use cfd_schematics::domain::model::ChannelShape;

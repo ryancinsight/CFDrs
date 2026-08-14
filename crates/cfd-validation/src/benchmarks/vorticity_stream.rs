@@ -234,6 +234,7 @@ pub struct VorticityStreamCavityBenchmark {
 
 impl VorticityStreamCavityBenchmark {
     /// Create a new benchmark.
+    #[must_use]
     pub fn new(config: VorticityStreamCavityConfig) -> Self {
         Self { config }
     }

@@ -58,6 +58,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedBurgers<T> {
     /// Create default manufactured Burgers solution
     ///
     /// Uses standard parameters: a=1, b=0.5, k=2π, ω=1, ν=0.01
+    #[must_use]
     pub fn default_solution() -> Self {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);

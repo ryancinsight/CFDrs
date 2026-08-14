@@ -259,6 +259,7 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FloatElement + LetoS
 }
 
 /// Analyze coarsening quality comprehensively
+#[must_use]
 pub fn analyze_coarsening_quality<T: RealField + Copy + FloatElement + LetoScalar>(
     result: &CoarseningResult<T>,
     matrix: &SparseMatrix<T>,
@@ -341,6 +342,7 @@ pub struct CoarseningQuality {
 
 impl CoarseningQuality {
     /// Check if coarsening quality is acceptable
+    #[must_use]
     pub fn is_acceptable(&self) -> bool {
         self.assignment_ratio > 0.9
             && self.coarsening_ratio > 0.1

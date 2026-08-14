@@ -16,6 +16,11 @@
 //! to residual `ε`, the continuity residual is bounded by `O(ε / Δx²)` via the
 //! Laplacian scaling of the Poisson operator.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;

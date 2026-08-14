@@ -1,7 +1,7 @@
 //! Athena Krylov entry points for CFD systems.
 //!
 //! Athena fixes the GMRES restart width at compile time through a const
-//! generic, while CFDrs selects it at runtime — `LinearSolverChain` exposes a
+//! generic, while `CFDrs` selects it at runtime — `LinearSolverChain` exposes a
 //! builder, JFNK carries it in its config, and the FEM solvers clamp it to the
 //! degree-of-freedom count. This module is that bridge: a fixed ladder of
 //! instantiations and a dispatch that picks the smallest width covering the
@@ -165,7 +165,7 @@ where
     )
 }
 
-/// Solve `A·x = b` with BiCGSTAB and an explicit preconditioner.
+/// Solve `A·x = b` with `BiCGSTAB` and an explicit preconditioner.
 ///
 /// # Errors
 ///
@@ -197,7 +197,7 @@ where
     )
 }
 
-/// Solve `A·x = b` with BiCGSTAB and no preconditioner.
+/// Solve `A·x = b` with `BiCGSTAB` and no preconditioner.
 ///
 /// # Errors
 ///
@@ -334,7 +334,6 @@ pub enum SolveOutcome<T> {
 
 impl<T> SolveOutcome<T> {
     /// The report, whichever way the solve ended.
-    #[must_use]
     pub const fn report(&self) -> &SolveReport<T> {
         match self {
             Self::Converged(report) | Self::Stalled(report) | Self::BrokenDown(report) => report,
@@ -410,7 +409,7 @@ where
     }
 }
 
-/// The Krylov recurrences CFDrs selects between at runtime.
+/// The Krylov recurrences `CFDrs` selects between at runtime.
 ///
 /// Athena's solvers are zero-sized markers carrying const generics and backend
 /// GATs, so they are not object-safe and cannot be held behind `dyn`. The

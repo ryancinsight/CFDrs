@@ -12,6 +12,14 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::config::FvmConfig;
 use super::flux::{FluxScheme, FluxSchemeFactory};
 use super::geometry::Face;

@@ -124,37 +124,75 @@ cfd-validation = { path = "crates/cfd-validation" }
 missing_docs = "warn"
 
 [workspace.lints.clippy]
-# Canonical Atlas floor (template SSOT: repos/apollo/Cargo.toml L88-L107).
-# `all` + `pedantic` at warn, priority = -1 so they evaluate before
-# crate-level allows. The `allow` set below mirrors apollo's template
-# verbatim so atlas-wide existing-debt stays non-regressive.
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-# Canonical Atlas library hygiene: deny the four output/panic-erasure
-# patterns at workspace level. Pre-existing violations carry per-site
-# `#[expect(lint, reason="ratchet cfd-<id>")]`; the floor itself never
-# `allow`s them â€” that would erase the ratchet signal.
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+# Pedantic floor ratchet: every class listed below already fires in this
+# workspace and is allowed at its measured baseline; every class NOT listed is a
+# hard error. Counts are `cargo clippy --workspace --all-targets` hits at the
+# time the floor was established, deduplicated per source site, as total
+# (production), where production excludes `#[cfg(test)]` modules and test, bench
+# and example targets. Burn a class down to zero, then delete its line -- the
+# floor tightens, never loosens.
+
+doc_markdown = "allow"                      # 2640 (2239 prod)
+cast_precision_loss = "allow"               # 1115 (613 prod)
+missing_errors_doc = "allow"                # 733 (733 prod)
+must_use_candidate = "allow"                # 513 (513 prod)
+similar_names = "allow"                     # 503 (407 prod)
+uninlined_format_args = "allow"             # 494 (0 prod)
+unreadable_literal = "allow"                # 183 (63 prod)
+cast_possible_truncation = "allow"          # 159 (132 prod)
+too_many_lines = "allow"                    # 151 (106 prod)
+unused_self = "allow"                       # 131 (131 prod)
+unnecessary_wraps = "allow"                 # 117 (86 prod)
+cast_possible_wrap = "allow"                # 115 (94 prod)
+missing_panics_doc = "allow"                # 111 (111 prod)
+cast_sign_loss = "allow"                    # 105 (82 prod)
+too_many_arguments = "allow"                # 105 (105 prod)
+return_self_not_must_use = "allow"          # 98 (98 prod)
+items_after_statements = "allow"            # 90 (50 prod)
+map_unwrap_or = "allow"                     # 87 (0 prod)
+many_single_char_names = "allow"            # 73 (60 prod)
+needless_range_loop = "allow"               # 64 (48 prod)
+used_underscore_binding = "allow"           # 63 (60 prod)
+unnecessary_debug_formatting = "allow"      # 50 (0 prod)
+redundant_closure_for_method_calls = "allow"# 48 (37 prod)
+needless_pass_by_value = "allow"            # 47 (47 prod)
+cast_lossless = "allow"                     # 44 (0 prod)
+format_push_string = "allow"                # 35 (25 prod)
+semicolon_if_nothing_returned = "allow"     # 27 (0 prod)
+explicit_iter_loop = "allow"                # 23 (0 prod)
+match_same_arms = "allow"                   # 19 (17 prod)
+float_cmp = "allow"                         # 17 (9 prod)
+no_effect_underscore_binding = "allow"      # 17 (0 prod)
+unnecessary_lazy_evaluations = "allow"      # 14 (14 prod)
+manual_let_else = "allow"                   # 11 (7 prod)
+field_reassign_with_default = "allow"       # 11 (2 prod)
+match_wildcard_for_single_variants = "allow"# 8 (0 prod)
+manual_midpoint = "allow"                   # 6 (0 prod)
+ignored_unit_patterns = "allow"             # 5 (0 prod)
+
+# Immediate burn-down targets: each is a handful of judgement-call sites left
+# after the mechanical classes were fixed outright rather than ratcheted.
+if_same_then_else = "allow"                 # 3 (3 prod)
+comparison_chain = "allow"                  # 3 (0 prod)
+should_implement_trait = "allow"            # 2 (2 prod)
+trivially_copy_pass_by_ref = "allow"        # 2 (2 prod)
+inline_always = "allow"                     # 1 (1 prod)
+struct_excessive_bools = "allow"            # 1 (1 prod)
+module_inception = "allow"                  # 1 (0 prod)
+
+# --- Restriction floor ---
+# `unwrap_used` is denied outright: no workspace-wide allow. The 1116 existing
+# sites (211 in production) are pinned per file by
+# `#![expect(clippy::unwrap_used, reason = "ratchet CFDRS-UNWRAP-1")]`
+# (`#![cfg_attr(test, expect(...))]` where a `src/` file's unwraps all sit inside
+# `#[cfg(test)]`), which self-expires the moment a file's last unwrap goes.
 unwrap_used = "deny"
+
+# Output-erasure floor, carried forward from the pre-promotion table. Library
+# crates route output through `tracing` or the application's output layer.
 print_stderr = "deny"
 print_stdout = "deny"
 dbg_macro = "deny"
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-similar_names = "allow"
-too_many_lines = "allow"
-default_constructed_unit_structs = "allow"
-doc_lazy_continuation = "allow"
-needless_range_loop = "allow"
-too_many_arguments = "allow"
-manual_is_multiple_of = "allow"
-manual_div_ceil = "allow"
-manual_slice_size_calculation = "allow"
-len_zero = "allow"
-cast_possible_truncation = "allow"
-cast_precision_loss = "allow"
-cast_sign_loss = "allow"
-cast_possible_wrap = "allow"
-items_after_statements = "allow"
-range_minus_one = "allow"
-default_trait_access = "allow"
-useless_conversion = "allow"

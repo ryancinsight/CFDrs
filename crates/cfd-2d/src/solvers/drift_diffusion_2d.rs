@@ -20,12 +20,20 @@
 //! **Proof sketch**:
 //! For each face, the convective flux is computed with $F = V_{eff} \cdot \vec{n} A$.
 //! The upwind neighbor coefficient is $a_{nb} = D_{nb} + \max(\mp F_{nb}, 0) \ge 0$.
-//! The central coefficient $a_P = \sum a_{nb} + S_P$. As long as the effective velocity
+//! The central coefficient $`a_P` = \sum a_{nb} + `S_P`$. As long as the effective velocity
 //! divergence is zero or treated implicitly, the matrix remains a diagonally dominant M-matrix,
-//! ensuring Gauss-Seidel convergence and a discrete maximum principle $c_i \ge 0$.
+//! ensuring Gauss-Seidel convergence and a discrete maximum principle $`c_i` \ge 0$.
 //!
 //! # Literature
 //! - Patankar, S.V. (1980). *Numerical Heat Transfer and Fluid Flow*. Hemisphere Publishing.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use crate::grid::array2d::Array2D;
 use crate::scalar::{max, one, zero};
@@ -42,6 +50,7 @@ pub struct DriftDiffusionSolver2D<T: CfdScalar + Copy + FloatElement> {
 
 impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
     /// Create new drift-diffusion transport solver
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             c: Array2D::new(nx, ny, zero()),
@@ -50,7 +59,7 @@ impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
 
     /// Solve the steady-state drift-advection-diffusion equation.
     ///
-    /// The drift_field provides `u_drift` and `v_drift` at each face.
+    /// The `drift_field` provides `u_drift` and `v_drift` at each face.
     pub fn solve(
         &mut self,
         grid: &StaggeredGrid2D<T>,

@@ -197,6 +197,7 @@ pub enum CheckStatus {
 
 impl CheckStatus {
     #[allow(missing_docs)]
+    #[must_use]
     pub fn is_passed(&self) -> bool {
         matches!(self, Self::Passed)
     }

@@ -8,6 +8,14 @@
 //! residual decreases monotonically in practice; outside them convergence is
 //! empirical rather than guaranteed.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;

@@ -107,7 +107,7 @@ impl<T: CfdScalar> SerpentineModel<T> {
         }
     }
 
-    /// Number of bends (= num_segments - 1)
+    /// Number of bends (= `num_segments` - 1)
     pub(crate) fn num_bends(&self) -> usize {
         if self.num_segments > 0 {
             self.num_segments - 1
@@ -116,7 +116,7 @@ impl<T: CfdScalar> SerpentineModel<T> {
         }
     }
 
-    /// Dean number: De = Re × √(D_h / (2 R_c))
+    /// Dean number: De = Re × √(`D_h` / (2 `R_c`))
     pub(crate) fn dean_number(&self, reynolds: T) -> T {
         let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
         let two = T::ONE + T::ONE;
@@ -131,17 +131,17 @@ impl<T: CfdScalar> SerpentineModel<T> {
     ///
     /// For dynamically exact secondary flow, the rigorous perturbation series
     /// solution to the Navier-Stokes equations dictates the flux ratio
-    /// $Q_c / Q_s$ directly. Defining Dean's parameter $K = Re \sqrt{D_h / R_c}$:
+    /// $`Q_c` / `Q_s`$ directly. Defining Dean's parameter $K = Re \`sqrt{D_h` / `R_c}$`:
     ///
-    /// $$ \frac{Q_c}{Q_s} = 1 - 0.03058 \left(\frac{K}{576}\right)^2 + 0.01195 \left(\frac{K}{576}\right)^4 $$
+    /// $$ \`frac{Q_c}{Q_s`} = 1 - 0.03058 \left(\frac{K}{576}\right)^2 + 0.01195 \left(\frac{K}{576}\right)^4 $$
     ///
     /// This is mathematically rigorous for bounded Dean numbers. Since resistance
     /// is inversely proportional to flux under constant pressure gradient,
-    /// $f_c / f_s = (Q_c / Q_s)^{-1}$.
+    /// $`f_c` / `f_s` = (`Q_c` / Q_s)^{-1}$.
     ///
     /// At higher Dean numbers $De > 20$, the flow transitions exactly to the
     /// strictly inertial boundary layer regime mathematically proven by Ito:
-    /// $f_c / f_s = 0.1033 De^{1/2}$.
+    /// $`f_c` / `f_s` = 0.1033 De^{1/2}$.
     pub(crate) fn curvature_enhancement(&self, dean: T) -> T {
         let zero = T::ZERO;
         let one = T::ONE;

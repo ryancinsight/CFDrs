@@ -61,7 +61,7 @@ where
     Ok(())
 }
 
-/// Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3 for west wall
+/// Quadratic extrapolation: `u_0` = (4*`u_1` - `u_2)/3` for west wall
 fn apply_higher_order_west_wall<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,

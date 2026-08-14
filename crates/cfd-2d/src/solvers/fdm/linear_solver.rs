@@ -28,7 +28,7 @@ use crate::scalar;
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
 ///
 /// True Gauss-Seidel method: Uses most recently updated solution values (not all old values).
-/// For each row i, the update is: x_i^(k+1) = (b_i - Σ_{j<i} a_ij*x_j^(k+1) - Σ_{j>i} a_ij*x_j^(k)) / a_ii
+/// For each row i, the update is: `x_i^(k+1)` = (`b_i` - Σ_{j<i} `a_ij`*`x_j^(k+1)` - Σ_{j>i} `a_ij`*`x_j^(k)`) / `a_ii`
 ///
 /// This provides better convergence than Jacobi (which uses all old values).
 ///

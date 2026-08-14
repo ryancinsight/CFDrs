@@ -1,5 +1,7 @@
 //! Error types for the cfd-optim SDT design optimizer.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use thiserror::Error;
 
 /// All errors that can arise during candidate generation, physics evaluation,

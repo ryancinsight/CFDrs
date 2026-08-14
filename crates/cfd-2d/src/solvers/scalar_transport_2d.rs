@@ -13,13 +13,13 @@
 //!
 //! The upwind FVM discretisation of $\nabla \cdot (\mathbf{u}\,c) = \nabla \cdot (\Gamma \nabla c)$
 //! produces a coefficient matrix satisfying the Scarborough criterion
-//! $\sum_{nb}|a_{nb}|/|a_P| \le 1$ (strict for at least one row), guaranteeing
-//! Gauss-Seidel convergence and the discrete maximum principle $c_{\min} \le c_i \le c_{\max}$.
+//! $\sum_{nb}|a_{`nb}|/|a_P`| \le 1$ (strict for at least one row), guaranteeing
+//! Gauss-Seidel convergence and the discrete maximum principle $c_{\min} \le `c_i` \le c_{\max}$.
 //!
 //! **Proof sketch**:
 //! With UDS, each $a_{nb} = D_{nb} + \max(F_{nb}, 0) \ge 0$ and
-//! $a_P = \sum_{nb} a_{nb}$. All coefficients are non-negative, so
-//! $c_i$ is a convex combination of its neighbours. The Gauss-Seidel iteration
+//! $`a_P` = \sum_{nb} a_{nb}$. All coefficients are non-negative, so
+//! $`c_i`$ is a convex combination of its neighbours. The Gauss-Seidel iteration
 //! contracts because $\rho(\mathbf{M}^{-1}\mathbf{N}) < 1$ for M-matrices.
 //! Boundedness follows directly from the non-negative coefficients and the
 //! Scarborough criterion.
@@ -66,6 +66,7 @@ pub struct ScalarTransportSolver2D<T: CfdScalar + Copy + FloatElement> {
 
 impl<T: CfdScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
     /// Create new scalar transport solver
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             c: Array2D::new(nx, ny, scalar::zero()),
@@ -75,7 +76,7 @@ impl<T: CfdScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
 
     /// Solve the steady-state advection-diffusion equation
     ///
-    /// a_P c_P = a_E c_E + a_W c_W + a_N c_N + a_S c_S
+    /// `a_P` `c_P` = `a_E` `c_E` + `a_W` `c_W` + `a_N` `c_N` + `a_S` `c_S`
     pub fn solve(
         &mut self,
         grid: &StaggeredGrid2D<T>,

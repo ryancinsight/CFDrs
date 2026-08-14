@@ -46,6 +46,14 @@
 //! - Khodabandeh, E. et al. (2020). "Pressure drop and heat transfer in
 //!   T-junction microchannels." *Int. J. Heat Mass Transfer*, 154, 119689.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -79,20 +87,20 @@ pub enum JunctionFlowDirection {
 /// # Theorem
 ///
 /// The junction resistance is expressed as an equivalent hydraulic
-/// resistance: $R_J = K \rho V / (2 A^2)$, which adds to the
+/// resistance: $`R_J` = K \rho V / (2 A^2)$, which adds to the
 /// Hagen-Poiseuille resistance of the connecting channels.
 ///
 /// **Proof sketch**: Starting from $\Delta P = K \rho V^2 / 2$ and
 /// $Q = V A$, we get $\Delta P = K \rho Q^2 / (2 A^2)$.  This is a
 /// quadratic loss term; in linearised form (about a reference flow rate
-/// $Q_0$) the effective resistance is $R_J = K \rho Q_0 / A^2$.
+/// $`Q_0`$) the effective resistance is $`R_J` = K \rho `Q_0` / A^2$.
 ///
 /// # Diameter-ratio correction (Idelchik 2007, §7.12)
 ///
 /// When the branch and run channels have different diameters, the K-factor
-/// is modulated by the area ratio $A_b / A_r$:
+/// is modulated by the area ratio $`A_b` / `A_r$`:
 ///
-/// $$K_{\text{eff}} = K_{\text{equal}} \cdot \left(\frac{A_b}{A_r}\right)^{0.5}$$
+/// $$K_{\text{eff}} = K_{\text{equal}} \cdot \`left(\frac{A_b}{A_r}\right)^{0.5`}$$
 ///
 /// A narrow branch meeting a wide run (ratio < 1) reduces K (less
 /// recirculation); a wide branch into a narrow run increases K.
@@ -106,7 +114,7 @@ pub struct JunctionLossModel {
     pub branch_diameter_m: f64,
     /// Cross-sectional area of the branch channel \[m²].
     pub branch_area_m2: f64,
-    /// Length attributed to the junction (typically ≈ D_h) \[m].
+    /// Length attributed to the junction (typically ≈ `D_h`) \[m].
     pub junction_length_m: f64,
     /// Fluid density [kg/m³].
     pub density_kg_m3: f64,
@@ -147,7 +155,7 @@ impl JunctionLossModel {
 
     /// Compute the linearised junction resistance about a reference flow.
     ///
-    /// Returns $R_J = K \rho Q_{\text{ref}} / A^2$ [Pa·s/m³].
+    /// Returns $`R_J` = K \rho Q_{\text{ref}} / A^2$ [Pa·s/m³].
     #[must_use]
     pub fn linearised_resistance(&self, reference_flow_m3_s: f64) -> f64 {
         let k = self.loss_coefficient();
@@ -174,11 +182,11 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
         Ok(r_lin)
     }
 
-    /// Return (R_linear, K_quadratic) for the junction.
+    /// Return (`R_linear`, `K_quadratic`) for the junction.
     ///
-    /// - R_linear: Hagen-Poiseuille resistance through the short junction
+    /// - `R_linear`: Hagen-Poiseuille resistance through the short junction
     ///   length (≈ one hydraulic diameter).
-    /// - K_quadratic: Minor loss coefficient scaled to produce
+    /// - `K_quadratic`: Minor loss coefficient scaled to produce
     ///   $\Delta P = k Q |Q|$.
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,

@@ -9,18 +9,18 @@
 //! ## Mathematical Foundation
 //!
 //! The Reynolds stress transport equations:
-//! D⟨u_i'u_j'⟩/Dt = P_ij + Φ_ij - ε_ij + T_ij + D_ij
+//! `D⟨u_i`'`u_j`'⟩/Dt = `P_ij` + `Φ_ij` - `ε_ij` + `T_ij` + `D_ij`
 //!
 //! Where manufactured solutions are chosen such that:
-//! - ⟨u_i'u_j'⟩ = analytical function of (x,y,t)
-//! - Source terms S_ij computed to satisfy the PDE exactly
+//! - ⟨`u_i`'`u_j`'⟩ = analytical function of (x,y,t)
+//! - Source terms `S_ij` computed to satisfy the PDE exactly
 //!
 //! ## Manufactured Solution Form
 //!
 //! Using trigonometric-polynomial manufactured solutions:
-//! ⟨u'u'⟩ = A_uu * sin(kx*x) * sin(ky*y) * exp(-α*t) + isotropic_part
-//! ⟨u'v'⟩ = A_uv * cos(kx*x) * cos(ky*y) * exp(-α*t)
-//! ⟨v'v'⟩ = A_vv * sin(kx*x) * sin(ky*y) * exp(-α*t) + isotropic_part
+//! ⟨u'u'⟩ = `A_uu` * sin(kx*x) * sin(ky*y) * exp(-α*t) + `isotropic_part`
+//! ⟨u'v'⟩ = `A_uv` * cos(kx*x) * cos(ky*y) * exp(-α*t)
+//! ⟨v'v'⟩ = `A_vv` * sin(kx*x) * sin(ky*y) * exp(-α*t) + `isotropic_part`
 //!
 //! ## References
 //!
@@ -112,6 +112,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
     }
 
     /// Create a standard test case with reasonable parameters
+    #[must_use]
     pub fn standard_test_case() -> Self {
         Self::new(
             <T as FloatElement>::from_f64(2.0 * PI), // kx
@@ -130,7 +131,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         )
     }
 
-    /// Evaluate the exact Reynolds stress component ⟨u_i'u_j'⟩
+    /// Evaluate the exact Reynolds stress component ⟨`u_i`'`u_j`'⟩
     pub fn exact_reynolds_stress(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let sin_kx_x = scalar::sin(self.kx * x);
         let sin_ky_y = scalar::sin(self.ky * y);
@@ -157,7 +158,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Evaluate the exact mean velocity component U_i
+    /// Evaluate the exact mean velocity component `U_i`
     pub fn exact_mean_velocity(&self, i: usize, x: T, y: T, t: T) -> T {
         let sin_kx_x = scalar::sin(self.kx * x);
         let sin_ky_y = scalar::sin(self.ky * y);
@@ -188,7 +189,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         self.eps_amp * sin_kx_x * sin_ky_y * exp_decay
     }
 
-    /// Compute the production term P_ij = -⟨u_i'u_k'⟩∂U_j/∂x_k - ⟨u_j'u_k'⟩∂U_i/∂x_k
+    /// Compute the production term `P_ij` = -⟨`u_i`'`u_k`'⟩∂`U_j/∂x_k` - ⟨`u_j`'`u_k`'⟩∂`U_i/∂x_k`
     pub fn production_term(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         // Velocity gradients
         let _du_dx = self.velocity_gradient(0, 0, x, y, t);
@@ -209,7 +210,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute velocity gradient ∂U_i/∂x_j
+    /// Compute velocity gradient ∂`U_i/∂x_j`
     fn velocity_gradient(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let sin_kx_x = scalar::sin(self.kx * x);
         let cos_kx_x = scalar::cos(self.kx * x);
@@ -226,7 +227,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute the pressure-strain correlation Φ_ij
+    /// Compute the pressure-strain correlation `Φ_ij`
     pub fn pressure_strain_term(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let k = self.exact_tke(x, y, t);
         let eps = self.exact_dissipation(x, y, t);
@@ -356,7 +357,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute the dissipation tensor ε_ij
+    /// Compute the dissipation tensor `ε_ij`
     pub fn dissipation_tensor(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let eps = self.exact_dissipation(x, y, t);
         let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
@@ -368,7 +369,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute the turbulent transport term T_ij = -∂⟨u_i'u_j'u_k'⟩/∂x_k
+    /// Compute the turbulent transport term `T_ij` = -∂⟨`u_i`'`u_j`'`u_k`'⟩/∂`x_k`
     pub fn turbulent_transport(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         // Approximate triple correlation transport using gradient-diffusion hypothesis
         // ⟨u_i'u_j'u_k'⟩ ≈ -C_s (k³/ε²) ∂⟨u_i'u_j'⟩/∂x_k
@@ -398,7 +399,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute gradient of Reynolds stress component ∂⟨u_i'u_j'⟩/∂x_k
+    /// Compute gradient of Reynolds stress component ∂⟨`u_i`'`u_j`'⟩/∂`x_k`
     fn reynolds_stress_gradient(&self, i: usize, j: usize, x: T, y: T, t: T) -> [T; 2] {
         let sin_kx_x = scalar::sin(self.kx * x);
         let cos_kx_x = scalar::cos(self.kx * x);
@@ -448,7 +449,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute the molecular diffusion term D_ij = ∂/∂x_k(ν ∂⟨u_i'u_j'⟩/∂x_k)
+    /// Compute the molecular diffusion term `D_ij` = ∂/∂`x_k(ν` ∂⟨`u_i`'`u_j`'⟩/∂`x_k`)
     pub fn molecular_diffusion(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         // Molecular diffusion: D_ij = ∂/∂x_k(ν ∂⟨u_i'u_j'⟩/∂x_k)
         // For constant ν, this simplifies to ν ∇²⟨u_i'u_j'⟩
@@ -457,7 +458,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         self.nu * stress_laplacian
     }
 
-    /// Compute Laplacian of Reynolds stress component ∇²⟨u_i'u_j'⟩
+    /// Compute Laplacian of Reynolds stress component ∇`²⟨u_i`'`u_j`'⟩
     fn reynolds_stress_laplacian(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let sin_kx_x = scalar::sin(self.kx * x);
         let cos_kx_x = scalar::cos(self.kx * x);
@@ -494,19 +495,19 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         }
     }
 
-    /// Compute the time derivative ∂⟨u_i'u_j'⟩/∂t
+    /// Compute the time derivative ∂⟨`u_i`'`u_j`'⟩/∂t
     pub fn time_derivative(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         -self.alpha * self.exact_reynolds_stress(i, j, x, y, t)
     }
 
-    /// Compute the convective derivative D⟨u_i'u_j'⟩/Dt = ∂⟨u_i'u_j'⟩/∂t + U_k ∂⟨u_i'u_j'⟩/∂x_k
+    /// Compute the convective derivative `D⟨u_i`'`u_j`'⟩/Dt = ∂⟨`u_i`'`u_j`'⟩/∂t + `U_k` ∂⟨`u_i`'`u_j`'⟩/∂`x_k`
     pub fn convective_derivative(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let time_deriv = self.time_derivative(i, j, x, y, t);
         let convective_term = self.convective_term(i, j, x, y, t);
         time_deriv + convective_term
     }
 
-    /// Compute the convective term U_k ∂⟨u_i'u_j'⟩/∂x_k
+    /// Compute the convective term `U_k` ∂⟨`u_i`'`u_j`'⟩/∂`x_k`
     fn convective_term(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let u = self.exact_mean_velocity(0, x, y, t);
         let v = self.exact_mean_velocity(1, x, y, t);
@@ -527,7 +528,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
     }
 
     /// Compute the complete source term for the Reynolds stress transport equation
-    /// S_ij = D⟨u_i'u_j'⟩/Dt - P_ij - Φ_ij + ε_ij - T_ij - D_ij
+    /// `S_ij` = `D⟨u_i`'`u_j`'⟩/Dt - `P_ij` - `Φ_ij` + `ε_ij` - `T_ij` - `D_ij`
     fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         // For the shear stress component (0,1), compute the complete source term
         let i = 0;

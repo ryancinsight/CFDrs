@@ -18,9 +18,9 @@
 //!
 //! # Theorem — Two-Grid Convergence
 //!
-//! For a symmetric positive definite operator $A_h$ with smoothing iteration
-//! $M_h$ satisfying $\|I - M_h A_h\| \leq \eta < 1$, and approximation
-//! property $\|A_h - P_h A_{2h} R_h\| \leq C h^\alpha$, the two-grid method
+//! For a symmetric positive definite operator $`A_h`$ with smoothing iteration
+//! $`M_h`$ satisfying $\|I - `M_h` `A_h`\| \leq \eta < 1$, and approximation
+//! property $\|`A_h` - `P_h` A_{2h} `R_h`\| \leq C h^\alpha$, the two-grid method
 //! converges with factor:
 //!
 //! ```text
@@ -28,10 +28,10 @@
 //! ```
 //!
 //! **Proof sketch.** The two-grid error propagation operator is
-//! $E_{2G} = S^{\nu_2} (I - P A_c^{-1} R A) S^{\nu_1}$ where $S = I - M^{-1}A$
+//! $E_{2G} = `S^{\nu_2`} (I - P A_c^{-1} R A) `S^{\nu_1`}$ where $S = I - M^{-1}A$
 //! is the smoothing iteration. The smoothing property bounds
-//! $\|A S^\nu\| \leq C_S / \nu$ (Hackbusch 1985), and the approximation
-//! property gives $\|(I - P A_c^{-1} R) v\|^2 \leq C_A \langle A v, v \rangle$.
+//! $\|A S^\nu\| \leq `C_S` / \nu$ (Hackbusch 1985), and the approximation
+//! property gives $\|(I - P A_c^{-1} R) v\|^2 \leq `C_A` \langle A v, v \rangle$.
 //! Combining via the Cauchy-Schwarz inequality yields the stated bound.
 //!
 //! # Theorem — Multigrid Convergence (V-Cycle and W-Cycle)
@@ -43,7 +43,7 @@
 //! ```
 //!
 //! W-cycles ($\gamma = 2$) improve convergence for anisotropic problems:
-//! $\rho_W \leq \eta^2 + C(1-\eta^2)^2 / (1 + C(1-\eta^2))$.
+//! $\`rho_W` \leq \eta^2 + C(1-\eta^2)^2 / (1 + C(1-\eta^2))$.
 //!
 //! **Proof sketch.** Recursive application of the two-grid bound with
 //! induction on the number of levels. The W-cycle applies the coarse
@@ -69,29 +69,29 @@
 //! P_{i,j} = - (A_{i,k} / A_{i,i}) * (R_{k,j}) for k strongly influencing i, k coarse
 //!
 //! **Justification**: Classical interpolation ensures:
-//! 1. **Approximation Property**: ||A_h - P_h A_{2h} R_h|| ≤ C h^α
-//! 2. **Stability**: ||P_h|| ≤ C independent of h
+//! 1. **Approximation Property**: ||`A_h` - `P_h` A_{2h} `R_h`|| ≤ C h^α
+//! 2. **Stability**: ||`P_h`|| ≤ C independent of h
 //! 3. **Smoothing Compatibility**: Interpolation complements smoothing for error reduction
 //!
 //! **Extended Interpolation**: Includes additional coarse points for better approximation:
 //!
-//! P_{i,j} = Σ_{k∈S_i} w_{i,k} R_{k,j} where S_i includes weakly connected points
+//! P_{i,j} = Σ_{`k∈S_i`} w_{i,k} R_{k,j} where `S_i` includes weakly connected points
 //!
 //! ### Smoothing Property Analysis
 //!
 //! **High-Frequency Damping**: Smoothers must damp high-frequency error components:
 //!
-//! ||μ_h(λ)|| ≤ η < 1 for λ ∈ Λ_h (high frequencies)
+//! ||`μ_h(λ)`|| ≤ η < 1 for λ ∈ `Λ_h` (high frequencies)
 //!
 //! **Gauss-Seidel Smoothing Factor**: For model problems:
 //!
-//! η_GS ≤ 1 - π²/8 ≈ 0.107 for 5-point Laplacian
+//! `η_GS` ≤ 1 - π²/8 ≈ 0.107 for 5-point Laplacian
 //!
-//! **Jacobi Smoothing Factor**: η_J = ω(2-ω) sin²(πh) ≈ 0.5 for ω=1, h→0
+//! **Jacobi Smoothing Factor**: `η_J` = ω(2-ω) sin²(πh) ≈ 0.5 for ω=1, h→0
 //!
 //! **Symmetric Gauss-Seidel**: Combines forward and backward sweeps for better symmetry:
 //!
-//! η_SGS ≤ 1 - π²/4 ≈ 0.215 for 5-point Laplacian
+//! `η_SGS` ≤ 1 - π²/4 ≈ 0.215 for 5-point Laplacian
 //!
 //! ### Operator Complexity
 //!
@@ -136,7 +136,7 @@
 //!
 //! - Ruge, J. W., & Stüben, K. (1987). Algebraic multigrid. In *Multigrid Methods* (pp. 73-130).
 //!   Frontiers in Applied Mathematics, SIAM.
-//! - Briggs, W. L., Henson, V. E., & McCormick, S. F. (2000). *A multigrid tutorial* (2nd ed.).
+//! - Briggs, W. L., Henson, V. E., & `McCormick`, S. F. (2000). *A multigrid tutorial* (2nd ed.).
 //!   SIAM. Chapter 8: Algebraic Multigrid (AMG) Methods.
 //! - Saad, Y. (2003). *Iterative methods for sparse linear systems* (2nd ed.).
 //!   SIAM. Chapter 11: Multigrid Methods.
@@ -324,6 +324,7 @@ pub struct AMGHierarchy<T: EunomiaRealField + Copy + LetoScalar> {
 
 impl<T: EunomiaRealField + Copy + LetoScalar> AMGHierarchy<T> {
     /// Create a new hierarchy from existing levels
+    #[must_use]
     pub fn from_levels(levels: &[MultigridLevel<T>]) -> Self {
         let operators = levels
             .iter()

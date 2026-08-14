@@ -10,18 +10,18 @@
 //! ```
 //! And $\vec{F}_{ARF} = -\nabla U$.
 //!
-//! For a 1D standing wave $p(x) = p_a \cos(kx)$, the local time-averaged force simplifies to:
+//! For a 1D standing wave $p(x) = `p_a` \cos(kx)$, the local time-averaged force simplifies to:
 //!
 //! ```text
 //! F_x = 4 \pi \Phi a^3 k E_{ac} \sin(2kx)
 //! ```
 //!
-//! where $E_{ac} = p_a^2 / (4 \rho_0 c_0^2)$ is the acoustic energy density, and
+//! where $E_{ac} = `p_a^2` / (4 \`rho_0` `c_0^2`)$ is the acoustic energy density, and
 //! $\Phi$ is the acoustic contrast factor.
 //!
 //! **Proof of migration limits**:
 //! By definition, $\vec{F}_{ARF} = -\nabla U$.
-//! Particles with $\Phi > 0$ (e.g., solid cells in water, $f_1 > 0, f_2 > 0$) have minima
+//! Particles with $\Phi > 0$ (e.g., solid cells in water, $`f_1` > 0, `f_2` > 0$) have minima
 //! of $U$ at the pressure nodes ($\cos(kx)=0$). Thus, they migrate to the pressure nodes.
 //! Particles with $\Phi < 0$ (e.g., lipid droplets or microbubbles) have minima at
 //! pressure antinodes, migrating there.
@@ -39,13 +39,13 @@ use eunomia::FloatElement;
 /// Core parameters for calculating Acoustic Radiation Force fields
 #[derive(Debug, Clone, Copy)]
 pub struct GorkovPotential<T: CfdScalar + Copy> {
-    /// Fluid density $\rho_0$ [kg/m³]
+    /// Fluid density $\`rho_0`$ [kg/m³]
     pub fluid_density: T,
-    /// Fluid speed of sound $c_0$ \[m/s]
+    /// Fluid speed of sound $`c_0`$ \[m/s]
     pub fluid_sound_speed: T,
-    /// Particle density $\rho_p$ [kg/m³]
+    /// Particle density $\`rho_p`$ [kg/m³]
     pub particle_density: T,
-    /// Particle speed of sound $c_p$ \[m/s]
+    /// Particle speed of sound $`c_p`$ \[m/s]
     pub particle_sound_speed: T,
     /// Particle radius $a$ \[m]
     pub particle_radius: T,
@@ -55,8 +55,8 @@ impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
     /// Instantiate a typical configuration for standard human Red Blood Cells in water/plasma.
     ///
     /// Values derived from Bruus (2012) standard physiological tables:
-    /// - Plasma: $\rho_0 = 1000$ kg/m³, $c_0 = 1500$ m/s
-    /// - RBC: $\rho_p = 1090$ kg/m³, $c_p = 1639$ m/s
+    /// - Plasma: $\`rho_0` = 1000$ kg/m³, $`c_0` = 1500$ m/s
+    /// - RBC: $\`rho_p` = 1090$ kg/m³, $`c_p` = 1639$ m/s
     /// - Radius: $a = 2.5$ µm (spherical equivalent volume)
     #[must_use]
     pub fn typical_rbc() -> Self {
@@ -69,21 +69,21 @@ impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
         }
     }
 
-    /// Compute the fluid compressibility $\kappa_0 = 1 / (\rho_0 c_0^2)$.
+    /// Compute the fluid compressibility $\`kappa_0` = 1 / (\`rho_0` `c_0^2`)$.
     #[inline]
     #[must_use]
     pub fn fluid_compressibility(&self) -> T {
         one::<T>() / (self.fluid_density * self.fluid_sound_speed * self.fluid_sound_speed)
     }
 
-    /// Compute the particle compressibility $\kappa_p = 1 / (\rho_p c_p^2)$.
+    /// Compute the particle compressibility $\`kappa_p` = 1 / (\`rho_p` `c_p^2`)$.
     #[inline]
     #[must_use]
     pub fn particle_compressibility(&self) -> T {
         one::<T>() / (self.particle_density * self.particle_sound_speed * self.particle_sound_speed)
     }
 
-    /// Compute the monopole scattering coefficient $f_1$ (compressibility contrast).
+    /// Compute the monopole scattering coefficient $`f_1`$ (compressibility contrast).
     ///
     /// ```text
     /// f_1 = 1 - \frac{\kappa_p}{\kappa_0}
@@ -94,7 +94,7 @@ impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
         one::<T>() - (self.particle_compressibility() / self.fluid_compressibility())
     }
 
-    /// Compute the dipole scattering coefficient $f_2$ (density contrast).
+    /// Compute the dipole scattering coefficient $`f_2`$ (density contrast).
     ///
     /// ```text
     /// f_2 = \frac{2(\rho_p - \rho_0)}{2\rho_p + \rho_0}
@@ -124,10 +124,10 @@ impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
     /// Compute the Primary Acoustic Radiation Force (ARF) in a 1D standing wave.
     ///
     /// Evaluates the analytical gradient of the potential well:
-    /// $F_x(x) = 4\pi \Phi a^3 k E_{ac} \sin(2kx)$
+    /// $`F_x(x)` = 4\pi \Phi a^3 k E_{ac} \sin(2kx)$
     ///
     /// # Arguments
-    /// * `pressure_amplitude` - $p_a$ Peak acoustic pressure \[Pa]
+    /// * `pressure_amplitude` - $`p_a`$ Peak acoustic pressure \[Pa]
     /// * `frequency` - $f$ driving frequency \[Hz]
     /// * `x` - Spatial coordinate along wave axis \[m]
     #[inline]
@@ -156,7 +156,7 @@ mod tests {
     use eunomia::assert_relative_eq;
 
     /// Theorem: Solid particles (like cells) in water move to pressure nodes,
-    /// meaning $\Phi > 0$. Microbubbles ($\rho_p \ll \rho_0, \kappa_p \gg \kappa_0$)
+    /// meaning $\Phi > 0$. Microbubbles ($\`rho_p` \ll \`rho_0`, \`kappa_p` \gg \`kappa_0`$)
     /// move to antinodes, meaning $\Phi < 0$ and strongly negative.
     #[test]
     fn thermodynamic_contrast_factor_signs() {
@@ -184,7 +184,7 @@ mod tests {
         );
     }
 
-    /// Force at pressure node x=0: F = 4πΦa³kE_ac·sin(0) = 0 exactly.
+    /// Force at pressure node x=0: F = `4πΦa³kE_ac·sin(0)` = 0 exactly.
     #[test]
     fn force_at_pressure_node_is_zero() {
         let rbc = GorkovPotential::<f64>::typical_rbc();
@@ -193,8 +193,8 @@ mod tests {
     }
 
     /// Analytical f1 and f2 for RBC in plasma.
-    /// f1 = 1 − κ_p/κ_0 = 1 − (ρ₀c₀²)/(ρ_pc_p²)
-    /// f2 = 2(ρ_p − ρ₀)/(2ρ_p + ρ₀)
+    /// f1 = 1 − `κ_p/κ_0` = 1 − (`ρ₀c₀²)/(ρ_pc_p²`)
+    /// f2 = `2(ρ_p` − `ρ₀)/(2ρ_p` + ρ₀)
     #[test]
     fn f1_f2_analytical_values() {
         let rbc = GorkovPotential::<f64>::typical_rbc();

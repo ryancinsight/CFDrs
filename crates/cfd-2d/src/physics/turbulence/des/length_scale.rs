@@ -3,14 +3,14 @@
 //! Contains the length scale computation methods for DES97, DDES, and IDDES variants.
 //!
 //! # DES97
-//! L_DES = min(L_RANS, C_DES * Δ)
+//! `L_DES` = `min(L_RANS`, `C_DES` * Δ)
 //!
 //! # DDES (Spalart et al. 2006)
-//! Uses shielding function: f_d = 1 - tanh[(8 r_d)^3]
-//! where r_d = (ν_t + ν) / (κ² d_w² S)
+//! Uses shielding function: `f_d` = 1 - tanh[(8 `r_d)^3`]
+//! where `r_d` = (`ν_t` + ν) / (κ² `d_w²` S)
 //!
 //! # IDDES (Shur et al. 2008)
-//! Combines DDES shielding with WMLES capability via blending function f_B.
+//! Combines DDES shielding with WMLES capability via blending function `f_B`.
 
 use super::{DESVariant, DetachedEddySimulation};
 use leto::Array2;

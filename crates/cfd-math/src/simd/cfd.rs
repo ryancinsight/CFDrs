@@ -8,6 +8,14 @@
 //! - Zero-overhead fallback on unsupported architectures
 //! - Integration with existing CFD solver pipeline
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use moirai::prelude::{ParallelSlice, ParallelSliceMut};
@@ -20,6 +28,7 @@ pub struct CfdSimdOps<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CfdSimdOps<T> {
     /// Create new CFD SIMD operations handler
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -210,6 +219,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
     }
 
     /// Vectorized array operations for CFD fields
+    #[must_use]
     pub fn field_operations_simd(&self) -> CfdFieldOps<T> {
         CfdFieldOps {
             _phantom: std::marker::PhantomData,

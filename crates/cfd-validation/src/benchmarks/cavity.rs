@@ -110,7 +110,7 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
         }
     }
 
-    /// DEPRECATED: use ghia_u_centerline or ghia_v_centerline
+    /// DEPRECATED: use `ghia_u_centerline` or `ghia_v_centerline`
     pub fn ghia_reference_data(&self, re: T) -> BenchmarkResult<T> {
         let mut result = BenchmarkResult::new("Ghia et al. Reference");
         let data = self.ghia_u_centerline(re);

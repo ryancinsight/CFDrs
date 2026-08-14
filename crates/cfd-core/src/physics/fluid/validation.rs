@@ -187,7 +187,7 @@ pub fn validate_temperature<T: RealField + FloatElement + Copy>(
 ///
 /// # Errors
 ///
-/// Returns `Error::InvalidInput` if pressure is non-positive or exceeds 1 GPa.
+/// Returns `Error::InvalidInput` if pressure is non-positive or exceeds 1 `GPa`.
 pub fn validate_pressure<T: RealField + FloatElement + Copy>(pressure: T) -> Result<(), Error> {
     if pressure <= <T as NumericElement>::ZERO {
         return Err(Error::InvalidInput("Pressure must be positive".to_string()));

@@ -2,6 +2,14 @@
 //!
 //! Implements convergence analysis following Richardson (1911) and Roache (1998) methodologies.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::scalar;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, RealField};

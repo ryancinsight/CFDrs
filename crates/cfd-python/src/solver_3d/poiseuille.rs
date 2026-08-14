@@ -1,5 +1,7 @@
 //! 3D Poiseuille flow (pipe flow) `PyO3` wrapper.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 

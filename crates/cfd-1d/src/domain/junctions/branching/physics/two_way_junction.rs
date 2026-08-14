@@ -38,7 +38,7 @@ use super::two_way_solution::TwoWayBranchSolution;
 ///
 /// - Huo & Kassab (2012): Validated branching diameter and area ratios
 /// - Fung (1993): Branch-junction pressure losses in biological networks
-/// - Murray's Law: D_0^3 = D_1^3 + D_2^3
+/// - Murray's Law: `D_0^3` = `D_1^3` + `D_2^3`
 #[derive(Debug, Clone)]
 pub struct TwoWayBranchJunction<T: CfdScalar + Copy> {
     /// Parent channel (incoming flow)
@@ -47,7 +47,7 @@ pub struct TwoWayBranchJunction<T: CfdScalar + Copy> {
     pub daughter1: Channel<T>,
     /// Second daughter channel (outgoing)
     pub daughter2: Channel<T>,
-    /// Flow-split seed or prescribed ratio: Q_1 / (Q_1 + Q_2)
+    /// Flow-split seed or prescribed ratio: `Q_1` / (`Q_1` + `Q_2`)
     ///
     /// `solve()` uses this value as the initial bracket refinement seed for the
     /// pressure-balanced bifurcation solve. Use `solve_with_prescribed_split()`
@@ -161,7 +161,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
         }
     }
 
-    /// Validate the two-way branch satisfies Murray's law (D_0^3 = D_1^3 + D_2^3)
+    /// Validate the two-way branch satisfies Murray's law (`D_0^3` = `D_1^3` + `D_2^3`)
     ///
     /// Returns deviation from Murray's law as a fraction:
     /// ```text
@@ -212,7 +212,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
                         |state| state.dynamic_viscosity.into_base(),
                     )
                 },
-                |value| value.into_base(),
+                aequitas::Quantity::into_base,
             )
     }
 

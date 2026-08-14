@@ -18,8 +18,8 @@ use leto_ops::{
 ///
 /// # Arguments
 /// * `a` - Sparse matrix in CSR format
-/// * `x` - Input vector (must have length = a.ncols())
-/// * `y` - Output vector (must have length = a.nrows(), will be overwritten)
+/// * `x` - Input vector (must have length = `a.ncols()`)
+/// * `y` - Output vector (must have length = `a.nrows()`, will be overwritten)
 ///
 /// # Panics
 /// Panics if vector dimensions don't match matrix dimensions
@@ -111,6 +111,7 @@ where
 /// Multiplies two CSR matrices and returns the result in CSR format.
 /// Delegates to [`try_sparse_sparse_mul`] and panics on invalid inputs, matching
 /// the pre-existing infallible API contract.
+#[must_use]
 pub fn sparse_sparse_mul<T>(a: &CsrMatrix<T>, b: &CsrMatrix<T>) -> CsrMatrix<T>
 where
     T: RealField + Copy + LetoScalar,

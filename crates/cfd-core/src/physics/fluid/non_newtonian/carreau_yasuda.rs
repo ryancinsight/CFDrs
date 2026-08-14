@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// Carreau-Yasuda fluid model
 ///
 /// Common model for blood rheology.
-/// μ = μ_inf + (μ_0 - μ_inf) * [1 + (λ * γ̇)^a ]^((n-1)/a)
+/// μ = `μ_inf` + (`μ_0` - `μ_inf`) * [1 + (λ * γ̇)^a ]^((n-1)/a)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CarreauYasuda<T: RealField + Copy> {
     /// Fluid name
@@ -24,7 +24,7 @@ pub struct CarreauYasuda<T: RealField + Copy> {
     pub density: MassDensity<T>,
     /// Zero-shear viscosity μ₀ [Pa·s]
     pub viscosity_zero: DynamicViscosity<T>,
-    /// Infinite-shear viscosity μ_inf [Pa·s]
+    /// Infinite-shear viscosity `μ_inf` [Pa·s]
     pub viscosity_inf: DynamicViscosity<T>,
     /// Relaxation time λ \[s]
     pub lambda: Time<T>,
@@ -84,6 +84,7 @@ impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
     }
 
     /// Standard blood parameters (approximate)
+    #[must_use]
     pub fn blood() -> Self {
         Self::new(
             "Blood".to_string(),

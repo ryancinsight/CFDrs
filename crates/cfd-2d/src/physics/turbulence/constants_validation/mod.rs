@@ -6,7 +6,7 @@
 //! - Documents uncertainty bounds for each constant
 //!
 //! References:
-//! - Moser, Kim & Mansour (1999): DNS channel flow Re_τ = 590
+//! - Moser, Kim & Mansour (1999): DNS channel flow `Re_τ` = 590
 //! - Pope (2000): Turbulence modeling requirements
 //! - Wilcox (2008): Uncertainty quantification for turbulence constants
 //!
@@ -14,11 +14,16 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
+
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
 
 mod dns_database;
 mod sensitivity;
@@ -57,6 +62,7 @@ impl<T: RealField + Copy> Default for TurbulenceConstantsValidator<T> {
 
 impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
     /// Create new validator with DNS database
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

@@ -1,4 +1,4 @@
-//! Bifurcation-based composite presets (splits=2 wrappers around n_furcation).
+//! Bifurcation-based composite presets (splits=2 wrappers around `n_furcation`).
 
 use super::n_furcation::{n_furcation_serpentine_rect, n_furcation_venturi_rect};
 use crate::domain::model::NetworkBlueprint;

@@ -222,7 +222,7 @@ pub struct ManufacturedHypersonic<T: RealField + Copy> {
     pub prandtl: T,
     /// Ratio of specific heats
     pub gamma: T,
-    /// Wall temperature ratio (T_wall/T_inf)
+    /// Wall temperature ratio (`T_wall/T_inf`)
     pub twall_ratio: T,
     /// Amplitude for perturbations
     pub amplitude: T,

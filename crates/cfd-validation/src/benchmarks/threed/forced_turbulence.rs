@@ -247,6 +247,7 @@ pub struct ForcedTurbulenceBenchmark3D {
 
 impl ForcedTurbulenceBenchmark3D {
     /// Create a new stationary forced turbulence benchmark.
+    #[must_use]
     pub fn new(config: ForcedTurbulenceBenchmarkConfig) -> Self {
         Self { config }
     }

@@ -10,6 +10,14 @@
 //! | `error_estimators`  | Richardson, adjoint, residual, smoothness estimators |
 //! | `indicators`        | Feature-based and physics-based refinement indicators|
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod error_estimators;
 mod indicators;
 
@@ -115,6 +123,7 @@ pub struct RefinementStep {
 
 impl AdaptiveMeshRefinement {
     /// Create new AMR manager
+    #[must_use]
     pub fn new(nx: usize, ny: usize, criteria: RefinementCriteria) -> Self {
         Self {
             refinement_levels: DMatrix::zeros(nx, ny),
@@ -309,11 +318,13 @@ impl AdaptiveMeshRefinement {
     }
 
     /// Get current refinement levels
+    #[must_use]
     pub fn refinement_levels(&self) -> &DMatrix<u32> {
         &self.refinement_levels
     }
 
     /// Get refinement history
+    #[must_use]
     pub fn refinement_history(&self) -> &[RefinementStep] {
         &self.refinement_history
     }
@@ -325,6 +336,7 @@ impl AdaptiveMeshRefinement {
     }
 
     /// Estimate memory usage of refined mesh
+    #[must_use]
     pub fn estimate_memory_usage(&self) -> usize {
         let total_cells = self.count_total_cells();
         // Assume 8 bytes per value (f64) and 5 values per cell (typical CFD variables)
@@ -335,6 +347,7 @@ impl AdaptiveMeshRefinement {
 /// Factory for common refinement criteria
 impl RefinementCriteria {
     /// Create gradient-based refinement criterion
+    #[must_use]
     pub fn gradient(threshold: f64, min_level: u32, max_level: u32) -> Self {
         Self::Gradient {
             threshold,
@@ -344,6 +357,7 @@ impl RefinementCriteria {
     }
 
     /// Create error-based refinement criterion
+    #[must_use]
     pub fn error_estimate(threshold: f64, min_level: u32, max_level: u32) -> Self {
         Self::ErrorEstimate {
             threshold,
@@ -353,6 +367,7 @@ impl RefinementCriteria {
     }
 
     /// Create shock wave refinement criterion
+    #[must_use]
     pub fn shock_waves(min_level: u32, max_level: u32) -> Self {
         Self::PhysicsBased {
             phenomena: vec![PhysicsPhenomena::ShockWaves],
@@ -362,6 +377,7 @@ impl RefinementCriteria {
     }
 
     /// Create boundary layer refinement criterion
+    #[must_use]
     pub fn boundary_layers(wall_distance: f64, min_level: u32, max_level: u32) -> Self {
         Self::PhysicsBased {
             phenomena: vec![PhysicsPhenomena::BoundaryLayers { wall_distance }],
@@ -371,6 +387,7 @@ impl RefinementCriteria {
     }
 
     /// Create vortex refinement criterion
+    #[must_use]
     pub fn vortices(vorticity_threshold: f64, min_level: u32, max_level: u32) -> Self {
         Self::PhysicsBased {
             phenomena: vec![PhysicsPhenomena::Vortices {
@@ -382,6 +399,7 @@ impl RefinementCriteria {
     }
 
     /// Create feature-based refinement criterion
+    #[must_use]
     pub fn feature_based(feature_name: &str, min_level: u32, max_level: u32) -> Self {
         Self::FeatureBased {
             feature_name: feature_name.to_string(),

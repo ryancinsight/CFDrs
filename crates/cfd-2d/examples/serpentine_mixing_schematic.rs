@@ -14,6 +14,11 @@
 //! Run with:
 //! `cargo run -p cfd-2d --example serpentine_mixing_schematic`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::serpentine_flow::{
     AdvectionDiffusionMixing, SerpentineGeometry, SerpentineSolver2D,

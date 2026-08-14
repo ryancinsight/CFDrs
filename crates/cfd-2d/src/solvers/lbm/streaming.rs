@@ -6,14 +6,14 @@
 //! # Theorem — Streaming Mass Conservation
 //!
 //! **Statement**: The pull-scheme streaming step preserves total lattice mass exactly:
-//! $\sum_{i,j,q} f_q^{t+1}(i,j) = \sum_{i,j,q} f_q^t(i,j)$.
+//! $\sum_{i,j,q} `f_q^{t+1}(i,j)` = \sum_{i,j,q} `f_q^t(i,j)`$.
 //!
 //! **Proof**:
 //!
-//! 1. The pull scheme sets $f_q^{t+1}(i,j) = f_q^t(i - e_{q,x},\; j - e_{q,y})$, with
+//! 1. The pull scheme sets $`f_q^{t+1}(i,j)` = `f_q^t(i` - e_{q,x},\; j - e_{q,y})$, with
 //!    periodic wrap. This is a *permutation* of the source values.
 //! 2. A permutation preserves the multiset of values and hence their sum.
-//! 3. Therefore, $\sum_{i,j,q} f_q^{t+1} = \sum_{i,j,q} f_q^t$. □
+//! 3. Therefore, $\sum_{i,j,q} `f_q^{t+1`} = \sum_{i,j,q} `f_q^t`$. □
 //!
 //! # Theorem — No-Slip Bounce-Back Conservation
 //!
@@ -21,9 +21,9 @@
 //! $u(\mathbf{x}_w) = 0$ to second-order accuracy (half-way bounce-back).
 //!
 //! **Proof sketch**:
-//! Bounce-back reverses $f_{\bar{q}}(\mathbf{x}_w) \leftarrow f_q(\mathbf{x}_w)$.
-//! The macroscopic velocity $u = \sum_q e_q f_q / \rho$ involves equal and opposite
-//! $e_q$ terms for each $(q, \bar{q})$ pair, whose contributions cancel exactly,
+//! Bounce-back reverses $f_{\bar{q}}(\mathbf{x}_w) \leftarrow `f_q(\mathbf{x`}_w)$.
+//! The macroscopic velocity $u = \`sum_q` `e_q` `f_q` / \rho$ involves equal and opposite
+//! $`e_q`$ terms for each $(q, \bar{q})$ pair, whose contributions cancel exactly,
 //! giving $u = 0$. □
 
 use crate::scalar::zero;

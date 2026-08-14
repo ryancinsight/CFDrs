@@ -61,13 +61,13 @@ use std::collections::HashMap;
 /// Mixer type enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MixerType {
-    /// T-junction mixer (K_loss = 1.5, Idelchik §7.23)
+    /// T-junction mixer (`K_loss` = 1.5, Idelchik §7.23)
     TJunction,
-    /// Y-junction mixer (K_loss = 0.9, Idelchik §7.27)
+    /// Y-junction mixer (`K_loss` = 0.9, Idelchik §7.27)
     YJunction,
-    /// Serpentine mixer (K_loss = 0.3 × n_bends, White 2003)
+    /// Serpentine mixer (`K_loss` = 0.3 × `n_bends`, White 2003)
     Serpentine,
-    /// Herringbone (staggered-groove) mixer (K_loss = 0.5 × n_bends, Stroock 2002)
+    /// Herringbone (staggered-groove) mixer (`K_loss` = 0.5 × `n_bends`, Stroock 2002)
     Herringbone,
 }
 

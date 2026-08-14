@@ -97,6 +97,7 @@ pub struct PhaseSeparationResult {
 ///
 /// # Returns
 /// Phase separation result with cell fraction and daughter hematocrit.
+#[must_use]
 pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSeparationResult {
     checked_pries_phase_separation(fqb, params)
         .expect("Pries phase-separation inputs must satisfy the checked physical envelope")
@@ -226,6 +227,7 @@ fn validate_pries_inputs(fqb: f64, params: &PriesPhaseParams) -> Result<()> {
 /// The modification scales X0 by the cell-size ratio: larger cells have
 /// smaller effective X0 (they can't fit in the near-wall plasma layer
 /// as easily as RBCs).
+#[must_use]
 pub fn pries_phase_separation_cell_type(
     fqb: f64,
     params: &PriesPhaseParams,
@@ -290,7 +292,8 @@ fn inv_logit(x: f64) -> f64 {
 /// - WBCs: intermediate diameter (11 um), moderate stiffness (1.2)
 /// - RBCs: baseline diameter (8 um), stiffness factor 1.0
 ///
-/// Returns (ctc_fraction, wbc_fraction, rbc_fraction) for the alpha daughter.
+/// Returns (`ctc_fraction`, `wbc_fraction`, `rbc_fraction`) for the alpha daughter.
+#[must_use]
 pub fn three_population_phase_separation(
     fqb: f64,
     params: &PriesPhaseParams,

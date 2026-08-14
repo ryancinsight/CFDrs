@@ -1,5 +1,10 @@
 //! Tests for SIMD operations backed by hermes-simd
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 #[cfg(test)]
 use super::*;
 use eunomia::assert_relative_eq;

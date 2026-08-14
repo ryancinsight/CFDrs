@@ -3,6 +3,11 @@
 //! Tests compressible flows, shock capturing, hypersonic flows,
 //! and turbulence-chemistry interactions.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::manufactured::advanced_physics::{
     ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing,
     ManufacturedTCI,

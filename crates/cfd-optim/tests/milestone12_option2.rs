@@ -10,6 +10,11 @@
 //! 5. FDA venturi transient shear compliance (≤ 300 Pa for ≤ 0.015 s)
 //! 6. EvaluatedPool ranking for Option 2 is consistent
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use std::collections::HashSet;
 
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};

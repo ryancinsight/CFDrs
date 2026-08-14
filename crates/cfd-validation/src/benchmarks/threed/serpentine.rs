@@ -3,6 +3,21 @@
 //! Validates 3D Dean vortices and secondary flow effects in
 //! sinuous microchannels with blood rheology.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};

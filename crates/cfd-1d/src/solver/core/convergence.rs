@@ -9,7 +9,7 @@
 //! ‖ A x_k  −  b ‖₂  /  ‖ b ‖₂  <  ε
 //! ```
 //!
-//! This is the standard stopping criterion used by CG, BiCGSTAB, and GMRES.
+//! This is the standard stopping criterion used by CG, `BiCGSTAB`, and GMRES.
 //!
 //! ## Theorem: Picard / Non-linear Convergence (Fixed-Point)
 //!
@@ -56,6 +56,14 @@
 //!   SIAM. §5.1 (stopping criteria), §6.3 (Picard/fixed-point).
 //! - Kelley, C. T. (1995). *Iterative Methods for Linear and Nonlinear Equations.*
 //!   SIAM. Ch. 1.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;

@@ -14,6 +14,7 @@ pub struct PlateletActivation<T: FloatElement + Copy> {
 
 impl<T: FloatElement + Copy> PlateletActivation<T> {
     /// Create standard platelet activation model
+    #[must_use]
     pub fn standard() -> Self {
         Self {
             threshold: <T as FloatElement>::from_f64(30.0),
@@ -51,6 +52,7 @@ pub struct BloodTrauma {
 
 impl BloodTrauma {
     /// Classify blood trauma severity
+    #[must_use]
     pub fn severity(&self) -> BloodTraumaSeverity {
         if self.hemolysis_level < 10.0 && self.platelet_activation < 5.0 {
             BloodTraumaSeverity::Minimal
@@ -64,6 +66,7 @@ impl BloodTrauma {
     }
 
     /// Check if device meets FDA guidance
+    #[must_use]
     pub fn meets_fda_guidance(&self) -> bool {
         self.hemolysis_level < 10.0
     }

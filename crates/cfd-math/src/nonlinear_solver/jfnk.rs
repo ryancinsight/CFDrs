@@ -5,13 +5,13 @@
 //! Let $F: \mathbb{R}^n \to \mathbb{R}^n$ be continuously differentiable at $x^*$
 //! with $F(x^*) = 0$ and $J(x^*) = \nabla F(x^*)$ invertible. Then Newton's method
 //!
-//! $$ x_{k+1} = x_k - J(x_k)^{-1} F(x_k) $$
+//! $$ x_{k+1} = `x_k` - J(x_k)^{-1} `F(x_k)` $$
 //!
 //! converges quadratically in a neighbourhood of $x^*$:
 //!
-//! $$ \|e_{k+1}\| \leq C \|e_k\|^2, \quad C = \tfrac{1}{2} \|J(x^*)^{-1}\| \|F''\|_\infty $$
+//! $$ \|e_{k+1}\| \leq C \|`e_k`\|^2, \quad C = \tfrac{1}{2} \|J(x^*)^{-1}\| \|F''\|_\infty $$
 //!
-//! **JFNK abandons the explicit Jacobian**: instead, the linear system $J(x_k) \delta x = -F(x_k)$
+//! **JFNK abandons the explicit Jacobian**: instead, the linear system $`J(x_k)` \delta x = -`F(x_k)`$
 //! is solved by GMRES/FGMRES using only matrix-vector products $J(x) v$.
 //!
 //! # Theorem — Finite-Difference Jacobian-Vector Product (Brown & Saad 1990, Eq. 2.2)
@@ -25,9 +25,9 @@
 //! to balance truncation error $O(\varepsilon)$ against cancellation error
 //! $O(\varepsilon_{\rm mach} / \varepsilon)$, giving total error $O(\varepsilon_{\rm mach}^{1/2})$.
 //!
-//! **Proof of optimality**: Let $\delta_T = L\varepsilon$ (truncation error for Lipschitz $F'$)
-//! and $\delta_C = \varepsilon_{\rm mach} \|F(x)\| / \varepsilon$ (cancellation error).
-//! Total error $\delta_T + \delta_C$ is minimised at $\varepsilon^* = \sqrt{\varepsilon_{\rm mach} \|F(x)\| / L}$.
+//! **Proof of optimality**: Let $\`delta_T` = L\varepsilon$ (truncation error for Lipschitz $F'$)
+//! and $\`delta_C` = \varepsilon_{\rm mach} \|F(x)\| / \varepsilon$ (cancellation error).
+//! Total error $\`delta_T` + \`delta_C`$ is minimised at $\varepsilon^* = \sqrt{\varepsilon_{\rm mach} \|F(x)\| / L}$.
 //! With $\|F(x)\| \approx 1 + \|x\|$ near convergence this yields the formula above.
 //!
 //! # Theorem — Inexact Newton Forcing Terms (Eisenstat & Walker 1996, Eq. 2.6)
@@ -35,10 +35,10 @@
 //! The inner GMRES solve need not be solved to high accuracy early in the iteration.
 //! The **Eisenstat-Walker** (EW2) forcing term:
 //!
-//! $$ \eta_k = \left| \frac{\|F(x_k)\| - \|F(x_{k-1}) + J(x_{k-1})\delta x_{k-1}\|}{\|F(x_{k-1})\|} \right| $$
+//! $$ \`eta_k` = \left| \frac{\|`F(x_k)`\| - \|F(x_{k-1}) + J(x_{k-1})\delta x_{k-1}\|}{\|F(x_{k-1})\|} \right| $$
 //!
-//! bounds $\eta_k \in [\eta_{\min}, \eta_{\max}]$ and guarantees quadratic-rate preservation:
-//! if $\eta_k \leq C \|F(x_k)\|$ for some $C > 0$, the outer Newton step still superconverges.
+//! bounds $\`eta_k` \in [\eta_{\min}, \eta_{\max}]$ and guarantees quadratic-rate preservation:
+//! if $\`eta_k` \leq C \|`F(x_k)`\|$ for some $C > 0$, the outer Newton step still superconverges.
 //!
 //! **Reference**: Eisenstat, S.C. & Walker, H.F. (1996). Choosing the forcing terms in an
 //! inexact Newton method. *SIAM J. Sci. Comput.* 17(1):16–32.
@@ -51,6 +51,14 @@
 //!   *Doklady Akademii Nauk SSSR* 59(7):1237–1240.
 //! - Knoll, D.A. & Keyes, D.E. (2004). Jacobian-free Newton-Krylov methods: A survey.
 //!   *J. Comput. Phys.* 193(2):357–397.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -111,18 +119,18 @@ pub struct JfnkConvergence<T: Copy> {
     pub converged: bool,
 }
 
-/// Jacobian-free operator: applies $J(x) v \approx [F(x + \varepsilon v) - F(x_0)] / \varepsilon$
+/// Jacobian-free operator: applies $J(x) v \approx [F(x + \varepsilon v) - `F(x_0)`] / \varepsilon$
 ///
-/// Internally caches $F(x_0)$ so that repeated Krylov iterations in one Newton step
+/// Internally caches $`F(x_0)`$ so that repeated Krylov iterations in one Newton step
 /// share the same pivot evaluation (one function call per Newton step, not per Krylov step).
 struct JvpOperator<'a, T, F>
 where
     T: RealField + Copy + FloatElement,
     F: Fn(&Array1<T>) -> Array1<T>,
 {
-    /// Current Newton point $x_k$ (pivot)
+    /// Current Newton point $`x_k`$ (pivot)
     x_pivot: &'a Array1<T>,
-    /// $F(x_k)$ — pre-computed residual at pivot
+    /// $`F(x_k)`$ — pre-computed residual at pivot
     f_pivot: &'a Array1<T>,
     /// The nonlinear function $F$
     func: &'a F,
@@ -181,7 +189,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
         }
     }
 
-    /// Solve $F(x) = 0$ with initial guess $x_0$ using JFNK.
+    /// Solve $F(x) = 0$ with initial guess $`x_0`$ using JFNK.
     ///
     /// Returns the solution and convergence diagnostics.
     pub fn solve<F>(&self, func: F, mut x: Array1<T>) -> Result<(Array1<T>, JfnkConvergence<T>)>
@@ -277,13 +285,13 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
     /// Inner GMRES solve for $J(x) \delta x = b$ using matrix-free Jacobian-vector products.
     ///
     /// Implements the restarted GMRES(m) algorithm (Saad & Schultz 1986) with:
-    /// - Arnoldi iteration building an orthonormal basis $V_m$ for the Krylov subspace
+    /// - Arnoldi iteration building an orthonormal basis $`V_m`$ for the Krylov subspace
     /// - Least-squares minimization via Givens rotations on the Hessenberg matrix
     ///
     /// # Theorem — GMRES Monotone Residual Decrease (Saad & Schultz 1986, Thm 2.1)
     ///
-    /// At step $k$, GMRES minimizes ‖b − J xₖ‖₂ over all $x_k \in x_0 + \mathcal{K}_k(J, r_0)$.
-    /// The residual sequence is non-increasing: ‖r_{k+1}‖ ≤ ‖r_k‖.
+    /// At step $k$, GMRES minimizes ‖b − J xₖ‖₂ over all $`x_k` \in `x_0` + \mathcal{K}_k(J, `r_0`)$.
+    /// The residual sequence is non-increasing: ‖r_{k+1}‖ ≤ ‖`r_k`‖.
     fn gmres_matrix_free<F>(
         &self,
         func: &F,
@@ -566,7 +574,7 @@ mod tests {
         }
     }
 
-    /// Verify JfnkSolver returns converged=true when initial guess is already a root.
+    /// Verify `JfnkSolver` returns converged=true when initial guess is already a root.
     #[test]
     fn test_jfnk_already_converged_initial_guess() {
         let func = |x: &Array1<f64>| vec(vec![x[0] - 1.0, x[1] - 2.0]);
@@ -578,7 +586,7 @@ mod tests {
         assert_eq!(conv.newton_iterations, 0);
     }
 
-    /// Verify EW forcing term stays in [eta_min, eta_max].
+    /// Verify EW forcing term stays in [`eta_min`, `eta_max`].
     #[test]
     fn test_jfnk_config_invariants() {
         let config = JfnkConfig::<f64>::default();

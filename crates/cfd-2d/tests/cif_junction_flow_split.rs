@@ -28,6 +28,11 @@
 //! reduces to `∇²u = (1/μ)∇p`, yielding `Q ∝ w³` for each branch.  The 2D
 //! SIMPLE solver reproduces this in the viscous-dominated regime.
 
+#![expect(
+    clippy::print_stderr,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_math::pressure_velocity::SIMPLEConfig;

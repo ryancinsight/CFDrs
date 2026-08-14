@@ -6,7 +6,7 @@ pub const PLASMA_VISCOSITY_37C: f64 = 0.00122;
 /// Reference: Fung (1993)
 pub const BLOOD_DENSITY: f64 = 1060.0;
 
-/// Zero-shear viscosity for normal blood (H_t = 45%) [Pa·s]
+/// Zero-shear viscosity for normal blood (`H_t` = 45%) [Pa·s]
 /// Reference: Cho & Kensey (1991)
 pub const ZERO_SHEAR_VISCOSITY: f64 = 0.056;
 
@@ -14,7 +14,7 @@ pub const ZERO_SHEAR_VISCOSITY: f64 = 0.056;
 /// Reference: Cho & Kensey (1991)
 pub const INFINITE_SHEAR_VISCOSITY: f64 = 0.00345;
 
-/// Yield stress for normal blood (H_t = 45%) \[Pa]
+/// Yield stress for normal blood (`H_t` = 45%) \[Pa]
 /// Reference: Merrill et al. (1969)
 pub const YIELD_STRESS: f64 = 0.0056;
 

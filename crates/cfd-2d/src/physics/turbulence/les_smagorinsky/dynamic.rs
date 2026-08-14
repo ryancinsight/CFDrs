@@ -3,8 +3,8 @@
 //! Implements Germano's dynamic procedure for computing the Smagorinsky
 //! constant locally based on resolved scales.
 //!
-//! The dynamic procedure solves: C_s^2 = <L_ij * M_ij> / <M_ij * M_ij>
-//! where L_ij is the Leonard tensor and M_ij is the resolved stress tensor.
+//! The dynamic procedure solves: `C_s^2` = <`L_ij` * `M_ij`> / <`M_ij` * `M_ij`>
+//! where `L_ij` is the Leonard tensor and `M_ij` is the resolved stress tensor.
 //!
 //! References:
 //! - Germano, M., et al. (1991). A dynamic subgrid-scale eddy viscosity model.
@@ -16,9 +16,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -31,19 +31,19 @@ use leto::Array2;
 /// Update dynamic Smagorinsky constant using Germano's procedure
 ///
 /// This implements the full dynamic procedure with proper test filtering,
-/// Leonard tensor computation, and least squares solution for C_s^2.
+/// Leonard tensor computation, and least squares solution for `C_s^2`.
 ///
 /// # Arguments
-/// * `dynamic_constant` - Matrix to store the computed C_s^2 values
+/// * `dynamic_constant` - Matrix to store the computed `C_s^2` values
 /// * `velocity_u` - x-velocity field
 /// * `velocity_v` - y-velocity field
 /// * `dx`, `dy` - grid spacing
 ///
 /// # Algorithm
 /// 1. Apply test filter to velocity field (α = 2)
-/// 2. Compute Leonard tensor L_ij = <û_i û_j> - <û>_i <û>_j
-/// 3. Compute resolved stress M_ij = |Ŝ| * |Ŝ| - α^2 * |S| * |S|
-/// 4. Solve C_s^2 = <L_ij * M_ij> / <M_ij * M_ij> (with averaging)
+/// 2. Compute Leonard tensor `L_ij` = <`û_i` `û_j`> - <û>_i <û>_j
+/// 3. Compute resolved stress `M_ij` = |Ŝ| * |Ŝ| - α^2 * |S| * |S|
+/// 4. Solve `C_s^2` = <`L_ij` * `M_ij`> / <`M_ij` * `M_ij`> (with averaging)
 pub fn update_dynamic_constant(
     dynamic_constant: &mut Array2<f64>,
     velocity_u: &Array2<f64>,
@@ -166,7 +166,7 @@ fn apply_box_filter(field: &Array2<f64>, filter_width: usize) -> Array2<f64> {
     filtered
 }
 
-/// Compute strain rate magnitude |S| = sqrt(2*S_ij*S_ij)
+/// Compute strain rate magnitude |S| = sqrt(2*`S_ij`*`S_ij`)
 ///
 /// This is the same function used in the Smagorinsky model.
 fn compute_strain_rate_magnitude(
@@ -179,10 +179,10 @@ fn compute_strain_rate_magnitude(
     compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
 }
 
-/// Compute Leonard tensor component L_ij
+/// Compute Leonard tensor component `L_ij`
 ///
 /// The Leonard tensor is defined as:
-/// L_ij = <û_i û_j> - <û>_i <û>_j
+/// `L_ij` = <`û_i` `û_j`> - <û>_i <û>_j
 ///
 /// where < > denotes test filtering, û are the grid-filtered velocities,
 /// and <û> are the test-filtered velocities.
@@ -213,6 +213,7 @@ fn compute_leonard_tensor_component(
 }
 
 /// Initialize dynamic constant field
+#[must_use]
 pub fn initialize_dynamic_constant(nx: usize, ny: usize, initial_value: f64) -> Array2<f64> {
     Array2::from_elem([nx, ny], initial_value)
 }
@@ -244,7 +245,7 @@ mod tests {
         assert_eq!(dynamic_constant.shape()[0], 10);
         assert_eq!(dynamic_constant.shape()[1], 10);
 
-        for &val in dynamic_constant.iter() {
+        for &val in &dynamic_constant {
             assert_relative_eq!(val, 0.15, epsilon = 1e-10);
         }
     }
@@ -277,7 +278,7 @@ mod tests {
         }
 
         // Check that all values remain within reasonable bounds
-        for &val in dynamic_constant.iter() {
+        for &val in &dynamic_constant {
             assert!(val >= 0.0);
             assert!(val <= 0.3); // Upper bound from implementation
         }

@@ -1,3 +1,11 @@
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stderr,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time};
 
 use super::physics::{CellTrackerConfig, VelocityFieldInterpolator};
@@ -19,6 +27,7 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
     }
 
     /// Trace cells through the velocity field.
+    #[must_use]
     pub fn trace_cells(
         &self,
         cells: &[TrackedCell],

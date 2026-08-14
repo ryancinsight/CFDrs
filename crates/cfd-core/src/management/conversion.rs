@@ -2,6 +2,14 @@
 //!
 //! Provides safe conversion between numeric types without panics
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use eunomia::{FloatElement, RealField};
 
 /// Safe conversion from `f64` to generic Atlas floating-point types.
@@ -14,12 +22,14 @@ pub trait SafeFromF64: RealField + FloatElement {
 
     /// Convert from `f64`.
     #[inline]
+    #[must_use]
     fn from_f64_or_zero(value: f64) -> Self {
         <Self as FloatElement>::from_f64(value)
     }
 
     /// Convert from `f64`.
     #[inline]
+    #[must_use]
     fn from_f64_or_one(value: f64) -> Self {
         <Self as FloatElement>::from_f64(value)
     }
@@ -40,6 +50,7 @@ impl<T> SafeFromF64 for T where T: RealField + FloatElement {}
 pub trait SafeFromI32: RealField + FloatElement {
     /// Convert from `i32`.
     #[inline]
+    #[must_use]
     fn from_i32_or_zero(value: i32) -> Self {
         <Self as FloatElement>::from_f64(f64::from(value))
     }
@@ -60,6 +71,7 @@ impl<T> SafeFromI32 for T where T: RealField + FloatElement {}
 pub trait SafeFromUsize: RealField + FloatElement {
     /// Convert from `usize`.
     #[inline]
+    #[must_use]
     fn from_usize_or_one(value: usize) -> Self {
         <Self as FloatElement>::from_f64(value as f64)
     }

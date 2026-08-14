@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 ///
 /// # Parameters
-/// - μ_0 = 0.056 Pa·s (zero-shear viscosity)
+/// - `μ_0` = 0.056 Pa·s (zero-shear viscosity)
 /// - μ_∞ = 0.00345 Pa·s (infinite-shear viscosity)
 /// - λ = 3.313 s (relaxation time)
 /// - n = 0.3568 (power-law index)
@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 pub struct CarreauYasudaBlood<T> {
     /// Blood density [kg/m³]
     pub density: MassDensity<T>,
-    /// Zero-shear viscosity μ_0 [Pa·s]
+    /// Zero-shear viscosity `μ_0` [Pa·s]
     pub zero_shear_viscosity: DynamicViscosity<T>,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
     pub infinite_shear_viscosity: DynamicViscosity<T>,
@@ -60,11 +60,12 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
     /// Create Carreau-Yasuda blood model with literature-validated parameters
     ///
     /// Uses parameters from Cho & Kensey (1991):
-    /// - μ_0 = 0.056 Pa·s
+    /// - `μ_0` = 0.056 Pa·s
     /// - μ_∞ = 0.00345 Pa·s
     /// - λ = 3.313 s
     /// - n = 0.3568
     /// - a = 2.0
+    #[must_use]
     pub fn normal_blood() -> Self {
         Self {
             density: MassDensity::from_base(<T as FloatElement>::from_f64(
@@ -141,7 +142,7 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
     /// ```
     ///
     /// # Limiting Behavior
-    /// - As γ̇ → 0: μ → μ_0 (zero-shear viscosity)
+    /// - As γ̇ → 0: μ → `μ_0` (zero-shear viscosity)
     /// - As γ̇ → ∞: μ → μ_∞ (infinite-shear viscosity)
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
         let one = <T as NumericElement>::ONE;

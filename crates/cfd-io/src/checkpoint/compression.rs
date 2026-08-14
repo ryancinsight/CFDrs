@@ -28,6 +28,7 @@ pub enum CompressionStrategy {
 
 impl CompressionStrategy {
     /// Get recommended compression for checkpoint size
+    #[must_use]
     pub fn recommended_for_size(size_bytes: usize) -> Self {
         if size_bytes > 10_000_000 {
             // > 10 MB: use compression
@@ -39,6 +40,7 @@ impl CompressionStrategy {
     }
 
     /// Get compression ratio estimate
+    #[must_use]
     pub fn estimated_ratio(&self) -> f64 {
         match self {
             Self::None => compression_ratios::NONE,

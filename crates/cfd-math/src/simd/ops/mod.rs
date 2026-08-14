@@ -16,6 +16,7 @@ pub struct SimdOps;
 impl SimdOps {
     /// Create a new SIMD operations handler.
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self
     }

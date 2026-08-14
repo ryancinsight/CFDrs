@@ -58,6 +58,7 @@ impl<T: CfdScalar> WomersleyFlow<T> {
 
     /// Create physiological blood flow parameters
     /// Typical values for human carotid artery
+    #[must_use]
     pub fn physiological_blood_flow() -> Self {
         Self {
             radius: Length::from_base(<T as FloatElement>::from_f64(4.0e-3)),
@@ -139,7 +140,7 @@ impl<T: CfdScalar> WomersleyFlow<T> {
     }
 
     /// Calculate wall shear stress at given time
-    /// τ_w = μ * (∂u/∂r)|_{r=R}
+    /// `τ_w` = μ * (∂u/∂r)|_{r=R}
     pub fn wall_shear_stress(&self, t: Time<T>) -> Pressure<T> {
         self.exact_profile().wall_shear_stress(t)
     }

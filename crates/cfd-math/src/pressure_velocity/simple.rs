@@ -6,9 +6,9 @@
 //! *International Journal of Heat and Mass Transfer*, 15(10), 1787–1806.
 //!
 //! ## Mathematical Invariant
-//! Under-relaxation factors α satisfy 0 < α ≤ 1. The product α_u · α_p should be
+//! Under-relaxation factors α satisfy 0 < α ≤ 1. The product `α_u` · `α_p` should be
 //! tuned such that the SIMPLE iteration converges monotonically:
-//! α_p ≈ 1 - α_u is the classical recommendation (Patankar 1980, §6.7).
+//! `α_p` ≈ 1 - `α_u` is the classical recommendation (Patankar 1980, §6.7).
 
 use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
@@ -23,11 +23,11 @@ pub struct SIMPLEConfig<T: RealField + Copy> {
     pub max_iterations: usize,
     /// Convergence tolerance on velocity residuals (L∞ norm)
     pub tolerance: T,
-    /// Under-relaxation factor for u- and v-momentum equations (0 < α_u ≤ 1)
+    /// Under-relaxation factor for u- and v-momentum equations (0 < `α_u` ≤ 1)
     pub alpha_u: T,
-    /// Under-relaxation factor for pressure correction (0 < α_p ≤ 1)
+    /// Under-relaxation factor for pressure correction (0 < `α_p` ≤ 1)
     pub alpha_p: T,
-    /// Under-relaxation factor for viscosity (0 < α_μ ≤ 1)
+    /// Under-relaxation factor for viscosity (0 < `α_μ` ≤ 1)
     pub alpha_mu: T,
     /// Non-Newtonian viscosity update every N outer iterations (1 = every iter)
     pub viscosity_update_interval: usize,
@@ -64,7 +64,7 @@ impl<T: RealField + Copy> SIMPLEConfig<T> {
     /// Construct with explicit parameters.
     ///
     /// # Panics
-    /// Panics if α_u or α_p are not in (0, 1].
+    /// Panics if `α_u` or `α_p` are not in (0, 1].
     #[must_use]
     pub fn new(
         max_iterations: usize,

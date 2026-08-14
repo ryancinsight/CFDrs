@@ -41,6 +41,14 @@
 //! This local shear rate dictates the apparent dynamic viscosity $\mu(\dot{\gamma})$
 //! for non-Newtonian fluids like blood during the Rayleigh-Plesset integration.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Frequency, Length, MassDensity, NumberDensity, Pressure, SurfaceTension,
     Time, Velocity,

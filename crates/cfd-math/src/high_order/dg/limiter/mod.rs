@@ -3,6 +3,14 @@
 //! This module provides various slope limiters that can be used to control
 //! oscillations in DG solutions, especially in the presence of shocks or discontinuities.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod weno;
 
 pub use weno::WENOLimiter;
@@ -62,6 +70,7 @@ impl Default for LimiterParams {
 
 impl LimiterParams {
     /// Create a new set of limiter parameters
+    #[must_use]
     pub fn new(limiter_type: LimiterType) -> Self {
         Self {
             limiter_type,
@@ -70,12 +79,14 @@ impl LimiterParams {
     }
 
     /// Set the TVB parameter
+    #[must_use]
     pub fn with_tvb_m(mut self, m: f64) -> Self {
         self.tvb_m = m;
         self
     }
 
     /// Set the WENO parameters
+    #[must_use]
     pub fn with_weno_params(mut self, epsilon: f64, p: f64) -> Self {
         self.weno_epsilon = epsilon;
         self.weno_p = p;
@@ -83,12 +94,14 @@ impl LimiterParams {
     }
 
     /// Set the adaptive flag
+    #[must_use]
     pub fn with_adaptive(mut self, adaptive: bool) -> Self {
         self.adaptive = adaptive;
         self
     }
 
     /// Set the tolerance for detecting troubled cells
+    #[must_use]
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
@@ -441,6 +454,7 @@ pub struct LimiterFactory;
 
 impl LimiterFactory {
     /// Create a new limiter
+    #[must_use]
     pub fn create(limiter_type: LimiterType) -> Box<dyn Limiter> {
         match limiter_type {
             LimiterType::None => Box::new(NoLimiter),

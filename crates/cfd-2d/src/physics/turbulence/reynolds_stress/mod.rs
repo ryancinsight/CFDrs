@@ -28,9 +28,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -52,11 +52,11 @@ pub use tensor::ReynoldsStressTensor;
 /// pressure-strain evaluation to dispatch to the correct kernel.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PressureStrainModel {
-    /// Linear return-to-isotropy (Rotta, 1951). Φ_ij = −C₁(ε/k) b_ij.
+    /// Linear return-to-isotropy (Rotta, 1951). `Φ_ij` = −C₁(ε/k) `b_ij`.
     LinearReturnToIsotropy,
     /// Quadratic slow + rapid (Speziale, Sarkar & Gatski, 1991).
     Quadratic,
-    /// Full SSG model: non-linear in b_ij with strain and vorticity coupling.
+    /// Full SSG model: non-linear in `b_ij` with strain and vorticity coupling.
     SSG,
 }
 
@@ -68,7 +68,7 @@ mod tests {
     use eunomia::assert_relative_eq;
     use leto::Array2;
 
-    /// DNS channel flow validation (Moser et al., 1999) at Re_τ = 590.
+    /// DNS channel flow validation (Moser et al., 1999) at `Re_τ` = 590.
     #[test]
     fn test_dns_channel_flow_validation() {
         let model = ReynoldsStressModel::<f64>::new(40, 40);

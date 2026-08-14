@@ -9,6 +9,11 @@
 //! 2. **Stokes Flow**: Validates pressure-driven flow in a channel
 //! 3. **Divergence-Free Constraint**: Verifies mass conservation
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };

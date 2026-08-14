@@ -14,6 +14,11 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example hemolysis_serpentine_analysis`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, Velocity};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};

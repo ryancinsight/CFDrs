@@ -3,6 +3,11 @@
 //! This module provides tools to verify that CFD simulations satisfy fundamental
 //! conservation laws such as mass, momentum, and energy conservation.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use crate::scalar;
 use eunomia::FloatElement;
 use eunomia::NumericElement;

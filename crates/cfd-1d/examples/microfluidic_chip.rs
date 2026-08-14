@@ -8,6 +8,11 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, Pressure};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};

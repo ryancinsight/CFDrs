@@ -265,7 +265,7 @@ mod tests {
         // If neither focuses (κ ≤ 0.07) both are None — test is vacuously satisfied
     }
 
-    /// lateral_position should be consistent with x_tilde_eq × (height/2)
+    /// `lateral_position` should be consistent with `x_tilde_eq` × (height/2)
     #[test]
     fn lateral_position_consistent_with_x_tilde() {
         let wbc = CellProperties::white_blood_cell();

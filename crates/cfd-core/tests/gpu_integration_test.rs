@@ -1,5 +1,14 @@
 //! Integration tests for GPU compute functionality
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 #[cfg(feature = "gpu")]
 mod gpu_tests {
     use cfd_core::compute::gpu::kernels::{

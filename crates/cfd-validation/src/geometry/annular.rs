@@ -34,6 +34,7 @@ impl<T: RealField + Copy + FloatElement> AnnularDomain<T> {
     }
 
     /// Create a unit annular domain (inner radius 0.5, outer radius 1.0)
+    #[must_use]
     pub fn unit_annulus() -> Self {
         Self::new(
             scalar::zero(),

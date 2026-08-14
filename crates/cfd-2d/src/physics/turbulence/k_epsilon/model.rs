@@ -21,7 +21,7 @@ use leto::geometry::Vector2;
 /// Supports both the standard k-ε formulation (Launder & Spalding 1974) and the
 /// Realizable k-ε variant (Shih, Zhu & Lumley 1995).
 ///
-/// When `use_realizable` is `true`, the fixed constant C_mu = 0.09 is replaced by
+/// When `use_realizable` is `true`, the fixed constant `C_mu` = 0.09 is replaced by
 /// a strain-rate-dependent formulation that prevents unphysical over-prediction of
 /// turbulent viscosity in stagnation regions:
 ///
@@ -38,21 +38,21 @@ pub struct KEpsilonModel<T: RealField> {
     pub(crate) nx: usize,
     /// Grid Y dimension.
     pub(crate) ny: usize,
-    /// Model coefficient C_μ.
+    /// Model coefficient `C_μ`.
     pub(crate) c_mu: T,
-    /// Model coefficient C_ε1.
+    /// Model coefficient `C_ε1`.
     pub(crate) c1_epsilon: T,
-    /// Model coefficient C_ε2.
+    /// Model coefficient `C_ε2`.
     pub(crate) c2_epsilon: T,
     /// Turbulent Prandtl number for k.
     pub(crate) sigma_k: T,
     /// Turbulent Prandtl number for ε.
     pub(crate) sigma_epsilon: T,
     /// When `true`, use the Realizable k-ε formulation (Shih et al. 1995)
-    /// with a strain-rate-dependent C_mu instead of the fixed constant.
+    /// with a strain-rate-dependent `C_mu` instead of the fixed constant.
     pub(crate) use_realizable: bool,
     /// When `true`, use the Kato-Launder (1993) vorticity-strain production
-    /// term P_k = ν_t · S · Ω instead of the standard P_k = ν_t · S².
+    /// term `P_k` = `ν_t` · S · Ω instead of the standard `P_k` = `ν_t` · S².
     pub(crate) use_kato_launder: bool,
     /// Scratch buffer for k values at previous timestep (avoids per-update allocation).
     pub(crate) k_scratch: Vec<T>,
@@ -61,7 +61,7 @@ pub struct KEpsilonModel<T: RealField> {
 }
 
 impl<T: RealField> KEpsilonModel<T> {
-    /// Create a new standard k-ε model (C_mu = 0.09 fixed).
+    /// Create a new standard k-ε model (`C_mu` = 0.09 fixed).
     pub fn new(nx: usize, ny: usize) -> Self {
         let n = nx * ny;
         Self {
@@ -81,9 +81,10 @@ impl<T: RealField> KEpsilonModel<T> {
 
     /// Create a new Realizable k-ε model (Shih et al. 1995).
     ///
-    /// The realizable variant computes C_mu from the local strain rate,
+    /// The realizable variant computes `C_mu` from the local strain rate,
     /// bounding it above by `1/A_0 ≈ 0.247` and reducing it in regions of
     /// strong strain to prevent unphysical turbulent viscosity.
+    #[must_use]
     pub fn new_realizable(nx: usize, ny: usize) -> Self {
         let mut model = Self::new(nx, ny);
         model.use_realizable = true;
@@ -110,12 +111,12 @@ impl<T: RealField> KEpsilonModel<T> {
         self.use_kato_launder
     }
 
-    /// Calculate strain rate tensor magnitude |S| = √(2 S_ij S_ij).
+    /// Calculate strain rate tensor magnitude |S| = √(2 `S_ij` `S_ij`).
     ///
     /// ## Theorem — Strain Rate Magnitude
     ///
-    /// For the symmetric part S_ij = ½(∂u_i/∂x_j + ∂u_j/∂x_i), the
-    /// Frobenius norm |S| = √(2 S_ij S_ij) is always non-negative and
+    /// For the symmetric part `S_ij` = `½(∂u_i/∂x_j` + ∂`u_j/∂x_i`), the
+    /// Frobenius norm |S| = √(2 `S_ij` `S_ij`) is always non-negative and
     /// vanishes if and only if the flow is in rigid-body rotation.
     pub(crate) fn strain_rate(&self, velocity_gradient: &[[T; 2]; 2]) -> T {
         let mut s_ij = [[T::ZERO; 2]; 2];

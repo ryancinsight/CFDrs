@@ -14,13 +14,13 @@
 //! ∇·u = 0
 //! ```
 //!
-//! The force f(x,t) is related to the boundary velocity U_b through:
+//! The force f(x,t) is related to the boundary velocity `U_b` through:
 //!
 //! ```math
 //! f(x,t) = ∫_Γ F(s,t) δ(x - X(s,t)) ds
 //! ```
 //!
-//! where F(s,t) is chosen to enforce U_b = u(X(s,t),t).
+//! where F(s,t) is chosen to enforce `U_b` = u(X(s,t),t).
 //!
 //! ## Implementation Strategy
 //!
@@ -78,17 +78,25 @@
 //! # Theorem (IBM Spreading/Interpolation Adjointness — Peskin 2002)
 //!
 //! The discrete spreading operator $\mathcal{S}$ and interpolation operator $\mathcal{J}$
-//! satisfy the adjoint relation $\langle \mathcal{S}\mathbf{F}, \mathbf{u} \rangle_E
-//! = \langle \mathbf{F}, \mathcal{J}\mathbf{u} \rangle_L$, where $E$ and $L$ denote
+//! satisfy the adjoint relation $\langle \mathcal{S}\mathbf{F}, \mathbf{u} \`rangle_E`
+//! = \langle \mathbf{F}, \mathcal{J}\mathbf{u} \`rangle_L`$, where $E$ and $L$ denote
 //! Eulerian and Lagrangian inner products respectively.
 //!
 //! **Proof sketch**:
-//! With the 4-point cosine delta function $\delta_h(\mathbf{r}) = \prod_{d=1}^{2} \phi(r_d/h)/h$,
-//! spreading is $f_i = \sum_j \delta_h(\mathbf{x}_i - \mathbf{X}_j) F_j \Delta s_j$
-//! and interpolation $U_j = \sum_i \delta_h(\mathbf{x}_i - \mathbf{X}_j) u_i h^2$.
-//! Direct substitution shows $\sum_i f_i u_i h^2 = \sum_j F_j U_j \Delta s_j$,
+//! With the 4-point cosine delta function $\`delta_h(\mathbf{r`}) = \prod_{d=1}^{2} \`phi(r_d/h)/h`$,
+//! spreading is $`f_i` = \`sum_j` \`delta_h(\mathbf{x`}_i - \mathbf{X}_j) `F_j` \Delta `s_j`$
+//! and interpolation $`U_j` = \`sum_i` \`delta_h(\mathbf{x`}_i - \mathbf{X}_j) `u_i` h^2$.
+//! Direct substitution shows $\`sum_i` `f_i` `u_i` h^2 = \`sum_j` `F_j` `U_j` \Delta `s_j`$,
 //! establishing the adjoint property. This ensures the IBM adds zero net energy to
 //! the fluid–structure system, guaranteeing stability of the coupled solver.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use cfd_core::error::{Error, Result};
 use leto::geometry::Vector2;
@@ -155,6 +163,7 @@ impl ImmersedBoundaryMethod {
     /// # Returns
     ///
     /// Immersed boundary method instance
+    #[must_use]
     pub fn new(grid_size: (usize, usize), domain_size: (f64, f64)) -> Self {
         let dx = domain_size.0 / grid_size.0 as f64;
         let dy = domain_size.1 / grid_size.1 as f64;
@@ -169,6 +178,7 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Create with custom configuration
+    #[must_use]
     pub fn with_config(
         config: ImmersedBoundaryConfig,
         grid_size: (usize, usize),
@@ -402,11 +412,13 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Get boundary points (read-only)
+    #[must_use]
     pub fn boundary_points(&self) -> &[BoundaryPoint] {
         &self.boundary_points
     }
 
     /// Get configuration
+    #[must_use]
     pub fn config(&self) -> &ImmersedBoundaryConfig {
         &self.config
     }
@@ -417,6 +429,7 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Get grid information
+    #[must_use]
     pub fn grid_info(&self) -> ((usize, usize), (f64, f64)) {
         (self.grid_size, (self.dx, self.dy))
     }

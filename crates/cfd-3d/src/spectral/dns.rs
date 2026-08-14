@@ -514,9 +514,9 @@ mod tests {
                 let ky = if j <= 3 { j as isize } else { j as isize - 6 };
                 for i in 0..6 {
                     let kx = if i <= 3 { i as isize } else { i as isize - 6 };
-                    let kept = kx.abs() as usize <= cutoff
-                        && ky.abs() as usize <= cutoff
-                        && kz.abs() as usize <= cutoff;
+                    let kept = kx.unsigned_abs() <= cutoff
+                        && ky.unsigned_abs() <= cutoff
+                        && kz.unsigned_abs() <= cutoff;
                     let value = value(&spectrum, [i, j, k]);
                     if kept {
                         assert!((value.re - 1.0).abs() < 1e-12);

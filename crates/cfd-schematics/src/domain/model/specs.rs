@@ -224,7 +224,7 @@ pub enum ChannelShape {
         bend_radius_m: Length<f64>,
         /// Waveform type (sine, square, triangular).  Controls the bend
         /// K-factor model: square waves use `BendType::Sharp`, sine and
-        /// triangular use `BendType::Smooth` with the specified R/D_h.
+        /// triangular use `BendType::Smooth` with the specified `R/D_h`.
         #[serde(default)]
         wave_type: crate::topology::SerpentineWaveType,
     },

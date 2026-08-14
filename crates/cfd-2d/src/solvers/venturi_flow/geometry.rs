@@ -30,6 +30,7 @@ pub struct VenturiGeometry<T: CfdScalar + Copy> {
 
 impl<T: CfdScalar + Copy + FloatElement> VenturiGeometry<T> {
     /// Create standard ISO 5167 Venturi with area ratio 0.5
+    #[must_use]
     pub fn iso_5167_standard() -> Self {
         Self {
             w_inlet: <T as FloatElement>::from_f64(10e-3),
@@ -76,7 +77,7 @@ impl<T: CfdScalar + Copy + FloatElement> VenturiGeometry<T> {
         )
     }
 
-    /// Calculate area ratio (A_throat / A_inlet)
+    /// Calculate area ratio (`A_throat` / `A_inlet`)
     pub fn area_ratio(&self) -> T {
         self.w_throat / self.w_inlet
     }

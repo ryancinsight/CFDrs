@@ -8,7 +8,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -109,6 +109,7 @@ pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
 // ============================================================================
 
 /// Convert f64 constant to generic `RealField` type
+#[must_use]
 pub fn to_realfield<T: FloatElement>(value: f64) -> T {
     <T as FloatElement>::from_f64(value)
 }

@@ -6,15 +6,15 @@ use eunomia::{FloatElement, NumericElement};
 impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Compute separate L2-norm residuals for convergence assessment.
     ///
-    /// Returns (res_continuity_rms, res_continuity_l1, res_max_pointwise):
+    /// Returns (`res_continuity_rms`, `res_continuity_l1`, `res_max_pointwise)`:
     /// - `res_continuity`: RMS mass imbalance across all cells
     /// - `res_continuity_l1`: mean absolute mass imbalance across all cells
     /// - `res_max_pointwise`: L-infinity norm (maximum pointwise continuity error)
     ///
     /// The separate residuals allow distinguishing between:
-    /// - Oscillating pressure (high res_max but moderate res_continuity)
+    /// - Oscillating pressure (high `res_max` but moderate `res_continuity`)
     /// - Globally poor convergence (both high)
-    /// - Localized divergence (high res_max, low res_continuity)
+    /// - Localized divergence (high `res_max`, low `res_continuity`)
     pub fn compute_residuals(&self) -> (T, T, T) {
         self.compute_residuals_inner()
     }

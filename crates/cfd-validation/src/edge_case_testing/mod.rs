@@ -3,6 +3,11 @@
 //! This module provides thorough validation of boundary conditions, numerical stability,
 //! and edge cases that can cause failures in CFD simulations.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 mod test_cases;
 
 use cfd_core::error::Result;
@@ -105,6 +110,7 @@ pub enum OverallStatus {
 
 impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     /// Create new edge case test suite
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,

@@ -7,6 +7,18 @@
 //! Reference: Thomas & Lombard (1979). "Geometric Conservation Law and Its Application
 //! to Flow Computations on Moving Grids"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use crate::scalar;
@@ -422,7 +434,7 @@ mod tests {
     #[test]
     fn test_spatial_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_spatial_gcl(3.14).unwrap();
+        let result = checker.test_spatial_gcl(core::f64::consts::PI).unwrap();
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["dx"], 0.1);

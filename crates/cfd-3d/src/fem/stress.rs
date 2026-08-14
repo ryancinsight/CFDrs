@@ -40,6 +40,14 @@
 //! - Yasuda, K. (1979). Investigation of the analogies between viscometric and
 //!   linear viscoelastic properties of polystyrene fluids. PhD thesis, MIT.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::linalg::{matrix3_scale, symmetric_part, Matrix3};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_core::CfdScalar;

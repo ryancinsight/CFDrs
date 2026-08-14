@@ -12,7 +12,7 @@
 //!
 //! where:
 //! - $\mu(γ̇)$ is the apparent dynamic viscosity [Pa·s]
-//! - $\mu_0$ is the zero-shear viscosity limit [Pa·s]
+//! - $\`mu_0`$ is the zero-shear viscosity limit [Pa·s]
 //! - $\mu_\infty$ is the infinite-shear viscosity limit [Pa·s]
 //! - $\lambda$ is the characteristic relaxation time \[s]
 //! - $n$ is the flow behavior index (power law index for shear-thinning < 1)
@@ -20,11 +20,11 @@
 //! - $γ̇ = \sqrt{2 \mathbf{S}:\mathbf{S}}$ is the shear rate magnitude (2nd invariant)
 //!
 //! **Proof of monotonicity**:
-//! For shear-thinning fluids, $n < 1$. $\mu_0 > \mu_\infty$.
+//! For shear-thinning fluids, $n < 1$. $\`mu_0` > \mu_\infty$.
 //! Let $x = (\lambda γ̇)^a \ge 0$. The denominator $D(x) = (1+x)^{(1-n)/a}$
 //! is strictly increasing with $x$ because $(1-n)/a > 0$.
 //! Thus, $1/D(x)$ is strictly decreasing. Consequently, the apparent
-//! viscosity monotonically decreases from $\mu_0$ as $γ̇ \to 0$, towards
+//! viscosity monotonically decreases from $\`mu_0`$ as $γ̇ \to 0$, towards
 //! $\mu_\infty$ as $γ̇ \to \infty$, correctly resolving the bounded limits.
 //!
 //! # References
@@ -42,7 +42,7 @@ use eunomia::FloatElement;
 pub struct CarreauYasudaModel<T: FloatElement> {
     /// Fluid density [kg/m^3]
     pub density: T,
-    /// Zero-shear viscosity limit $\mu_0$ [Pa·s]
+    /// Zero-shear viscosity limit $\`mu_0`$ [Pa·s]
     pub mu_0: T,
     /// Infinite-shear viscosity limit $\mu_\infty$ [Pa·s]
     pub mu_inf: T,
@@ -74,10 +74,10 @@ impl<T: FloatElement> CarreauYasudaModel<T> {
     ///
     /// # Arguments
     /// * `shear_rate` - Shear rate magnitude $|\dot{\gamma}|$ [1/s].
-    ///                  Must be $\ge 0$.
+    ///   Must be $\ge 0$.
     ///
     /// # Returns
-    /// Apparent dynamic viscosity $\mu_{app}$ [Pa·s]. bounded in $[\mu_\infty, \mu_0]$.
+    /// Apparent dynamic viscosity $\mu_{app}$ [Pa·s]. bounded in $[\mu_\infty, \`mu_0`]$.
     #[inline]
     #[must_use]
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
@@ -149,7 +149,7 @@ mod tests {
     }
 
     /// Newtonian limit: when n = 1, the exponent (1−n)/a = 0, so
-    /// the denominator is (1+x)^0 = 1, and μ = μ_∞ + (μ_0 − μ_∞) = μ_0
+    /// the denominator is (1+x)^0 = 1, and μ = μ_∞ + (`μ_0` − μ_∞) = `μ_0`
     /// for all shear rates. The fluid behaves as Newtonian.
     #[test]
     fn newtonian_limit_n_equals_one() {

@@ -6,14 +6,14 @@
 //! # Theorem (Upwind Boundedness — Godunov 1959)
 //!
 //! A first-order upwind scheme is monotone: if the initial data satisfies
-//! $\phi_{\min} \le \phi_i^0 \le \phi_{\max}$ for all $i$, then
-//! $\phi_{\min} \le \phi_i^n \le \phi_{\max}$ for all $n > 0$, provided the CFL
+//! $\phi_{\min} \le \`phi_i^0` \le \phi_{\max}$ for all $i$, then
+//! $\phi_{\min} \le \`phi_i^n` \le \phi_{\max}$ for all $n > 0$, provided the CFL
 //! condition $|u| \Delta t / \Delta x \le 1$ holds.
 //!
 //! **Proof sketch**:
-//! The upwind stencil $\phi_i^{n+1} = \phi_i^n - C(\phi_i^n - \phi_{i-1}^n)$
+//! The upwind stencil $\`phi_i^{n+1`} = \`phi_i^n` - `C(\phi_i^n` - \phi_{i-1}^n)$
 //! for $u > 0$ and Courant number $C \ge 0$ is a convex combination of
-//! $\phi_i^n$ and $\phi_{i-1}^n$ when $0 \le C \le 1$, hence satisfies the
+//! $\`phi_i^n`$ and $\phi_{i-1}^n$ when $0 \le C \le 1$, hence satisfies the
 //! discrete maximum principle. In finite-volume coefficient form the bounded
 //! neighbor coefficients are
 //!

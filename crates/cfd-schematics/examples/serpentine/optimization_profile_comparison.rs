@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_schematics::{
     config::{presets, ChannelTypeConfig, GeometryConfig, OptimizationProfile, SerpentineConfig},
     geometry::{generator::create_geometry, optimization::calculate_path_length, SplitType},

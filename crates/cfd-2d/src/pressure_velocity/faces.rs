@@ -2,6 +2,14 @@
 //!
 //! Separated from correction.rs to adhere to file length limits.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::physics::momentum::validate_boundary_consistency;

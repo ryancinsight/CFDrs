@@ -8,6 +8,11 @@
 //! - Manufactured solutions
 //! - Tensor product operator accuracy
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_3d::spectral::poisson::{PoissonBoundaryCondition, PoissonSolver};
 use eunomia::assert_relative_eq;
 use leto::Array1;

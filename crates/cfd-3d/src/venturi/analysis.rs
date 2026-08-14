@@ -4,6 +4,11 @@
 //! flow-rate integration — all factored out of the main `solver` module to
 //! satisfy the 500-line Module Size Rule.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use crate::fem::solver::extract_vertex_indices;
 use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use cfd_core::error::{Error, Result};

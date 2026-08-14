@@ -12,7 +12,7 @@
 //! ```
 //!
 //! Boundary conditions:
-//! - North (y=L): moving lid u=U_lid, v=0
+//! - North (y=L): moving lid `u=U_lid`, v=0
 //! - South (y=0): no-slip u=0, v=0
 //! - East  (x=L): no-slip u=0, v=0
 //! - West  (x=0): no-slip u=0, v=0
@@ -329,7 +329,7 @@ pub fn solve_lid_driven_cavity(
             // SOR for pressure correction pp
             let mut pp = vec![vec![0.0_f64; ny]; nx];
             let omega = 1.2_f64; // conservative SOR (< optimal for stability)
-            let n_inner = (8 * nx * ny).min(1000).max(100);
+            let n_inner = (8 * nx * ny).clamp(100, 1000);
 
             for _gs in 0..n_inner {
                 let mut max_change = 0.0_f64;

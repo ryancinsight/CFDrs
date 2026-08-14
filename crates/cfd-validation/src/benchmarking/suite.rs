@@ -40,6 +40,7 @@ pub struct BenchmarkResult {
 
 impl BenchmarkResult {
     /// Create new benchmark result with architectural purity
+    #[must_use]
     pub fn new(name: String, problem_size: usize) -> Self {
         Self {
             name,
@@ -55,36 +56,42 @@ impl BenchmarkResult {
     }
 
     /// Set performance metrics
+    #[must_use]
     pub fn with_performance(mut self, timing: TimingResult) -> Self {
         self.performance = Some(timing);
         self
     }
 
     /// Set memory statistics
+    #[must_use]
     pub fn with_memory(mut self, memory: MemoryStatsSnapshot) -> Self {
         self.memory = Some(memory);
         self
     }
 
     /// Set scaling results
+    #[must_use]
     pub fn with_scaling(mut self, scaling: ScalingResult) -> Self {
         self.scaling = Some(scaling);
         self
     }
 
     /// Set execution status
+    #[must_use]
     pub fn with_status(mut self, status: BenchmarkStatus) -> Self {
         self.status = status;
         self
     }
 
     /// Set regression detection
+    #[must_use]
     pub fn with_regression(mut self, regression: Option<f64>) -> Self {
         self.regression_detected = regression;
         self
     }
 
     /// Set execution duration
+    #[must_use]
     pub fn with_duration(mut self, duration: Duration) -> Self {
         self.duration = duration;
         self
@@ -114,6 +121,7 @@ pub struct BenchmarkSuite {
 
 impl BenchmarkSuite {
     /// Create new benchmark suite with configuration
+    #[must_use]
     pub fn new(config: BenchmarkConfig) -> Self {
         Self {
             config,
@@ -122,6 +130,7 @@ impl BenchmarkSuite {
     }
 
     /// Create with default configuration
+    #[must_use]
     pub fn default() -> Self {
         Self::new(BenchmarkConfig::default())
     }
@@ -132,6 +141,7 @@ impl BenchmarkSuite {
     }
 
     /// Get all results
+    #[must_use]
     pub fn results(&self) -> &[BenchmarkResult] {
         &self.results
     }
@@ -142,6 +152,7 @@ impl BenchmarkSuite {
     }
 
     /// Get configuration
+    #[must_use]
     pub fn config(&self) -> &BenchmarkConfig {
         &self.config
     }
@@ -164,6 +175,7 @@ impl BenchmarkSuite {
     }
 
     /// Calculate suite statistics
+    #[must_use]
     pub fn statistics(&self) -> SuiteStatistics {
         let total = self.results.len();
         let passed = self
@@ -319,7 +331,7 @@ pub struct SuiteStatistics {
 
     /// Average execution time per individual benchmark
     ///
-    /// Computed as total_duration / total_benchmarks. Provides a normalized
+    /// Computed as `total_duration` / `total_benchmarks`. Provides a normalized
     /// metric for comparing benchmark suite efficiency across different
     /// hardware configurations and CFD problem sizes.
     pub average_duration: Duration,

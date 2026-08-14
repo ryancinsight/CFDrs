@@ -1,5 +1,13 @@
 //! Temperature-dependent fluid models
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::thermophysical::linear_density_at;
 use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
@@ -241,7 +249,7 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for AndradeViscosity<T> {
 
 /// Sutherland viscosity model for gases
 ///
-/// μ(T) = μ_ref * (T/T_ref)^(3/2) * (T_ref + S) / (T + S)
+/// μ(T) = `μ_ref` * (`T/T_ref)^(3/2`) * (`T_ref` + S) / (T + S)
 /// Common for gases (e.g., Air)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SutherlandViscosity<T: RealField + Copy> {

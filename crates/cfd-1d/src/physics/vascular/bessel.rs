@@ -6,12 +6,12 @@
 //! J_ν(z) = \sum_{m=0}^∞ \frac{(-1)^m}{m! Γ(m+ν+1)} (\frac{z}{2})^{2m+ν}
 //! ```
 //!
-//! For Womersley flow, we require $J_0(z)$ and $J_1(z)$ for complex arguments $z \in \mathbb{C}$.
+//! For Womersley flow, we require $`J_0(z)`$ and $`J_1(z)`$ for complex arguments $z \in \mathbb{C}$.
 //!
 //! ## Theorem: Bessel Function Spectral Error Bounds
 //!
 //! **Theorem**: The infinite Taylor series expansion for $J_\nu(z)$ evaluated
-//! sequentially using $m$-th term $t_m$ truncated at $M$ terms has an absolute
+//! sequentially using $m$-th term $`t_m`$ truncated at $M$ terms has an absolute
 //! truncation error strictly bounded by the magnitude of the $(M+1)$-th term,
 //! provided $M > |z|^2 / 4$.
 //!
@@ -24,8 +24,8 @@
 //!
 //! # Implementations
 //!
-//! - `bessel_j0(z)` computes $J_0(z)$
-//! - `bessel_j1(z)` computes $J_1(z)$
+//! - `bessel_j0(z)` computes $`J_0(z)`$
+//! - `bessel_j1(z)` computes $`J_1(z)`$
 //! - `bessel_j0_j1(z)` computes both series in one recurrence pass
 
 use cfd_core::CfdScalar;
@@ -66,18 +66,18 @@ fn bessel_j0_j1_series<T: CfdScalar + FloatElement + Copy>(
     (sum_j0, sum_j1)
 }
 
-/// Bessel function of the first kind, order zero: $J_0(z)$
+/// Bessel function of the first kind, order zero: $`J_0(z)`$
 ///
 /// Evaluates the exact infinite series:
-/// $J_0(z) = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
+/// $`J_0(z)` = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
 pub fn bessel_j0<T: CfdScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).0
 }
 
-/// Bessel function of the first kind, order one: $J_1(z)$
+/// Bessel function of the first kind, order one: $`J_1(z)`$
 ///
 /// Evaluates the exact infinite series:
-/// $J_1(z) = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
+/// $`J_1(z)` = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
 pub fn bessel_j1<T: CfdScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).1
 }

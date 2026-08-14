@@ -1,5 +1,13 @@
 //! Markdown report generation for validation results
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{Reporter, ValidationReport};
 use cfd_core::error::Result;
 use std::fmt::Write as _;
@@ -12,6 +20,7 @@ pub struct MarkdownReporter {
 
 impl MarkdownReporter {
     /// Create a new Markdown reporter with default settings
+    #[must_use]
     pub fn new() -> Self {
         Self {
             include_details: true,
@@ -20,12 +29,14 @@ impl MarkdownReporter {
     }
 
     /// Configure whether to include detailed test results
+    #[must_use]
     pub fn with_details(mut self, include: bool) -> Self {
         self.include_details = include;
         self
     }
 
     /// Configure whether to include performance benchmarks
+    #[must_use]
     pub fn with_performance(mut self, include: bool) -> Self {
         self.include_performance = include;
         self

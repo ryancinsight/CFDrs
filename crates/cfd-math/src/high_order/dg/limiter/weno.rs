@@ -16,6 +16,7 @@ pub struct WENOLimiter {
 
 impl WENOLimiter {
     /// Create a new WENO limiter
+    #[must_use]
     pub fn new(k: usize) -> Self {
         // Compute the WENO coefficients
         let c = match k {

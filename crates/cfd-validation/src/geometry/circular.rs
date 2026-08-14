@@ -27,6 +27,7 @@ impl<T: RealField + Copy + FloatElement> CircularDomain<T> {
     }
 
     /// Create a unit disk centered at origin
+    #[must_use]
     pub fn unit_disk() -> Self
     where
         T: From<f64>,

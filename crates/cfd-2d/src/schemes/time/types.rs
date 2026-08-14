@@ -6,7 +6,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -31,12 +31,12 @@ pub enum TimeScheme {
     /// BDF2 (Backward Differentiation Formula, 2nd order, A-stable)
     ///
     /// Reference: Curtiss & Hirschfelder (1952)
-    /// Formula: y_{n+1} - (4/3)y_n + (1/3)y_{n-1} = (2/3)h*f(t_{n+1}, y_{n+1})
+    /// Formula: y_{n+1} - (`4/3)y_n` + (1/3)y_{n-1} = (2/3)h*f(t_{n+1}, y_{n+1})
     BDF2,
     /// BDF3 (Backward Differentiation Formula, 3rd order)
     ///
     /// Reference: Curtiss & Hirschfelder (1952)
-    /// Formula: y_{n+1} - (18/11)y_n + (9/11)y_{n-1} - (2/11)y_{n-2} = (6/11)h*f(t_{n+1}, y_{n+1})
+    /// Formula: y_{n+1} - (`18/11)y_n` + (9/11)y_{n-1} - (2/11)y_{n-2} = (6/11)h*f(t_{n+1}, y_{n+1})
     BDF3,
 }
 

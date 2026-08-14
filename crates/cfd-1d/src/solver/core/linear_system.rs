@@ -18,7 +18,7 @@
 //!    premature failure on ill-conditioned but valid networks.
 //!
 //! 3. **Large non-SPD systems (n > 256, asymmetric or indefinite)**:
-//!    Jacobi-preconditioned BiCGSTAB. Falls back to dense LU/QR if
+//!    Jacobi-preconditioned `BiCGSTAB`. Falls back to dense LU/QR if
 //!    the iterative residual exceeds tolerance.
 //!
 //! All iterative paths verify the post-solve residual ‖Ax − b‖/‖b‖ ≤ tol
@@ -60,6 +60,7 @@ impl<T: CfdScalar> LinearSystemSolver<T> {
     const DIRECT_SOLVE_NODE_THRESHOLD: usize = 256;
 
     /// Create a new linear system solver
+    #[must_use]
     pub fn new() -> Self {
         Self {
             method: LinearSolverMethod::ConjugateGradient,

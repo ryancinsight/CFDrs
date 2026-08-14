@@ -8,9 +8,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -22,7 +22,7 @@ use leto::Array2;
 /// ## Realizability Invariants (Lumley, 1978)
 /// - ⟨u'u'⟩ ≥ 0, ⟨v'v'⟩ ≥ 0  (positive semi-definite)
 /// - |⟨u'v'⟩| ≤ √(⟨u'u'⟩ ⟨v'v'⟩)  (Cauchy-Schwarz)
-/// - −2/3 ≤ b_ij ≤ 2/3  (Lumley triangle)
+/// - −2/3 ≤ `b_ij` ≤ 2/3  (Lumley triangle)
 /// - k = (1/2)(⟨u'u'⟩ + ⟨v'v'⟩)  (definition of TKE)
 #[derive(Debug, Clone)]
 pub struct ReynoldsStressTensor<T: RealField + Copy> {
@@ -36,10 +36,10 @@ pub struct ReynoldsStressTensor<T: RealField + Copy> {
     pub k: Array2<T>,
     /// Dissipation rate ε
     pub epsilon: Array2<T>,
-    /// Optional anisotropic dissipation tensor ε_xx component
+    /// Optional anisotropic dissipation tensor `ε_xx` component
     pub epsilon_xx: Option<Array2<T>>,
-    /// Optional anisotropic dissipation tensor ε_xy component
+    /// Optional anisotropic dissipation tensor `ε_xy` component
     pub epsilon_xy: Option<Array2<T>>,
-    /// Optional anisotropic dissipation tensor ε_yy component
+    /// Optional anisotropic dissipation tensor `ε_yy` component
     pub epsilon_yy: Option<Array2<T>>,
 }

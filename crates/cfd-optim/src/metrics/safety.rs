@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use serde::{Deserialize, Serialize};
 
 use crate::constraints::{FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_TIME_S};

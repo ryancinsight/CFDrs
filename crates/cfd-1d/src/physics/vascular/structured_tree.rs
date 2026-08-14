@@ -12,15 +12,15 @@
 //! steady equivalent resistance $R_{tree}$ of an asymmetric binary branching
 //! network.
 //!
-//! Given asymmetric branching ratios $\alpha = r_1/r_p$ and $\beta = r_2/r_p$,
+//! Given asymmetric branching ratios $\alpha = `r_1/r_p`$ and $\beta = `r_2/r_p`$,
 //! and a length-to-radius scaling factor $\lambda = L/r$, the local segment
 //! resistance is derived from Poiseuille flow:
 //!
-//! $R_p = \frac{8 \mu L}{\pi r^4} = \frac{8 \mu \lambda}{\pi r^3}$
+//! $`R_p` = \frac{8 \mu L}{\pi r^4} = \frac{8 \mu \lambda}{\pi r^3}$
 //!
 //! The equivalent resistance of any node in the tree evaluates recursively:
 //!
-//! $R_{eq\_p} = R_p + \left( \frac{1}{R_{eq\_1}} + \frac{1}{R_{eq\_2}} \right)^{-1}$
+//! $R_{eq\_p} = `R_p` + \left( \frac{1}{R_{eq\_1}} + \frac{1}{R_{eq\_2}} \right)^{-1}$
 //!
 //! This recursive subdivision continues until $r < r_{min}$, at which point
 //! the segment resistance is treated as the pure terminal resistance.
@@ -35,6 +35,14 @@
 //! ### References
 //! - Olufsen, M. S. (1999). "Structured tree outflow condition for blood flow in
 //!   larger systemic arteries". *American Journal of Physiology*.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use aequitas::systems::si::quantities::{DynamicViscosity, HydraulicResistance, Length};
 use cfd_core::error::{Error, Result};
@@ -68,7 +76,7 @@ impl<T: CfdScalar + FloatElement + Copy> OlufsenParameters<T> {
     }
 
     /// Recursively calculates the Olufsen zero-frequency structured tree resistance
-    /// Limits recursion to structurally valid $r_min$ depths to avoid stack overflow.
+    /// Limits recursion to structurally valid $`r_min`$ depths to avoid stack overflow.
     pub fn compute_steady_impedance(
         &self,
         root_radius: Length<T>,

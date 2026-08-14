@@ -1,3 +1,9 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{create_geometry, SplitType};
 

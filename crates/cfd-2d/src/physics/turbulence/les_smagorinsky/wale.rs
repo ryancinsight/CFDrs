@@ -15,7 +15,7 @@
 //! ```
 //!
 //! where:
-//! - $C_w$ is the WALE model constant (typically 0.5)
+//! - $`C_w`$ is the WALE model constant (typically 0.5)
 //! - $\Delta$ is the filter width
 //! - $\bar{S}_{ij}$ is the resolved strain rate tensor
 //! - $S_{ij}^d$ is the traceless symmetric part of the square of the velocity gradient tensor
@@ -40,9 +40,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -70,6 +70,7 @@ impl<T: RealField + Copy> Default for WaleModel<T> {
 
 impl<T: RealField + Copy> WaleModel<T> {
     /// Create new WALE model
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -242,11 +243,11 @@ impl<T: RealField + Copy> WaleModel<T> {
 
     /// Compute WALE tensor magnitude squared
     ///
-    /// The WALE tensor S_ij^d is the traceless symmetric part of the square
+    /// The WALE tensor `S_ij^d` is the traceless symmetric part of the square
     /// of the velocity gradient tensor. Its magnitude squared is computed as:
     ///
-    /// |S^d|² = S_ij^d S_ij^d where
-    /// S_ij^d = (1/2)(∂_i u_k ∂_k u_j + ∂_j u_k ∂_k u_i) - (1/3)δ_ij ∂_k u_l ∂_l u_k
+    /// |S^d|² = `S_ij^d` `S_ij^d` where
+    /// `S_ij^d` = (1/2)(∂_i `u_k` ∂_k `u_j` + ∂_j `u_k` ∂_k `u_i`) - (`1/3)δ_ij` ∂_k `u_l` ∂_l `u_k`
     fn wale_tensor_magnitude_squared(&self, du_dx: T, du_dy: T, dv_dx: T, dv_dy: T) -> T {
         // Velocity gradient tensor G_ij = ∂u_i/∂x_j
         let g_xx = du_dx;

@@ -7,9 +7,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -30,6 +30,7 @@ use leto::Array2;
 /// derivative term. The first nonzero neglected term is proportional to
 /// `h^2 f'''`; hence boundary strain is computed from the resolved velocity
 /// field instead of imposed as an artificial zero state.
+#[must_use]
 pub fn compute_strain_rate_magnitude(
     velocity_u: &Array2<f64>,
     velocity_v: &Array2<f64>,
@@ -68,6 +69,7 @@ pub fn compute_strain_rate_magnitude(
 ///
 /// Returns (s11, s22, s12) components of the strain rate tensor.
 /// Useful for more advanced SGS models that need full tensor information.
+#[must_use]
 pub fn compute_strain_rate_components(
     velocity_u: &Array2<f64>,
     velocity_v: &Array2<f64>,
@@ -144,7 +146,7 @@ mod tests {
         // Check that strain rate is computed (non-zero for shear flow)
         assert!(strain.iter().any(|&s| s > 0.0));
 
-        for &value in strain.iter() {
+        for &value in &strain {
             assert_relative_eq!(value, 1.0, epsilon = 1e-10);
         }
 
@@ -187,7 +189,7 @@ mod tests {
         let strain = compute_strain_rate_magnitude(&velocity_u, &velocity_v, 0.1, 0.1);
 
         // Zero velocity field should give zero strain everywhere
-        for &s in strain.iter() {
+        for &s in &strain {
             assert_relative_eq!(s, 0.0, epsilon = 1e-15);
         }
     }

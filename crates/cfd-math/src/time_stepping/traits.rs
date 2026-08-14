@@ -168,7 +168,7 @@ pub trait EmbeddedMethod<T: RealField + Copy>: TimeStepper<T> {
     /// * `dt` - Time step size
     ///
     /// # Returns
-    /// Tuple of (solution, error_estimate)
+    /// Tuple of (solution, `error_estimate`)
     fn embedded_step<F>(
         &self,
         f: F,

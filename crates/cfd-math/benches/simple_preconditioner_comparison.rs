@@ -8,6 +8,10 @@
 //! kept inline as the baseline, and a parity gate pins both layouts to the
 //! same outputs before any measurement is trusted.
 
+#![expect(
+    missing_docs,
+    reason = "ratchet CFDRS-DOCS-1: criterion macro-generated items"
+)]
 // The jagged baseline below intentionally mirrors the historical
 // implementation loop-for-loop so the comparison measures layout, not
 // algorithm; the indexed loops and slice copies are part of that faithful
@@ -19,6 +23,10 @@
 #![expect(
     clippy::manual_memcpy,
     reason = "baseline mirrors the historical jagged implementation verbatim"
+)]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
 )]
 
 use cfd_math::linear_solver::SimplePreconditioner;

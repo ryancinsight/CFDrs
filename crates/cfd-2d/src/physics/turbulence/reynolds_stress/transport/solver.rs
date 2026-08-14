@@ -29,15 +29,15 @@ impl<T: RealField + Copy> ReynoldsStressModel<T> {
     ///
     /// # Theorem (Realizability of Reynolds Stress Tensor)
     ///
-    /// The Reynolds stress tensor $R_{ij} = \langle u_i' u_j' \rangle$ must satisfy:
+    /// The Reynolds stress tensor $R_{ij} = \langle `u_i`' `u_j`' \rangle$ must satisfy:
     ///
     /// 1. **Non-negativity of diagonal**: $R_{ii} \ge 0$ (variance is non-negative)
     /// 2. **Schwarz inequality**: $|R_{ij}|^2 \le R_{ii} R_{jj}$ (Cauchy–Schwarz)
     /// 3. **Non-negative TKE**: $k = \tfrac{1}{2}\mathrm{tr}(R) \ge 0$
     ///
-    /// **Proof sketch**: Since $R_{ii} = \langle u_i'^2 \rangle \ge 0$ by definition
-    /// of variance, and $|\langle u_i' u_j' \rangle|^2 \le \langle u_i'^2 \rangle
-    /// \langle u_j'^2 \rangle$ by the Cauchy–Schwarz inequality for $L^2$ inner products,
+    /// **Proof sketch**: Since $R_{ii} = \langle `u_i`'^2 \rangle \ge 0$ by definition
+    /// of variance, and $|\langle `u_i`' `u_j`' \rangle|^2 \le \langle `u_i`'^2 \rangle
+    /// \langle `u_j`'^2 \rangle$ by the Cauchy–Schwarz inequality for $L^2$ inner products,
     /// the three constraints follow from the positive semi-definiteness of the
     /// covariance matrix. The explicit Euler update can violate these for large $\Delta t$;
     /// we enforce them by clamping diagonal components to zero and projecting the
@@ -355,7 +355,7 @@ impl<T: RealField + Copy> ReynoldsStressModel<T> {
     ///
     /// Computes the ε transport equation:
     ///
-    /// $$\frac{\partial \varepsilon}{\partial t} = C_{\varepsilon 1} \frac{P_k \varepsilon}{k} - C_{\varepsilon 2} \frac{\varepsilon^2}{k} + \frac{\partial}{\partial x_j}\!\left(\frac{\nu_t}{\sigma_\varepsilon} \frac{\partial \varepsilon}{\partial x_j}\right)$$
+    /// $$\frac{\partial \varepsilon}{\partial t} = C_{\varepsilon 1} \`frac{P_k` \varepsilon}{k} - C_{\varepsilon 2} \frac{\varepsilon^2}{k} + \frac{\partial}{\partial `x_j`}\!\`left(\frac{\nu_t}{\sigma`_\varepsilon} \frac{\partial \varepsilon}{\partial `x_j}\right`)$$
     ///
     /// # Theorem
     ///
@@ -367,7 +367,7 @@ impl<T: RealField + Copy> ReynoldsStressModel<T> {
     /// $\nabla^2 \varepsilon \approx (\varepsilon_{i+1,j} - 2\varepsilon_{i,j} +
     /// \varepsilon_{i-1,j})/\Delta x^2 + (\varepsilon_{i,j+1} - 2\varepsilon_{i,j} +
     /// \varepsilon_{i,j-1})/\Delta y^2$ has a non-negative stencil coefficient structure
-    /// when $\Delta t \le \frac{1}{2(\nu_t/\sigma_\varepsilon)(1/\Delta x^2 + 1/\Delta y^2)}$,
+    /// when $\Delta t \le \`frac{1}{2(\nu_t/\sigma`_\varepsilon)(1/\Delta x^2 + 1/\Delta y^2)}$,
     /// ensuring no spurious extrema are introduced.
     fn update_epsilon_optimized(
         &self,

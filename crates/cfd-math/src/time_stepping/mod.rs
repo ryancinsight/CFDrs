@@ -35,9 +35,9 @@
 //! CFL = |u| · Δt / Δx ≤ C_max
 //! ```
 //!
-//! where u is the wave speed, Δx the grid spacing, and C_max depends on the
-//! spatial scheme: C_max = 1 for upwind, C_max = 1/√d in d dimensions for
-//! the D2Q9 LBM scheme, C_max ≈ 2.78/|ρ(A)| for an explicit RK method.
+//! where u is the wave speed, Δx the grid spacing, and `C_max` depends on the
+//! spatial scheme: `C_max` = 1 for upwind, `C_max` = 1/√d in d dimensions for
+//! the D2Q9 LBM scheme, `C_max` ≈ 2.78/|ρ(A)| for an explicit RK method.
 //!
 //! This is enforced as a hard invariant: the `AdaptiveTimeStepper` will
 //! never advance with a time step violating the configured CFL limit.
@@ -67,7 +67,7 @@
 //!
 //! ## Invariants
 //! - Δt > 0 strictly; zero or negative step size is rejected at construction.
-//! - CFL number is recorded for each step and must satisfy CFL ≤ CFL_max.
+//! - CFL number is recorded for each step and must satisfy CFL ≤ `CFL_max`.
 //! - Adaptive steppers never increase Δt by more than a safety factor ≤ 5.
 
 pub mod adaptive;

@@ -7,6 +7,18 @@
 //! - Convergence studies (Richardson extrapolation)
 //! - Blood flow validation with non-Newtonian models
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
@@ -21,7 +33,7 @@ use std::fmt;
 /// Roache (1998) safety factor for Grid Convergence Index.
 ///
 /// Fs = 1.25 is the recommended value for three or more grid levels.
-/// GCI = Fs · |e_a| / (r^p − 1), where r is the refinement ratio and p is the
+/// GCI = Fs · |`e_a`| / (r^p − 1), where r is the refinement ratio and p is the
 /// observed convergence order.
 const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
 
@@ -153,7 +165,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
     /// ```
     ///
     /// where:
-    /// - e_coarse, e_fine = errors on coarse and fine grids
+    /// - `e_coarse`, `e_fine` = errors on coarse and fine grids
     /// - r = refinement factor (spacing ratio)
     ///
     /// For convergent solutions, OOA should match theoretical order.
@@ -162,7 +174,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
     ///
     /// - GCI < 5%: Solution has converged
     /// - GCI < 1%: Solution is well-converged
-    /// - |OOA - theoretical_order| < 0.5: Confirms correct discretization
+    /// - |OOA - `theoretical_order`| < 0.5: Confirms correct discretization
     pub fn validate_convergence<F: FluidTrait<T> + Copy>(
         &self,
         branch_coarse: &TwoWayBranchJunction<T>,
@@ -354,9 +366,9 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
     /// Validate three-way branch against symmetric analytical split and Murray extension.
     ///
     /// For symmetric geometry and split ratios (1/3, 1/3, 1/3):
-    /// - Q_i = Q_parent / 3
+    /// - `Q_i` = `Q_parent` / 3
     /// - Daughter pressures should be approximately equal
-    /// - Murray extension D_0^3 ≈ D_1^3 + D_2^3 + D_3^3
+    /// - Murray extension `D_0^3` ≈ `D_1^3` + `D_2^3` + `D_3^3`
     pub fn validate_three_way_against_analytical<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
         &self,
         branch_junction: &ThreeWayBranchJunction<T>,

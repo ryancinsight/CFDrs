@@ -51,8 +51,8 @@
 //! 1. Guess initial viscosity field (constant or previous solution)
 //! 2. Solve linear system for velocity with current viscosity
 //! 3. Calculate shear rate: γ̇ = |du/dy|
-//! 4. Update viscosity: μ_new = μ(γ̇)
-//! 5. Check convergence: ||μ_new - μ_old|| < tolerance
+//! 4. Update viscosity: `μ_new` = μ(γ̇)
+//! 5. Check convergence: ||`μ_new` - `μ_old`|| < tolerance
 //! 6. Repeat until converged
 //!
 //! ## Numerical Method
@@ -64,7 +64,7 @@
 //! 0 = -dP/dx + (μ_{j+1/2}(u_{j+1} - u_j) - μ_{j-1/2}(u_j - u_{j-1})) / Δy²
 //! ```
 //!
-//! Where μ_{j+1/2} = (μ_j + μ_{j+1})/2 (arithmetic mean at cell faces)
+//! Where μ_{j+1/2} = (`μ_j` + μ_{j+1})/2 (arithmetic mean at cell faces)
 //!
 //! This gives a tridiagonal system: A*u = b
 //!
@@ -76,9 +76,9 @@
 //! ```
 //!
 //! Where:
-//! - a_j = (μ_{j-1/2} + μ_{j+1/2}) / Δy²
-//! - c_j = μ_{j+1/2} / Δy²
-//! - b_j = -dP/dx
+//! - `a_j` = (μ_{j-1/2} + μ_{j+1/2}) / Δy²
+//! - `c_j` = μ_{j+1/2} / Δy²
+//! - `b_j` = -dP/dx
 //!
 //! ## Literature References
 //!
@@ -98,6 +98,21 @@
 //! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
 
 mod numerics;
 
@@ -134,7 +149,7 @@ pub struct PoiseuilleConfig<T: CfdScalar + Copy> {
     pub max_iterations: usize,
 
     /// Under-relaxation factor (0 < α ≤ 1)
-    /// μ_new = α*μ_computed + (1-α)*μ_old
+    /// `μ_new` = α*`μ_computed` + (1-α)*`μ_old`
     pub relaxation_factor: T,
 }
 
@@ -347,7 +362,7 @@ impl<T: CfdScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
 
     /// Calculate total volumetric flow rate
     ///
-    /// Q_total = Q_per_width * width
+    /// `Q_total` = `Q_per_width` * width
     pub fn flow_rate(&self) -> T {
         self.flow_rate_per_width() * self.config.width
     }
@@ -379,7 +394,7 @@ impl<T: CfdScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
 
     /// Get wall shear stress (at bottom wall, y=0)
     ///
-    /// τ_wall = μ |du/dy|_{y=0}
+    /// `τ_wall` = μ |du/dy|_{y=0}
     pub fn wall_shear_stress(&self) -> T {
         self.viscosity[0] * self.shear_rate[0]
     }

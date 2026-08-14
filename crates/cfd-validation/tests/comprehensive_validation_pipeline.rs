@@ -5,6 +5,11 @@
 //! 2. Performance benchmarking
 //! 3. Quality assessment
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::benchmarking::{
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
 };

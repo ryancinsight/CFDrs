@@ -1,5 +1,10 @@
 //! RANS model validation methods for [`TurbulenceValidator`].
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::ValidationResult;
 use crate::physics::turbulence::constants::{C2_EPSILON, EPSILON_MIN, SST_BETA_1};
 use crate::physics::turbulence::traits::TurbulenceModel;

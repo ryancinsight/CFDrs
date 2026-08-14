@@ -14,7 +14,7 @@
 //! Q = π R⁴ ΔP / (8 μ L) = ΔP / R_HP
 //! ```
 //!
-//! where R_HP = 128 μ L / (π D⁴) is the hydraulic resistance.
+//! where `R_HP` = 128 μ L / (π D⁴) is the hydraulic resistance.
 //!
 //! **Proof sketch**: The NS equations reduce to ∇²u = (1/μ) dP/dz in cylindrical
 //! coordinates. Applying no-slip BC u(R) = 0 and symmetry du/dr(0) = 0 gives the
@@ -39,8 +39,8 @@
 //!
 //! ## Theorem — Dean Number Correction (Ito 1959)
 //!
-//! **Theorem**: For curved channels with centerline radius of curvature R_c and
-//! hydraulic diameter D_h, the resistance is augmented by secondary Dean vortices:
+//! **Theorem**: For curved channels with centerline radius of curvature `R_c` and
+//! hydraulic diameter `D_h`, the resistance is augmented by secondary Dean vortices:
 //!
 //! ```text
 //! R_curved = R_HP · f(De)     where De = Re · √(D_h / 2R_c)

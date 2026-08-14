@@ -1,3 +1,9 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicResistance, Length, ReciprocalTime, VolumetricFlowRate,
 };

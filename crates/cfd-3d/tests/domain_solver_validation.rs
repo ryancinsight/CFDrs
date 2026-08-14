@@ -4,6 +4,11 @@
 //! TrifurcationSolver3D, and SpectralSolver at minimal grid resolutions.
 //! Validates mass conservation, pressure bounds, flow physics, and convergence.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;

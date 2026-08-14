@@ -14,6 +14,15 @@
 //!
 //! Outputs are written to `report/serpentine_swap/`.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};

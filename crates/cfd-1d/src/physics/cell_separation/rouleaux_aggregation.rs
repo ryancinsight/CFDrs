@@ -17,13 +17,13 @@
 //! ```
 //!
 //! Parameters (Quemada 1978, human blood):
-//! - k_0 = 4.33 (zero-shear intrinsic viscosity)
+//! - `k_0` = 4.33 (zero-shear intrinsic viscosity)
 //! - k_∞ = 2.07 (high-shear intrinsic viscosity)
-//! - γ_c = 1.88 s⁻¹ (critical shear rate for rouleaux breakup)
+//! - `γ_c` = 1.88 s⁻¹ (critical shear rate for rouleaux breakup)
 //!
-//! **Proof sketch**: At γ̇ → ∞, k → k_∞ and μ → μ_plasma/(1 − k_∞H_t/2)²
+//! **Proof sketch**: At γ̇ → ∞, k → k_∞ and μ → `μ_plasma/(1` − k_∞`H_t/2)²`
 //! which recovers the Einstein-Batchelor hard-sphere limit. At γ̇ → 0,
-//! k → k_0 > k_∞ reflecting the increased effective volume fraction of
+//! k → `k_0` > k_∞ reflecting the increased effective volume fraction of
 //! rouleaux aggregates.
 //!
 //! **Reference**: Quemada, D. (1978). "Rheology of concentrated disperse
@@ -132,8 +132,8 @@ mod tests {
 
     /// At high shear rate (γ̇ = 1000 s⁻¹), k → k_∞ = 2.07.
     /// The Einstein-Batchelor hard-sphere limit for 45% hematocrit gives
-    /// μ = μ_plasma / (1 − k_∞ H_t / 2)² = μ_plasma / (1 − 0.46575)²
-    ///   = μ_plasma / 0.28536² ≈ μ_plasma × 12.3
+    /// μ = `μ_plasma` / (1 − k_∞ `H_t` / 2)² = `μ_plasma` / (1 − 0.46575)²
+    ///   = `μ_plasma` / 0.28536² ≈ `μ_plasma` × 12.3
     /// (High because Quemada's k_∞ is fitted for concentrated suspensions.)
     #[test]
     fn test_quemada_high_shear_approaches_einstein() {

@@ -16,6 +16,11 @@
 //! Canuto, C. et al. (2006). "Spectral Methods: Fundamentals in Single Domains".
 //! Springer. Chapter 3: Spectral approximation on the interval.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;
 use cfd_3d::spectral::solver::PoissonProblem;
 use cfd_3d::spectral::{SpectralConfig, SpectralSolver};

@@ -1,5 +1,13 @@
 //! Multigrid cycle algorithms for AMG
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{MultigridLevel, MultigridVector, SparseMatrix};
 use crate::linear_solver::dense_bridge::solve_leto_csr_with_leto_dense_array;
 use cfd_core::error::{Error, Result};

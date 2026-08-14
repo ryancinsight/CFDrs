@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use leto::Array2;
 

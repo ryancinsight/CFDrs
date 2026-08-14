@@ -121,7 +121,7 @@ impl<T: CfdScalar> VenturiModel<T> {
         self
     }
 
-    /// Area ratio β² = (A_throat / A_inlet) = (D_throat / D_inlet)²
+    /// Area ratio β² = (`A_throat` / `A_inlet`) = (`D_throat` / `D_inlet)²`
     ///
     /// Note: the Bernoulli pressure term requires `(1 − β⁴)` = `(1 − β²·β²)` because:
     ///
@@ -225,8 +225,8 @@ impl<T: CfdScalar> VenturiModel<T> {
 
     /// Effective discharge coefficient adjusted for Reynolds number
     ///
-    /// At low Re (millifluidic regime), C_d decreases due to boundary layer growth.
-    /// Empirical correction: C_d_eff = C_d_nominal × min(1, 0.5 + 0.5×(Re/1000)^0.3)
+    /// At low Re (millifluidic regime), `C_d` decreases due to boundary layer growth.
+    /// Empirical correction: `C_d_eff` = `C_d_nominal` × min(1, 0.5 + 0.5×(Re/1000)^0.3)
     pub(crate) fn discharge_coefficient_reynolds_correction(reynolds: T) -> T {
         let re_ref = <T as FloatElement>::from_f64(1000.0);
         let ratio = reynolds / re_ref;

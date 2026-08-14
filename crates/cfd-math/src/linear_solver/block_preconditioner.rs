@@ -17,6 +17,14 @@
 //! 2. Benzi, Golub & Liesen (2005): "Numerical solution of saddle point problems"
 //! 3. Murphy, Golub & Wathen (2000): "A Note on Preconditioning for Indefinite Linear Systems"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::linear_solver::Preconditioner;
 use crate::sparse::SparseMatrix;
 use cfd_core::error::Result;
@@ -149,16 +157,16 @@ fn get_diagonal<T: RealField + Copy + LetoScalar>(matrix: &SparseMatrix<T>, row:
 
 /// Block diagonal preconditioner for saddle-point systems
 ///
-/// P = [ A_inv    0   ]
-///     [ 0      S_inv ]
+/// P = [ `A_inv`    0   ]
+///     [ 0      `S_inv` ]
 ///
 /// where S ≈ B A^{-1} B^T (Schur complement approximation)
 ///
 /// # Algorithm
 ///
 /// For solving Px = b:
-/// 1. Solve A u_tilde = f  (momentum block)
-/// 2. Solve S p = g - B u_tilde  (pressure Schur complement)
+/// 1. Solve A `u_tilde` = f  (momentum block)
+/// 2. Solve S p = g - B `u_tilde`  (pressure Schur complement)
 /// 3. Solve A u = f - B^T p  (pressure correction)
 ///
 /// # Theorem (Block-Diagonal Preconditioning of Saddle-Point Systems)
@@ -205,6 +213,7 @@ pub struct DiagonalPreconditioner<T: RealField> {
 
 impl<T: RealField + FloatElement + LetoScalar> DiagonalPreconditioner<T> {
     /// Create diagonal preconditioner from matrix diagonal
+    #[must_use]
     pub fn new(matrix: &SparseMatrix<T>) -> Self {
         let n = matrix.nrows();
         let mut diag_inv = Array1::zeros([n]);
@@ -249,11 +258,11 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> BlockDiagonalPreconditione
     ///
     /// # Algorithm
     ///
-    /// 1. Extract momentum block A (top-left n_velocity × n_velocity)
-    /// 2. Extract gradient block B^T (top-right n_velocity × n_pressure)
-    /// 3. Approximate Schur complement: S ≈ ν M_p (viscosity-scaled mass matrix)
+    /// 1. Extract momentum block A (top-left `n_velocity` × `n_velocity`)
+    /// 2. Extract gradient block B^T (top-right `n_velocity` × `n_pressure`)
+    /// 3. Approximate Schur complement: S ≈ ν `M_p` (viscosity-scaled mass matrix)
     ///    - Better than diagonal: accounts for element coupling
-    ///    - M_p_ij = ∫ φ_i φ_j dΩ (mass matrix assembly)
+    ///    - `M_p_ij` = ∫ `φ_i` `φ_j` dΩ (mass matrix assembly)
     ///    - Use: S^{-1} ≈ (1/ν) M_p^{-1}
     pub fn new(matrix: &SparseMatrix<T>, n_velocity: usize, n_pressure: usize) -> Result<Self> {
         if matrix.nrows() != n_velocity + n_pressure {
@@ -362,8 +371,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> BlockDiagonalPreconditione
     /// # Algorithm
     ///
     /// Split b = [f, g]^T into velocity and pressure parts:
-    /// 1. u = A_inv * f  (momentum preconditioning)
-    /// 2. p = S_inv * g  (pressure preconditioning)
+    /// 1. u = `A_inv` * f  (momentum preconditioning)
+    /// 2. p = `S_inv` * g  (pressure preconditioning)
     /// 3. Return [u, p]^T
     pub fn apply(&self, b: &Array1<T>) -> Result<Array1<T>> {
         let n_total = self.n_velocity + self.n_pressure;
@@ -610,7 +619,7 @@ const VELOCITY_COMPONENTS: usize = 3;
 
 /// Component-block sparse-LU preconditioner for a three-dimensional saddle system.
 ///
-/// The velocity block in CFDrs is component-major. When the assembled operator
+/// The velocity block in `CFDrs` is component-major. When the assembled operator
 /// has no cross-component velocity entries, its momentum block is the direct
 /// sum of three scalar CSR operators. This preconditioner factors each scalar
 /// block once with the provider-owned Leto sparse LU implementation and combines
@@ -980,6 +989,97 @@ where
     }
 }
 
+impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    /// Block-diagonal apply straight over the borrowed views.
+    ///
+    /// The velocity and pressure blocks are contiguous index ranges, so this
+    /// needs no scratch and no copy.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let expected = self.n_velocity + self.n_pressure;
+        if residual.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: residual.shape()[0],
+                right: expected,
+            });
+        }
+        if output.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: output.shape()[0],
+                right: expected,
+            });
+        }
+        for index in 0..self.n_velocity {
+            output[index] = residual[index] * self.momentum_preconditioner.diag_inv[index];
+        }
+        for index in 0..self.n_pressure {
+            let offset = self.n_velocity + index;
+            output[offset] = residual[offset] * self.pressure_preconditioner.diag_inv[index];
+        }
+        Ok(())
+    }
+}
+
+impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for SimplePreconditioner<T>
+where
+    T: RealField + FloatElement + Copy + LetoRealScalar,
+{
+    /// Apply SIMPLE directly to Athena's borrowed vectors.
+    ///
+    /// The velocity part of `output` first stores the diagonal momentum
+    /// prediction. Pressure is then formed from the borrowed divergence rows,
+    /// and the same output buffer receives the pressure correction. This
+    /// preserves the SIMPLE recurrence without allocating an intermediate
+    /// vector on the Krylov hot path.
+    fn apply(
+        &self,
+        _backend: &athena_leto::LetoBackend<T>,
+        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
+        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
+    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
+        let expected = self.n_velocity + self.n_pressure;
+        if residual.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: residual.shape()[0],
+                right: expected,
+            });
+        }
+        if output.shape()[0] != expected {
+            return Err(athena_leto::LetoBackendError::LengthMismatch {
+                left: output.shape()[0],
+                right: expected,
+            });
+        }
+
+        for index in 0..self.n_velocity {
+            output[index] = residual[index] * self.momentum_inv.diag_inv[index];
+        }
+        for pressure_index in 0..self.n_pressure {
+            let mut pressure_rhs = residual[self.n_velocity + pressure_index];
+            for &(velocity_index, divergence_value) in &self.divergence_rows[pressure_index] {
+                pressure_rhs -= divergence_value * output[velocity_index];
+            }
+            let pressure_offset = self.n_velocity + pressure_index;
+            output[pressure_offset] = pressure_rhs * self.schur_diag_inv[pressure_index];
+        }
+        for pressure_index in 0..self.n_pressure {
+            let pressure = output[self.n_velocity + pressure_index];
+            for &(velocity_index, gradient_value) in &self.gradient_columns[pressure_index] {
+                output[velocity_index] -=
+                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * pressure;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1121,96 +1221,5 @@ mod tests {
 
         assert!(block.apply(&wrong).is_err());
         assert!(simple.apply(&wrong).is_err());
-    }
-}
-
-impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
-where
-    T: RealField + FloatElement + Copy + LetoRealScalar,
-{
-    /// Block-diagonal apply straight over the borrowed views.
-    ///
-    /// The velocity and pressure blocks are contiguous index ranges, so this
-    /// needs no scratch and no copy.
-    fn apply(
-        &self,
-        _backend: &athena_leto::LetoBackend<T>,
-        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
-        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
-    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
-        let expected = self.n_velocity + self.n_pressure;
-        if residual.shape()[0] != expected {
-            return Err(athena_leto::LetoBackendError::LengthMismatch {
-                left: residual.shape()[0],
-                right: expected,
-            });
-        }
-        if output.shape()[0] != expected {
-            return Err(athena_leto::LetoBackendError::LengthMismatch {
-                left: output.shape()[0],
-                right: expected,
-            });
-        }
-        for index in 0..self.n_velocity {
-            output[index] = residual[index] * self.momentum_preconditioner.diag_inv[index];
-        }
-        for index in 0..self.n_pressure {
-            let offset = self.n_velocity + index;
-            output[offset] = residual[offset] * self.pressure_preconditioner.diag_inv[index];
-        }
-        Ok(())
-    }
-}
-
-impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for SimplePreconditioner<T>
-where
-    T: RealField + FloatElement + Copy + LetoRealScalar,
-{
-    /// Apply SIMPLE directly to Athena's borrowed vectors.
-    ///
-    /// The velocity part of `output` first stores the diagonal momentum
-    /// prediction. Pressure is then formed from the borrowed divergence rows,
-    /// and the same output buffer receives the pressure correction. This
-    /// preserves the SIMPLE recurrence without allocating an intermediate
-    /// vector on the Krylov hot path.
-    fn apply(
-        &self,
-        _backend: &athena_leto::LetoBackend<T>,
-        residual: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::View<'_>,
-        mut output: <athena_leto::LetoBackend<T> as athena_core::KrylovBackend>::ViewMut<'_>,
-    ) -> std::result::Result<(), athena_leto::LetoBackendError> {
-        let expected = self.n_velocity + self.n_pressure;
-        if residual.shape()[0] != expected {
-            return Err(athena_leto::LetoBackendError::LengthMismatch {
-                left: residual.shape()[0],
-                right: expected,
-            });
-        }
-        if output.shape()[0] != expected {
-            return Err(athena_leto::LetoBackendError::LengthMismatch {
-                left: output.shape()[0],
-                right: expected,
-            });
-        }
-
-        for index in 0..self.n_velocity {
-            output[index] = residual[index] * self.momentum_inv.diag_inv[index];
-        }
-        for pressure_index in 0..self.n_pressure {
-            let mut pressure_rhs = residual[self.n_velocity + pressure_index];
-            for &(velocity_index, divergence_value) in &self.divergence_rows[pressure_index] {
-                pressure_rhs -= divergence_value * output[velocity_index];
-            }
-            let pressure_offset = self.n_velocity + pressure_index;
-            output[pressure_offset] = pressure_rhs * self.schur_diag_inv[pressure_index];
-        }
-        for pressure_index in 0..self.n_pressure {
-            let pressure = output[self.n_velocity + pressure_index];
-            for &(velocity_index, gradient_value) in &self.gradient_columns[pressure_index] {
-                output[velocity_index] -=
-                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * pressure;
-            }
-        }
-        Ok(())
     }
 }

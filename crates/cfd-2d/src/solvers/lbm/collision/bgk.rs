@@ -4,17 +4,17 @@
 //!
 //! # Theorem — BGK H-Theorem (Boltzmann 1872, discrete form)
 //!
-//! **Statement**: Let $H = \sum_{q} f_q \ln(f_q / w_q)$ where $w_q$ is the
+//! **Statement**: Let $H = \sum_{q} `f_q` \`ln(f_q` / `w_q`)$ where $`w_q`$ is the
 //! lattice weight. The BGK collision operator satisfies $\Delta H \leq 0$, i.e.,
 //! the discrete entropy functional is non-increasing.
 //!
 //! **Proof**:
 //!
-//! 1. The BGK update is $f_q^* = (1 - \omega) f_q + \omega f_q^{eq}$, a convex
+//! 1. The BGK update is $`f_q`^* = (1 - \omega) `f_q` + \omega `f_q^{eq`}$, a convex
 //!    combination for $\omega \in (0, 2)$.
 //!
-//! 2. $H^{eq} = \sum_q f_q^{eq} \ln(f_q^{eq} / w_q)$ is the global minimum of
-//!    $H$ subject to fixed $\rho = \sum_q f_q$ and $\rho\mathbf{u} = \sum_q \mathbf{e}_q f_q$.
+//! 2. $H^{eq} = \`sum_q` `f_q^{eq`} \`ln(f_q^{eq`} / `w_q`)$ is the global minimum of
+//!    $H$ subject to fixed $\rho = \`sum_q` `f_q`$ and $\rho\mathbf{u} = \`sum_q` \mathbf{e}_q `f_q`$.
 //!    This follows from the method of Lagrange multipliers on the convex function
 //!    $\phi(f) = f \ln f - f$.
 //!
@@ -25,11 +25,11 @@
 //! # Theorem — Viscosity-Relaxation Correspondence
 //!
 //! **Statement**: The BGK kinematic viscosity is
-//! $\nu = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$, where $\tau = 1/\omega$.
+//! $\nu = `c_s^2` (\tau - \tfrac{1}{2}) \Delta t$, where $\tau = 1/\omega$.
 //!
 //! **Proof**: Chapman-Enskog at $O(\epsilon^1)$ yields the viscous stress tensor
 //! $\sigma_{xy} = -\mu (\partial u / \partial y + \partial v / \partial x)$ with
-//! $\mu / \rho = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$. See He & Luo (1997). □
+//! $\mu / \rho = `c_s^2` (\tau - \tfrac{1}{2}) \Delta t$. See He & Luo (1997). □
 
 use super::traits::CollisionOperator;
 use crate::scalar::one;
@@ -37,7 +37,7 @@ use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use eunomia::FloatElement;
 
-/// Lattice sound speed squared: $c_s^2 = 1/3$ (exact in IEEE 754).
+/// Lattice sound speed squared: $`c_s^2` = 1/3$ (exact in IEEE 754).
 const LATTICE_CS2: f64 = 1.0 / 3.0;
 /// Additive constant for τ from Navier-Stokes viscosity derivation.
 const HALF: f64 = 0.5;
@@ -67,7 +67,7 @@ impl<T: FloatElement> BgkCollision<T> {
 
     /// Construct from physical kinematic viscosity (Theorem — Viscosity correspondence).
     ///
-    /// τ = ½ + ν Δt / (c_s² Δx²)
+    /// τ = ½ + ν Δt / (`c_s²` Δx²)
     pub fn from_viscosity(nu: T, dt: T, dx: T) -> Self {
         let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);
         let half = <T as FloatElement>::from_f64(HALF);
@@ -108,7 +108,7 @@ impl<T: FloatElement> CollisionOperator<T> for BgkCollision<T> {
         self.tau
     }
 
-    /// Kinematic viscosity: ν = c_s²(τ − ½)Δt / Δx² × Δx² = c_s²(τ − ½)Δt
+    /// Kinematic viscosity: ν = `c_s²(τ` − ½)Δt / Δx² × Δx² = `c_s²(τ` − ½)Δt
     /// (in physical units, divide by Δx² if Δx ≠ 1)
     fn viscosity(&self, dt: T, dx: T) -> T {
         let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);

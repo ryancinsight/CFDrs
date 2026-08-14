@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_2d::grid::array2d::Array2D;
 // Analytical validation tests for energy equation
 //

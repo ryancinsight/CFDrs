@@ -59,9 +59,9 @@
 //!
 //! The equilibrium lateral position `x̃_eq` satisfies `F_L(x̃_eq) = F_D`.
 //!
-//! In the toward-center sign convention (F_L > 0 → toward center), Dean drag
+//! In the toward-center sign convention (`F_L` > 0 → toward center), Dean drag
 //! acts toward the wall, so the bisection solves `F_L(x̃) − F_D = 0`.
-//! Increasing F_D shifts the equilibrium toward the wall (larger x̃), consistent
+//! Increasing `F_D` shifts the equilibrium toward the wall (larger x̃), consistent
 //! with experimental observations of Dean-flow-enhanced cell migration.
 //! We solve this numerically using bisection on `[0, 1]` (by symmetry,
 //! only the half-channel need be considered).
@@ -109,7 +109,7 @@
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
 //! - Gossett, D. R. & Di Carlo, D. (2009). Particle focusing mechanisms in
 //!   curving confined flows. *Anal. Chem.*, 81, 8459–8465.
-//! - Hur, S. C., Henderson-MacLennan, N. K., McCabe, E. R. B. & Di Carlo, D.
+//! - Hur, S. C., Henderson-MacLennan, N. K., `McCabe`, E. R. B. & Di Carlo, D.
 //!   (2011). Deformability-based cell classification and enrichment using
 //!   inertial microfluidics. *Lab Chip*, 11, 912–920.
 
@@ -444,7 +444,7 @@ pub fn lateral_velocity(
     let mean_velocity_m_s = mean_velocity.into_base();
     let channel_width_m = channel_width.into_base();
     let channel_height_m = channel_height.into_base();
-    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
+    let bend_radius_m = bend_radius.map(aequitas::Quantity::into_base);
     let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
     let f_lift =
         checked_inertial_lift_force(x_tilde, cell, fluid_density, mean_velocity, channel_height)
@@ -486,7 +486,7 @@ pub fn checked_lateral_velocity(
     let mean_velocity_m_s = mean_velocity.into_base();
     let channel_width_m = channel_width.into_base();
     let channel_height_m = channel_height.into_base();
-    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
+    let bend_radius_m = bend_radius.map(aequitas::Quantity::into_base);
     let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
     let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
     let dynamic_viscosity_pa_s =
@@ -548,7 +548,7 @@ pub struct EquilibriumResult {
 ///
 /// Solves `F_L(x̃) − F_D = 0` using bisection on `x̃ ∈ [0, 1]`.
 ///
-/// Sign convention: F_L positive = toward center; Dean drag `F_D ≥ 0` acts
+/// Sign convention: `F_L` positive = toward center; Dean drag `F_D ≥ 0` acts
 /// toward the wall, so it enters with a negative sign.  This ensures that
 /// larger Dean forces shift the equilibrium toward the wall, as observed
 /// experimentally (Gossett & Di Carlo 2009).
@@ -589,7 +589,7 @@ pub fn lateral_equilibrium(
     let mean_velocity_m_s = mean_velocity.into_base();
     let channel_width_m = channel_width.into_base();
     let channel_height_m = channel_height.into_base();
-    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
+    let bend_radius_m = bend_radius.map(aequitas::Quantity::into_base);
     let h = channel_height_m;
     let w = channel_width_m;
     let dh = 2.0 * w * h / (w + h); // hydraulic diameter
@@ -692,7 +692,7 @@ pub fn checked_lateral_equilibrium(
     let mean_velocity_m_s = mean_velocity.into_base();
     let channel_width_m = channel_width.into_base();
     let channel_height_m = channel_height.into_base();
-    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
+    let bend_radius_m = bend_radius.map(aequitas::Quantity::into_base);
     let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
     let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
     let dynamic_viscosity_pa_s =

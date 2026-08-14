@@ -72,7 +72,7 @@ impl CheckpointValidator {
 
     /// Check if all values in a matrix are finite
     fn is_field_finite<T: RealField>(field: &Array2<T>) -> bool {
-        all_row_major(field, |value| value.is_finite())
+        all_row_major(field, eunomia::NumericElement::is_finite)
     }
 
     /// Check mass conservation (divergence-free condition)

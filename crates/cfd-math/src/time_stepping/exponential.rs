@@ -9,6 +9,14 @@
 //! value-semantic tests against closed-form scalar ODE solutions. This is not
 //! a machine-checked proof of the Padé approximation inside `leto-ops`.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::traits::{
     add_scaled_in_place, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState,
 };
@@ -59,11 +67,13 @@ impl<T: RealField + RealScalar + Copy> Default for ExponentialTimeDifferencing<T
 
 impl<T: RealField + RealScalar + Copy> ExponentialTimeDifferencing<T> {
     /// Create a new ETD integrator.
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(ExponentialConfig::default())
     }
 
     /// Create an ETD integrator with custom configuration.
+    #[must_use]
     pub fn with_config(config: ExponentialConfig) -> Self {
         Self {
             config,
@@ -147,11 +157,13 @@ impl<T: RealField + RealScalar + Copy> Default for ExponentialRungeKutta4<T> {
 
 impl<T: RealField + RealScalar + Copy> ExponentialRungeKutta4<T> {
     /// Create a new exponential RK4 integrator.
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(ExponentialConfig::default())
     }
 
     /// Create an ERK4 integrator with custom configuration.
+    #[must_use]
     pub fn with_config(config: ExponentialConfig) -> Self {
         Self {
             config,
@@ -193,6 +205,7 @@ impl<T: RealField + RealScalar + Copy> ExponentialRungeKutta4<T> {
     }
 
     /// Return the stored configuration.
+    #[must_use]
     pub fn config(&self) -> &ExponentialConfig {
         &self.config
     }

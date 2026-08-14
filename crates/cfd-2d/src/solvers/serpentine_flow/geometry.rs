@@ -31,6 +31,7 @@ impl<T: CfdScalar + Copy + FloatElement> SerpentineGeometry<T> {
     /// - Straight sections: 500 μm
     /// - Turn radius: 200 μm
     /// - Cycles: 5-10 (for ~5-10 mm total length)
+    #[must_use]
     pub fn microfluidic_standard() -> Self {
         Self {
             width: <T as FloatElement>::from_f64(200e-6),
@@ -54,8 +55,8 @@ impl<T: CfdScalar + Copy + FloatElement> SerpentineGeometry<T> {
 
     /// Calculate total channel length
     ///
-    /// Length = n_cycles × (2 × l_straight + turn_length)
-    /// where turn_length ≈ π × turn_radius (90° arc)
+    /// Length = `n_cycles` × (2 × `l_straight` + `turn_length`)
+    /// where `turn_length` ≈ π × `turn_radius` (90° arc)
     pub fn total_length(&self) -> T {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);
@@ -83,7 +84,7 @@ impl<T: CfdScalar + Copy + FloatElement> SerpentineGeometry<T> {
         (self.l_straight / (self.width + <T as FloatElement>::from_f64(1e-15))) * three * peclet
     }
 
-    /// Get bounding box [min_x, max_x, min_y, max_y]
+    /// Get bounding box [`min_x`, `max_x`, `min_y`, `max_y`]
     pub fn bounding_box(&self) -> [T; 4] {
         let r = self.turn_radius;
         let ls = self.l_straight;

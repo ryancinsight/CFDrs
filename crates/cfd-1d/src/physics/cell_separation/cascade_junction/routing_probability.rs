@@ -59,8 +59,8 @@ pub(crate) const FAHRAE_SIZE_ALPHA: f64 = 0.12;
 /// `r_p = (1 − r_c) / 2` (each peripheral-arm flow fraction).  The denominator
 /// sums over all three arms individually rather than collapsing both peripheral
 /// arms into a single "(1 − r)" term.  This correctly gives `P = 1/3` for all
-/// cell types when the trifurcation is perfectly symmetric (r_c = r_p = 1/3),
-/// and biases stiff cells (higher β) toward the center arm when r_c > 1/3.
+/// cell types when the trifurcation is perfectly symmetric (`r_c` = `r_p` = 1/3),
+/// and biases stiff cells (higher β) toward the center arm when `r_c` > 1/3.
 ///
 /// # Arguments
 /// * `q_center_frac` — fraction of total inlet flow carried by the center arm (0–1).
@@ -138,12 +138,12 @@ pub(crate) fn pmc5114676_velocity_inversion(beta_base: f64, v_in: f64, is_rbc: b
 /// Confinement-ratio-adjusted stiffness exponent β for Zweifach-Fung routing.
 ///
 /// As the treatment arm narrows through cascade stages, the confinement ratio
-/// κ = cell_diameter / Dh grows.  For stiff cells, a higher κ means the cell
+/// κ = `cell_diameter` / Dh grows.  For stiff cells, a higher κ means the cell
 /// sits proportionally closer to the wall, amplifying the cross-stream lift
 /// force and strengthening the Zweifach-Fung bias toward the high-flow arm.
 ///
 /// The amplification scales the *excess* β above 1.0 (deformable baseline):
-///   β_eff = 1 + (β_base − 1) × (1 + κ / κ_ref)
+///   `β_eff` = 1 + (`β_base` − 1) × (1 + κ / `κ_ref`)
 ///
 /// Under PMC5114676, high inflow velocities cause RBCs (which lack excess β)
 /// to experience a diminishing/inverting base β via the velocity multiplier.

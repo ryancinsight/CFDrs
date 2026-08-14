@@ -77,8 +77,8 @@ pub fn fahraeus_lindqvist_viscosity(
 /// ```
 ///
 /// where:
-/// - μ_0.45 = relative viscosity at H_t = 0.45 (from Pries 1992 parameterization)
-/// - F(D, H_t) = [(1 − H_t)^C − 1] / [(1 − 0.45)^C − 1]
+/// - `μ_0.45` = relative viscosity at `H_t` = 0.45 (from Pries 1992 parameterization)
+/// - F(D, `H_t`) = [(1 − `H_t)^C` − 1] / [(1 − 0.45)^C − 1]
 /// - C(D) = (0.8 + e^(−0.075D)) · (−1 + 1/(1 + 10^(−11) · D^12)) + 1/(1 + 10^(−11) · D^12)
 ///
 /// The key improvement over Pries (1992): Secomb adds a **phase-separation

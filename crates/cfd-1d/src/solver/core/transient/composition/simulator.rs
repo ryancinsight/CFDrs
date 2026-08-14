@@ -2038,14 +2038,9 @@ impl TransientCompositionSimulator {
                 .properties
                 .get(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S)
                 .copied();
-            let flow_rate = flow_rates
-                .get(edge_index)
-                .copied()
-                .unwrap_or_else(|| T::ZERO);
+            let flow_rate = flow_rates.get(edge_index).copied().unwrap_or(T::ZERO);
             let Some(segment_mu) = Self::segment_integrated_blood_apparent_viscosity(
-                props
-                    .hydraulic_diameter
-                    .map(|diameter| diameter.into_base()),
+                props.hydraulic_diameter.map(aequitas::Quantity::into_base),
                 flow_rate,
                 props.area.into_base(),
                 segments,
@@ -2198,7 +2193,7 @@ impl TransientCompositionSimulator {
                             .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
                             .copied()
                     })
-                    .unwrap_or_else(|| T::ZERO);
+                    .unwrap_or(T::ZERO);
                 edge_mixtures.insert(
                     edge_idx.index(),
                     MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(
@@ -2234,7 +2229,7 @@ impl TransientCompositionSimulator {
                         .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
                         .copied()
                 })
-                .unwrap_or_else(|| T::ZERO);
+                .unwrap_or(T::ZERO);
             segment_state.insert(
                 edge_idx.index(),
                 vec![hematocrit.max(T::ZERO).min(T::ONE); config.segments_per_edge],
@@ -2262,9 +2257,9 @@ impl TransientCompositionSimulator {
         positive_direction: bool,
     ) -> T {
         if positive_direction {
-            segments.last().copied().unwrap_or_else(|| T::ZERO)
+            segments.last().copied().unwrap_or(T::ZERO)
         } else {
-            segments.first().copied().unwrap_or_else(|| T::ZERO)
+            segments.first().copied().unwrap_or(T::ZERO)
         }
     }
 
@@ -2477,7 +2472,7 @@ impl TransientCompositionSimulator {
             let flow_rate = previous_flow_rates
                 .get(&edge_idx.index())
                 .copied()
-                .unwrap_or_else(|| T::ZERO);
+                .unwrap_or(T::ZERO);
             if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
@@ -2541,7 +2536,7 @@ impl TransientCompositionSimulator {
             let flow_rate = previous_flow_rates
                 .get(&edge_idx.index())
                 .copied()
-                .unwrap_or_else(|| T::ZERO);
+                .unwrap_or(T::ZERO);
             if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
@@ -2580,7 +2575,7 @@ impl TransientCompositionSimulator {
                         .and_then(MixtureComposition::hematocrit)
                         .map(Dimensionless::into_base)
                 })
-                .unwrap_or_else(|| T::ZERO);
+                .unwrap_or(T::ZERO);
 
             let total_courant = dt / segment_residence_time;
             let steps = checked_substep_count(
@@ -2690,7 +2685,9 @@ impl TransientCompositionSimulator {
                     }
                     continue;
                 };
-                let Some(parent_diameter) = parent_props.hydraulic_diameter.map(|d| d.into_base())
+                let Some(parent_diameter) = parent_props
+                    .hydraulic_diameter
+                    .map(aequitas::Quantity::into_base)
                 else {
                     for &(edge_idx, _) in &outgoing {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);
@@ -2703,13 +2700,17 @@ impl TransientCompositionSimulator {
                     let left_d = network
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(left.0))
-                        .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
-                        .unwrap_or_else(|| T::ZERO);
+                        .and_then(|props| {
+                            props.hydraulic_diameter.map(aequitas::Quantity::into_base)
+                        })
+                        .unwrap_or(T::ZERO);
                     let right_d = network
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(right.0))
-                        .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
-                        .unwrap_or_else(|| T::ZERO);
+                        .and_then(|props| {
+                            props.hydraulic_diameter.map(aequitas::Quantity::into_base)
+                        })
+                        .unwrap_or(T::ZERO);
                     left_d
                         .partial_cmp(&right_d)
                         .unwrap_or(std::cmp::Ordering::Equal)
@@ -2736,14 +2737,18 @@ impl TransientCompositionSimulator {
                     }
                     continue;
                 };
-                let Some(first_diameter) = first_props.hydraulic_diameter.map(|d| d.into_base())
+                let Some(first_diameter) = first_props
+                    .hydraulic_diameter
+                    .map(aequitas::Quantity::into_base)
                 else {
                     for &(edge_idx, _) in &daughters {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);
                     }
                     continue;
                 };
-                let Some(second_diameter) = second_props.hydraulic_diameter.map(|d| d.into_base())
+                let Some(second_diameter) = second_props
+                    .hydraulic_diameter
+                    .map(aequitas::Quantity::into_base)
                 else {
                     for &(edge_idx, _) in &daughters {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);

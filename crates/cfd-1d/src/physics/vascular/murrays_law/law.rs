@@ -25,7 +25,7 @@
 //! ## Corollaries
 //!
 //! - **Symmetric bifurcation**: D₁ = D₂ = D₀ / 2^(1/k)
-//! - **Area ratio**: A_daughters / A_parent = 2^(1 − 2/k). For k=3: 2^(1/3) ≈ 1.2599.
+//! - **Area ratio**: `A_daughters` / `A_parent` = 2^(1 − 2/k). For k=3: 2^(1/3) ≈ 1.2599.
 //! - **Deviation**: ε = |D₀ᵏ − D₁ᵏ − D₂ᵏ| / D₀ᵏ
 //!
 //! ## Non-Newtonian Extension (Revellin et al. 2009)
@@ -75,6 +75,7 @@ impl<T: CfdScalar + FloatElement + Copy> Default for MurraysLaw<T> {
 
 impl<T: CfdScalar + FloatElement + Copy> MurraysLaw<T> {
     /// Create Murray's Law calculator with classic exponent k=3
+    #[must_use]
     pub fn new() -> Self {
         Self {
             exponent: (T::ONE + T::ONE + T::ONE),
@@ -87,6 +88,7 @@ impl<T: CfdScalar + FloatElement + Copy> MurraysLaw<T> {
     }
 
     /// Create for turbulent flow conditions (k ≈ 2.7)
+    #[must_use]
     pub fn turbulent() -> Self {
         Self {
             exponent: <T as FloatElement>::from_f64(2.7),
@@ -94,6 +96,7 @@ impl<T: CfdScalar + FloatElement + Copy> MurraysLaw<T> {
     }
 
     /// Create for area-preserving bifurcation (k = 2)
+    #[must_use]
     pub fn area_preserving() -> Self {
         Self {
             exponent: (T::ONE + T::ONE),
@@ -214,7 +217,7 @@ impl<T: CfdScalar + FloatElement + Copy> MurraysLaw<T> {
 
     /// Calculate expected area ratio for symmetric Murray's bifurcation
     ///
-    /// A_daughters / A_parent = 2^(1 - 2/k)
+    /// `A_daughters` / `A_parent` = 2^(1 - 2/k)
     pub fn ideal_area_ratio(&self) -> T {
         let two = T::ONE + T::ONE;
         let exp = T::ONE - two / self.exponent;
@@ -228,7 +231,7 @@ mod tests {
     use eunomia::assert_relative_eq;
 
     /// Symmetric daughter diameter: D₁ = D₂ = D₀ / 2^(1/3).
-    /// Analytical: D₀ = 1.0 mm → D_d = 1.0 / 2^(1/3) ≈ 0.7937 mm.
+    /// Analytical: D₀ = 1.0 mm → `D_d` = 1.0 / 2^(1/3) ≈ 0.7937 mm.
     #[test]
     fn symmetric_daughter_diameter_analytical() {
         let murray = MurraysLaw::<f64>::new();
@@ -275,7 +278,7 @@ mod tests {
         assert_relative_eq!(ar, expected, max_relative = 1e-12);
     }
 
-    /// Flow split ratio for Newtonian: (D₁/D₂)^3, but with power_law_n=None
+    /// Flow split ratio for Newtonian: (D₁/D₂)^3, but with `power_law_n=None`
     /// uses exponent k=3. D₁ = 2D₂ → ratio = 8.
     #[test]
     fn flow_split_newtonian_d_ratio_two() {

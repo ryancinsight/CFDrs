@@ -7,7 +7,7 @@
 //!
 //! ### Linear Algebra & Sparse Matrices
 //! - **CSR/CSC Storage**: Memory-efficient sparse matrix representations
-//! - **Iterative Solvers**: GMRES, BiCGSTAB, Conjugate Gradient with preconditioning
+//! - **Iterative Solvers**: GMRES, `BiCGSTAB`, Conjugate Gradient with preconditioning
 //! - **Preconditioners**: ILU(k), AMG, Jacobi, SOR for solver acceleration
 //!
 //! ### High-Order Methods
@@ -33,7 +33,7 @@
 //! the conjugate gradient method converges in at most n steps in exact arithmetic.
 //!
 //! **Theorem (GMRES Convergence)**: The GMRES method finds the best approximation
-//! in the Krylov subspace K_m(A, r₀), providing optimal convergence properties.
+//! in the Krylov subspace `K_m(A`, r₀), providing optimal convergence properties.
 //!
 //! ### Preconditioning Theory
 //!
@@ -103,38 +103,12 @@
 //! - **SIMD Programming**: Fog, A. (2012). *Optimizing software in C++*
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::needless_range_loop)] // Explicit indexing clearer for numerical algorithms
-#![allow(clippy::too_many_lines)] // Complex numerical algorithms need detailed implementation
 // CFD numerical computation allows
-#![allow(clippy::similar_names)] // Mathematical variables often have similar names (x,y,z; i,j,k)
-#![allow(clippy::cast_precision_loss)] // Precision loss acceptable for performance in numerical code
-#![allow(clippy::cast_possible_truncation)] // Array indices and loop counters are typically small
-#![allow(clippy::unused_self)] // Trait methods maintain interface consistency
-#![allow(clippy::must_use_candidate)] // Mathematical utilities often used in larger expressions
-#![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
-#![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
-#![allow(clippy::cast_sign_loss)] // Signed to unsigned casts common in CFD indexing
-#![allow(clippy::cast_possible_wrap)] // Wrap-around acceptable for grid indices
-#![allow(clippy::too_many_arguments)] // CFD functions often need many physical parameters
-#![allow(clippy::float_cmp)] // Float comparisons necessary in numerical algorithms
-#![allow(clippy::unnecessary_wraps)] // Result types maintained for API consistency
-#![allow(clippy::items_after_statements)] // Helper functions after statements improve readability
-#![allow(clippy::many_single_char_names)] // Mathematical notation (i,j,k,x,y,z) is standard
-#![allow(clippy::unreadable_literal)] // Long literals used for precise physical constants
-#![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines
-#![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
-#![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
-#![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
-#![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
 
 pub mod linear_solver;
 
 /// Re-export the CFD-specific AMG preconditioner through the canonical
-/// cfd_math::multigrid path (domain-specific, not part of the leto-ops seam).
+/// `cfd_math::multigrid` path (domain-specific, not part of the leto-ops seam).
 pub mod multigrid {
     pub use crate::linear_solver::preconditioners::multigrid::*;
 }

@@ -108,7 +108,7 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// ## Algorithm: Anderson-Accelerated Picard Iteration
     ///
     /// **Theorem** (Walker & Ni 2011): Anderson acceleration applied to a
-    /// fixed-point iteration x_{k+1} = G(x_k) achieves superlinear convergence
+    /// fixed-point iteration x_{k+1} = `G(x_k)` achieves superlinear convergence
     /// for contractive mappings, reducing the Picard iteration count by a factor
     /// of 2–5× for typical microfluidic networks.
     ///
@@ -119,7 +119,7 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// 1. **SPD detection is hoisted to the first iteration**: the sign structure
     ///    of the Laplacian (positive diagonal, non-positive off-diagonal) is
     ///    preserved across conductance updates, so the solver method selection
-    ///    (CG vs BiCGSTAB) is performed once.
+    ///    (CG vs `BiCGSTAB`) is performed once.
     ///
     /// 2. **Anderson acceleration with depth m=5** is applied to the pressure
     ///    solution vector, treating each Picard iterate as a fixed-point map.

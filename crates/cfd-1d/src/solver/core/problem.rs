@@ -10,7 +10,7 @@
 //! 2. **Dirichlet Uniqueness**: There exists at least one node $i \in \mathcal{V}$
 //!    with a prescribed Dirichlet boundary condition (fixed pressure).
 //! 3. **Positivity of Conductance**: All edges $e \in \mathcal{E}$ have a strictly
-//!    positive, finite hydraulic conductance $G_e > 0$.
+//!    positive, finite hydraulic conductance $`G_e` > 0$.
 //!
 //! If condition (2) is violated, the corresponding discrete Laplacian is exactly
 //! singular with a nullspace rank of 1 (containing the constant vector $\mathbf{1}$).

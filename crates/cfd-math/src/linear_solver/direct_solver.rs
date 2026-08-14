@@ -18,7 +18,7 @@
 //! The CFDrs-side `dense_threshold` retry below catches the orthogonal
 //! case where the upstream solver refuses on the `max_size` cap and the
 //! matrix is small enough to attempt a dense direct solve through the
-//! `dense_bridge` provider — a CFDrs user-intent safety net,
+//! `dense_bridge` provider — a `CFDrs` user-intent safety net,
 //! not a duplicate of the upstream internal fallback.
 //!
 //! # Theorem — LU Factorisation Uniqueness
@@ -27,6 +27,14 @@
 //! unique up to diagonal scaling when $A$ is strongly regular. The
 //! `leto-ops` implementation uses partial pivoting (largest-magnitude pivot
 //! selection) to maintain numerical stability.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -62,6 +70,7 @@ impl Default for DirectSparseSolver {
 
 impl DirectSparseSolver {
     /// Returns true if the solver should attempt a direct solve for this size.
+    #[must_use]
     pub fn can_handle_size(&self, size: usize) -> bool {
         size <= self.max_size
     }

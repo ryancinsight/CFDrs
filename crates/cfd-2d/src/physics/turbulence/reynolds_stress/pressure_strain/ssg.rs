@@ -1,11 +1,11 @@
 //! Full SSG (Speziale-Sarkar-Gatski, 1991) pressure-strain model.
 //!
 //! ### Theorem: SSG Full Pressure-Strain
-//! Φ_ij = − (C₁ ε + C₁* P) b_ij
-//!         + C₂ ε (b_ik b_kj − 1/3 II_b δ_ij)
-//!         + (C₃ − C₃* √II_b) k S_ij
-//!         + C₄ k (b_ik S_kj + b_jk S_ki − 2/3 b_kl S_kl δ_ij)
-//!         + C₅ k (b_ik W_kj − W_ik b_kj)
+//! `Φ_ij` = − (C₁ ε + C₁* P) `b_ij`
+//!         + C₂ ε (`b_ik` `b_kj` − 1/3 `II_b` `δ_ij`)
+//!         + (C₃ − C₃* √`II_b`) k `S_ij`
+//!         + C₄ k (`b_ik` `S_kj` + `b_jk` `S_ki` − 2/3 `b_kl` `S_kl` `δ_ij`)
+//!         + C₅ k (`b_ik` `W_kj` − `W_ik` `b_kj`)
 //!
 //! **Reference**: Speziale, Sarkar & Gatski, J. Fluid Mech. 227:245-272 (1991).
 

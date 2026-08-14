@@ -3,7 +3,7 @@
 //! # Invariant
 //!
 //! Default relaxation factors satisfy the Patankar stability constraint
-//! $\alpha_u + \alpha_p \le 1$ (typically $\alpha_u = 0.7$, $\alpha_p = 0.3$).
+//! $\`alpha_u` + \`alpha_p` \le 1$ (typically $\`alpha_u` = 0.7$, $\`alpha_p` = 0.3$).
 
 use crate::scalar;
 use cfd_core::CfdScalar;
@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 pub enum PressureLinearSolver {
     /// Conjugate Gradient (symmetric matrices only)
     ConjugateGradient,
-    /// BiCGSTAB (general non-symmetric matrices)
+    /// `BiCGSTAB` (general non-symmetric matrices)
     BiCGSTAB,
     /// GMRES(m) with restart (industry standard for SIMPLE/PISO)
     /// Reference: Saad & Schultz (1986), Saad (2003) §6.5

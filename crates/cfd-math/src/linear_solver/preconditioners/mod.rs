@@ -4,7 +4,7 @@
 //! `leto-ops` and re-exported via `cfd_math::iterative::preconditioners`.
 //!
 //! CFD-domain-specific implementations (AMG, ILU) live here.
-//! IncompleteCholesky, Deflation, and Schwarz are available in the git
+//! `IncompleteCholesky`, Deflation, and Schwarz are available in the git
 //! history pending full migration to the leto-ops Preconditioner trait.
 
 pub mod ilu;

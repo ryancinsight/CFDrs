@@ -1,5 +1,13 @@
 //! Stencil operations for finite difference computations
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use eunomia::{FloatElement, RealField};
 
 /// Stencil patterns for finite difference schemes
@@ -19,6 +27,7 @@ pub enum StencilPattern {
 
 impl StencilPattern {
     /// Get stencil coefficients for first derivative
+    #[must_use]
     pub fn first_derivative_coefficients<T: RealField + FloatElement>(&self) -> Vec<T> {
         match self {
             Self::Central3 => vec![
@@ -52,6 +61,7 @@ impl StencilPattern {
     }
 
     /// Get stencil coefficients for second derivative
+    #[must_use]
     pub fn second_derivative_coefficients<T: RealField + FloatElement>(&self) -> Vec<T> {
         match self {
             Self::Central3 | Self::Forward3 | Self::Backward3 | Self::Upwind3 => {
@@ -68,6 +78,7 @@ impl StencilPattern {
     }
 
     /// Get the stencil size
+    #[must_use]
     pub fn size(&self) -> usize {
         match self {
             Self::Central3 | Self::Forward3 | Self::Backward3 | Self::Upwind3 => 3,

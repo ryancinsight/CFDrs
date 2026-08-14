@@ -3,6 +3,14 @@
 //! Provides multiple coarsening algorithms (Ruge-Stüben, aggregation, Falgout,
 //! PMIS, HMIS) and quality analysis via algebraic distance measures.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod algorithms;
 mod quality;
 

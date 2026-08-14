@@ -9,10 +9,10 @@
 //! $\mathbf{u}(\mathbf{x}_w) = 0$ to first-order accuracy (half-way scheme:
 //! second order).
 //!
-//! **Proof**: Bounce-back sets $f_{\bar{q}}(\mathbf{x}_w) \leftarrow f_q(\mathbf{x}_w)$
+//! **Proof**: Bounce-back sets $f_{\bar{q}}(\mathbf{x}_w) \leftarrow `f_q(\mathbf{x`}_w)$
 //! for each antipodal pair $(q, \bar{q})$. The macroscopic velocity
-//! $\mathbf{u} = \sum_q \mathbf{e}_q f_q / \rho$ sums terms $\mathbf{e}_q f_q
-//! + \mathbf{e}_{\bar{q}} f_{\bar{q}} = \mathbf{e}_q f_q - \mathbf{e}_q f_q = 0$
+//! $\mathbf{u} = \`sum_q` \mathbf{e}_q `f_q` / \rho$ sums terms $\mathbf{e}_q `f_q`
+//! + \mathbf{e}_{\bar{q}} f_{\bar{q}} = \mathbf{e}_q `f_q` - \mathbf{e}_q `f_q` = 0$
 //!   for each pair (because $\mathbf{e}_{\bar{q}} = -\mathbf{e}_q$), so $\mathbf{u} = 0$. □
 //!
 //! # Theorem — Zou-He Boundary Reconstruction (Zou & He 1997)
@@ -23,7 +23,7 @@
 //! For a west inlet, for example,
 //!
 //! $$
-//! \rho = \frac{f_0 + f_2 + f_4 + 2(f_3 + f_6 + f_7)}{1 - u_x}
+//! \rho = \`frac{f_0` + `f_2` + `f_4` + `2(f_3` + `f_6` + `f_7)}{1` - `u_x`}
 //! $$
 //!
 //! and the remaining unknown populations follow the standard Zou-He closure.
@@ -298,7 +298,7 @@ impl<T: CfdScalar + Copy + FloatElement> BoundaryHandler<T> {
 
     /// Apply bounce-back (no-slip wall) at node (i, j).
     ///
-    /// Inverts each distribution with its antipodal: f_q ← f_{q̄}.
+    /// Inverts each distribution with its antipodal: `f_q` ← f_{q̄}.
     /// Yields u=0 at the node (Theorem — Bounce-Back).
     pub fn apply_bounce_back(f: &mut [T], i: usize, j: usize, nx: usize) {
         use crate::solvers::lbm::streaming::f_idx;
@@ -349,7 +349,7 @@ impl<T: CfdScalar + Copy + FloatElement> BoundaryHandler<T> {
 
     /// Apply pressure boundary condition at node (i, j).
     ///
-    /// Converts pressure to density via $\rho = p / c_s^2$, derives the
+    /// Converts pressure to density via $\rho = p / `c_s^2`$, derives the
     /// face-normal velocity from the density constraint, preserves the
     /// tangential component from the adjacent interior face, and reconstructs
     /// the missing populations with the Zou-He closure.

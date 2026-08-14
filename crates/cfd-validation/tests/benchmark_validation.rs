@@ -4,6 +4,11 @@
 //! - Backward-facing step (Gartling 1990)
 //! - Flow over cylinder (Schäfer & Turek 1996)
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_validation::benchmarks::{
     BackwardFacingStep, Benchmark, BenchmarkConfig, BenchmarkResult, FlowOverCylinder,
 };

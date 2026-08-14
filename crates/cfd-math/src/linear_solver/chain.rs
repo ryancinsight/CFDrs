@@ -24,7 +24,7 @@
 //! (Elman, Silvester & Wathen 2014, §3.4) exploits the 2×2 block structure
 //! to give mesh-independent GMRES convergence.  The ILU fallback addresses
 //! highly anisotropic or nearly singular systems where block preconditioning
-//! fails.  BiCGSTAB provides a last resort for strongly non-normal operators.
+//! fails.  `BiCGSTAB` provides a last resort for strongly non-normal operators.
 //!
 //! ## References
 //!
@@ -55,7 +55,7 @@ use crate::sparse::SparseMatrix;
 /// mixed FEM discretizations of incompressible flow.
 ///
 /// The chain attempts solvers in priority order (direct LU → GMRES/component
-/// blocks → GMRES/SIMPLE → GMRES/AMG → GMRES/block → GMRES/ILU → BiCGSTAB), returning the first
+/// blocks → GMRES/SIMPLE → GMRES/AMG → GMRES/block → GMRES/ILU → `BiCGSTAB`), returning the first
 /// successful solution.  This eliminates duplicated solver fallback logic
 /// across domain-specific solvers.
 ///
@@ -114,7 +114,7 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> CachedAmg<T> {
 impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverChain<T> {
     /// Create a new solver chain with the given iterative solver configuration.
     ///
-    /// Defaults: direct_threshold = 2,048;  krylov_restart = 100.
+    /// Defaults: `direct_threshold` = 2,048;  `krylov_restart` = 100.
     #[must_use]
     pub fn new(config: IterativeSolverConfig<T>) -> Self {
         Self {
@@ -147,16 +147,16 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
     /// 2. **GMRES + component blocks** — provider sparse-LU momentum solves.
     /// 3. **GMRES + SIMPLE** — couples momentum and pressure corrections.
     /// 4. **GMRES + AMG** — fallback for elliptic systems.
-    /// 5. **GMRES + BlockDiagonal** — diagonal saddle-point fallback.
+    /// 5. **GMRES + `BlockDiagonal`** — diagonal saddle-point fallback.
     /// 6. **GMRES (unpreconditioned)** — fallback when preconditioners fail.
     /// 7. **GMRES + ILU** — fallback for highly anisotropic systems.
-    /// 8. **BiCGSTAB (unpreconditioned)** — last resort for strongly non-normal operators.
+    /// 8. **`BiCGSTAB` (unpreconditioned)** — last resort for strongly non-normal operators.
     ///
     /// # Arguments
     /// * `matrix` — Sparse coefficient matrix A (CSR format)
     /// * `rhs` — Right-hand side vector b
     /// * `n_velocity_dof` — Number of velocity DOFs; determines the 2×2 block split
-    ///   for the BlockDiagonal preconditioner (velocity block = `n_velocity_dof`,
+    ///   for the `BlockDiagonal` preconditioner (velocity block = `n_velocity_dof`,
     ///   pressure block = `rhs.len() − n_velocity_dof`)
     ///
     /// # Errors

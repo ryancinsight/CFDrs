@@ -147,6 +147,7 @@ struct SelectiveTreeGeometry {
 }
 
 /// Generates a selective-tree blueprint from its physical request and topology.
+#[must_use]
 pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> NetworkBlueprint {
     let geometry = request.geometry();
     let mut builder = SelectiveTreeBuilder::new(request.name.clone(), geometry.box_dims_mm);

@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::*;
 use crate::high_order::dg::{
     matrix_cols, matrix_rows, matrix_zeros, vector_from_element, vector_len,

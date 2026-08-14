@@ -1,5 +1,13 @@
 //! Discretized Venturi solver and validation against analytical solutions.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use super::analytical::BernoulliVenturi;
 use super::geometry::VenturiGeometry;
 use super::solution::VenturiFlowSolution;

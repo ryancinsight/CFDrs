@@ -1,3 +1,13 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{

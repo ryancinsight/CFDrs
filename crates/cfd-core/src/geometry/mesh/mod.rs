@@ -115,6 +115,7 @@ pub struct MeshMetadata {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create a new empty mesh
+    #[must_use]
     pub fn new(name: String, dimension: usize) -> Self {
         Self {
             nodes: Vec::new(),

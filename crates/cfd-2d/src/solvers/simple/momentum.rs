@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::algorithm::SimpleAlgorithm;
 use super::STAGNANT_CELL_AP_THRESHOLD;
 use crate::fields::SimulationFields;

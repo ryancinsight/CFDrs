@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::kato_launder;
 use super::model::KEpsilonModel;
 use crate::physics::turbulence::constants::{
@@ -435,7 +440,7 @@ fn test_stochastic_robustness_extreme_conditions() {
 
 /// Analytical validation: steady-state equilibrium.
 ///
-/// At equilibrium P_k = ε. With P_k = ν_t·|S|² and ν_t = Cμ·k²/ε:
+/// At equilibrium `P_k` = ε. With `P_k` = `ν_t·|S|²` and `ν_t` = Cμ·k²/ε:
 ///   (Cμ k²/ε)·|S|² = ε  →  |S| = ε / (√Cμ · k)
 ///
 /// Reference: Launder & Spalding (1974) §2, Jones & Launder (1972) §4
@@ -555,7 +560,7 @@ fn test_constants_physical_validation() {
 
 // ─── Realizable k-ε tests (Shih, Zhu & Lumley 1995) ───────────────
 
-/// Verify that the realizable C_mu is bounded above by 1/A_0 ≈ 0.2475
+/// Verify that the realizable `C_mu` is bounded above by `1/A_0` ≈ 0.2475
 #[test]
 fn test_realizable_c_mu_bounded() {
     let model = KEpsilonModel::<f64>::new_realizable(10, 10);
@@ -584,7 +589,7 @@ fn test_realizable_c_mu_bounded() {
     assert!(c_mu_high_k > 0.0);
 }
 
-/// Verify C_mu reduces below standard 0.09 for high strain rates
+/// Verify `C_mu` reduces below standard 0.09 for high strain rates
 #[test]
 fn test_realizable_c_mu_reduces_at_high_strain() {
     let model = KEpsilonModel::<f64>::new_realizable(10, 10);
@@ -604,7 +609,7 @@ fn test_realizable_c_mu_reduces_at_high_strain() {
     );
 }
 
-/// At equilibrium S*k/eps ≈ 3.3, the realizable C_mu ≈ standard C_mu
+/// At equilibrium S*k/eps ≈ 3.3, the realizable `C_mu` ≈ standard `C_mu`
 #[test]
 fn test_realizable_c_mu_equals_standard_at_equilibrium() {
     let model = KEpsilonModel::<f64>::new_realizable(10, 10);
@@ -691,7 +696,7 @@ fn test_realizable_update_reduces_viscosity() {
     );
 }
 
-/// Verify that realizable C_mu monotonically decreases as strain increases
+/// Verify that realizable `C_mu` monotonically decreases as strain increases
 #[test]
 fn test_realizable_c_mu_monotone_decrease() {
     let model = KEpsilonModel::<f64>::new_realizable(10, 10);
@@ -714,7 +719,7 @@ fn test_realizable_c_mu_monotone_decrease() {
 
 // ─── Kato-Launder (1993) tests ─────────────────────────────────────
 
-/// For simple shear: P_KL = P_standard
+/// For simple shear: `P_KL` = `P_standard`
 #[test]
 fn test_kato_launder_pure_shear() {
     let gamma_dot = 5.0;
@@ -727,7 +732,7 @@ fn test_kato_launder_pure_shear() {
     assert_relative_eq!(p_kl, p_standard, epsilon = 1e-10);
 }
 
-/// For stagnation flow: P_KL = 0
+/// For stagnation flow: `P_KL` = 0
 #[test]
 fn test_kato_launder_stagnation() {
     let a = 10.0;
@@ -742,7 +747,7 @@ fn test_kato_launder_stagnation() {
     );
 }
 
-/// P_KL ≤ P_standard by Cauchy-Schwarz inequality
+/// `P_KL` ≤ `P_standard` by Cauchy-Schwarz inequality
 #[test]
 fn test_kato_launder_vs_standard_ratio() {
     let nu_t = 0.05;

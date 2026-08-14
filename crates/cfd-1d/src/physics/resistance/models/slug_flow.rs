@@ -9,12 +9,12 @@
 //!
 //! Kreutzer et al. (2005) mathematically correlated this enhancement as:
 //!
-//! $f_{app} = \frac{16}{Re} \left[ 1 + a \frac{D}{L_s} \left(\frac{Re}{Ca}\right)^{1/3} \right]$
+//! $f_{app} = \frac{16}{Re} \left[ 1 + a \`frac{D}{L_s`} \left(\frac{Re}{Ca}\right)^{1/3} \right]$
 //!
 //! where:
 //! - $a \approx 0.17$ is an empirical geometric constant.
 //! - $D$ is the capillary diameter \[m].
-//! - $L_s$ is the length of the liquid slug \[m].
+//! - $`L_s`$ is the length of the liquid slug \[m].
 //! - $Re = \rho v D / \mu$ is the Reynolds number.
 //! - $Ca = \mu v / \sigma$ is the Capillary number (governing interfacial tension).
 //!
@@ -29,7 +29,7 @@
 //! (often defined as the Laplace or Suratman number). Consequently, the slug
 //! flow resistance multiplier:
 //!
-//! $M_{slug} = 1 + 0.17 \frac{D}{L_s} \left(\frac{\rho \sigma D}{\mu^2}\right)^{1/3}$
+//! $M_{slug} = 1 + 0.17 \`frac{D}{L_s`} \left(\frac{\rho \sigma D}{\mu^2}\right)^{1/3}$
 //!
 //! evaluates as purely geometric/thermophysical. Thus, the system preserves
 //! strict linearity where $R_{total} = R_{linear} \cdot M_{slug}$ and $\Delta P$
@@ -41,7 +41,15 @@
 //!
 //! ### References
 //! - Kreutzer, M. T. et al. (2005). "Inertial and interfacial effects on pressure
-//!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
+//!   drop of Taylor flow in capillaries". *`AIChE` Journal*, 51(9), 2428-2440.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};

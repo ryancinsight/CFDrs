@@ -1,4 +1,4 @@
-//! weno_tests.rs module.
+//! `weno_tests.rs` module.
 //!
 //! # Theorem
 //! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
@@ -6,10 +6,18 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
 
 #[cfg(test)]
 mod tests {

@@ -82,7 +82,7 @@
 //! **Physical Interpretation**: The continuity equation ensures that fluid volume is conserved.
 //! Incompressibility means that fluid elements cannot be compressed or expanded.
 //!
-//! **Boundary Conditions**: The no-slip condition u·n = u_wall on solid boundaries, combined
+//! **Boundary Conditions**: The no-slip condition u·n = `u_wall` on solid boundaries, combined
 //! with incompressibility, ensures proper mass conservation.
 //!
 //! **Assumptions**:

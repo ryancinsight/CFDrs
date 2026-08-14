@@ -13,6 +13,11 @@
 //! The numerical FEM error geometrically converges as $\mathcal{O}(h^2)$ for
 //! piecewise-linear P1 elements.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };

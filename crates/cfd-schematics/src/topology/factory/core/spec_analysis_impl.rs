@@ -1,4 +1,4 @@
-//! Spec analysis, Dean number estimation, and query methods for BlueprintTopologyFactory.
+//! Spec analysis, Dean number estimation, and query methods for `BlueprintTopologyFactory`.
 use super::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
 use crate::geometry::metadata::BlueprintRenderHints;
@@ -16,6 +16,7 @@ impl BlueprintTopologyFactory {
     /// otherwise estimated from the channel polyline by three-point
     /// circumradius. Returns `None` when the target channel or a positive
     /// hydraulic area is unavailable.
+    #[must_use]
     pub fn estimate_dean_site(
         blueprint: &NetworkBlueprint,
         placement: &VenturiPlacementSpec,
@@ -104,6 +105,7 @@ impl BlueprintTopologyFactory {
     /// The optimization stage is derived from the spec's treatment mode:
     /// - `VenturiCavitation` → `AsymmetricSplitVenturiCavitationSelectivity`
     /// - `UltrasoundOnly` → `AsymmetricSplitResidenceSeparation`
+    #[must_use]
     pub fn lineage_for_spec(spec: &BlueprintTopologySpec) -> TopologyLineageMetadata {
         let stage = match spec.treatment_mode {
             TreatmentActuationMode::VenturiCavitation => {

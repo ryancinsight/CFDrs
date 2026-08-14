@@ -56,11 +56,19 @@
 //! ## References
 //!
 //! - Deen, W. M. (1987). "Hindered transport of large molecules in liquid filled pores."
-//!   *AIChE Journal*, 33(9), 1409–1425.
+//!   *`AIChE` Journal*, 33(9), 1409–1425.
 //! - Bungay, P. M., & Brenner, H. (1973). "The motion of a closely-fitting sphere in a
 //!   fluid-filled tube." *International Journal of Multiphase Flow*, 1(1), 25–56.
 //! - Truskey, G. A., Yuan, F., & Deen, D. F. (2010).
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -165,7 +173,7 @@ mod tests {
         water_20c::<f64>().unwrap()
     }
 
-    /// Verify R_total matches the theoretical formula R = 8μL/(φAr²).
+    /// Verify `R_total` matches the theoretical formula R = 8μL/(φAr²).
     ///
     /// Theorem: R = 8μL/(φAr²) for cylindrical parallel-pore membranes.
     #[test]

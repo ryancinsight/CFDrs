@@ -14,9 +14,9 @@
 //! **Theorem**: At every internal (non-boundary) node $i$, the sum of all incoming
 //! and outgoing mass flows must equal any external source $Q_{ext,i}$:
 //!
-//! $$ \sum_{j \in \mathcal{N}(i)} G_{ij} (P_i - P_j) = Q_{ext,i} $$
+//! $$ \sum_{j \in \mathcal{N}(i)} G_{ij} (`P_i` - `P_j`) = Q_{ext,i} $$
 //!
-//! where $P_i$ is the pressure at node $i$, $G_{ij}$ is the hydraulic conductance
+//! where $`P_i`$ is the pressure at node $i$, $G_{ij}$ is the hydraulic conductance
 //! of the edge connecting $i$ and $j$, and $\mathcal{N}(i)$ is the set of neighbors of $i$.
 //!
 //! ## Theorem: Network Laplacian
@@ -36,14 +36,14 @@
 //! ## Dirichlet Boundary Conditions
 //!
 //! Exact Dirichlet enforcement is achieved via **Row Replacement with Column Elimination**.
-//! For a node $i$ with fixed pressure $P_i$:
+//! For a node $i$ with fixed pressure $`P_i$`:
 //!
-//! 1. **Row Replacement**: The equation for node $i$ becomes trivial: $1 \cdot x_i = P_i$.
+//! 1. **Row Replacement**: The equation for node $i$ becomes trivial: $1 \cdot `x_i` = `P_i`$.
 //!    This is implemented by skipping edge contributions to row $i$ and injecting a diagonal 1 later.
 //!
-//! 2. **Column Elimination**: For every neighbor $j$ connected to $i$, the term $A_{ji} x_i$ is known ($A_{ji} P_i$).
-//!    We move this to the RHS: $b_j \leftarrow b_j - A_{ji} P_i$.
-//!    Since $A_{ji} = -G_{ij}$ (negative conductance), this becomes $b_j \leftarrow b_j + G_{ij} P_i$.
+//! 2. **Column Elimination**: For every neighbor $j$ connected to $i$, the term $A_{ji} `x_i`$ is known ($A_{ji} `P_i`$).
+//!    We move this to the RHS: $`b_j` \leftarrow `b_j` - A_{ji} `P_i`$.
+//!    Since $A_{ji} = -G_{ij}$ (negative conductance), this becomes $`b_j` \leftarrow `b_j` + G_{ij} `P_i`$.
 //!    The matrix entry $A_{ji}$ is then set to 0 (skipped).
 //!
 //! This preserves the symmetry of the active submatrix for the remaining unknowns, which is crucial for
@@ -54,6 +54,11 @@
 //! Conductances $G_{ij}$ must be strictly positive.
 //! - $G_{ij} \le 0$ represents a physical impossibility (negative resistance) or a disconnected edge.
 //! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
+
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
 
 use crate::domain::network::Network;
 use cfd_core::error::{Error, Result};

@@ -17,6 +17,11 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::boundary::BloodModel;
 use super::grid::StaggeredGrid2D;
 use crate::grid::array2d::{Array2D, Mask2D};
@@ -42,12 +47,13 @@ pub struct FlowField2D<T: CfdScalar + Copy> {
     /// Turbulent eddy viscosity at cell centers \[nx]\[ny].
     /// Zero for laminar simulations.  When a turbulence model is active,
     /// this is added to the molecular viscosity in the momentum equation
-    /// diffusion terms: mu_effective = mu + rho * nu_t.
+    /// diffusion terms: `mu_effective` = mu + rho * `nu_t`.
     pub nu_t: Array2D<T>,
 }
 
 impl<T: CfdScalar + Copy + FloatElement> FlowField2D<T> {
     /// Create a new zero-initialised flow field for an `nx × ny` grid.
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         let zero: T = scalar::zero();
         Self {
@@ -101,10 +107,10 @@ impl<T: CfdScalar + Copy + FloatElement> FlowField2D<T> {
 
     /// Update viscosity field from shear rate using the active `BloodModel`.
     ///
-    /// `alpha_mu` under-relaxes the update: μ_new = (1−α)·μ_old + α·μ_computed.
+    /// `alpha_mu` under-relaxes the update: `μ_new` = (`1−α)·μ_old` + `α·μ_computed`.
     /// For non-Newtonian models (Casson, Carreau-Yasuda) this prevents viscosity
     /// oscillation between SIMPLE iterations (Patankar 1980, §6.7).
-    /// For Newtonian blood the factor has no effect (μ_computed is constant).
+    /// For Newtonian blood the factor has no effect (`μ_computed` is constant).
     pub fn update_viscosity(
         &mut self,
         grid: &StaggeredGrid2D<T>,

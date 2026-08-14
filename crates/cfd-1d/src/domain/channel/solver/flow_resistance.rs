@@ -38,6 +38,14 @@
 //! - Beskok, A. & Karniadakis, G. E. (1999). Microscale Thermophys. Eng. 3(1), 43–77.
 //! - Schlichting, H. (1979). *Boundary-Layer Theory*, 7th ed.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
@@ -218,7 +226,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
     /// `R_slip = R_laminar / (1 + 4 · Kn · σ_v)`, `σ_v = 1`.
     fn slip_flow_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let r_laminar = self.laminar_resistance(fluid)?;
-        let kn = self.flow_state.knudsen_number.unwrap_or_else(|| T::ZERO);
+        let kn = self.flow_state.knudsen_number.unwrap_or(T::ZERO);
         let four = T::ONE + T::ONE + T::ONE + T::ONE;
         Ok(r_laminar / (T::ONE + four * kn))
     }
@@ -297,8 +305,8 @@ mod tests {
         assert_relative_eq!(r_stokes, r_laminar, max_relative = 1e-15);
     }
 
-    /// Slip flow correction: R_slip = R_lam / (1 + 4·Kn).
-    /// For Kn=0.01: R_slip = R_lam / 1.04.
+    /// Slip flow correction: `R_slip` = `R_lam` / (1 + 4·Kn).
+    /// For Kn=0.01: `R_slip` = `R_lam` / 1.04.
     #[test]
     fn slip_flow_reduces_resistance() {
         let mut chan = circular_channel(1e-3, 0.01);

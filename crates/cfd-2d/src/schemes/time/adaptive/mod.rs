@@ -17,7 +17,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -36,7 +36,7 @@ use super::StateVector;
 /// Adaptation strategy for time step control
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AdaptationStrategy {
-    /// CFL-based adaptation: dt = CFL_target * min(dx/|u|, dy/|v|)
+    /// CFL-based adaptation: dt = `CFL_target` * min(dx/|u|, dy/|v|)
     CFLBased {
         /// Target CFL number (typically 0.5-0.8 for stability)
         cfl_target: f64,
@@ -192,7 +192,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdaptiveController<T> {
     /// * `error_estimate` - Current error estimate
     ///
     /// # Returns
-    /// (new_dt, step_accepted)
+    /// (`new_dt`, `step_accepted`)
     pub fn adapt_step(&mut self, error_estimate: T) -> (T, bool) {
         let (error_tolerance, safety_factor) = match self.strategy {
             AdaptationStrategy::ErrorBased {

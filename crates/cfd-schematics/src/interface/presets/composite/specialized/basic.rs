@@ -204,14 +204,14 @@ pub fn asymmetric_bifurcation_serpentine_rect(
 /// E_N = 1 − (1 − E_1)^N
 /// ```
 ///
-/// where E_1 is the single-cycle WBC enrichment fraction.
+/// where `E_1` is the single-cycle WBC enrichment fraction.
 ///
 /// # Arguments
 /// - `n_cycles` — number of wide→narrow cycles (2–20 recommended)
 /// - `wide_length_m` — length of each wide section \[m]
 /// - `narrow_length_m` — length of each narrow constriction \[m]
 /// - `wide_width_m` — width of wide sections \[m]
-/// - `narrow_width_m` — width of constrictions \[m] (typically 0.3–0.7 × wide_width_m)
+/// - `narrow_width_m` — width of constrictions \[m] (typically 0.3–0.7 × `wide_width_m`)
 /// - `height_m` — channel height \[m] (same for all sections)
 ///
 /// # Channel names
@@ -263,7 +263,7 @@ pub fn constriction_expansion_array_rect(
 ///
 /// # Arguments
 /// - `n_turns` — number of complete 360° turns (2–20 recommended)
-/// - `turn_length_m` — arc length per turn \[m] (≈ 2π × R_mean)
+/// - `turn_length_m` — arc length per turn \[m] (≈ 2π × `R_mean`)
 /// - `width_m` — channel width \[m]
 /// - `height_m` — channel height \[m]
 ///
@@ -294,14 +294,14 @@ pub fn spiral_channel_rect(
 /// **Topology**: `inlet ──[ch_0, ch_1, …, ch_{n-1}]──▶ outlet` (star topology)
 ///
 /// All N channels have identical cross-section, length, and hydraulic resistance.
-/// The 1D solver distributes flow equally: Q_per_channel = Q_total / N.
+/// The 1D solver distributes flow equally: `Q_per_channel` = `Q_total` / N.
 ///
-/// Enables micro-scale inertial focusing (D_h < 150 µm, κ_WBC > 0.15) at
+/// Enables micro-scale inertial focusing (`D_h` < 150 µm, `κ_WBC` > 0.15) at
 /// clinical throughput (≥ 10 mL/min) by replicating N identical units within
 /// a single 96-well-plate millifluidic chip.
 ///
 /// # Theorem — Parallel Resistance
-/// For N identical channels in parallel, each with resistance R_ch:
+/// For N identical channels in parallel, each with resistance `R_ch`:
 /// ```text
 /// R_total = R_ch / N
 /// Q_i = Q_total / N   (uniform distribution by symmetry)

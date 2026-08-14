@@ -20,6 +20,14 @@
 //!
 //! with safety factor $F_s = 1.25$ for three-grid studies.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::solver::{VenturiConfig3D, VenturiSolution3D};
 use crate::scalar;
 use cfd_core::conversion::SafeFromF64;

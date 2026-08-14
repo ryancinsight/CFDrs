@@ -1,3 +1,11 @@
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
@@ -27,7 +35,8 @@ pub struct SimpleAlgorithm<T: CfdScalar + EunomiaRealField + Copy + FloatElement
 }
 
 impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
-    /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
+    /// Construct with Patankar-recommended defaults: `α_u` = 0.7, `α_p` = 0.3.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             pressure_relaxation: <T as FloatElement>::from_f64(0.3),
@@ -43,13 +52,13 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Si
         }
     }
 
-    /// Set pressure under-relaxation factor α_p ∈ (0, 1).
+    /// Set pressure under-relaxation factor `α_p` ∈ (0, 1).
     pub fn with_pressure_relaxation(mut self, alpha_p: T) -> Self {
         self.pressure_relaxation = alpha_p;
         self
     }
 
-    /// Set velocity under-relaxation factor α_u ∈ (0, 1).
+    /// Set velocity under-relaxation factor `α_u` ∈ (0, 1).
     pub fn with_velocity_relaxation(mut self, alpha_u: T) -> Self {
         self.velocity_relaxation = alpha_u;
         self
@@ -99,7 +108,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Si
     /// ## Steps
     ///
     /// 1. **Momentum predictor** — solve u*, v* from linearised momentum equation.
-    /// 2. **D-coefficient computation** — D = Δy/A_P for u-faces, Δx/A_P for v-faces.
+    /// 2. **D-coefficient computation** — D = `Δy/A_P` for u-faces, `Δx/A_P` for v-faces.
     /// 3. **Rhie-Chow face velocities** — apply Theorem 2 correction to suppress
     ///    checker-board modes (correction factor = 1.0, mathematically exact).
     /// 4. **Pressure-correction system** — assemble M-matrix Poisson system for p'.

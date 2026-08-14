@@ -68,6 +68,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedAdvectionDiffusion<T> {
     }
 
     /// Create default solution with Pe ≈ 10 (advection-dominated)
+    #[must_use]
     pub fn default_advection_dominated() -> Self {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);
@@ -81,6 +82,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedAdvectionDiffusion<T> {
     }
 
     /// Create solution with Pe ≈ 1 (balanced)
+    #[must_use]
     pub fn default_balanced() -> Self {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);
@@ -94,6 +96,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedAdvectionDiffusion<T> {
     }
 
     /// Create solution with Pe << 1 (diffusion-dominated)
+    #[must_use]
     pub fn default_diffusion_dominated() -> Self {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);

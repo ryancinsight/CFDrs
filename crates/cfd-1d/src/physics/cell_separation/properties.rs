@@ -37,7 +37,7 @@ use aequitas::systems::si::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Minimum confinement ratio κ = a/D_h for measurable inertial focusing.
+/// Minimum confinement ratio κ = `a/D_h` for measurable inertial focusing.
 ///
 /// Cells with κ > 0.07 develop sufficient inertial lift forces to migrate
 /// toward equilibrium positions. Below this threshold, Brownian diffusion
@@ -179,7 +179,7 @@ impl CellProperties {
     /// Density: 1060 kg/m³.
     ///
     /// Monocytes are the easiest WBC subtype to separate inertially due to their
-    /// large size (κ_monocyte ≫ κ_RBC for typical microchannel dimensions).
+    /// large size (`κ_monocyte` ≫ `κ_RBC` for typical microchannel dimensions).
     #[must_use]
     pub fn monocyte() -> Self {
         Self {
@@ -230,7 +230,7 @@ impl CellProperties {
         }
     }
 
-    /// Confinement ratio κ = a / D_h.
+    /// Confinement ratio κ = a / `D_h`.
     ///
     /// Inertial focusing is significant when κ > 0.07 (Di Carlo 2009).
     /// Strong focusing occurs when κ > 0.2.

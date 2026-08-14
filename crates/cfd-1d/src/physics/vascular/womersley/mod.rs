@@ -108,6 +108,7 @@ impl<T: CfdScalar + FloatElement + Copy> WomersleyNumber<T> {
     }
 
     /// Create for human aorta at 72 bpm with blood properties
+    #[must_use]
     pub fn human_aorta() -> Self {
         // Aortic root diameter ~25 mm
         // Heart rate 72 bpm = 1.2 Hz
@@ -121,6 +122,7 @@ impl<T: CfdScalar + FloatElement + Copy> WomersleyNumber<T> {
     }
 
     /// Create for human femoral artery at 72 bpm
+    #[must_use]
     pub fn human_femoral() -> Self {
         // Femoral diameter ~6 mm
         Self {

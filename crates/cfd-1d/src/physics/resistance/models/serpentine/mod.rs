@@ -6,7 +6,7 @@
 //! create secondary flow vortices (Dean vortices). The Dean number quantifies
 //! the ratio of centrifugal to viscous forces:
 //!
-//! De = Re √(D_h / 2R_c)
+//! De = Re √(`D_h` / `2R_c`)
 //!
 //! ### Friction Factor Enhancement
 //!
@@ -20,7 +20,7 @@
 //! ### Bend Loss Coefficient
 //!
 //! Each 180° bend introduces an additional minor loss:
-//! K_bend = C₁ + C₂/Re (Idelchik 2007, §6.2)
+//! `K_bend` = C₁ + C₂/Re (Idelchik 2007, §6.2)
 //!
 //! ## Module structure
 //!

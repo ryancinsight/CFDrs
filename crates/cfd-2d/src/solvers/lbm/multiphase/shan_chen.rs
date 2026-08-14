@@ -21,7 +21,7 @@
 //!
 //! **Proof of Phase Separation**:
 //! A Taylor expansion of the force yields a non-ideal equation of state:
-//! $P = \rho c_s^2 + \frac{G c_s^2}{2} \psi^2$. For $G < G_{critical}$, the EoS exhibits
+//! $P = \rho `c_s^2` + \frac{G `c_s^2}{2`} \psi^2$. For $G < G_{critical}$, the `EoS` exhibits
 //! a van der Waals-like loop with $\partial P / \partial \rho < 0$ (spinodal decomposition).
 //! The fluid spontaneously separates into a high-density (liquid) and low-density (vapor)
 //! phase, satisfying the Maxwell equal-area construction, which dictates the equilibrium
@@ -41,14 +41,14 @@ use eunomia::{CastFrom, FloatElement};
 pub struct ShanChenMultiphase<T: CfdScalar + Copy> {
     /// Interaction strength G ($G < 0$ for attraction). Usually around -5.0 to -6.0.
     pub g_c: T,
-    /// Reference density $\rho_0$ for the exponential pseudopotential form
+    /// Reference density $\`rho_0`$ for the exponential pseudopotential form
     pub rho_0: T,
 }
 
 impl<T: CfdScalar + Copy + FloatElement> ShanChenMultiphase<T> {
     /// Compute the exponential effective mass $\psi(\rho)$
     ///
-    /// $\psi(\rho) = \rho_0 [1 - \exp(-\rho / \rho_0)]$
+    /// $\psi(\rho) = \`rho_0` [1 - \exp(-\rho / \`rho_0`)]$
     #[inline]
     #[must_use]
     pub fn pseudopotential(&self, density: T) -> T {
@@ -127,7 +127,7 @@ mod tests {
     use super::*;
 
     /// Theorem: The cohesive interaction force for a uniform density field must be
-    /// identically zero due to the isotropy of the lattice weights $\sum w_i \vec{e}_i = 0$.
+    /// identically zero due to the isotropy of the lattice weights $\sum `w_i` \vec{e}_i = 0$.
     #[test]
     fn uniform_density_yields_zero_force() {
         let sc = ShanChenMultiphase::<f64> {

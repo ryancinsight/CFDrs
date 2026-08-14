@@ -34,6 +34,7 @@ impl Default for ValidationSummary {
 
 impl ValidationSummary {
     /// Calculate the percentage of tests that passed
+    #[must_use]
     pub fn pass_rate(&self) -> f64 {
         if self.total_tests == 0 {
             0.0
@@ -43,6 +44,7 @@ impl ValidationSummary {
     }
 
     /// Calculate the percentage of tests that failed
+    #[must_use]
     pub fn failure_rate(&self) -> f64 {
         if self.total_tests == 0 {
             0.0
@@ -70,12 +72,14 @@ pub struct PerformanceMetrics {
 }
 
 impl PerformanceMetrics {
-    /// Check if performance is stable (std_dev / mean < threshold)
+    /// Check if performance is stable (`std_dev` / mean < threshold)
+    #[must_use]
     pub fn is_stable(&self, threshold: f64) -> bool {
         self.std_dev / self.mean < threshold
     }
 
-    /// Calculate coefficient of variation (std_dev / mean)
+    /// Calculate coefficient of variation (`std_dev` / mean)
+    #[must_use]
     pub fn coefficient_of_variation(&self) -> f64 {
         if self.mean == 0.0 {
             0.0

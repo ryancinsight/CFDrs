@@ -6,6 +6,11 @@
 //! stabilisation-parameter limits, quadrature exactness, and
 //! shape-function gradient completeness.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::SurfaceTension;
 use eunomia::assert_relative_eq;
 use leto::{FixedMatrix, Vector3};

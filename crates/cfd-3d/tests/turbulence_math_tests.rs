@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_3d::turbulence::sigma::SigmaModel;
 use cfd_3d::turbulence::spalart_allmaras::SpalartAllmarasModel;
 use cfd_3d::turbulence::vreman::VremanModel;

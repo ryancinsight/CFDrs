@@ -11,7 +11,6 @@
 //! cargo run --example csg_primitives_demo --features csg
 //! ```
 
-#![allow(missing_docs)]
 
 use std::f64::consts::PI;
 use std::time::Instant;

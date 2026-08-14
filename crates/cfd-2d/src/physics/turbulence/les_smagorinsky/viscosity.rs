@@ -7,9 +7,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -18,7 +18,7 @@ use leto::Array2;
 
 /// Compute SGS viscosity using Smagorinsky model.
 ///
-/// ν_SGS = (C_S Δ)² |S| where C_S is the Smagorinsky constant,
+/// `ν_SGS` = (`C_S` Δ)² |S| where `C_S` is the Smagorinsky constant,
 /// Δ is the filter width, and |S| is the strain rate magnitude.
 ///
 /// # Theorem -- Laminar Zero-Strain Invariant
@@ -30,6 +30,7 @@ use leto::Array2;
 /// If `|S| = 0`, multiplication by the non-negative model coefficients gives
 /// `nu_sgs = 0`. The optional lower bound is applied only after this physical
 /// evaluation, so the default configuration preserves the laminar invariant.
+#[must_use]
 pub fn compute_sgs_viscosity(
     strain_magnitude: &Array2<f64>,
     filter_width: &Array2<f64>,
@@ -118,6 +119,7 @@ fn compute_wall_distance(i: usize, j: usize, nx: usize, ny: usize, dx: f64, dy: 
 }
 
 /// Compute SGS viscosity without wall damping (for comparison/debugging)
+#[must_use]
 pub fn compute_sgs_viscosity_no_damping(
     strain_magnitude: &Array2<f64>,
     filter_width: &Array2<f64>,
@@ -182,7 +184,7 @@ mod tests {
         // For C_S = 0.1, Δ = 0.1, |S| = 1.0, ρ = 1.0:
         // ν_SGS = (0.1 * 0.1)² * 1.0 * 1.0 = 0.0001
         let expected = 0.0001;
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert_relative_eq!(v, expected, epsilon = 1e-10);
         }
     }
@@ -252,7 +254,7 @@ mod tests {
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // All viscosities should be at least the minimum
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert!(v >= 1e-6);
         }
     }
@@ -265,7 +267,7 @@ mod tests {
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Zero strain should give exactly zero SGS viscosity by default.
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert_relative_eq!(v, 0.0, epsilon = 1e-15);
         }
     }

@@ -10,6 +10,11 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example geometry_integration_demo`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity,
     Velocity,
@@ -155,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let max_flow = edge_flow_data.values().cloned().fold(0.0_f64, f64::max);
+    let max_flow = edge_flow_data.values().copied().fold(0.0_f64, f64::max);
 
     // FlowRate overlay with Viridis colormap
     let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)

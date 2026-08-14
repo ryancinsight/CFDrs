@@ -1,9 +1,9 @@
-//! Error types for CFDrs file-format and checkpoint I/O.
+//! Error types for `CFDrs` file-format and checkpoint I/O.
 
 /// I/O result alias.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Error type for CFDrs file-format and checkpoint I/O.
+/// Error type for `CFDrs` file-format and checkpoint I/O.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Input data violates an I/O format contract.

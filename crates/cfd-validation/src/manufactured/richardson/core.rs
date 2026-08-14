@@ -1,5 +1,10 @@
 //! Core Richardson extrapolation algorithms
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use crate::scalar;
 use eunomia::{FloatElement, NumericElement, RealField};
 
@@ -18,7 +23,7 @@ impl RichardsonExtrapolation {
     /// p = ln[(φ₁ - φ₂) / (φ₂ - φ₃)] / ln(r)
     ///
     /// **Assumptions**:
-    /// 1. **Asymptotic convergence**: Solutions must be in the asymptotic range where φ(h) = φ_exact + C h^p + O(h^q) with q > p
+    /// 1. **Asymptotic convergence**: Solutions must be in the asymptotic range where φ(h) = `φ_exact` + C h^p + O(h^q) with q > p
     /// 2. **Grid ordering**: φ₁, φ₂, φ₃ correspond to coarse, medium, and fine grids with h₁ > h₂ > h₃
     /// 3. **Refinement ratio**: r = h₁/h₂ = h₂/h₃ > 1 (consistent grid refinement)
     /// 4. **Monotonic convergence**: |φ₂ - φ₁| > |φ₃ - φ₂| (errors decreasing with grid refinement)
@@ -84,13 +89,13 @@ impl RichardsonExtrapolation {
     ///
     /// ## Richardson Extrapolation Theorem
     ///
-    /// **Statement**: If a numerical method has asymptotic convergence φ(h) = φ_exact + C h^p + O(h^q)
+    /// **Statement**: If a numerical method has asymptotic convergence φ(h) = `φ_exact` + C h^p + O(h^q)
     /// with q > p, then the exact solution can be extrapolated from three solutions on grids
     /// with refinement ratio r using:
     ///
-    /// φ_exact = φ₁ + (φ₁ - φ₂) / (r^p - 1)
+    /// `φ_exact` = φ₁ + (φ₁ - φ₂) / (r^p - 1)
     ///
-    /// **Assumptions** (same as estimate_order plus):
+    /// **Assumptions** (same as `estimate_order` plus):
     /// 7. **Error expansion**: Solutions follow the asymptotic error expansion
     /// 8. **Leading error dominance**: The p-th order term dominates the error expansion
     /// 9. **Consistent discretization**: All solutions use the same numerical method
@@ -498,7 +503,7 @@ mod tests {
             RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
 
         // Scale all values by constant factor
-        let scale = 3.14159;
+        let scale = core::f64::consts::PI;
         let (extrapolated2, order2) =
             RichardsonExtrapolation::extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r)
                 .unwrap();

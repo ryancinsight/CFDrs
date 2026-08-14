@@ -9,6 +9,15 @@
 //! | Adversarial  | Zero velocity BCs, extreme viscosity, pressure reference  |
 //! | Property     | Divergence-free constraint, symmetry preservation        |
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
@@ -248,15 +257,13 @@ fn test_degenerate_single_node_mesh() {
     let mut solver = ProjectionSolver::with_timestep(FemConfig::default(), 1e-3);
     let result = solver.solve(&problem, None);
     // Either succeeds with zero velocity or returns a sensible error — no panic.
-    match result {
-        Ok(sol) => {
-            let max_vel = sol.velocity.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-            assert!(
-                max_vel < 1e-10,
-                "All-wall small mesh should have ~zero velocity"
-            );
-        }
-        Err(_) => { /* acceptable */ }
+    if let Ok(sol) = result {
+        let max_vel = sol.velocity.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        assert!(
+            max_vel < 1e-10,
+            "All-wall small mesh should have ~zero velocity"
+        );
+    } else { /* acceptable */
     }
 }
 
@@ -311,13 +318,11 @@ fn test_large_dt_no_nan() {
     let n_nodes = mesh.vertex_count();
     let problem = StokesFlowProblem::new(mesh, water(), bcs, n_nodes);
     let mut solver = ProjectionSolver::with_timestep(FemConfig::default(), 1e6); // very large dt
-    match solver.solve(&problem, None) {
-        Ok(sol) => {
-            for &v in &sol.velocity {
-                assert!(v.is_finite(), "Velocity must be finite even with large dt");
-            }
+    if let Ok(sol) = solver.solve(&problem, None) {
+        for &v in &sol.velocity {
+            assert!(v.is_finite(), "Velocity must be finite even with large dt");
         }
-        Err(_) => { /* solver may reject unstable config */ }
+    } else { /* solver may reject unstable config */
     }
 }
 

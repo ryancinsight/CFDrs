@@ -12,9 +12,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -93,7 +93,7 @@ mod tests {
     }
 
     /// Test SST production term calculation
-    /// Reference: Menter (1994) - Production term P_k = τ_ij * ∂u_i/∂x_j
+    /// Reference: Menter (1994) - Production term `P_k` = `τ_ij` * ∂`u_i/∂x_j`
     #[test]
     fn test_sst_production_term_shear_flow() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
@@ -115,7 +115,7 @@ mod tests {
     }
 
     /// Test SST dissipation term
-    /// Reference: Menter (1994) - Dissipation ε_k = β* * k * ω
+    /// Reference: Menter (1994) - Dissipation `ε_k` = β* * k * ω
     #[test]
     fn test_sst_dissipation_term() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);

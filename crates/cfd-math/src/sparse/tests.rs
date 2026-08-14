@@ -1,5 +1,10 @@
 //! Tests for sparse matrix module
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 #[cfg(test)]
 use super::*;
 use cfd_core::error::Result;

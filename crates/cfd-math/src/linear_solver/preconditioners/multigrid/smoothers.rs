@@ -1,5 +1,13 @@
 //! Multigrid smoothers for AMG preconditioning
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{MultigridSmoother, MultigridVector, SparseMatrix};
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
@@ -272,6 +280,7 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
     }
 
     /// Estimate eigenvalue bounds using Gershgorin circle theorem
+    #[must_use]
     pub fn estimate_eigenvalues(matrix: &SparseMatrix<T>) -> (T, T) {
         let mut min_eigen: T = <T as FloatElement>::from_f64(1e6);
         let mut max_eigen = <T as NumericElement>::ZERO;

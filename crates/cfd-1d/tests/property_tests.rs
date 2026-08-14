@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{HydraulicResistance, Length, Pressure};
 use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;

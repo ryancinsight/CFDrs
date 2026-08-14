@@ -12,11 +12,11 @@
 //! ```
 //!
 //! where:
-//! - C_V is the Vreman constant (typically 0.07-0.1)
+//! - `C_V` is the Vreman constant (typically 0.07-0.1)
 //! - Δ is the filter width
-//! - α_ij is the velocity gradient tensor
-//! - B_β = β₁₁β₂₂ - β₁₂² + β₁₁β₃₃ - β₁₃² + β₂₂β₃₃ - β₂₃²
-//! - β_ij = Δ² α_mi α_mj
+//! - `α_ij` is the velocity gradient tensor
+//! - `B_β` = β₁₁β₂₂ - β₁₂² + β₁₁β₃₃ - β₁₃² + β₂₂β₃₃ - β₂₃²
+//! - `β_ij` = Δ² `α_mi` `α_mj`
 //!
 //! ## Key Advantages over Smagorinsky
 //!
@@ -27,13 +27,13 @@
 //!
 //! ## Implementation Details
 //!
-//! The model computes the B_β invariant:
+//! The model computes the `B_β` invariant:
 //!
 //! ```math
 //! B_β = β₁₁β₂₂ - β₁₂² + β₁₁β₃₃ - β₁₃² + β₂₂β₃₃ - β₂₃²
 //! ```
 //!
-//! where β_ij = Δ² Σ_k α_ki α_kj
+//! where `β_ij` = Δ² `Σ_k` `α_ki` `α_kj`
 //!
 //! The SGS viscosity is then:
 //!
@@ -51,17 +51,17 @@
 //! ## Numerical Stability
 //!
 //! The model includes safeguards:
-//! - B_β is clamped to non-negative values to prevent numerical instability
-//! - α_ij α_ij is checked to avoid division by zero
+//! - `B_β` is clamped to non-negative values to prevent numerical instability
+//! - `α_ij` `α_ij` is checked to avoid division by zero
 //! - Natural damping in strain-dominated regions
 //!
 //! # Theorem
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -95,6 +95,7 @@ pub struct VremanModel<T: RealField + Copy> {
 
 impl<T: RealField + Copy> VremanModel<T> {
     /// Create new Vreman model with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: VremanConfig::default(),
@@ -110,11 +111,11 @@ impl<T: RealField + Copy> VremanModel<T> {
     ///
     /// # Arguments
     ///
-    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂u_i/∂x_j
+    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂`u_i/∂x_j`
     ///
     /// # Returns
     ///
-    /// SGS viscosity ν_SGS
+    /// SGS viscosity `ν_SGS`
     pub fn sgs_viscosity(&self, velocity_gradient: &Array2<T>) -> T {
         self.compute_vreman_viscosity(velocity_gradient)
     }
@@ -123,11 +124,11 @@ impl<T: RealField + Copy> VremanModel<T> {
     ///
     /// # Arguments
     ///
-    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂u_i/∂x_j
+    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂`u_i/∂x_j`
     ///
     /// # Returns
     ///
-    /// SGS stress tensor τ_ij (symmetric 2x2 matrix)
+    /// SGS stress tensor `τ_ij` (symmetric 2x2 matrix)
     pub fn sgs_stress(&self, velocity_gradient: &Array2<T>) -> Array2<T> {
         let nu_sgs = self.compute_vreman_viscosity(velocity_gradient);
 

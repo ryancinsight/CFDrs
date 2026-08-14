@@ -6,7 +6,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -18,7 +18,7 @@ use eunomia::FloatElement;
 
 use super::vector::{l2_norm, StateVector};
 
-/// Backward Euler step: y_{n+1} = y_n + dt*f(t_{n+1}, y_{n+1})
+/// Backward Euler step: y_{n+1} = `y_n` + dt*f(t_{n+1}, y_{n+1})
 ///
 /// Implicit equation solved via fixed-point iteration.
 ///
@@ -75,7 +75,7 @@ where
 }
 
 /// Crank-Nicolson step (θ-method with θ=0.5):
-/// y_{n+1} = y_n + (dt/2)*(f(t_n, y_n) + f(t_{n+1}, y_{n+1}))
+/// y_{n+1} = `y_n` + (dt/2)*(`f(t_n`, `y_n`) + f(t_{n+1}, y_{n+1}))
 ///
 /// Implicit equation solved via fixed-point iteration.
 ///

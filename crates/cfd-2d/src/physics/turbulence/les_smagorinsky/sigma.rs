@@ -31,7 +31,7 @@
 //! Σ_{i,j} (∂u_i/∂x_j)² = α_ij α_ij
 //! ```
 //!
-//! where α_ij is the velocity gradient tensor.
+//! where `α_ij` is the velocity gradient tensor.
 //!
 //! The SGS viscosity is then:
 //!
@@ -41,7 +41,7 @@
 //!
 //! ## Model Constants
 //!
-//! - C_σ = 1.35 (from literature calibration)
+//! - `C_σ` = 1.35 (from literature calibration)
 //! - Δ = filter width (typically grid spacing)
 //!
 //! ## Literature Compliance
@@ -61,9 +61,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -97,6 +97,7 @@ pub struct SigmaModel<T: RealField + Copy> {
 
 impl<T: RealField + Copy> SigmaModel<T> {
     /// Create new Sigma model with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: SigmaConfig::default(),
@@ -112,11 +113,11 @@ impl<T: RealField + Copy> SigmaModel<T> {
     ///
     /// # Arguments
     ///
-    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂u_i/∂x_j
+    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂`u_i/∂x_j`
     ///
     /// # Returns
     ///
-    /// SGS viscosity ν_SGS
+    /// SGS viscosity `ν_SGS`
     pub fn sgs_viscosity(&self, velocity_gradient: &Array2<T>) -> T {
         if velocity_gradient.shape() != [2, 2] {
             return T::ZERO;
@@ -140,11 +141,11 @@ impl<T: RealField + Copy> SigmaModel<T> {
     ///
     /// # Arguments
     ///
-    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂u_i/∂x_j
+    /// * `velocity_gradient` - 2x2 velocity gradient tensor ∂`u_i/∂x_j`
     ///
     /// # Returns
     ///
-    /// SGS stress tensor τ_ij (symmetric 2x2 matrix)
+    /// SGS stress tensor `τ_ij` (symmetric 2x2 matrix)
     pub fn sgs_stress(&self, velocity_gradient: &Array2<T>) -> Array2<T> {
         let nu_sgs = self.sgs_viscosity(velocity_gradient);
 
@@ -188,7 +189,7 @@ impl<T: RealField + Copy> SigmaModel<T> {
 
     /// Compute the Sigma invariant (for analysis and validation)
     ///
-    /// This returns Σ_{i,j} (∂u_i/∂x_j)² which is used in the SGS viscosity formula
+    /// This returns Σ_{i,j} (∂`u_i/∂x_j)²` which is used in the SGS viscosity formula
     pub fn sigma_invariant(&self, velocity_gradient: &Array2<T>) -> T {
         if velocity_gradient.shape() != [2, 2] {
             return T::ZERO;

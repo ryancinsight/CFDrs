@@ -32,7 +32,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Reconstruct left interface value q_{j+1/2}^- from cell averages
     ///
     /// # Arguments
-    /// * `cells` - Array of cell averages [u_{j-3}, u_{j-2}, u_{j-1}, u_j, u_{j+1}, u_{j+2}, u_{j+3}]
+    /// * `cells` - Array of cell averages [u_{j-3}, u_{j-2}, u_{j-1}, `u_j`, u_{j+1}, u_{j+2}, u_{j+3}]
     ///
     /// # Returns
     /// Reconstructed interface value at j+1/2
@@ -76,7 +76,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Reconstruct right interface value q_{j+1/2}^+ from cell averages
     ///
     /// # Arguments
-    /// * `cells` - Array of cell averages [u_{j-3}, u_{j-2}, u_{j-1}, u_j, u_{j+1}, u_{j+2}, u_{j+3}]
+    /// * `cells` - Array of cell averages [u_{j-3}, u_{j-2}, u_{j-1}, `u_j`, u_{j+1}, u_{j+2}, u_{j+3}]
     ///
     /// # Returns
     /// Reconstructed interface value at j+1/2
@@ -117,7 +117,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         omega0 * q0 + omega1 * q1 + omega2 * q2 + omega3 * q3
     }
 
-    /// 4th-order ENO stencil 0 (left): {u_{j-3}, u_{j-2}, u_{j-1}, u_j}
+    /// 4th-order ENO stencil 0 (left): {u_{j-3}, u_{j-2}, u_{j-1}, `u_j`}
     #[must_use]
     fn eno4_stencil_0(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -133,7 +133,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
                 + twenty_five * cells[3])
     }
 
-    /// 4th-order ENO stencil 1 (left): {u_{j-2}, u_{j-1}, u_j, u_{j+1}}
+    /// 4th-order ENO stencil 1 (left): {u_{j-2}, u_{j-1}, `u_j`, u_{j+1}}
     #[must_use]
     fn eno4_stencil_1(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -144,7 +144,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (cells[1] + neg_five * cells[2] + thirteen * cells[3] + three * cells[4])
     }
 
-    /// 4th-order ENO stencil 2 (left): {u_{j-1}, u_j, u_{j+1}, u_{j+2}}
+    /// 4th-order ENO stencil 2 (left): {u_{j-1}, `u_j`, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno4_stencil_2(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -153,7 +153,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (-cells[2] + seven * cells[3] + seven * cells[4] - cells[5])
     }
 
-    /// 4th-order ENO stencil 3 (left): {u_j, u_{j+1}, u_{j+2}, u_{j+3}}
+    /// 4th-order ENO stencil 3 (left): {`u_j`, u_{j+1}, u_{j+2}, u_{j+3}}
     #[must_use]
     fn eno4_stencil_3(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -164,7 +164,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (three * cells[3] + thirteen * cells[4] + neg_five * cells[5] + cells[6])
     }
 
-    /// 4th-order ENO stencil 0 (right): {u_{j-3}, u_{j-2}, u_{j-1}, u_j}
+    /// 4th-order ENO stencil 0 (right): {u_{j-3}, u_{j-2}, u_{j-1}, `u_j`}
     #[must_use]
     fn eno4_stencil_0_right(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -175,7 +175,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (cells[0] + neg_five * cells[1] + thirteen * cells[2] + three * cells[3])
     }
 
-    /// 4th-order ENO stencil 1 (right): {u_{j-2}, u_{j-1}, u_j, u_{j+1}}
+    /// 4th-order ENO stencil 1 (right): {u_{j-2}, u_{j-1}, `u_j`, u_{j+1}}
     #[must_use]
     fn eno4_stencil_1_right(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -184,7 +184,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (-cells[1] + seven * cells[2] + seven * cells[3] - cells[4])
     }
 
-    /// 4th-order ENO stencil 2 (right): {u_{j-1}, u_j, u_{j+1}, u_{j+2}}
+    /// 4th-order ENO stencil 2 (right): {u_{j-1}, `u_j`, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno4_stencil_2_right(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
@@ -195,7 +195,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         one_twelfth * (three * cells[2] + thirteen * cells[3] + neg_five * cells[4] + cells[5])
     }
 
-    /// 4th-order ENO stencil 3 (right): {u_j, u_{j+1}, u_{j+2}, u_{j+3}}
+    /// 4th-order ENO stencil 3 (right): {`u_j`, u_{j+1}, u_{j+2}, u_{j+3}}
     #[must_use]
     fn eno4_stencil_3_right(&self, cells: &[T; 7]) -> T {
         let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);

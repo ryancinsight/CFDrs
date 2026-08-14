@@ -278,6 +278,7 @@ impl NetworkBlueprint {
     /// This is useful when imported or procedurally modified schematics contain
     /// crossing centerlines that should become explicit junction nodes for
     /// downstream solver graph construction.
+    #[must_use]
     pub fn to_interchange_resolved(&self) -> InterchangeChannelSystem {
         let mut resolved = self.clone();
         crate::geometry::insert_intersection_nodes(&mut resolved);

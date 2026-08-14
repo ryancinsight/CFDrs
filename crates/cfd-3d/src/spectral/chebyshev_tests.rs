@@ -8,6 +8,14 @@
 //! - Boyd, J.P. (2001). "Chebyshev and Fourier Spectral Methods" (2nd ed.). Dover.
 //! - Canuto, C., et al. (2006). "Spectral Methods: Fundamentals in Single Domains". Springer.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod tests {
     use super::super::ChebyshevPolynomial;

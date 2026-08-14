@@ -2,6 +2,11 @@
 //!
 //! These benchmarks measure performance of convergence detection algorithms.
 
+#![expect(
+    missing_docs,
+    reason = "ratchet CFDRS-DOCS-1: criterion macro-generated items"
+)]
+
 use cfd_validation::convergence::{ConvergenceMonitor, GridConvergenceIndex};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 

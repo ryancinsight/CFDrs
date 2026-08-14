@@ -2,6 +2,11 @@
 //!
 //! Implements Richardson extrapolation following ASME V&V 20-2009 guidelines.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use crate::scalar;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, RealField};

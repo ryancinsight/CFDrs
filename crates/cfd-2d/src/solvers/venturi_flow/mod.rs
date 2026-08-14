@@ -34,10 +34,10 @@
 //! For ideal (frictionless) Venturi:
 //! - Minimum Cp in throat (most negative)
 //! - Cp → 0 at outlet (full recovery)
-//! - Cp_ideal = 1 - (A₁/A₂)² (from Bernoulli)
+//! - `Cp_ideal` = 1 - (A₁/A₂)² (from Bernoulli)
 //!
 //! For real (viscous) Venturi:
-//! - Cp_actual = (1 - ε) · Cp_ideal, where ε ≈ 0.1-0.3 (recovery loss)
+//! - `Cp_actual` = (1 - ε) · `Cp_ideal`, where ε ≈ 0.1-0.3 (recovery loss)
 //!
 //! # Validation Strategy
 //!

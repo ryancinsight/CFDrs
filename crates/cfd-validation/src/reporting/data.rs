@@ -128,6 +128,7 @@ impl ValidationReport {
     }
 
     /// Calculate overall health score (0.0 to 1.0)
+    #[must_use]
     pub fn health_score(&self) -> f64 {
         let test_score = if self.summary.total_tests > 0 {
             self.summary.passed_tests as f64 / self.summary.total_tests as f64
@@ -142,6 +143,7 @@ impl ValidationReport {
     }
 
     /// Get critical issues requiring attention
+    #[must_use]
     pub fn critical_issues(&self) -> Vec<String> {
         let mut issues = Vec::new();
 

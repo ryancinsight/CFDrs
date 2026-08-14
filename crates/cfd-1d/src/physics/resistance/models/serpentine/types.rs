@@ -9,7 +9,7 @@ pub enum BendType {
     Sharp,
     /// Smooth 180° bend with specified R/D ratio
     Smooth {
-        /// Ratio of bend radius to hydraulic diameter (R/D_h)
+        /// Ratio of bend radius to hydraulic diameter (`R/D_h`)
         radius_to_dh_ratio: f64,
     },
 }
@@ -64,7 +64,7 @@ pub enum SerpentineCrossSection {
 }
 
 impl SerpentineCrossSection {
-    /// Hydraulic diameter D_h
+    /// Hydraulic diameter `D_h`
     #[must_use]
     pub fn hydraulic_diameter(&self) -> f64 {
         match self {

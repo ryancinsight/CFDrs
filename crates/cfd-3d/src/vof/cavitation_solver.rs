@@ -48,6 +48,14 @@
 //! - **Multi-Scale Modeling**: From microscopic bubbles to macroscopic damage
 //! - **GPU Acceleration**: Optimized for large-scale cavitation simulations
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Default grid spacing \[m] used when constructing the VOF solver grid.
 const DEFAULT_GRID_SPACING: f64 = 0.01;
 

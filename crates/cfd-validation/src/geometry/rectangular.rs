@@ -30,6 +30,7 @@ impl<T: RealField> RectangularDomain<T> {
     }
 
     /// Create a unit square centered at origin
+    #[must_use]
     pub fn unit_square() -> Self
     where
         T: From<f64>,

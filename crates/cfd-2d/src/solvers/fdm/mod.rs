@@ -20,7 +20,7 @@
 //! first-order upwind, the CFL condition $|u|\Delta t / \Delta x \le 1$ suffices.
 //!
 //! *Convergence*: By the Lax equivalence theorem, consistency + stability $\Rightarrow$
-//! convergence. The global error $\|e^n\| = \|u^n - u(t_n)\| \to 0$ at rate
+//! convergence. The global error $\|e^n\| = \|u^n - `u(t_n)`\| \to 0$ at rate
 //! $O(\Delta x^p + \Delta t^q)$.
 
 pub mod advection_diffusion;

@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use crate::domain::OptimizationGoal;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

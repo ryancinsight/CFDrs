@@ -144,12 +144,12 @@ pub const SENSITIZER_K_ACT_CHLORIN_E6: f64 = 0.8;
 /// ```
 ///
 /// where:
-/// - k_act ≈ 0.1–1.0 s⁻¹ (activation rate constant, drug-dependent)
-/// - I_cav = cavitation intensity (dimensionless, 0–1)
-/// - t_transit = residence time in cavitation zone \[s\]
+/// - `k_act` ≈ 0.1–1.0 s⁻¹ (activation rate constant, drug-dependent)
+/// - `I_cav` = cavitation intensity (dimensionless, 0–1)
+/// - `t_transit` = residence time in cavitation zone \[s\]
 ///
-/// For short transits (k·I·t << 1): η_act ≈ k·I·t (linear regime)
-/// For long transits (k·I·t >> 1): η_act → 1 (saturation)
+/// For short transits (k·I·t << 1): `η_act` ≈ k·I·t (linear regime)
+/// For long transits (k·I·t >> 1): `η_act` → 1 (saturation)
 ///
 /// **Reference**: Rosenthal, I., Sostaric, J.Z. & Riesz, P. (2004).
 /// "Sonodynamic therapy – a review of the synergistic effects of drugs
@@ -158,12 +158,12 @@ pub const SENSITIZER_K_ACT_CHLORIN_E6: f64 = 0.8;
 /// # Arguments
 ///
 /// * `k_act` — activation rate constant \[s⁻¹\]
-/// * `cavitation_intensity` — I_cav (0–1)
+/// * `cavitation_intensity` — `I_cav` (0–1)
 /// * `transit_time_s` — residence time in cavitation zone \[s\]
 ///
 /// # Returns
 ///
-/// Activation fraction η_act ∈ \[0, 1\].
+/// Activation fraction `η_act` ∈ \[0, 1\].
 ///
 /// # Example
 ///

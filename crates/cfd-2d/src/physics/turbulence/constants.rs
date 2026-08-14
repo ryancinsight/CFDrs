@@ -4,9 +4,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -49,15 +49,15 @@ pub const SST_SIGMA_OMEGA1: f64 = 0.5;
 pub const SST_SIGMA_OMEGA2: f64 = 0.856;
 
 /// Realizable k-ε model constants (Shih, Zhu, Lumley 1995)
-/// Calibrated constant A_0 in the denominator of the realizable C_mu formula
+/// Calibrated constant `A_0` in the denominator of the realizable `C_mu` formula
 pub const REALIZABLE_A0: f64 = 4.04;
 
 /// Numerical stability and realizability constraints
-/// Minimum turbulent kinetic energy for realizability: k ≥ K_MIN (Pope 2000)
+/// Minimum turbulent kinetic energy for realizability: k ≥ `K_MIN` (Pope 2000)
 pub const K_MIN: f64 = 1e-12;
-/// Minimum allowable dissipation rate for numerical stability and realizability: ε ≥ ε_MIN
+/// Minimum allowable dissipation rate for numerical stability and realizability: ε ≥ `ε_MIN`
 pub const EPSILON_MIN: f64 = 1e-12;
-/// Minimum allowable specific turbulent dissipation rate for numerical stability: ω ≥ ω_MIN (Wilcox 2008)
+/// Minimum allowable specific turbulent dissipation rate for numerical stability: ω ≥ `ω_MIN` (Wilcox 2008)
 pub const OMEGA_MIN: f64 = 1e-10;
 
 /// Wall treatment thresholds

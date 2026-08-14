@@ -7,20 +7,28 @@
 //!
 //! In a steady incompressible 2D flow ($$\nabla \cdot \vec{u} = 0$$), the dividing
 //! streamline $y_{sep}(x)$ upstream of a bifurcation exactly partitions the total volumetric
-//! flux $Q_{Total}$ into $Q_1$ and $Q_2$:
+//! flux $Q_{Total}$ into $`Q_1`$ and $`Q_2$`:
 //!
 //! ```text
 //! \int_{y_{min}}^{y_{sep}(x)} u(x, y) dy = Q_1 = f_q \cdot Q_{Total}
 //! ```
 //!
-//! Assuming a known fraction $f_q$ entering a specific daughter branch,
+//! Assuming a known fraction $`f_q`$ entering a specific daughter branch,
 //! the separating streamline coordinate $y_{sep}$ is unique and monotonically
-//! increasing with $f_q$ for any strictly positive unidirectional profile $u(y) > 0$.
+//! increasing with $`f_q`$ for any strictly positive unidirectional profile $u(y) > 0$.
 //!
 //! **Integration Method**: We evaluate the discrete trapezoidal cumulative flow exactly on
 //! each interval. When the sampled velocity is treated as piecewise linear, the cumulative
 //! flow is quadratic on that interval, and we solve the quadratic root analytically to obtain
 //! the exact $y_{sep}$ for the discrete representation.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use crate::scalar;
 use eunomia::{FloatElement, NumericElement};
@@ -32,14 +40,14 @@ impl ZweifachFung2D {
     /// Calculate the fractional flow separation coordinate $y_{sep}$ given a
     /// 1D cross-sectional velocity profile $u(y)$.
     ///
-    /// The profile is assumed to be defined at discrete coordinates $(y_i, u_i)$.
+    /// The profile is assumed to be defined at discrete coordinates $(`y_i`, `u_i`)$.
     /// The function computes the cumulative flow $Q(y)$ and returns $y_{sep}$
     /// where $Q(y_{sep}) = target\_fraction \times Q_{total}$.
     ///
     /// # Arguments
     /// * `y_coords` - Monotonically increasing discrete y-coordinates (e.g., cell centers or faces)
     /// * `u_vel` - Corresponding streamwise velocity $u(y)$ at each coordinate
-    /// * `target_fraction` - The desired flow fraction (0.0 to 1.0) $f_q = Q_1 / Q_{total}$
+    /// * `target_fraction` - The desired flow fraction (0.0 to 1.0) $`f_q` = `Q_1` / Q_{total}$
     ///
     /// # Returns
     /// The exact interpolated $y_{sep}$ coordinate. Returns `None` if the input is invalid
@@ -149,8 +157,8 @@ mod tests {
     }
 
     /// Theorem: Analytical integration of steady Poiseuille flow between parallel plates.
-    /// Profile: u(y) = u_max * (1 - (2*y/H)^2) for y in [-H/2, H/2].
-    /// Integral: Q_total = 2/3 * u_max * H.
+    /// Profile: u(y) = `u_max` * (1 - (2*y/H)^2) for y in [-H/2, H/2].
+    /// Integral: `Q_total` = 2/3 * `u_max` * H.
     /// Exact target streamtube for 50% flow is the centerline `y=0`.
     #[test]
     fn separating_streamline_poiseuille_exact() {

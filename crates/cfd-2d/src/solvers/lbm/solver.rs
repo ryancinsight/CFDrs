@@ -2,31 +2,31 @@
 //!
 //! # Theorem — Chapman-Enskog Expansion (2nd order)
 //!
-//! **Statement**: The BGK-LBM with D2Q9 lattice, $c_s^2 = 1/3$, and relaxation
+//! **Statement**: The BGK-LBM with D2Q9 lattice, $`c_s^2` = 1/3$, and relaxation
 //! time $\tau$ recovers the incompressible 2D Navier-Stokes equations:
 //!
 //! $$\nabla \cdot \mathbf{u} = 0, \qquad
 //!   \frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u} \cdot \nabla)\mathbf{u}
 //!   = -\nabla p / \rho + \nu \nabla^2 \mathbf{u}$$
 //!
-//! with $\nu = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$ in the low Mach number limit.
+//! with $\nu = `c_s^2` (\tau - \tfrac{1}{2}) \Delta t$ in the low Mach number limit.
 //!
 //! **Proof**:
 //!
-//! 1. *Expansion*: Write $f_i = f_i^{(0)} + \epsilon f_i^{(1)} + \epsilon^2 f_i^{(2)}$
+//! 1. *Expansion*: Write $`f_i` = `f_i^{(0)`} + \epsilon `f_i^{(1)`} + \epsilon^2 `f_i^{(2)`}$
 //!    where $\epsilon = Kn$ (Knudsen number), and expand time and space derivatives
-//!    as $\partial_t = \epsilon \partial_{t_1} + \epsilon^2 \partial_{t_2}$,
-//!    $\nabla = \epsilon \nabla_1$.
+//!    as $\`partial_t` = \epsilon \partial_{`t_1`} + \epsilon^2 \partial_{`t_2`}$,
+//!    $\nabla = \epsilon \`nabla_1`$.
 //!
-//! 2. *O(ε⁰)*: $f_i^{(0)} = f_i^{eq}$. Moments give the continuity equation
-//!    $\partial_{t_1} \rho + \nabla_1 \cdot (\rho \mathbf{u}) = 0$.
+//! 2. *O(ε⁰)*: $`f_i^{(0)`} = `f_i^{eq`}$. Moments give the continuity equation
+//!    $\partial_{`t_1`} \rho + \`nabla_1` \cdot (\rho \mathbf{u}) = 0$.
 //!
-//! 3. *O(ε¹)*: The deviation $f_i^{(1)} = -\tau(\partial_{t_1} + \mathbf{e}_i \cdot \nabla_1) f_i^{eq}$.
+//! 3. *O(ε¹)*: The deviation $`f_i^{(1)`} = -\tau(\partial_{`t_1`} + \mathbf{e}_i \cdot \`nabla_1`) `f_i^{eq`}$.
 //!    Taking the second moment yields the viscous stress tensor with
-//!    $\mu = \rho c_s^2 (\tau - \tfrac{1}{2}) \Delta t$.
+//!    $\mu = \rho `c_s^2` (\tau - \tfrac{1}{2}) \Delta t$.
 //!
 //! 4. *Momentum equation*: Adding the $O(\epsilon^2)$ time derivative gives the full
-//!    Navier-Stokes equation with $\nu = \mu/\rho = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$. □
+//!    Navier-Stokes equation with $\nu = \mu/\rho = `c_s^2` (\tau - \tfrac{1}{2}) \Delta t$. □
 //!
 //! **Reference**: He & Luo (1997), *Phys. Rev. E* 56, 6811; Succi (2001), §4.3.
 
@@ -83,7 +83,7 @@ impl<T: CfdScalar + Copy + FloatElement> Default for LbmConfig<T> {
 /// ```
 /// This achieves stride-1 access over the 9 velocity directions at each node —
 /// the innermost loop in collision and macroscopic computations (Theorem:
-/// reduces expected cache misses by factor O(N_y)).
+/// reduces expected cache misses by factor `O(N_y)`).
 ///
 /// Macroscopic density and velocity are stored in separate flat `Vec<T>` buffers:
 /// ```text
@@ -115,7 +115,7 @@ pub struct LbmSolver<T: CfdScalar + Copy + FloatElement> {
     g_buffer: Option<Vec<T>>,
     /// Optional nuclei transport physics evaluator
     nuclei_transport: Option<cfd_core::physics::cavitation::nuclei_transport::NucleiTransport<T>>,
-    /// Relaxation time for the scalar lattice $\tau_g$
+    /// Relaxation time for the scalar lattice $\`tau_g`$
     tau_g: Option<T>,
 }
 
@@ -225,7 +225,7 @@ where
 
     /// Initialise distribution functions using user-provided density and velocity fields.
     ///
-    /// Sets all f_q(i,j) = f_q^eq(ρ(x,y), **u**(x,y)).
+    /// Sets all `f_q(i,j)` = `f_q^eq(ρ(x,y)`, **u**(x,y)).
     pub fn initialize<F1, F2>(&mut self, density_fn: F1, velocity_fn: F2) -> Result<()>
     where
         F1: Fn(T, T) -> T,
@@ -342,7 +342,7 @@ where
         self.step_count += 1;
         Ok(())
     }
-    /// Run the solver until convergence (‖Δu‖_∞ < tol) or max_steps.
+    /// Run the solver until convergence (‖Δu‖_∞ < tol) or `max_steps`.
     ///
     /// Non-convergence does not return an error — the caller inspects the
     /// returned velocity field and decides. This is consistent with the

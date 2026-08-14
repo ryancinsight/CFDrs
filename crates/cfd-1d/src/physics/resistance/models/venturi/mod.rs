@@ -5,22 +5,22 @@
 //! **Theorem**: In a converging-diverging (Venturi) tube, the pressure drop
 //! between the upstream section (1) and the throat section (2) is given by:
 //!
-//! ΔP₁₂ = (ρ V₂²/2)(1 − β⁴) / C_d²
+//! ΔP₁₂ = (ρ V₂²/2)(1 − β⁴) / `C_d²`
 //!
 //! where β = D₂/D₁ is the diameter ratio.
 //!
-//! **Proof sketch**: continuity gives $V_2 = V_1 / \beta^2$ for incompressible
+//! **Proof sketch**: continuity gives $`V_2` = `V_1` / \beta^2$ for incompressible
 //! flow, and Bernoulli between the upstream section and the throat gives the
-//! ideal acceleration pressure drop $\frac{1}{2}\rho V_2^2 (1 - \beta^4)$. The
-//! discharge coefficient $C_d$ accounts for contraction losses and viscous
-//! non-idealities, yielding the corrected denominator $C_d^2$ used by the
+//! ideal acceleration pressure drop $\frac{1}{2}\rho `V_2^2` (1 - \beta^4)$. The
+//! discharge coefficient $`C_d`$ accounts for contraction losses and viscous
+//! non-idealities, yielding the corrected denominator $`C_d^2`$ used by the
 //! reduced-order resistance model.
 //!
 //! ## Theorem - Diffuser Loss Monotonicity
 //!
 //! For the calibrated gradual-expansion map in this module, the diffuser loss
 //! coefficient $K_{exp}(\theta)$ is monotone nondecreasing with half-angle
-//! $\theta$, and the idealized recovery efficiency $\eta_r = 1 - K_{exp}$ is
+//! $\theta$, and the idealized recovery efficiency $\`eta_r` = 1 - K_{exp}$ is
 //! therefore monotone nonincreasing.
 //!
 //! **Proof sketch**: the implementation is a piecewise-constant calibration
@@ -41,6 +41,14 @@
 //! - Idelchik, I. E. (2007). *Handbook of Hydraulic Resistance* (4th ed.), §5.1-5.8.
 //! - Reader-Harris, M. (2015). *Orifice Plates and Venturi Tubes.* Springer.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 pub mod analysis;
 pub mod model;
 
@@ -59,15 +67,15 @@ pub(crate) const DURST_ENTRANCE_BLEND_L_OVER_DH: f64 = 50.0;
 /// Venturi tube geometry specification
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum VenturiGeometry {
-    /// Machined convergent section (ISO 5167-4, C_d ≈ 0.995)
+    /// Machined convergent section (ISO 5167-4, `C_d` ≈ 0.995)
     MachinedConvergent,
-    /// Rough-cast convergent section (ISO 5167-4, C_d ≈ 0.984)
+    /// Rough-cast convergent section (ISO 5167-4, `C_d` ≈ 0.984)
     RoughCastConvergent,
-    /// Rough-welded convergent section (ISO 5167-4, C_d ≈ 0.985)
+    /// Rough-welded convergent section (ISO 5167-4, `C_d` ≈ 0.985)
     RoughWeldedConvergent,
     /// Custom discharge coefficient
     Custom {
-        /// Discharge coefficient C_d
+        /// Discharge coefficient `C_d`
         discharge_coefficient: f64,
     },
 }
@@ -90,7 +98,7 @@ impl VenturiGeometry {
 /// Expansion geometry type for the diverging section
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ExpansionType {
-    /// Sudden expansion (Borda-Carnot, K_exp = 1.0)
+    /// Sudden expansion (Borda-Carnot, `K_exp` = 1.0)
     Sudden,
     /// Gradual expansion with specified half-angle \[degrees]
     Gradual {
@@ -100,7 +108,7 @@ pub enum ExpansionType {
 }
 
 impl ExpansionType {
-    /// Get the expansion loss coefficient K_exp
+    /// Get the expansion loss coefficient `K_exp`
     ///
     /// Based on Idelchik (2007) Table 5-1 for conical diffusers
     #[must_use]
@@ -132,7 +140,7 @@ impl ExpansionType {
         }
     }
 
-    /// Get pressure recovery efficiency η_r = 1 - K_exp
+    /// Get pressure recovery efficiency `η_r` = 1 - `K_exp`
     #[must_use]
     pub fn recovery_efficiency(&self) -> f64 {
         1.0 - self.loss_coefficient()

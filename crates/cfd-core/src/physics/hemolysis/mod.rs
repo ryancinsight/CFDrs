@@ -23,6 +23,14 @@
 //! - Giersiepen, M. et al. (1990). Estimation of shear stress-related blood damage.
 //! - Zhang, T. et al. (2011). Study of flow-induced hemolysis.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Hemolysis calculator with blood properties and clinical indices.
 mod calculator;
 /// Hemolysis model definitions and damage index calculations.

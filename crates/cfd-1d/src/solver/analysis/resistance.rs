@@ -44,7 +44,7 @@ where
     HydraulicResistance::from_base(
         resistances
             .into_iter()
-            .map(|resistance| resistance.into_base())
+            .map(aequitas::Quantity::into_base)
             .fold(T::ZERO, |total, resistance| total + resistance),
     )
 }

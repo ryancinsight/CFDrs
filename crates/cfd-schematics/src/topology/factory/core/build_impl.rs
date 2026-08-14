@@ -1,4 +1,4 @@
-//! Private build-pipeline helpers for BlueprintTopologyFactory.
+//! Private build-pipeline helpers for `BlueprintTopologyFactory`.
 use super::BlueprintTopologyFactory;
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{EdgeId, NetworkBlueprint};
@@ -34,7 +34,7 @@ impl BlueprintTopologyFactory {
         blueprint
     }
 
-    /// Construct a split-tree blueprint via the canonical GeometryGeneratorBuilder.
+    /// Construct a split-tree blueprint via the canonical `GeometryGeneratorBuilder`.
     pub(super) fn build_split_tree(
         spec: &BlueprintTopologySpec,
         lineage: TopologyLineageMetadata,

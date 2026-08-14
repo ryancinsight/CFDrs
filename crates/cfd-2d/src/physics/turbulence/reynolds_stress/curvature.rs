@@ -9,7 +9,7 @@
 //! Φ_ij^curv = C_curv (k/ε) K A_ij(S)
 //! ```
 //!
-//! where K is the curvature parameter and C_curv > 0 for convex, < 0 for concave
+//! where K is the curvature parameter and `C_curv` > 0 for convex, < 0 for concave
 //! (Suga & Craft, 2003).
 
 use eunomia::RealField;

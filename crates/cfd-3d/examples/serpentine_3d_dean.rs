@@ -14,6 +14,11 @@
 //! Dean, W.R. (1928). "Fluid motion in a curved channel".
 //! *Proc. R. Soc. Lond. A* 121(787):402-420.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;

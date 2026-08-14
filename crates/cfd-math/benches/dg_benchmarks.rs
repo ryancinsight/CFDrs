@@ -1,5 +1,14 @@
 //! Benchmarks for Discontinuous Galerkin methods
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    missing_docs,
+    reason = "ratchet CFDRS-DOCS-1: criterion macro-generated items"
+)]
+
 use cfd_math::error::Result;
 use cfd_math::high_order::dg::*;
 use criterion::{criterion_group, criterion_main, Criterion};

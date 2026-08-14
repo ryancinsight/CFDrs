@@ -1,6 +1,6 @@
 //! CFD-specific linear solver extensions.
 //!
-//! The iterative solver algorithms (CG, BiCGSTAB, GMRES) are canonical in
+//! The iterative solver algorithms (CG, `BiCGSTAB`, GMRES) are canonical in
 //! `leto-ops` and re-exported via `cfd_math::iterative`. This module retains
 //! CFD-domain-specific code: multigrid, ILU, block preconditioners, direct
 //! solver bridge, and the tiered solver chain for saddle-point systems.

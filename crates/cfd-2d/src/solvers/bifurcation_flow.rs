@@ -33,7 +33,7 @@
 //! At any bifurcation junction the discrete mass flux is conserved exactly:
 //! $Q_{\text{parent}} = Q_{\text{daughter}_1} + Q_{\text{daughter}_2}$,
 //! and the optimal branching exponent satisfies Murray's cube law
-//! $D_0^3 = \sum_i D_i^3$.
+//! $`D_0^3` = \`sum_i` `D_i^3`$.
 //!
 //! **Proof sketch**:
 //! The junction coupling is enforced by ghost-cell pressure matching:
@@ -42,6 +42,21 @@
 //! $Q = \pi D^4 \Delta P / (128 \mu L)$ at each junction yields the flow split.
 //! Mass conservation follows from the divergence-free constraint applied
 //! at the junction control volume.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
@@ -158,7 +173,7 @@ impl<T: CfdScalar + Copy + FloatElement> BifurcationGeometry<T> {
         lx >= scalar::zero::<T>() && lx <= length && ly >= -half_w && ly <= half_w
     }
 
-    /// Get bounding box [min_x, max_x, min_y, max_y]
+    /// Get bounding box [`min_x`, `max_x`, `min_y`, `max_y`]
     pub fn bounding_box(&self) -> [T; 4] {
         let d1_angle_cos = <T as FloatElement>::cos(self.daughter1_angle);
         let d1_angle_sin = <T as FloatElement>::sin(self.daughter1_angle);
@@ -322,7 +337,7 @@ pub struct BifurcationSolution<T: CfdScalar + Copy> {
     pub q_daughter1: T,
     /// Volume flow rate through daughter branch 2.
     pub q_daughter2: T,
-    /// Relative mass balance error |(Q_in - Q_out)| / Q_in.
+    /// Relative mass balance error |(`Q_in` - `Q_out`)| / `Q_in`.
     pub mass_balance_error: T,
 }
 

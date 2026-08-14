@@ -35,7 +35,7 @@
 //! L_mix = u · t_diff = u · w² / (4D)
 //! ```
 //!
-//! For complete mixing across channel width: L_adv > L_mix
+//! For complete mixing across channel width: `L_adv` > `L_mix`
 //!
 //! ## Peclet Number
 //!
@@ -68,7 +68,7 @@
 //! # References
 //!
 //! - Hardt, S. & Schönfeld, F. (2003). "Microfluidic technologies for miniaturized
-//!   analysis systems". SpringerLink
+//!   analysis systems". `SpringerLink`
 //! - Squires, T.M. & Quake, S.R. (2005). "Microfluidics: Fluid physics at the
 //!   nanoliter scale". Reviews of Modern Physics, 77(3), 977
 //! - Yao, Z., et al. (2014). "Numerical study of mixing in microchannels with

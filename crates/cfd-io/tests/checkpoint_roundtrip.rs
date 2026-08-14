@@ -1,5 +1,10 @@
 //! Bit-exact roundtrip tests for CheckpointManager
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};
 use leto::Array2;
 use proptest::prelude::*;

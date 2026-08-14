@@ -3,6 +3,18 @@
 //! Validates 3D Venturi flow against 1D analytical models and
 //! experimental discharge coefficients for high-Reynolds flows.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Venturi3D;
 use crate::scalar;

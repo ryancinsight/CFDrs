@@ -18,6 +18,7 @@ pub struct ErrorMetrics<T: RealField + Copy> {
 }
 
 /// Compute error metrics between computed and analytical solutions
+#[must_use]
 pub fn compute_error_metrics<T: RealField + Copy + FloatElement>(
     computed: &Array1<T>,
     analytical: &Array1<T>,

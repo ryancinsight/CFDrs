@@ -16,6 +16,7 @@ pub struct ConservationHistory<T: RealField + Copy> {
 
 impl<T: RealField + Copy> ConservationHistory<T> {
     /// Create new conservation history
+    #[must_use]
     pub fn new() -> Self {
         Self {
             times: Vec::new(),
@@ -32,6 +33,7 @@ impl<T: RealField + Copy> ConservationHistory<T> {
     }
 
     /// Get the maximum error in the history
+    #[must_use]
     pub fn max_error(&self) -> Option<T> {
         self.errors
             .iter()
@@ -40,6 +42,7 @@ impl<T: RealField + Copy> ConservationHistory<T> {
     }
 
     /// Get the fraction of time points where conservation was satisfied
+    #[must_use]
     pub fn satisfaction_rate(&self) -> f64 {
         if self.satisfied.is_empty() {
             1.0

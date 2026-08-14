@@ -15,6 +15,11 @@
 //! Run with:
 //! `cargo run -p cfd-2d --example bifurcation_schematic`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_core::physics::fluid::blood::CassonBlood;

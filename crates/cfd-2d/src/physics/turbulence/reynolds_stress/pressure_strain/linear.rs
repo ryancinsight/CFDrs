@@ -1,9 +1,9 @@
 //! Linear Return-to-Isotropy pressure-strain model (Rotta, 1951).
 //!
 //! ### Theorem: Linear Relaxation
-//! Φ_ij = −C₁ (ε/k) (⟨u_i'u_j'⟩ − (2/3)k δ_ij)
+//! `Φ_ij` = −C₁ (ε/k) (⟨`u_i`'`u_j`'⟩ − (2/3)k `δ_ij`)
 //!
-//! **Proof**: The anisotropy tensor b_ij = ⟨u_i'u_j'⟩/k − δ_ij/3 decays
+//! **Proof**: The anisotropy tensor `b_ij` = ⟨`u_i`'`u_j`'⟩/k − `δ_ij/3` decays
 //! exponentially with time-scale k/ε under the linear model, recovering the
 //! isotropic state as the unique fixed point (Rotta, 1951).
 

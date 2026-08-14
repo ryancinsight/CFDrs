@@ -13,6 +13,11 @@
 //!
 //! Run with: cargo run --example frustum_channel_demo
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_schematics::{
     config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile},
     geometry::{generator::create_geometry, SplitType},

@@ -1,6 +1,14 @@
 //! GPU kernel validation tests
 //! Verifies GPU implementations match CPU results within numerical tolerance
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stderr,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod tests {
     use super::super::field_ops::GpuFieldOps;

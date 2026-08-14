@@ -72,6 +72,7 @@ impl PrimitiveSelectiveTreeRequest {
 ///
 /// Generation expands the authored plate envelope to resolve channel overlap,
 /// then scales the resulting geometry back to the target dimensions.
+#[must_use]
 pub fn create_primitive_selective_tree_geometry(
     request: &PrimitiveSelectiveTreeRequest,
 ) -> NetworkBlueprint {

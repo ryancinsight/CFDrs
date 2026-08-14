@@ -1,3 +1,9 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_math::high_order::dg::{numerical_flux, FluxParams, FluxType};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use leto::Array1;

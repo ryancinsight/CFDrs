@@ -1,3 +1,9 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 #[test]
 fn test_schematics2mesh_stl_output() {
     use aequitas::systems::si::quantities::Length;
@@ -37,14 +43,15 @@ fn test_schematics2mesh_stl_output() {
 
     for channel_def in &schematic3d.channels {
         if let Some(scales) = &channel_def.width_scales {
-            let faces = mesher.sweep_variable(
-                &channel_def.profile,
-                &channel_def.path,
-                scales,
-                &mut mesh.vertices,
-                RegionId::new(0),
-            )
-            .expect("variable sweep should succeed");
+            let faces = mesher
+                .sweep_variable(
+                    &channel_def.profile,
+                    &channel_def.path,
+                    scales,
+                    &mut mesh.vertices,
+                    RegionId::new(0),
+                )
+                .expect("variable sweep should succeed");
             for face in faces {
                 mesh.faces.push(face);
             }

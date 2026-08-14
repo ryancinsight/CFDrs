@@ -13,6 +13,11 @@
 //! cargo run -p gaia --example millifluidic_shell_tpms
 //! ```
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use std::fs;
 use std::io::BufWriter;
 use std::path::Path;

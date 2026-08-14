@@ -22,7 +22,7 @@ use eunomia::{FloatElement, RealField};
 /// Wall roughness parameters.
 #[derive(Debug, Clone)]
 pub struct WallRoughness<T: RealField> {
-    /// Equivalent sand-grain roughness height (k_s) \[m].
+    /// Equivalent sand-grain roughness height (`k_s`) \[m].
     pub equivalent_sand_grain: T,
     /// Roughness type classification.
     pub roughness_type: RoughnessType,
@@ -31,7 +31,8 @@ pub struct WallRoughness<T: RealField> {
 }
 
 impl<T: RealField> WallRoughness<T> {
-    /// Create smooth wall (k_s = 0).
+    /// Create smooth wall (`k_s` = 0).
+    #[must_use]
     pub fn smooth() -> Self {
         Self {
             equivalent_sand_grain: T::ZERO,
@@ -74,21 +75,21 @@ impl<T: RealField> WallRoughness<T> {
     }
 }
 
-/// Roughness type classification based on k_s⁺.
+/// Roughness type classification based on `k_s`⁺.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RoughnessType {
-    /// Smooth surface (k_s⁺ ≈ 0).
+    /// Smooth surface (`k_s`⁺ ≈ 0).
     Smooth,
-    /// Transitionally rough (0.1 < k_s⁺ < 10).
+    /// Transitionally rough (0.1 < `k_s`⁺ < 10).
     TransitionallyRough,
-    /// Fully rough (k_s⁺ > 10).
+    /// Fully rough (`k_s`⁺ > 10).
     FullyRough,
-    /// Very rough surfaces (k_s⁺ > 1000).
+    /// Very rough surfaces (`k_s`⁺ > 1000).
     VeryRough,
 }
 
 impl RoughnessType {
-    /// Classify roughness based on k_s⁺ value.
+    /// Classify roughness based on `k_s`⁺ value.
     pub fn classify<T: RealField>(k_s_plus: T) -> Self {
         let threshold_trans = T::from_f64(10.0);
         let threshold_very = T::from_f64(1000.0);

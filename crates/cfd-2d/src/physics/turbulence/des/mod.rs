@@ -8,9 +8,9 @@
 //!
 //! The DES length scale is defined as:
 //!
-//! L_DES = min(L_RANS, C_DES * Δ)
+//! `L_DES` = `min(L_RANS`, `C_DES` * Δ)
 //!
-//! where L_RANS is the RANS length scale, C_DES ≈ 0.65, and Δ is the grid spacing.
+//! where `L_RANS` is the RANS length scale, `C_DES` ≈ 0.65, and Δ is the grid spacing.
 //!
 //! ## DDES (Delayed DES)
 //!
@@ -32,9 +32,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -66,7 +66,7 @@ pub enum DESVariant {
 pub struct DESConfig {
     /// DES variant to use
     pub variant: DESVariant,
-    /// DES constant (C_DES)
+    /// DES constant (`C_DES`)
     pub des_constant: f64,
     /// Maximum SGS viscosity ratio
     pub max_sgs_ratio: f64,
@@ -103,7 +103,7 @@ pub struct DetachedEddySimulation {
     pub(super) des_length_scale: Array2<f64>,
     /// Wall distance field (for shielding functions)
     pub(super) wall_distance: Array2<f64>,
-    /// Reusable buffer for velocity field adaptation (SoA to AoS)
+    /// Reusable buffer for velocity field adaptation (`SoA` to `AoS`)
     velocity_buffer: Vec<Vector2<f64>>,
     /// Grid spacing in x-direction
     pub(super) dx: f64,
@@ -113,6 +113,7 @@ pub struct DetachedEddySimulation {
 
 impl DetachedEddySimulation {
     /// Create a new DES model
+    #[must_use]
     pub fn new(
         nx: usize,
         ny: usize,
@@ -311,16 +312,19 @@ impl LESTurbulenceModel for DetachedEddySimulation {
 // Additional methods for DES-specific functionality
 impl DetachedEddySimulation {
     /// Get the DES length scale field
+    #[must_use]
     pub fn get_des_length_scale_field(&self) -> &Array2<f64> {
         &self.des_length_scale
     }
 
     /// Get the SGS viscosity field
+    #[must_use]
     pub fn get_sgs_viscosity_field(&self) -> &Array2<f64> {
         &self.sgs_viscosity
     }
 
     /// Check if a point is in LES mode (DES length scale active)
+    #[must_use]
     pub fn is_les_mode(&self, i: usize, j: usize) -> bool {
         // LES mode when DES length scale is smaller than grid scale
         let des_length = self.des_length_scale[[i, j]];

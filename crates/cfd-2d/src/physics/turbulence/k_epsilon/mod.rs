@@ -25,18 +25,18 @@
 //!
 //! | Constant | Value | Source |
 //! |----------|-------|--------|
-//! | C_μ      | 0.09  | Launder & Spalding (1974), Table 1 |
-//! | C_ε1     | 1.44  | '' |
-//! | C_ε2     | 1.92  | '' |
-//! | σ_k      | 1.0   | '' |
-//! | σ_ε      | 1.3   | '' |
+//! | `C_μ`      | 0.09  | Launder & Spalding (1974), Table 1 |
+//! | `C_ε1`     | 1.44  | '' |
+//! | `C_ε2`     | 1.92  | '' |
+//! | `σ_k`      | 1.0   | '' |
+//! | `σ_ε`      | 1.3   | '' |
 //!
 //! ## Realizability Theorem
 //!
-//! The Reynolds stress tensor τ_ij = −ρ u'_i u'_j must be positive
+//! The Reynolds stress tensor `τ_ij` = −ρ u'_i u'_j must be positive
 //! semi-definite for physical consistency. This requires k ≥ 0 and
 //! ε ≥ 0. The implementation enforces these bounds after every update step
-//! via clipping: k = max(k, k_min), ε = max(ε, ε_min).
+//! via clipping: k = max(k, `k_min`), ε = max(ε, `ε_min`).
 //!
 //! ## Literature References
 //!

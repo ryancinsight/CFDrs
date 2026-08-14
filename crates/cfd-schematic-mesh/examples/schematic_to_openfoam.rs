@@ -41,6 +41,15 @@
 //! cargo run -p gaia --example schematic_to_openfoam
 //! ```
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use std::fs;
 use std::io::BufWriter;
 use std::path::Path;

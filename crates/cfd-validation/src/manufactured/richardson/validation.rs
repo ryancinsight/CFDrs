@@ -1,5 +1,17 @@
 //! MMS validation and Richardson extrapolation study
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_core::error::{Error, Result};
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
@@ -26,6 +38,7 @@ where
     T: RealField + Copy + FloatElement + CfdScalar,
 {
     /// Create new MMS-Richardson study
+    #[must_use]
     pub fn new(
         manufactured_solution: Box<dyn ManufacturedSolution<T>>,
         _geometry: Box<dyn Geometry2D<T>>,
@@ -120,10 +133,10 @@ where
     ///
     /// ## Richardson Extrapolation Theorem
     ///
-    /// If a numerical solution φ_h satisfies φ_h = φ + C h^p + O(h^q), where φ is the exact solution,
+    /// If a numerical solution `φ_h` satisfies `φ_h` = φ + C h^p + O(h^q), where φ is the exact solution,
     /// p is the convergence order, and C is a constant, then Richardson extrapolation gives:
     ///
-    /// φ = φ_fine + (φ_fine - φ_coarse) / (r^p - 1) + O(h^q)
+    /// φ = `φ_fine` + (`φ_fine` - `φ_coarse`) / (r^p - 1) + O(h^q)
     ///
     /// where r is the grid refinement ratio (Roache, 1998; ASME V&V 20-2009).
     ///

@@ -55,19 +55,19 @@ impl<T: RealField + FloatElement + Copy> MaterialDatabase<T> {
     /// Get fluid material by name
     #[must_use]
     pub fn get_fluid(&self, name: &str) -> Option<&dyn Fluid<T>> {
-        self.fluids.get(name).map(|f| f.as_ref())
+        self.fluids.get(name).map(std::convert::AsRef::as_ref)
     }
 
     /// Get solid material by name
     #[must_use]
     pub fn get_solid(&self, name: &str) -> Option<&dyn SolidProperties<T>> {
-        self.solids.get(name).map(|s| s.as_ref())
+        self.solids.get(name).map(std::convert::AsRef::as_ref)
     }
 
     /// Get interface properties by name
     #[must_use]
     pub fn get_interface(&self, name: &str) -> Option<&dyn InterfaceProperties<T>> {
-        self.interfaces.get(name).map(|i| i.as_ref())
+        self.interfaces.get(name).map(std::convert::AsRef::as_ref)
     }
 
     /// Initialize with common materials

@@ -6,6 +6,11 @@
 //! - Performance recommendations based on empirical data
 //! - Literature-backed complexity analysis
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::performance::{CfdPerformanceBenchmarks, PerformanceProfile};
 use cfd_core::error::Result;
 
@@ -16,6 +21,7 @@ pub struct PerformanceProfiler {
 
 impl PerformanceProfiler {
     /// Create new performance profiler
+    #[must_use]
     pub fn new() -> Self {
         Self {
             benchmarks: CfdPerformanceBenchmarks::new(),

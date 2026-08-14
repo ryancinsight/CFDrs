@@ -30,6 +30,11 @@
 //! ## References
 //! - Rhie, C.M. & Chow, W.L. (1983). *AIAA Journal*, 21(11), 1525–1532.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;

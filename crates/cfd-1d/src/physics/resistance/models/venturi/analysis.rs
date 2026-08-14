@@ -12,9 +12,9 @@
 //! ΔP_total = ΔP_contraction + ΔP_friction + ΔP_expansion_loss - ΔP_recovery
 //! ```
 //!
-//! with $ΔP_contraction$ from the Bernoulli acceleration corrected by the
-//! discharge coefficient, $ΔP_friction$ from Darcy-Weisbach throat losses,
-//! $ΔP_expansion_loss$ from the diffuser loss coefficient, and $ΔP_recovery$
+//! with $`ΔP_contraction`$ from the Bernoulli acceleration corrected by the
+//! discharge coefficient, $`ΔP_friction`$ from Darcy-Weisbach throat losses,
+//! $`ΔP_expansion_loss`$ from the diffuser loss coefficient, and $`ΔP_recovery`$
 //! from the Reynolds-corrected diffuser recovery efficiency.
 //!
 //! **Proof sketch**: the implementation evaluates each contribution from the

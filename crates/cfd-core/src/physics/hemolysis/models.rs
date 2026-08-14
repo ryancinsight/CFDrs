@@ -101,6 +101,7 @@ impl Default for HemolysisModel {
 
 impl HemolysisModel {
     /// Create Giersiepen model with standard constants
+    #[must_use]
     pub fn giersiepen_standard() -> Self {
         Self::PowerLaw {
             coefficient: 3.62e-5,
@@ -110,6 +111,7 @@ impl HemolysisModel {
     }
 
     /// Create Giersiepen model for turbulent flow
+    #[must_use]
     pub fn giersiepen_turbulent() -> Self {
         Self::PowerLaw {
             coefficient: 1.8e-6,
@@ -119,6 +121,7 @@ impl HemolysisModel {
     }
 
     /// Create Giersiepen model for laminar flow
+    #[must_use]
     pub fn giersiepen_laminar() -> Self {
         Self::PowerLaw {
             coefficient: 1.228e-5,
@@ -128,6 +131,7 @@ impl HemolysisModel {
     }
 
     /// Create Zhang model for Couette flow
+    #[must_use]
     pub fn zhang() -> Self {
         Self::Zhang {
             coefficient: 1.86e-4,
@@ -136,6 +140,7 @@ impl HemolysisModel {
     }
 
     /// Create Heuser-Opitz threshold model
+    #[must_use]
     pub fn heuser_opitz() -> Self {
         Self::HeuserOpitz {
             threshold: 150.0,
@@ -169,6 +174,7 @@ impl HemolysisModel {
     ///   damage in heart valve prostheses." *Int. J. Artif. Organs* 13(5):300–306.
     /// - Leverett, L.B. et al. (1972). "Red blood cell damage by shear stress."
     ///   *Biophys. J.* 12:257–273.
+    #[must_use]
     pub fn giersiepen_millifluidic() -> Self {
         Self::PowerLaw {
             coefficient: GIERSIEPEN_MILLIFLUIDIC_C,
@@ -189,8 +195,8 @@ impl HemolysisModel {
     /// HI_amp = base_hi · (1 + CAVITATION_HI_SLOPE · σ.clamp(0, 1))
     /// ```
     ///
-    /// At σ = 1 (full cavitation): HI_amp = 4 · base_hi (4× amplification).
-    /// At σ = 0 (no cavitation):   HI_amp = base_hi      (no change).
+    /// At σ = 1 (full cavitation): `HI_amp` = 4 · `base_hi` (4× amplification).
+    /// At σ = 0 (no cavitation):   `HI_amp` = `base_hi`      (no change).
     ///
     /// **References.**
     /// - Brujan, E.A. (2011). *Cavitation in Non-Newtonian Fluids.* Springer §7.4.

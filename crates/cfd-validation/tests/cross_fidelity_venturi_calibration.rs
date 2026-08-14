@@ -3,6 +3,11 @@
 //! This complements the existing directional venturi test with a quantitative
 //! pressure-loss calibration around a shared total loss coefficient.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };

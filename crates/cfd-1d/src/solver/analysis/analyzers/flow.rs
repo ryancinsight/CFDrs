@@ -60,7 +60,7 @@ impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
                         (T::ONE + T::ONE + T::ONE + T::ONE) * area
                             / (T::pi() * <T as NumericElement>::sqrt(area))
                     },
-                    |diameter| diameter.into_base(),
+                    aequitas::Quantity::into_base,
                 );
 
                 let reynolds =
@@ -115,7 +115,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
                 (T::ONE + T::ONE + T::ONE + T::ONE) * area
                     / (T::pi() * <T as NumericElement>::sqrt(area))
             },
-            |diameter| diameter.into_base(),
+            aequitas::Quantity::into_base,
         );
 
         let velocity = flow_rate / area;

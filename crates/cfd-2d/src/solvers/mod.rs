@@ -14,7 +14,7 @@
 //!
 //! **Implication**: All FDM/FVM schemes in this module are verified consistent
 //! by construction (truncation error → 0 as h, Δt → 0). Stability is the
-//! key runtime invariant: the CFL stability module enforces |σ| ≤ σ_max.
+//! key runtime invariant: the CFL stability module enforces |σ| ≤ `σ_max`.
 //!
 //! ## Theorem — Gauss Divergence (FVM Conservation)
 //!
@@ -35,7 +35,7 @@
 //!
 //! ## Theorem — BGK Collision Invariants (LBM, Bhatnagar-Gross-Krook 1954)
 //!
-//! **Theorem**: The BGK collision operator Ω_i = -(1/τ)(f_i - f_i^{eq}) conserves
+//! **Theorem**: The BGK collision operator `Ω_i` = -(`1/τ)(f_i` - `f_i^{eq`}) conserves
 //! mass, momentum, and energy:
 //!
 //! ```text
@@ -44,16 +44,16 @@
 //! Σ_i |e_i|² Ω_i = 0   (energy)
 //! ```
 //!
-//! where f_i^{eq} is the Maxwell-Boltzmann equilibrium distribution.
+//! where `f_i^{eq`} is the Maxwell-Boltzmann equilibrium distribution.
 //!
 //! **Chapman-Enskog Theorem**: At second order in Mach number, LBM recovers
-//! the incompressible Navier-Stokes equations with ν = c_s²(τ - 1/2)Δt.
+//! the incompressible Navier-Stokes equations with ν = `c_s²(τ` - 1/2)Δt.
 //!
 //! ## Theorem — SIMPLE Pressure Correction (Patankar & Spalding 1972)
 //!
 //! **Theorem**: The SIMPLE algorithm's segregated pressure-velocity coupling
 //! converges to the same solution as the coupled system when under-relaxation
-//! factors α_u, α_p ∈ (0,1] satisfy α_u + α_p ≤ 1.
+//! factors `α_u`, `α_p` ∈ (0,1] satisfy `α_u` + `α_p` ≤ 1.
 //!
 //! The pressure correction equation is:
 //!
@@ -79,9 +79,9 @@
 //! ## Theorem — SIMPLE Convergence Criterion
 //!
 //! **Theorem (Fixed-Point Contraction)**: For a well-resolved grid and
-//! under-relaxation factors satisfying 0 < α_u ≤ 0.7, the SIMPLE iteration
+//! under-relaxation factors satisfying 0 < `α_u` ≤ 0.7, the SIMPLE iteration
 //! is a contraction mapping with spectral radius ρ < 1, guaranteeing convergence.
-//! The condition degrades for α_u close to 1.0 (instability) or 0 (stagnation).
+//! The condition degrades for `α_u` close to 1.0 (instability) or 0 (stagnation).
 
 pub mod accelerated;
 pub mod bifurcation_flow;

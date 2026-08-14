@@ -85,7 +85,7 @@ pub fn cell_free_layer_m(hematocrit: f64, hydraulic_diameter_m: f64) -> f64 {
 ///   with RBCs push it further toward the wall.  Enhancement scales with the
 ///   excess `(a_wbc/2 - δ_CFL)` and with HCT (more RBCs → more collisions).
 /// - The normalisation `h_t / 0.40` maps physiological whole blood (HCT = 40%)
-///   to Γ ≈ 2 for a typical WBC (10 µm) at HCT = 40%, δ_CFL ≈ 1–3 µm.
+///   to Γ ≈ 2 for a typical WBC (10 µm) at HCT = 40%, `δ_CFL` ≈ 1–3 µm.
 ///
 /// **Proof sketch**: The enhancement factor represents the increase in effective
 /// lateral drift velocity due to RBC-WBC hydrodynamic collisions.  At marginal
@@ -157,7 +157,7 @@ pub fn apply_cell_interaction(
 mod tests {
     use super::*;
 
-    /// δ_CFL at HCT=0 → D_h × α_CFL (maximum, no RBC suppression)
+    /// `δ_CFL` at HCT=0 → `D_h` × `α_CFL` (maximum, no RBC suppression)
     #[test]
     fn cfl_zero_hct_equals_alpha_times_dh() {
         let dh = 100e-6;
@@ -169,7 +169,7 @@ mod tests {
         );
     }
 
-    /// δ_CFL strictly decreases with hematocrit (exponential decay)
+    /// `δ_CFL` strictly decreases with hematocrit (exponential decay)
     #[test]
     fn cfl_decreases_with_hematocrit() {
         let dh = 133e-6; // Nivedita spiral D_h
@@ -205,7 +205,7 @@ mod tests {
         );
     }
 
-    /// apply_cell_interaction: corrected x̃_eff ≥ x̃_inertial (WBC moves toward wall)
+    /// `apply_cell_interaction`: corrected `x̃_eff` ≥ `x̃_inertial` (WBC moves toward wall)
     #[test]
     fn cell_interaction_shifts_equilibrium_toward_wall() {
         let x_in = 0.60_f64; // typical inertial equilibrium
@@ -232,8 +232,8 @@ mod tests {
         );
     }
 
-    /// Nivedita spiral benchmark: D_h=133µm, HCT=2%, WBC=10µm
-    /// Expected: δ_CFL ≈ 10.4 µm, Γ ≈ 1.05 (weak enhancement at low HCT)
+    /// Nivedita spiral benchmark: `D_h=133µm`, HCT=2%, WBC=10µm
+    /// Expected: `δ_CFL` ≈ 10.4 µm, Γ ≈ 1.05 (weak enhancement at low HCT)
     #[test]
     fn nivedita_spiral_benchmark_cfl_and_gamma() {
         let dh = 2.0 * 400e-6 * 80e-6 / (400e-6 + 80e-6); // 133.3 µm

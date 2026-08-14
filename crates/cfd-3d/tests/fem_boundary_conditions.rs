@@ -1,3 +1,9 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;

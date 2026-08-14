@@ -11,8 +11,8 @@
 //! Po = 24 / [ (1 + ε)² · (1 - (192 ε / π⁵) · tanh(π / 2ε)) ]
 //!
 //! where:
-//! - Po is the Poiseuille number (dimensionless, f_Darcy * Re)
-//! - f_Darcy is the Darcy friction factor
+//! - Po is the Poiseuille number (dimensionless, `f_Darcy` * Re)
+//! - `f_Darcy` is the Darcy friction factor
 //! - Re is the Reynolds number based on hydraulic diameter
 //! - ε is the aspect ratio (min(w,h) / max(w,h), ε ≤ 1)
 //!
@@ -46,6 +46,14 @@
 //! - Bahrami, M., Yovanovich, M. M., & Culham, J. R. (2006). *Pressure Drop of
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -87,7 +95,7 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q = conditions.flow_rate.unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }
@@ -217,7 +225,7 @@ impl<T: CfdScalar> RectangularChannelModel<T> {
     ///
     /// # Implementation Details
     /// Based on Bahrami et al. (2006) exact rational fit for rectangular ducts:
-    /// - Po = f_D * Re where f_D is the Darcy friction factor
+    /// - Po = `f_D` * Re where `f_D` is the Darcy friction factor
     /// - Valid for all aspect ratios
     /// - Representing the exact analytical series solution truncated for speed
     ///

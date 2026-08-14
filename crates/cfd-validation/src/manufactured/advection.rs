@@ -24,6 +24,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedAdvection<T> {
     }
 
     /// Create with unit velocity
+    #[must_use]
     pub fn unit_velocity() -> Self {
         Self {
             vx: scalar::one::<T>(),

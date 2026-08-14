@@ -14,17 +14,17 @@ use serde::{Deserialize, Serialize};
 /// Casson fluid model
 ///
 /// Another common model for blood.
-/// √μ = √μ_inf + √(τ_y / γ̇)
-/// Or μ = (√μ_inf + √(τ_y / γ̇))²
+/// √μ = √`μ_inf` + √(`τ_y` / γ̇)
+/// Or μ = (√`μ_inf` + √(`τ_y` / γ̇))²
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Casson<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
     pub density: MassDensity<T>,
-    /// Yield stress τ_y \[Pa]
+    /// Yield stress `τ_y` \[Pa]
     pub yield_stress: Pressure<T>,
-    /// Plastic viscosity μ_p (or μ_inf) [Pa·s]
+    /// Plastic viscosity `μ_p` (or `μ_inf`) [Pa·s]
     pub plastic_viscosity: DynamicViscosity<T>,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: SpecificHeatCapacity<T>,

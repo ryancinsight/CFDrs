@@ -8,6 +8,15 @@
 //! - Corner singularities
 //! - Grid convergence
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::config::FdmConfig;
 use cfd_2d::solvers::fdm::poisson::PoissonSolver;

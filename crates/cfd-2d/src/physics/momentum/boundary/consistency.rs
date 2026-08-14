@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::super::solver::MomentumComponent;
 use crate::scalar;
 use cfd_core::error::{BoundaryErrorKind, Error, Result};

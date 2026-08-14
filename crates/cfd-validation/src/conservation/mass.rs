@@ -2,6 +2,14 @@
 //!
 //! Validates that the continuity equation ∇·u = 0 is satisfied
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use crate::scalar;

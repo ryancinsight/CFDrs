@@ -34,11 +34,11 @@
 //!
 //! The Hagen-Poiseuille velocity profile is parabolic:
 //!
-//! u(r) = u_max (1 - (r/R)²)
+//! u(r) = `u_max` (1 - (r/R)²)
 //!
-//! where u_max = (R²/(4μ)) (-dP/dz)
+//! where `u_max` = (R²/(4μ)) (-dP/dz)
 //!
-//! Average velocity: V = (1/2) u_max = (R²/(8μ)) (-dP/dz)
+//! Average velocity: V = (1/2) `u_max` = (R²/(8μ)) (-dP/dz)
 //!
 //! Pressure drop: ΔP = - (8μ L V) / R² = (32 μ L V) / D²
 //!
@@ -61,6 +61,14 @@
 //!   dans les tubes de très petits diamètres." *Mémoires présentés par divers savants à
 //!   l'Académie Royale des Sciences de l'Institut de France*, 9, 433-544.
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -95,7 +103,7 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q = conditions.flow_rate.unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }

@@ -9,7 +9,7 @@
 //!
 //! For the 1D advection equation: ∂u/∂t + c ∂u/∂x = 0
 //!
-//! The upwind scheme: u_j^{n+1} = u_j^n - (cΔt/Δx) (u_j^n - u_{j-1}^n) for c > 0
+//! The upwind scheme: `u_j^{n+1`} = `u_j^n` - (cΔt/Δx) (`u_j^n` - u_{j-1}^n) for c > 0
 //!
 //! **Amplification factor**: G(k) = 1 - CFL * (1 - e^{-ikΔx})
 //!
@@ -19,7 +19,7 @@
 //!
 //! ### Second-Order Upwind Scheme
 //!
-//! Uses linear interpolation with upwind bias: φ_face = φ_upwind + (1/2) * limiter * (φ_downwind - φ_upwind)
+//! Uses linear interpolation with upwind bias: `φ_face` = `φ_upwind` + (1/2) * limiter * (`φ_downwind` - `φ_upwind`)
 //!
 //! **Stability**: CFL ≤ 1 for explicit schemes, unconditionally stable for implicit.
 //!
@@ -64,7 +64,7 @@
 //!
 //! - Hirsch, C. (1990). *Numerical Computation of Internal and External Flows*.
 //!   Wiley. Chapter 8: Upwind Schemes.
-//! - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
+//! - `LeVeque`, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
 //!   Cambridge University Press. Chapter 6: High-Resolution Methods.
 //!
 //! # Theorem
@@ -73,7 +73,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.

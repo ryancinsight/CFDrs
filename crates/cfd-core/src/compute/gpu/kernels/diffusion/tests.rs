@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::{DiffusionConfig, GpuDiffusionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;

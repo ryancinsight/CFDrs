@@ -42,6 +42,14 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::geometry::BifurcationGeometry3D;
 use super::types::{BifurcationConfig3D, BifurcationSolution3D};
 use crate::scalar;

@@ -3,7 +3,7 @@
 //! # Invariant (Coefficient Positivity)
 //!
 //! All neighbour coefficients $a_{nb} \ge 0$ under upwind convection,
-//! and $a_P = \sum_{nb} a_{nb} + S_P$ with $S_P \ge 0$. This ensures
+//! and $`a_P` = \sum_{nb} a_{nb} + `S_P`$ with $`S_P` \ge 0$. This ensures
 //! diagonal dominance and the discrete maximum principle.
 
 use crate::scalar;

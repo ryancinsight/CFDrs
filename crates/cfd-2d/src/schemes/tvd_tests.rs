@@ -8,11 +8,11 @@
 /// 1. **Linearity-preservation (left state)**: For a linear field φ = c·i, the
 ///    left state at face i+½ equals the exact interpolated value c·(i+½).
 ///    Proof: when r=1 all TVD limiters return ψ=1 (minmod: min(1,1)=1, Van Leer:
-///    2·1/(1+1)=1), so slope = Δ_i and φ_i + ½·Δ_i = c·i + ½·c = c·(i+½).
+///    2·1/(1+1)=1), so slope = `Δ_i` and `φ_i` + `½·Δ_i` = c·i + ½·c = c·(i+½).
 ///
 /// 2. **Linearity-preservation (right state)**: For a linear field the right state
 ///    at face i+½ from cell i+1's stencil equals c·(i+½).  The stencil must be
-///    [φ_i, φ_{i+1}, φ_{i+2}], NOT [φ_{i-1}, φ_i, φ_{i+1}].
+///    [`φ_i`, φ_{i+1}, φ_{i+2}], NOT [φ_{i-1}, `φ_i`, φ_{i+1}].
 ///
 /// 3. **Face consistency (left = right for smooth fields)**: For a linear field
 ///    the left and right states at every face are identical.  This prevents
@@ -23,7 +23,7 @@
 ///
 /// References:
 /// - van Leer, B. (1979). *Journal of Computational Physics*, 32(1), 101-136.
-/// - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*. §6.5.
+/// - `LeVeque`, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*. §6.5.
 #[cfg(test)]
 mod tests {
     use super::super::{
@@ -65,7 +65,7 @@ mod tests {
 
     /// Verify φ_{i+½}^L = slope·(i+½) for φ = slope·i.
     ///
-    /// With r = Δ_{i+1}/Δ_i = 1 for a linear field every TVD limiter returns
+    /// With r = Δ_{`i+1}/Δ_i` = 1 for a linear field every TVD limiter returns
     /// ψ = 1, giving the exact interpolated face value.
     #[test]
     fn test_muscl2_left_state_exact_linear_x() {
@@ -90,9 +90,9 @@ mod tests {
 
     /// Verify φ_{i+½}^R = slope·(i+½) for φ = slope·i.
     ///
-    /// The right state must use cell i+1's stencil [φ_i, φ_{i+1}, φ_{i+2}].
+    /// The right state must use cell i+1's stencil [`φ_i`, φ_{i+1}, φ_{i+2}].
     /// Before the bug-fix this test would FAIL because the code used
-    /// [φ_{i-1}, φ_i, φ_{i+1}], yielding slope·(i-½) ≠ slope·(i+½).
+    /// [φ_{i-1}, `φ_i`, φ_{i+1}], yielding slope·(i-½) ≠ slope·(i+½).
     #[test]
     fn test_muscl2_right_state_exact_linear_x() {
         let nx = 20;
@@ -167,8 +167,8 @@ mod tests {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// A constant field φ ≡ C must be reconstructed exactly for every TVD
-    /// limiter.  With Δ_i = 0 the gradient ratio is set to 0 and ψ = 0,
-    /// giving slope = 0 and face value = φ_i = C.
+    /// limiter.  With `Δ_i` = 0 the gradient ratio is set to 0 and ψ = 0,
+    /// giving slope = 0 and face value = `φ_i` = C.
     #[test]
     fn test_muscl2_constant_field_all_limiters() {
         let nx = 20;

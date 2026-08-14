@@ -8,6 +8,14 @@
 //! This registry documents the theoretical and practical performance characteristics
 //! of key CFD algorithms, enabling informed algorithm selection and optimization.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
@@ -34,6 +42,7 @@ pub struct AlgorithmComplexityInfo {
 
 impl AlgorithmComplexityInfo {
     /// Create new algorithm complexity info
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -48,42 +57,49 @@ impl AlgorithmComplexityInfo {
     }
 
     /// Set time complexity
+    #[must_use]
     pub fn time_complexity(mut self, complexity: &str) -> Self {
         self.time_complexity = complexity.to_string();
         self
     }
 
     /// Set space complexity
+    #[must_use]
     pub fn space_complexity(mut self, complexity: &str) -> Self {
         self.space_complexity = complexity.to_string();
         self
     }
 
     /// Set memory access pattern
+    #[must_use]
     pub fn memory_pattern(mut self, pattern: &str) -> Self {
         self.memory_pattern = pattern.to_string();
         self
     }
 
     /// Set cache efficiency (0.0 = poor, 1.0 = excellent)
+    #[must_use]
     pub fn cache_efficiency(mut self, efficiency: f64) -> Self {
         self.cache_efficiency = efficiency.clamp(0.0, 1.0);
         self
     }
 
     /// Set parallel scalability (0.0 = no speedup, 1.0 = perfect scaling)
+    #[must_use]
     pub fn scalability(mut self, scalability: f64) -> Self {
         self.scalability = scalability.clamp(0.0, 1.0);
         self
     }
 
     /// Add literature reference
+    #[must_use]
     pub fn reference(mut self, reference: &str) -> Self {
         self.references.push(reference.to_string());
         self
     }
 
     /// Add performance note
+    #[must_use]
     pub fn note(mut self, note: &str) -> Self {
         self.notes.push(note.to_string());
         self
@@ -97,6 +113,7 @@ pub struct AlgorithmComplexityRegistry {
 
 impl AlgorithmComplexityRegistry {
     /// Create the complete CFD algorithm complexity registry
+    #[must_use]
     pub fn new() -> Self {
         let mut registry = HashMap::new();
 
@@ -337,16 +354,19 @@ impl AlgorithmComplexityRegistry {
     }
 
     /// Get complexity information for an algorithm
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&AlgorithmComplexityInfo> {
         self.algorithms.get(name)
     }
 
     /// List all algorithms in the registry
+    #[must_use]
     pub fn algorithms(&self) -> Vec<&AlgorithmComplexityInfo> {
         self.algorithms.values().collect()
     }
 
     /// Find algorithms by time complexity class
+    #[must_use]
     pub fn by_time_complexity(&self, complexity: &str) -> Vec<&AlgorithmComplexityInfo> {
         self.algorithms
             .values()
@@ -355,6 +375,7 @@ impl AlgorithmComplexityRegistry {
     }
 
     /// Find best algorithms for a given problem size
+    #[must_use]
     pub fn recommend_for_size(
         &self,
         problem_size: usize,
@@ -395,6 +416,7 @@ impl AlgorithmComplexityRegistry {
     }
 
     /// Generate complexity analysis report
+    #[must_use]
     pub fn generate_report(&self) -> String {
         let mut report = String::new();
         report.push_str("# CFD Algorithm Complexity Analysis Report\n\n");

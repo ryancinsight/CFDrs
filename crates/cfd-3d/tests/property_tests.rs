@@ -3,6 +3,11 @@
 //! Uses `proptest` to verify invariants across randomised parameter ranges
 //! and deterministic tests for spectral Poisson solver correctness.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use proptest::prelude::*;
 
 // ---------------------------------------------------------------------------

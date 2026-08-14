@@ -377,6 +377,7 @@ pub fn rank_population_selectivity(
 }
 
 /// Compatibility adapter for the legacy coarse mixture helper.
+#[must_use]
 pub fn heterogeneous_inception_threshold_pa(
     base_vapor_pressure_pa: Pressure,
     ambient_pressure_pa: Pressure,

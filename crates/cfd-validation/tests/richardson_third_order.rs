@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_validation::geometry::RectangularDomain;
 use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::manufactured::ManufacturedDiffusion;

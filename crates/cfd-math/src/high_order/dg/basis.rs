@@ -3,6 +3,14 @@
 //! This module provides orthogonal polynomial basis functions and their derivatives
 //! for use in DG methods, including both modal and nodal representations.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};
@@ -33,15 +41,15 @@ pub struct DGBasis {
     pub quad_points: Array1<f64>,
     /// Quadrature weights
     pub quad_weights: Array1<f64>,
-    /// Basis function values at quadrature points (num_basis × num_quad_points)
+    /// Basis function values at quadrature points (`num_basis` × `num_quad_points`)
     pub phi: Array2<f64>,
-    /// Basis function derivatives at quadrature points (num_basis × num_quad_points)
+    /// Basis function derivatives at quadrature points (`num_basis` × `num_quad_points`)
     pub dphi_dx: Array2<f64>,
-    /// Mass matrix (num_basis × num_basis)
+    /// Mass matrix (`num_basis` × `num_basis`)
     pub mass_matrix: Array2<f64>,
-    /// Stiffness matrix (num_basis × num_basis)
+    /// Stiffness matrix (`num_basis` × `num_basis`)
     pub stiffness_matrix: Array2<f64>,
-    /// Differentiation matrix (num_basis × num_basis)
+    /// Differentiation matrix (`num_basis` × `num_basis`)
     pub diff_matrix: Array2<f64>,
 }
 
@@ -140,6 +148,7 @@ impl DGBasis {
     }
 
     /// Evaluate the i-th basis function at point x
+    #[must_use]
     pub fn evaluate_basis(&self, i: usize, x: f64) -> f64 {
         match self.basis_type {
             BasisType::Orthogonal => legendre_poly(i, x),
@@ -152,6 +161,7 @@ impl DGBasis {
     }
 
     /// Evaluate the derivative of the i-th basis function at point x
+    #[must_use]
     pub fn evaluate_basis_deriv(&self, i: usize, x: f64) -> f64 {
         match self.basis_type {
             BasisType::Orthogonal => legendre_poly_and_deriv(i, x).1,
@@ -184,6 +194,7 @@ impl DGBasis {
 }
 
 /// Compute Lagrange basis function i at point x
+#[must_use]
 pub fn lagrange_basis(i: usize, x: f64, nodes: &[f64]) -> f64 {
     let mut result = 1.0;
     let xi = nodes[i];
@@ -198,6 +209,7 @@ pub fn lagrange_basis(i: usize, x: f64, nodes: &[f64]) -> f64 {
 }
 
 /// Compute derivative of Lagrange basis function i at point x
+#[must_use]
 pub fn lagrange_basis_deriv(i: usize, x: f64, nodes: &[f64]) -> f64 {
     let mut result = 0.0;
     let xi = nodes[i];
@@ -332,7 +344,7 @@ mod tests {
         let coeffs = basis.project(f).unwrap();
 
         // For order >= 3, the projection should be exact
-        for &x in basis.quad_points.iter() {
+        for &x in &basis.quad_points {
             let mut approx = 0.0;
 
             for i in 0..=order {

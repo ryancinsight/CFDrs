@@ -2,7 +2,7 @@
 //!
 //! ## Algorithm: Anderson Acceleration (Walker & Ni 2011)
 //!
-//! Anderson acceleration applied to a fixed-point iteration x_{k+1} = G(x_k)
+//! Anderson acceleration applied to a fixed-point iteration x_{k+1} = `G(x_k)`
 //! achieves superlinear convergence for contractive mappings, reducing the
 //! Picard iteration count by a factor of 2–5× for typical microfluidic networks.
 //!
@@ -102,7 +102,7 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         }
     }
 
-    /// Under-relaxed Picard step: x_{k+1} = x_k + α·(G(x_k) - x_k)
+    /// Under-relaxed Picard step: x_{k+1} = `x_k` + `α·(G(x_k)` - `x_k`)
     pub(super) fn damped_picard(
         last_solution: &Array1<T>,
         picard_solution: &Array1<T>,

@@ -32,7 +32,7 @@
 //! τ_w · π D L = ΔP · π D²/4
 //! ```
 //!
-//! Defining the Darcy friction factor via  τ_w ≡ f ρ V²/8:
+//! Defining the Darcy friction factor via  `τ_w` ≡ f ρ V²/8:
 //!
 //! ```text
 //! (f ρ V²/8) · π D L = ΔP · π D²/4
@@ -82,6 +82,14 @@
 //! - Moody, L. F. (1944). "Friction factors for pipe flow." *Transactions of the ASME*, 66(8), 671-684.
 //! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor in turbulent pipe flow."
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -324,7 +332,7 @@ impl<T: CfdScalar> DarcyWeisbachModel<T> {
     ///
     /// ## Theorem: Kantorovich Convergence Guarantee
     ///
-    /// **Theorem** (Kantorovich 1948): Newton's method x_{k+1} = x_k − g(x_k)/g'(x_k)
+    /// **Theorem** (Kantorovich 1948): Newton's method x_{k+1} = `x_k` − `g(x_k)/g`'(`x_k`)
     /// converges quadratically to x* when:
     ///
     /// 1. ||g'(x₀)⁻¹ g(x₀)|| ≤ η      (initial residual bound)

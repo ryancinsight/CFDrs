@@ -362,7 +362,7 @@ mod tests {
     const HCT: f64 = 0.30;
 
     /// Ordering invariant: cancer cells focus more centripetally than RBCs.
-    /// cancer_eq ≤ rbc_eq (lower x̃ = closer to center).
+    /// `cancer_eq` ≤ `rbc_eq` (lower x̃ = closer to center).
     #[test]
     fn ordering_cancer_center_rbc_wall() {
         let eq = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None);

@@ -25,6 +25,7 @@ pub struct VectorizedOps {
 
 impl VectorizedOps {
     /// Create a new vectorized operations handler
+    #[must_use]
     pub fn new() -> Self {
         Self {
             simd_ops: SimdOps::new(),
@@ -272,6 +273,7 @@ pub struct StencilOps {
 
 impl StencilOps {
     /// Create a new stencil operations handler
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _simd_ops: SimdOps::new(),

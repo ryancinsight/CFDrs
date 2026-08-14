@@ -6,6 +6,8 @@
 //!
 //! A design is considered *robust* when CV < 0.10 (< 10 % relative variation).
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use serde::{Deserialize, Serialize};
 

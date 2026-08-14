@@ -7,6 +7,11 @@
 //!
 //! Run with: cargo run -p cfd-1d --example schematic_demo_integration
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{Edge, Network, NetworkBuilder, Node};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};

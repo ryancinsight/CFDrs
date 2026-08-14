@@ -6,7 +6,7 @@
 //!
 //! For the 1D advection equation: ∂u/∂t + c ∂u/∂x = 0
 //!
-//! The central difference scheme: u_j^{n+1} = u_j^n - (cΔt/(2Δx)) (u_{j+1}^n - u_{j-1}^n)
+//! The central difference scheme: `u_j^{n+1`} = `u_j^n` - (cΔt/(2Δx)) (u_{j+1}^n - u_{j-1}^n)
 //!
 //! **Amplification factor**: G(k) = 1 - i (cΔt/Δx) sin(kΔx)
 //!
@@ -56,13 +56,13 @@
 //!
 //! ### For Advection: cΔt/Δx ≤ 1/2 (second-order), cΔt/Δx ≤ 1 (fourth-order)
 //! ### For Diffusion: Unconditionally stable (for explicit schemes)
-//! ### For Navier-Stokes: CFL ≤ min(CFL_advection, CFL_diffusion, CFL_pressure)
+//! ### For Navier-Stokes: CFL ≤ `min(CFL_advection`, `CFL_diffusion`, `CFL_pressure`)
 //!
 //! ## References
 //!
 //! - Hirsch, C. (1990). *Numerical Computation of Internal and External Flows*.
 //!   Wiley. Chapter 6: Stability Theory.
-//! - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
+//! - `LeVeque`, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
 //!   Cambridge University Press. Chapter 2: Linear Advection.
 //! - Morton, K. W., & Mayers, D. F. (2005). *Numerical solution of partial differential equations*.
 //!   Cambridge University Press.
@@ -73,7 +73,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.

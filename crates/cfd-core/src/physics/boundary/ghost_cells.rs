@@ -4,6 +4,14 @@
 //! - Blazek (2015) "Computational Fluid Dynamics: Principles and Applications"
 //! - Morinishi et al. (1998) "Fully Conservative Higher Order Finite Difference Schemes"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::error::{BoundaryErrorKind, Error, Result};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};

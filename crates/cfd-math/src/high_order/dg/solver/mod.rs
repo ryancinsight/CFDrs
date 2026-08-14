@@ -3,6 +3,14 @@
 //! Combines a [`DGOperator`] with a [`TimeIntegrator`] to evolve DG
 //! solutions forward in time using configurable explicit or implicit schemes.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod time_integration;
 
 pub use time_integration::*;
@@ -47,6 +55,7 @@ pub struct DGSolver {
 
 impl DGSolver {
     /// Create a new DG solver
+    #[must_use]
     pub fn new(
         dg_op: DGOperator,
         integrator: Box<dyn TimeIntegrator>,
@@ -236,7 +245,7 @@ impl DGSolver {
         })
     }
 
-    /// Run the solver until t_final is reached
+    /// Run the solver until `t_final` is reached
     pub fn solve<F, J>(&mut self, f: F, jac: Option<J>) -> Result<()>
     where
         F: Fn(f64, &Array2<f64>) -> Result<Array2<f64>>,
@@ -318,11 +327,13 @@ impl DGSolver {
     }
 
     /// Get the current solution
+    #[must_use]
     pub fn solution(&self) -> &Array2<f64> {
         &self.u
     }
 
     /// Evaluate the solution at a point x in the reference element [-1, 1]
+    #[must_use]
     pub fn evaluate(&self, x: f64) -> Array1<f64> {
         let num_components = matrix_rows(&self.u);
         let num_basis = matrix_cols(&self.u);

@@ -4,6 +4,14 @@
 //! - Bird, R.B., Armstrong, R.C., Hassager, O. (1987) "Dynamics of Polymeric Liquids"
 //! - Chhabra, R.P., Richardson, J.F. (2008) "Non-Newtonian Flow and Applied Rheology"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Bingham plastic fluid model.
 mod bingham;
 /// Carreau–Yasuda fluid model for blood and polymer solutions.
@@ -75,7 +83,9 @@ mod tests {
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
         assert_eq!(
-            fluid.reference_temperature().map(|value| value.into_base()),
+            fluid
+                .reference_temperature()
+                .map(aequitas::Quantity::into_base),
             Some(t_ref)
         );
 
@@ -143,7 +153,9 @@ mod tests {
         use crate::physics::fluid::traits::Fluid;
         assert!(fluid.is_temperature_dependent());
         assert_eq!(
-            fluid.reference_temperature().map(|value| value.into_base()),
+            fluid
+                .reference_temperature()
+                .map(aequitas::Quantity::into_base),
             Some(t_ref)
         );
 

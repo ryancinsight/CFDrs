@@ -45,6 +45,14 @@
 //!   the Zweifach-Fung effect. *J. Fluid Mech.*, 674, 359–388.
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stderr,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 pub mod cascade_routing;
 pub mod incremental_filtration;
 pub mod routing_probability;
@@ -89,7 +97,7 @@ pub struct CascadeStage {
     /// Number of active arms (2 = bifurcation, 3 = trifurcation, 4 = quad, 5 = penta).
     pub n_arms: u8,
     /// Hydraulic diameter of the treatment arm at this stage.
-    /// Used to compute κ = cell_diameter / Dh for β amplification.
+    /// Used to compute κ = `cell_diameter` / Dh for β amplification.
     pub treatment_dh_m: Length,
     /// Inflow velocity into the junction.
     /// Used for PMC5114676 Zweifach-Fung high-velocity inversion mechanics.
@@ -139,7 +147,7 @@ pub struct IncrementalFiltrationResult {
     pub rbc_peripheral_fraction: f64,
     /// Separation efficiency = `|f_cancer_center − f_rbc_center|` ∈ [0, 1].
     pub separation_efficiency: f64,
-    /// Local hematocrit ratio (HCT_local / HCT_feed) at the treatment arm.
+    /// Local hematocrit ratio (`HCT_local` / `HCT_feed`) at the treatment arm.
     pub center_hematocrit_ratio: f64,
 }
 

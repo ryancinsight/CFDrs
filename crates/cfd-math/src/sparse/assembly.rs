@@ -86,8 +86,8 @@ impl ParallelAssembly {
         }
 
         // Calculate total size
-        let n: usize = blocks.iter().map(|b| b.nrows()).sum();
-        let nnz: usize = blocks.iter().map(|b| b.nnz()).sum();
+        let n: usize = blocks.iter().map(leto_ops::CsrMatrix::nrows).sum();
+        let nnz: usize = blocks.iter().map(leto_ops::CsrMatrix::nnz).sum();
 
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, nnz);
 

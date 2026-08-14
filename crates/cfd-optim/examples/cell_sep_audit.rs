@@ -8,6 +8,11 @@
 //! cargo run -p cfd-optim --example cell_sep_audit --no-default-features --release
 //! ```
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_optim::{
     build_milestone12_blueprint_candidate_space, BlueprintObjectiveEvaluation, EvaluatedPool,
     OptimizationGoal,

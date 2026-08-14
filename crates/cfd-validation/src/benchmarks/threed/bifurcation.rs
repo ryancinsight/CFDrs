@@ -11,7 +11,7 @@
 //! Q_parent = Q_daughter1 + Q_daughter2
 //! ```
 //!
-//! where $Q_i = \int_{A_i} \mathbf{u} \cdot \hat{n} \, dA$.
+//! where $`Q_i` = \int_{`A_i`} \mathbf{u} \cdot \hat{n} \, dA$.
 //! This is validated as the primary correctness criterion of the FEM solve.
 //!
 //! # Theorem — Murray's Cube Law (Murray 1926)
@@ -22,11 +22,16 @@
 //! D_parent^3 = D_daughter1^3 + D_daughter2^3
 //! ```
 //!
-//! Relative deviation $|(D_0^3 - D_1^3 - D_2^3)| / D_0^3$ is computed and
-//! must be ≤ 1 % for the benchmark geometry (D_p = 100 µm, D_d = 79.37 µm).
+//! Relative deviation $|(`D_0^3` - `D_1^3` - `D_2^3`)| / `D_0^3`$ is computed and
+//! must be ≤ 1 % for the benchmark geometry (`D_p` = 100 µm, `D_d` = 79.37 µm).
 //!
 //! **Reference**: Murray, C.D. "The Physiological Principle of Minimum Work",
 //! *PNAS* 12(3), 1926, pp. 207–214.
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Bifurcation3D;
 use crate::scalar;
@@ -175,8 +180,8 @@ mod tests {
     use std::f64::consts::PI;
 
     /// Symmetric bifurcation with Murray-optimal daughters:
-    ///   D_parent = 100 µm, D_daughter = 100 / 2^(1/3) ≈ 79.37 µm
-    ///   → D_p^3 = 2 · D_d^3  (exact Murray)
+    ///   `D_parent` = 100 µm, `D_daughter` = 100 / 2^(1/3) ≈ 79.37 µm
+    ///   → `D_p^3` = 2 · `D_d^3`  (exact Murray)
     #[test]
     fn test_bifurcation_flow_3d_murray_and_mass() {
         let d_parent = 100e-6_f64;

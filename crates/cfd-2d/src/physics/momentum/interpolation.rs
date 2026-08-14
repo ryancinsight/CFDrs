@@ -11,6 +11,14 @@
 //! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
 //! is exactly conserved to machine precision.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::array2d::Array2D;
 use crate::scalar;

@@ -26,7 +26,7 @@
 //! single contiguous block with no gaps, maximizing prefetcher effectiveness.
 //!
 //! **Expected impact**: For an N×M grid, reduces heap allocations from
-//! N × fields + fields to just `fields` (one per Array2D). Eliminates all
+//! N × fields + fields to just `fields` (one per `Array2D`). Eliminates all
 //! row-transition cache misses.
 
 use std::ops::{Index, IndexMut};
@@ -54,12 +54,14 @@ impl<T: Clone> Array2D<T> {
 
     /// Number of rows.
     #[inline]
+    #[must_use]
     pub fn rows(&self) -> usize {
         self.rows
     }
 
     /// Number of columns.
     #[inline]
+    #[must_use]
     pub fn cols(&self) -> usize {
         self.cols
     }
@@ -85,6 +87,7 @@ impl<T: Clone> Array2D<T> {
 
     /// Get an immutable reference to element `(i, j)`.
     #[inline]
+    #[must_use]
     pub fn get(&self, i: usize, j: usize) -> &T {
         debug_assert!(i < self.rows && j < self.cols);
         &self.data[i * self.cols + j]
@@ -99,6 +102,7 @@ impl<T: Clone> Array2D<T> {
 
     /// View the underlying flat slice.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[T] {
         &self.data
     }
@@ -135,7 +139,7 @@ impl<T> IndexMut<(usize, usize)> for Array2D<T> {
 
 /// A flat, row-major 2D boolean mask.
 ///
-/// Stored as `Vec<bool>` for direct compatibility with Array2D indexing
+/// Stored as `Vec<bool>` for direct compatibility with `Array2D` indexing
 /// patterns while keeping the type distinct from numeric arrays.
 pub type Mask2D = Array2D<bool>;
 

@@ -23,6 +23,11 @@
 //!   the `Network2dBuilderSink` pathway which creates per-channel 2D
 //!   domains from schematics blueprints.
 
+#![expect(
+    clippy::print_stderr,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::network::Network2dBuilderSink;
 use cfd_2d::solvers::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_2d::solvers::{NFurcationGeometry, NFurcationSolver2D};

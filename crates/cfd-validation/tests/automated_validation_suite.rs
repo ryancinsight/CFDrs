@@ -5,6 +5,15 @@
 //! - Performance benchmarking for efficiency assessment
 //! - Automated regression detection and reporting
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::benchmarking::config::BenchmarkConfig;
 use cfd_validation::benchmarking::suite::{BenchmarkResult, BenchmarkStatus, BenchmarkSuite};
 use cfd_validation::manufactured::ManufacturedSolution;

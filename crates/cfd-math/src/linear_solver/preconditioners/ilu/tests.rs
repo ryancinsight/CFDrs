@@ -1,5 +1,10 @@
 //! Tests for Incomplete LU factorization
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::*;
 use crate::linear_solver::Preconditioner;
 use eunomia::assert_relative_eq;

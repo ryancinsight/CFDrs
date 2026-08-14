@@ -11,7 +11,7 @@
 //!
 //! **Corollary (Incompressibility)**: For an incompressible fluid without compliant
 //! vessels, $\mathbf{P}$ alone strictly determines $\mathbf{Q}$ via local resistance
-//! laws $Q_{ij} = G_{ij}(\mathbf{P}, \mathbf{Q}) \cdot (P_i - P_j)$.
+//! laws $Q_{ij} = G_{ij}(\mathbf{P}, \mathbf{Q}) \cdot (`P_i` - `P_j`)$.
 //! Thus, the primary prognostic variable solved for is the nodal pressure field $\mathbf{P}$.
 
 use crate::domain::network::Network;

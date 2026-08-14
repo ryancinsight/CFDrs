@@ -26,6 +26,14 @@
 //! outer correctors re-linearise the convective term, so the composite map behaves
 //! like a damped fixed-point iteration when the timestep is small enough.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;

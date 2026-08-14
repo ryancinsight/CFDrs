@@ -8,17 +8,17 @@
 //!
 //! **Statement**: The MRT collision operator $\Omega_{\text{MRT}} = -M^{-1} \hat{S}(\hat{m} - \hat{m}^{eq})$
 //! in moment space is linearly stable if and only if all relaxation rates
-//! $s_k \in (0, 2)$ for $k = 0, \dots, 8$.
+//! $`s_k` \in (0, 2)$ for $k = 0, \dots, 8$.
 //!
 //! **Proof**:
 //!
-//! 1. In moment space the MRT update is $\hat{m}_k^* = (1 - s_k)\hat{m}_k + s_k \hat{m}_k^{eq}$.
+//! 1. In moment space the MRT update is $\hat{m}_k^* = (1 - `s_k)\hat{m`}_k + `s_k` \hat{m}_k^{eq}$.
 //!
 //! 2. Von Neumann stability analysis for a plane wave perturbation $\delta\hat{m}_k \propto e^{i\theta}$
-//!    yields the amplification $|\hat{m}_k^*| = |1 - s_k| \cdot |\hat{m}_k|$.
+//!    yields the amplification $|\hat{m}_k^*| = |1 - `s_k`| \cdot |\hat{m}_k|$.
 //!
-//! 3. Stability requires $|1 - s_k| \leq 1$, i.e., $s_k \in [0, 2]$.
-//!    Strict inequality $s_k \in (0, 2)$ excludes the neutrally-stable endpoints.
+//! 3. Stability requires $|1 - `s_k`| \leq 1$, i.e., $`s_k` \in [0, 2]$.
+//!    Strict inequality $`s_k` \in (0, 2)$ excludes the neutrally-stable endpoints.
 //!    □
 //!
 //! **Reference**: Lallemand & Luo (2000), §IV.
@@ -27,7 +27,7 @@ use super::traits::CollisionOperator;
 use crate::scalar::{one, zero};
 use eunomia::FloatElement;
 
-/// Lattice sound speed squared: $c_s^2 = 1/3$ for D2Q9
+/// Lattice sound speed squared: $`c_s^2` = 1/3$ for D2Q9
 const LATTICE_SOUND_SPEED_SQUARED: f64 = 1.0 / 3.0;
 
 /// Relaxation time offset: $\tau - 0.5$ relates viscosity to relaxation
@@ -63,9 +63,9 @@ impl<T: FloatElement> RelaxationMatrix<T> {
     /// Create default relaxation matrix.
     ///
     /// The M-matrix row ordering (Lallemand & Luo 2000) maps moment indices as:
-    /// 0→ρ, 1→e, 2→ε, 3→j_x, 4→q_x, 5→j_y, 6→q_y, 7→p_xx, 8→p_xy.
+    /// 0→ρ, 1→e, 2→ε, `3→j_x`, `4→q_x`, `5→j_y`, `6→q_y`, `7→p_xx`, `8→p_xy`.
     ///
-    /// Conserved moments (ρ, j_x, j_y) at indices 0, 3, 5 must have s_k = 0.
+    /// Conserved moments (ρ, `j_x`, `j_y`) at indices 0, 3, 5 must have `s_k` = 0.
     pub fn default_d2q9(tau: T) -> Self {
         let omega = one::<T>() / tau;
 
@@ -171,7 +171,7 @@ impl<T: FloatElement> CollisionOperator<T> for MrtCollision<T> {
     /// Apply MRT collision to the flat distribution buffer.
     ///
     /// For each node: transform to moment space, relax non-conserved moments
-    /// toward equilibrium at rate s_k (Theorem — MRT stability: s_k ∈ (0,2)),
+    /// toward equilibrium at rate `s_k` (Theorem — MRT stability: `s_k` ∈ (0,2)),
     /// then transform back to velocity space.
     fn collide(&self, f: &mut [T], density: &[T], velocity: &[T], nx: usize, ny: usize) {
         use crate::solvers::lbm::streaming::f_idx;
@@ -262,8 +262,8 @@ mod tests {
         assert_relative_eq!(nu_recovered, nu, epsilon = 1e-12);
     }
 
-    /// Equilibrium moments: the equilibrium_moments function must produce
-    /// moment 0 = ρ, moment 3 = ρ·u_x, moment 5 = ρ·u_y (conserved).
+    /// Equilibrium moments: the `equilibrium_moments` function must produce
+    /// moment 0 = ρ, moment 3 = `ρ·u_x`, moment 5 = `ρ·u_y` (conserved).
     #[test]
     fn equilibrium_moments_conserved_quantities() {
         let rho = 1.05_f64;
@@ -279,7 +279,7 @@ mod tests {
     }
 
     /// Relaxation matrix: conserved moments (indices 0, 3, 5) must have
-    /// relaxation rate s_k = 0. Non-conserved moments must have s_k ∈ (0, 2).
+    /// relaxation rate `s_k` = 0. Non-conserved moments must have `s_k` ∈ (0, 2).
     #[test]
     fn relaxation_rates_conservation_and_stability() {
         let tau = 0.8_f64;
@@ -300,8 +300,8 @@ mod tests {
         }
     }
 
-    /// Transformation matrix M: row 0 sums to 9 (density moment = Σf_q),
-    /// row 3 is the x-momentum (dot with e_x), row 5 is y-momentum.
+    /// Transformation matrix M: row 0 sums to 9 (density moment = `Σf_q`),
+    /// row 3 is the x-momentum (dot with `e_x`), row 5 is y-momentum.
     #[test]
     fn transformation_matrix_structure() {
         let mrt = MrtCollision::<f64>::new(1.0);
@@ -341,8 +341,8 @@ mod tests {
         }
     }
 
-    /// Conserved-moment invariance: density ρ and momenta j_x, j_y must be
-    /// unchanged by MRT collision (s₀ = s₃ = s₅ = 0 in default_d2q9).
+    /// Conserved-moment invariance: density ρ and momenta `j_x`, `j_y` must be
+    /// unchanged by MRT collision (s₀ = s₃ = s₅ = 0 in `default_d2q9`).
     #[test]
     fn conserved_moments_preserved() {
         use crate::solvers::lbm::lattice::{equilibrium, D2Q9};

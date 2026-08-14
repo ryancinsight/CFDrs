@@ -9,7 +9,7 @@
 //!   2. Turbulent mixing and expansion downstream of the vena contracta.
 //!
 //! **Theorem (Sudden Contraction, Idelchik 1994 §5)**:
-//! The entrance loss coefficient K_entry for a sharp-edged inlet is:
+//! The entrance loss coefficient `K_entry` for a sharp-edged inlet is:
 //!
 //! ```text
 //! K_entry = 0.5 · (1 − A₂/A₁) · (1 + C/Re)   [dimensionless]
@@ -61,7 +61,7 @@
 //!
 //! ## Theorem: Developing Flow Length (Schlichting 1979)
 //!
-//! The hydrodynamic entrance length L_h required for the velocity profile to become fully developed:
+//! The hydrodynamic entrance length `L_h` required for the velocity profile to become fully developed:
 //!
 //! ```text
 //! L_h / D_h ≈ 0.05 · Re    (laminar)
@@ -76,6 +76,14 @@
 //! - Langhaar, H. L. (1942). "Steady flow in the transition length of a straight tube."
 //!   *Journal of Applied Mechanics*, 9(2), A55-A58.
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
@@ -262,7 +270,7 @@ impl<T: CfdScalar> EntranceEffectsModel<T> {
     ///
     /// where `area_ratio = A₁/A₂ ≥ 1`, giving:
     /// - `(1 − 1/area_ratio)` = `(A₁ − A₂)/A₁` ∈ [0, 1)
-    /// - limit area_ratio→∞: `K → 0.5·(1 + C/Re)` → **0.5** at high Re
+    /// - limit `area_ratio→∞`: `K → 0.5·(1 + C/Re)` → **0.5** at high Re
     ///   (classical Borda-Carnot sharp-elbow coefficient)
     fn calculate_sudden_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
         // contraction_ratio = 1 − A₂/A₁ = 1 − 1/area_ratio  ∈ [0, 1)
@@ -295,9 +303,9 @@ impl<T: CfdScalar> EntranceEffectsModel<T> {
 /// Methods for combining multiple resistance models
 #[derive(Debug, Clone, PartialEq)]
 pub enum CombinationMethod {
-    /// Add resistances in series: R_total = R₁ + R₂ + …
+    /// Add resistances in series: `R_total` = R₁ + R₂ + …
     Series,
-    /// Combine resistances in parallel: 1/R_total = 1/R₁ + 1/R₂ + …
+    /// Combine resistances in parallel: `1/R_total` = 1/R₁ + 1/R₂ + …
     Parallel,
     /// Custom weighted combination with explicit weights
     Weighted(Vec<f64>),
@@ -315,8 +323,8 @@ pub enum CombinationMethod {
 /// L_e / D_h = [(0.619)^1.6 + (0.0567·Re)^1.6]^(1/1.6)
 /// ```
 ///
-/// This formula unifies the creeping-flow limit (L_e → 0.619·D_h as Re → 0)
-/// with the high-Re asymptote (L_e → 0.0567·Re·D_h as Re → ∞).
+/// This formula unifies the creeping-flow limit (`L_e` → `0.619·D_h` as Re → 0)
+/// with the high-Re asymptote (`L_e` → `0.0567·Re·D_h` as Re → ∞).
 ///
 /// The entrance-region resistance correction adds an additional pressure
 /// drop beyond the fully-developed Hagen-Poiseuille prediction:
@@ -325,11 +333,12 @@ pub enum CombinationMethod {
 /// ΔP_entrance = K_entrance · (1/2)·ρ·u_mean²
 /// ```
 ///
-/// where K_entrance ≈ 2.28 + 64/(Re·D_h/L) for short channels (L < L_e).
+/// where `K_entrance` ≈ 2.28 + `64/(Re·D_h/L)` for short channels (L < `L_e`).
 ///
 /// **Reference**: Durst, F., Ray, S., Ünsal, B. & Bayoumi, O.A. (2005).
 /// "The Development Lengths of Laminar Pipe and Channel Flows",
 /// *J. Fluids Eng.* 127(6):1154-1160.
+#[must_use]
 pub fn durst_entrance_length(re: f64, d_h: f64) -> f64 {
     let term1 = 0.619_f64.powf(1.6);
     let term2 = (0.0567 * re).powf(1.6);
@@ -338,10 +347,11 @@ pub fn durst_entrance_length(re: f64, d_h: f64) -> f64 {
 
 /// Entrance-region pressure drop coefficient for developing flow.
 ///
-/// Returns K_entrance such that ΔP_entrance = K · (1/2)ρu².
-/// Valid for L < L_e (entrance region not fully developed).
+/// Returns `K_entrance` such that `ΔP_entrance` = K · (1/2)ρu².
+/// Valid for L < `L_e` (entrance region not fully developed).
 ///
 /// Uses the Langhaar (1942) + Durst (2005) composite formula.
+#[must_use]
 pub fn durst_entrance_k(re: f64, l_over_dh: f64) -> f64 {
     // K ≈ 2.28 + 64/(Re·L/D_h) for laminar entrance
     // Bounded below by K_min = 0 (fully developed)
@@ -351,12 +361,12 @@ pub fn durst_entrance_k(re: f64, l_over_dh: f64) -> f64 {
 
 /// Durst entrance correction as a fraction of fully-developed resistance.
 ///
-/// Returns a multiplier >= 1.0 for channels where L/D_h < 50 (entrance
-/// effects are significant). For fully-developed channels (L/D_h >= 50),
+/// Returns a multiplier >= 1.0 for channels where `L/D_h` < 50 (entrance
+/// effects are significant). For fully-developed channels (`L/D_h` >= 50),
 /// returns 1.0 (no correction).
 ///
 /// The fractional increase in pressure drop due to entrance effects is
-/// approximately K/(64 * L/D_h), derived from the ratio of entrance
+/// approximately K/(64 * `L/D_h`), derived from the ratio of entrance
 /// loss to Hagen-Poiseuille loss in laminar flow.
 ///
 /// Usage: `R_corrected = R_base * durst_resistance_multiplier(Re, L/D_h)`
@@ -367,6 +377,7 @@ pub fn durst_entrance_k(re: f64, l_over_dh: f64) -> f64 {
 /// "The Development Lengths of Laminar Pipe and Channel Flows",
 /// *J. Fluids Eng.* 127(6):1154-1160.
 #[inline]
+#[must_use]
 pub fn durst_resistance_multiplier(re: f64, l_over_dh: f64) -> f64 {
     if l_over_dh >= 50.0 {
         return 1.0;
@@ -392,10 +403,10 @@ mod tests {
     /// Verify the quadratic coefficient has correct sign and units.
     ///
     /// For water (ρ ≈ 998.2 kg/m³), A₂ = 1 mm², A₁ = 4 mm², Re = 1000:
-    ///   contraction_ratio = 1 − 0.25 = 0.75
-    ///   K_base = 0.5 × 0.75 = 0.375
-    ///   k_entry = 0.375 × (1 + 0.1/1000) ≈ 0.3754
-    ///   k_coeff = 0.3754 × 998.2 / (2 × (1e-6)²) ≈ 1.873 × 10¹⁴ Pa·s²/m⁶
+    ///   `contraction_ratio` = 1 − 0.25 = 0.75
+    ///   `K_base` = 0.5 × 0.75 = 0.375
+    ///   `k_entry` = 0.375 × (1 + 0.1/1000) ≈ 0.3754
+    ///   `k_coeff` = 0.3754 × 998.2 / (2 × (1e-6)²) ≈ 1.873 × 10¹⁴ Pa·s²/m⁶
     #[test]
     fn test_sudden_contraction_coefficient_dimensional() -> Result<()> {
         let model = EntranceEffectsModel::sudden_contraction(4e-6_f64, 1e-6_f64);
@@ -418,9 +429,9 @@ mod tests {
         Ok(())
     }
 
-    /// Verify K → 0.5 for large reservoir → pipe (area_ratio → ∞).
+    /// Verify K → 0.5 for large reservoir → pipe (`area_ratio` → ∞).
     ///
-    /// Theorem (Idelchik §5): at high Re, K_entry → 0.5 (Borda-Carnot sharp inlet)
+    /// Theorem (Idelchik §5): at high Re, `K_entry` → 0.5 (Borda-Carnot sharp inlet)
     #[test]
     fn test_sudden_contraction_borda_carnot_limit() -> Result<()> {
         // Very large upstream area (≈ reservoir)
@@ -479,7 +490,7 @@ mod tests {
 
     /// Validate (A₁/A₂)² area scaling of effective resistance.
     ///
-    /// With the same K_entry, scaling A₂ by factor s scales k by 1/s⁴.
+    /// With the same `K_entry`, scaling A₂ by factor s scales k by 1/s⁴.
     #[test]
     fn test_entrance_effects_area_scaling() -> Result<()> {
         let base_down = 1e-6_f64;
@@ -540,9 +551,9 @@ mod tests {
 
     // ─── Durst et al. (2005) entrance length tests ──────────────────────
 
-    /// Re → 0 gives L_e ≈ 0.619·D_h (creeping-flow limit).
+    /// Re → 0 gives `L_e` ≈ `0.619·D_h` (creeping-flow limit).
     ///
-    /// At Re = 0 the high-Re term vanishes and L_e/D_h → 0.619.
+    /// At Re = 0 the high-Re term vanishes and `L_e/D_h` → 0.619.
     #[test]
     fn test_durst_entrance_length_creeping_flow() {
         let d_h = 1.0e-3; // 1 mm
@@ -551,7 +562,7 @@ mod tests {
         assert_relative_eq!(l_e, expected, max_relative = 1e-6);
     }
 
-    /// Re = 1000: L_e ≈ 0.0567·Re·D_h = 56.7·D_h (high-Re asymptote dominates).
+    /// Re = 1000: `L_e` ≈ `0.0567·Re·D_h` = `56.7·D_h` (high-Re asymptote dominates).
     #[test]
     fn test_durst_entrance_length_high_re() {
         let d_h = 1.0e-3;
@@ -563,7 +574,7 @@ mod tests {
         assert_relative_eq!(l_e, high_re_approx, max_relative = 0.01);
     }
 
-    /// Short channel (L/D_h = 1): large K (entrance effects dominate).
+    /// Short channel (`L/D_h` = 1): large K (entrance effects dominate).
     #[test]
     fn test_durst_entrance_k_short_channel() {
         let re = 100.0;
@@ -574,7 +585,7 @@ mod tests {
         assert!(k > 2.0, "Short channel should have large entrance K");
     }
 
-    /// Long channel (L/D_h = 100): small K (fully developed flow).
+    /// Long channel (`L/D_h` = 100): small K (fully developed flow).
     #[test]
     fn test_durst_entrance_k_long_channel() {
         let re = 100.0;
@@ -592,14 +603,14 @@ mod tests {
 
     // ─── Durst resistance multiplier tests ──────────────────────────────
 
-    /// Long channel (L/D_h = 100 >= 50): multiplier should be exactly 1.0.
+    /// Long channel (`L/D_h` = 100 >= 50): multiplier should be exactly 1.0.
     #[test]
     fn test_durst_multiplier_long_channel_unity() {
         let multiplier = durst_resistance_multiplier(100.0, 100.0);
         assert_relative_eq!(multiplier, 1.0, epsilon = 1e-15);
     }
 
-    /// Short channel (L/D_h = 5 < 50): multiplier should be > 1.0.
+    /// Short channel (`L/D_h` = 5 < 50): multiplier should be > 1.0.
     #[test]
     fn test_durst_multiplier_short_channel_above_unity() {
         let multiplier = durst_resistance_multiplier(100.0, 5.0);

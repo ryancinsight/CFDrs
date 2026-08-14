@@ -49,7 +49,7 @@ pub struct NavierStokesSolver2D<T: CfdScalar + Copy + FloatElement> {
     /// Diagonal pressure-correction coefficient workspace reused across SOR sweeps.
     pub(super) pressure_poisson_a_p: Array2D<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
-    /// computes turbulent viscosity nu_t each iteration and adds it to
+    /// computes turbulent viscosity `nu_t` each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
     pub(super) turbulence: Option<TurbulenceCoupling<T>>,
 }
@@ -115,7 +115,7 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
 
     /// Enable k-omega SST turbulence modeling for high-Re flows.
     ///
-    /// When enabled, the solver computes turbulent viscosity nu_t at
+    /// When enabled, the solver computes turbulent viscosity `nu_t` at
     /// each iteration and adds it to the molecular viscosity in the
     /// momentum equation.  This is needed for venturi throat flows
     /// at Re > 2000 where the laminar assumption breaks down.

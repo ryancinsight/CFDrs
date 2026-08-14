@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{

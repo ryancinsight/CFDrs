@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;

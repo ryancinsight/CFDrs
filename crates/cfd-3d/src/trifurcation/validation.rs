@@ -13,6 +13,14 @@
 //!
 //! bounds the discretisation error with 95% confidence.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use super::geometry::TrifurcationGeometry3D;
 use super::solver::TrifurcationSolution3D;
 use crate::scalar;

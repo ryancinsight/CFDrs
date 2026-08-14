@@ -15,27 +15,35 @@
 //!
 //! For $j = 2, \dots, s$:
 //!
-//! $Y_0 = y_n$
-//! $Y_1 = Y_0 + \tilde{\mu}_1 \Delta t F(Y_0)$
-//! $Y_j = (1 - \mu_j - \nu_j) Y_0 + \mu_j Y_{j-1} + \nu_j Y_{j-2} + \tilde{\mu}_j \Delta t F(Y_{j-1}) + \tilde{\gamma}_j \Delta t F(Y_0)$
-//! $y_{n+1} = Y_s$
+//! $`Y_0` = `y_n`$
+//! $`Y_1` = `Y_0` + \tilde{\mu}_1 \Delta t `F(Y_0)`$
+//! $`Y_j` = (1 - \`mu_j` - \`nu_j`) `Y_0` + \`mu_j` Y_{j-1} + \`nu_j` Y_{j-2} + \tilde{\mu}_j \Delta t F(Y_{j-1}) + \tilde{\gamma}_j \Delta t `F(Y_0)`$
+//! $y_{n+1} = `Y_s`$
 //!
 //! ### Coefficients
 //!
 //! $\epsilon = 2/13$ (damping parameter)
-//! $w_0 = 1 + \epsilon/s^2$
+//! $`w_0` = 1 + \epsilon/s^2$
 //!
-//! $b_j = \frac{T''_j(w_0)}{(T'_j(w_0))^2}$
+//! $`b_j` = \frac{T''_`j(w_0)}{(T`'_`j(w_0))^2`}$
 //!
-//! $\mu_j = \frac{2 w_0 b_j}{b_{j-1}}$
-//! $\nu_j = - \frac{b_j}{b_{j-2}}$
-//! $\tilde{\mu}_j = \frac{2 w_1 b_j}{b_{j-1}}$
-//! $\tilde{\gamma}_j = - (1 - b_{j-1} T_j(w_0)) \tilde{\mu}_j$
+//! $\`mu_j` = \frac{2 `w_0` `b_j}{b`_{j-1}}$
+//! $\`nu_j` = - \`frac{b_j}{b`_{j-2}}$
+//! $\tilde{\mu}_j = \frac{2 `w_1` `b_j}{b`_{j-1}}$
+//! $\tilde{\gamma}_j = - (1 - b_{j-1} `T_j(w_0)`) \tilde{\mu}_j$
 //!
-//! Note: The exact recurrence coefficients for the first few stages and the relation to $T_j$
+//! Note: The exact recurrence coefficients for the first few stages and the relation to $`T_j`$
 //! follow the properties of shifted Chebyshev polynomials.
 //!
-//! The stability limit is $\beta \approx (w_0 + 1) s^2 / 2 \approx 0.8 s^2$ for damped RKC.
+//! The stability limit is $\beta \approx (`w_0` + 1) s^2 / 2 \approx 0.8 s^2$ for damped RKC.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use crate::error::Result;
 use crate::time_stepping::traits::{one, state_len, state_zeros, zero, TimeState};
@@ -105,6 +113,7 @@ pub trait RhsFunction<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
     /// Create RKC method with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(RkcConfig::default())
     }

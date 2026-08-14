@@ -16,6 +16,14 @@
 //! a pair of counter-rotating vortices appears in the cross-section. The
 //! transition is validated by checking secondary velocity magnitude.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::solver::{SerpentineConfig3D, SerpentineSolution3D};
 use crate::scalar;
 use cfd_core::error::Error;

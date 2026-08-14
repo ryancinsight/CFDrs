@@ -5,7 +5,7 @@
 //! # Invariant (SIMD Numerical Equivalence)
 //!
 //! Each SIMD kernel computes the same stencil operations as the scalar reference.
-//! The Jacobi update $\phi_i^{k+1} = (b_i - \sum_{j \ne i} a_{ij}\phi_j^k) / a_{ii}$
+//! The Jacobi update $\`phi_i^{k+1`} = (`b_i` - \sum_{j \ne i} a_{`ij}\phi_j^k`) / a_{ii}$
 //! is applied element-wise via SIMD lanes without altering the iteration order,
 //! preserving convergence guarantees of the underlying solver.
 

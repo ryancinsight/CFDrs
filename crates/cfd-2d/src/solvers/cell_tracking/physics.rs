@@ -125,6 +125,7 @@ pub struct AsymmetricBifurcationFlow {
 
 impl AsymmetricBifurcationFlow {
     /// Return the flow fraction entering the wide daughter.
+    #[must_use]
     pub fn flow_fraction_wide(&self) -> Dimensionless {
         let q_wide = self.wide_daughter_width.into_base().powi(3);
         let q_narrow = self.narrow_daughter_width.into_base().powi(3);
@@ -132,6 +133,7 @@ impl AsymmetricBifurcationFlow {
     }
 
     /// Return the dividing streamline position at the split plane.
+    #[must_use]
     pub fn dividing_streamline_y(&self) -> Length {
         Length::from_base(
             self.parent_height.into_base()

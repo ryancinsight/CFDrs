@@ -30,6 +30,7 @@ pub struct Checkpoint<T: RealField> {
 
 impl<T: RealField> Checkpoint<T> {
     /// Create a new checkpoint
+    #[must_use]
     pub fn new(
         metadata: CheckpointMetadata,
         u_velocity: Array2<T>,
@@ -74,6 +75,7 @@ impl<T: RealField> Checkpoint<T> {
     }
 
     /// Get grid dimensions as (nx, ny)
+    #[must_use]
     pub fn dimensions(&self) -> (usize, usize) {
         self.metadata.dimensions
     }
@@ -174,7 +176,8 @@ impl Checkpoint<f64> {
     /// * Roundtrip preservation: `checkpoint.compute_checksum() == loaded.compute_checksum()`
     /// * Parallel consistency: `allreduce_xor(local_checksums) == global_checksum`
     ///
-    /// Uses dual DefaultHasher on metadata fields (skip checksum) + row-major matrix bits.
+    /// Uses dual `DefaultHasher` on metadata fields (skip checksum) + row-major matrix bits.
+    #[must_use]
     pub fn compute_checksum(&self) -> u128 {
         let mut hasher1 = DefaultHasher::new();
         let mut hasher2 = DefaultHasher::new();

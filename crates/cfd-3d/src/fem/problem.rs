@@ -18,6 +18,14 @@
 //! **Reference:** Brezzi & Fortin, "Mixed and Hybrid Finite Element Methods",
 //! Springer, 1991, Chapter II.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;

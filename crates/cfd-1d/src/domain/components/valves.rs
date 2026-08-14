@@ -24,6 +24,14 @@
 //! - `opening ∈ [0, 1]`: clamped on set
 //! - `Cv > 0`: physically required (positive conductance)
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{real_from_f64, Component};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;

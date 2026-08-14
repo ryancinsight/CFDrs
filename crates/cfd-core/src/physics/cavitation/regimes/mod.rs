@@ -22,6 +22,14 @@
 //! P_threshold = P_v + √(8σ/(3R_0)) · (P_∞ + 2σ/R_0)^(1/2)
 //! ```
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Cavitation regime analysis results and reporting.
 mod analysis;
 /// Cavitation regime classifier.

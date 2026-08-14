@@ -4,6 +4,11 @@
 //! blood model and prints the velocity profile, comparing against the
 //! Newtonian analytical solution for the same pressure gradient.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::{BloodModel, PoiseuilleConfig, PoiseuilleFlow2D};
 use cfd_core::physics::fluid::blood::CassonBlood;
 
@@ -32,7 +37,7 @@ fn main() {
     // Newtonian reference viscosity for analytical comparison (blood ~3.5 mPa.s)
     let mu_newtonian: f64 = 3.5e-3;
     let analytical_profile = solver.analytical_solution(mu_newtonian);
-    let u_max_analytical = analytical_profile.iter().cloned().fold(0.0_f64, f64::max);
+    let u_max_analytical = analytical_profile.iter().copied().fold(0.0_f64, f64::max);
     let u_max_numerical = solver.max_velocity();
 
     println!("Max velocity (numerical) : {u_max_numerical:.6e} m/s");

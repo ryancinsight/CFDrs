@@ -1,6 +1,11 @@
 //! Integration tests for `CascadeSolver3D` — validates multi-channel CIF
 //! network 3D FEM solves with both Newtonian and non-Newtonian fluids.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;

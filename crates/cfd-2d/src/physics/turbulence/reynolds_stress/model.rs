@@ -5,9 +5,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -24,7 +24,7 @@ pub struct ReynoldsStressModel<T: RealField + Copy> {
     pub(super) ny: usize,
     pub(super) wall_distance: Option<Vec<T>>,
     pub(super) c_mu: T,
-    /// Redistribution coefficient $C_1$.
+    /// Redistribution coefficient $`C_1`$.
     pub c1: T,
     pub(super) c2: T,
     pub(super) c1_star: T,
@@ -48,6 +48,7 @@ impl<T: RealField + Copy> ReynoldsStressModel<T> {
     ///
     /// # Panics
     /// Panics if `nx == 0` or `ny == 0`.
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         assert!(
             nx > 0 && ny > 0,

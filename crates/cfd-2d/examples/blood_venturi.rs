@@ -9,6 +9,11 @@
 //! Throat: 0.5cm (50% stenosis)
 //! Inlet Velocity: Parabolic profile, max 0.5 m/s
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::immersed_boundary::{

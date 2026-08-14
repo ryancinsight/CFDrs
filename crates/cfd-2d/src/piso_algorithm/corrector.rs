@@ -1,5 +1,13 @@
 //! Pressure corrector step for PISO algorithm
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
@@ -273,11 +281,11 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
     /// # Theorem (Rhie & Chow, 1983, Eq. 13)
     /// The face velocity includes both cell-centred and face pressure gradients:
     ///
-    ///   u_f = ū_f + d_f · [(∇p)_cells − (∇p)_face]
+    ///   `u_f` = `ū_f` + `d_f` · [(∇p)_cells − (∇p)_face]
     ///
     /// where:
     /// - `ū_f` = arithmetic mean of adjacent cell velocities
-    /// - `d_f` = Δt / ρ_f, the transient pressure-momentum coupling coefficient
+    /// - `d_f` = Δt / `ρ_f`, the transient pressure-momentum coupling coefficient
     /// - `(∇p)_cells` = average of the two adjacent cell-centred pressure gradients
     /// - `(∇p)_face` = direct face pressure gradient
     ///

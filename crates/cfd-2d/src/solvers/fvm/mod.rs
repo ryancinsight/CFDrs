@@ -1,6 +1,6 @@
 //! Finite Volume Method (FVM) solver for 2D CFD simulations.
 //!
-//! # Theorem (FVM Discrete Conservation — Godunov 1959, LeVeque 2002)
+//! # Theorem (FVM Discrete Conservation — Godunov 1959, `LeVeque` 2002)
 //!
 //! A finite volume discretization satisfies exact discrete conservation:
 //! the integral of the conserved quantity over the domain changes only
@@ -9,7 +9,7 @@
 //! **Proof sketch**:
 //! The FVM integrates the divergence form of the conservation law
 //! $\partial \phi / \partial t + \nabla \cdot \mathbf{F} = S$ over each control volume
-//! $\Omega_i$, yielding $\frac{d}{dt}\int_{\Omega_i}\phi\,dV = -\oint_{\partial\Omega_i}\mathbf{F}\cdot\mathbf{n}\,dA + \int_{\Omega_i}S\,dV$.
+//! $\`Omega_i`$, yielding $\frac{d}{dt}\int_{\`Omega_i}\phi`\,dV = -\oint_{\`partial\Omega_i}\mathbf{F}\cdot\mathbf{n`}\,dA + \int_{\`Omega_i}S`\,dV$.
 //!
 //! Summing over all internal cells, each interior face flux appears exactly twice with
 //! opposite signs (once for each adjacent cell), so all internal fluxes cancel

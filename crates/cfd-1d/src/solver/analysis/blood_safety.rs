@@ -58,7 +58,7 @@ pub struct ShearLimitViolation<T: CfdScalar + Copy> {
     pub wall_shear_stress_pa: Pressure<T>,
     /// Stress limit that was exceeded \[Pa].
     pub stress_limit_pa: Pressure<T>,
-    /// Stress exceedance ratio = wall_shear_stress_pa / stress_limit_pa.
+    /// Stress exceedance ratio = `wall_shear_stress_pa` / `stress_limit_pa`.
     pub stress_exceedance_ratio: Dimensionless<T>,
     /// Computed wall shear rate [1/s], if available.
     pub wall_shear_rate_per_s: Option<ReciprocalTime<T>>,
@@ -79,13 +79,13 @@ pub struct HemolysisLimitViolation<T: CfdScalar + Copy> {
     pub giersiepen_hi: Option<Dimensionless<T>>,
     /// Configured Giersiepen limit [-], if configured.
     pub giersiepen_limit: Option<Dimensionless<T>>,
-    /// Giersiepen exceedance ratio = giersiepen_hi / giersiepen_limit.
+    /// Giersiepen exceedance ratio = `giersiepen_hi` / `giersiepen_limit`.
     pub giersiepen_exceedance_ratio: Option<Dimensionless<T>>,
     /// Computed Taskin hemolysis index [-], if configured.
     pub taskin_hi: Option<Dimensionless<T>>,
     /// Configured Taskin limit [-], if configured.
     pub taskin_limit: Option<Dimensionless<T>>,
-    /// Taskin exceedance ratio = taskin_hi / taskin_limit.
+    /// Taskin exceedance ratio = `taskin_hi` / `taskin_limit`.
     pub taskin_exceedance_ratio: Option<Dimensionless<T>>,
 }
 

@@ -6,6 +6,11 @@
 //!
 //! Run with: cargo run -p gaia --example schematic_to_mesh_demo
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
     use cfd_mesh::application::channel::profile::ChannelProfile;

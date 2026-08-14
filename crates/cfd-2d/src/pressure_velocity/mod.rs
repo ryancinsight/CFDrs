@@ -12,8 +12,8 @@
 //! symmetric positive definite.
 //!
 //! **Proof sketch**:
-//! Each face coefficient $a_f = d_f A_f / \delta_f$ is positive when
-//! $d_f = V_f / A_P > 0$. The discrete Laplacian therefore has non-positive
+//! Each face coefficient $`a_f` = `d_f` `A_f` / \`delta_f`$ is positive when
+//! $`d_f` = `V_f` / `A_P` > 0$. The discrete Laplacian therefore has non-positive
 //! off-diagonals and positive row sums, while anchoring one pressure degree of
 //! freedom removes the constant null-space. The reduced system is then suitable
 //! for CG; GMRES/BiCGSTAB remain safe fallback solvers for non-ideal variants.

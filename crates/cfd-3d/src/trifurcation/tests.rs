@@ -1,3 +1,11 @@
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod tests {
     use super::super::geometry::TrifurcationGeometry3D;

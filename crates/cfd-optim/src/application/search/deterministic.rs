@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation};
 use crate::domain::{BlueprintCandidate, OperatingPoint, OptimizationGoal};
 use crate::error::OptimError;

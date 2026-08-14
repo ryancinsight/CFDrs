@@ -3,6 +3,8 @@
 //! [`write_milestone12_results`] writes `report/milestone12_results.md`.
 //! [`ValidationRow`] stores one row of multi-fidelity validation output.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use std::fmt::Write as FmtWrite;
 use std::path::Path;
 

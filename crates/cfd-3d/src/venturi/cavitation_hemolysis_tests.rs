@@ -6,6 +6,21 @@
 //! - Sonoluminescence estimation
 //! - Material damage prediction
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod tests {
     use aequitas::systems::si::quantities::{

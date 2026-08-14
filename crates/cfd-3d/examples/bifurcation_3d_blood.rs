@@ -13,6 +13,11 @@
 //! Murray, C.D. (1926). "The Physiological Principle of Minimum Work".
 //! *Proc. Natl. Acad. Sci.* 12(3):207-214.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
 

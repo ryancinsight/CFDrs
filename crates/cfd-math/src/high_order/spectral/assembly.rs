@@ -22,6 +22,7 @@ pub struct GlobalAssembly {
 
 impl GlobalAssembly {
     /// Create a new global assembly
+    #[must_use]
     pub fn new(num_dofs: usize, element_dofs: Vec<Vec<usize>>) -> Self {
         Self {
             num_dofs,
@@ -70,6 +71,7 @@ impl GlobalAssembly {
     }
 
     /// Assemble the global sparse matrix in CSR format
+    #[must_use]
     pub fn assemble_matrix(&self) -> CsrMatrix<f64> {
         if self.coo_rows.is_empty() {
             return CsrMatrix::zeros(self.num_dofs, self.num_dofs);
@@ -88,6 +90,7 @@ impl GlobalAssembly {
     }
 
     /// Get the global right-hand side vector
+    #[must_use]
     pub fn rhs(&self) -> &[f64] {
         &self.rhs
     }
@@ -146,6 +149,7 @@ pub struct SpectralMesh {
 
 impl SpectralMesh {
     /// Create a new 1D spectral element mesh
+    #[must_use]
     pub fn new_1d(x_min: f64, x_max: f64, num_elements: usize, nodes_per_element: usize) -> Self {
         let num_nodes = (num_elements * (nodes_per_element - 1)) + 1;
         let dx = (x_max - x_min) / num_elements as f64;
@@ -200,36 +204,43 @@ impl SpectralMesh {
     }
 
     /// Get the number of elements
+    #[must_use]
     pub fn num_elements(&self) -> usize {
         self.num_elements
     }
 
     /// Get the number of nodes per element
+    #[must_use]
     pub fn nodes_per_element(&self) -> usize {
         self.nodes_per_element
     }
 
     /// Get the number of nodes
+    #[must_use]
     pub fn num_nodes(&self) -> usize {
         self.node_coords.len()
     }
 
     /// Get the coordinates of a node
+    #[must_use]
     pub fn node_coord(&self, node_idx: usize) -> f64 {
         self.node_coords[node_idx]
     }
 
     /// Get the element connectivity
+    #[must_use]
     pub fn element_connectivity(&self, elem_idx: usize) -> &[usize] {
         &self.element_connectivity[elem_idx]
     }
 
     /// Check if a node is on the boundary
+    #[must_use]
     pub fn is_boundary_node(&self, node_idx: usize) -> bool {
         self.is_boundary[node_idx]
     }
 
     /// Create a global assembly for this mesh
+    #[must_use]
     pub fn create_assembly(&self) -> GlobalAssembly {
         GlobalAssembly::new(self.num_nodes(), self.element_connectivity.clone())
     }

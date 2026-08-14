@@ -4,6 +4,14 @@
 //! with property-based testing (proptest) and edge case validation per
 //! CFD standards (Patankar 1980, Versteeg & Malalasekera 2007).
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 #[cfg(test)]
 mod boundary_edge_cases {
     use crate::physics::boundary::{

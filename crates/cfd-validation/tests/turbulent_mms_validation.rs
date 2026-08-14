@@ -6,6 +6,11 @@
 //! - Spalart-Allmaras model
 //! - Reynolds stress transport
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::manufactured::turbulent::{
     ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress,
     ManufacturedSpalartAllmaras,

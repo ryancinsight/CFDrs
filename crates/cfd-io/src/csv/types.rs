@@ -40,6 +40,7 @@ pub struct TimeSeriesData<T: RealField> {
 
 impl<T: RealField> FieldData<T> {
     /// Create new 2D field data
+    #[must_use]
     pub fn new_2d(x: Vec<T>, y: Vec<T>, field: Vec<T>, name: String) -> Self {
         Self {
             x,
@@ -51,6 +52,7 @@ impl<T: RealField> FieldData<T> {
     }
 
     /// Create new 3D field data
+    #[must_use]
     pub fn new_3d(x: Vec<T>, y: Vec<T>, z: Vec<T>, field: Vec<T>, name: String) -> Self {
         Self {
             x,
@@ -62,11 +64,13 @@ impl<T: RealField> FieldData<T> {
     }
 
     /// Check if data is 3D
+    #[must_use]
     pub fn is_3d(&self) -> bool {
         self.z.is_some()
     }
 
     /// Get number of points
+    #[must_use]
     pub fn num_points(&self) -> usize {
         self.field.len()
     }
@@ -74,6 +78,7 @@ impl<T: RealField> FieldData<T> {
 
 impl<T: RealField> TimeSeriesData<T> {
     /// Create new time series data
+    #[must_use]
     pub fn new(time: Vec<T>, data: Vec<Vec<T>>, headers: Vec<String>) -> Self {
         Self {
             time,
@@ -83,11 +88,13 @@ impl<T: RealField> TimeSeriesData<T> {
     }
 
     /// Get number of time steps
+    #[must_use]
     pub fn num_timesteps(&self) -> usize {
         self.time.len()
     }
 
     /// Get number of variables
+    #[must_use]
     pub fn num_variables(&self) -> usize {
         self.data.len()
     }
@@ -98,6 +105,7 @@ impl<T: RealField> TimeSeriesData<T> {
     }
 
     /// Get data for a specific time step
+    #[must_use]
     pub fn get_timestep(&self, index: usize) -> Option<Vec<T>> {
         if index >= self.time.len() {
             return None;

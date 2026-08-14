@@ -9,7 +9,7 @@
 //!
 //! ### WENO Reconstruction
 //! For a hyperbolic conservation law ∂u/∂t + ∂f(u)/∂x = 0, WENO reconstructs
-//! the interface flux f(u) from cell averages ū_j.
+//! the interface flux f(u) from cell averages `ū_j`.
 //!
 //! The WENO5 scheme uses three 3rd-order ENO stencils:
 //! - r=0: {u_{j-2}, u_{j-1}, u_{j}}
@@ -18,15 +18,15 @@
 //!
 //! ### Nonlinear Weights
 //! The weight for stencil r is:
-//! ω_r = α_r / ∑_{s=0}^2 α_s, where α_r = C_r / (ε + β_r)^2
+//! `ω_r` = `α_r` / ∑_{s=0}^2 `α_s`, where `α_r` = `C_r` / (ε + `β_r)^2`
 //!
-//! ### Smoothness Indicators (β_r)
-//! β_0 = (13/12)(u_{j-2} - 2u_{j-1} + u_j)^2 + (1/4)(u_{j-2} - 4u_{j-1} + 3u_j)^2
-//! β_1 = (13/12)(u_{j-1} - 2u_j + u_{j+1})^2 + (1/4)(u_{j-1} - u_{j+1})^2
-//! β_2 = (13/12)(u_j - 2u_{j+1} + u_{j+2})^2 + (1/4)(3u_j - 4u_{j+1} + u_{j+2})^2
+//! ### Smoothness Indicators (`β_r`)
+//! `β_0` = (13/12)(u_{j-2} - 2u_{j-1} + `u_j)^2` + (1/4)(u_{j-2} - 4u_{j-1} + `3u_j)^2`
+//! `β_1` = (13/12)(u_{j-1} - `2u_j` + u_{j+1})^2 + (1/4)(u_{j-1} - u_{j+1})^2
+//! `β_2` = (`13/12)(u_j` - 2u_{j+1} + u_{j+2})^2 + (`1/4)(3u_j` - 4u_{j+1} + u_{j+2})^2
 //!
-//! ### Linear Weights (C_r)
-//! C_0 = 1/10, C_1 = 6/10, C_2 = 3/10
+//! ### Linear Weights (`C_r`)
+//! `C_0` = 1/10, `C_1` = 6/10, `C_2` = 3/10
 //!
 //! ## Convergence Properties
 //!
@@ -60,11 +60,13 @@ pub struct WenoReconstruction;
 
 impl WenoReconstruction {
     /// Create a 5th-order WENO reconstruction scheme
+    #[must_use]
     pub fn weno5<T: RealField + Copy + FloatElement>() -> WENO5<T> {
         WENO5::new()
     }
 
     /// Create a 7th-order WENO reconstruction scheme
+    #[must_use]
     pub fn weno7<T: RealField + Copy + FloatElement>() -> WENO7<T> {
         WENO7::new()
     }
@@ -97,7 +99,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
     /// Reconstruct left interface value q_{j+1/2}^- from cell averages
     ///
     /// # Arguments
-    /// * `cells` - Array of cell averages [u_{j-2}, u_{j-1}, u_j, u_{j+1}, u_{j+2}]
+    /// * `cells` - Array of cell averages [u_{j-2}, u_{j-1}, `u_j`, u_{j+1}, u_{j+2}]
     ///
     /// # Returns
     /// Reconstructed interface value at j+1/2
@@ -136,7 +138,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
     /// Reconstruct right interface value q_{j+1/2}^+ from cell averages
     ///
     /// # Arguments
-    /// * `cells` - Array of cell averages [u_{j-2}, u_{j-1}, u_j, u_{j+1}, u_{j+2}]
+    /// * `cells` - Array of cell averages [u_{j-2}, u_{j-1}, `u_j`, u_{j+1}, u_{j+2}]
     ///
     /// # Returns
     /// Reconstructed interface value at j+1/2
@@ -172,7 +174,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         omega0 * q0 + omega1 * q1 + omega2 * q2
     }
 
-    /// 3rd-order ENO stencil 0 (left reconstruction): {u_{j-2}, u_{j-1}, u_j}
+    /// 3rd-order ENO stencil 0 (left reconstruction): {u_{j-2}, u_{j-1}, `u_j`}
     #[must_use]
     fn eno3_stencil_0(&self, cells: &[T; 5]) -> T {
         let two = <T as FloatElement>::from_f64(2.0);
@@ -183,7 +185,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (two * cells[0] - seven * cells[1] + eleven * cells[2]) / six
     }
 
-    /// 3rd-order ENO stencil 1 (left reconstruction): {u_{j-1}, u_j, u_{j+1}}
+    /// 3rd-order ENO stencil 1 (left reconstruction): {u_{j-1}, `u_j`, u_{j+1}}
     #[must_use]
     fn eno3_stencil_1(&self, cells: &[T; 5]) -> T {
         let five = <T as FloatElement>::from_f64(5.0);
@@ -193,7 +195,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (-cells[1] + five * cells[2] + two * cells[3]) / six
     }
 
-    /// 3rd-order ENO stencil 2 (left reconstruction): {u_j, u_{j+1}, u_{j+2}}
+    /// 3rd-order ENO stencil 2 (left reconstruction): {`u_j`, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno3_stencil_2(&self, cells: &[T; 5]) -> T {
         let two = <T as FloatElement>::from_f64(2.0);
@@ -203,7 +205,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (two * cells[2] + five * cells[3] - cells[4]) / six
     }
 
-    /// 3rd-order ENO stencil 0 (right reconstruction): {u_{j-2}, u_{j-1}, u_j}
+    /// 3rd-order ENO stencil 0 (right reconstruction): {u_{j-2}, u_{j-1}, `u_j`}
     #[must_use]
     fn eno3_stencil_0_right(&self, cells: &[T; 5]) -> T {
         let eleven = <T as FloatElement>::from_f64(11.0);
@@ -214,7 +216,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (eleven * cells[0] - seven * cells[1] + two * cells[2]) / six
     }
 
-    /// 3rd-order ENO stencil 1 (right reconstruction): {u_{j-1}, u_j, u_{j+1}}
+    /// 3rd-order ENO stencil 1 (right reconstruction): {u_{j-1}, `u_j`, u_{j+1}}
     #[must_use]
     fn eno3_stencil_1_right(&self, cells: &[T; 5]) -> T {
         let two = <T as FloatElement>::from_f64(2.0);
@@ -224,7 +226,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (two * cells[1] + five * cells[2] - cells[3]) / six
     }
 
-    /// 3rd-order ENO stencil 2 (right reconstruction): {u_j, u_{j+1}, u_{j+2}}
+    /// 3rd-order ENO stencil 2 (right reconstruction): {`u_j`, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno3_stencil_2_right(&self, cells: &[T; 5]) -> T {
         let five = <T as FloatElement>::from_f64(5.0);
@@ -234,7 +236,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         (-cells[2] + five * cells[3] + two * cells[4]) / six
     }
 
-    /// Smoothness indicator β_0 for stencil r=0
+    /// Smoothness indicator `β_0` for stencil r=0
     #[must_use]
     #[inline]
     fn smoothness_indicator_0(&self, cells: &[T; 5]) -> T {
@@ -252,7 +254,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
 
-    /// Smoothness indicator β_1 for stencil r=1
+    /// Smoothness indicator `β_1` for stencil r=1
     #[must_use]
     fn smoothness_indicator_1(&self, cells: &[T; 5]) -> T {
         let thirteen_twelfth = <T as FloatElement>::from_f64(13.0 / 12.0);
@@ -268,7 +270,7 @@ impl<T: RealField + Copy + FloatElement> WENO5<T> {
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
 
-    /// Smoothness indicator β_2 for stencil r=2
+    /// Smoothness indicator `β_2` for stencil r=2
     #[must_use]
     fn smoothness_indicator_2(&self, cells: &[T; 5]) -> T {
         let thirteen_twelfth = <T as FloatElement>::from_f64(13.0 / 12.0);

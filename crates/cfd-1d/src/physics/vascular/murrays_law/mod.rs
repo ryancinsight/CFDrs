@@ -3,7 +3,7 @@
 //! ## Theorem: Murray's Law of Minimal Work
 //!
 //! **Theorem**: The optimal radius r of a vascular segment that minimizes the total
-//! biological work W_total required to maintain steady blood flow Q scales as r ∝ Q^(1/3).
+//! biological work `W_total` required to maintain steady blood flow Q scales as r ∝ Q^(1/3).
 //!
 //! **Proof Outline**: The total work is the sum of viscous dissipation power (Poiseuille
 //! resistance) and the metabolic cost of maintaining the blood volume:
@@ -25,6 +25,14 @@
 //! - Sherman, T.F. (1981) *J. Gen. Physiol.* 78, 431-453.
 //! - Zamir, M. (1978) *J. Theor. Biol.* 74, 227-250.
 //! - Revellin, R. et al. (2009) *Theor. Biol. Med. Model.* 6:7.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 pub mod bifurcation;
 pub mod law;
@@ -68,6 +76,7 @@ pub use law::MurraysLaw;
 ///
 /// # Panics
 /// Panics if `power_law_index_n` is not positive.
+#[must_use]
 pub fn non_newtonian_flow_split_exponent(power_law_index_n: f64) -> f64 {
     assert!(
         power_law_index_n > 0.0,
@@ -254,7 +263,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Power-law index must be positive")]
     fn test_non_newtonian_exponent_zero_panics() {
-        non_newtonian_flow_split_exponent(0.0);
+        let _panics = non_newtonian_flow_split_exponent(0.0);
     }
 
     #[test]

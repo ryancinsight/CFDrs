@@ -10,11 +10,11 @@
 //! ```
 //!
 //! where:
-//! - FQ_B = Q_daughter / Q_total (fractional blood flow to daughter)
-//! - FQ_E = (H_daughter · Q_daughter) / (H_feed · Q_total) (fractional RBC flux)
+//! - `FQ_B` = `Q_daughter` / `Q_total` (fractional blood flow to daughter)
+//! - `FQ_E` = (`H_daughter` · `Q_daughter`) / (`H_feed` · `Q_total`) (fractional RBC flux)
 //! - X₀ = minimum flow fraction required for RBCs to enter the daughter
 //! - A depends on daughter-diameter asymmetry
-//! - B = 1 + 6.98 · (1 − H_feed) / D_feed
+//! - B = 1 + 6.98 · (1 − `H_feed`) / `D_feed`
 //! - logit(x) = ln(x / (1−x))
 //!
 //! **Physical basis**: The cell-free layer (thickness δ ≈ 1-3 µm) near the
@@ -216,12 +216,12 @@ pub fn checked_pries_phase_separation(
 /// # Arguments
 /// * `feed_hematocrit` - Feed (parent) hematocrit [0, 1]
 /// * `flow_fraction` - Fractional volumetric flow to this daughter branch,
-///   Q_daughter / Q_total [0, 1]
+///   `Q_daughter` / `Q_total` [0, 1]
 /// * `diameter_daughter` - Daughter branch diameter as an SI `Length`.
 /// * `diameter_feed` - Feed (parent) branch diameter as an SI `Length`.
 ///
 /// # Returns
-/// Daughter branch hematocrit, clamped to [0, min(1, 2 × H_feed)].
+/// Daughter branch hematocrit, clamped to [0, min(1, 2 × `H_feed`)].
 #[inline]
 pub fn plasma_skimming_hematocrit(
     feed_hematocrit: f64,

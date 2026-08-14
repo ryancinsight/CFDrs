@@ -1,5 +1,14 @@
 //! Comprehensive CFD validation analysis suite
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use std::hint::black_box;
@@ -51,6 +60,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Create new validation suite
+    #[must_use]
     pub fn new() -> Self {
         Self {
             mms_validation_results: Vec::new(),
@@ -567,7 +577,9 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
             cache_miss_rate: format!("{:.1}% estimated", cache_miss_rate * 100.0),
         };
 
-        let max_threads = available_parallelism().map_or(1, |p| p.get()).max(1);
+        let max_threads = available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .max(1);
         let parallel_measure = |threads: usize| -> f64 {
             // Custom-sized moirai runtime to measure scaling at this thread count.
             let rt = moirai::Moirai::builder()

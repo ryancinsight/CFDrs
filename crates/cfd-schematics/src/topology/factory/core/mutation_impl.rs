@@ -1,4 +1,4 @@
-//! Mutation and validation methods for BlueprintTopologyFactory.
+//! Mutation and validation methods for `BlueprintTopologyFactory`.
 use super::{BlueprintTopologyFactory, BlueprintTopologyMutation};
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;

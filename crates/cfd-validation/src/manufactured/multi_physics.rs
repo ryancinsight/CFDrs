@@ -48,13 +48,13 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedConjugateHeatTrans
         }
     }
 
-    /// Evaluate temperature in fluid domain (x < interface_x)
+    /// Evaluate temperature in fluid domain (x < `interface_x`)
     pub fn fluid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
         self.amplitude * base
     }
 
-    /// Evaluate temperature in solid domain (x > interface_x)
+    /// Evaluate temperature in solid domain (x > `interface_x`)
     pub fn solid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
         let base_interface = ManufacturedFunctions::sinusoidal(

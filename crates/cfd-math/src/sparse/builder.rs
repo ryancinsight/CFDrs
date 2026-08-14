@@ -9,10 +9,10 @@
 //! for a `BTreeMap` with O(log nnz) per-insert — a 3–4× wall-clock reduction for
 //! typical FEM matrices with nnz ~ 10⁶.
 //!
-//! **Proof**: HashMap insert/lookup is O(1) average (universal hashing, Knuth 1973).
+//! **Proof**: `HashMap` insert/lookup is O(1) average (universal hashing, Knuth 1973).
 //! A single unstable sort of the final vec is O(nnz log nnz) but with a small
 //! constant, and runs just once per assembly — not once per triplet.
-//! BTreeMap's O(log n) per-insert repeated over nnz triplets dominates for large nnz.
+//! `BTreeMap`'s O(log n) per-insert repeated over nnz triplets dominates for large nnz.
 //!
 //! ## Theorem — CSR Direct Construction Without COO (GAP-PERF-007)
 //!
@@ -34,7 +34,7 @@
 //!
 //! Strong Dirichlet enforcement maintains symmetry of the stiffness matrix.
 //! For constrained DOF i with prescribed value gᵢ:
-//!   - Row i → [0 … diag_value … 0], rhs[i] = diag_value · gᵢ
+//!   - Row i → [0 … `diag_value` … 0], rhs[i] = `diag_value` · gᵢ
 //!   - For each non-Dirichlet row j: rhs[j] -= K\[j,i] · gᵢ, K\[j,i] = 0
 //!
 //! This is the standard symmetric Dirichlet enforcement (Hughes 2000, §1.12).
@@ -73,7 +73,7 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
     cols: usize,
     entries: Vec<MatrixEntry<T>>,
     allow_duplicates: bool,
-    /// DOFs with strong Dirichlet enforcement: maps DOF index -> (diag_value, prescribed_value).
+    /// DOFs with strong Dirichlet enforcement: maps DOF index -> (`diag_value`, `prescribed_value`).
     /// During build, rows are replaced by `diag_value * I`, and column contributions
     /// from Dirichlet DOFs in non-Dirichlet rows are eliminated into the RHS vector.
     dirichlet_dofs: BTreeMap<usize, (T, T)>,
@@ -81,6 +81,7 @@ pub struct SparseMatrixBuilder<T: RealField + Copy> {
 
 impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// Create a new builder
+    #[must_use]
     pub fn new(rows: usize, cols: usize) -> Self {
         Self {
             rows,
@@ -92,21 +93,25 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Number of rows in the matrix
+    #[must_use]
     pub const fn num_rows(&self) -> usize {
         self.rows
     }
 
     /// Number of columns in the matrix
+    #[must_use]
     pub const fn num_cols(&self) -> usize {
         self.cols
     }
 
     /// Read-only access to the accumulated entries
+    #[must_use]
     pub fn entries(&self) -> &[MatrixEntry<T>] {
         &self.entries
     }
 
     /// Create with estimated capacity
+    #[must_use]
     pub fn with_capacity(rows: usize, cols: usize, capacity: usize) -> Self {
         Self {
             rows,
@@ -118,6 +123,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Allow duplicate entries (will be summed)
+    #[must_use]
     pub fn allow_duplicates(mut self, allow: bool) -> Self {
         self.allow_duplicates = allow;
         self
@@ -169,11 +175,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         Ok(())
     }
 
-    /// Accumulate raw entries into a HashMap, applying Dirichlet row/column filtering
+    /// Accumulate raw entries into a `HashMap`, applying Dirichlet row/column filtering
     /// and column elimination into the RHS vector.
     ///
     /// # Complexity
-    /// O(nnz) average — HashMap O(1) amortised per entry (GAP-PERF-003).
+    /// O(nnz) average — `HashMap` O(1) amortised per entry (GAP-PERF-003).
     fn accumulate_to_hashmap(&self, rhs: &mut Array1<T>) -> HashMap<(usize, usize), T> {
         // Estimate: each entry is unique (upper bound). Reserve for minimal rehash.
         let mut entry_map: HashMap<(usize, usize), T> = HashMap::with_capacity(self.entries.len());
@@ -208,11 +214,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         entry_map
     }
 
-    /// Convert a HashMap of (row,col)->val into a sorted Vec ready for CSR construction.
+    /// Convert a `HashMap` of (row,col)->val into a sorted Vec ready for CSR construction.
     ///
     /// # Complexity
     /// O(nnz log nnz) single sort — amortised far cheaper than O(nnz log nnz)
-    /// incremental BTreeMap insertion which has larger constant factors.
+    /// incremental `BTreeMap` insertion which has larger constant factors.
     fn hashmap_to_sorted_triplets(
         mut entry_map: HashMap<(usize, usize), T>,
         dirichlet_dofs: &BTreeMap<usize, (T, T)>,
@@ -277,11 +283,11 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// Build the sparse matrix with Dirichlet enforcement including column elimination.
     ///
     /// For each Dirichlet DOF i with prescribed value gᵢ:
-    ///   - Row i → diag_value on diagonal, zero elsewhere
+    ///   - Row i → `diag_value` on diagonal, zero elsewhere
     ///   - For each non-Dirichlet row j with `K[j,i]`: `rhs[j] -= K[j,i] * g_i`; `K[j,i] = 0`
     ///
     /// # Complexity
-    /// O(nnz) average via HashMap accumulation + O(nnz log nnz) single sort +
+    /// O(nnz) average via `HashMap` accumulation + O(nnz log nnz) single sort +
     /// O(nnz) CSR fill without an intermediate coordinate-matrix allocation.
     pub fn build_with_rhs(self, rhs: &mut Array1<T>) -> Result<CsrMatrix<T>>
     where

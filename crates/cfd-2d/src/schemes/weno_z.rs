@@ -40,6 +40,7 @@ impl<T: CfdScalar + Copy + FloatElement> Default for WENOZ5<T> {
 
 impl<T: CfdScalar + Copy + FloatElement> WENOZ5<T> {
     /// Create a WENO-Z5 scheme.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),

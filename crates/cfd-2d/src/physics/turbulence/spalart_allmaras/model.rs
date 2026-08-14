@@ -41,6 +41,7 @@ pub struct SpalartAllmaras<T: RealField> {
 
 impl<T: RealField> SpalartAllmaras<T> {
     /// Create new Spalart-Allmaras model
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             nx,

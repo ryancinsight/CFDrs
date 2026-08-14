@@ -20,6 +20,11 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example venturi_parallel_analysis`
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{
     Angle, DynamicViscosity, Length, MassDensity, Pressure, SpecificHeatCapacity,
     ThermalConductivity, Velocity,

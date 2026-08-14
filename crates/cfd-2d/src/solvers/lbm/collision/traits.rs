@@ -19,6 +19,6 @@ pub trait CollisionOperator<T: FloatElement>: Send + Sync {
     /// Return the primary relaxation time τ.
     fn tau(&self) -> T;
 
-    /// Return the kinematic viscosity ν = c_s²(τ − ½)Δt / Δx² · Δx².
+    /// Return the kinematic viscosity ν = `c_s²(τ` − ½)Δt / Δx² · Δx².
     fn viscosity(&self, dt: T, dx: T) -> T;
 }

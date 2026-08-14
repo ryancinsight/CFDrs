@@ -9,6 +9,14 @@
 //!
 //! Reference: Hesthaven & Warburton (2008) §A.3; Canuto et al. (2006) §A.1.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::error::Result;
 use cfd_core::error::Error;
 use leto_ops::{legendre_poly, legendre_poly_and_deriv};
@@ -87,6 +95,7 @@ pub fn lgl_nodes(order: usize) -> Result<Vec<f64>> {
 /// Compute LGL quadrature weights for given nodes and polynomial order.
 ///
 /// Uses the formula `w_i = 2 / (order(order+1) * P_order(x_i)²)`.
+#[must_use]
 pub fn lgl_weights(nodes: &[f64], order: usize) -> Vec<f64> {
     nodes
         .iter()

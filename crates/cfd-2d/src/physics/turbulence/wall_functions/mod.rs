@@ -13,8 +13,8 @@
 //! ```
 //!
 //! where:
-//! - u⁺ = u / u_τ (velocity in wall units)
-//! - y⁺ = y u_τ / ν (wall distance in wall units)
+//! - u⁺ = u / `u_τ` (velocity in wall units)
+//! - y⁺ = y `u_τ` / ν (wall distance in wall units)
 //! - κ ≈ 0.41 (von Kármán constant)
 //! - B ≈ 5.5 (log-law intercept)
 //!
@@ -69,6 +69,7 @@ pub struct WallTreatment<T: RealField> {
 
 impl<T: RealField> WallTreatment<T> {
     /// Create a new wall treatment with smooth wall.
+    #[must_use]
     pub fn new(wall_function: WallFunction) -> Self {
         Self {
             wall_function,

@@ -145,6 +145,7 @@ pub(crate) fn incremental_from_q_fractions(
 /// - equal to `pretri_center_frac` when `n_pretri == 1`.
 ///   Constructed via a monotone interpolation from `start` to
 ///   `max(start, terminal_tri_frac)` with final clamping.
+#[must_use]
 pub fn cif_pretri_stage_center_fracs(
     n_pretri: u8,
     pretri_center_frac: f64,
@@ -212,6 +213,7 @@ pub fn checked_cif_pretri_stage_q_fracs(
 /// Each pre-trifurcation stage uses [`tri_center_q_frac_cross_junction`] with
 /// the current parent width and shared channel height, then narrows the parent
 /// width by the authored center fraction before evaluating the next stage.
+#[must_use]
 pub fn cif_pretri_stage_q_fracs_cross_junction(
     n_pretri: u8,
     pretri_center_frac: f64,
@@ -280,6 +282,7 @@ pub fn checked_cif_pretri_stage_q_fracs_cross_junction(
 /// - pre-trifurcation skimming (`pretri_center_frac`),
 /// - terminal-trifurcation skimming (`terminal_tri_frac`),
 /// - terminal treatment bifurcation (`terminal_bi_treat_frac`).
+#[must_use]
 pub fn incremental_filtration_separation_staged(
     n_pretri: u8,
     pretri_center_frac: f64,
@@ -325,6 +328,7 @@ pub fn checked_incremental_filtration_separation_staged(
 ///
 /// This additive API is intended for coupling with solved-network extraction
 /// where each pre-trifurcation stage can carry a different center-flow fraction.
+#[must_use]
 pub fn incremental_filtration_separation_from_qfracs(
     pretri_q_center_fracs: &[f64],
     terminal_tri_q_center_frac: f64,
@@ -381,6 +385,7 @@ pub fn checked_incremental_filtration_separation_from_qfracs(
 /// * `terminal_bi_treat_frac`— flow fraction into the treatment arm of the terminal bifurcation.
 /// * `parent_width`          — parent trunk channel width as an SI `Length`.
 /// * `channel_height`        — channel height as an SI `Length`.
+#[must_use]
 pub fn incremental_filtration_separation_cross_junction(
     n_pretri: u8,
     pretri_center_frac: f64,

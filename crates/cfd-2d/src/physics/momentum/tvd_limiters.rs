@@ -10,9 +10,9 @@
 //! r = (φ_C - φ_U) / (φ_D - φ_C)
 //! ```
 //! where:
-//! * φ_U = upwind value
-//! * φ_C = central value  
-//! * φ_D = downwind value
+//! * `φ_U` = upwind value
+//! * `φ_C` = central value  
+//! * `φ_D` = downwind value
 //!
 //! The limiter function ψ(r) determines the face value:
 //! ```text
@@ -73,7 +73,7 @@ pub trait TvdLimiter<T: CfdScalar + Copy> {
     /// Compute limiter function ψ(r)
     ///
     /// # Arguments
-    /// * `r` - Gradient ratio: (φ_C - φ_U) / (φ_D - φ_C)
+    /// * `r` - Gradient ratio: (`φ_C` - `φ_U`) / (`φ_D` - `φ_C`)
     ///
     /// # Returns
     /// Limiter value in [0, 2] satisfying TVD constraints
@@ -90,7 +90,7 @@ pub trait TvdLimiter<T: CfdScalar + Copy> {
     /// * `phi_d` - Downwind value
     ///
     /// # Returns
-    /// Limited face value: φ_face = φ_C + 0.5 * ψ(r) * (φ_D - φ_C)
+    /// Limited face value: `φ_face` = `φ_C` + 0.5 * ψ(r) * (`φ_D` - `φ_C`)
     fn interpolate_face(&self, phi_u: T, phi_c: T, phi_d: T) -> T {
         let half = <T as FloatElement>::from_f64(0.5);
 

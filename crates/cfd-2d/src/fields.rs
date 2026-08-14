@@ -39,6 +39,7 @@ pub mod constants {
     }
 
     /// Minimum allowed time step for stability
+    #[must_use]
     pub fn min_time_step<T: FloatElement>() -> T {
         <T as FloatElement>::from_f64(1e-6)
     }
@@ -50,6 +51,7 @@ pub mod constants {
     }
 
     /// Convergence tolerance for iterative methods
+    #[must_use]
     pub fn convergence_tolerance<T: FloatElement>() -> T {
         <T as FloatElement>::from_f64(1e-6)
     }
@@ -271,6 +273,7 @@ pub struct SimulationFields<T: CfdScalar + Copy> {
 
 impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
     /// Create new simulation fields with zero initialization
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             u: Field2D::new(nx, ny, scalar::zero()),

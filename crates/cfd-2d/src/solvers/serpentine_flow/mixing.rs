@@ -112,7 +112,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
 
     /// Calculate mixing time to achieve 90% homogeneity
     ///
-    /// t_mix = L_mix / u
+    /// `t_mix` = `L_mix` / u
     pub fn mixing_time_90_percent(&self) -> T {
         let l_mix = self.mixing_length_90_percent();
         if self.velocity <= scalar::zero() {
@@ -124,7 +124,7 @@ impl<T: CfdScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
 
     /// Estimate concentration profile at position x
     ///
-    /// For two inlets with concentrations c_A and c_B, the concentration
+    /// For two inlets with concentrations `c_A` and `c_B`, the concentration
     /// at position x depends on diffusion progress:
     ///
     /// ```text
@@ -213,7 +213,7 @@ impl<T: CfdScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
 
     /// Estimate outlet concentration (assuming complete mixing)
     ///
-    /// For equal volume flows: c_outlet = (c_A + c_B) / 2
+    /// For equal volume flows: `c_outlet` = (`c_A` + `c_B`) / 2
     pub fn estimated_outlet_concentration(&self) -> T {
         (self.c_inlet_a + self.c_inlet_b) / <T as FloatElement>::from_f64(2.0)
     }

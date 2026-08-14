@@ -11,20 +11,20 @@
 //! to $N$ daughter vessels ($i=1\dots N$), the steady-state 1D energy conservation
 //! (Bernoulli equation integrated over the junction control volume) dictates:
 //!
-//! $$ p_0 + \frac{1}{2}\rho v_0^2 = p_i + \frac{1}{2}\rho v_i^2 + \Delta p_{\text{loss},i} \quad \forall i \in \{1 \dots N\} $$
+//! $$ `p_0` + \frac{1}{2}\rho `v_0^2` = `p_i` + \frac{1}{2}\rho `v_i^2` + \Delta p_{\text{loss},i} \quad \forall i \in \{1 \dots N\} $$
 //!
-//! where the irreversible form loss $\Delta p_{\text{loss},i} = K_i \frac{1}{2}\rho v_0^2$.
+//! where the irreversible form loss $\Delta p_{\text{loss},i} = `K_i` \frac{1}{2}\rho `v_0^2`$.
 //!
-//! If kinetic energy recovery ($\frac{1}{2}\rho(v_0^2 - v_i^2)$) is assumed negligible
+//! If kinetic energy recovery ($\`frac{1}{2}\rho(v_0^2` - `v_i^2`)$) is assumed negligible
 //! or explicitly captured by the empirical $K$-factor scaling, the junction simplifies
 //! to a resistive node:
-//! $$ p_i = p_0 - K_i \frac{1}{2}\rho v_0^2 $$
+//! $$ `p_i` = `p_0` - `K_i` \frac{1}{2}\rho `v_0^2` $$
 //!
-//! Mass conservation is strictly simultaneously enforced: $Q_0 = \sum_{i=1}^N Q_i$.
+//! Mass conservation is strictly simultaneously enforced: $`Q_0` = \sum_{i=1}^N `Q_i`$.
 //!
 //! ## Network Resistance
-//! Series: R_total = R₁ + R₂
-//! Parallel: 1/R_total = 1/R₁ + 1/R₂
+//! Series: `R_total` = R₁ + R₂
+//! Parallel: `1/R_total` = 1/R₁ + 1/R₂
 //!
 //! # References
 //! - Olufsen, M.S. (1999) "Structured tree outflow condition"
@@ -321,6 +321,7 @@ pub struct BifurcationNetwork<T: CfdScalar + Copy> {
 
 impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
     /// Create empty network with default blood properties
+    #[must_use]
     pub fn new() -> Self {
         Self {
             vessels: Vec::new(),

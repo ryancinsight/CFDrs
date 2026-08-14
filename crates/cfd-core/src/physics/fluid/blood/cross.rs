@@ -23,7 +23,7 @@ pub struct CrossBlood<T> {
     pub name: String,
     /// Blood density [kg/m³]
     pub density: MassDensity<T>,
-    /// Zero-shear viscosity μ_0 [Pa·s]
+    /// Zero-shear viscosity `μ_0` [Pa·s]
     pub zero_shear_viscosity: DynamicViscosity<T>,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
     pub infinite_shear_viscosity: DynamicViscosity<T>,
@@ -45,6 +45,7 @@ pub struct CrossBlood<T> {
 
 impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
     /// Create Cross blood model with default parameters
+    #[must_use]
     pub fn normal_blood() -> Self {
         Self {
             name: "Normal Human Blood (Cross)".to_string(),
@@ -77,7 +78,7 @@ impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
 
     /// Calculate apparent viscosity at given shear rate
     ///
-    /// μ(γ̇) = μ_∞ + (μ_0 - μ_∞) / (1 + (K·γ̇)^n)
+    /// μ(γ̇) = μ_∞ + (`μ_0` - μ_∞) / (1 + (K·γ̇)^n)
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
         if shear_rate <= <T as NumericElement>::ZERO {
             return self.zero_shear_viscosity.into_base();

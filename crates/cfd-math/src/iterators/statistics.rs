@@ -1,5 +1,13 @@
 //! Statistical operations for iterators
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use eunomia::{FloatElement, NumericElement, RealField};
 
 fn from_usize<T: FloatElement>(value: usize) -> T {

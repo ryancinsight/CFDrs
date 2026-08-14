@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_3d::blueprint_integration::{
     process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,

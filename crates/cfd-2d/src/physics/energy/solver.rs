@@ -66,6 +66,7 @@ impl<T: CfdScalar + Copy> EnergyEquationSolver<T> {
     }
 
     /// Returns whether viscous dissipation is currently enabled.
+    #[must_use]
     pub fn include_viscous_dissipation(&self) -> bool {
         self.include_viscous_dissipation
     }

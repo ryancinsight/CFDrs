@@ -26,6 +26,11 @@
 //! cargo run -p cfd-2d --example tpms_blood_2d --release --no-default-features
 //! ```
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 

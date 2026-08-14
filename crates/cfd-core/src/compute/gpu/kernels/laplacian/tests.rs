@@ -1,5 +1,10 @@
 //! Tests for the 2D Laplacian GPU kernel.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::kernel::Laplacian2DKernel;
 use super::BoundaryCondition;
 use crate::compute::gpu::GpuContext;

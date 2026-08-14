@@ -26,6 +26,7 @@ pub struct CheckpointMetadata {
 
 impl CheckpointMetadata {
     /// Create new metadata
+    #[must_use]
     pub fn new(
         time: f64,
         iteration: usize,
@@ -46,6 +47,7 @@ impl CheckpointMetadata {
     }
 
     /// Check if version is compatible
+    #[must_use]
     pub fn is_version_compatible(&self) -> bool {
         self.version == CHECKPOINT_VERSION
     }

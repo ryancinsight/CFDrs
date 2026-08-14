@@ -1,8 +1,8 @@
 //! Quadratic pressure-strain correlation model (Speziale, Sarkar & Gatski, 1991 — slow part).
 //!
 //! ### Theorem: Quadratic Slow Redistribution
-//! Φ_ij^{(1)} = −C₁ ε/k b_ij + C₁* (b_ik S_jk + b_jk S_ik − 2/3 b_kl S_kl δ_ij)
-//!           + C₂* (b_ik W_jk − W_ik b_kj)
+//! `Φ_ij^{(1)`} = −C₁ ε/k `b_ij` + C₁* (`b_ik` `S_jk` + `b_jk` `S_ik` − 2/3 `b_kl` `S_kl` `δ_ij`)
+//!           + C₂* (`b_ik` `W_jk` − `W_ik` `b_kj`)
 //!
 //! **Proof**: Derived from tensor representation theory requiring material-frame
 //! indifference and Galilean invariance (Speziale et al., 1991).

@@ -11,6 +11,11 @@
 //!    channel asymmetry ratios
 //! 6. FDA safety constraints are respected (wall shear < 150 Pa sustained)
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
     build_milestone12_candidate_params, evaluate_blueprint_candidate, evaluate_goal,

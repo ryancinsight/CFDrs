@@ -300,6 +300,7 @@ pub(crate) fn cascade_from_q_fractions(q_center_fracs: &[f64]) -> CascadeJunctio
 /// # Arguments
 /// * `center_frac` — fraction of parent width allocated to the center arm.
 ///   Each peripheral arm receives `(1 − center_frac) / 2`.
+#[must_use]
 pub fn tri_center_q_frac(center_frac: f64) -> f64 {
     checked_tri_center_q_frac(center_frac)
         .unwrap_or_else(|_| tri_center_q_frac_impl(center_frac.clamp(1e-6, 1.0 - 1e-6)))
@@ -333,6 +334,7 @@ pub fn checked_tri_center_q_frac(center_frac: f64) -> Result<f64> {
 ///
 /// # Returns
 /// Center-arm flow fraction ∈ (0, 1).
+#[must_use]
 pub fn tri_center_q_frac_cross_junction(
     center_frac: f64,
     parent_width: Length,
@@ -382,6 +384,7 @@ pub fn checked_tri_center_q_frac_cross_junction(
 ///   Right peripheral = `1 − center_frac − left_periph_frac`.
 /// * `parent_width`      — parent channel width as an SI `Length`.
 /// * `channel_height`    — shared channel height as an SI `Length`.
+#[must_use]
 pub fn tri_asymmetric_q_fracs(
     center_frac: f64,
     left_periph_frac: f64,
@@ -441,6 +444,7 @@ pub fn checked_tri_asymmetric_q_fracs(
 /// * `channel_width`  — trunk channel width \[m].
 /// * `channel_height` — trunk channel height \[m].
 /// * `flow_rate`      — total inlet flow rate [m³/s].
+#[must_use]
 pub fn cascade_junction_separation(
     n_levels: u8,
     center_frac: f64,
@@ -489,6 +493,7 @@ pub fn checked_cascade_junction_separation(
 /// This additive API is intended for high-fidelity coupling with solved 1D
 /// network flow extraction (`cfd-optim::metrics::network_solve`), where each
 /// stage can have a slightly different split due to downstream resistance.
+#[must_use]
 pub fn cascade_junction_separation_from_qfracs(q_center_fracs: &[f64]) -> CascadeJunctionResult {
     checked_cascade_junction_separation_from_qfracs(q_center_fracs)
         .unwrap_or_else(|_| cascade_from_q_fractions(q_center_fracs))
@@ -508,6 +513,7 @@ pub fn checked_cascade_junction_separation_from_qfracs(
 /// for cross-junction K-factor mismatch between center and peripheral arms.
 /// The center arm width narrows through the cascade, so deeper levels see
 /// increasingly asymmetric cross-junction geometry.
+#[must_use]
 pub fn cascade_junction_separation_cross_junction(
     n_levels: u8,
     center_frac: f64,
@@ -588,6 +594,7 @@ pub fn checked_cascade_junction_separation_cross_junction(
 /// equal-flow baseline.  Multiplying the running product by `p ≤ 1` keeps
 /// it monotonically bounded, while the differential between cancer (β=1.85)
 /// and RBC (β=1.00) persists or widens.
+#[must_use]
 pub fn mixed_cascade_separation(stages: &[(f64, bool)]) -> CascadeJunctionResult {
     checked_mixed_cascade_separation(stages).unwrap_or_else(|_| {
         let mut f_cancer = 1.0_f64;
@@ -676,6 +683,7 @@ pub fn checked_mixed_cascade_separation(stages: &[(f64, bool)]) -> Result<Cascad
 /// stage. When the only stage is a bifurcation (`is_tri = false`), the update
 /// reduces exactly to `p_treat_bifurcation(q_t, β)` for each cell population,
 /// which is the two-arm Zweifach-Fung treatment-routing law.
+#[must_use]
 pub fn treatment_bifurcation_separation(treatment_q_frac: f64) -> CascadeJunctionResult {
     mixed_cascade_separation(&[(treatment_q_frac, false)])
 }
@@ -847,14 +855,15 @@ fn mixed_cascade_separation_kappa_aware_impl(
 /// - **All arm flow fractions** (`arm_q_fracs[0..n_arms]`), supporting
 ///   asymmetric peripheral arms (left ≠ right) without assuming equal splits.
 /// - **Treatment-arm hydraulic diameter** (`treatment_dh_m`), used to compute
-///   κ = cell_diameter / Dh at each stage.  As the cascade narrows the center
+///   κ = `cell_diameter` / Dh at each stage.  As the cascade narrows the center
 ///   arm, κ grows and β is amplified for stiff cells (cancer, WBC), increasing
 ///   their preferential bias toward the high-flow treatment arm.
 ///
 /// Physics:
-/// - β_eff(κ) = 1 + (β_base − 1) × (1 + κ / κ_ref), capped at 3.0.
-/// - For RBC (β_base = 1.0): β_eff = 1.0 always (deformable — no amplification).
-/// - Routing: P_arm_i = q_i^β / Σ_j q_j^β (generalised Zweifach-Fung).
+/// - `β_eff(κ)` = 1 + (`β_base` − 1) × (1 + κ / `κ_ref`), capped at 3.0.
+/// - For RBC (`β_base` = 1.0): `β_eff` = 1.0 always (deformable — no amplification).
+/// - Routing: `P_arm_i` = `q_i^β` / `Σ_j` `q_j^β` (generalised Zweifach-Fung).
+#[must_use]
 pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJunctionResult {
     checked_mixed_cascade_separation_kappa_aware(stages)
         .unwrap_or_else(|_| mixed_cascade_separation_kappa_aware_impl(stages, true))

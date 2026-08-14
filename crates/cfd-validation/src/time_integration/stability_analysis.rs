@@ -9,7 +9,19 @@
 //! References:
 //! - Hairer & Nørsett (1993): Solving Ordinary Differential Equations I
 //! - Trefthen (1996): Finite Difference and Spectral Methods
-//! - LeVeque (2002): Finite Volume Methods for Hyperbolic Problems
+//! - `LeVeque` (2002): Finite Volume Methods for Hyperbolic Problems
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
 
 use crate::scalar;
 use cfd_core::error::Result;
@@ -114,6 +126,7 @@ pub struct StabilityAnalysisRunner<T: RealField + Copy + FloatElement> {
 
 impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
     /// Create new stability analysis runner
+    #[must_use]
     pub fn new() -> Self {
         Self {
             analyzer: StabilityAnalyzer::new(),

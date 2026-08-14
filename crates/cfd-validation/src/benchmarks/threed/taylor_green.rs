@@ -232,6 +232,7 @@ pub struct TaylorGreenBenchmark3D {
 
 impl TaylorGreenBenchmark3D {
     /// Create a new Taylor-Green benchmark.
+    #[must_use]
     pub fn new(config: TaylorGreenBenchmarkConfig) -> Self {
         Self { config }
     }

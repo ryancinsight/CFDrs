@@ -140,7 +140,7 @@ impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
         }
     }
 
-    /// Calculate cavitation number σ = (P - P_v) / (0.5 ρ v²)
+    /// Calculate cavitation number σ = (P - `P_v`) / (0.5 ρ v²)
     pub(super) fn cavitation_number(&self, local_pressure: T, velocity: T) -> Dimensionless<T> {
         let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure =

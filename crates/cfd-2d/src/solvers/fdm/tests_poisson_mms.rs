@@ -1,4 +1,4 @@
-//! tests_poisson_mms.rs module.
+//! `tests_poisson_mms.rs` module.
 //!
 //! # Theorem
 //! The solver algorithm must converge to a unique solution that satisfies the discrete
@@ -11,6 +11,11 @@
 //! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
+
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
 
 use super::config::FdmConfig;
 use super::poisson::PoissonSolver;

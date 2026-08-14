@@ -72,9 +72,13 @@
 //! - `solver`: Time integration and solution algorithms
 
 #![warn(missing_docs)]
-#![allow(clippy::many_single_char_names)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::float_cmp)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 mod basis;
 mod flux;
@@ -348,7 +352,7 @@ pub struct DGSolution {
     pub order: usize,
     /// Number of components (for systems of equations)
     pub num_components: usize,
-    /// Solution coefficients (num_components × num_basis_functions)
+    /// Solution coefficients (`num_components` × `num_basis_functions`)
     pub coefficients: Array2<f64>,
     /// Basis functions
     pub basis: DGBasis,
@@ -394,6 +398,7 @@ impl DGSolution {
     ///
     /// # Returns
     /// The solution vector at the given point
+    #[must_use]
     pub fn evaluate(&self, x: f64) -> Array1<f64> {
         let mut result = vector_zeros(self.num_components);
 
@@ -411,6 +416,7 @@ impl DGSolution {
     ///
     /// # Returns
     /// The L² norm of the solution
+    #[must_use]
     pub fn l2_norm(&self) -> f64 {
         let mut norm_sq = 0.0;
 
@@ -451,6 +457,7 @@ impl DGSolution {
     ///
     /// # Returns
     /// The cell average of the solution
+    #[must_use]
     pub fn average(&self) -> Array1<f64> {
         let mut avg = vector_zeros(self.num_components);
 

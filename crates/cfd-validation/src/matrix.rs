@@ -12,6 +12,7 @@ pub struct DMatrix<T> {
 impl<T> DMatrix<T> {
     /// Create a zero-initialized matrix with `(rows, cols)` shape.
     #[inline]
+    #[must_use]
     pub fn zeros(rows: usize, cols: usize) -> Self
     where
         T: NumericElement,
@@ -35,6 +36,7 @@ impl<T> DMatrix<T> {
 
     /// Return `(rows, cols)` for this matrix.
     #[inline]
+    #[must_use]
     pub fn shape(&self) -> (usize, usize) {
         let shape = self.data.shape();
         (shape[0], shape[1])
@@ -42,12 +44,14 @@ impl<T> DMatrix<T> {
 
     /// Return the number of rows.
     #[inline]
+    #[must_use]
     pub fn nrows(&self) -> usize {
         self.data.shape()[0]
     }
 
     /// Return the number of columns.
     #[inline]
+    #[must_use]
     pub fn ncols(&self) -> usize {
         self.data.shape()[1]
     }

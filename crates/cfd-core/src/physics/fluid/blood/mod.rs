@@ -35,6 +35,14 @@
 //! - Chien, S. (1970) "Shear dependence of effective cell volume as a determinant of blood viscosity"
 //! - Fung, Y.C. (1993) "Biomechanics: Mechanical Properties of Living Tissues"
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 /// Carreau-Yasuda blood rheology model for wide shear rate range.
 pub mod carreau_yasuda;
 /// Casson blood rheology model with yield stress.

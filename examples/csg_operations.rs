@@ -16,7 +16,6 @@
 //!
 //! STL outputs are written to `outputs/csg/`.
 
-#![allow(missing_docs)]
 
 use std::fs;
 use std::io::BufWriter;

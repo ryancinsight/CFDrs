@@ -3,6 +3,18 @@
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
 //! of CFD algorithms and data structures.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::print_stdout,
+        reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+    )
+)]
+
 use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -97,6 +109,7 @@ static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
 
 impl MemoryStatsSnapshot {
     /// Calculate memory efficiency metrics
+    #[must_use]
     pub fn efficiency_metrics(&self) -> MemoryEfficiency {
         let net_usage = self.current_allocated as f64;
         let peak_usage = self.peak_allocated as f64;
@@ -154,6 +167,7 @@ pub struct MemoryProfiler {
 
 impl MemoryProfiler {
     /// Create a new memory profiler
+    #[must_use]
     pub fn new() -> Self {
         Self {
             start_snapshot: Mutex::new(None),
@@ -359,6 +373,7 @@ impl CfdMemoryProfiler {
     /// including tracking of memory allocations for matrices, grids, and solver data structures.
     /// Configured with appropriate sampling rates and memory tracking thresholds for
     /// CFD simulation performance analysis.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             profiler: MemoryProfiler::new(),

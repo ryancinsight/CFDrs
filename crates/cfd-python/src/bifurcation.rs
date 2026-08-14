@@ -2,6 +2,8 @@
 //!
 //! Provides Python interface to the 1D bifurcation solver with non-Newtonian blood flow.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use cfd_1d::{Channel, ChannelGeometry};
 use cfd_1d::{ThreeWayBranchJunction, TwoWayBranchJunction};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};

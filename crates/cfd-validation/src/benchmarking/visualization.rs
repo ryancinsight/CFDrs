@@ -9,6 +9,11 @@
 //! - Interactive visualization using Chart.js
 //! - Regression alert visualization and analysis
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::analysis::RegressionAlert;
 use super::scaling::ScalingResult;
 use super::{BenchmarkResult, BenchmarkStatus};
@@ -185,6 +190,7 @@ impl HtmlReportGenerator {
     ///
     /// * `config` - Visualization configuration specifying chart dimensions,
     ///   colors, labels, and other display parameters for performance reports
+    #[must_use]
     pub fn new(config: VisualizationConfig) -> Self {
         Self { config }
     }
@@ -199,11 +205,13 @@ impl HtmlReportGenerator {
     /// - Appropriate labels for CFD performance metrics
     ///
     /// Suitable for most CFD benchmarking scenarios without requiring manual styling configuration.
+    #[must_use]
     pub fn with_default_config() -> Self {
         Self::new(VisualizationConfig::default())
     }
 
     /// Generate comprehensive HTML performance report
+    #[must_use]
     pub fn generate_report(
         &self,
         results: &[BenchmarkResult],
@@ -1211,6 +1219,7 @@ pub struct PerformanceDashboard {
 
 impl PerformanceDashboard {
     /// Create a new performance dashboard generator with default configuration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             generator: HtmlReportGenerator::with_default_config(),
@@ -1433,6 +1442,7 @@ pub struct PerformanceComparator;
 
 impl PerformanceComparator {
     /// Compare current results against baseline
+    #[must_use]
     pub fn compare_against_baseline(
         current: &[BenchmarkResult],
         baseline: &[BenchmarkResult],

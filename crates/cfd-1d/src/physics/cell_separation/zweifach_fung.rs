@@ -18,7 +18,7 @@
 //! ```
 //!
 //! where:
-//! - $Q_r = Q_{high} / Q_{total}$ is the fractional flow to the high-flow daughter
+//! - $`Q_r` = Q_{high} / Q_{total}$ is the fractional flow to the high-flow daughter
 //! - $Q_{r,crit}$ is the critical fractional flow for all-or-nothing capture
 //! - $k$ controls the sharpness of the transition (depends on confinement ratio)
 //!
@@ -165,11 +165,11 @@ fn checked_transition_sharpness(channel_diameter: Length) -> Result<f64> {
 ///
 /// **Properties**:
 /// - $f_{RBC}(Q_{r,crit}) = 0.5$ (equal partition at the critical point)
-/// - $f_{RBC} \to 1$ as $Q_r \to 1$ (all RBCs to high-flow branch)
-/// - $f_{RBC} \to 0$ as $Q_r \to 0$ (no RBCs to this branch)
+/// - $f_{RBC} \to 1$ as $`Q_r` \to 1$ (all RBCs to high-flow branch)
+/// - $f_{RBC} \to 0$ as $`Q_r` \to 0$ (no RBCs to this branch)
 ///
 /// **Proof of boundedness**: The sigmoid $1/(1+e^{-x})$ maps $\mathbb{R} \to (0,1)$,
-/// so $f_{RBC} \in (0, 1)$ for all finite $Q_r$.  ∎
+/// so $f_{RBC} \in (0, 1)$ for all finite $`Q_r`$.  ∎
 ///
 /// # Arguments
 /// * `flow_fraction` — Fractional volumetric flow to this daughter branch,
@@ -222,9 +222,9 @@ pub fn checked_zweifach_fung_rbc_fraction(
 
 /// Compute both daughter hematocrits from Zweifach-Fung partitioning.
 ///
-/// Given a parent vessel with feed hematocrit $H_F$ splitting into two
-/// daughters with fractional flows $f_1$ and $f_2 = 1 - f_1$, this function
-/// returns $(H_1, H_2)$ such that RBC mass is conserved:
+/// Given a parent vessel with feed hematocrit $`H_F`$ splitting into two
+/// daughters with fractional flows $`f_1`$ and $`f_2` = 1 - `f_1`$, this function
+/// returns $(`H_1`, `H_2`)$ such that RBC mass is conserved:
 ///
 /// ```text
 /// H_F · Q_total = H_1 · Q_1 + H_2 · Q_2
@@ -232,7 +232,7 @@ pub fn checked_zweifach_fung_rbc_fraction(
 ///
 /// # Arguments
 /// * `feed_hematocrit` — Parent vessel hematocrit $\in [0, 1]$
-/// * `flow_fraction_1` — Fractional flow to daughter 1, $Q_1/Q_{total} \in [0, 1]$
+/// * `flow_fraction_1` — Fractional flow to daughter 1, $`Q_1/Q`_{total} \in [0, 1]$
 /// * `channel_diameter` — Channel hydraulic diameter
 ///
 /// # Returns

@@ -3,6 +3,11 @@
 //! Executes all implemented 2D and 3D benchmarks and generates a unified
 //! validation report with error metrics and mathematical verification status.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_validation::benchmarks::{

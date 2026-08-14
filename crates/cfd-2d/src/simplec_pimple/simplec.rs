@@ -1,3 +1,8 @@
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;

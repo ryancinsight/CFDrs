@@ -12,6 +12,14 @@
 //! | [`two_way_solution`] | `TwoWayBranchSolution<T>` — solution type |
 //! | [`three_way_junction`] | `ThreeWayBranchJunction<T>` + `ThreeWayBranchSolution<T>` |
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 mod pressure_balance;
 pub mod three_way_junction;
 pub mod two_way_junction;

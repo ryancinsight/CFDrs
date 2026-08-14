@@ -6,6 +6,14 @@
 //! $\|\nabla \cdot \mathbf{u}\|_\infty$. Convergence is declared when
 //! the residual drops below the user-specified tolerance $\epsilon > 0$.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;

@@ -11,6 +11,11 @@
 //! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
 //! is exactly conserved to machine precision.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::coefficients::{ConvectionScheme, MomentumCoefficients};
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
@@ -55,7 +60,7 @@ pub struct MomentumSolver<T: CfdScalar + Copy> {
     /// Convection discretization scheme
     pub(crate) convection_scheme: ConvectionScheme,
     /// Velocity under-relaxation factor (0 < α ≤ 1, default 0.7)
-    /// u_new = α * u_computed + (1-α) * u_old
+    /// `u_new` = α * `u_computed` + (1-α) * `u_old`
     pub(crate) velocity_relaxation: T,
     /// Optional turbulence model for computing turbulent viscosity
     pub(crate) turbulence_model: Option<Box<dyn TurbulenceModel<T>>>,
@@ -233,7 +238,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
         self.linear_solver_config.tolerance = tolerance;
     }
 
-    /// Get the last computed A_p and A_p_consistent coefficients for both velocity components
+    /// Get the last computed `A_p` and `A_p_consistent` coefficients for both velocity components
     pub fn get_ap_coefficients(&self) -> (&Field2D<T>, &Field2D<T>, &Field2D<T>, &Field2D<T>) {
         (
             &self.coeffs_u.ap,
@@ -436,7 +441,7 @@ mod tests {
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);
-        cfd_math::linear_solver::krylov::gmres(
+        let _report = cfd_math::linear_solver::krylov::gmres(
             matrix,
             rhs,
             &mut gmres_solution,

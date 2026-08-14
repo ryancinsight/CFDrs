@@ -2,7 +2,7 @@
 //!
 //! ## Generic algorithms (SSOT: `leto-ops`)
 //!
-//! Re-exported from `leto_ops::nonlinear` so CFDrs consumers get the same
+//! Re-exported from `leto_ops::nonlinear` so `CFDrs` consumers get the same
 //! canonical implementation as kwavers and helios:
 //!
 //! - [`AndersonAccelerator`]: Type-II MGS-QR Anderson Acceleration

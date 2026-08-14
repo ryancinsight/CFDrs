@@ -10,7 +10,7 @@ use leto::geometry::Vector2;
 impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// PIMPLE algorithm implementation
     ///
-    /// PIMPLE (Issa 1986, OpenFOAM) combines outer PISO-like correctors
+    /// PIMPLE (Issa 1986, `OpenFOAM`) combines outer PISO-like correctors
     /// with inner SIMPLE corrections for transient incompressible flows.
     pub(super) fn solve_pimple(
         &mut self,

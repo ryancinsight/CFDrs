@@ -42,9 +42,9 @@ pub struct TwoWayBranchSolution<T: CfdScalar + Copy> {
     /// Apparent viscosity in daughter 2 [Pa·s]
     pub mu_2: T,
 
-    /// Pressure continuity error at junction |P_1 - P_2| / P_parent
+    /// Pressure continuity error at junction |`P_1` - `P_2`| / `P_parent`
     pub junction_pressure_error: T,
-    /// Mass conservation error |Q_1 + Q_2 - Q_0| / Q_0
+    /// Mass conservation error |`Q_1` + `Q_2` - `Q_0`| / `Q_0`
     pub mass_conservation_error: T,
 }
 
@@ -54,7 +54,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> TwoWayBranchSolution<T> {
         self.mass_conservation_error < tolerance && self.junction_pressure_error < tolerance
     }
 
-    /// Get the flow split ratio Q_1 / Q_parent
+    /// Get the flow split ratio `Q_1` / `Q_parent`
     pub fn flow_ratio(&self) -> T {
         self.q_1 / (self.q_parent + T::from_f64_or_one(1e-15))
     }

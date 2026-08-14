@@ -3,6 +3,15 @@
 //! Tests manufactured solutions with mixed boundary condition types
 //! to verify proper boundary condition implementation.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet, WallType};
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};

@@ -6,6 +6,11 @@
 //! - Patankar, S. V. (1980). "Numerical Heat Transfer and Fluid Flow"
 //! - Versteeg, H. K. & Malalasekera, W. (2007). "An Introduction to Computational Fluid Dynamics"
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::boundary::BoundaryCondition;
 

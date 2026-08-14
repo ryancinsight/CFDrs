@@ -155,7 +155,8 @@ impl ShellMeshPipeline {
             };
             let start_ext = cfd_mesh::domain::core::scalar::Point3r::from(p1_extended);
             let end_ext = cfd_mesh::domain::core::scalar::Point3r::from(p2_extended);
-            let path = ChannelPath::straight(start_ext, end_ext).expect("invariant: straight channel path is valid");
+            let path = ChannelPath::straight(start_ext, end_ext)
+                .expect("invariant: straight channel path is valid");
             let mut pool = VertexPool::default_millifluidic();
             let mesher = SweepMesher {
                 cap_start: true,

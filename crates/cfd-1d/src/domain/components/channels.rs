@@ -16,7 +16,7 @@
 //! ```text
 //! D_h = 4 A / P_wet
 //! ```
-//! where A is the cross-sectional area and P_wet is the wetted perimeter.
+//! where A is the cross-sectional area and `P_wet` is the wetted perimeter.
 //! For a rectangle (W×H): `D_h = 2WH/(W+H)`.
 //! For a circle: `D_h = D` (exact).
 //!
@@ -28,6 +28,14 @@
 //! R = Po(α) · μ · L / (2 A · D_h²)   [Pa·s/m³]
 //! ```
 //! The `RectangularChannelModel` in `resistance::models` computes Po(α) accurately.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::ResistanceModel;

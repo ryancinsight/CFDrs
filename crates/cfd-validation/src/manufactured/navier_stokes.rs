@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FloatElement> NavierStokesManufacturedSolution<T>
             * decay
     }
 
-    /// Source term for u-momentum equation: ∂u/∂t + u·∇u = -∇p/ρ + ν∇²u + f_u
+    /// Source term for u-momentum equation: ∂u/∂t + u·∇u = -∇p/ρ + ν∇²u + `f_u`
     fn momentum_source_u(&self, x: T, y: T, t: T) -> T {
         let pi = <T as FloatElement>::from_f64(PI);
         let two = <T as FloatElement>::from_f64(2.0);

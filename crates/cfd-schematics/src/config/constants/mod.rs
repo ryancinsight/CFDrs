@@ -228,6 +228,7 @@ pub struct ConstantsRegistry {
 
 impl ConstantsRegistry {
     /// Constructs a registry populated with the canonical defaults.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             strategies: StrategyThresholds::default(),
@@ -240,68 +241,84 @@ impl ConstantsRegistry {
 
     // --- Adaptive Collision ---
     /// Returns the default maximum collision-adjustment factor.
+    #[must_use]
     pub fn get_max_adjustment_factor(&self) -> f64 {
         primitives::DEFAULT_MAX_ADJUSTMENT_FACTOR
     }
     /// Returns the default minimum channel separation distance.
+    #[must_use]
     pub fn get_min_channel_distance(&self) -> f64 {
         primitives::DEFAULT_MIN_CHANNEL_DISTANCE
     }
     /// Returns the configured minimum wall clearance.
+    #[must_use]
     pub fn get_min_wall_distance(&self) -> f64 {
         *self.geometry.default_wall_clearance.get_raw_value()
     }
     /// Returns the default collision safety-margin factor.
+    #[must_use]
     pub fn get_safety_margin_factor(&self) -> f64 {
         primitives::DEFAULT_SAFETY_MARGIN_FACTOR
     }
     /// Returns the default maximum curvature-reduction factor.
+    #[must_use]
     pub fn get_max_reduction_factor(&self) -> f64 {
         primitives::DEFAULT_MAX_REDUCTION_FACTOR
     }
     /// Returns the default collision-detection sensitivity.
+    #[must_use]
     pub fn get_detection_sensitivity(&self) -> f64 {
         primitives::DEFAULT_DETECTION_SENSITIVITY
     }
     /// Returns the distance normalization divisor used by proximity checks.
+    #[must_use]
     pub fn get_proximity_divisor(&self) -> f64 {
         primitives::DEFAULT_PROXIMITY_DIVISOR
     }
     /// Returns the minimum proximity adjustment factor.
+    #[must_use]
     pub fn get_min_proximity_factor(&self) -> f64 {
         primitives::DEFAULT_MIN_PROXIMITY_FACTOR
     }
     /// Returns the maximum proximity adjustment factor.
+    #[must_use]
     pub fn get_max_proximity_factor(&self) -> f64 {
         primitives::DEFAULT_MAX_PROXIMITY_FACTOR
     }
     /// Returns the configured branch-factor exponent.
+    #[must_use]
     pub fn get_branch_factor_exponent(&self) -> f64 {
         *self.optimization.branch_factor_exponent.get_raw_value()
     }
     /// Returns the divisor used to scale branch adjustments.
+    #[must_use]
     pub fn get_branch_adjustment_divisor(&self) -> f64 {
         primitives::DEFAULT_BRANCH_ADJUSTMENT_DIVISOR
     }
     /// Returns the maximum sensitivity multiplier.
+    #[must_use]
     pub fn get_max_sensitivity_multiplier(&self) -> f64 {
         primitives::DEFAULT_MAX_SENSITIVITY_MULTIPLIER
     }
     /// Returns the threshold for classifying a route as long.
+    #[must_use]
     pub fn get_long_channel_threshold(&self) -> f64 {
         *self.geometry.long_horizontal_threshold.get_raw_value()
     }
     /// Returns the default multiplier for long-channel reduction.
+    #[must_use]
     pub fn get_long_channel_reduction_multiplier(&self) -> f64 {
         primitives::DEFAULT_LONG_CHANNEL_REDUCTION_MULTIPLIER
     }
     /// Returns the configured maximum reduction limit.
+    #[must_use]
     pub fn get_max_reduction_limit(&self) -> f64 {
         primitives::DEFAULT_MAX_REDUCTION_LIMIT
     }
 
     // --- Optimization ---
     /// Returns the maximum number of optimization iterations.
+    #[must_use]
     pub fn get_max_optimization_iterations(&self) -> usize {
         *self
             .optimization
@@ -309,10 +326,12 @@ impl ConstantsRegistry {
             .get_raw_value()
     }
     /// Returns the convergence tolerance used by optimization.
+    #[must_use]
     pub fn get_optimization_tolerance(&self) -> f64 {
         *self.optimization.convergence_tolerance.get_raw_value()
     }
     /// Returns the configured fast-path wavelength factors.
+    #[must_use]
     pub fn get_fast_wavelength_factors(&self) -> Vec<f64> {
         self.optimization
             .fast_wavelength_factors
@@ -320,6 +339,7 @@ impl ConstantsRegistry {
             .clone()
     }
     /// Returns the configured fast-path wave-density factors.
+    #[must_use]
     pub fn get_fast_wave_density_factors(&self) -> Vec<f64> {
         self.optimization
             .fast_wave_density_factors
@@ -327,24 +347,29 @@ impl ConstantsRegistry {
             .clone()
     }
     /// Returns the configured fast-path fill factors.
+    #[must_use]
     pub fn get_fast_fill_factors(&self) -> Vec<f64> {
         self.optimization.fast_fill_factors.get_raw_value().clone()
     }
 
     // --- Wave Generation ---
     /// Returns the lower threshold for smoothing a wave endpoint.
+    #[must_use]
     pub fn get_smooth_endpoint_start_threshold(&self) -> f64 {
         *self.waves.smooth_endpoint_start_threshold.get_raw_value()
     }
     /// Returns the upper threshold for smoothing a wave endpoint.
+    #[must_use]
     pub fn get_smooth_endpoint_end_threshold(&self) -> f64 {
         *self.waves.smooth_endpoint_end_threshold.get_raw_value()
     }
     /// Returns the default transition-length factor.
+    #[must_use]
     pub fn get_default_transition_length_factor(&self) -> f64 {
         *self.waves.default_transition_length_factor.get_raw_value()
     }
     /// Returns the default transition-amplitude factor.
+    #[must_use]
     pub fn get_default_transition_amplitude_factor(&self) -> f64 {
         *self
             .waves
@@ -352,80 +377,98 @@ impl ConstantsRegistry {
             .get_raw_value()
     }
     /// Returns the default transition smoothness.
+    #[must_use]
     pub fn get_default_transition_smoothness(&self) -> usize {
         *self.waves.default_transition_smoothness.get_raw_value()
     }
     /// Returns the default wave multiplier.
+    #[must_use]
     pub fn get_default_wave_multiplier(&self) -> f64 {
         *self.waves.default_wave_multiplier.get_raw_value()
     }
     /// Returns the sharpness used for square-wave generation.
+    #[must_use]
     pub fn get_square_wave_sharpness(&self) -> f64 {
         *self.waves.square_wave_sharpness.get_raw_value()
     }
     /// Returns the neighboring-channel avoidance scale factor.
+    #[must_use]
     pub fn get_neighbor_scale_factor(&self) -> f64 {
         *self.waves.neighbor_avoidance_scaling_factor.get_raw_value()
     }
     /// Returns the transition-zone scale factor.
+    #[must_use]
     pub fn get_transition_zone_factor(&self) -> f64 {
         *self.waves.transition_zone_factor.get_raw_value()
     }
 
     // --- Geometry ---
     /// Returns the multiplier for short-channel widths.
+    #[must_use]
     pub fn get_short_channel_width_multiplier(&self) -> f64 {
         *self.geometry.short_channel_width_multiplier.get_raw_value()
     }
     /// Returns the configured geometric tolerance.
+    #[must_use]
     pub fn get_geometric_tolerance(&self) -> f64 {
         *self.waves.geometric_tolerance.get_raw_value()
     }
     /// Returns the maximum curvature-reduction factor.
+    #[must_use]
     pub fn get_max_curvature_reduction_factor(&self) -> f64 {
         *self.geometry.max_curvature_reduction_factor.get_raw_value()
     }
     /// Returns the minimum curvature factor.
+    #[must_use]
     pub fn get_min_curvature_factor(&self) -> f64 {
         *self.geometry.min_curvature_factor.get_raw_value()
     }
     /// Returns the minimum-distance threshold used by geometry checks.
+    #[must_use]
     pub fn get_min_distance_threshold(&self) -> f64 {
         *self.waves.geometric_tolerance.get_raw_value()
     }
 
     // --- Strategies ---
     /// Returns the horizontal-route length threshold.
+    #[must_use]
     pub fn get_long_horizontal_threshold(&self) -> f64 {
         *self.geometry.long_horizontal_threshold.get_raw_value()
     }
     /// Returns the horizontal-angle threshold.
+    #[must_use]
     pub fn get_horizontal_angle_threshold(&self) -> f64 {
         *self.geometry.horizontal_angle_threshold.get_raw_value()
     }
     /// Returns the minimum frustum length threshold.
+    #[must_use]
     pub fn get_frustum_min_length_threshold(&self) -> f64 {
         *self.strategies.frustum_min_length_threshold.get_raw_value()
     }
     /// Returns the maximum frustum length threshold.
+    #[must_use]
     pub fn get_frustum_max_length_threshold(&self) -> f64 {
         *self.strategies.frustum_max_length_threshold.get_raw_value()
     }
     /// Returns the frustum angle threshold.
+    #[must_use]
     pub fn get_frustum_angle_threshold(&self) -> f64 {
         *self.strategies.frustum_angle_threshold.get_raw_value()
     }
     /// Returns the minimum arc-length threshold.
+    #[must_use]
     pub fn get_min_arc_length_threshold(&self) -> f64 {
         *self.geometry.min_arc_length_threshold.get_raw_value()
     }
 
     // --- Visualization ---
     /// Returns the default chart margin.
+    #[must_use]
     pub fn get_default_chart_margin(&self) -> u32 {
         *self.visualization.default_chart_margin.get_raw_value()
     }
     /// Returns the default chart right margin.
+    #[must_use]
     pub fn get_default_chart_right_margin(&self) -> u32 {
         *self
             .visualization
@@ -433,10 +476,12 @@ impl ConstantsRegistry {
             .get_raw_value()
     }
     /// Returns the default x-axis label area size.
+    #[must_use]
     pub fn get_default_x_label_area_size(&self) -> u32 {
         *self.visualization.default_x_label_area_size.get_raw_value()
     }
     /// Returns the default y-axis label area size.
+    #[must_use]
     pub fn get_default_y_label_area_size(&self) -> u32 {
         *self.visualization.default_y_label_area_size.get_raw_value()
     }

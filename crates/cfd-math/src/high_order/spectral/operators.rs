@@ -3,6 +3,14 @@
 //! This module provides implementations of differential operators and numerical
 //! integration for spectral element methods.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{
     compute_lgl_nodes, compute_lgl_weights, mat_vec_mul, vector_from_vec, SpectralElement,
 };
@@ -21,6 +29,7 @@ pub struct SpectralDiffOp {
 
 impl SpectralDiffOp {
     /// Create a new spectral differentiation operator
+    #[must_use]
     pub fn new(element: &SpectralElement) -> Self {
         Self {
             d_matrix: element.derivative_matrix.clone(),
@@ -29,16 +38,19 @@ impl SpectralDiffOp {
     }
 
     /// Apply the differentiation operator to a function
+    #[must_use]
     pub fn apply(&self, u: &Array1<f64>) -> Array1<f64> {
         mat_vec_mul(&self.d_matrix, u)
     }
 
     /// Compute the gradient of a scalar field
+    #[must_use]
     pub fn gradient(&self, u: &Array1<f64>) -> Array1<f64> {
         self.apply(u)
     }
 
     /// Compute the divergence of a vector field
+    #[must_use]
     pub fn divergence(&self, u: &[Array1<f64>]) -> Array1<f64> {
         let mut div = Array1::zeros([self.num_nodes]);
 
@@ -53,6 +65,7 @@ impl SpectralDiffOp {
     }
 
     /// Compute the curl of a 2D vector field
+    #[must_use]
     pub fn curl_2d(&self, u: &[Array1<f64>; 2]) -> Array1<f64> {
         assert_eq!(u[0].shape(), [self.num_nodes]);
         assert_eq!(u[1].shape(), [self.num_nodes]);
@@ -65,6 +78,7 @@ impl SpectralDiffOp {
     }
 
     /// Compute the Laplacian of a scalar field
+    #[must_use]
     pub fn laplacian(&self, u: &Array1<f64>) -> Array1<f64> {
         self.apply(&self.apply(u))
     }
@@ -78,6 +92,7 @@ pub struct SpectralInterp {
 
 impl SpectralInterp {
     /// Create a new spectral interpolation operator
+    #[must_use]
     pub fn new(element: &SpectralElement) -> Self {
         Self {
             element: element.clone(),
@@ -93,6 +108,7 @@ impl SpectralInterp {
     }
 
     /// Evaluate the interpolant at a point in the reference element
+    #[must_use]
     pub fn eval_at(&self, x: f64, u: &Array1<f64>) -> f64 {
         let mut result = 0.0;
 
@@ -158,6 +174,7 @@ pub struct SpectralQuadrature {
 
 impl SpectralQuadrature {
     /// Create a new spectral quadrature rule
+    #[must_use]
     pub fn new(weights: Array1<f64>, nodes: Array1<f64>) -> Self {
         Self {
             num_points: weights.shape()[0],
@@ -239,6 +256,7 @@ pub struct SpectralFilter {
 
 impl SpectralFilter {
     /// Create a new spectral filter
+    #[must_use]
     pub fn new(order: usize, alpha: f64, p: usize) -> Self {
         let n = order + 1;
         let mut sigma = Array1::zeros([n]);
@@ -256,6 +274,7 @@ impl SpectralFilter {
     }
 
     /// Apply the filter to a function
+    #[must_use]
     pub fn apply(&self, u: &Array1<f64>) -> Array1<f64> {
         // This operator applies the stored stabilization coefficients to the
         // supplied spectral coefficients without changing representation.
@@ -310,6 +329,7 @@ pub mod time_integration {
 
     impl RungeKutta {
         /// Create a new Runge-Kutta method from Butcher tableau
+        #[must_use]
         pub fn new(a: Vec<Vec<f64>>, b: Vec<f64>, c: Vec<f64>) -> Self {
             let stages = b.len();
 
@@ -330,6 +350,7 @@ pub mod time_integration {
         }
 
         /// Create the classical 4th-order Runge-Kutta method
+        #[must_use]
         pub fn rk4() -> Self {
             let a = vec![vec![], vec![0.5], vec![0.0, 0.5], vec![0.0, 0.0, 1.0]];
 
@@ -380,6 +401,7 @@ pub mod time_integration {
 
     impl AdamsBashforth {
         /// Create a new Adams-Bashforth method of given order
+        #[must_use]
         pub fn new(order: usize) -> Self {
             // Coefficients for Adams-Bashforth methods
             let coeffs = match order {

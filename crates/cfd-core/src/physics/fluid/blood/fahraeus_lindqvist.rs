@@ -53,13 +53,13 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
 
     /// Calculate relative apparent viscosity using exact Pries et al. (1992) formulation
     ///
-    /// Returns μ_rel = μ_app / μ_plasma
+    /// Returns `μ_rel` = `μ_app` / `μ_plasma`
     ///
     /// # Exact Physical Model (Pries et al. 1992)
-    /// For a vessel of diameter D (in μm) and hematocrit H_t:
-    /// - Relative viscosity of plasma: μ_p_rel ≈ 1.0
+    /// For a vessel of diameter D (in μm) and hematocrit `H_t`:
+    /// - Relative viscosity of plasma: `μ_p_rel` ≈ 1.0
     /// - Exact formulation for apparent viscosity:
-    ///   μ_rel = 1 + (μ_45 - 1) * ((1-H_t)^C - 1) / ((1-0.45)^C - 1)
+    ///   `μ_rel` = 1 + (`μ_45` - 1) * ((1-H_t)^C - 1) / ((1-0.45)^C - 1)
     pub fn pries_relative_viscosity(&self) -> T {
         let (mu_45, d_um) = self.compute_mu_45();
         let one = <T as NumericElement>::ONE;
@@ -80,7 +80,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
 
     /// Calculate relative apparent viscosity using Secomb (2017) corrected formulation
     ///
-    /// Returns μ_rel = μ_app / μ_plasma
+    /// Returns `μ_rel` = `μ_app` / `μ_plasma`
     ///
     /// # Exact Physical Model (Secomb 2017)
     /// Incorporates a smoothed transition for intermediate diameters:
@@ -107,7 +107,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
         self.secomb_relative_viscosity()
     }
 
-    /// Helper to compute relative viscosity at 45% hematocrit (μ_45), shared between
+    /// Helper to compute relative viscosity at 45% hematocrit (`μ_45`), shared between
     /// Pries (1992) and Secomb (2017) parameterisations.
     /// Caps effective D at 300 μm.
     #[inline]
@@ -133,7 +133,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
         (mu_45, d_um)
     }
 
-    /// Calculate final μ_rel avoiding division by zero
+    /// Calculate final `μ_rel` avoiding division by zero
     #[inline]
     fn compute_final_relative_viscosity(&self, mu_45: T, exponent_c: T) -> T {
         let one = <T as NumericElement>::ONE;
@@ -163,7 +163,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
 
     /// Calculate tube hematocrit from feed hematocrit (Fåhræus effect)
     ///
-    /// H_tube / H_feed = empirical correlation
+    /// `H_tube` / `H_feed` = empirical correlation
     pub fn tube_hematocrit(&self) -> Dimensionless<T> {
         let d_um = self.diameter.into_base() * scalar::<T>(1e6);
         let one = <T as NumericElement>::ONE;

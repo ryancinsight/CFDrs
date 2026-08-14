@@ -26,7 +26,7 @@
 //! discrete conservation laws and the Kirchhoff junction constraint.
 //!
 //! **Proof sketch**: The domain is the union of two perpendicular rectangular
-//! channels sharing an overlap square of side $\min(w_1, w_2)$.  The wall
+//! channels sharing an overlap square of side $\`min(w_1`, `w_2`)$.  The wall
 //! mask excludes cells outside both channels.  The SIMPLE iteration on this
 //! masked domain inherits the diagonal-dominance property of the staggered
 //! discretisation (provided CFL ≤ 1) and therefore converges.

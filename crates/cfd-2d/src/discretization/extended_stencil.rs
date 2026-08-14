@@ -9,8 +9,8 @@
 //! for a second derivative.
 //!
 //! **Proof sketch**:
-//! The stencil coefficients $c_k$ must satisfy the moment conditions
-//! $\sum_k c_k k^m = \delta_{m,d}$ for $m = 0, \ldots, n$ (where $d$ is the
+//! The stencil coefficients $`c_k`$ must satisfy the moment conditions
+//! $\`sum_k` `c_k` k^m = \delta_{m,d}$ for $m = 0, \ldots, n$ (where $d$ is the
 //! derivative order). This system has a unique solution by Vandermonde
 //! invertibility. The first unmatched moment $m = n+1$ gives the leading
 //! truncation error $O(\Delta x^{n+1-d})$.

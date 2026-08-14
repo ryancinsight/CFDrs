@@ -1,3 +1,8 @@
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+
 use super::traits::{FlowConditions, ResistanceModel};
 use super::*;
 use cfd_core::physics::fluid::FluidTrait;

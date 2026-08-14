@@ -23,7 +23,7 @@ pub struct Edge<T: CfdScalar + Copy> {
     /// Quadratic loss coefficient for dissipative term in the form ΔP = R·Q + k·Q|Q|
     /// where `k = quad_coeff ≥ 0`. This ensures the nonlinear loss opposes the flow
     /// direction and preserves monotonic positivity in the effective resistance
-    /// linearization: R_eff = R + 2k|Q_k|.
+    /// linearization: `R_eff` = R + `2k|Q_k`|.
     pub quad_coeff: QuadraticHydraulicResistance<T>,
     /// Cross-sectional area \[m²\] derived from the channel geometry.
     /// Used for junction minor-loss K-factor corrections: ΔP = K·ρQ²/(2A²).

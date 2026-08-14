@@ -3,7 +3,7 @@
 //! # Invariant
 //!
 //! All constants are defined as exact values from their respective physical or
-//! numerical derivations (e.g., $c_s^2 = 1/3$ for D2Q9 LBM follows from the
+//! numerical derivations (e.g., $`c_s^2` = 1/3$ for D2Q9 LBM follows from the
 //! second-order isotropy condition of the lattice).
 
 /// Speed of sound squared for lattice Boltzmann (cs^2)

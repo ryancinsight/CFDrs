@@ -56,7 +56,7 @@
 //!
 //! ## Advantages over Explicit SGS Models
 //!
-//! 1. **No SGS Model Constants**: No tuning of C_S, C_k, etc.
+//! 1. **No SGS Model Constants**: No tuning of `C_S`, `C_k`, etc.
 //! 2. **Natural Shock Handling**: Dissipation adapts to flow physics
 //! 3. **Computational Simplicity**: No additional PDEs to solve
 //! 4. **Robustness**: Less sensitive to numerical implementation details
@@ -65,9 +65,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -104,6 +104,7 @@ pub struct MilesLES<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MilesLES<T> {
     /// Create new MILES implementation
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: MilesConfig::default(),

@@ -20,6 +20,11 @@
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
     margination::{dean_number, lateral_equilibrium},

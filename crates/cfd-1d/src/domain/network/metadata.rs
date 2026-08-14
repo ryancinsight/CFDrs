@@ -1,5 +1,13 @@
 //! Network metadata and properties
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use aequitas::systems::si::quantities::{Pressure, ThermodynamicTemperature, Volume};
 use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};

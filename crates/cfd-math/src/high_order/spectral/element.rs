@@ -4,6 +4,14 @@
 //! spectral elements, including node definitions, basis functions, and element-local
 //! operations.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::{
     compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights, dot, mat_vec_mul,
     stiffness_matrix, vector_from_vec,
@@ -70,6 +78,7 @@ impl SpectralElement {
     }
 
     /// Evaluate the i-th Lagrange basis function at point x
+    #[must_use]
     pub fn lagrange_basis(&self, i: usize, x: f64) -> f64 {
         let mut result = 1.0;
         let xi = self.nodes[i];
@@ -84,6 +93,7 @@ impl SpectralElement {
     }
 
     /// Evaluate the derivative of the i-th Lagrange basis function at point x
+    #[must_use]
     pub fn d_lagrange_basis(&self, i: usize, x: f64) -> f64 {
         let mut result = 0.0;
         let xi = self.nodes[i];
@@ -131,11 +141,13 @@ impl SpectralElement {
     }
 
     /// Compute the derivative of a function represented by its nodal values
+    #[must_use]
     pub fn derivative(&self, u: &Array1<f64>) -> Array1<f64> {
         mat_vec_mul(&self.derivative_matrix, u)
     }
 
     /// Compute the integral of a function represented by its nodal values
+    #[must_use]
     pub fn integrate(&self, u: &Array1<f64>) -> f64 {
         dot(&self.weights, u)
     }
@@ -210,21 +222,25 @@ impl SpectralMesh1D {
     }
 
     /// Get the number of global nodes
+    #[must_use]
     pub fn num_global_nodes(&self) -> usize {
         self.global_nodes.len()
     }
 
     /// Get the number of elements
+    #[must_use]
     pub fn num_elements(&self) -> usize {
         self.num_elements
     }
 
     /// Get the global coordinates of a node
+    #[must_use]
     pub fn node_coord(&self, node_idx: usize) -> f64 {
         self.global_nodes[node_idx]
     }
 
     /// Get the element containing a point
+    #[must_use]
     pub fn find_element(&self, x: f64) -> Option<usize> {
         for (e, _element) in self.elements.iter().enumerate() {
             let x0 = self.node_coord(self.element_connectivity[e][0]);

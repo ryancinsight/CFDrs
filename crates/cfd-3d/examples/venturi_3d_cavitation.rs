@@ -13,6 +13,11 @@
 //! ISO 5167-4:2022 — Measurement of fluid flow by means of pressure
 //! differential devices (Venturi tubes).
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::application::channel::venturi::VenturiMeshBuilder;

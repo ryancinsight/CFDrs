@@ -12,6 +12,14 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use crate::scalar::{max, one, zero};
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement};

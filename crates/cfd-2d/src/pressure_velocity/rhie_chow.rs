@@ -21,15 +21,15 @@
 //!
 //! **Rhie-Chow Solution**: The face velocity is computed as:
 //!
-//! u_f = ū_f + d_f * [(∇p)_cells - (∇p)_face]
+//! `u_f` = `ū_f` + `d_f` * [(∇p)_cells - (∇p)_face]
 //!
 //! where:
-//! - ū_f is the convectively interpolated velocity
-//! - d_f = Volume/A_p is the pressure-momentum coupling coefficient
+//! - `ū_f` is the convectively interpolated velocity
+//! - `d_f` = `Volume/A_p` is the pressure-momentum coupling coefficient
 //! - (∇p)_cells is the cell-centered pressure gradient
 //! - (∇p)_face is the face pressure gradient
 //!
-//! **Why This Works**: The term d_f * [(∇p)_cells - (∇p)_face] provides implicit
+//! **Why This Works**: The term `d_f` * [(∇p)_cells - (∇p)_face] provides implicit
 //! pressure-velocity coupling that stabilizes the system without introducing
 //! excessive numerical diffusion when the interpolation matches the momentum stencil.
 //!
@@ -44,14 +44,14 @@
 //! (u^{n+1} - u^n)/Δt + ∇·(u^{n+1}u^{n+1}) = -∇p^{n+1}/ρ + ν∇²u^{n+1}
 //!
 //! For face interpolation at time level n+1, we need to account for the temporal derivative.
-//! The correction term dt/2 * (u_bar - u_bar_old) provides a Crank-Nicolson-like averaging
+//! The correction term dt/2 * (`u_bar` - `u_bar_old`) provides a Crank-Nicolson-like averaging
 //! that maintains second-order temporal accuracy in the coupled system.
 //!
 //! ### Momentum Coefficient Interpolation
 //!
 //! **Implementation**: Harmonic averaging of adjacent cell coefficients for improved stability:
 //!
-//! d_f = 2 * d_p * d_e / (d_p + d_e), where d_i = Volume / A_{p,i}
+//! `d_f` = 2 * `d_p` * `d_e` / (`d_p` + `d_e`), where `d_i` = Volume / A_{p,i}
 //!
 //! **Theoretical Justification**: Harmonic averaging better preserves the physical coupling
 //! in regions with large coefficient variations, particularly near boundaries where
@@ -73,6 +73,14 @@
 //!   calculation of flow with nonstaggered grids." *Numerical Heat Transfer*, 13(2), 125-132.
 //!
 //! See the Rhie-Chow Consistency theorem and proof in the struct-level documentation below.
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 use crate::constants::numerical::TWO;
 use crate::fields::Field2D;
@@ -143,7 +151,7 @@ impl<T: CfdScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         }
     }
 
-    /// Compute face pressure coefficient d_f = (Volume/A_p)_f for x-direction (east face)
+    /// Compute face pressure coefficient `d_f` = (`Volume/A_p`)_f for x-direction (east face)
     pub fn d_face_x(&self, i: usize, j: usize, dx: T, dy: T) -> T {
         let two: T = <T as FloatElement>::from_f64(TWO);
         let volume = dx * dy;
@@ -156,7 +164,7 @@ impl<T: CfdScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         }
     }
 
-    /// Compute face pressure coefficient d_f = (Volume/A_p)_f for y-direction (north face)
+    /// Compute face pressure coefficient `d_f` = (`Volume/A_p`)_f for y-direction (north face)
     pub fn d_face_y(&self, i: usize, j: usize, dx: T, dy: T) -> T {
         let two: T = <T as FloatElement>::from_f64(TWO);
         let volume = dx * dy;

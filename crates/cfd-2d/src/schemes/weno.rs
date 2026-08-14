@@ -10,11 +10,11 @@
 //! For a 5-point stencil, WENO5 reconstructs the interface value using three
 //! candidate stencils, each providing third-order accuracy:
 //!
-//! **Stencil 1**: {u_{j-2}, u_{j-1}, u_j} → q₁ = (2u_{j-2} - 7u_{j-1} + 11u_j)/6
-//! **Stencil 2**: {u_{j-1}, u_j, u_{j+1}} → q₂ = (-u_{j-1} + 5u_j + 2u_{j+1})/6
-//! **Stencil 3**: {u_j, u_{j+1}, u_{j+2}} → q₃ = (2u_j + 5u_{j+1} - u_{j+2})/6
+//! **Stencil 1**: {u_{j-2}, u_{j-1}, `u_j`} → q₁ = (2u_{j-2} - 7u_{j-1} + `11u_j)/6`
+//! **Stencil 2**: {u_{j-1}, `u_j`, u_{j+1}} → q₂ = (-u_{j-1} + `5u_j` + 2u_{j+1})/6
+//! **Stencil 3**: {`u_j`, u_{j+1}, u_{j+2}} → q₃ = (`2u_j` + 5u_{j+1} - u_{j+2})/6
 //!
-//! The final reconstruction is: u_{j+1/2} = ∑ ω_k q_k
+//! The final reconstruction is: u_{j+1/2} = ∑ `ω_k` `q_k`
 //!
 //! ## Local Truncation Error (LTE) Bounds
 //!
@@ -93,6 +93,7 @@ impl<T: CfdScalar + Copy + FloatElement> Default for WENO5<T> {
 
 impl<T: CfdScalar + Copy + FloatElement> WENO5<T> {
     /// Create new WENO5 scheme
+    #[must_use]
     pub fn new() -> Self {
         Self {
             epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),
@@ -187,6 +188,7 @@ impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> Default for WENO9<T> {
 
 impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
     /// Create new WENO9 scheme
+    #[must_use]
     pub fn new() -> Self {
         Self {
             epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),

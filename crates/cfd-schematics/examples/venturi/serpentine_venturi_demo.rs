@@ -20,6 +20,11 @@
 //! throat.  Placing the throat at the Dean apex maximises both cell
 //! concentration and wall shear — ideal for CTC cavitation in SDT.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_schematics::interface::presets::serpentine_venturi_rect;
 #[path = "../shared/mod.rs"]
 mod shared;

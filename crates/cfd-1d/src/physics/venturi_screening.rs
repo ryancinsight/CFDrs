@@ -8,7 +8,7 @@
 //!
 //! For an admissible venturi operating point with positive throat geometry,
 //! positive fluid properties, and nonnegative section velocities with
-//! $u_t \ge u_u$, the reduced-order throat balance can be written as
+//! $`u_t` \ge `u_u`$, the reduced-order throat balance can be written as
 //!
 //! ```text
 //! p_t,raw = p_u - Δp_B - Δp_f
@@ -16,11 +16,11 @@
 //! Δp_f = f_D (L_t / D_h) (1/2 ρ u_eff^2)
 //! ```
 //!
-//! where $u_eff = u_t / C_c,eff$ is the vena-contracta-corrected throat
-//! velocity, $Δp_B$ is the Bernoulli contraction drop, and $Δp_f$ is the
+//! where $`u_eff` = `u_t` / `C_c,eff`$ is the vena-contracta-corrected throat
+//! velocity, $`Δp_B`$ is the Bernoulli contraction drop, and $`Δp_f`$ is the
 //! Darcy-Weisbach throat friction drop. Physical reporting uses
-//! $p_t = max(p_t,raw, 0)$, but cavitation inception and margin are evaluated
-//! against the unclamped $p_t,raw$ so that sub-vapor excursions are not hidden.
+//! $`p_t` = `max(p_t,raw`, 0)$, but cavitation inception and margin are evaluated
+//! against the unclamped $`p_t,raw`$ so that sub-vapor excursions are not hidden.
 //!
 //! **Proof sketch**: the implementation evaluates the throat velocity after the
 //! Reynolds-dependent discharge correction, then applies Bernoulli between the
@@ -301,7 +301,7 @@ fn validate_venturi_screening_input(input: &VenturiScreeningInput) -> Result<()>
 ///
 /// # Theorem
 ///
-/// For fixed outer and throat widths with $0 < w_t < w_o$ and a physical
+/// For fixed outer and throat widths with $0 < `w_t` < `w_o`$ and a physical
 /// convergent half-angle $\theta \in (0, \pi/2)$,
 ///
 /// ```text

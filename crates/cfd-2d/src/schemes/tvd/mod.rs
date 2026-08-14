@@ -28,7 +28,7 @@
 //! \phi(r) \geq 0, \quad 0 \leq \frac{\phi(r)}{r} \leq 2, \quad 0 \leq \phi(r) \leq 2
 //! ```
 //!
-//! where $r = \frac{u_{i+1} - u_i}{u_i - u_{i-1}}$ is the gradient ratio
+//! where $r = \frac{u_{i+1} - `u_i}{u_i` - u_{i-1}}$ is the gradient ratio
 //! (van Leer 1979 convention: forward / backward difference).
 //!
 //! ## MUSCL (Monotonic Upstream-centered Scheme for Conservation Laws)

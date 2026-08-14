@@ -7,6 +7,15 @@
 //! - Automated reporting and quality assessment
 //! - Integration testing across all components
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::benchmarking::{
     analysis::{PerformanceAnalyzer, RegressionConfig},
     BenchmarkConfig, BenchmarkStatus, BenchmarkSuite,
@@ -380,7 +389,7 @@ fn generate_comprehensive_report(
         passed_tests,
         failed_tests: total_tests - passed_tests,
         skipped_tests: 0,
-        total_duration: std::time::Duration::from_secs(120), // Estimated
+        total_duration: std::time::Duration::from_mins(2), // Estimated
         coverage_percentage: 92.5,
     };
 

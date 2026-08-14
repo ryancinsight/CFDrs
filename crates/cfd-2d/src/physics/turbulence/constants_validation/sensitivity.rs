@@ -1,5 +1,10 @@
 //! Sensitivity analysis: validates turbulence constants against DNS channel flow.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::{
     scalar, zero, ConstantsValidationResult, SensitivityResult, TurbulenceConstantsValidator,
 };

@@ -3,6 +3,15 @@
 //! Measures execution time, throughput, and identifies performance bottlenecks
 //! in CFD algorithms and data structures.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::timing::BenchmarkStats;
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
 use crate::scalar;
@@ -49,6 +58,7 @@ pub struct TimingResult {
 
 impl TimingResult {
     /// Create a new timing result
+    #[must_use]
     pub fn new(operation_name: String, measurements: Vec<f64>) -> Self {
         let stats = BenchmarkStats::from_measurements(&measurements);
         Self {
@@ -60,12 +70,14 @@ impl TimingResult {
     }
 
     /// Add metadata
+    #[must_use]
     pub fn with_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self
     }
 
     /// Check if benchmark is stable (low coefficient of variation)
+    #[must_use]
     pub fn is_stable(&self, max_cv: f64) -> bool {
         self.stats.is_stable(max_cv)
     }
@@ -111,6 +123,7 @@ pub struct PerformanceBenchmark {
 
 impl PerformanceBenchmark {
     /// Create a new performance benchmark with default settings
+    #[must_use]
     pub fn new() -> Self {
         Self {
             warm_up_iterations: 5,
@@ -121,24 +134,28 @@ impl PerformanceBenchmark {
     }
 
     /// Configure warm-up iterations
+    #[must_use]
     pub fn with_warm_up(mut self, iterations: usize) -> Self {
         self.warm_up_iterations = iterations;
         self
     }
 
     /// Configure measurement iterations
+    #[must_use]
     pub fn with_measurements(mut self, iterations: usize) -> Self {
         self.measurement_iterations = iterations;
         self
     }
 
     /// Configure minimum measurement time
+    #[must_use]
     pub fn with_min_time(mut self, seconds: f64) -> Self {
         self.min_measurement_time = seconds;
         self
     }
 
     /// Configure stability threshold
+    #[must_use]
     pub fn with_stability_threshold(mut self, cv: f64) -> Self {
         self.max_cv_threshold = cv;
         self
@@ -240,6 +257,7 @@ pub struct AlgorithmComplexity {
 
 impl AlgorithmComplexity {
     /// Create new complexity analysis
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -253,36 +271,42 @@ impl AlgorithmComplexity {
     }
 
     /// Set time complexity
+    #[must_use]
     pub fn with_time_complexity(mut self, complexity: &str) -> Self {
         self.time_complexity = complexity.to_string();
         self
     }
 
     /// Set space complexity
+    #[must_use]
     pub fn with_space_complexity(mut self, complexity: &str) -> Self {
         self.space_complexity = complexity.to_string();
         self
     }
 
     /// Set memory access pattern
+    #[must_use]
     pub fn with_memory_pattern(mut self, pattern: &str) -> Self {
         self.memory_pattern = pattern.to_string();
         self
     }
 
     /// Set cache efficiency (0.0 = poor, 1.0 = excellent)
+    #[must_use]
     pub fn with_cache_efficiency(mut self, efficiency: f64) -> Self {
         self.cache_efficiency = efficiency.clamp(0.0, 1.0);
         self
     }
 
     /// Set parallel scalability (0.0 = no speedup, 1.0 = perfect scaling)
+    #[must_use]
     pub fn with_scalability(mut self, scalability: f64) -> Self {
         self.scalability = scalability.clamp(0.0, 1.0);
         self
     }
 
     /// Add literature reference
+    #[must_use]
     pub fn with_reference(mut self, reference: &str) -> Self {
         self.references.push(reference.to_string());
         self
@@ -310,6 +334,7 @@ pub struct PerformanceProfile {
 
 impl PerformanceProfile {
     /// Create new performance profile
+    #[must_use]
     pub fn new(timing: TimingResult, complexity: AlgorithmComplexity) -> Self {
         Self {
             timing,
@@ -421,6 +446,7 @@ impl CfdPerformanceBenchmarks {
     ///
     /// This configuration balances measurement accuracy with reasonable execution time
     /// for CFD algorithm performance analysis.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             benchmark: PerformanceBenchmark::new()
@@ -462,6 +488,7 @@ impl CfdPerformanceBenchmarks {
     }
 
     /// Generate algorithm complexity registry for common CFD operations
+    #[must_use]
     pub fn create_algorithm_registry() -> Vec<AlgorithmComplexity> {
         vec![
             AlgorithmComplexity::new("ConjugateGradient")

@@ -24,6 +24,7 @@
 //! *J. Appl. Mech.* 28(3):455–458.
 
 /// Given y⁺, returns u⁺ by Newton-Raphson iteration of Spalding's formula.
+#[must_use]
 pub fn spalding_u_plus(y_plus: f64) -> f64 {
     const KAPPA_S: f64 = 0.41;
     const B_S: f64 = 5.0;

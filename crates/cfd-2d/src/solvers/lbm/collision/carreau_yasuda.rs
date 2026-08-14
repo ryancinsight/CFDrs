@@ -11,7 +11,7 @@
 //! ```
 //!
 //! The scalar shear rate $\dot{\gamma} = \sqrt{2 \mathbf{S}:\mathbf{S}}$.
-//! Let $Q_{\alpha\beta} = \sum_i e_{i\alpha} e_{i\beta} (f_i - f_i^{eq})$ be the unconverted
+//! Let $Q_{\alpha\beta} = \`sum_i` e_{i\alpha} e_{i\beta} (`f_i` - `f_i^{eq`})$ be the unconverted
 //! non-equilibrium momentum flux. Then:
 //!
 //! ```text
@@ -19,7 +19,7 @@
 //! ```
 //!
 //! For a Carreau-Yasuda fluid, the viscosity $\nu$ depends on $\dot{\gamma}$, and
-//! $\tau = \nu/c_s^2 + 0.5$. This yields an implicit mapping:
+//! $\tau = \`nu/c_s^2` + 0.5$. This yields an implicit mapping:
 //!
 //! ```text
 //! τ = 0.5 + \nu_{CY}(\dot{\gamma}(\tau)) / (c_s² Δt)
@@ -42,7 +42,7 @@ use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use eunomia::{CastFrom, FloatElement, NumericElement};
 
-/// Lattice sound speed squared: $c_s^2 = 1/3$
+/// Lattice sound speed squared: $`c_s^2` = 1/3$
 const LATTICE_CS2: f64 = 1.0 / 3.0;
 
 /// Carreau-Yasuda BGK collision operator.

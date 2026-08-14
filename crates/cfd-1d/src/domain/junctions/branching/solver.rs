@@ -3,6 +3,14 @@
 //! Solves complex branching networks (vascular-like structures) by iterating
 //! two-way branch solutions through the network hierarchy.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::physics::{TwoWayBranchJunction, TwoWayBranchSolution};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
@@ -66,7 +74,7 @@ pub enum DownstreamBranchRoute {
 ///
 /// For a single two-way branch junction:
 /// 1. Assume flow split ratio based on daughter geometries
-/// 2. Calculate Q_1, Q_2 from mass conservation
+/// 2. Calculate `Q_1`, `Q_2` from mass conservation
 /// 3. Calculate pressure drops using apparent viscosity
 /// 4. Return flow distribution and pressures
 ///

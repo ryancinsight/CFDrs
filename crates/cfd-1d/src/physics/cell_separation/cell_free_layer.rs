@@ -17,8 +17,8 @@
 //! δ/R = 1 − √(H_T / H_F)
 //! ```
 //!
-//! where $H_T$ is the tube hematocrit and $H_F$ is the feed (discharge)
-//! hematocrit. Since $H_T < H_F$ in microtubes (Fahraeus effect), the CFL
+//! where $`H_T`$ is the tube hematocrit and $`H_F`$ is the feed (discharge)
+//! hematocrit. Since $`H_T` < `H_F`$ in microtubes (Fahraeus effect), the CFL
 //! width is always positive.
 //!
 //! ## Fedosov (2010) computational correlation
@@ -55,7 +55,7 @@
 /// δ/R = 0.29 · (1 − H_t)^{0.84}
 /// ```
 ///
-/// Valid for tube diameters $D \in [20, 100]\,\mu m$ and hematocrit $H_t \in [0.1, 0.5]$.
+/// Valid for tube diameters $D \in [20, 100]\,\mu m$ and hematocrit $`H_t` \in [0.1, 0.5]$.
 ///
 /// # Arguments
 /// * `diameter` — Channel diameter
@@ -93,7 +93,7 @@ pub fn cfl_width_fedosov(
 /// δ/R = 1 − √(H_T / H_F)
 /// ```
 ///
-/// The tube hematocrit $H_T$ is computed from the Pries (1990) Fahraeus
+/// The tube hematocrit $`H_T`$ is computed from the Pries (1990) Fahraeus
 /// ratio model (see [`super::fahraeus_effect::tube_hematocrit_ratio`]).
 ///
 /// # Arguments
@@ -137,8 +137,8 @@ pub fn cfl_width_sharan_popel(
 ///
 /// # Theorem — Two-Layer Viscosity (Sharan & Popel 2001)
 ///
-/// For concentric Poiseuille flow with an inner core of viscosity $\mu_c$
-/// and an outer annulus (CFL) of viscosity $\mu_p$, with CFL thickness $\delta$
+/// For concentric Poiseuille flow with an inner core of viscosity $\`mu_c`$
+/// and an outer annulus (CFL) of viscosity $\`mu_p`$, with CFL thickness $\delta$
 /// and tube radius $R$:
 ///
 /// ```text
@@ -154,8 +154,8 @@ pub fn cfl_width_sharan_popel(
 /// **Proof**: Integrate the Navier-Stokes equations in cylindrical coordinates
 /// for two concentric regions with matched velocity and shear at the interface
 /// $r = R - \delta$. The total flow rate is the sum of the core and annular
-/// contributions, yielding an effective viscosity that reduces to $\mu_p$
-/// when $\delta = R$ (pure plasma) and to $\mu_c$ when $\delta = 0$ (no CFL).
+/// contributions, yielding an effective viscosity that reduces to $\`mu_p`$
+/// when $\delta = R$ (pure plasma) and to $\`mu_c`$ when $\delta = 0$ (no CFL).
 ///
 /// # Arguments
 /// * `diameter` — Channel diameter

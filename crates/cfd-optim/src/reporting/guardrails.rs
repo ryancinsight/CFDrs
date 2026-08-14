@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use crate::BlueprintCandidate;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 

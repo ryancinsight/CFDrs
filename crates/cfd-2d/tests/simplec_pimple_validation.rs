@@ -1,6 +1,15 @@
 //! Validation tests for SIMPLEC and PIMPLE algorithms
 //! including Ghia cavity benchmark comparisons
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
@@ -719,10 +728,10 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     println!("🚀 Performance comparison:");
     let simplec_ms = simplec_time.as_secs_f64() * 1000.0;
     let simplec_iterations = simplec_solver.iterations();
-    println!("  SIMPLEC: {simplec_ms:.2} ms, {simplec_iterations} iterations",);
+    println!("  SIMPLEC: {simplec_ms:.2} ms, {simplec_iterations} iterations");
     let pimple_ms = pimple_time.as_secs_f64() * 1000.0;
     let pimple_iterations = pimple_solver.iterations();
-    println!("  PIMPLE:  {pimple_ms:.2} ms, {pimple_iterations} iterations",);
+    println!("  PIMPLE:  {pimple_ms:.2} ms, {pimple_iterations} iterations");
 
     // Both should converge
     assert!(simplec_solver.iterations() > 0);

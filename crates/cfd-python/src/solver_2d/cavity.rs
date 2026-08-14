@@ -1,5 +1,7 @@
 //! 2D Lid-Driven Cavity solver `PyO3` wrapper — Ghia et al. (1982) benchmark.
 
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use super::pyarray2_from_leto;
 use leto::Array2;
 use numpy::PyArray2;

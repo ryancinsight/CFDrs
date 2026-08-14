@@ -23,8 +23,8 @@
 //! ```
 //!
 //! is well-posed (unique solution in H¹(Ω)) if:
-//! - Γ_D has positive measure: |Γ_D| > 0 (prevents pressure indeterminacy).
-//! - For pure Neumann (Γ_D = ∅): compatibility condition ∫_Ω f dx + ∫_∂Ω g_N ds = 0.
+//! - `Γ_D` has positive measure: |`Γ_D`| > 0 (prevents pressure indeterminacy).
+//! - For pure Neumann (`Γ_D` = ∅): compatibility condition ∫_Ω f dx + ∫_∂Ω `g_N` ds = 0.
 //!
 //! **Implementation Invariant**: The boundary condition manager enforces that
 //! every pressure field has at least one Dirichlet node to prevent singular systems.

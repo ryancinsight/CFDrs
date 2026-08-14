@@ -1,6 +1,6 @@
 //! Sensor components for microfluidic networks
 //!
-//! # FlowSensor Resistance Theorem
+//! # `FlowSensor` Resistance Theorem
 //!
 //! A flow sensor is modelled as an **ideal measurement device**: it passes fluid
 //! without altering the topology of the network. Its hydraulic effect is captured

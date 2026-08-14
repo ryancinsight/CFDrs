@@ -14,6 +14,18 @@
 //!
 //! The GCI provides a 95% confidence band on the discretisation error.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use super::geometry::BifurcationGeometry3D;
 use super::solver::BifurcationSolver3D;
 use super::types::{BifurcationConfig3D, BifurcationSolution3D};

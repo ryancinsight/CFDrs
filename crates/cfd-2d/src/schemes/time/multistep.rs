@@ -6,7 +6,7 @@
 //!
 //! **Proof sketch**:
 //! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
+//! $TV(u) = \`sum_i` |u_{i+1} - `u_i`|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
 //! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
@@ -20,7 +20,7 @@ use super::explicit::runge_kutta2;
 use super::implicit::backward_euler;
 use super::vector::{l2_norm, StateVector};
 
-/// Adams-Bashforth 2nd order: y_{n+1} = y_n + dt*(3/2*f_n - 1/2*f_{n-1})
+/// Adams-Bashforth 2nd order: y_{n+1} = `y_n` + dt*(3/2*`f_n` - 1/2*f_{n-1})
 ///
 /// Multi-step method requiring history. Falls back to RK2 if history unavailable.
 ///
@@ -57,12 +57,12 @@ where
     }
 }
 
-/// BDF2: y_{n+1} - (4/3)y_n + (1/3)y_{n-1} = (2/3)h*f(t_{n+1}, y_{n+1})
+/// BDF2: y_{n+1} - (`4/3)y_n` + (1/3)y_{n-1} = (2/3)h*f(t_{n+1}, y_{n+1})
 ///
-/// Rearranged: y_{n+1} = (4/3)y_n - (1/3)y_{n-1} + (2/3)h*f(t_{n+1}, y_{n+1})
+/// Rearranged: y_{n+1} = (`4/3)y_n` - (1/3)y_{n-1} + (2/3)h*f(t_{n+1}, y_{n+1})
 ///
 /// This is an implicit equation requiring iterative solution.
-/// Uses fixed-point iteration: y^{k+1} = (4/3)y_n - (1/3)y_{n-1} + (2/3)h*f(t_{n+1}, y^k)
+/// Uses fixed-point iteration: y^{k+1} = (`4/3)y_n` - (1/3)y_{n-1} + (2/3)h*f(t_{n+1}, y^k)
 ///
 /// Falls back to Backward Euler if history unavailable.
 ///
@@ -142,12 +142,12 @@ where
     }
 }
 
-/// BDF3: y_{n+1} - (18/11)y_n + (9/11)y_{n-1} - (2/11)y_{n-2} = (6/11)h*f(t_{n+1}, y_{n+1})
+/// BDF3: y_{n+1} - (`18/11)y_n` + (9/11)y_{n-1} - (2/11)y_{n-2} = (6/11)h*f(t_{n+1}, y_{n+1})
 ///
-/// Rearranged: y_{n+1} = (18/11)y_n - (9/11)y_{n-1} + (2/11)y_{n-2} + (6/11)h*f(t_{n+1}, y_{n+1})
+/// Rearranged: y_{n+1} = (`18/11)y_n` - (9/11)y_{n-1} + (2/11)y_{n-2} + (6/11)h*f(t_{n+1}, y_{n+1})
 ///
 /// This is an implicit equation requiring iterative solution.
-/// Uses fixed-point iteration: y^{k+1} = (18/11)y_n - (9/11)y_{n-1} + (2/11)y_{n-2} + (6/11)h*f(t_{n+1}, y^k)
+/// Uses fixed-point iteration: y^{k+1} = (`18/11)y_n` - (9/11)y_{n-1} + (2/11)y_{n-2} + (6/11)h*f(t_{n+1}, y^k)
 ///
 /// Falls back to BDF2 if only partial history, or Backward Euler if no history.
 ///

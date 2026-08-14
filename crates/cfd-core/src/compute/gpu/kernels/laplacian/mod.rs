@@ -13,7 +13,7 @@
 //! ∇²u(i,j) ≈ (u_{i-1,j} - 2u_{i,j} + u_{i+1,j})/Δx² + (u_{i,j-1} - 2u_{i,j} + u_{i,j+1})/Δy²
 //! ```
 //!
-//! Truncation error is O(Δx² + Δy²) via Taylor expansion (LeVeque 2007; Strikwerda 2004).
+//! Truncation error is O(Δx² + Δy²) via Taylor expansion (`LeVeque` 2007; Strikwerda 2004).
 //!
 //! ## Boundary Conditions (Endpoint-Inclusive Grids)
 //!
@@ -46,7 +46,7 @@
 //!
 //! ## Literature References
 //!
-//! - LeVeque, R. J. (2007). *Finite Difference Methods for Ordinary and Partial Differential Equations*. SIAM.
+//! - `LeVeque`, R. J. (2007). *Finite Difference Methods for Ordinary and Partial Differential Equations*. SIAM.
 //! - Strikwerda, J. C. (2004). *Finite Difference Schemes and Partial Differential Equations* (2nd ed.). SIAM.
 //! - Trefethen, L. N. (1996). *Finite Difference and Spectral Methods for ODEs/PDEs* (notes), stencils and accuracy analysis.
 

@@ -4,6 +4,11 @@
 //! "exact" solution from simulations on multiple grid levels and
 //! calculate the observed order of accuracy.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_core::error::Result;
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 

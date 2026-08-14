@@ -56,8 +56,8 @@ pub const P_REF_ATMOSPHERIC: f64 = 101_325.0;
 ///
 /// ## Theorem — Rayleigh Collapse (Rayleigh 1917)
 ///
-/// For a spherical bubble collapsing from radius R_max under external
-/// pressure p_inf (neglecting gas content and surface tension):
+/// For a spherical bubble collapsing from radius `R_max` under external
+/// pressure `p_inf` (neglecting gas content and surface tension):
 ///
 /// ```text
 /// t_collapse = 0.915 · R_max · √(ρ / p_inf)
@@ -128,8 +128,8 @@ pub fn collapse_jet_velocity(p_inf: f64, rho: f64) -> f64 {
 /// A_collapse = 1 + α · (R_max / R_0)² · (p_inf / p_ref)
 /// ```
 ///
-/// where α ≈ 3.0 (empirical), R_0 is equilibrium radius,
-/// p_ref = 101 325 Pa (1 atm).
+/// where α ≈ 3.0 (empirical), `R_0` is equilibrium radius,
+/// `p_ref` = 101 325 Pa (1 atm).
 ///
 /// # Arguments
 ///

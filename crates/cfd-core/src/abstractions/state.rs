@@ -1,5 +1,13 @@
 //! Simulation state representations.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use eunomia::{FloatElement, RealField};
 use indexmap::IndexMap;
 use leto::{geometry::Vector3, Array1};

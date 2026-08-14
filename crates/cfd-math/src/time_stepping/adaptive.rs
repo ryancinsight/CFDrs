@@ -4,6 +4,14 @@
 //! adjust step sizes based on local error estimates to maintain solution
 //! accuracy while optimizing computational efficiency.
 
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
+
 use super::traits::{
     one, state_len, state_norm, state_zeros, zero, EmbeddedMethod, TimeState, TimeStepController,
     TimeStepper,
@@ -108,6 +116,7 @@ impl<T: RealField + Copy + FloatElement> Default for StandardController<T> {
 
 impl<T: RealField + Copy + FloatElement> StandardController<T> {
     /// Create a new PI controller for adaptive time stepping
+    #[must_use]
     pub fn new() -> Self {
         Self {
             kp: <T as FloatElement>::from_f64(0.075),
@@ -157,6 +166,7 @@ impl<T: RealField + Copy> Default for DormandPrince54<T> {
 
 impl<T: RealField + Copy> DormandPrince54<T> {
     /// Create a new Dormand-Prince 5(4) adaptive Runge-Kutta integrator
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

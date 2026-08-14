@@ -6,6 +6,15 @@
 //! - Statistical analysis
 //! - Benchmark suite operations
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+)]
+#![expect(
+    clippy::print_stdout,
+    reason = "ratchet CFDRS-PRINT-1: pre-existing debt"
+)]
+
 use cfd_validation::benchmarking::{
     analysis::{PerformanceAnalyzer, RegressionConfig, TrendType},
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,

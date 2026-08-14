@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "ratchet CFDRS-DOCS-1: pre-existing debt")]
+
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, Velocity,
 };

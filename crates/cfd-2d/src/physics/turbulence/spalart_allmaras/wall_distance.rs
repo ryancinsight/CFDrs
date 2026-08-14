@@ -10,7 +10,7 @@
 //! **Proof sketch**:
 //! [`wall_distance_field_2d`] delegates to the turbulence boundary manager, which evaluates the
 //! minimum of the four center-to-boundary distances
-//! $x_c$, $L_x - x_c$, $y_c$, and $L_y - y_c$ for each cell center $(x_c, y_c)$. Each term is
+//! $`x_c`$, $`L_x` - `x_c`$, $`y_c`$, and $`L_y` - `y_c`$ for each cell center $(`x_c`, `y_c`)$. Each term is
 //! non-negative on the closed domain, so the minimum is also non-negative. Boundary-adjacent cells
 //! therefore evaluate to half a cell spacing in the wall-normal direction, and interior cells grow
 //! monotonically with distance from the nearest boundary on a uniform rectangle.

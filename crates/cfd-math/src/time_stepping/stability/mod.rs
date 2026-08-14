@@ -9,7 +9,15 @@
 //! References:
 //! - Hairer & Nørsett (1993): Solving Ordinary Differential Equations I
 //! - Trefthen (1996): Finite Difference and Spectral Methods for Ordinary and Partial Differential Equations
-//! - LeVeque (2002): Finite Volume Methods for Hyperbolic Problems
+//! - `LeVeque` (2002): Finite Volume Methods for Hyperbolic Problems
+
+#![cfg_attr(
+    test,
+    expect(
+        clippy::unwrap_used,
+        reason = "ratchet CFDRS-UNWRAP-1: pre-existing debt"
+    )
+)]
 
 mod analysis;
 
@@ -50,6 +58,7 @@ pub struct StabilityAnalyzer<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
     /// Create new stability analyzer with default parameters
+    #[must_use]
     pub fn new() -> Self {
         Self {
             resolution: 200,
@@ -236,6 +245,7 @@ pub enum NumericalScheme {
 
 impl NumericalScheme {
     /// Maximum CFL number for stability
+    #[must_use]
     pub fn max_cfl_number<T: RealField + Copy + FloatElement>(&self) -> T {
         match self {
             NumericalScheme::RK3 => <T as FloatElement>::from_f64(1.7),
@@ -261,7 +271,7 @@ pub struct VonNeumannAnalysis<T: RealField + Copy> {
     pub critical_wave_number: T,
     /// Whether the scheme is stable
     pub is_stable: bool,
-    /// Stability margin (1.0 - max_amplification)
+    /// Stability margin (1.0 - `max_amplification`)
     pub stability_margin: T,
 }
 

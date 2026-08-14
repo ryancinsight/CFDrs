@@ -15,6 +15,6 @@ pub mod pressure;
 
 pub use algorithm::SimpleAlgorithm;
 
-/// Minimum A_P threshold below which a cell is treated as stagnant (D = 0,
+/// Minimum `A_P` threshold below which a cell is treated as stagnant (D = 0,
 /// no pressure-velocity correction applied).
 pub const STAGNANT_CELL_AP_THRESHOLD: f64 = 1e-10;

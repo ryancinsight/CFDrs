@@ -2,9 +2,9 @@
 //!
 //! # Theorem — Fahraeus Effect (Fahraeus 1929)
 //!
-//! In tubes with diameter $D < 300\,\mu m$, the **tube hematocrit** $H_T$
+//! In tubes with diameter $D < 300\,\mu m$, the **tube hematocrit** $`H_T`$
 //! (volume fraction of RBCs within the tube at any instant) is lower than
-//! the **discharge (feed) hematocrit** $H_F$ (volume fraction in collected
+//! the **discharge (feed) hematocrit** $`H_F`$ (volume fraction in collected
 //! outflow). This occurs because RBCs travel faster than the surrounding
 //! plasma (they concentrate in the high-velocity core), so fewer RBCs are
 //! present in the tube at steady state to maintain the same RBC flux.
@@ -17,12 +17,12 @@
 //!
 //! where $D$ is the tube diameter in micrometers.
 //!
-//! At large $D$: $H_T / H_F \to 1$ (no Fahraeus effect).
-//! At $D \approx 10\,\mu m$: $H_T / H_F \approx 0.5$ (strong reduction).
+//! At large $D$: $`H_T` / `H_F` \to 1$ (no Fahraeus effect).
+//! At $D \approx 10\,\mu m$: $`H_T` / `H_F` \approx 0.5$ (strong reduction).
 //!
 //! ## Distinction from Fahraeus-Lindqvist
 //!
-//! - **Fahraeus effect**: tube hematocrit is reduced ($H_T < H_F$)
+//! - **Fahraeus effect**: tube hematocrit is reduced ($`H_T` < `H_F`$)
 //! - **Fahraeus-Lindqvist effect**: apparent viscosity is reduced
 //!
 //! Both arise from the same physical mechanism (RBC margination to core),
@@ -38,7 +38,7 @@ use cfd_core::error::{Error, Result};
 
 /// Pries et al. (1990) tube-to-discharge hematocrit ratio.
 ///
-/// Returns $H_T / H_F$ as a function of tube diameter only. The ratio is
+/// Returns $`H_T` / `H_F`$ as a function of tube diameter only. The ratio is
 /// independent of the absolute hematocrit in this empirical model.
 ///
 /// ```text
@@ -46,13 +46,13 @@ use cfd_core::error::{Error, Result};
 /// ```
 ///
 /// For the purpose of this standalone ratio, we evaluate at the reference
-/// hematocrit $H_F = 0.45$, consistent with the Pries parameterisation.
+/// hematocrit $`H_F` = 0.45$, consistent with the Pries parameterisation.
 ///
 /// # Arguments
 /// * `diameter` — Tube diameter
 ///
 /// # Returns
-/// $H_T / H_F \in (0, 1]$
+/// $`H_T` / `H_F` \in (0, 1]$
 #[inline]
 pub fn tube_hematocrit_ratio(diameter: Length) -> Result<f64> {
     let diameter_um = diameter.into_base() * 1.0e6;
@@ -76,21 +76,21 @@ pub fn tube_hematocrit_ratio(diameter: Length) -> Result<f64> {
 /// H_T = H_F · r(D)
 /// ```
 ///
-/// where $r(D) = H_T/H_F$ is the Pries (1990) diameter-dependent ratio.
+/// where $r(D) = `H_T/H_F`$ is the Pries (1990) diameter-dependent ratio.
 ///
-/// **Proof of $H_T \le H_F$**: Since RBCs preferentially occupy the
+/// **Proof of $`H_T` \le `H_F`$**: Since RBCs preferentially occupy the
 /// high-velocity core, their mean velocity exceeds the mean fluid velocity.
 /// For a given RBC flux $\dot{N}_{RBC}$, the instantaneous RBC count in
 /// the tube is inversely proportional to their mean velocity:
-/// $H_T = \dot{N}_{RBC} / (A \cdot \bar{v}_{RBC})$. Since
-/// $\bar{v}_{RBC} > \bar{v}_{fluid}$, we have $H_T < H_F = \dot{N}_{RBC} / (A \cdot \bar{v}_{fluid})$. ∎
+/// $`H_T` = \dot{N}_{RBC} / (A \cdot \bar{v}_{RBC})$. Since
+/// $\bar{v}_{RBC} > \bar{v}_{fluid}$, we have $`H_T` < `H_F` = \dot{N}_{RBC} / (A \cdot \bar{v}_{fluid})$. ∎
 ///
 /// # Arguments
-/// * `feed_hematocrit` — Discharge (feed) hematocrit $H_F \in [0, 1]$
+/// * `feed_hematocrit` — Discharge (feed) hematocrit $`H_F` \in [0, 1]$
 /// * `diameter` — Tube diameter
 ///
 /// # Returns
-/// Tube hematocrit $H_T \in [0, H_F]$
+/// Tube hematocrit $`H_T` \in [0, `H_F`]$
 #[inline]
 pub fn tube_hematocrit(feed_hematocrit: f64, diameter: Length) -> Result<f64> {
     if !feed_hematocrit.is_finite() || !(0.0..=1.0).contains(&feed_hematocrit) {
@@ -114,11 +114,11 @@ pub fn tube_hematocrit(feed_hematocrit: f64, diameter: Length) -> Result<f64> {
 /// ```
 ///
 /// # Arguments
-/// * `tube_ht` — Tube hematocrit $H_T \in [0, 1]$
+/// * `tube_ht` — Tube hematocrit $`H_T` \in [0, 1]$
 /// * `diameter` — Tube diameter
 ///
 /// # Returns
-/// Feed (discharge) hematocrit $H_F \in [H_T, 1]$
+/// Feed (discharge) hematocrit $`H_F` \in [`H_T`, 1]$
 #[inline]
 pub fn discharge_hematocrit(tube_ht: f64, diameter: Length) -> Result<f64> {
     if !tube_ht.is_finite() || !(0.0..=1.0).contains(&tube_ht) {
@@ -143,7 +143,7 @@ mod tests {
     }
 
     /// For large tubes (D=1000 µm), the Fahraeus effect is negligible:
-    /// H_T ≈ H_F.
+    /// `H_T` ≈ `H_F`.
     #[test]
     fn large_tube_no_fahraeus_effect() -> Result<()> {
         let ratio = tube_hematocrit_ratio(diameter_um(1000.0))?;
@@ -155,7 +155,7 @@ mod tests {
     }
 
     /// For small tubes (D=10 µm), the Fahraeus reduction is strong:
-    /// H_T / H_F < 0.8.
+    /// `H_T` / `H_F` < 0.8.
     #[test]
     fn small_tube_strong_fahraeus() -> Result<()> {
         let ratio = tube_hematocrit_ratio(diameter_um(10.0))?;
@@ -193,7 +193,7 @@ mod tests {
         Ok(())
     }
 
-    /// Round-trip: discharge_hematocrit(tube_hematocrit(H_F, D), D) ≈ H_F.
+    /// Round-trip: `discharge_hematocrit(tube_hematocrit(H_F`, D), D) ≈ `H_F`.
     #[test]
     fn fahraeus_round_trip() -> Result<()> {
         let hf = 0.45;
