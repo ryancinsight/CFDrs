@@ -24,6 +24,7 @@ moirai.workspace = true
 eunomia.workspace = true
 leto.workspace = true
 leto-ops.workspace = true
+coeus-optim.workspace = true
 tracing.workspace = true
 aequitas = { workspace = true, features = ["serde"] }
 
