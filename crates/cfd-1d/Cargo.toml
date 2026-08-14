@@ -17,7 +17,7 @@ default = []
 
 [dependencies]
 aequitas = { workspace = true, features = ["serde"] }
-cfd-core = { path = "../cfd-core" }
+cfd-core.workspace = true
 cfd-math = { path = "../cfd-math" }
 cfd-schematics = { path = "../cfd-schematics" }
 eunomia.workspace = true
