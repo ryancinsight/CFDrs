@@ -100,8 +100,8 @@ where
             }
             ConicalTransition::RoundedJunction { radius: _ } => {
                 // Exact C1-continuous cosine interpolation for mathematically smooth interfaces
-                let pi = scalar::from_f64::<T>(std::f64::consts::PI);
-                let two = scalar::from_f64::<T>(2.0);
+                let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+                let two = <T as FloatElement>::from_f64(2.0);
                 d_daughter + (d_parent - d_daughter) / two * (one + scalar::cos(pi * x_normalized))
             }
         }
@@ -166,7 +166,7 @@ where
                 length: l_transition,
             },
             l_transition,
-            branching_angle: scalar::from_f64::<T>(std::f64::consts::PI / 3.0), // 60° typically
+            branching_angle: <T as FloatElement>::from_f64(std::f64::consts::PI / 3.0), // 60° typically
             parent_axis: Vector3::new(scalar::zero::<T>(), scalar::zero::<T>(), scalar::one::<T>()),
         }
     }
@@ -212,8 +212,8 @@ where
     /// numerical integration (Gaussian Quadrature) over the transition domain
     /// to remove disconnected geometric integration error.
     pub fn total_volume(&self) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
-        let four = scalar::from_f64::<T>(4.0);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         let v_parent = pi / four * self.d_parent * self.d_parent * self.l_parent;
         let v_daughter1 = pi / four * self.d_daughter1 * self.d_daughter1 * self.l_daughter1;
@@ -227,7 +227,7 @@ where
 
     /// Calculate total mathematically exact surface area (inner walls)
     pub fn total_surface_area(&self) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
 
         let a_parent = pi * self.d_parent * self.l_parent;
         let a_daughter1 = pi * self.d_daughter1 * self.l_daughter1;
@@ -241,17 +241,17 @@ where
 
     /// Exact 5-point Gauss-Legendre Quadrature for transition volume
     fn integrate_transition_volume(&self, d_parent: T, d_daughter: T) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
 
         let mut volume = scalar::zero::<T>();
-        let half_l = self.l_transition / scalar::from_f64::<T>(2.0);
-        let four = scalar::from_f64::<T>(4.0);
+        let half_l = self.l_transition / <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         for i in 0..5 {
-            let x_t = scalar::from_f64::<T>(nodes[i]);
-            let w_t = scalar::from_f64::<T>(weights[i]);
+            let x_t = <T as FloatElement>::from_f64(nodes[i]);
+            let w_t = <T as FloatElement>::from_f64(weights[i]);
             let x = half_l * (x_t + scalar::one::<T>());
 
             let d =
@@ -265,18 +265,18 @@ where
 
     /// Exact 5-point Gauss-Legendre Quadrature for transition surface area
     fn integrate_transition_surface(&self, d_parent: T, d_daughter: T) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
 
         let mut surface = scalar::zero::<T>();
-        let half_l = self.l_transition / scalar::from_f64::<T>(2.0);
-        let two = scalar::from_f64::<T>(2.0);
-        let epsilon = self.l_transition * scalar::from_f64::<T>(1e-5); // finite difference step
+        let half_l = self.l_transition / <T as FloatElement>::from_f64(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let epsilon = self.l_transition * <T as FloatElement>::from_f64(1e-5); // finite difference step
 
         for i in 0..5 {
-            let x_t = scalar::from_f64::<T>(nodes[i]);
-            let w_t = scalar::from_f64::<T>(weights[i]);
+            let x_t = <T as FloatElement>::from_f64(nodes[i]);
+            let w_t = <T as FloatElement>::from_f64(weights[i]);
             let x = half_l * (x_t + scalar::one::<T>());
 
             let d =
@@ -391,7 +391,7 @@ where
                     min_edge = scalar::min(min_edge, e);
                 }
 
-                if min_edge > scalar::from_f64::<T>(1e-15) {
+                if min_edge > <T as FloatElement>::from_f64(1e-15) {
                     total_ar += max_edge / min_edge;
                     count += 1;
                 }
@@ -399,7 +399,7 @@ where
         }
 
         if count > 0 {
-            total_ar / scalar::from_f64::<T>(f64::from(count))
+            total_ar / <T as FloatElement>::from_f64(f64::from(count))
         } else {
             scalar::one::<T>()
         }

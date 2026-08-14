@@ -73,8 +73,8 @@ impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
         geometry: PoiseuilleGeometry,
     ) -> Velocity<T> {
         let factor = match geometry {
-            PoiseuilleGeometry::Plates => scalar::from_f64::<T>(2.0),
-            PoiseuilleGeometry::Pipe => scalar::from_f64::<T>(4.0),
+            PoiseuilleGeometry::Plates => <T as FloatElement>::from_f64(2.0),
+            PoiseuilleGeometry::Pipe => <T as FloatElement>::from_f64(4.0),
         };
 
         Velocity::from_base(
@@ -94,14 +94,14 @@ impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
                 // Q/W = ∫_{-h}^{h} u_max (1 − (y/h)²) dy = (4/3)·u_max·h,
                 // equivalently ū·2h with ū = (2/3)·u_max over the full gap 2h
                 // (characteristic_length is the half-gap h; see u_max above).
-                let four_thirds = scalar::from_f64::<T>(4.0 / 3.0);
+                let four_thirds = <T as FloatElement>::from_f64(4.0 / 3.0);
                 PoiseuilleFlowRate::PerWidth(AreaPerTime::from_base(
                     four_thirds * u_max * characteristic_length,
                 ))
             }
             PoiseuilleGeometry::Pipe => {
                 // Q = (π/2) * u_max * R²
-                let pi_half = scalar::from_f64::<T>(std::f64::consts::PI / 2.0);
+                let pi_half = <T as FloatElement>::from_f64(std::f64::consts::PI / 2.0);
                 PoiseuilleFlowRate::Volumetric(VolumetricFlowRate::from_base(
                     pi_half * u_max * characteristic_length * characteristic_length,
                 ))
@@ -112,7 +112,7 @@ impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
     /// Get Reynolds number
     pub fn reynolds_number(&self, density: MassDensity<T>) -> Dimensionless<T> {
         let characteristic_velocity = self.u_max.into_base();
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let characteristic_length = self.characteristic_length.into_base() * two;
 
         Dimensionless::from_base(
@@ -158,7 +158,7 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for PoiseuilleFlo
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = scalar::from_f64::<T>(1000.0);
+        let large = <T as FloatElement>::from_f64(1000.0);
         match self.geometry {
             PoiseuilleGeometry::Plates => [
                 scalar::zero::<T>(),

@@ -28,17 +28,17 @@
 //! - `bessel_j1(z)` computes $J_1(z)$
 //! - `bessel_j0_j1(z)` computes both series in one recurrence pass
 
-use crate::scalar::Cfd1dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{Complex, FloatElement};
 
-fn bessel_j0_j1_series<T: Cfd1dScalar + FloatElement + Copy>(
+fn bessel_j0_j1_series<T: CfdScalar + FloatElement + Copy>(
     z: Complex<T>,
 ) -> (Complex<T>, Complex<T>) {
-    let mut sum_j0 = Complex::new(T::one(), T::zero());
-    let mut sum_j1 = z / (T::one() + T::one());
-    let mut term_j0 = Complex::new(T::one(), T::zero());
+    let mut sum_j0 = Complex::new(T::ONE, T::ZERO);
+    let mut sum_j1 = z / (T::ONE + T::ONE);
+    let mut term_j0 = Complex::new(T::ONE, T::ZERO);
     let mut term_j1 = sum_j1;
-    let z_half = z / (T::one() + T::one());
+    let z_half = z / (T::ONE + T::ONE);
     let z_half_sq = z_half * z_half;
 
     let mut m = 1_u32;
@@ -70,7 +70,7 @@ fn bessel_j0_j1_series<T: Cfd1dScalar + FloatElement + Copy>(
 ///
 /// Evaluates the exact infinite series:
 /// $J_0(z) = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
-pub fn bessel_j0<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
+pub fn bessel_j0<T: CfdScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).0
 }
 
@@ -78,7 +78,7 @@ pub fn bessel_j0<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex
 ///
 /// Evaluates the exact infinite series:
 /// $J_1(z) = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
-pub fn bessel_j1<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
+pub fn bessel_j1<T: CfdScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).1
 }
 
@@ -86,9 +86,7 @@ pub fn bessel_j1<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex
 ///
 /// Sharing the recurrence reduces work in Womersley wall-stress and flow-rate
 /// evaluations, where both functions are required at the same complex argument.
-pub fn bessel_j0_j1<T: Cfd1dScalar + FloatElement + Copy>(
-    z: Complex<T>,
-) -> (Complex<T>, Complex<T>) {
+pub fn bessel_j0_j1<T: CfdScalar + FloatElement + Copy>(z: Complex<T>) -> (Complex<T>, Complex<T>) {
     bessel_j0_j1_series(z)
 }
 

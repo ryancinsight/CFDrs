@@ -1,5 +1,5 @@
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use crate::solvers::ns_fvm::NavierStokesSolver2D;
@@ -7,7 +7,7 @@ use crate::solvers::ns_fvm::NavierStokesSolver2D;
 /// Extract maximum and mean wall shear stress from the solved 2D velocity field.
 pub(crate) fn extract_field_wall_shear<T>(solver: &NavierStokesSolver2D<T>) -> (T, T)
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let nx = solver.grid.nx;
     let ny = solver.grid.ny;
@@ -57,7 +57,7 @@ where
 /// Reconstruct outlet flow from the solved outlet velocity profile and the true channel area.
 pub(crate) fn extract_field_outlet_flow_rate<T>(solver: &NavierStokesSolver2D<T>, area: T) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let zero: T = scalar::zero();
     if solver.grid.nx == 0 || solver.grid.ny == 0 || area <= zero {
@@ -97,7 +97,7 @@ where
 /// sensitivity to a single cell at a branched or venturi inlet/outlet.
 pub(crate) fn extract_field_inlet_outlet_pressure<T>(solver: &NavierStokesSolver2D<T>) -> (T, T)
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let zero: T = scalar::zero();
     if solver.grid.nx == 0 || solver.grid.ny == 0 {

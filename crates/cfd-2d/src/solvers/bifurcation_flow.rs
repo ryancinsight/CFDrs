@@ -45,8 +45,8 @@
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 
 /// Bifurcation geometry configuration for 2D branching channels
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationGeometry<T: Cfd2dScalar + Copy> {
+pub struct BifurcationGeometry<T: CfdScalar + Copy> {
     /// Parent channel width \[m]
     pub parent_width: T,
     /// Parent channel length \[m]
@@ -75,7 +75,7 @@ pub struct BifurcationGeometry<T: Cfd2dScalar + Copy> {
     pub daughter2_angle: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
+impl<T: CfdScalar + Copy + FloatElement> BifurcationGeometry<T> {
     /// Create a new symmetric bifurcation
     pub fn new_symmetric(
         parent_width: T,
@@ -99,7 +99,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
     /// Check if a point (x, y) is within the fluid domain
     pub fn contains(&self, x: T, y: T) -> bool {
         // Parent branch: Horizontal from x=0 to parent_length, centered at y=0
-        let half_pw = self.parent_width / scalar::from_f64::<T>(2.0);
+        let half_pw = self.parent_width / <T as FloatElement>::from_f64(2.0);
         if x >= scalar::zero::<T>() && x <= self.parent_length && y >= -half_pw && y <= half_pw {
             return true;
         }
@@ -153,7 +153,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
         let lx = dx * cos_a + dy * sin_a;
         let ly = -dx * sin_a + dy * cos_a;
 
-        let half_w = width / scalar::from_f64::<T>(2.0);
+        let half_w = width / <T as FloatElement>::from_f64(2.0);
 
         lx >= scalar::zero::<T>() && lx <= length && ly >= -half_w && ly <= half_w
     }
@@ -169,9 +169,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
         let d2_end_x = self.parent_length + self.daughter2_length * d2_angle_cos;
         let d2_end_y = self.daughter2_length * d2_angle_sin;
 
-        let half_pw = self.parent_width / scalar::from_f64::<T>(2.0);
-        let half_d1w = self.daughter1_width / scalar::from_f64::<T>(2.0);
-        let half_d2w = self.daughter2_width / scalar::from_f64::<T>(2.0);
+        let half_pw = self.parent_width / <T as FloatElement>::from_f64(2.0);
+        let half_d1w = self.daughter1_width / <T as FloatElement>::from_f64(2.0);
+        let half_d2w = self.daughter2_width / <T as FloatElement>::from_f64(2.0);
 
         let mut min_x = scalar::zero::<T>();
         let mut max_x = self.parent_length;
@@ -209,14 +209,14 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
 // ============================================================================
 
 /// Solver for branching flow junctions
-pub struct BifurcationSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
+pub struct BifurcationSolver2D<T: CfdScalar + eunomia::RealField + Copy + FloatElement> {
     /// Bifurcation channel geometry.
     pub geometry: BifurcationGeometry<T>,
     /// Underlying Navier-Stokes solver.
     pub ns_solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> BifurcationSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> BifurcationSolver2D<T> {
     /// Create a new bifurcation solver
     pub fn new(
         geometry: BifurcationGeometry<T>,
@@ -315,7 +315,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> BifurcationSolve
 
 /// Results from a bifurcation flow simulation
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BifurcationSolution<T: Cfd2dScalar + Copy> {
+pub struct BifurcationSolution<T: CfdScalar + Copy> {
     /// Volume flow rate through the parent (inlet) channel.
     pub q_parent: T,
     /// Volume flow rate through daughter branch 1.

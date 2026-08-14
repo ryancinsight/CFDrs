@@ -71,7 +71,7 @@ impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Venturi3D<T> {
             return false;
         };
 
-        let r = d * scalar::from_f64::<T>(0.5);
+        let r = d * <T as FloatElement>::from_f64(0.5);
         r_sq <= r * r
     }
 

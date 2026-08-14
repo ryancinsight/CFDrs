@@ -9,6 +9,7 @@
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
 use crate::scalar;
+use eunomia::FloatElement;
 use eunomia::RealField;
 
 /// Manufactured solution for conjugate heat transfer
@@ -94,7 +95,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
 impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedConjugateHeatTransfer<T> {
     fn fluid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.fluid_temperature(x, y, t);
-        let alpha = scalar::from_f64::<T>(0.01f64); // Base thermal diffusivity
+        let alpha = <T as FloatElement>::from_f64(0.01f64); // Base thermal diffusivity
 
         // Time derivative: ∂T/∂t = -T (from exp(-t))
         let dt_dt = -t_exact;
@@ -111,7 +112,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedConjugateHeatTrans
     fn solid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.solid_temperature(x, y, t);
         // Solid thermal diffusivity α_s = α * (k_ratio / capacity_ratio)
-        let alpha = scalar::from_f64::<T>(0.01f64);
+        let alpha = <T as FloatElement>::from_f64(0.01f64);
         let alpha_s = alpha * self.conductivity_ratio / self.capacity_ratio;
 
         // Time derivative
@@ -175,7 +176,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
         let spatial =
             ManufacturedFunctions::sinusoidal(x, y, scalar::zero::<T>(), self.kx, self.ky);
-        let temporal_decay = scalar::from_f64::<T>(-1.0)
+        let temporal_decay = <T as FloatElement>::from_f64(-1.0)
             - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let temporal = scalar::exp(temporal_decay * t);
         self.amplitude * spatial * temporal
@@ -188,7 +189,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         // We want S such that the MMS satisfies this equation
 
         // Time derivative
-        let k_total = scalar::from_f64::<T>(-1.0)
+        let k_total = <T as FloatElement>::from_f64(-1.0)
             - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let dc_dt = k_total * c;
 
@@ -276,16 +277,16 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMHD<T> {
 
         // Velocity field components
         let u = self.velocity_amp * spatial_u * temporal;
-        let v = self.velocity_amp * spatial_v * temporal * scalar::from_f64::<T>(0.5);
-        let w = self.velocity_amp * spatial_w * temporal * scalar::from_f64::<T>(0.25);
+        let v = self.velocity_amp * spatial_v * temporal * <T as FloatElement>::from_f64(0.5);
+        let w = self.velocity_amp * spatial_w * temporal * <T as FloatElement>::from_f64(0.25);
 
         // Magnetic field components (perpendicular to velocity for interesting dynamics)
         let bx = self.magnetic_amp * spatial_v * temporal;
         let by = self.magnetic_amp * spatial_u * temporal;
-        let bz = self.magnetic_amp * spatial_w * temporal * scalar::from_f64::<T>(0.1);
+        let bz = self.magnetic_amp * spatial_w * temporal * <T as FloatElement>::from_f64(0.1);
 
         // Pressure field (from momentum equation)
-        let pressure = self.density * (u * u + v * v + w * w) * scalar::from_f64::<T>(0.5);
+        let pressure = self.density * (u * u + v * v + w * w) * <T as FloatElement>::from_f64(0.5);
 
         // Current density J = σ(E + u × B), assuming E = 0 for simplicity
         let jx = self.sigma * (v * bz - w * by);
@@ -336,7 +337,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMHD<T> {
         let (_, fy, _) = fields.lorentz_force;
 
         // Time derivative
-        let dv_dt = -v * scalar::from_f64::<T>(0.5);
+        let dv_dt = -v * <T as FloatElement>::from_f64(0.5);
 
         // Convective terms
         let convective = u * self.kx * v + v * self.ky * v + w * self.kx * v;
@@ -359,7 +360,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMHD<T> {
         let (_, _, fz) = fields.lorentz_force;
 
         // Time derivative
-        let dw_dt = -w * scalar::from_f64::<T>(0.25);
+        let dw_dt = -w * <T as FloatElement>::from_f64(0.25);
 
         // Convective terms
         let convective = u * self.kx * w + v * self.ky * w + w * self.kx * w;
@@ -390,7 +391,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMHD<T> {
         // Time derivatives
         let dbx_dt = -bx;
         let dby_dt = -by;
-        let dbz_dt = -bz * scalar::from_f64::<T>(0.1);
+        let dbz_dt = -bz * <T as FloatElement>::from_f64(0.1);
 
         // Diffusion terms
         let diff_x = magnetic_diffusivity * k_squared * bx;
@@ -471,10 +472,10 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         let sin_ky = scalar::sin(self.ky * y);
         let temporal = scalar::exp(-t);
         let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
-        let epsilon = scalar::from_f64::<T>(0.02);
+        let epsilon = <T as FloatElement>::from_f64(0.02);
         let signed_distance = y - self.interface_y + perturbation;
         let s = signed_distance / epsilon;
-        scalar::from_f64::<T>(0.5) * (scalar::one::<T>() + scalar::tanh(s))
+        <T as FloatElement>::from_f64(0.5) * (scalar::one::<T>() + scalar::tanh(s))
     }
 
     fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
@@ -484,13 +485,13 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         let cos_ky = scalar::cos(self.ky * y);
         let temporal = scalar::exp(-t);
         let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
-        let epsilon = scalar::from_f64::<T>(0.02);
+        let epsilon = <T as FloatElement>::from_f64(0.02);
         let signed_distance = y - self.interface_y + perturbation;
         let s = signed_distance / epsilon;
         let tanh_s = scalar::tanh(s);
         let cosh_s = scalar::cosh(s);
         let sech2 = scalar::one::<T>() / (cosh_s * cosh_s);
-        let dphi_ds = scalar::from_f64::<T>(0.5) * sech2;
+        let dphi_ds = <T as FloatElement>::from_f64(0.5) * sech2;
         let d2phi_ds2 = -sech2 * tanh_s;
 
         let inv_epsilon = scalar::one::<T>() / epsilon;
@@ -515,7 +516,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         let v = -self.amplitude * self.kx * cos_kx * sin_ky * temporal;
 
         let advection = u * dphi_dx + v * dphi_dy;
-        let diffusion = scalar::from_f64::<T>(0.01) * laplacian;
+        let diffusion = <T as FloatElement>::from_f64(0.01) * laplacian;
 
         dphi_dt + advection - diffusion
     }

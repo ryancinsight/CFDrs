@@ -75,16 +75,17 @@ impl<T: RealField + Copy + FloatElement> EnergyConservationChecker<T> {
                 let conv = self.density
                     * self.specific_heat
                     * (u[[i, j]] * (temperature[[i + 1, j]] - temperature[[i - 1, j]])
-                        / (scalar::from_f64::<T>(2.0) * dx)
+                        / (<T as FloatElement>::from_f64(2.0) * dx)
                         + v[[i, j]] * (temperature[[i, j + 1]] - temperature[[i, j - 1]])
-                            / (scalar::from_f64::<T>(2.0) * dy));
+                            / (<T as FloatElement>::from_f64(2.0) * dy));
 
                 // Diffusive term: ∇·(k∇T) using central differences
                 let diff = thermal_conductivity
-                    * ((temperature[[i + 1, j]] - scalar::from_f64::<T>(2.0) * t_center
+                    * ((temperature[[i + 1, j]] - <T as FloatElement>::from_f64(2.0) * t_center
                         + temperature[[i - 1, j]])
                         / (dx * dx)
-                        + (temperature[[i, j + 1]] - scalar::from_f64::<T>(2.0) * t_center
+                        + (temperature[[i, j + 1]]
+                            - <T as FloatElement>::from_f64(2.0) * t_center
                             + temperature[[i, j - 1]])
                             / (dy * dy));
 
@@ -147,7 +148,7 @@ impl<T: RealField + Copy + FloatElement> EnergyConservationChecker<T> {
         let mut ke_current = scalar::zero::<T>();
         let mut ke_prev = scalar::zero::<T>();
 
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         for i in 0..self.nx {
             for j in 0..self.ny {
@@ -192,8 +193,8 @@ impl<T: RealField + Copy + FloatElement> ConservationChecker<T> for EnergyConser
         let temperature = field;
         let u = Array2::zeros([self.nx, self.ny]);
         let v = Array2::zeros([self.nx, self.ny]);
-        let thermal_conductivity = scalar::from_f64::<T>(0.025);
-        let dt = scalar::from_f64::<T>(1e-3);
+        let thermal_conductivity = <T as FloatElement>::from_f64(0.025);
+        let dt = <T as FloatElement>::from_f64(1e-3);
         let dx = scalar::one::<T>();
         let dy = scalar::one::<T>();
 

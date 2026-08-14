@@ -100,7 +100,6 @@ pub mod domain;
 /// Physical constraints, resistance laws, and biological models
 pub mod physics;
 /// Scalar contract shared by the 1D solver, physics, and analysis layers.
-pub mod scalar;
 /// Application orchestration: solvers and post-processors
 pub mod solver;
 
@@ -146,7 +145,6 @@ pub use physics::cell_separation::{
 };
 pub use physics::vascular::non_newtonian_flow_split_exponent;
 pub use physics::vascular::womersley_pulsatility_index;
-pub use scalar::Cfd1dScalar;
 
 // Export network functionality
 pub use domain::network::{

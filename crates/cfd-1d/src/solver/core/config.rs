@@ -1,32 +1,9 @@
-use crate::scalar::Cfd1dScalar;
-use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
-use eunomia::RealField as EunomiaRealField;
-use leto_ops::Scalar as LetoScalar;
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
-
-/// Scalar contract for the primary 1D network solver.
-///
-/// Binds the Eunomia scalar surface required by the Leto-backed cfd-math
-/// Anderson accelerator and the linear system solver.
-pub trait NetworkSolveScalar:
-    Cfd1dScalar + EunomiaRealField + LetoScalar + Copy + SafeFromF64 + SafeFromUsize + std::fmt::Debug
-{
-}
-
-impl<T> NetworkSolveScalar for T where
-    T: Cfd1dScalar
-        + EunomiaRealField
-        + LetoScalar
-        + Copy
-        + SafeFromF64
-        + SafeFromUsize
-        + std::fmt::Debug
-{
-}
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolverConfig<T: Cfd1dScalar + Copy> {
+pub struct SolverConfig<T: CfdScalar + Copy> {
     /// Convergence tolerance for solution accuracy
     pub tolerance: T,
     /// Maximum number of solver iterations before termination
@@ -49,7 +26,7 @@ fn default_require_flow_convergence() -> bool {
     true
 }
 
-impl<T: Cfd1dScalar + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
+impl<T: CfdScalar + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
     fn max_iterations(&self) -> usize {
         self.max_iterations
     }

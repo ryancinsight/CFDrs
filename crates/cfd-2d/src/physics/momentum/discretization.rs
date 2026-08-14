@@ -13,10 +13,10 @@
 
 // MusclReconstruction and MusclOrder integrated into TVD module
 use super::muscl::MusclReconstruction;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 
 /// Trait for discretization schemes
-pub trait DiscretizationScheme<T: Cfd2dScalar + Copy> {
+pub trait DiscretizationScheme<T: CfdScalar + Copy> {
     /// Compute convective flux using a 4-point stencil (i-1, i, i+1, i+2)
     /// Flux is computed at the interface between cell i and i+1 (face i+1/2)
     fn convective_flux(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: T, velocity: T) -> T;
@@ -28,7 +28,7 @@ pub trait DiscretizationScheme<T: Cfd2dScalar + Copy> {
 /// MUSCL-based discretization scheme
 pub struct MusclDiscretization<T, M>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     M: MusclReconstruction<T>,
 {
     muscl: M,
@@ -37,7 +37,7 @@ where
 
 impl<T, M> MusclDiscretization<T, M>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     M: MusclReconstruction<T>,
 {
     /// Create new MUSCL discretization scheme
@@ -51,7 +51,7 @@ where
 
 impl<T, M> DiscretizationScheme<T> for MusclDiscretization<T, M>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     M: MusclReconstruction<T>,
 {
     fn convective_flux(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: T, velocity: T) -> T {
@@ -59,7 +59,7 @@ where
         // Stencil: i-1, i, i+1, i+2
         // Interface: i+1/2 (between i and i+1)
 
-        if velocity > T::zero() {
+        if velocity > T::ZERO {
             // Flow from left to right (positive velocity)
             // We need the Left state of the interface i+1/2 (φ_{i+1/2}^L)
             // This is reconstructed from cell i using upstream (i-1) and downstream (i+1, i+2) neighbors
@@ -90,9 +90,9 @@ where
 /// Upwind discretization scheme
 pub struct Upwind;
 
-impl<T: Cfd2dScalar + Copy> DiscretizationScheme<T> for Upwind {
+impl<T: CfdScalar + Copy> DiscretizationScheme<T> for Upwind {
     fn convective_flux(&self, _phi_im1: T, phi_i: T, phi_ip1: T, _phi_ip2: T, velocity: T) -> T {
-        if velocity > T::zero() {
+        if velocity > T::ZERO {
             // Flow L->R, upwind is i
             velocity * phi_i
         } else {
@@ -109,9 +109,9 @@ impl<T: Cfd2dScalar + Copy> DiscretizationScheme<T> for Upwind {
 /// Central difference discretization scheme
 pub struct CentralDifference;
 
-impl<T: Cfd2dScalar + Copy> DiscretizationScheme<T> for CentralDifference {
+impl<T: CfdScalar + Copy> DiscretizationScheme<T> for CentralDifference {
     fn convective_flux(&self, _phi_im1: T, phi_i: T, phi_ip1: T, _phi_ip2: T, velocity: T) -> T {
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
         velocity * (phi_i + phi_ip1) * half
     }
 

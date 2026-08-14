@@ -7,8 +7,8 @@
 
 use crate::pressure_velocity::PressureLinearSolver;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::schemes::SpatialScheme;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Algorithm selection
@@ -22,7 +22,7 @@ pub enum AlgorithmType {
 
 /// Configuration for SIMPLEC/PIMPLE algorithms
 #[derive(Debug, Clone)]
-pub struct SimplecPimpleConfig<T: Cfd2dScalar + Copy> {
+pub struct SimplecPimpleConfig<T: CfdScalar + Copy> {
     /// Algorithm type
     pub algorithm: AlgorithmType,
     /// Time step size
@@ -47,16 +47,16 @@ pub struct SimplecPimpleConfig<T: Cfd2dScalar + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for SimplecPimpleConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for SimplecPimpleConfig<T> {
     fn default() -> Self {
         Self {
             algorithm: AlgorithmType::Simplec,
-            dt: scalar::from_f64(0.01),
-            alpha_u: scalar::from_f64(0.7),
-            alpha_p: scalar::from_f64(0.3),
+            dt: <T as FloatElement>::from_f64(0.01),
+            alpha_u: <T as FloatElement>::from_f64(0.7),
+            alpha_p: <T as FloatElement>::from_f64(0.3),
             n_outer_correctors: 2,
             n_inner_correctors: 1,
-            tolerance: scalar::from_f64(1e-6),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             max_inner_iterations: 50,
             use_rhie_chow: false,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
@@ -65,7 +65,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> Default for SimplecPimpleConfig<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SimplecPimpleConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> SimplecPimpleConfig<T> {
     /// Create configuration for SIMPLEC algorithm
     pub fn simplec() -> Self {
         Self {

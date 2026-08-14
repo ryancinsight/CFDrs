@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::fluid::BloodModel;
+use cfd_core::CfdScalar;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::domain::rules::BlueprintValidator;
@@ -10,7 +10,6 @@ use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata}
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 
-use crate::scalar;
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 
 use super::projection::{
@@ -23,7 +22,7 @@ use super::ChannelReferenceTrace;
 
 /// A [`GraphSink`] that converts a validated [`NetworkBlueprint`] into a
 /// solver-ready [`Network2DSolver<T>`].
-pub struct Network2dBuilderSink<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> {
+pub struct Network2dBuilderSink<T: CfdScalar + EunomiaRealField + Copy + FloatElement> {
     blood: BloodModel<T>,
     density: f64,
     /// Total inlet flow rate [m³/s] used to scale the cfd-1d reference trace.
@@ -33,7 +32,7 @@ pub struct Network2dBuilderSink<T: Cfd2dScalar + EunomiaRealField + Copy + Float
     separation_tracking_enabled: bool,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSink<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSink<T> {
     /// Create a new sink.
     #[must_use]
     pub fn new(
@@ -63,7 +62,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSi
 
 impl<T> GraphSink for Network2dBuilderSink<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + EunomiaRealField + std::fmt::Debug + 'static,
+    T: CfdScalar + Copy + FloatElement + EunomiaRealField + std::fmt::Debug + 'static,
 {
     type Output = Network2DSolver<T>;
 
@@ -118,10 +117,10 @@ where
             let is_venturi_throat = venturi_meta.is_some();
 
             let projection_domain = channel_projection_domain(channel);
-            let l_t = scalar::from_f64(projection_domain.length_m);
-            let grid_w = scalar::from_f64(projection_domain.width_m);
+            let l_t = <T as FloatElement>::from_f64(projection_domain.length_m);
+            let grid_w = <T as FloatElement>::from_f64(projection_domain.width_m);
             let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
-            let density_t = scalar::from_f64(self.density);
+            let density_t = <T as FloatElement>::from_f64(self.density);
             let config = solver_config_for_channel::<T>(&channel.channel_shape, mean_velocity_m_s);
             let mut solver = NavierStokesSolver2D::new(grid, self.blood.clone(), density_t, config);
 
@@ -159,40 +158,40 @@ where
 }
 
 /// Extract a representative dynamic viscosity [Pa·s] from the blood model.
-fn blood_viscosity_f64<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
+fn blood_viscosity_f64<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
     model: &BloodModel<T>,
 ) -> f64 {
     const REF_SHEAR: f64 = 100.0;
-    let shear_t = scalar::from_f64(REF_SHEAR);
+    let shear_t = <T as FloatElement>::from_f64(REF_SHEAR);
     <T as NumericElement>::to_f64(model.viscosity(shear_t))
 }
 
 /// Select a SIMPLE/PISO relaxation profile for the channel shape.
-fn solver_config_for_channel<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
+fn solver_config_for_channel<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
     shape: &ChannelShape,
     mean_velocity_m_s: f64,
 ) -> SIMPLEConfig<T> {
     if mean_velocity_m_s > 0.55 {
         SIMPLEConfig {
             max_iterations: 12_000,
-            alpha_u: scalar::from_f64(0.4),
-            alpha_p: scalar::from_f64(0.12),
+            alpha_u: <T as FloatElement>::from_f64(0.4),
+            alpha_p: <T as FloatElement>::from_f64(0.12),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else if matches!(shape, ChannelShape::Serpentine { .. }) || mean_velocity_m_s > 0.5 {
         SIMPLEConfig {
             max_iterations: 8_000,
-            alpha_u: scalar::from_f64(0.4),
-            alpha_p: scalar::from_f64(0.12),
+            alpha_u: <T as FloatElement>::from_f64(0.4),
+            alpha_p: <T as FloatElement>::from_f64(0.12),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else {
         SIMPLEConfig {
             max_iterations: 8_000,
-            alpha_u: scalar::from_f64(0.35),
-            alpha_p: scalar::from_f64(0.1),
+            alpha_u: <T as FloatElement>::from_f64(0.35),
+            alpha_p: <T as FloatElement>::from_f64(0.1),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }

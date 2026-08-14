@@ -1,12 +1,12 @@
 //! Cross-sectional geometry definitions for channels
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Area, Length};
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 
 /// Cross-sectional geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CrossSection<T: Cfd1dScalar + Copy> {
+pub enum CrossSection<T: CfdScalar + Copy> {
     /// Rectangular cross-section
     Rectangular {
         /// Width of the rectangular channel

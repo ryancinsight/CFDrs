@@ -9,7 +9,7 @@
 //! ## Re-exported Traits & Types
 //!
 //! - [`ResistanceModel`]: Core trait defining the hydraulic resistance interface.
-//! - [`ResistanceScalar`]: Scalar provider contract for resistance calculations.
+//! - [`CfdScalar`]: Scalar provider contract for resistance calculations.
 //! - [`FlowConditions`]: Value object describing flow state for resistance calculation.
 //!
 //! ## Design Rationale (DIP + SSOT)
@@ -18,7 +18,5 @@
 //! concrete model types. The single definition in `models::traits` is the
 //! authoritative source; this facade provides a shorter import path without
 //! duplication.
-pub(crate) use crate::physics::resistance::models::traits::{scalar_from_f64, scalar_to_f64};
-pub use crate::physics::resistance::models::traits::{
-    FlowConditions, ResistanceModel, ResistanceScalar,
-};
+
+pub use crate::physics::resistance::models::traits::{FlowConditions, ResistanceModel};

@@ -8,11 +8,6 @@ use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 /// Factory for common sparse matrix patterns
 pub struct SparsePatterns;
 
-#[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
 impl SparsePatterns {
     /// Create tridiagonal matrix pattern
     pub fn tridiagonal<T>(n: usize, lower: T, diag: T, upper: T) -> Result<CsrMatrix<T>>
@@ -65,7 +60,7 @@ impl SparsePatterns {
         let dy2 = dy * dy;
         let cx = <T as NumericElement>::ONE / dx2;
         let cy = <T as NumericElement>::ONE / dy2;
-        let two: T = from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
         let center = <T as NumericElement>::ZERO - two * (cx + cy);
 
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, 5 * n);
@@ -117,8 +112,8 @@ impl SparsePatterns {
         let dx2 = dx * dx;
         let dy2 = dy * dy;
         let dxdy = dx * dy;
-        let two: T = from_f64(2.0);
-        let four: T = from_f64(4.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
+        let four: T = <T as FloatElement>::from_f64(4.0);
 
         // Stencil coefficients
         let corner = <T as NumericElement>::ONE / (four * dxdy);

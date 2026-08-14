@@ -10,11 +10,6 @@ use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 const SYMMETRY_TOLERANCE: f64 = 1e-10;
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
@@ -77,7 +72,7 @@ impl<T: RealField + Copy + LetoScalar> IncompleteCholesky<T> {
     where
         T: FloatElement,
     {
-        let tol = from_f64(SYMMETRY_TOLERANCE);
+        let tol = <T as FloatElement>::from_f64(SYMMETRY_TOLERANCE);
         let n = a.nrows();
         let mut max_asymmetry = <T as NumericElement>::ZERO;
         let mut max_i = 0;

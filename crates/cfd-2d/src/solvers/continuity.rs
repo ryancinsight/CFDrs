@@ -15,7 +15,7 @@
 //! solver family that produced the velocity field.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 #[inline]
@@ -30,7 +30,7 @@ pub(crate) fn pointwise_forward_continuity_residual<T, U, V>(
     v_at: &mut V,
 ) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     U: FnMut(usize, usize) -> T,
     V: FnMut(usize, usize) -> T,
 {
@@ -62,7 +62,7 @@ pub(crate) fn max_forward_continuity_residual<T, U, V>(
     mut v_at: V,
 ) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     U: FnMut(usize, usize) -> T,
     V: FnMut(usize, usize) -> T,
 {
@@ -93,7 +93,7 @@ pub(crate) fn max_central_continuity_residual<T, U, V>(
     mut v_at: V,
 ) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     U: FnMut(usize, usize) -> T,
     V: FnMut(usize, usize) -> T,
 {
@@ -102,7 +102,7 @@ where
     }
 
     let mut max_divergence: T = scalar::zero();
-    let two: T = scalar::from_f64(2.0);
+    let two: T = <T as FloatElement>::from_f64(2.0);
 
     for i in 1..nx - 1 {
         for j in 1..ny - 1 {
@@ -129,7 +129,7 @@ pub(crate) fn max_face_continuity_residual<T, U, V>(
     mut v_face_at: V,
 ) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     U: FnMut(usize, usize) -> T,
     V: FnMut(usize, usize) -> T,
 {

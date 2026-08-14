@@ -36,15 +36,15 @@
 //! - Olufsen, M. S. (1999). "Structured tree outflow condition for blood flow in
 //!   larger systemic arteries". *American Journal of Physiology*.
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{DynamicViscosity, HydraulicResistance, Length};
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Morphological parameters establishing the Olufsen (1999) fractal tree
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct OlufsenParameters<T: Cfd1dScalar + Copy> {
+pub struct OlufsenParameters<T: CfdScalar + Copy> {
     /// Ratio of the primary daughter radius to parent radius ($\alpha$)
     pub alpha: T,
     /// Ratio of the secondary daughter radius to parent radius ($\beta$)
@@ -55,7 +55,7 @@ pub struct OlufsenParameters<T: Cfd1dScalar + Copy> {
     pub r_min: Length<T>,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
+impl<T: CfdScalar + FloatElement + Copy> OlufsenParameters<T> {
     /// Creates a physiologically-backed generic parameter set
     /// Uses accepted systemic values where $\alpha=0.9$, $\beta=0.6$, $\lambda=50$.
     pub fn new_systemic(r_min: Length<T>) -> Self {
@@ -74,13 +74,13 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
         root_radius: Length<T>,
         dynamic_viscosity: DynamicViscosity<T>,
     ) -> Result<HydraulicResistance<T>> {
-        if root_radius.into_base() <= T::zero() || self.r_min.into_base() <= T::zero() {
+        if root_radius.into_base() <= T::ZERO || self.r_min.into_base() <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Tree generation requires strictly positive root and minimum radii limits"
                     .to_string(),
             ));
         }
-        if self.alpha >= T::one() || self.beta >= T::one() {
+        if self.alpha >= T::ONE || self.beta >= T::ONE {
             return Err(Error::PhysicsViolation(
                 "Fractal splitting variables alpha and beta must be < 1 to enforce convergence down to r_min".to_string()
             ));

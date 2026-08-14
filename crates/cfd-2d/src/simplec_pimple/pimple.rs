@@ -3,11 +3,11 @@ use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::physics::MomentumComponent;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// PIMPLE algorithm implementation
     ///
     /// PIMPLE (Issa 1986, OpenFOAM) combines outer PISO-like correctors
@@ -61,7 +61,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                     let d_x_cache = &self._d_x_cache;
                     let d_y_cache = &self._d_y_cache;
 
-                    let face_dt = if dt > scalar::from_f64(1.0) {
+                    let face_dt = if dt > <T as FloatElement>::from_f64(1.0) {
                         None
                     } else {
                         Some(dt)
@@ -141,7 +141,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 &self.u_corrected_workspace,
             );
 
-            if outer_residual < convergence_tolerance * scalar::from_f64(5.0) {
+            if outer_residual < convergence_tolerance * <T as FloatElement>::from_f64(5.0) {
                 break;
             }
         }
@@ -151,7 +151,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             &self.extract_velocity_field(fields),
         );
 
-        if final_residual > convergence_tolerance * scalar::from_f64(10.0) {
+        if final_residual > convergence_tolerance * <T as FloatElement>::from_f64(10.0) {
             tracing::warn!(
                 "PIMPLE did not achieve desired convergence, residual: {:.2e}",
                 final_residual

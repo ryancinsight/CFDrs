@@ -9,8 +9,8 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 // Named constants for numerical operations
@@ -18,7 +18,7 @@ const HALF: f64 = 0.5;
 const TWO: f64 = 2.0;
 
 /// Velocity predictor for PISO algorithm
-pub struct VelocityPredictor<T: Cfd2dScalar + Copy> {
+pub struct VelocityPredictor<T: CfdScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -29,7 +29,7 @@ pub struct VelocityPredictor<T: Cfd2dScalar + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> VelocityPredictor<T> {
+impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
     /// Create new velocity predictor
     pub fn new(grid: &StructuredGrid2D<T>, relaxation_factor: T) -> Self {
         Self {
@@ -51,7 +51,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VelocityPredictor<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Get velocities at cell faces (linear interpolation)
-                let half = scalar::from_f64::<T>(HALF);
+                let half = <T as FloatElement>::from_f64(HALF);
                 let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
                 let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
                 let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * half;
@@ -189,7 +189,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VelocityPredictor<T> {
     /// Calculate diffusion term for u-velocity
     fn calculate_diffusion_u(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-        let two = scalar::from_f64::<T>(TWO);
+        let two = <T as FloatElement>::from_f64(TWO);
 
         let d2u_dx2 = (fields.u.at(i + 1, j) - two * fields.u.at(i, j) + fields.u.at(i - 1, j))
             / (self.dx * self.dx);
@@ -202,7 +202,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VelocityPredictor<T> {
     /// Calculate diffusion term for v-velocity
     fn calculate_diffusion_v(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-        let two = scalar::from_f64::<T>(TWO);
+        let two = <T as FloatElement>::from_f64(TWO);
         let d2v_dx2 = (fields.v.at(i + 1, j) - two * fields.v.at(i, j) + fields.v.at(i - 1, j))
             / (self.dx * self.dx);
         let d2v_dy2 = (fields.v.at(i, j + 1) - two * fields.v.at(i, j) + fields.v.at(i, j - 1))

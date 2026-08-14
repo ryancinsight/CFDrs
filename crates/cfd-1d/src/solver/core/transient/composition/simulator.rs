@@ -6,11 +6,11 @@ use crate::domain::network::{
     Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
     EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
-use crate::scalar::Cfd1dScalar;
-use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
+use crate::solver::core::NetworkSolver;
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -91,7 +91,7 @@ fn clamp_unit<T: NumericElement + PartialOrd>(value: T) -> T {
 /// - `result_time_step`: interval between returned states
 /// - `calculation_time_step`: internal update interval
 #[derive(Debug, Clone)]
-pub struct SimulationTimeConfig<T: Cfd1dScalar + Copy> {
+pub struct SimulationTimeConfig<T: CfdScalar + Copy> {
     /// Total simulation duration.
     pub duration: Time<T>,
     /// Interval between result snapshots.
@@ -100,7 +100,7 @@ pub struct SimulationTimeConfig<T: Cfd1dScalar + Copy> {
     pub calculation_time_step: Time<T>,
 }
 
-impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     /// Create a new time control configuration.
     #[must_use]
     pub fn new(
@@ -116,17 +116,17 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     }
 
     fn validate(&self) -> Result<()> {
-        if self.duration.into_base() < T::zero() {
+        if self.duration.into_base() < T::ZERO {
             return Err(Error::InvalidInput(
                 "Simulation duration must be non-negative".to_string(),
             ));
         }
-        if self.result_time_step.into_base() <= T::zero() {
+        if self.result_time_step.into_base() <= T::ZERO {
             return Err(Error::InvalidInput(
                 "Simulation result timestep must be positive".to_string(),
             ));
         }
-        if self.calculation_time_step.into_base() <= T::zero() {
+        if self.calculation_time_step.into_base() <= T::ZERO {
             return Err(Error::InvalidInput(
                 "Simulation calculation timestep must be positive".to_string(),
             ));
@@ -160,10 +160,10 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     fn uniform_timepoints(duration: T, dt: T) -> Vec<T> {
         let tolerance = scalar::<T>(1e-12);
         if duration <= tolerance {
-            return vec![T::zero()];
+            return vec![T::ZERO];
         }
 
-        let mut points = vec![T::zero()];
+        let mut points = vec![T::ZERO];
         let mut t = dt;
         while t < duration {
             points.push(t);
@@ -204,14 +204,14 @@ pub struct TransientCompositionSimulator;
 
 /// Configuration for segmented blood transport along each advecting edge.
 #[derive(Debug, Clone)]
-pub struct BloodEdgeTransportConfig<T: Cfd1dScalar + Copy> {
+pub struct BloodEdgeTransportConfig<T: CfdScalar + Copy> {
     /// Number of axial control volumes per transport-capable edge.
     pub segments_per_edge: usize,
     /// Maximum explicit Courant number used for substepping.
     pub max_courant_number: Dimensionless<T>,
 }
 
-impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
     /// Create a segmented transport configuration.
     #[must_use]
     pub fn new(segments_per_edge: usize, max_courant_number: Dimensionless<T>) -> Self {
@@ -227,7 +227,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
                 "Segmented blood transport requires at least one segment per edge".to_string(),
             ));
         }
-        if self.max_courant_number.into_base() <= T::zero() {
+        if self.max_courant_number.into_base() <= T::ZERO {
             return Err(Error::InvalidInput(
                 "Segmented blood transport requires a positive Courant limit".to_string(),
             ));
@@ -236,7 +236,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<T> {
     fn default() -> Self {
         Self {
             segments_per_edge: 4,
@@ -246,7 +246,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<
 }
 
 impl TransientCompositionSimulator {
-    fn build_node_incidence_cache<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
+    fn build_node_incidence_cache<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
     ) -> Vec<Vec<IncidentEdge>> {
         let node_count = network.node_count();
@@ -281,7 +281,7 @@ impl TransientCompositionSimulator {
         incidence
     }
 
-    fn fill_edge_flow_rate_map<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
+    fn fill_edge_flow_rate_map<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge_flow_rates: &mut HashMap<usize, T>,
     ) {
@@ -294,7 +294,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn fill_effective_flow_rates_from_overrides<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
+    fn fill_effective_flow_rates_from_overrides<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_flow_overrides: &HashMap<usize, T>,
         edge_flow_rates: &mut HashMap<usize, T>,
@@ -305,7 +305,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn typed_flow_rates<T: Cfd1dScalar + Copy>(
+    fn typed_flow_rates<T: CfdScalar + Copy>(
         edge_flow_rates: &HashMap<usize, T>,
     ) -> HashMap<usize, VolumetricFlowRate<T>> {
         edge_flow_rates
@@ -314,17 +314,17 @@ impl TransientCompositionSimulator {
             .collect()
     }
 
-    fn base_timepoints<T: Cfd1dScalar + Copy>(timepoints: Vec<Time<T>>) -> Vec<T> {
+    fn base_timepoints<T: CfdScalar + Copy>(timepoints: Vec<Time<T>>) -> Vec<T> {
         timepoints.into_iter().map(Time::into_base).collect()
     }
 
-    fn typed_timepoints<T: Cfd1dScalar + Copy>(timepoints: Vec<T>) -> Vec<Time<T>> {
+    fn typed_timepoints<T: CfdScalar + Copy>(timepoints: Vec<T>) -> Vec<Time<T>> {
         timepoints.into_iter().map(Time::from_base).collect()
     }
 
     /// Simulate transported blood hematocrit using canonical RBC/plasma mixture keys.
     pub fn simulate_blood_hematocrit<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -340,7 +340,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with finite edge transport inventory.
     pub fn simulate_blood_hematocrit_with_edge_lag<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -352,7 +352,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with a per-edge control-volume transport state.
     pub fn simulate_blood_hematocrit_with_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -369,7 +369,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with segmented axial advection along each edge.
     pub fn simulate_blood_hematocrit_with_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -389,7 +389,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit with time-scheduled edge-flow updates.
     pub fn simulate_blood_hematocrit_with_flow_events<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -407,7 +407,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with edge-flow updates and finite edge transport.
     pub fn simulate_blood_hematocrit_with_flow_events_and_edge_lag<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -425,7 +425,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with edge-flow updates and per-edge transport state.
     pub fn simulate_blood_hematocrit_with_flow_events_and_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -443,7 +443,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with flow events and segmented axial advection.
     pub fn simulate_blood_hematocrit_with_flow_events_and_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -464,7 +464,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit with pressure-boundary updates.
     pub fn simulate_blood_hematocrit_with_pressure_events<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -482,7 +482,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with pressure updates and per-edge transport state.
     pub fn simulate_blood_hematocrit_with_pressure_events_and_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -500,7 +500,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with pressure events and segmented axial advection.
     pub fn simulate_blood_hematocrit_with_pressure_events_and_segmented_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -536,7 +536,7 @@ impl TransientCompositionSimulator {
     /// positive resistances, so a positive pressure drop produces finite
     /// nonzero branch flows.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -554,7 +554,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transient blood hematocrit with coupled hydraulics and edge transport state.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events_and_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -572,7 +572,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transient blood hematocrit with coupled hydraulics and segmented axial transport.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events_and_segmented_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -593,7 +593,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit using MMFT-style timing controls.
     pub fn simulate_blood_hematocrit_with_time_config<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -609,7 +609,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with edge transport.
     pub fn simulate_blood_hematocrit_with_time_config_and_edge_lag<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -621,7 +621,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with edge transport state.
     pub fn simulate_blood_hematocrit_with_time_config_and_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -632,7 +632,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = Self::base_timepoints(result_timepoints.clone());
         internal_timepoints.extend(Self::base_timepoints(timing.calculation_timepoints()?));
         for event in &events {
-            if event.time.into_base() >= T::zero()
+            if event.time.into_base() >= T::ZERO
                 && event.time.into_base() <= timing.duration.into_base()
             {
                 internal_timepoints.push(event.time.into_base());
@@ -654,7 +654,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with segmented axial advection.
     pub fn simulate_blood_hematocrit_with_time_config_and_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -667,7 +667,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = Self::base_timepoints(result_timepoints.clone());
         internal_timepoints.extend(Self::base_timepoints(timing.calculation_timepoints()?));
         for event in &events {
-            if event.time.into_base() >= T::zero()
+            if event.time.into_base() >= T::ZERO
                 && event.time.into_base() <= timing.duration.into_base()
             {
                 internal_timepoints.push(event.time.into_base());
@@ -689,7 +689,7 @@ impl TransientCompositionSimulator {
     }
 
     fn simulate_blood_mixture_with_coupled_pressure_events<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -746,7 +746,7 @@ impl TransientCompositionSimulator {
         Ok(states)
     }
 
-    fn simulate_coupled_pressure_timepoint<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+    fn simulate_coupled_pressure_timepoint<T: CfdScalar, F: FluidTrait<T> + Clone>(
         mut working_network: Network<T, F>,
         solver: &NetworkSolver<T, F>,
         time: T,
@@ -854,7 +854,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_flow_events_and_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1000,7 +1000,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_flow_events_and_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1155,7 +1155,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_pressure_events_and_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1302,7 +1302,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_pressure_events_and_segmented_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1459,7 +1459,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_coupled_pressure_events_and_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1603,7 +1603,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_coupled_pressure_events_and_segmented_edge_transport<
-        T: NetworkSolveScalar,
+        T: CfdScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1757,7 +1757,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate using MMFT-style timing controls.
     pub fn simulate_with_time_config<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1773,7 +1773,7 @@ impl TransientCompositionSimulator {
         all_timepoints.extend(Self::base_timepoints(calculation_timepoints));
 
         for event in &events {
-            if event.time.into_base() >= T::zero()
+            if event.time.into_base() >= T::ZERO
                 && event.time.into_base() <= timing.duration.into_base()
             {
                 all_timepoints.push(event.time.into_base());
@@ -1796,7 +1796,7 @@ impl TransientCompositionSimulator {
     }
 
     /// Simulate composition over the provided timepoints using the network flow field.
-    pub fn simulate<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    pub fn simulate<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         events: Vec<InletCompositionEvent<T>>,
         timepoints: Vec<Time<T>>,
@@ -1806,7 +1806,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate composition with time-scheduled edge flow updates.
     pub fn simulate_with_flow_events<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1885,7 +1885,7 @@ impl TransientCompositionSimulator {
     /// At each requested timepoint, pressure events active at that time are applied,
     /// the hydraulic network is re-solved, and composition mixing is computed from
     /// the resulting flow field.
-    pub fn simulate_with_pressure_events<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+    pub fn simulate_with_pressure_events<T: CfdScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         mut composition_events: Vec<InletCompositionEvent<T>>,
         timepoints: Vec<Time<T>>,
@@ -1969,16 +1969,16 @@ impl TransientCompositionSimulator {
         Ok(states)
     }
 
-    fn times_close<T: Cfd1dScalar + Copy + NumericElement>(a: T, b: T, tolerance: T) -> bool {
+    fn times_close<T: CfdScalar + Copy + NumericElement>(a: T, b: T, tolerance: T) -> bool {
         <T as NumericElement>::abs(a - b) <= tolerance
     }
 
-    fn hematocrit_events_to_mixture_events<T: Cfd1dScalar + Copy + FloatElement>(
+    fn hematocrit_events_to_mixture_events<T: CfdScalar + Copy + FloatElement>(
         events: Vec<InletHematocritEvent<T>>,
     ) -> Result<Vec<InletCompositionEvent<T>>> {
         let mut converted = Vec::with_capacity(events.len());
         for event in events {
-            if event.hematocrit.into_base() < T::zero() || event.hematocrit.into_base() > T::one() {
+            if event.hematocrit.into_base() < T::ZERO || event.hematocrit.into_base() > T::ONE {
                 return Err(Error::InvalidInput(
                     "Transient hematocrit events require values in [0, 1]".to_string(),
                 ));
@@ -1993,13 +1993,13 @@ impl TransientCompositionSimulator {
     }
 
     fn stamp_edge_hematocrit_from_mixtures<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &mut Network<T, F>,
         edge_mixtures: &HashMap<usize, MixtureComposition<T>>,
     ) -> T {
-        let mut max_change = T::zero();
+        let mut max_change = T::ZERO;
         for (edge_index, mixture) in edge_mixtures {
             if let Some(hematocrit) = mixture.hematocrit() {
                 let hematocrit = hematocrit.into_base();
@@ -2009,11 +2009,11 @@ impl TransientCompositionSimulator {
                         .properties
                         .get(EDGE_PROPERTY_LOCAL_HEMATOCRIT)
                         .copied()
-                        .unwrap_or(T::zero());
+                        .unwrap_or(T::ZERO);
                     max_change = max_change.max(<T as NumericElement>::abs(current - hematocrit));
                     props.properties.insert(
                         EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),
-                        hematocrit.max(T::zero()).min(T::one()),
+                        hematocrit.max(T::ZERO).min(T::ONE),
                     );
                 }
             }
@@ -2022,7 +2022,7 @@ impl TransientCompositionSimulator {
     }
 
     fn stamp_edge_apparent_viscosity_from_segments<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &mut Network<T, F>,
@@ -2038,7 +2038,10 @@ impl TransientCompositionSimulator {
                 .properties
                 .get(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S)
                 .copied();
-            let flow_rate = flow_rates.get(edge_index).copied().unwrap_or_else(T::zero);
+            let flow_rate = flow_rates
+                .get(edge_index)
+                .copied()
+                .unwrap_or_else(|| T::ZERO);
             let Some(segment_mu) = Self::segment_integrated_blood_apparent_viscosity(
                 props
                     .hydraulic_diameter
@@ -2060,19 +2063,19 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn max_flow_change<T: Cfd1dScalar + Copy + NumericElement>(previous: &[T], current: &[T]) -> T {
+    fn max_flow_change<T: CfdScalar + Copy + NumericElement>(previous: &[T], current: &[T]) -> T {
         let n = previous.len().max(current.len());
-        let mut max_change = T::zero();
+        let mut max_change = T::ZERO;
         for idx in 0..n {
-            let a = previous.get(idx).copied().unwrap_or(T::zero());
-            let b = current.get(idx).copied().unwrap_or(T::zero());
+            let a = previous.get(idx).copied().unwrap_or(T::ZERO);
+            let b = current.get(idx).copied().unwrap_or(T::ZERO);
             max_change = max_change.max(<T as NumericElement>::abs(a - b));
         }
         max_change
     }
 
     fn backfill_blood_edge_mixtures_from_network<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2098,7 +2101,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn apply_active_inlet_edge_mixtures<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
+    fn apply_active_inlet_edge_mixtures<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         edge_mixtures: &mut HashMap<usize, MixtureComposition<T>>,
@@ -2111,7 +2114,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn sort_unique_timepoints<T: Cfd1dScalar + Copy + NumericElement>(
+    fn sort_unique_timepoints<T: CfdScalar + Copy + NumericElement>(
         mut timepoints: Vec<T>,
         tolerance: T,
     ) -> Vec<T> {
@@ -2129,12 +2132,12 @@ impl TransientCompositionSimulator {
         unique
     }
 
-    fn sorted_timepoints<T: Cfd1dScalar + Copy>(mut timepoints: Vec<T>) -> Vec<T> {
+    fn sorted_timepoints<T: CfdScalar + Copy>(mut timepoints: Vec<T>) -> Vec<T> {
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         timepoints
     }
 
-    fn sample_states_at_timepoints<T: Cfd1dScalar + Copy + NumericElement>(
+    fn sample_states_at_timepoints<T: CfdScalar + Copy + NumericElement>(
         states: Vec<CompositionState<T>>,
         target_timepoints: Vec<T>,
         tolerance: T,
@@ -2178,10 +2181,7 @@ impl TransientCompositionSimulator {
         Ok(sampled)
     }
 
-    fn initial_blood_edge_mixtures<
-        T: Cfd1dScalar + Copy + FloatElement,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn initial_blood_edge_mixtures<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
     ) -> HashMap<usize, MixtureComposition<T>> {
         let mut edge_mixtures = HashMap::with_capacity(network.edge_count());
@@ -2198,11 +2198,11 @@ impl TransientCompositionSimulator {
                             .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
                             .copied()
                     })
-                    .unwrap_or_else(T::zero);
+                    .unwrap_or_else(|| T::ZERO);
                 edge_mixtures.insert(
                     edge_idx.index(),
                     MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(
-                        hematocrit.max(T::zero()).min(T::one()),
+                        hematocrit.max(T::ZERO).min(T::ONE),
                     )),
                 );
             }
@@ -2211,7 +2211,7 @@ impl TransientCompositionSimulator {
     }
 
     fn initial_segmented_blood_state<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2234,41 +2234,41 @@ impl TransientCompositionSimulator {
                         .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
                         .copied()
                 })
-                .unwrap_or_else(T::zero);
+                .unwrap_or_else(|| T::ZERO);
             segment_state.insert(
                 edge_idx.index(),
-                vec![hematocrit.max(T::zero()).min(T::one()); config.segments_per_edge],
+                vec![hematocrit.max(T::ZERO).min(T::ONE); config.segments_per_edge],
             );
         }
         segment_state
     }
 
-    fn average_segment_hematocrit<T: Cfd1dScalar + Copy + FloatElement>(segments: &[T]) -> T {
+    fn average_segment_hematocrit<T: CfdScalar + Copy + FloatElement>(segments: &[T]) -> T {
         if segments.is_empty() {
-            return T::zero();
+            return T::ZERO;
         }
         let sum = segments
             .iter()
             .copied()
-            .fold(T::zero(), |acc, value| acc + value);
+            .fold(T::ZERO, |acc, value| acc + value);
         sum / scalar_from_usize::<T>(
             segments.len(),
             "invariant: segment count fits in u32 for scalar averaging",
         )
     }
 
-    fn outlet_segment_hematocrit<T: Cfd1dScalar + Copy + FloatElement>(
+    fn outlet_segment_hematocrit<T: CfdScalar + Copy + FloatElement>(
         segments: &[T],
         positive_direction: bool,
     ) -> T {
         if positive_direction {
-            segments.last().copied().unwrap_or_else(T::zero)
+            segments.last().copied().unwrap_or_else(|| T::ZERO)
         } else {
-            segments.first().copied().unwrap_or_else(T::zero)
+            segments.first().copied().unwrap_or_else(|| T::ZERO)
         }
     }
 
-    fn segment_integrated_blood_apparent_viscosity<T: Cfd1dScalar + Copy + FloatElement>(
+    fn segment_integrated_blood_apparent_viscosity<T: CfdScalar + Copy + FloatElement>(
         hydraulic_diameter: Option<T>,
         flow_rate: T,
         area: T,
@@ -2280,7 +2280,7 @@ impl TransientCompositionSimulator {
             return None;
         }
         let plasma_viscosity = plasma_viscosity_override.unwrap_or_else(|| scalar::<T>(1.05e-3));
-        let mut mu_sum = T::zero();
+        let mut mu_sum = T::ZERO;
         let mut count = 0usize;
         for &hematocrit in segments {
             let mu = crate::domain::network::blood_microchannel_apparent_viscosity(
@@ -2306,7 +2306,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn resolve_coupled_blood_snapshot<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+    fn resolve_coupled_blood_snapshot<T: CfdScalar, F: FluidTrait<T> + Clone>(
         mut working_network: Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         transported_edge_mixtures: &HashMap<usize, MixtureComposition<T>>,
@@ -2373,7 +2373,7 @@ impl TransientCompositionSimulator {
         ))
     }
 
-    fn resolve_coupled_segmented_blood_snapshot<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+    fn resolve_coupled_segmented_blood_snapshot<T: CfdScalar, F: FluidTrait<T> + Clone>(
         mut working_network: Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         segment_state: &HashMap<usize, Vec<T>>,
@@ -2445,7 +2445,7 @@ impl TransientCompositionSimulator {
         ))
     }
 
-    fn edge_supports_transport<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn edge_supports_transport<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge_idx: petgraph::graph::EdgeIndex,
     ) -> bool {
@@ -2455,10 +2455,7 @@ impl TransientCompositionSimulator {
         })
     }
 
-    fn advance_blood_edge_mixtures<
-        T: Cfd1dScalar + Copy + FloatElement,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn advance_blood_edge_mixtures<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         previous_edge_mixtures: &HashMap<usize, MixtureComposition<T>>,
         previous_node_mixtures: &HashMap<usize, MixtureComposition<T>>,
@@ -2480,7 +2477,7 @@ impl TransientCompositionSimulator {
             let flow_rate = previous_flow_rates
                 .get(&edge_idx.index())
                 .copied()
-                .unwrap_or_else(T::zero);
+                .unwrap_or_else(|| T::ZERO);
             if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
@@ -2494,7 +2491,7 @@ impl TransientCompositionSimulator {
                 continue;
             }
 
-            let upstream_node = if flow_rate >= T::zero() {
+            let upstream_node = if flow_rate >= T::ZERO {
                 edge_ref.source().index()
             } else {
                 edge_ref.target().index()
@@ -2502,11 +2499,11 @@ impl TransientCompositionSimulator {
             let inlet_hct = previous_node_mixtures
                 .get(&upstream_node)
                 .and_then(MixtureComposition::hematocrit)
-                .map_or_else(T::zero, Dimensionless::into_base);
+                .map_or_else(|| T::ZERO, Dimensionless::into_base);
             let previous_hct = previous_edge_mixtures
                 .get(&edge_idx.index())
                 .and_then(MixtureComposition::hematocrit)
-                .map_or_else(T::zero, Dimensionless::into_base);
+                .map_or_else(|| T::ZERO, Dimensionless::into_base);
             let decay = <T as FloatElement>::exp(-(dt / residence_time));
             let updated_hct = inlet_hct + (previous_hct - inlet_hct) * decay;
             advanced.insert(
@@ -2520,10 +2517,7 @@ impl TransientCompositionSimulator {
         advanced
     }
 
-    fn advance_blood_edge_segments<
-        T: Cfd1dScalar + Copy + FloatElement,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn advance_blood_edge_segments<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         previous_segment_state: &HashMap<usize, Vec<T>>,
         previous_node_mixtures: &HashMap<usize, MixtureComposition<T>>,
@@ -2547,7 +2541,7 @@ impl TransientCompositionSimulator {
             let flow_rate = previous_flow_rates
                 .get(&edge_idx.index())
                 .copied()
-                .unwrap_or_else(T::zero);
+                .unwrap_or_else(|| T::ZERO);
             if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
@@ -2572,7 +2566,7 @@ impl TransientCompositionSimulator {
                 continue;
             }
 
-            let upstream_node = if flow_rate >= T::zero() {
+            let upstream_node = if flow_rate >= T::ZERO {
                 edge_ref.source().index()
             } else {
                 edge_ref.target().index()
@@ -2586,7 +2580,7 @@ impl TransientCompositionSimulator {
                         .and_then(MixtureComposition::hematocrit)
                         .map(Dimensionless::into_base)
                 })
-                .unwrap_or_else(T::zero);
+                .unwrap_or_else(|| T::ZERO);
 
             let total_courant = dt / segment_residence_time;
             let steps = checked_substep_count(
@@ -2602,7 +2596,7 @@ impl TransientCompositionSimulator {
 
             for _ in 0..steps {
                 let previous = current_segments.clone();
-                if flow_rate >= T::zero() {
+                if flow_rate >= T::ZERO {
                     current_segments[0] = previous[0] + cfl * (inlet_hct - previous[0]);
                     for i in 1..previous.len() {
                         current_segments[i] = previous[i] + cfl * (previous[i - 1] - previous[i]);
@@ -2626,7 +2620,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn solve_blood_edge_inlet_hematocrits_with_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2646,7 +2640,7 @@ impl TransientCompositionSimulator {
             let node_hct = node_mixtures
                 .get(&node_id)
                 .and_then(MixtureComposition::hematocrit)
-                .map_or_else(T::zero, Dimensionless::into_base);
+                .map_or_else(|| T::ZERO, Dimensionless::into_base);
 
             incoming.clear();
             outgoing.clear();
@@ -2660,22 +2654,22 @@ impl TransientCompositionSimulator {
             }
 
             for incident in incident_edges {
-                let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
+                let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::ZERO);
                 let q_abs = <T as NumericElement>::abs(q);
                 if q_abs <= T::default_epsilon() {
                     continue;
                 }
 
                 if incident.source == node_id {
-                    if q > T::zero() {
+                    if q > T::ZERO {
                         outgoing.push((incident.edge_index, q_abs));
-                    } else if q < T::zero() {
+                    } else if q < T::ZERO {
                         incoming.push((incident.edge_index, q_abs));
                     }
                 } else if incident.target == node_id {
-                    if q > T::zero() {
+                    if q > T::ZERO {
                         incoming.push((incident.edge_index, q_abs));
-                    } else if q < T::zero() {
+                    } else if q < T::ZERO {
                         outgoing.push((incident.edge_index, q_abs));
                     }
                 }
@@ -2710,12 +2704,12 @@ impl TransientCompositionSimulator {
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(left.0))
                         .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
-                        .unwrap_or_else(T::zero);
+                        .unwrap_or_else(|| T::ZERO);
                     let right_d = network
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(right.0))
                         .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
-                        .unwrap_or_else(T::zero);
+                        .unwrap_or_else(|| T::ZERO);
                     left_d
                         .partial_cmp(&right_d)
                         .unwrap_or(std::cmp::Ordering::Equal)
@@ -2769,8 +2763,8 @@ impl TransientCompositionSimulator {
 
                 let daughter_a =
                     crate::physics::cell_separation::plasma_skimming::pries_phase_separation(
-                        to_f64(node_hct.max(T::zero()).min(T::one()))?,
-                        to_f64((q_first / total_q).max(T::zero()).min(T::one()))?,
+                        to_f64(node_hct.max(T::ZERO).min(T::ONE))?,
+                        to_f64((q_first / total_q).max(T::ZERO).min(T::ONE))?,
                         Length::from_base(to_f64(first_diameter)?),
                         Length::from_base(to_f64(second_diameter)?),
                         Length::from_base(to_f64(parent_diameter)?),
@@ -2778,8 +2772,7 @@ impl TransientCompositionSimulator {
                     .ok();
 
                 if let Some(daughter_a) = daughter_a {
-                    let q_second_fraction =
-                        to_f64((q_second / total_q).max(T::zero()).min(T::one()))?;
+                    let q_second_fraction = to_f64((q_second / total_q).max(T::ZERO).min(T::ONE))?;
                     let daughter_b_hct = if q_second_fraction > tiny_fraction {
                         scalar::<T>(
                             ((1.0 - daughter_a.cell_fraction) * to_f64(node_hct)?
@@ -2787,7 +2780,7 @@ impl TransientCompositionSimulator {
                                 .clamp(0.0, 1.0),
                         )
                     } else {
-                        T::zero()
+                        T::ZERO
                     };
                     edge_inlet_hematocrits
                         .insert(first.0, scalar::<T>(daughter_a.daughter_hematocrit));
@@ -2805,7 +2798,7 @@ impl TransientCompositionSimulator {
     }
 
     fn solve_blood_node_mixtures_with_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2835,7 +2828,7 @@ impl TransientCompositionSimulator {
                 }
 
                 for incident in incident_edges {
-                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
+                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::ZERO);
                     let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
@@ -2843,7 +2836,7 @@ impl TransientCompositionSimulator {
                     }
 
                     if incident.source == node_id {
-                        if q < T::zero() {
+                        if q < T::ZERO {
                             if let Some(mixture) =
                                 transported_edge_mixtures.get(&incident.edge_index)
                             {
@@ -2855,7 +2848,7 @@ impl TransientCompositionSimulator {
                                 incoming.push((mixture.clone(), q_abs));
                             }
                         }
-                    } else if incident.target == node_id && q > T::zero() {
+                    } else if incident.target == node_id && q > T::ZERO {
                         if let Some(mixture) = transported_edge_mixtures.get(&incident.edge_index) {
                             incoming.push((mixture.clone(), q_abs));
                             continue;
@@ -2896,7 +2889,7 @@ impl TransientCompositionSimulator {
     }
 
     fn solve_blood_node_mixtures_with_segmented_edge_transport<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2926,7 +2919,7 @@ impl TransientCompositionSimulator {
                 }
 
                 for incident in incident_edges {
-                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
+                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::ZERO);
                     let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
@@ -2934,10 +2927,10 @@ impl TransientCompositionSimulator {
                     }
 
                     if incident.source == node_id {
-                        if q < T::zero() {
+                        if q < T::ZERO {
                             if let Some(segments) = segment_state.get(&incident.edge_index) {
                                 let edge_hct =
-                                    Self::outlet_segment_hematocrit(segments, q >= T::zero());
+                                    Self::outlet_segment_hematocrit(segments, q >= T::ZERO);
                                 incoming_owned.push((
                                     MixtureComposition::from_blood_hematocrit(
                                         Dimensionless::from_base(edge_hct),
@@ -2951,10 +2944,9 @@ impl TransientCompositionSimulator {
                                 incoming_owned.push((mixture.clone(), q_abs));
                             }
                         }
-                    } else if incident.target == node_id && q > T::zero() {
+                    } else if incident.target == node_id && q > T::ZERO {
                         if let Some(segments) = segment_state.get(&incident.edge_index) {
-                            let edge_hct =
-                                Self::outlet_segment_hematocrit(segments, q >= T::zero());
+                            let edge_hct = Self::outlet_segment_hematocrit(segments, q >= T::ZERO);
                             incoming_owned.push((
                                 MixtureComposition::from_blood_hematocrit(
                                     Dimensionless::from_base(edge_hct),
@@ -2998,10 +2990,7 @@ impl TransientCompositionSimulator {
         Ok(node_mixtures)
     }
 
-    fn compose_blood_edge_snapshot<
-        T: Cfd1dScalar + Copy + FloatElement,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn compose_blood_edge_snapshot<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,
@@ -3015,8 +3004,8 @@ impl TransientCompositionSimulator {
                 continue;
             }
 
-            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::zero());
-            let upstream_node = if q >= T::zero() {
+            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::ZERO);
+            let upstream_node = if q >= T::ZERO {
                 edge_ref.source().index()
             } else {
                 edge_ref.target().index()
@@ -3031,7 +3020,7 @@ impl TransientCompositionSimulator {
     }
 
     fn compose_segmented_blood_edge_snapshot<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -3052,8 +3041,8 @@ impl TransientCompositionSimulator {
                 continue;
             }
 
-            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::zero());
-            let upstream_node = if q >= T::zero() {
+            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::ZERO);
+            let upstream_node = if q >= T::ZERO {
                 edge_ref.source().index()
             } else {
                 edge_ref.target().index()
@@ -3067,7 +3056,7 @@ impl TransientCompositionSimulator {
         edge_mixtures
     }
 
-    fn solve_node_mixtures<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn solve_node_mixtures<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,
@@ -3094,18 +3083,18 @@ impl TransientCompositionSimulator {
                 }
 
                 for incident in incident_edges {
-                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
+                    let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::ZERO);
                     let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
                         continue;
                     }
 
-                    if incident.target == node_id && q > T::zero() {
+                    if incident.target == node_id && q > T::ZERO {
                         if let Some(m) = node_mixtures.get(&incident.source) {
                             incoming.push((m.clone(), q_abs));
                         }
-                    } else if incident.source == node_id && q < T::zero() {
+                    } else if incident.source == node_id && q < T::ZERO {
                         if let Some(m) = node_mixtures.get(&incident.target) {
                             incoming.push((m.clone(), q_abs));
                         }
@@ -3138,7 +3127,7 @@ impl TransientCompositionSimulator {
         Ok(node_mixtures)
     }
 
-    fn compute_edge_mixtures<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn compute_edge_mixtures<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,
@@ -3149,9 +3138,9 @@ impl TransientCompositionSimulator {
             let src = edge_ref.source();
             let dst = edge_ref.target();
             let edge_idx = edge_ref.id();
-            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::zero());
+            let q = *flow_rates.get(&edge_idx.index()).unwrap_or(&T::ZERO);
 
-            let upstream = if q >= T::zero() {
+            let upstream = if q >= T::ZERO {
                 src.index()
             } else {
                 dst.index()

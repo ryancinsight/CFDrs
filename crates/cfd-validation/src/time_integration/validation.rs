@@ -7,6 +7,7 @@ use super::integrators::{
 use super::results::TimeIntegrationResult;
 use crate::scalar;
 use cfd_core::error::Result;
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use std::f64::consts::PI;
 
@@ -39,12 +40,12 @@ impl TimeIntegrationValidator {
     ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
-        let lambda = scalar::from_f64::<T>(DECAY_LAMBDA);
-        let dt = scalar::from_f64::<T>(TIME_STEP_VALIDATION);
+        let lambda = <T as FloatElement>::from_f64(DECAY_LAMBDA);
+        let dt = <T as FloatElement>::from_f64(TIME_STEP_VALIDATION);
         let final_time = scalar::one();
 
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
-        let n_steps_f64 = scalar::to_f64(final_time / dt);
+        let n_steps_f64 = <T as NumericElement>::to_f64(final_time / dt);
         #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize
         let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
@@ -70,7 +71,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < scalar::from_f64::<T>(ERROR_THRESHOLD),
+            error < <T as FloatElement>::from_f64(ERROR_THRESHOLD),
             1,
         ));
 
@@ -89,7 +90,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < scalar::from_f64::<T>(ERROR_THRESHOLD),
+            error < <T as FloatElement>::from_f64(ERROR_THRESHOLD),
             2,
         ));
 
@@ -108,7 +109,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < scalar::from_f64::<T>(ERROR_THRESHOLD),
+            error < <T as FloatElement>::from_f64(ERROR_THRESHOLD),
             4,
         ));
 
@@ -120,12 +121,12 @@ impl TimeIntegrationValidator {
     ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
-        let omega = scalar::from_f64::<T>(OSCILLATOR_OMEGA);
-        let dt = scalar::from_f64::<T>(TIME_STEP_VALIDATION);
-        let final_time = scalar::from_f64::<T>(2.0 * PI); // One period
+        let omega = <T as FloatElement>::from_f64(OSCILLATOR_OMEGA);
+        let dt = <T as FloatElement>::from_f64(TIME_STEP_VALIDATION);
+        let final_time = <T as FloatElement>::from_f64(2.0 * PI); // One period
 
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
-        let n_steps_f64 = scalar::to_f64(final_time / dt);
+        let n_steps_f64 = <T as NumericElement>::to_f64(final_time / dt);
         #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize
         let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
@@ -208,7 +209,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < scalar::from_f64::<T>(ERROR_THRESHOLD),
+            error < <T as FloatElement>::from_f64(ERROR_THRESHOLD),
             order,
         ))
     }

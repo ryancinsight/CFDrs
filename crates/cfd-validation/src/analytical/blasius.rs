@@ -21,6 +21,7 @@ use aequitas::systems::si::quantities::{
     Dimensionless, KinematicViscosity, Length, MassDensity, Pressure, Velocity,
 };
 use eunomia::FloatElement;
+use eunomia::NumericElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;
 
@@ -103,9 +104,9 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     pub fn air_flow(u_inf: Velocity<T>) -> Self {
         Self::new(
             u_inf,
-            KinematicViscosity::from_base(scalar::from_f64(1.5e-5)),
+            KinematicViscosity::from_base(<T as FloatElement>::from_f64(1.5e-5)),
             Length::from_base(scalar::one::<T>()),
-            MassDensity::from_base(scalar::from_f64(1.225)),
+            MassDensity::from_base(<T as FloatElement>::from_f64(1.225)),
         )
     }
 
@@ -113,9 +114,9 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     pub fn water_flow(u_inf: Velocity<T>) -> Self {
         Self::new(
             u_inf,
-            KinematicViscosity::from_base(scalar::from_f64(1.0e-6)),
+            KinematicViscosity::from_base(<T as FloatElement>::from_f64(1.0e-6)),
             Length::from_base(scalar::one::<T>()),
-            MassDensity::from_base(scalar::from_f64(998.0)),
+            MassDensity::from_base(<T as FloatElement>::from_f64(998.0)),
         )
     }
 
@@ -129,7 +130,7 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     ///
     /// `δ ≈ 5.0 * sqrt(νx/U) = 5.0x / sqrt(Re_x)`.
     pub fn boundary_layer_thickness(&self) -> Length<T> {
-        let five = scalar::from_f64::<T>(5.0);
+        let five = <T as FloatElement>::from_f64(5.0);
         let value =
             five * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
         Length::from_base(value)
@@ -139,7 +140,7 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     ///
     /// `δ* ≈ 1.72 * sqrt(νx/U) = 1.72x / sqrt(Re_x)`.
     pub fn displacement_thickness(&self) -> Length<T> {
-        let factor = scalar::from_f64::<T>(1.7208);
+        let factor = <T as FloatElement>::from_f64(1.7208);
         let value = factor
             * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
         Length::from_base(value)
@@ -149,7 +150,7 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     ///
     /// `θ ≈ 0.664 * sqrt(νx/U) = 0.664x / sqrt(Re_x)`.
     pub fn momentum_thickness(&self) -> Length<T> {
-        let factor = scalar::from_f64::<T>(0.664);
+        let factor = <T as FloatElement>::from_f64(0.664);
         let value = factor
             * scalar::sqrt(self.nu.into_base() * self.x.into_base() / self.u_inf.into_base());
         Length::from_base(value)
@@ -159,14 +160,14 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     ///
     /// For Blasius, `H ≈ 2.59`.
     pub fn shape_factor(&self) -> Dimensionless<T> {
-        Dimensionless::from_base(scalar::from_f64(2.591))
+        Dimensionless::from_base(<T as FloatElement>::from_f64(2.591))
     }
 
     /// Calculate wall shear stress.
     ///
     /// `τ_w = 0.332 * μ * U * sqrt(U/(νx))`, with `μ = ρν`.
     pub fn wall_shear_stress(&self) -> Pressure<T> {
-        let factor = scalar::from_f64::<T>(0.332);
+        let factor = <T as FloatElement>::from_f64(0.332);
         let dynamic_viscosity = self.density.into_base() * self.nu.into_base();
         let value = factor
             * dynamic_viscosity
@@ -177,7 +178,7 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
 
     /// Calculate skin-friction coefficient `Cf = 0.664 / sqrt(Re_x)`.
     pub fn skin_friction_coefficient(&self) -> Dimensionless<T> {
-        let factor = scalar::from_f64::<T>(0.664);
+        let factor = <T as FloatElement>::from_f64(0.664);
         Dimensionless::from_base(factor / scalar::sqrt(self.local_reynolds().into_base()))
     }
 
@@ -193,10 +194,10 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     /// Get normalized velocity u/U at similarity variable η
     /// Uses linear interpolation from tabulated Blasius solution
     fn velocity_ratio_at_eta(&self, eta: T) -> T {
-        let eta_f64 = scalar::to_f64(eta);
+        let eta_f64 = <T as NumericElement>::to_f64(eta);
         let zero = scalar::zero::<T>();
         let one = scalar::one::<T>();
-        let eight = scalar::from_f64(8.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
 
         if eta <= zero {
             return zero;
@@ -215,8 +216,9 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
         let (eta2, _, f2, _) = BLASIUS_TABLE[i + 1];
 
         // Linear interpolation
-        let frac = scalar::from_f64::<T>((eta_f64 - eta1) / (eta2 - eta1));
-        scalar::from_f64::<T>(f1) + frac * (scalar::from_f64::<T>(f2) - scalar::from_f64::<T>(f1))
+        let frac = <T as FloatElement>::from_f64((eta_f64 - eta1) / (eta2 - eta1));
+        <T as FloatElement>::from_f64(f1)
+            + frac * (<T as FloatElement>::from_f64(f2) - <T as FloatElement>::from_f64(f1))
     }
 
     /// Get velocity at physical coordinates `(x, y)`.
@@ -231,9 +233,9 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     /// Get wall-normal velocity component v/U at similarity variable
     /// v/U = (1/2) * sqrt(ν/(Ux)) * (ηf' - f)
     fn normal_velocity_ratio_at_eta(&self, eta: T) -> T {
-        let eta_f64 = scalar::to_f64(eta);
+        let eta_f64 = <T as NumericElement>::to_f64(eta);
         let zero = scalar::zero::<T>();
-        let eight = scalar::from_f64(8.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
 
         if eta <= zero {
             return zero;
@@ -257,7 +259,7 @@ impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
         let fp = fp1 + frac * (fp2 - fp1);
 
         // Calculate (ηf' - f) / 2
-        scalar::from_f64((eta_f64 * fp - f) * 0.5)
+        <T as FloatElement>::from_f64((eta_f64 * fp - f) * 0.5)
     }
 }
 
@@ -296,12 +298,12 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for BlasiusBounda
 
     fn domain_bounds(&self) -> [T; 6] {
         let delta = self.boundary_layer_thickness().into_base();
-        let length = scalar::from_f64::<T>(10.0) * self.x.into_base();
+        let length = <T as FloatElement>::from_f64(10.0) * self.x.into_base();
         [
             scalar::zero::<T>(),
             length, // x: [0, 10x]
             scalar::zero::<T>(),
-            delta * scalar::from_f64::<T>(5.0), // y: [0, 5δ]
+            delta * <T as FloatElement>::from_f64(5.0), // y: [0, 5δ]
             scalar::zero::<T>(),
             scalar::zero::<T>(), // z: 0 (2D flow)
         ]

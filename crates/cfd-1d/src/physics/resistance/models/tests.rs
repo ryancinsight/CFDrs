@@ -1,4 +1,5 @@
-use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use super::{darcy_weisbach::DarcyWeisbachModel, hagen_poiseuille::HagenPoiseuilleModel};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,

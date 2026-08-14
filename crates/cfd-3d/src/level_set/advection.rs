@@ -5,12 +5,11 @@
 //! Smaller domains fall back to first-order upwind so the solver remains
 //! well-defined on the boundary-test meshes used throughout the crate.
 
-use super::{
-    config::LevelSetConfig,
-    scalar::{self, LevelSetScalar},
-    weno::weno5_derivative,
-};
+use super::{config::LevelSetConfig, weno::weno5_derivative};
+use crate::scalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
 #[inline]
@@ -35,7 +34,7 @@ pub(super) fn advance<T>(
     phi_reinit: &mut [T],
 ) -> Result<()>
 where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     validate_transport_inputs(dx, dy, dz, dt, velocity)?;
 
@@ -65,7 +64,7 @@ where
 
 fn validate_transport_inputs<T>(dx: T, dy: T, dz: T, dt: T, velocity: &[Vector3<T>]) -> Result<()>
 where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     if !scalar::is_finite(dt) || dt <= scalar::zero::<T>() {
         return Err(Error::InvalidConfiguration(
@@ -186,14 +185,14 @@ fn advance_weno5_rk3<T>(
     phi: &mut [T],
     phi_reinit: &mut [T],
 ) where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     let zero = scalar::zero::<T>();
     let one = scalar::one::<T>();
-    let quarter = scalar::from_f64::<T>(0.25);
-    let three_quarters = scalar::from_f64::<T>(0.75);
-    let one_third = scalar::from_f64::<T>(1.0 / 3.0);
-    let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+    let quarter = <T as FloatElement>::from_f64(0.25);
+    let three_quarters = <T as FloatElement>::from_f64(0.75);
+    let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+    let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
 
     rk3_stage_weno(
         nx,
@@ -263,7 +262,7 @@ fn rk3_stage_weno<T>(
     source_weight: T,
     stage_weight: T,
 ) where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     for k in 3..nz.saturating_sub(3) {
         for j in 3..ny.saturating_sub(3) {
@@ -291,7 +290,7 @@ fn advance_first_order_euler<T>(
     phi_previous: &[T],
     phi: &mut [T],
 ) where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     for k in 1..nz.saturating_sub(1) {
         for j in 1..ny.saturating_sub(1) {
@@ -322,7 +321,7 @@ fn weno_transport_term<T>(
     k: usize,
 ) -> T
 where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     let idx = linear_index(nx, ny, i, j, k);
 
@@ -374,7 +373,7 @@ fn first_order_transport_term<T>(
     k: usize,
 ) -> T
 where
-    T: LevelSetScalar,
+    T: CfdScalar,
 {
     let idx = linear_index(nx, ny, i, j, k);
 

@@ -43,9 +43,10 @@
 //! - Kreutzer, M. T. et al. (2005). "Inertial and interfacial effects on pressure
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +66,7 @@ pub struct SlugFlowModel<T> {
     pub surface_tension: T,
 }
 
-impl<T: ResistanceScalar> SlugFlowModel<T> {
+impl<T: CfdScalar> SlugFlowModel<T> {
     /// Create a new Slug Flow resistance model
     pub fn new(diameter: T, length: T, slug_length: T, surface_tension: T) -> Self {
         Self {
@@ -77,7 +78,7 @@ impl<T: ResistanceScalar> SlugFlowModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -102,13 +103,12 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
                 vel
             } else if let Some(q) = conditions.flow_rate {
                 let pi = T::pi();
-                let area = pi * self.diameter * self.diameter
-                    / (T::one() + T::one() + T::one() + T::one());
+                let area = pi * self.diameter * self.diameter / (T::ONE + T::ONE + T::ONE + T::ONE);
                 q / area
             } else {
-                T::zero()
+                T::ZERO
             };
-            scalar_from_f64::<T>(8.0) * v / self.diameter
+            <T as FloatElement>::from_f64(8.0) * v / self.diameter
         };
 
         let viscosity = fluid
@@ -119,10 +119,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
         let re_over_ca = (density * self.diameter * self.surface_tension) / (viscosity * viscosity);
 
         // Multiplier = 1.0 + 0.17 * (D / L_s) * (Re/Ca)^(1/3)
-        let one = T::one();
-        let kreutzer = scalar_from_f64::<T>(KREUTZER_CONSTANT);
+        let one = T::ONE;
+        let kreutzer = <T as FloatElement>::from_f64(KREUTZER_CONSTANT);
         let geometric_ratio = self.diameter / self.slug_length;
-        let third = one / scalar_from_f64::<T>(3.0);
+        let third = one / <T as FloatElement>::from_f64(3.0);
 
         // Since Re/Ca is strictly non-negative (density, dia, tension, viscosity are positive)
         let multiplier =
@@ -130,7 +130,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
 
         // Base Hagen-Poiseuille resistance
         let pi = T::pi();
-        let coefficient = scalar_from_f64::<T>(HAGEN_POISEUILLE_COEFFICIENT);
+        let coefficient = <T as FloatElement>::from_f64(HAGEN_POISEUILLE_COEFFICIENT);
         let d2 = self.diameter * self.diameter;
         let d4 = d2 * d2;
         let r_linear = coefficient * viscosity * self.length / (pi * d4);
@@ -138,7 +138,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
         // Effective total resistance
         let r_slug = r_linear * multiplier;
 
-        Ok((r_slug, T::zero()))
+        Ok((r_slug, T::ZERO))
     }
 
     fn model_name(&self) -> &'static str {
@@ -146,7 +146,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), scalar_from_f64::<T>(2000.0))
+        (T::ZERO, <T as FloatElement>::from_f64(2000.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -156,20 +156,20 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
     ) -> Result<()> {
         self.validate_mach_number(fluid, conditions)?;
 
-        if self.diameter <= T::zero() {
+        if self.diameter <= T::ZERO {
             return Err(Error::PhysicsViolation("Diameter must be positive".into()));
         }
-        if self.slug_length <= T::zero() {
+        if self.slug_length <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Slug length must be positive".into(),
             ));
         }
-        if self.length < T::zero() {
+        if self.length < T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Length must be non-negative".into(),
             ));
         }
-        if self.surface_tension <= T::zero() {
+        if self.surface_tension <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Surface tension must be positive".into(),
             ));

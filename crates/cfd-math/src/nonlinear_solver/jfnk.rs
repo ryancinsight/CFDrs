@@ -83,22 +83,17 @@ pub struct JfnkConfig<T: RealField> {
     pub eta_max: T,
 }
 
-#[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
 impl<T: RealField + FloatElement> Default for JfnkConfig<T> {
     fn default() -> Self {
         Self {
             max_newton_iterations: 50,
-            atol: from_f64(1e-10),
-            rtol: from_f64(1e-8),
+            atol: <T as FloatElement>::from_f64(1e-10),
+            rtol: <T as FloatElement>::from_f64(1e-8),
             max_krylov_iterations: 200,
             krylov_restart: 30,
-            inner_tol_init: from_f64(0.5),
-            eta_min: from_f64(1e-4),
-            eta_max: from_f64(0.9),
+            inner_tol_init: <T as FloatElement>::from_f64(0.5),
+            eta_min: <T as FloatElement>::from_f64(1e-4),
+            eta_max: <T as FloatElement>::from_f64(0.9),
         }
     }
 }
@@ -179,7 +174,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
         let eps_mach = T::EPSILON;
         let sqrt_eps = NumericElement::sqrt(eps_mach);
         let norm_v = norm(v);
-        if norm_v < eps_mach * from_f64(100.0) {
+        if norm_v < eps_mach * <T as FloatElement>::from_f64(100.0) {
             sqrt_eps
         } else {
             sqrt_eps * (T::ONE + norm(x)) / norm_v

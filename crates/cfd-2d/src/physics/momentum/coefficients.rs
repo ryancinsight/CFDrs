@@ -47,13 +47,12 @@ use super::coefficient_corrections::{
 use super::solver::MomentumComponent;
 use super::tvd_limiters::{Minmod, Superbee, VanLeer};
 use crate::fields::{Field2D, SimulationFields};
-use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Coefficients for momentum discretization
 #[derive(Debug, Clone)]
-pub struct MomentumCoefficients<T: Cfd2dScalar + Copy> {
+pub struct MomentumCoefficients<T: CfdScalar + Copy> {
     /// Central coefficient (aP)
     pub ap: Field2D<T>,
     /// Consistent diagonal coefficient (aP - sum(aNb)) for SIMPLEC
@@ -140,7 +139,7 @@ impl Default for ConvectionScheme {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
+impl<T: CfdScalar + Copy + FloatElement> MomentumCoefficients<T> {
     /// Compute momentum equation coefficients with advanced convection scheme
     ///
     /// # Arguments
@@ -160,13 +159,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
         scheme: ConvectionScheme,
     ) -> cfd_core::error::Result<Self> {
         let mut coeffs = Self {
-            ap: Field2D::new(nx, ny, T::zero()),
-            ap_consistent: Field2D::new(nx, ny, T::zero()),
-            ae: Field2D::new(nx, ny, T::zero()),
-            aw: Field2D::new(nx, ny, T::zero()),
-            an: Field2D::new(nx, ny, T::zero()),
-            as_: Field2D::new(nx, ny, T::zero()),
-            source: Field2D::new(nx, ny, T::zero()),
+            ap: Field2D::new(nx, ny, T::ZERO),
+            ap_consistent: Field2D::new(nx, ny, T::ZERO),
+            ae: Field2D::new(nx, ny, T::ZERO),
+            aw: Field2D::new(nx, ny, T::ZERO),
+            an: Field2D::new(nx, ny, T::ZERO),
+            as_: Field2D::new(nx, ny, T::ZERO),
+            source: Field2D::new(nx, ny, T::ZERO),
         };
         coeffs.compute_into(nx, ny, dx, dy, dt, component, fields, scheme)?;
         Ok(coeffs)
@@ -184,13 +183,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
         fields: &SimulationFields<T>,
         scheme: ConvectionScheme,
     ) -> cfd_core::error::Result<()> {
-        self.ap.data.fill(T::zero());
-        self.ap_consistent.data.fill(T::zero());
-        self.ae.data.fill(T::zero());
-        self.aw.data.fill(T::zero());
-        self.an.data.fill(T::zero());
-        self.as_.data.fill(T::zero());
-        self.source.data.fill(T::zero());
+        self.ap.data.fill(T::ZERO);
+        self.ap_consistent.data.fill(T::ZERO);
+        self.ae.data.fill(T::ZERO);
+        self.aw.data.fill(T::ZERO);
+        self.an.data.fill(T::ZERO);
+        self.as_.data.fill(T::ZERO);
+        self.source.data.fill(T::ZERO);
 
         // Compute diffusion coefficients with proper finite volume scaling
         // Diffusion flux through a face = -μ * A * ∂φ/∂n / Δn
@@ -236,11 +235,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                 let (u, v) = match component {
                     MomentumComponent::U => {
                         let u = fields.u.at(i, j);
-                        let v = (fields.v.at(i, j) + fields.v.at(i + 1, j)) / (T::one() + T::one());
+                        let v = (fields.v.at(i, j) + fields.v.at(i + 1, j)) / (T::ONE + T::ONE);
                         (u, v)
                     }
                     MomentumComponent::V => {
-                        let u = (fields.u.at(i, j) + fields.u.at(i, j + 1)) / (T::one() + T::one());
+                        let u = (fields.u.at(i, j) + fields.u.at(i, j + 1)) / (T::ONE + T::ONE);
                         let v = fields.v.at(i, j);
                         (u, v)
                     }
@@ -252,7 +251,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                 let mass_flux_x = rho * u * dy;
                 let mass_flux_y = rho * v * dx;
 
-                if u > T::zero() {
+                if u > T::ZERO {
                     let aw_val = self.aw.at(i, j);
                     if let Some(aw) = self.aw.at_mut(i, j) {
                         *aw = aw_val + mass_flux_x;
@@ -264,7 +263,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                     }
                 }
 
-                if v > T::zero() {
+                if v > T::ZERO {
                     let as_val = self.as_.at(i, j);
                     if let Some(as_) = self.as_.at_mut(i, j) {
                         *as_ = as_val + mass_flux_y;
@@ -300,20 +299,20 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                         );
                     }
                     ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
-                        let alpha: T = scalar::from_f64(relaxation_factor);
+                        let alpha: T = <T as FloatElement>::from_f64(relaxation_factor);
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
                             compute_quick_correction_x(i, j, u, rho, dy, fields, component)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         // Compute QUICK-upwind correction for Y-direction
                         let quick_correction_y = if j >= 2 && j < ny - 2 {
                             compute_quick_correction_y(i, j, v, rho, dx, fields, component)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         // Add deferred correction to source with under-relaxation
@@ -324,19 +323,19 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
-                        let alpha: T = scalar::from_f64(relaxation_factor);
+                        let alpha: T = <T as FloatElement>::from_f64(relaxation_factor);
                         let limiter = Superbee;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
                             compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         if let Some(source) = self.source.at_mut(i, j) {
@@ -345,19 +344,19 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
-                        let alpha: T = scalar::from_f64(relaxation_factor);
+                        let alpha: T = <T as FloatElement>::from_f64(relaxation_factor);
                         let limiter = VanLeer;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
                             compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         if let Some(source) = self.source.at_mut(i, j) {
@@ -366,19 +365,19 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
-                        let alpha: T = scalar::from_f64(relaxation_factor);
+                        let alpha: T = <T as FloatElement>::from_f64(relaxation_factor);
                         let limiter = Minmod;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
                             compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
-                            T::zero()
+                            T::ZERO
                         };
 
                         if let Some(source) = self.source.at_mut(i, j) {
@@ -422,9 +421,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                 // This represents the part of aP that does not depend on neighbor velocities.
                 // For SIMPLEC consistency, we use this in the velocity correction equation.
                 if let Some(ap_c) = self.ap_consistent.at_mut(i, j) {
-                    let gamma: T = scalar::from_f64(0.85);
+                    let gamma: T = <T as FloatElement>::from_f64(0.85);
                     let val = ap_val - ap_sum * gamma;
-                    let eps: T = scalar::from_f64(1e-10);
+                    let eps: T = <T as FloatElement>::from_f64(1e-10);
 
                     *ap_c = if val > eps { val } else { eps };
                 }
@@ -450,20 +449,20 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
                         // -∂p/∂x using central difference
                         if i > 0 && i < nx - 1 {
                             -(fields.p.at(i + 1, j) - fields.p.at(i - 1, j))
-                                / (T::one() + T::one())
+                                / (T::ONE + T::ONE)
                                 / dx
                         } else {
-                            T::zero()
+                            T::ZERO
                         }
                     }
                     MomentumComponent::V => {
                         // -∂p/∂y using central difference
                         if j > 0 && j < ny - 1 {
                             -(fields.p.at(i, j + 1) - fields.p.at(i, j - 1))
-                                / (T::one() + T::one())
+                                / (T::ONE + T::ONE)
                                 / dy
                         } else {
-                            T::zero()
+                            T::ZERO
                         }
                     }
                 };

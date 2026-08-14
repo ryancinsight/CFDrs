@@ -7,12 +7,13 @@
 
 use crate::fields::Field2D;
 use crate::fields::SimulationFields;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 use super::super::solver::MomentumComponent;
 
 #[inline]
-pub fn compute_second_order_correction_x<T: Cfd2dScalar + Copy>(
+pub fn compute_second_order_correction_x<T: CfdScalar + Copy>(
     i: usize,
     j: usize,
     u: T,
@@ -21,18 +22,18 @@ pub fn compute_second_order_correction_x<T: Cfd2dScalar + Copy>(
     fields: &SimulationFields<T>,
     component: MomentumComponent,
 ) -> T {
-    let half = T::one() / (T::one() + T::one());
-    let phi_face = if u > T::zero() {
+    let half = T::ONE / (T::ONE + T::ONE);
+    let phi_face = if u > T::ZERO {
         match component {
             MomentumComponent::U => {
                 let phi_im1 = fields.u.at(i - 1, j);
                 let phi_i = fields.u.at(i, j);
-                (T::one() + half) * phi_i - half * phi_im1
+                (T::ONE + half) * phi_i - half * phi_im1
             }
             MomentumComponent::V => {
                 let phi_im1 = fields.v.at(i - 1, j);
                 let phi_i = fields.v.at(i, j);
-                (T::one() + half) * phi_i - half * phi_im1
+                (T::ONE + half) * phi_i - half * phi_im1
             }
         }
     } else {
@@ -40,17 +41,17 @@ pub fn compute_second_order_correction_x<T: Cfd2dScalar + Copy>(
             MomentumComponent::U => {
                 let phi_ip1 = fields.u.at(i + 1, j);
                 let phi_ip2 = fields.u.at(i + 2, j);
-                (T::one() + half) * phi_ip1 - half * phi_ip2
+                (T::ONE + half) * phi_ip1 - half * phi_ip2
             }
             MomentumComponent::V => {
                 let phi_ip1 = fields.v.at(i + 1, j);
                 let phi_ip2 = fields.v.at(i + 2, j);
-                (T::one() + half) * phi_ip1 - half * phi_ip2
+                (T::ONE + half) * phi_ip1 - half * phi_ip2
             }
         }
     };
 
-    let phi_upwind = if u > T::zero() {
+    let phi_upwind = if u > T::ZERO {
         match component {
             MomentumComponent::U => fields.u.at(i, j),
             MomentumComponent::V => fields.v.at(i, j),
@@ -66,7 +67,7 @@ pub fn compute_second_order_correction_x<T: Cfd2dScalar + Copy>(
 }
 
 #[inline]
-pub fn compute_second_order_correction_y<T: Cfd2dScalar + Copy>(
+pub fn compute_second_order_correction_y<T: CfdScalar + Copy>(
     i: usize,
     j: usize,
     v: T,
@@ -75,18 +76,18 @@ pub fn compute_second_order_correction_y<T: Cfd2dScalar + Copy>(
     fields: &SimulationFields<T>,
     component: MomentumComponent,
 ) -> T {
-    let half = T::one() / (T::one() + T::one());
-    let phi_face = if v > T::zero() {
+    let half = T::ONE / (T::ONE + T::ONE);
+    let phi_face = if v > T::ZERO {
         match component {
             MomentumComponent::U => {
                 let phi_jm1 = fields.u.at(i, j - 1);
                 let phi_j = fields.u.at(i, j);
-                (T::one() + half) * phi_j - half * phi_jm1
+                (T::ONE + half) * phi_j - half * phi_jm1
             }
             MomentumComponent::V => {
                 let phi_jm1 = fields.v.at(i, j - 1);
                 let phi_j = fields.v.at(i, j);
-                (T::one() + half) * phi_j - half * phi_jm1
+                (T::ONE + half) * phi_j - half * phi_jm1
             }
         }
     } else {
@@ -94,17 +95,17 @@ pub fn compute_second_order_correction_y<T: Cfd2dScalar + Copy>(
             MomentumComponent::U => {
                 let phi_jp1 = fields.u.at(i, j + 1);
                 let phi_jp2 = fields.u.at(i, j + 2);
-                (T::one() + half) * phi_jp1 - half * phi_jp2
+                (T::ONE + half) * phi_jp1 - half * phi_jp2
             }
             MomentumComponent::V => {
                 let phi_jp1 = fields.v.at(i, j + 1);
                 let phi_jp2 = fields.v.at(i, j + 2);
-                (T::one() + half) * phi_jp1 - half * phi_jp2
+                (T::ONE + half) * phi_jp1 - half * phi_jp2
             }
         }
     };
 
-    let phi_upwind = if v > T::zero() {
+    let phi_upwind = if v > T::ZERO {
         match component {
             MomentumComponent::U => fields.u.at(i, j),
             MomentumComponent::V => fields.v.at(i, j),
@@ -120,7 +121,7 @@ pub fn compute_second_order_correction_y<T: Cfd2dScalar + Copy>(
 }
 
 #[inline]
-pub fn apply_second_order_deferred_correction<T: Cfd2dScalar + Copy>(
+pub fn apply_second_order_deferred_correction<T: CfdScalar + Copy>(
     source: &mut Field2D<T>,
     i: usize,
     j: usize,
@@ -135,18 +136,18 @@ pub fn apply_second_order_deferred_correction<T: Cfd2dScalar + Copy>(
     component: MomentumComponent,
     relaxation_factor: f64,
 ) {
-    let alpha = crate::scalar::from_f64::<T>(relaxation_factor);
+    let alpha = <T as FloatElement>::from_f64(relaxation_factor);
 
     let correction_x = if i >= 1 && i < nx - 2 {
         compute_second_order_correction_x(i, j, u, rho, dy, fields, component)
     } else {
-        T::zero()
+        T::ZERO
     };
 
     let correction_y = if j >= 1 && j < ny - 2 {
         compute_second_order_correction_y(i, j, v, rho, dx, fields, component)
     } else {
-        T::zero()
+        T::ZERO
     };
 
     if let Some(source) = source.at_mut(i, j) {

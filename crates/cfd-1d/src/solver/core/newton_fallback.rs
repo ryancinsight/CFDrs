@@ -62,7 +62,8 @@ use leto::Array1;
 use super::linear_system::{LinearSolverMethod, LinearSystemSolver};
 use super::matrix_assembly::MatrixAssembler;
 use super::workspace::SolverWorkspace;
-use super::{Network, NetworkSolveScalar};
+use super::Network;
+use cfd_core::CfdScalar;
 use cfd_core::physics::fluid::FluidTrait;
 
 /// Configuration for the JFNK fallback.
@@ -166,7 +167,7 @@ pub(super) fn jfnk_fallback<T, F>(
     warm_solution: &Array1<T>,
 ) -> Result<Array1<T>>
 where
-    T: NetworkSolveScalar,
+    T: CfdScalar,
     F: FluidTrait<T> + Clone,
 {
     let n = network_snapshot.node_count();

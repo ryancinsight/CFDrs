@@ -4,10 +4,10 @@
 //! bifurcation following Murray's Law principles.
 
 use super::law::MurraysLaw;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Angle, Dimensionless, DynamicViscosity, Length, Pressure, VolumetricFlowRate,
 };
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// Calculates optimal diameters, angles, and flow distribution for a
 /// bifurcation following Murray's Law principles.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct OptimalBifurcation<T: Cfd1dScalar + Copy> {
+pub struct OptimalBifurcation<T: CfdScalar + Copy> {
     /// Parent vessel diameter \[m]
     pub parent_diameter: Length<T>,
     /// Major daughter diameter \[m]
@@ -35,7 +35,7 @@ pub struct OptimalBifurcation<T: Cfd1dScalar + Copy> {
     pub daughter2_flow: VolumetricFlowRate<T>,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
+impl<T: CfdScalar + FloatElement + Copy> OptimalBifurcation<T> {
     /// Create symmetric bifurcation following Murray's Law
     ///
     /// # Theorem: Optimal Symmetric Branching Angle
@@ -55,11 +55,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
         let murray = MurraysLaw::<T>::new();
         let d_daughter = murray.symmetric_daughter_diameter(parent_diameter.into_base());
 
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         let daughter_flow = VolumetricFlowRate::from_base(parent_flow.into_base() / two);
 
         // cos(θ) = 2^(−1/3)
-        let one_third = T::one() / (T::one() + T::one() + T::one());
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
         let cos_theta = <T as FloatElement>::powf(two, -one_third);
         let angle = Angle::from_base(<T as FloatElement>::acos(cos_theta));
 
@@ -91,7 +91,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
         parent_flow: VolumetricFlowRate<T>,
         flow_ratio: T,
     ) -> Self {
-        let one = T::one();
+        let one = T::ONE;
         let parent_diameter_base = parent_diameter.into_base();
         let parent_flow_base = parent_flow.into_base();
 
@@ -99,7 +99,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
         let q2 = VolumetricFlowRate::from_base(parent_flow_base * (one - flow_ratio));
 
         // D₁ = D₀ · (Q₁/Q₀)^(1/3), D₂ = D₀ · (Q₂/Q₀)^(1/3)
-        let one_third = one / (T::one() + T::one() + T::one());
+        let one_third = one / (T::ONE + T::ONE + T::ONE);
         let d1 = parent_diameter_base * <T as FloatElement>::powf(flow_ratio, one_third);
         let d2 = parent_diameter_base * <T as FloatElement>::powf(one - flow_ratio, one_third);
 
@@ -110,7 +110,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
         let d0_4 = d0_sq * d0_sq;
         let d1_4 = d1_sq * d1_sq;
         let d2_4 = d2_sq * d2_sq;
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
 
         let cos_theta1 = <T as eunomia::RealField>::clamp(
             (d0_4 + d1_4 - d2_4) / (two * d0_sq * d1_sq),
@@ -181,7 +181,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
     ) -> Pressure<T> {
         let pi = T::pi();
         let eight = <T as FloatElement>::from_f64(8.0);
-        let r = self.daughter1_diameter.into_base() / (T::one() + T::one());
+        let r = self.daughter1_diameter.into_base() / (T::ONE + T::ONE);
         Pressure::from_base(
             eight * viscosity.into_base() * length.into_base() * self.daughter1_flow.into_base()
                 / (pi * <T as FloatElement>::powi(r, 4)),

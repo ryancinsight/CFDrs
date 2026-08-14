@@ -3,13 +3,13 @@
 //! This module provides configurable limit checks to flag channel segments that
 //! may exceed blood-handling shear thresholds used during device risk screening.
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Dimensionless, Pressure, ReciprocalTime, Time};
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 
 /// Configurable blood shear limits used to flag potentially unsafe conditions.
 #[derive(Debug, Clone)]
-pub struct BloodShearLimits<T: Cfd1dScalar + Copy> {
+pub struct BloodShearLimits<T: CfdScalar + Copy> {
     /// Maximum allowable wall shear stress \[Pa].
     pub max_wall_shear_stress_pa: Pressure<T>,
     /// Optional maximum allowable wall shear rate [1/s].
@@ -20,7 +20,7 @@ pub struct BloodShearLimits<T: Cfd1dScalar + Copy> {
     pub max_taskin_hi: Option<Dimensionless<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> BloodShearLimits<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> BloodShearLimits<T> {
     /// Conservative default profile for FDA-oriented whole-blood design screening.
     ///
     /// FDA guidance is risk-based and does not prescribe a single universal shear
@@ -51,7 +51,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> BloodShearLimits<T> {
 
 /// Shear-limit violation details for a single component.
 #[derive(Debug, Clone)]
-pub struct ShearLimitViolation<T: Cfd1dScalar + Copy> {
+pub struct ShearLimitViolation<T: CfdScalar + Copy> {
     /// Component identifier.
     pub component_id: String,
     /// Computed wall shear stress \[Pa].
@@ -68,7 +68,7 @@ pub struct ShearLimitViolation<T: Cfd1dScalar + Copy> {
 
 /// Exposure-time-aware hemolysis-limit violation details for a single component.
 #[derive(Debug, Clone)]
-pub struct HemolysisLimitViolation<T: Cfd1dScalar + Copy> {
+pub struct HemolysisLimitViolation<T: CfdScalar + Copy> {
     /// Component identifier.
     pub component_id: String,
     /// Computed wall shear stress \[Pa].

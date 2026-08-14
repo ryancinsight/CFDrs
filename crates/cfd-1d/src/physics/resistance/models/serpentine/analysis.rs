@@ -5,9 +5,11 @@
 //! Dean flow corrections.
 
 use super::model::SerpentineModel;
-use super::traits::{scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceScalar};
+use super::traits::FlowConditions;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use eunomia::NumericElement;
 
 /// Detailed serpentine flow analysis result
@@ -39,7 +41,7 @@ pub struct SerpentineAnalysis<T> {
     pub num_bends: usize,
 }
 
-impl<T: ResistanceScalar> SerpentineModel<T> {
+impl<T: CfdScalar> SerpentineModel<T> {
     /// Curvature enhancement using Bayat & Rezai (2017) millifluidic correlation.
     ///
     /// This is recommended over [`curvature_enhancement`](Self::curvature_enhancement)
@@ -50,8 +52,8 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
     /// `SerpentineModel` method API so users can easily switch between
     /// Ito (1959) and Bayat & Rezai (2017) correlations.
     pub fn curvature_enhancement_millifluidic(&self, de: T) -> T {
-        let de_f64 = scalar_to_f64::<T>(de);
-        scalar_from_f64::<T>(bayat_rezai_enhancement(de_f64))
+        let de_f64 = <T as NumericElement>::to_f64(de);
+        <T as FloatElement>::from_f64(bayat_rezai_enhancement(de_f64))
     }
 
     /// Perform detailed serpentine flow analysis
@@ -63,8 +65,8 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
         let density = state.density.into_base();
 
-        let dh = scalar_from_f64::<T>(self.cross_section.hydraulic_diameter());
-        let area = scalar_from_f64::<T>(self.cross_section.area());
+        let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
+        let area = <T as FloatElement>::from_f64(self.cross_section.area());
 
         let velocity = if let Some(v) = conditions.velocity {
             v
@@ -78,8 +80,8 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         let velocity_magnitude = <T as NumericElement>::abs(velocity);
 
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
-        let shape_correction = scalar_from_f64::<T>(f_re / 64.0);
-        let eight = scalar_from_f64::<T>(8.0);
+        let shape_correction = <T as FloatElement>::from_f64(f_re / 64.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
         let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         let viscosity = fluid
@@ -90,7 +92,7 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         let re_safe = if reynolds > T::default_epsilon() {
             reynolds
         } else {
-            scalar_from_f64::<T>(0.01)
+            <T as FloatElement>::from_f64(0.01)
         };
 
         let dean = self.dean_number(re_safe);
@@ -100,7 +102,7 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
 
         // Friction in straight sections: Use f_straight (NOT f_curved)
         // Curvature effects are captured in bend losses, not friction along straight sections
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
         let dp_friction = f_straight
             * (self.straight_length / dh)
             * half
@@ -108,7 +110,7 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
             * velocity_magnitude
             * velocity_magnitude;
 
-        let n_bends = scalar_from_f64::<T>(self.num_bends() as f64);
+        let n_bends = <T as FloatElement>::from_f64(self.num_bends() as f64);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
         let dp_bends = n_bends * k_bend * half * density * velocity_magnitude * velocity_magnitude;
 

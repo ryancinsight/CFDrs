@@ -72,39 +72,40 @@ impl<T: RealField + Copy + FloatElement> MomentumConservationChecker<T> {
                     let u_east = u[[i + 1, j]];
                     let u_west = u[[i - 1, j]];
                     let conv_x = self.density
-                        * ((u_east * u_east - u_west * u_west) / (scalar::from_f64::<T>(2.0) * dx)
+                        * ((u_east * u_east - u_west * u_west)
+                            / (<T as FloatElement>::from_f64(2.0) * dx)
                             + (u[[i, j + 1]] * v[[i, j + 1]] - u[[i, j - 1]] * v[[i, j - 1]])
-                                / (scalar::from_f64::<T>(2.0) * dy));
+                                / (<T as FloatElement>::from_f64(2.0) * dy));
 
                     // y-momentum convection
                     let v_north = v[[i, j + 1]];
                     let v_south = v[[i, j - 1]];
                     let conv_y = self.density
                         * ((u[[i + 1, j]] * v[[i + 1, j]] - u[[i - 1, j]] * v[[i - 1, j]])
-                            / (scalar::from_f64::<T>(2.0) * dx)
+                            / (<T as FloatElement>::from_f64(2.0) * dx)
                             + (v_north * v_north - v_south * v_south)
-                                / (scalar::from_f64::<T>(2.0) * dy));
+                                / (<T as FloatElement>::from_f64(2.0) * dy));
 
                     // Pressure gradient: -∇p
                     let dpdx = -(pressure[[i + 1, j]] - pressure[[i - 1, j]])
-                        / (scalar::from_f64::<T>(2.0) * dx);
+                        / (<T as FloatElement>::from_f64(2.0) * dx);
                     let dpdy = -(pressure[[i, j + 1]] - pressure[[i, j - 1]])
-                        / (scalar::from_f64::<T>(2.0) * dy);
+                        / (<T as FloatElement>::from_f64(2.0) * dy);
 
                     // Viscous term: μ∇²u (using central differences)
                     let visc_x = viscosity
-                        * ((u[[i + 1, j]] - scalar::from_f64::<T>(2.0) * u[[i, j]]
+                        * ((u[[i + 1, j]] - <T as FloatElement>::from_f64(2.0) * u[[i, j]]
                             + u[[i - 1, j]])
                             / (dx * dx)
-                            + (u[[i, j + 1]] - scalar::from_f64::<T>(2.0) * u[[i, j]]
+                            + (u[[i, j + 1]] - <T as FloatElement>::from_f64(2.0) * u[[i, j]]
                                 + u[[i, j - 1]])
                                 / (dy * dy));
 
                     let visc_y = viscosity
-                        * ((v[[i + 1, j]] - scalar::from_f64::<T>(2.0) * v[[i, j]]
+                        * ((v[[i + 1, j]] - <T as FloatElement>::from_f64(2.0) * v[[i, j]]
                             + v[[i - 1, j]])
                             / (dx * dx)
-                            + (v[[i, j + 1]] - scalar::from_f64::<T>(2.0) * v[[i, j]]
+                            + (v[[i, j + 1]] - <T as FloatElement>::from_f64(2.0) * v[[i, j]]
                                 + v[[i, j - 1]])
                                 / (dy * dy));
 
@@ -161,8 +162,8 @@ impl<T: RealField + Copy + FloatElement> ConservationChecker<T> for MomentumCons
         // For generic check, assume steady state (u_prev = u), no pressure gradient,
         // and check if viscous forces balance
         let pressure = Array2::zeros([self.nx, self.ny]);
-        let viscosity = scalar::from_f64::<T>(1e-3);
-        let dt = scalar::from_f64::<T>(1e-3);
+        let viscosity = <T as FloatElement>::from_f64(1e-3);
+        let dt = <T as FloatElement>::from_f64(1e-3);
         let dx = scalar::one::<T>();
         let dy = scalar::one::<T>();
         let gravity = Vector2::zeros();

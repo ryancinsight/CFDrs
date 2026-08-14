@@ -11,12 +11,12 @@ use super::super::{
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
 use eunomia::NumericElement;
 use petgraph::graph::NodeIndex;
@@ -52,7 +52,7 @@ pub fn network_from_blueprint<T, F>(
     fluid: F,
 ) -> Result<crate::domain::network::wrapper::Network<T, F>>
 where
-    T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
+    T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
     F: FluidTrait<T> + Clone,
 {
     validate_blueprint_for_1d_solve(blueprint)?;
@@ -331,7 +331,7 @@ where
             refined = venturi_coefficients::<T, F>(venturi, network.fluid()).ok();
         }
 
-        let mut conds = FlowConditions::new(T::zero());
+        let mut conds = FlowConditions::new(T::ZERO);
         conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
         if refined.is_none() {
             refined = calculator
@@ -340,7 +340,7 @@ where
         }
 
         if let Some((r, k)) = refined {
-            let mut resistance_scale = T::one();
+            let mut resistance_scale = T::ONE;
             if let Some(dh_val) = dh {
                 let dh_val = dh_val.into_base();
                 let dh_f64 = <T as NumericElement>::to_f64(dh_val);
@@ -358,7 +358,7 @@ where
                 }
 
                 if is_blood_like && dh_f64 < 300.0e-6 {
-                    let q_seed_t = conds.flow_rate.unwrap_or_else(T::zero);
+                    let q_seed_t = conds.flow_rate.unwrap_or_else(|| T::ZERO);
                     let q_seed = <T as NumericElement>::to_f64(q_seed_t);
                     let area = area.into_base();
                     let area_f64 = <T as NumericElement>::to_f64(area);
@@ -476,7 +476,7 @@ where
                 }
             };
 
-            let mut conds: FC<T> = FC::new(T::zero());
+            let mut conds: FC<T> = FC::new(T::ZERO);
             conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
 
             if let Ok((r_total, k_total)) =
@@ -496,13 +496,13 @@ where
 
     for edge_ref in network.graph.edge_references() {
         let edge = edge_ref.weight();
-        if !edge.resistance.into_base().is_finite() || edge.resistance.into_base() <= T::zero() {
+        if !edge.resistance.into_base().is_finite() || edge.resistance.into_base() <= T::ZERO {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Edge '{}' has invalid effective linear resistance after refinement",
                 edge.id
             )));
         }
-        if !edge.quad_coeff.into_base().is_finite() || edge.quad_coeff.into_base() < T::zero() {
+        if !edge.quad_coeff.into_base().is_finite() || edge.quad_coeff.into_base() < T::ZERO {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Edge '{}' has invalid effective quadratic coefficient after refinement",
                 edge.id
@@ -525,7 +525,7 @@ pub fn apply_blueprint_boundary_conditions<T, F, S>(
     outlet_pressure: Pressure<T>,
 ) -> Result<()>
 where
-    T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
+    T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
     F: FluidTrait<T>,
     S: BuildHasher,
 {

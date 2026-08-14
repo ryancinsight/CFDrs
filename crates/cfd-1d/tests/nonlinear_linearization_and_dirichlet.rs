@@ -7,7 +7,7 @@ use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 use leto::Array1;
 
-fn build_simple_network<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
+fn build_simple_network<T: cfd_core::CfdScalar + Copy + SafeFromF64>() -> (
     Network<T>,
     petgraph::graph::EdgeIndex,
     petgraph::graph::NodeIndex,

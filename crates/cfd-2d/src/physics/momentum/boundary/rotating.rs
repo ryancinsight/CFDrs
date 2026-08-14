@@ -1,11 +1,11 @@
 use super::super::solver::MomentumComponent;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
 /// Apply rotating wall boundary condition: u_wall = ω × r
 /// where r is the position vector from center of rotation
-pub(super) fn apply_rotating_wall_bc<T: Cfd2dScalar + Copy + FloatElement>(
+pub(super) fn apply_rotating_wall_bc<T: CfdScalar + Copy + FloatElement>(
     component: MomentumComponent,
     omega: &Vector3<T>,
     center: &Vector3<T>,

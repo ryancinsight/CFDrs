@@ -27,7 +27,7 @@ use super::config::PressureLinearSolver;
 use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov::{self, KrylovResult};
 use cfd_math::multigrid::AlgebraicMultigrid;
 use eunomia::FloatElement;
@@ -39,7 +39,7 @@ use std::fmt::Debug;
 /// committed validation-test runtime budget on the supported CPU path.
 const AMG_SETUP_MATRIX_SIZE_LIMIT: usize = 10_000;
 
-impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrectionSolver<T> {
+impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrectionSolver<T> {
     /// Dispatch a linear solve to the configured solver backend
     pub(super) fn dispatch_solve(
         &self,

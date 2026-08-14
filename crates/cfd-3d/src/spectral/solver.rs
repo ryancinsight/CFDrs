@@ -91,7 +91,6 @@
 
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
-use crate::scalar;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, RealField};
 use leto::Array1;
@@ -146,7 +145,7 @@ where
         }
         Ok(Self {
             base: cfd_core::compute::solver::SolverConfig::builder()
-                .tolerance(scalar::from_f64::<T>(1e-10))
+                .tolerance(<T as FloatElement>::from_f64(1e-10))
                 .max_iterations(100)
                 .build(),
             nx_modes: nx,

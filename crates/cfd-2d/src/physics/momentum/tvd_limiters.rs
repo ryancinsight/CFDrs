@@ -61,14 +61,15 @@
 //! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
 //! is exactly conserved to machine precision.
 
-use crate::scalar::{from_f64, Cfd2dScalar};
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use eunomia::NumericElement;
 
 /// Trait for TVD flux limiters
 ///
 /// Implements the limiter function ψ(r) that controls high-order
 /// interpolation to maintain TVD property.
-pub trait TvdLimiter<T: Cfd2dScalar + Copy> {
+pub trait TvdLimiter<T: CfdScalar + Copy> {
     /// Compute limiter function ψ(r)
     ///
     /// # Arguments
@@ -91,13 +92,15 @@ pub trait TvdLimiter<T: Cfd2dScalar + Copy> {
     /// # Returns
     /// Limited face value: φ_face = φ_C + 0.5 * ψ(r) * (φ_D - φ_C)
     fn interpolate_face(&self, phi_u: T, phi_c: T, phi_d: T) -> T {
-        let half = from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         // Compute gradient ratio r = (φ_C - φ_U) / (φ_D - φ_C)
         let denominator = phi_d - phi_c;
 
         // Handle zero or near-zero denominator (uniform region)
-        if <T as NumericElement>::abs(denominator) < T::default_epsilon() * from_f64::<T>(10.0) {
+        if <T as NumericElement>::abs(denominator)
+            < T::default_epsilon() * <T as FloatElement>::from_f64(10.0)
+        {
             return phi_c;
         }
 
@@ -124,10 +127,10 @@ pub trait TvdLimiter<T: Cfd2dScalar + Copy> {
 #[derive(Debug, Clone, Copy)]
 pub struct Superbee;
 
-impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for Superbee {
+impl<T: CfdScalar + Copy> TvdLimiter<T> for Superbee {
     fn limit(&self, r: T) -> T {
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
         let two = one + one;
 
         if r <= zero {
@@ -160,10 +163,10 @@ impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for Superbee {
 #[derive(Debug, Clone, Copy)]
 pub struct VanLeer;
 
-impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for VanLeer {
+impl<T: CfdScalar + Copy> TvdLimiter<T> for VanLeer {
     fn limit(&self, r: T) -> T {
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
 
         if r <= zero {
             zero
@@ -194,10 +197,10 @@ impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for VanLeer {
 #[derive(Debug, Clone, Copy)]
 pub struct Minmod;
 
-impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for Minmod {
+impl<T: CfdScalar + Copy> TvdLimiter<T> for Minmod {
     fn limit(&self, r: T) -> T {
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
 
         if r <= zero {
             zero
@@ -226,12 +229,12 @@ impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for Minmod {
 #[derive(Debug, Clone, Copy)]
 pub struct MonotonizedCentral;
 
-impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for MonotonizedCentral {
+impl<T: CfdScalar + Copy> TvdLimiter<T> for MonotonizedCentral {
     fn limit(&self, r: T) -> T {
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
         let two = one + one;
-        let half = from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         if r <= zero {
             zero
@@ -261,9 +264,9 @@ impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for MonotonizedCentral {
 #[derive(Debug, Clone, Copy)]
 pub struct UpwindLimiter;
 
-impl<T: Cfd2dScalar + Copy> TvdLimiter<T> for UpwindLimiter {
+impl<T: CfdScalar + Copy> TvdLimiter<T> for UpwindLimiter {
     fn limit(&self, _r: T) -> T {
-        T::zero()
+        T::ZERO
     }
 
     fn name(&self) -> &'static str {

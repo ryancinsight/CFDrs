@@ -9,11 +9,11 @@
 use crate::fields::Field2D;
 use crate::fields::SimulationFields;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::schemes::constants::WENO_EPSILON;
 use crate::schemes::weno_helpers::{
     weno5_candidate_fluxes, weno5_smoothness_indicators, weno5_z_weights,
 };
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use super::super::solver::MomentumComponent;
@@ -21,7 +21,7 @@ use super::super::solver::MomentumComponent;
 #[inline]
 fn weno5_face_value<T>(values: [T; 5], velocity: T, epsilon: T) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     let samples = if velocity > scalar::zero() {
         values
@@ -35,7 +35,7 @@ where
 }
 
 #[inline]
-pub fn compute_weno_z_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn compute_weno_z_correction_x<T: CfdScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     u: T,
@@ -44,7 +44,7 @@ pub fn compute_weno_z_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
     fields: &SimulationFields<T>,
     component: MomentumComponent,
 ) -> T {
-    let epsilon = scalar::from_f64(WENO_EPSILON);
+    let epsilon = <T as FloatElement>::from_f64(WENO_EPSILON);
     let values = match component {
         MomentumComponent::U => [
             fields.u.at(i - 2, j),
@@ -73,7 +73,7 @@ pub fn compute_weno_z_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
 }
 
 #[inline]
-pub fn compute_weno_z_correction_y<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn compute_weno_z_correction_y<T: CfdScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     v: T,
@@ -82,7 +82,7 @@ pub fn compute_weno_z_correction_y<T: Cfd2dScalar + Copy + FloatElement>(
     fields: &SimulationFields<T>,
     component: MomentumComponent,
 ) -> T {
-    let epsilon = scalar::from_f64(WENO_EPSILON);
+    let epsilon = <T as FloatElement>::from_f64(WENO_EPSILON);
     let values = match component {
         MomentumComponent::U => [
             fields.u.at(i, j - 2),
@@ -111,7 +111,7 @@ pub fn compute_weno_z_correction_y<T: Cfd2dScalar + Copy + FloatElement>(
 }
 
 #[inline]
-pub fn apply_weno_z_deferred_correction<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn apply_weno_z_deferred_correction<T: CfdScalar + Copy + FloatElement>(
     source: &mut Field2D<T>,
     i: usize,
     j: usize,
@@ -126,7 +126,7 @@ pub fn apply_weno_z_deferred_correction<T: Cfd2dScalar + Copy + FloatElement>(
     component: MomentumComponent,
     relaxation_factor: f64,
 ) {
-    let alpha: T = scalar::from_f64(relaxation_factor);
+    let alpha: T = <T as FloatElement>::from_f64(relaxation_factor);
 
     let correction_x = if i >= 2 && i < nx - 2 {
         compute_weno_z_correction_x(i, j, u, rho, dy, fields, component)

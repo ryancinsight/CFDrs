@@ -19,15 +19,15 @@
 //! or when the channel is nanoscale.
 
 use super::geometry::ChannelGeometry;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 
 /// Minimum Knudsen number for slip-flow regime (Schaaf-Chambre 1961)
 pub const KN_SLIP_MIN: f64 = 0.001;
 
 /// Extended channel flow model
 #[derive(Debug, Clone)]
-pub struct Channel<T: Cfd1dScalar + Copy> {
+pub struct Channel<T: CfdScalar + Copy> {
     /// Channel geometry
     pub geometry: ChannelGeometry<T>,
     /// Flow state
@@ -38,7 +38,7 @@ pub struct Channel<T: Cfd1dScalar + Copy> {
 
 /// Flow state information
 #[derive(Debug, Clone)]
-pub struct FlowState<T: Cfd1dScalar + Copy> {
+pub struct FlowState<T: CfdScalar + Copy> {
     /// Reynolds number
     pub reynolds_number: Option<T>,
     /// Knudsen number `Kn = λ / Dh` — `None` if not computed
@@ -72,8 +72,8 @@ impl FlowRegime {
     /// Determine flow regime from Reynolds number alone (no Kn data available).
     ///
     /// Use `classify_with_knudsen` when the Knudsen number is known.
-    pub fn from_reynolds_number<T: Cfd1dScalar + Copy + SafeFromF64>(re: T) -> Self {
-        let re_1 = T::one();
+    pub fn from_reynolds_number<T: CfdScalar + Copy + SafeFromF64>(re: T) -> Self {
+        let re_1 = T::ONE;
         let re_2300 = T::from_f64_or_one(2300.0);
         let re_4000 = T::from_f64_or_one(4000.0);
 
@@ -92,7 +92,7 @@ impl FlowRegime {
     ///
     /// `Kn = λ / Dh` where `λ` is the fluid mean free path and `Dh` is the hydraulic diameter.
     /// When `Kn ≥ 0.001`, slip flow overrides the continuum classification.
-    pub fn classify_with_knudsen<T: Cfd1dScalar + Copy + SafeFromF64>(re: T, kn: T) -> Self {
+    pub fn classify_with_knudsen<T: CfdScalar + Copy + SafeFromF64>(re: T, kn: T) -> Self {
         if kn >= T::from_f64_or_one(KN_SLIP_MIN) {
             FlowRegime::SlipFlow
         } else {
@@ -103,7 +103,7 @@ impl FlowRegime {
 
 /// Numerical parameters for advanced modeling
 #[derive(Debug, Clone)]
-pub struct NumericalParameters<T: Cfd1dScalar + Copy> {
+pub struct NumericalParameters<T: CfdScalar + Copy> {
     /// Number of discretization points
     pub discretization_points: usize,
     /// Convergence tolerance

@@ -89,9 +89,9 @@ impl<T: RealField + Copy + FloatElement> GridConvergenceIndex<T> {
     /// Create GCI calculator with recommended safety factor
     pub fn new(num_grids: usize, order: T, refinement_ratio: T) -> Self {
         let safety_factor = if num_grids >= 3 {
-            scalar::from_f64::<T>(1.25) // Recommended for systematic studies
+            <T as FloatElement>::from_f64(1.25) // Recommended for systematic studies
         } else {
-            scalar::from_f64::<T>(3.0) // Conservative for limited grids
+            <T as FloatElement>::from_f64(3.0) // Conservative for limited grids
         };
 
         Self {
@@ -123,7 +123,7 @@ impl<T: RealField + Copy + FloatElement> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be within 3% of unity for asymptotic range
-        scalar::abs(ratio - scalar::one::<T>()) < scalar::from_f64::<T>(0.03)
+        scalar::abs(ratio - scalar::one::<T>()) < <T as FloatElement>::from_f64(0.03)
     }
 
     /// Compute uncertainty band for solution
@@ -206,7 +206,7 @@ impl<T: RealField + Copy + FloatElement + std::iter::Sum> ConvergenceMonitor<T> 
 
                 // Stalled if CV is very small (< 1% of relative tolerance)
                 // AND error is still above absolute tolerance (otherwise it's converged)
-                if cv < self.rel_tolerance * scalar::from_f64::<T>(0.01)
+                if cv < self.rel_tolerance * <T as FloatElement>::from_f64(0.01)
                     && current_error > self.abs_tolerance
                 {
                     return ConvergenceStatus::Stalled {
@@ -234,7 +234,7 @@ impl<T: RealField + Copy + FloatElement + std::iter::Sum> ConvergenceMonitor<T> 
                 }
 
                 // Check for divergence (error growing by more than 10%)
-                if current_error > prev_error * scalar::from_f64::<T>(1.1) {
+                if current_error > prev_error * <T as FloatElement>::from_f64(1.1) {
                     let growth_rate = current_error / prev_error;
                     return ConvergenceStatus::Diverging {
                         growth_rate,

@@ -25,10 +25,10 @@
 //! - `Cv > 0`: physically required (positive conductance)
 
 use super::{real_from_f64, Component};
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -58,7 +58,7 @@ pub enum ValveType {
 /// Models a proportional valve with flow coefficient `Cv` and fractional opening.
 /// See module docs for the full theorem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Microvalve<T: Cfd1dScalar + Copy> {
+pub struct Microvalve<T: CfdScalar + Copy> {
     /// Flow coefficient [m³/s/√Pa] at full opening
     pub cv: T,
     /// Opening fraction (0 = closed, 1 = fully open; clamped to [0, 1])
@@ -67,12 +67,12 @@ pub struct Microvalve<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Microvalve<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Microvalve<T> {
     /// Create a new microvalve with specified flow coefficient (fully open)
     pub fn new(cv: T) -> Self {
         Self {
             cv,
-            opening: T::one(),
+            opening: T::ONE,
             parameters: HashMap::new(),
         }
     }
@@ -83,27 +83,27 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Microvalve<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for Microvalve<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for Microvalve<T> {
     /// Returns the linear hydraulic resistance.
     ///
     /// - **Closed** (`opening ≤ 0`): large linear resistance `1e12` Pa·s/m³ prevents
     ///   division-by-zero and maintains matrix conditioning.
     /// - **Open**: `0.0` — all losses are quadratic (captured by `coefficients`).
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
-        if self.opening <= T::zero() {
+        if self.opening <= T::ZERO {
             real_from_f64(CLOSED_VALVE_RESISTANCE)
         } else {
-            T::zero()
+            T::ZERO
         }
     }
 
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
-        if self.opening <= T::zero() {
-            (real_from_f64(CLOSED_VALVE_RESISTANCE), T::zero())
+        if self.opening <= T::ZERO {
+            (real_from_f64(CLOSED_VALVE_RESISTANCE), T::ZERO)
         } else {
             // k = 1 / (Cv * opening)^2
             let cv_eff = self.effective_cv();
-            let k = T::one() / (cv_eff * cv_eff);
+            let k = T::ONE / (cv_eff * cv_eff);
             (self.resistance(fluid), k)
         }
     }
@@ -120,10 +120,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for Microvalve<T> {
         match key {
             "cv" => self.cv = value,
             "opening" => {
-                self.opening = if value < T::zero() {
-                    T::zero()
-                } else if value > T::one() {
-                    T::one()
+                self.opening = if value < T::ZERO {
+                    T::ZERO
+                } else if value > T::ONE {
+                    T::ONE
                 } else {
                     value
                 };

@@ -3,7 +3,6 @@
 //! This module provides standard CFD benchmark problems for validating
 //! solver implementations against known solutions.
 
-use crate::scalar;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
@@ -110,9 +109,9 @@ impl<T: RealField + Copy + FloatElement> Default for BenchmarkConfig<T> {
     fn default() -> Self {
         Self {
             resolution: 64,
-            tolerance: scalar::from_f64(1e-6),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             max_iterations: 1000,
-            reynolds_number: scalar::from_f64(100.0),
+            reynolds_number: <T as FloatElement>::from_f64(100.0),
             time_step: None,
             parallel: true,
         }

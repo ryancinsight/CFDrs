@@ -2,14 +2,9 @@ use super::{GmgMatrix, GmgVector};
 use eunomia::{FloatElement, NumericElement, RealField};
 
 #[inline]
-pub(super) fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 pub(super) fn from_usize<T: FloatElement>(value: usize) -> T {
     let value_u64 = u64::try_from(value).expect("invariant: grid dimension fits into u64");
-    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+    <T as FloatElement>::from_f64(<u64 as NumericElement>::to_f64(value_u64))
 }
 
 pub(super) fn l2_norm<T: RealField>(vector: &GmgVector<T>) -> T {

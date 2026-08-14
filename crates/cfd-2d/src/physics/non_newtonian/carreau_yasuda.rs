@@ -34,7 +34,7 @@
 //! - Boyd, J. et al. (2007). A common-sense approach to blood rheology.
 //!   *Biophys. J.* 92:1565.
 
-use crate::scalar::{from_f64, max, one, zero};
+use crate::scalar::{max, one, zero};
 use eunomia::FloatElement;
 
 /// Carreau-Yasuda model parameters.
@@ -61,12 +61,12 @@ impl<T: FloatElement> CarreauYasudaModel<T> {
     #[must_use]
     pub fn typical_blood() -> Self {
         Self {
-            density: from_f64(1060.0),
-            mu_0: from_f64(0.022),
-            mu_inf: from_f64(0.0022),
-            lambda: from_f64(0.11),
-            a: from_f64(0.644),
-            n: from_f64(0.392),
+            density: <T as FloatElement>::from_f64(1060.0),
+            mu_0: <T as FloatElement>::from_f64(0.022),
+            mu_inf: <T as FloatElement>::from_f64(0.0022),
+            lambda: <T as FloatElement>::from_f64(0.11),
+            a: <T as FloatElement>::from_f64(0.644),
+            n: <T as FloatElement>::from_f64(0.392),
         }
     }
 

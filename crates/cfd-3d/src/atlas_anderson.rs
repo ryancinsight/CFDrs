@@ -12,9 +12,7 @@ pub(crate) fn accelerate_velocity(
     previous_velocity: &FemDofVector<f64>,
     current_velocity: &FemDofVector<f64>,
 ) -> FemDofVector<f64> {
-    let accelerated = accelerator.compute_next(
-        previous_velocity.as_array(),
-        current_velocity.as_array(),
-    );
+    let accelerated =
+        accelerator.compute_next(previous_velocity.as_array(), current_velocity.as_array());
     FemDofVector::from_vec(accelerated.into_vec())
 }

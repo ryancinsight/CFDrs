@@ -102,15 +102,15 @@
 mod numerics;
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for Poiseuille flow solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PoiseuilleConfig<T: Cfd2dScalar + Copy> {
+pub struct PoiseuilleConfig<T: CfdScalar + Copy> {
     /// Channel height \[m]
     pub height: T,
 
@@ -138,17 +138,17 @@ pub struct PoiseuilleConfig<T: Cfd2dScalar + Copy> {
     pub relaxation_factor: T,
 }
 
-impl<T: Cfd2dScalar + FloatElement + Copy> Default for PoiseuilleConfig<T> {
+impl<T: CfdScalar + FloatElement + Copy> Default for PoiseuilleConfig<T> {
     fn default() -> Self {
         Self {
-            height: scalar::from_f64(100e-6),            // 100 μm
-            width: scalar::from_f64(500e-6),             // 500 μm
-            length: scalar::from_f64(1e-3),              // 1 mm
-            ny: 101,                                     // 101 points for 100 intervals
-            pressure_gradient: scalar::from_f64(1000.0), // 1000 Pa/m
-            tolerance: scalar::from_f64(1e-6),
+            height: <T as FloatElement>::from_f64(100e-6), // 100 μm
+            width: <T as FloatElement>::from_f64(500e-6),  // 500 μm
+            length: <T as FloatElement>::from_f64(1e-3),   // 1 mm
+            ny: 101,                                       // 101 points for 100 intervals
+            pressure_gradient: <T as FloatElement>::from_f64(1000.0), // 1000 Pa/m
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             max_iterations: 1000,
-            relaxation_factor: scalar::from_f64(0.7),
+            relaxation_factor: <T as FloatElement>::from_f64(0.7),
         }
     }
 }
@@ -157,7 +157,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> Default for PoiseuilleConfig<T> {
 ///
 /// Solves steady-state velocity profile u(y) between parallel plates.
 #[derive(Debug)]
-pub struct PoiseuilleFlow2D<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct PoiseuilleFlow2D<T: CfdScalar + Copy + FloatElement> {
     /// Configuration
     pub(super) config: PoiseuilleConfig<T>,
 
@@ -188,7 +188,7 @@ pub struct PoiseuilleFlow2D<T: Cfd2dScalar + Copy + FloatElement> {
 
 /// Blood rheology model selection
 #[derive(Debug, Clone)]
-pub enum BloodModel<T: Cfd2dScalar + Copy> {
+pub enum BloodModel<T: CfdScalar + Copy> {
     /// Casson model with yield stress
     Casson(CassonBlood<T>),
 
@@ -196,7 +196,7 @@ pub enum BloodModel<T: Cfd2dScalar + Copy> {
     CarreauYasuda(CarreauYasudaBlood<T>),
 }
 
-impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
+impl<T: CfdScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     /// Create new Poiseuille flow solver
     ///
     /// # Arguments
@@ -311,7 +311,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     pub fn analytical_solution(&self, viscosity: T) -> Vec<T> {
         let dp_dx = self.config.pressure_gradient;
         let height = self.config.height;
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         self.y_coords
             .iter()
@@ -335,7 +335,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     pub fn flow_rate_per_width(&self) -> T {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let mut sum: T = scalar::zero();
         for j in 0..ny - 1 {

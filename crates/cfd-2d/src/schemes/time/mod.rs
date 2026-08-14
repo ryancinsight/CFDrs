@@ -17,7 +17,7 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 mod adaptive;
@@ -34,12 +34,12 @@ pub use types::TimeScheme;
 pub use vector::StateVector;
 
 /// Time integrator for ODEs
-pub struct TimeIntegrator<T: Cfd2dScalar + Copy> {
+pub struct TimeIntegrator<T: CfdScalar + Copy> {
     scheme: TimeScheme,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement + Clone> TimeIntegrator<T> {
+impl<T: CfdScalar + Copy + FloatElement + Clone> TimeIntegrator<T> {
     /// Create new time integrator
     #[must_use]
     pub fn new(scheme: TimeScheme) -> Self {

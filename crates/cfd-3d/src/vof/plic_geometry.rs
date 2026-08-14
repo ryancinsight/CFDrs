@@ -14,7 +14,9 @@
 //!   volume-of-fluid algorithms for tracking material interfaces".
 //!   J. Comput. Phys. 199:465–502.
 
-use super::scalar::{self, VofScalar};
+use crate::scalar;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
 /// Compute the fluid volume fraction inside a rectangular prism cut by a PLIC plane.
@@ -43,7 +45,7 @@ use leto::geometry::Vector3;
 /// in the (full) donor cell and evaluate what fraction of the *swept prism* is fluid.
 /// Since the PLIC plane is the same, the fraction in the swept prism is the ratio
 /// of the volume below the PLIC plane inside the prism to the total prism volume.
-pub(crate) fn plic_volume_fraction_in_prism<T: VofScalar>(
+pub(crate) fn plic_volume_fraction_in_prism<T: CfdScalar>(
     normal: Vector3<T>,
     alpha_donor: T,
     depth: T,
@@ -84,7 +86,7 @@ pub(crate) fn plic_volume_fraction_in_prism<T: VofScalar>(
 /// in `[0,dx]×[0,dy]×[0,dz]` equals `alpha * dx * dy * dz`.
 ///
 /// Uses iterative bisection (tolerance 1e-12 of cell size) per Scardovelli & Zaleski.
-pub(crate) fn find_plic_plane_constant<T: VofScalar>(
+pub(crate) fn find_plic_plane_constant<T: CfdScalar>(
     normal: Vector3<T>,
     alpha: T,
     dx: T,
@@ -92,14 +94,14 @@ pub(crate) fn find_plic_plane_constant<T: VofScalar>(
     dz: T,
 ) -> T {
     let zero = scalar::zero::<T>();
-    let half = scalar::constant::<T>(0.5);
+    let half = <T as FloatElement>::from_f64(0.5);
 
     let n_abs =
         scalar::abs(normal.x) * dx + scalar::abs(normal.y) * dy + scalar::abs(normal.z) * dz;
     let mut c_lo = zero;
     let mut c_hi = n_abs;
     let target = alpha * dx * dy * dz;
-    let tol = scalar::constant::<T>(1e-12) * dx * dy * dz;
+    let tol = <T as FloatElement>::from_f64(1e-12) * dx * dy * dz;
 
     for _ in 0..64 {
         if c_hi - c_lo < tol {
@@ -139,7 +141,7 @@ pub(crate) fn find_plic_plane_constant<T: VofScalar>(
 /// **Reference**: Scardovelli, R. & Zaleski, S. (2000). "Analytical relations
 ///   connecting linear interfaces and volume fractions in rectangular grids".
 ///   J. Comput. Phys. 164:228–237. (Eqs. 2.34–2.38)
-pub fn volume_under_plane_3d<T: VofScalar>(
+pub fn volume_under_plane_3d<T: CfdScalar>(
     normal: Vector3<T>,
     plane_constant: T,
     dx: T,
@@ -148,7 +150,7 @@ pub fn volume_under_plane_3d<T: VofScalar>(
 ) -> T {
     let zero = scalar::zero::<T>();
     let cell_volume = dx * dy * dz;
-    let six = scalar::constant::<T>(6.0);
+    let six = <T as FloatElement>::from_f64(6.0);
 
     // Absolute normal scaled by cell dimensions.
     let m1 = scalar::abs(normal.x) * dx;
@@ -157,9 +159,9 @@ pub fn volume_under_plane_3d<T: VofScalar>(
     let m_sum = m1 + m2 + m3;
 
     // Degenerate case: all normal components essentially zero.
-    let eps = scalar::constant::<T>(1e-14);
+    let eps = <T as FloatElement>::from_f64(1e-14);
     if m1 + m2 + m3 < eps {
-        return scalar::constant::<T>(0.5) * cell_volume;
+        return <T as FloatElement>::from_f64(0.5) * cell_volume;
     }
 
     let c = plane_constant;

@@ -1,15 +1,14 @@
 use super::{SerpentineGeometry, SerpentineMixingSolution};
-use crate::scalar::from_f64;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Validator for serpentine mixing channels
-pub struct SerpentineValidator<T: Cfd2dScalar + Copy> {
+pub struct SerpentineValidator<T: CfdScalar + Copy> {
     geometry: SerpentineGeometry<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineValidator<T> {
+impl<T: CfdScalar + Copy + FloatElement> SerpentineValidator<T> {
     /// Create new validator
     pub fn new(geometry: SerpentineGeometry<T>) -> Self {
         Self { geometry }
@@ -30,9 +29,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineValidator<T> {
         let total_length = self.geometry.total_length();
         let l_mix = solution.l_mix_90;
 
-        let achievable = l_mix < total_length * from_f64::<T>(2.0);
+        let achievable = l_mix < total_length * <T as FloatElement>::from_f64(2.0);
         let well_mixed = solution.is_well_mixed();
-        let dp_reasonable = solution.pressure_drop < from_f64::<T>(1e5);
+        let dp_reasonable = solution.pressure_drop < <T as FloatElement>::from_f64(1e5);
         let validation_passed = achievable && well_mixed && dp_reasonable;
 
         let mut error_message = None;
@@ -42,7 +41,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineValidator<T> {
             error_message = Some(format!(
                 "Mixing fraction {:.2}% < 90% at outlet",
                 eunomia::NumericElement::to_f64(
-                    solution.mixing_fraction_outlet * from_f64::<T>(100.0),
+                    solution.mixing_fraction_outlet * <T as FloatElement>::from_f64(100.0),
                 )
             ));
         } else if !dp_reasonable {
@@ -62,7 +61,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineValidator<T> {
 
 /// Validation result for serpentine
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerpentineValidationResult<T: Cfd2dScalar + Copy> {
+pub struct SerpentineValidationResult<T: CfdScalar + Copy> {
     /// Validation passed
     pub validation_passed: bool,
     /// Measured mixing fraction at outlet

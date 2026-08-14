@@ -15,6 +15,7 @@ use crate::scalar;
 use cfd_core::error::Result;
 use cfd_math::time_stepping::{NumericalScheme, StabilityAnalyzer};
 use eunomia::Complex as AtlasComplex;
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use leto::{Array1, Array2};
 
@@ -206,8 +207,8 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
     /// Analyze RK3 stability region
     fn analyze_rk3_stability(&self) -> Result<RKStabilityResult<T>> {
         // Heun's method (RK3): A = [[0,0,0],[1/3,0,0],[0,2/3,0]], b = [1/4,0,3/4], c = [0,1/3,2/3]
-        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
-        let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+        let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
         let a = matrix_from_row_slice(
             3,
             3,
@@ -223,8 +224,8 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
                 scalar::zero(),
             ],
         );
-        let one_quarter = scalar::from_f64::<T>(0.25);
-        let three_quarters = scalar::from_f64::<T>(0.75);
+        let one_quarter = <T as FloatElement>::from_f64(0.25);
+        let three_quarters = <T as FloatElement>::from_f64(0.75);
         let b = vector_from_vec(vec![one_quarter, scalar::zero(), three_quarters]);
         let c = vector_from_vec(vec![scalar::zero(), one_third, two_thirds]);
 
@@ -245,7 +246,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
     /// Analyze classic RK4 stability region
     fn analyze_rk4_stability(&self) -> Result<RKStabilityResult<T>> {
         // Classic RK4
-        let one_half = scalar::from_f64::<T>(0.5);
+        let one_half = <T as FloatElement>::from_f64(0.5);
         let a = matrix_from_row_slice(
             4,
             4,
@@ -268,8 +269,8 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
                 scalar::zero(),
             ],
         );
-        let one_sixth = scalar::from_f64::<T>(1.0 / 6.0);
-        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+        let one_sixth = <T as FloatElement>::from_f64(1.0 / 6.0);
+        let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
         let b = vector_from_vec(vec![one_sixth, one_third, one_third, one_sixth]);
         let c = vector_from_vec(vec![scalar::zero(), one_half, one_half, scalar::one()]);
 
@@ -292,9 +293,9 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         println!("\n🌊 CFL Condition Validation");
 
         // Test case 1: Low-speed laminar flow
-        let vel_laminar = scalar::from_f64::<T>(0.1); // velocity
-        let dt_laminar = scalar::from_f64::<T>(0.001); // dt
-        let dx_laminar = scalar::from_f64::<T>(0.01); // dx
+        let vel_laminar = <T as FloatElement>::from_f64(0.1); // velocity
+        let dt_laminar = <T as FloatElement>::from_f64(0.001); // dt
+        let dx_laminar = <T as FloatElement>::from_f64(0.01); // dx
         let laminar_result = self.validate_single_cfl_case(
             "Laminar Channel Flow",
             vel_laminar,
@@ -305,9 +306,9 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         report.cfl_analyses.push(laminar_result);
 
         // Test case 2: High-speed compressible flow
-        let vel_comp = scalar::from_f64::<T>(300.0); // velocity (Mach ~1)
-        let dt_comp = scalar::from_f64::<T>(1e-6); // dt
-        let dx_comp = scalar::from_f64::<T>(0.001); // dx
+        let vel_comp = <T as FloatElement>::from_f64(300.0); // velocity (Mach ~1)
+        let dt_comp = <T as FloatElement>::from_f64(1e-6); // dt
+        let dx_comp = <T as FloatElement>::from_f64(0.001); // dx
         let compressible_result = self.validate_single_cfl_case(
             "Compressible Flow",
             vel_comp,
@@ -318,9 +319,9 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         report.cfl_analyses.push(compressible_result);
 
         // Test case 3: Turbulent boundary layer
-        let vel_turb = scalar::from_f64::<T>(10.0); // velocity
-        let dt_turb = scalar::from_f64::<T>(1e-5); // dt
-        let dx_turb = scalar::from_f64::<T>(1e-4); // dx (near wall)
+        let vel_turb = <T as FloatElement>::from_f64(10.0); // velocity
+        let dt_turb = <T as FloatElement>::from_f64(1e-5); // dt
+        let dx_turb = <T as FloatElement>::from_f64(1e-4); // dx (near wall)
         let turbulent_result = self.validate_single_cfl_case(
             "Turbulent Boundary Layer",
             vel_turb,
@@ -398,18 +399,18 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Analyze advection equation stability
     fn analyze_advection_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = scalar::from_f64::<T>(0.01);
+        let dt = <T as FloatElement>::from_f64(0.01);
         let advection_speed = scalar::one::<T>();
 
         // Test range of wave numbers
-        let k_min = scalar::from_f64::<T>(0.0);
-        let k_max = scalar::from_f64::<T>(10.0);
+        let k_min = <T as FloatElement>::from_f64(0.0);
+        let k_max = <T as FloatElement>::from_f64(10.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
+                k_min + (k_max - k_min) * <T as FloatElement>::from_f64(ratio)
             })
             .collect();
 
@@ -417,7 +418,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         // L_hat(k) = -a * (1 - e^{-i k Δx}) / Δx
         // For unit Δx, L_hat(k) = -a * (1 - e^{-i k})
         let spatial_operator = |k: AtlasComplex<f64>| {
-            let a_f64 = scalar::to_f64::<T>(advection_speed);
+            let a_f64 = <T as NumericElement>::to_f64(advection_speed);
             let delta_x = 1.0;
             -AtlasComplex::<f64>::new(a_f64, 0.0)
                 * (AtlasComplex::<f64>::new(1.0, 0.0)
@@ -443,18 +444,18 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Analyze diffusion equation stability
     fn analyze_diffusion_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = scalar::from_f64::<T>(0.01);
-        let nu = scalar::from_f64::<T>(0.1); // Viscosity
+        let dt = <T as FloatElement>::from_f64(0.01);
+        let nu = <T as FloatElement>::from_f64(0.1); // Viscosity
 
         // Test range of wave numbers
-        let k_min = scalar::from_f64::<T>(0.0);
-        let k_max = scalar::from_f64::<T>(20.0);
+        let k_min = <T as FloatElement>::from_f64(0.0);
+        let k_max = <T as FloatElement>::from_f64(20.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
+                k_min + (k_max - k_min) * <T as FloatElement>::from_f64(ratio)
             })
             .collect();
 
@@ -462,7 +463,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         // L_hat(k) = -ν * (2 - 2cos(k Δx)) / Δx²
         // For unit Δx, L_hat(k) = -ν * 2 * (1 - cos(k))
         let spatial_operator = |k: AtlasComplex<f64>| {
-            let nu_f64 = scalar::to_f64::<T>(nu);
+            let nu_f64 = <T as NumericElement>::to_f64(nu);
             let delta_x = 1.0;
             -AtlasComplex::<f64>::new(nu_f64, 0.0)
                 * AtlasComplex::<f64>::new(2.0, 0.0)
@@ -489,27 +490,27 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Analyze Burgers' equation stability
     fn analyze_burgers_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = scalar::from_f64::<T>(0.001);
-        let nu = scalar::from_f64::<T>(0.01); // Viscosity
-        let u0 = scalar::from_f64::<T>(1.0); // Base velocity
+        let dt = <T as FloatElement>::from_f64(0.001);
+        let nu = <T as FloatElement>::from_f64(0.01); // Viscosity
+        let u0 = <T as FloatElement>::from_f64(1.0); // Base velocity
 
         // Test range of wave numbers
-        let k_min = scalar::from_f64::<T>(0.0);
-        let k_max = scalar::from_f64::<T>(15.0);
+        let k_min = <T as FloatElement>::from_f64(0.0);
+        let k_max = <T as FloatElement>::from_f64(15.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
+                k_min + (k_max - k_min) * <T as FloatElement>::from_f64(ratio)
             })
             .collect();
 
         // Simplified analysis: treat as advection + diffusion
         // L_hat(k) = -u0 * i*k - ν*k²
         let spatial_operator = |k: AtlasComplex<f64>| {
-            let u0_f64 = scalar::to_f64::<T>(u0);
-            let nu_f64 = scalar::to_f64::<T>(nu);
+            let u0_f64 = <T as NumericElement>::to_f64(u0);
+            let nu_f64 = <T as NumericElement>::to_f64(nu);
             -AtlasComplex::<f64>::new(0.0, u0_f64 * k.im)
                 - AtlasComplex::<f64>::new(nu_f64 * k.im * k.im, 0.0)
         };
@@ -645,7 +646,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
             println!(
                 "  {}: CFL = {:.3}, Status: {}",
                 cfl.test_case,
-                scalar::to_f64::<T>(cfl.cfl_number),
+                <T as NumericElement>::to_f64(cfl.cfl_number),
                 cfl.status
             );
         }
@@ -655,7 +656,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
             println!(
                 "  {}: Max Amp = {:.3}, Stable: {}",
                 vn.pde_type,
-                scalar::to_f64::<T>(vn.max_amplification),
+                <T as NumericElement>::to_f64(vn.max_amplification),
                 vn.is_stable
             );
         }

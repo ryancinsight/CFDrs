@@ -1,5 +1,5 @@
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 use super::channel::solve_channel_entry;
@@ -8,7 +8,7 @@ use crate::scalar;
 
 impl<T> Network2DSolver<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     /// Solve every channel domain in parallel and return per-channel results.
     pub fn solve_all(&mut self, tolerance: f64) -> CfdResult<Network2dResult<T>> {

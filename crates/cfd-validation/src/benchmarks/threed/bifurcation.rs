@@ -30,26 +30,27 @@
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Bifurcation3D;
 use crate::scalar;
-use crate::scalar::ValidationScalar;
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 /// 3D Bifurcation Flow benchmark
-pub struct BifurcationFlow3D<T: ValidationScalar> {
+pub struct BifurcationFlow3D<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     /// The 3D bifurcation geometry (cfd-validation representation)
     pub geometry: Bifurcation3D<T>,
     /// The blood rheology model used for the FEM solve
     pub fluid: CassonBlood<T>,
 }
 
-impl<T: ValidationScalar> BifurcationFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> BifurcationFlow3D<T> {
     /// Create a new 3D bifurcation flow benchmark
     pub fn new(geometry: Bifurcation3D<T>, fluid: CassonBlood<T>) -> Self {
         Self { geometry, fluid }
     }
 }
 
-impl<T: ValidationScalar> Benchmark<T> for BifurcationFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> Benchmark<T> for BifurcationFlow3D<T> {
     fn name(&self) -> &'static str {
         "3D Y-Bifurcation Flow"
     }
@@ -71,14 +72,14 @@ impl<T: ValidationScalar> Benchmark<T> for BifurcationFlow3D<T> {
             self.geometry.l_parent,
             self.geometry.l_daughters[0],
             // Transition zone: 10 % of parent length
-            self.geometry.l_parent * scalar::from_f64(0.1),
+            self.geometry.l_parent * <T as FloatElement>::from_f64(0.1),
         );
 
         // ── 2. Configure the solver ──
         // Use small flow rate (1e-10 m³/s) to stay firmly in Stokes regime
         // (Re ≪ 1 for 100 µm tube), keeping the FEM problem well-conditioned.
         let config = BifurcationConfig3D::<T> {
-            inlet_flow_rate: scalar::from_f64(1e-10),
+            inlet_flow_rate: <T as FloatElement>::from_f64(1e-10),
             mesh_resolution: 4, // coarse mesh for benchmark speed
             ..BifurcationConfig3D::default()
         };
@@ -144,10 +145,10 @@ impl<T: ValidationScalar> Benchmark<T> for BifurcationFlow3D<T> {
         let mut ref_result = BenchmarkResult::new(self.name());
         ref_result
             .metrics
-            .insert("Murray Deviation".to_string(), T::zero());
+            .insert("Murray Deviation".to_string(), T::ZERO);
         ref_result
             .metrics
-            .insert("Mass Conservation Error".to_string(), T::zero());
+            .insert("Mass Conservation Error".to_string(), T::ZERO);
         Some(ref_result)
     }
 
@@ -156,13 +157,13 @@ impl<T: ValidationScalar> Benchmark<T> for BifurcationFlow3D<T> {
         let murray_ok = result
             .metrics
             .get("Murray Deviation")
-            .is_some_and(|&dev| scalar::abs(dev) < scalar::from_f64(0.01));
+            .is_some_and(|&dev| scalar::abs(dev) < <T as FloatElement>::from_f64(0.01));
 
         // ── Criterion 2: Mass conservation error < 2 % (coarse-mesh tolerance) ──
         let mass_ok = result
             .metrics
             .get("Mass Conservation Error")
-            .is_some_and(|&err| scalar::abs(err) < scalar::from_f64(0.02));
+            .is_some_and(|&err| scalar::abs(err) < <T as FloatElement>::from_f64(0.02));
 
         Ok(murray_ok && mass_ok)
     }

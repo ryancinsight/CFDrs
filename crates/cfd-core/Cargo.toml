@@ -25,6 +25,7 @@ bytemuck = { version = "1.14", features = ["derive"] }
 futures = "0.3"
 num_cpus = "1.16"
 leto.workspace = true
+leto-ops.workspace = true
 eunomia.workspace = true
 indexmap.workspace = true
 moirai.workspace = true
@@ -42,7 +43,6 @@ experimental = []
 proptest.workspace = true
 criterion.workspace = true
 tracing-subscriber.workspace = true
-leto-ops.workspace = true
 
 [[bench]]
 name = "turbulence_benchmark"

@@ -75,15 +75,16 @@ use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
     array1_len, array2_column3, matrix3_determinant, matrix3_from_columns, matrix3_try_inverse,
     matrix3x4_column, reference_tet_gradients, vector3_from_indexed,
 };
-use crate::scalar::Cfd3dScalar;
+use crate::scalar;
+use cfd_core::CfdScalar;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
-pub struct ProjectionSolver<T: Cfd3dScalar> {
+pub struct ProjectionSolver<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     _config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
@@ -97,7 +98,7 @@ pub struct ProjectionSolver<T: Cfd3dScalar> {
     pressure_rhs: Option<Array1<T>>,
 }
 
-impl<T: Cfd3dScalar> ProjectionSolver<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> ProjectionSolver<T> {
     /// Create new projection solver with default time step
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
@@ -153,7 +154,13 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
 
         let momentum_report = krylov::converged_or_none(
             "projection momentum",
-            krylov::gmres(&momentum_matrix, &momentum_rhs, &mut u_star, &gmres_config, 100),
+            krylov::gmres(
+                &momentum_matrix,
+                &momentum_rhs,
+                &mut u_star,
+                &gmres_config,
+                100,
+            ),
         );
         let (momentum_iterations, momentum_residual) = momentum_report
             .map(|r| (r.iterations, r.final_residual_norm))
@@ -178,7 +185,12 @@ impl<T: Cfd3dScalar> ProjectionSolver<T> {
         // Use Conjugate Gradient for pressure (symmetric positive definite after pinning)
         let pressure_report = krylov::converged_or_none(
             "projection pressure",
-            krylov::cg(&pressure_matrix, &pressure_rhs, &mut pressure, &gmres_config),
+            krylov::cg(
+                &pressure_matrix,
+                &pressure_rhs,
+                &mut pressure,
+                &gmres_config,
+            ),
         );
         let (pressure_iterations, pressure_residual) = pressure_report
             .map(|r| (r.iterations, r.final_residual_norm))

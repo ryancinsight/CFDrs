@@ -18,10 +18,10 @@
 //! **Reference:** Brezzi & Fortin, "Mixed and Hybrid Finite Element Methods",
 //! Springer, 1991, Chapter II.
 
-use crate::scalar::Cfd3dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use cfd_mesh::domain::core::index::FaceId;
 use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3;
@@ -29,7 +29,7 @@ use std::collections::HashMap;
 
 /// Problem definition for 3D incompressible flow using FEM
 #[derive(Clone)]
-pub struct StokesFlowProblem<T: Cfd3dScalar> {
+pub struct StokesFlowProblem<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     /// Computational mesh
     pub mesh: IndexedMesh<T>,
     /// Fluid properties
@@ -45,7 +45,7 @@ pub struct StokesFlowProblem<T: Cfd3dScalar> {
     pub n_corner_nodes: usize,
 }
 
-impl<T: Cfd3dScalar> StokesFlowProblem<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> StokesFlowProblem<T> {
     /// Create a new Stokes flow problem
     pub fn new(
         mesh: IndexedMesh<T>,

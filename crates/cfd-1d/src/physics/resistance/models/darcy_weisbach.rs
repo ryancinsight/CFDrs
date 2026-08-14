@@ -83,9 +83,10 @@
 //! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor in turbulent pipe flow."
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -108,7 +109,7 @@ pub struct DarcyWeisbachModel<T> {
     pub roughness: T,
 }
 
-impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
+impl<T: CfdScalar> DarcyWeisbachModel<T> {
     /// Create a new Darcy-Weisbach model
     pub fn new(hydraulic_diameter: T, area: T, length: T, roughness: T) -> Self {
         Self {
@@ -122,7 +123,7 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
     /// Create a new Darcy-Weisbach model for a circular pipe
     pub fn circular(diameter: T, length: T, roughness: T) -> Self {
         let pi = T::pi();
-        let area = pi * diameter * diameter / (T::one() + T::one() + T::one() + T::one());
+        let area = pi * diameter * diameter / (T::ONE + T::ONE + T::ONE + T::ONE);
         Self {
             hydraulic_diameter: diameter,
             area,
@@ -132,7 +133,7 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -143,16 +144,16 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
+            if q >= T::ZERO {
                 q
             } else {
                 -q
             }
         } else if let Some(v) = conditions.velocity {
-            let v_abs = if v >= T::zero() { v } else { -v };
+            let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.area
         } else {
-            T::zero()
+            T::ZERO
         };
 
         Ok(r + k * q_mag)
@@ -172,9 +173,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         } else if let Some(q) = conditions.flow_rate {
             q / area
         } else {
-            T::zero()
+            T::ZERO
         };
-        let v_abs = if velocity >= T::zero() {
+        let v_abs = if velocity >= T::ZERO {
             velocity
         } else {
             -velocity
@@ -183,14 +184,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
         let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::zero() {
+            if shear_rate < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Darcy-Weisbach wall shear rate must be nonnegative".to_string(),
                 ));
             }
             shear_rate
         } else {
-            scalar_from_f64::<T>(8.0) * v_abs / self.hydraulic_diameter
+            <T as FloatElement>::from_f64(8.0) * v_abs / self.hydraulic_diameter
         };
         let viscosity = fluid
             .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
@@ -206,14 +207,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
             } else if let Some(q) = conditions.flow_rate {
                 q / area
             } else {
-                T::zero()
+                T::ZERO
             };
-            let v_abs = if velocity >= T::zero() {
+            let v_abs = if velocity >= T::ZERO {
                 velocity
             } else {
                 -velocity
             };
-            if viscosity > T::zero() {
+            if viscosity > T::ZERO {
                 density * v_abs * self.hydraulic_diameter / viscosity
             } else {
                 return Err(Error::InvalidConfiguration(
@@ -223,23 +224,23 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         };
 
         let friction_factor = self.calculate_friction_factor(reynolds);
-        let re_transition = scalar_from_f64::<T>(LAMINAR_TRANSITION_RE);
+        let re_transition = <T as FloatElement>::from_f64(LAMINAR_TRANSITION_RE);
 
         if reynolds < re_transition {
             // Laminar regime: ΔP = R·Q
             // f = 64/Re = 64μ/(ρ V D_h)  ⟹  ΔP = 64μ/(ρ V D_h) · (L/D_h) · ½ρV²
             //    = 32 μ L V / D_h²  =  (32 μ L) / (A D_h²) · Q
             //    ⟹  R_linear = 32 μ L / (A D_h²)
-            let r = (scalar_from_f64::<T>(32.0) * viscosity * self.length)
+            let r = (<T as FloatElement>::from_f64(32.0) * viscosity * self.length)
                 / (area * self.hydraulic_diameter * self.hydraulic_diameter);
-            Ok((r, T::zero()))
+            Ok((r, T::ZERO))
         } else {
             // Turbulent regime: ΔP ∝ Q² → k-coefficient (quadratic)
             // ΔP = f·(L/D_h)·(ρV²/2) = f·ρ·L·Q²/(2·A²·D_h)
             //    ⟹  k = f·ρ·L / (2·A²·D_h)
             let k = (friction_factor * density * self.length)
-                / ((T::one() + T::one()) * area * area * self.hydraulic_diameter);
-            Ok((T::zero(), k))
+                / ((T::ONE + T::ONE) * area * area * self.hydraulic_diameter);
+            Ok((T::ZERO, k))
         }
     }
 
@@ -249,8 +250,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
 
     fn reynolds_range(&self) -> (T, T) {
         (
-            scalar_from_f64::<T>(LAMINAR_TRANSITION_RE),
-            scalar_from_f64::<T>(MAX_REYNOLDS),
+            <T as FloatElement>::from_f64(LAMINAR_TRANSITION_RE),
+            <T as FloatElement>::from_f64(MAX_REYNOLDS),
         )
     }
 
@@ -262,28 +263,28 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
-        if self.hydraulic_diameter <= T::zero() {
+        if self.hydraulic_diameter <= T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: hydraulic diameter = {} <= 0 for model '{}'",
                 self.hydraulic_diameter,
                 self.model_name()
             )));
         }
-        if self.area <= T::zero() {
+        if self.area <= T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: area = {} <= 0 for model '{}'",
                 self.area,
                 self.model_name()
             )));
         }
-        if self.length < T::zero() {
+        if self.length < T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: length = {} < 0 for model '{}'",
                 self.length,
                 self.model_name()
             )));
         }
-        if self.roughness < T::zero() {
+        if self.roughness < T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: roughness = {} < 0 for model '{}'",
                 self.roughness,
@@ -293,7 +294,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
 
         // Entrance length validation: L/Dh > 10
         let ratio = self.length / self.hydraulic_diameter;
-        let limit = scalar_from_f64::<T>(10.0);
+        let limit = <T as FloatElement>::from_f64(10.0);
 
         if ratio < limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
@@ -305,7 +306,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
 
         // Roughness ratio validation: ε/Dh < 0.05
         let roughness_ratio = self.roughness / self.hydraulic_diameter;
-        let roughness_limit = scalar_from_f64::<T>(0.05);
+        let roughness_limit = <T as FloatElement>::from_f64(0.05);
         if roughness_ratio > roughness_limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Roughness ratio violation: ε/Dh = {:.4} > 0.05. Darcy-Weisbach model '{}' may be inaccurate",
@@ -318,7 +319,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
+impl<T: CfdScalar> DarcyWeisbachModel<T> {
     /// Calculate friction factor using Newton-Raphson on the Colebrook-White equation.
     ///
     /// ## Theorem: Kantorovich Convergence Guarantee
@@ -372,38 +373,39 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
         let relative_roughness = self.roughness / self.hydraulic_diameter;
 
         // Laminar flow: f = 64/Re (exact, no iteration needed)
-        let re_transition = scalar_from_f64::<T>(LAMINAR_TRANSITION_RE);
+        let re_transition = <T as FloatElement>::from_f64(LAMINAR_TRANSITION_RE);
         if reynolds < re_transition {
-            return scalar_from_f64::<T>(LAMINAR_FRICTION_COEFFICIENT) / reynolds;
+            return <T as FloatElement>::from_f64(LAMINAR_FRICTION_COEFFICIENT) / reynolds;
         }
 
-        let tolerance = scalar_from_f64::<T>(COLEBROOK_TOLERANCE);
+        let tolerance = <T as FloatElement>::from_f64(COLEBROOK_TOLERANCE);
 
         // Pre-compute loop-invariant constants once per call.
-        let ln10_inv = scalar_from_f64::<T>(1.0 / std::f64::consts::LN_10);
-        let two = scalar_from_f64::<T>(COLEBROOK_COEFFICIENT);
-        let rough_term = relative_roughness / scalar_from_f64::<T>(COLEBROOK_ROUGHNESS_DIVISOR);
-        let smooth_coeff = scalar_from_f64::<T>(COLEBROOK_REYNOLDS_NUMERATOR) / reynolds;
+        let ln10_inv = <T as FloatElement>::from_f64(1.0 / std::f64::consts::LN_10);
+        let two = <T as FloatElement>::from_f64(COLEBROOK_COEFFICIENT);
+        let rough_term =
+            relative_roughness / <T as FloatElement>::from_f64(COLEBROOK_ROUGHNESS_DIVISOR);
+        let smooth_coeff = <T as FloatElement>::from_f64(COLEBROOK_REYNOLDS_NUMERATOR) / reynolds;
 
         // Serghides 1984 initial guess: three-point Steffensen acceleration
         // A = −2·log₁₀(rough_term + 12/Re)
-        let twelve_over_re = scalar_from_f64::<T>(12.0) / reynolds;
+        let twelve_over_re = <T as FloatElement>::from_f64(12.0) / reynolds;
         let a_inner = rough_term + twelve_over_re;
-        let a = if a_inner > T::zero() {
+        let a = if a_inner > T::ZERO {
             -two * <T as FloatElement>::ln(a_inner) * ln10_inv
         } else {
-            scalar_from_f64::<T>(7.0710678) // fallback: f₀=0.02
+            <T as FloatElement>::from_f64(7.0710678) // fallback: f₀=0.02
         };
 
         let b_inner = rough_term + smooth_coeff * a;
-        let b = if b_inner > T::zero() {
+        let b = if b_inner > T::ZERO {
             -two * <T as FloatElement>::ln(b_inner) * ln10_inv
         } else {
             a
         };
 
         let c_inner = rough_term + smooth_coeff * b;
-        let c = if c_inner > T::zero() {
+        let c = if c_inner > T::ZERO {
             -two * <T as FloatElement>::ln(c_inner) * ln10_inv
         } else {
             b
@@ -423,7 +425,7 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
         let max_iter = 10;
         for _ in 0..max_iter {
             let inner = rough_term + smooth_coeff * x;
-            if inner <= T::zero() {
+            if inner <= T::ZERO {
                 break;
             }
 
@@ -431,7 +433,7 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
             let g = x + two * <T as FloatElement>::ln(inner) * ln10_inv;
 
             // g'(x) = 1 + (2/ln10)·(smooth_coeff/inner)
-            let g_prime = T::one() + two * ln10_inv * (smooth_coeff / inner);
+            let g_prime = T::ONE + two * ln10_inv * (smooth_coeff / inner);
 
             let diff = g / g_prime;
             x -= diff;
@@ -441,7 +443,7 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
             }
         }
 
-        T::one() / (x * x)
+        T::ONE / (x * x)
     }
 }
 

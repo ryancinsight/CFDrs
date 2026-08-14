@@ -12,7 +12,7 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ use crate::scalar;
 /// # Type Parameters
 ///
 /// * `T`: The floating-point type for calculations, e.g., `f64`.
-pub struct DiffusionSolver<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct DiffusionSolver<T: CfdScalar + Copy + FloatElement> {
     nx: usize,
     ny: usize,
     dx: T,
@@ -35,7 +35,7 @@ pub struct DiffusionSolver<T: Cfd2dScalar + Copy + FloatElement> {
     solution: HashMap<(usize, usize), T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> DiffusionSolver<T> {
+impl<T: CfdScalar + Copy + FloatElement> DiffusionSolver<T> {
     /// Creates a new `DiffusionSolver`.
     ///
     /// # Arguments
@@ -76,9 +76,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> DiffusionSolver<T> {
         t_final: T,
         source_fn: &impl Fn(T, T, T) -> T,
     ) -> HashMap<(usize, usize), T> {
-        let dt = scalar::from_f64::<T>(0.25 * 0.9) * self.dx * self.dx / self.alpha;
+        let dt = <T as FloatElement>::from_f64(0.25 * 0.9) * self.dx * self.dx / self.alpha;
         let mut t: T = scalar::zero();
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         while t < t_final {
             let mut next_solution = self.solution.clone();

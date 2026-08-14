@@ -34,11 +34,11 @@
 //! (1997, §3). Solving that local linear system yields the face-specific update.
 //! □
 
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
 use crate::solvers::lbm::lattice::D2Q9;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
@@ -66,20 +66,20 @@ enum BoundaryFace {
 }
 
 /// Boundary handler for applying boundary conditions
-pub struct BoundaryHandler<T: Cfd2dScalar + Copy> {
+pub struct BoundaryHandler<T: CfdScalar + Copy> {
     /// Boundary type for each edge
     boundary_types: HashMap<String, BoundaryType>,
     /// Phantom data for type parameter
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for BoundaryHandler<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for BoundaryHandler<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
+impl<T: CfdScalar + Copy + FloatElement> BoundaryHandler<T> {
     /// Create new boundary handler
     #[must_use]
     pub fn new() -> Self {
@@ -96,10 +96,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
 
     #[inline]
     fn validate_low_mach_velocity(velocity: [T; 2]) -> Result<()> {
-        let cs = <T as NumericElement>::sqrt(from_f64(
+        let cs = <T as NumericElement>::sqrt(<T as FloatElement>::from_f64(
             crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED,
         ));
-        let mach_limit = from_f64(0.1);
+        let mach_limit = <T as FloatElement>::from_f64(0.1);
         let speed =
             <T as NumericElement>::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
 
@@ -184,9 +184,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
         density: T,
         velocity: [T; 2],
     ) {
-        let half = from_f64::<T>(0.5);
-        let one_sixth = from_f64::<T>(1.0 / 6.0);
-        let two_thirds = from_f64::<T>(2.0 / 3.0);
+        let half = <T as FloatElement>::from_f64(0.5);
+        let one_sixth = <T as FloatElement>::from_f64(1.0 / 6.0);
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
         let u_x = velocity[0];
         let u_y = velocity[1];
 
@@ -235,28 +235,28 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + from_f64::<T>(2.0) * (values[3] + values[6] + values[7]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[3] + values[6] + values[7]);
                 known / (one::<T>() - velocity[0])
             }
             BoundaryFace::East => {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + from_f64::<T>(2.0) * (values[1] + values[5] + values[8]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[1] + values[5] + values[8]);
                 known / (one::<T>() + velocity[0])
             }
             BoundaryFace::South => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + from_f64::<T>(2.0) * (values[4] + values[7] + values[8]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[4] + values[7] + values[8]);
                 known / (one::<T>() - velocity[1])
             }
             BoundaryFace::North => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + from_f64::<T>(2.0) * (values[2] + values[5] + values[6]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[2] + values[5] + values[6]);
                 known / (one::<T>() + velocity[1])
             }
         }
@@ -269,28 +269,28 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + from_f64::<T>(2.0) * (values[3] + values[6] + values[7]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[3] + values[6] + values[7]);
                 [one::<T>() - known / density, zero()]
             }
             BoundaryFace::East => {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + from_f64::<T>(2.0) * (values[1] + values[5] + values[8]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[1] + values[5] + values[8]);
                 [known / density - one::<T>(), zero()]
             }
             BoundaryFace::South => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + from_f64::<T>(2.0) * (values[4] + values[7] + values[8]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[4] + values[7] + values[8]);
                 [zero(), one::<T>() - known / density]
             }
             BoundaryFace::North => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + from_f64::<T>(2.0) * (values[2] + values[5] + values[6]);
+                    + <T as FloatElement>::from_f64(2.0) * (values[2] + values[5] + values[6]);
                 [zero(), known / density - one::<T>()]
             }
         }
@@ -365,7 +365,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
     ) -> Result<()> {
         let cell = j * nx + i;
 
-        let cs2 = from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED);
+        let cs2 =
+            <T as FloatElement>::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED);
         let rho = p_boundary / cs2;
         let mut cell_values = Self::load_cell_populations(f, i, j, nx);
         let velocity_hint = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);

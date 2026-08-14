@@ -1,68 +1,14 @@
-//! Crate-local Eunomia scalar helpers for provider migration seams.
+//! Numeric helpers shared by the 3D kernels.
+//!
+//! The scalar seam itself is [`cfd_core::CfdScalar`]; this module holds only
+//! crate-local shorthands over the Eunomia numeric surface.
 
 use eunomia::{FloatElement, NumericElement};
-use leto_ops::RealScalar as LetoRealScalar;
-
-/// Real scalar supported by the 3D solver stack during Atlas provider migration.
-///
-/// This trait is the crate-level scalar seam for code that crosses those contracts.
-pub trait Cfd3dScalar:
-    cfd_mesh::domain::core::Scalar
-    + eunomia::RealField
-    + LetoRealScalar
-    + FloatElement
-    + NumericElement
-    + Copy
-    + std::fmt::Debug
-    + std::fmt::Display
-    + std::ops::DivAssign
-    + Send
-    + Sync
-    + 'static
-{
-    /// Additive identity from the Eunomia numeric contract.
-    #[inline]
-    fn zero() -> Self {
-        <Self as NumericElement>::ZERO
-    }
-
-    /// Multiplicative identity from the Eunomia numeric contract.
-    #[inline]
-    fn one() -> Self {
-        <Self as NumericElement>::ONE
-    }
-}
-
-impl<T> Cfd3dScalar for T where
-    T: cfd_mesh::domain::core::Scalar
-        + eunomia::RealField
-        + LetoRealScalar
-        + FloatElement
-        + NumericElement
-        + Copy
-        + std::fmt::Debug
-        + std::fmt::Display
-        + std::ops::DivAssign
-        + Send
-        + Sync
-        + 'static
-{
-}
-
-#[inline]
-pub(crate) fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
 
 #[inline]
 pub(crate) fn from_usize<T: FloatElement>(value: usize) -> T {
     let value_u64 = u64::try_from(value).expect("invariant: grid index fits in u64");
     <T as FloatElement>::from_f64(<u64 as NumericElement>::to_f64(value_u64))
-}
-
-#[inline]
-pub(crate) fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
 }
 
 #[inline]
@@ -123,4 +69,14 @@ pub(crate) fn powf<T: FloatElement>(value: T, exponent: T) -> T {
 #[inline]
 pub(crate) fn ln<T: FloatElement>(value: T) -> T {
     <T as FloatElement>::ln(value)
+}
+
+#[inline]
+pub(crate) fn is_finite<T: NumericElement>(value: T) -> bool {
+    <T as NumericElement>::is_finite(value)
+}
+
+#[inline]
+pub(crate) fn tanh<T: FloatElement>(value: T) -> T {
+    <T as FloatElement>::tanh(value)
 }

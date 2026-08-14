@@ -11,13 +11,8 @@ use leto_ops::Scalar as LetoScalar;
 use rand::Rng;
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn from_usize<T: FloatElement>(value: usize) -> T {
-    from_f64(usize_to_f64(value))
+    <T as FloatElement>::from_f64(usize_to_f64(value))
 }
 
 #[inline]
@@ -140,7 +135,7 @@ pub fn aggregation_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     let mut fine_to_coarse_map = vec![None; n];
     let mut aggregated = vec![false; n];
 
-    let strength_matrix = compute_strength_matrix(matrix, from_f64(0.5))?;
+    let strength_matrix = compute_strength_matrix(matrix, <T as FloatElement>::from_f64(0.5))?;
     let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
 

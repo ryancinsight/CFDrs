@@ -64,8 +64,8 @@ impl<T: RealField + Copy + FloatElement> RotatingAdvection<T> {
     pub fn new(omega: T) -> Self {
         Self {
             omega,
-            cx: scalar::from_f64(0.5),
-            cy: scalar::from_f64(0.5),
+            cx: <T as FloatElement>::from_f64(0.5),
+            cy: <T as FloatElement>::from_f64(0.5),
         }
     }
 
@@ -94,9 +94,9 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for RotatingAdv
         let y_rot = dx * sin_theta + dy * cos_theta;
 
         // Gaussian bump at rotated position
-        let sigma = scalar::from_f64::<T>(0.1);
+        let sigma = <T as FloatElement>::from_f64(0.1);
         let r_squared = x_rot * x_rot + y_rot * y_rot;
-        scalar::exp(-r_squared / (scalar::from_f64::<T>(2.0) * sigma * sigma))
+        scalar::exp(-r_squared / (<T as FloatElement>::from_f64(2.0) * sigma * sigma))
     }
 
     /// Source term for rotating advection
@@ -123,8 +123,8 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for Manufacture
     /// Exact solution: u(x,t) = 2*nu*π*sin(π*x)*exp(-nu*π²*t) / (2 + cos(π*x)*exp(-nu*π²*t))
     /// This is the Cole-Hopf solution for Burgers' equation
     fn exact_solution(&self, x: T, _y: T, _z: T, t: T) -> T {
-        let pi = scalar::from_f64::<T>(PI);
-        let two = scalar::from_f64::<T>(2.0);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let two = <T as FloatElement>::from_f64(2.0);
         let exp_term = scalar::exp(-self.nu * pi * pi * t);
         let numerator = two * self.nu * pi * scalar::sin(pi * x) * exp_term;
         let denominator = two + scalar::cos(pi * x) * exp_term;

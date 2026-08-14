@@ -7,12 +7,13 @@ use eunomia::NumericElement;
 use leto::{Array1, Storage};
 use leto_ops::CsrMatrix as LetoCsrMatrix;
 
-use super::{LinearSolverMethod, NetworkSolveScalar, NetworkSolver};
+use super::{LinearSolverMethod, NetworkSolver};
 use crate::domain::network::Network;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Detect whether the network has only linear (flow-independent) resistances.
     pub(super) fn is_linear_static_network(network: &Network<T, F>) -> bool {
         let eps = T::default_epsilon();
@@ -36,12 +37,12 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         let mut is_spd = true;
         for i in 0..matrix.nrows() {
             let row = matrix.row(i);
-            let mut diag = T::zero();
-            let mut sum_off = T::zero();
+            let mut diag = T::ZERO;
+            let mut sum_off = T::ZERO;
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j == i {
                     diag = *val;
-                } else if *val > T::zero() {
+                } else if *val > T::ZERO {
                     is_spd = false;
                     break;
                 } else {
@@ -51,8 +52,8 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             if !is_spd {
                 break;
             }
-            let is_identity_dirichlet = diag == T::one() && sum_off == T::zero();
-            if (diag < sum_off || diag <= T::zero()) && !is_identity_dirichlet {
+            let is_identity_dirichlet = diag == T::ONE && sum_off == T::ZERO;
+            if (diag < sum_off || diag <= T::ZERO) && !is_identity_dirichlet {
                 is_spd = false;
                 break;
             }
@@ -101,10 +102,10 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         rhs: &Array1<T>,
         n: usize,
     ) -> T {
-        let mut norm = T::zero();
+        let mut norm = T::ZERO;
         for i in 0..n {
             let row = matrix.row(i);
-            let mut ax_i = T::zero();
+            let mut ax_i = T::ZERO;
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 ax_i += *val * solution[*j];
             }
@@ -124,7 +125,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     }
 
     /// Convert a scalar T to f64 for diagnostics.
-    pub(super) fn scalar_to_f64(value: T) -> Option<f64> {
+    pub(super) fn diagnostic_f64(value: T) -> Option<f64> {
         Some(<T as NumericElement>::to_f64(value))
     }
 }

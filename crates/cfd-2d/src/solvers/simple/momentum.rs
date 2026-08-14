@@ -4,11 +4,11 @@ use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::{MomentumComponent, MomentumSolver};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
     pub(crate) fn predict_momentum(
         &mut self,
         momentum_solver: &mut MomentumSolver<T>,
@@ -29,7 +29,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> 
         let (ap_u, _, ap_v, _) = momentum_solver.get_ap_coefficients();
         let dx = grid.dx;
         let dy = grid.dy;
-        let min_ap = scalar::from_f64(STAGNANT_CELL_AP_THRESHOLD);
+        let min_ap = <T as FloatElement>::from_f64(STAGNANT_CELL_AP_THRESHOLD);
 
         let d_u = self.d_u.as_mut().unwrap();
         let d_v = self.d_v.as_mut().unwrap();

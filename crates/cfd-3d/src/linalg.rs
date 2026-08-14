@@ -1,4 +1,5 @@
-use crate::{scalar, scalar::Cfd3dScalar};
+use crate::scalar;
+use cfd_core::CfdScalar;
 use leto::geometry::Vector3;
 use leto::{Array1, Array2, FixedMatrix};
 
@@ -16,7 +17,7 @@ pub(crate) fn array1_subarray<T: Copy>(array: &Array1<T>, start: usize, len: usi
 }
 
 #[inline]
-pub(crate) fn array1_l2_norm<T: Cfd3dScalar>(array: &Array1<T>) -> T {
+pub(crate) fn array1_l2_norm<T: CfdScalar>(array: &Array1<T>) -> T {
     eunomia::NumericElement::sqrt(
         array
             .iter()
@@ -33,7 +34,7 @@ where
 }
 
 #[inline]
-pub(crate) fn matrix3_from_columns<T: Cfd3dScalar>(
+pub(crate) fn matrix3_from_columns<T: CfdScalar>(
     c0: Vector3<T>,
     c1: Vector3<T>,
     c2: Vector3<T>,
@@ -46,7 +47,7 @@ pub(crate) fn matrix3_from_columns<T: Cfd3dScalar>(
 }
 
 #[inline]
-pub(crate) fn matrix3x4_from_columns<T: Cfd3dScalar>(columns: [Vector3<T>; 4]) -> Matrix3x4<T> {
+pub(crate) fn matrix3x4_from_columns<T: CfdScalar>(columns: [Vector3<T>; 4]) -> Matrix3x4<T> {
     FixedMatrix::from_rows([
         [columns[0][0], columns[1][0], columns[2][0], columns[3][0]],
         [columns[0][1], columns[1][1], columns[2][1], columns[3][1]],
@@ -55,7 +56,7 @@ pub(crate) fn matrix3x4_from_columns<T: Cfd3dScalar>(columns: [Vector3<T>; 4]) -
 }
 
 #[inline]
-pub(crate) fn reference_tet_gradients<T: Cfd3dScalar>() -> Matrix3x4<T> {
+pub(crate) fn reference_tet_gradients<T: CfdScalar>() -> Matrix3x4<T> {
     FixedMatrix::from_rows([
         [
             -scalar::one::<T>(),
@@ -108,7 +109,7 @@ pub(crate) fn array2_set_column3<T: Copy>(
 }
 
 #[inline]
-pub(crate) fn matrix3_determinant<T: Cfd3dScalar>(matrix: &Matrix3<T>) -> T {
+pub(crate) fn matrix3_determinant<T: CfdScalar>(matrix: &Matrix3<T>) -> T {
     let a = matrix[(0, 0)];
     let b = matrix[(0, 1)];
     let c = matrix[(0, 2)];
@@ -123,7 +124,7 @@ pub(crate) fn matrix3_determinant<T: Cfd3dScalar>(matrix: &Matrix3<T>) -> T {
 }
 
 #[inline]
-pub(crate) fn matrix3_try_inverse<T: Cfd3dScalar>(matrix: &Matrix3<T>) -> Option<Matrix3<T>> {
+pub(crate) fn matrix3_try_inverse<T: CfdScalar>(matrix: &Matrix3<T>) -> Option<Matrix3<T>> {
     let a = matrix[(0, 0)];
     let b = matrix[(0, 1)];
     let c = matrix[(0, 2)];

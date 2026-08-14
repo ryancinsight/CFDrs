@@ -62,9 +62,11 @@
 //!   l'Académie Royale des Sciences de l'Institut de France*, 9, 433-544.
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 // Named constants
@@ -79,22 +81,22 @@ pub struct HagenPoiseuilleModel<T> {
     pub length: T,
 }
 
-impl<T: ResistanceScalar> HagenPoiseuilleModel<T> {
+impl<T: CfdScalar> HagenPoiseuilleModel<T> {
     /// Create a new Hagen-Poiseuille model
     pub fn new(diameter: T, length: T) -> Self {
         Self { diameter, length }
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(T::zero);
-        let q_abs = if q >= T::zero() { q } else { -q };
+        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }
 
@@ -105,7 +107,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     ) -> Result<(T, T)> {
         // Calculate shear rate if not provided
         let shear_rate = if let Some(sr) = conditions.shear_rate {
-            if sr < T::zero() {
+            if sr < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Hagen-Poiseuille wall shear rate must be nonnegative".to_string(),
                 ));
@@ -116,14 +118,13 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
                 vel
             } else if let Some(q) = conditions.flow_rate {
                 let pi = T::pi();
-                let area = pi * self.diameter * self.diameter
-                    / (T::one() + T::one() + T::one() + T::one());
+                let area = pi * self.diameter * self.diameter / (T::ONE + T::ONE + T::ONE + T::ONE);
                 q / area
             } else {
-                T::zero()
+                T::ZERO
             };
-            let v_abs = if v >= T::zero() { v } else { -v };
-            scalar_from_f64::<T>(8.0) * v_abs / self.diameter
+            let v_abs = if v >= T::ZERO { v } else { -v };
+            <T as FloatElement>::from_f64(8.0) * v_abs / self.diameter
         };
 
         let viscosity = fluid
@@ -132,14 +133,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
 
         let pi = T::pi();
 
-        let coefficient = scalar_from_f64::<T>(HAGEN_POISEUILLE_COEFFICIENT);
+        let coefficient = <T as FloatElement>::from_f64(HAGEN_POISEUILLE_COEFFICIENT);
 
         // R = (128 * μ * L) / (π * D^4)
         let d2 = self.diameter * self.diameter;
         let d4 = d2 * d2;
         let r = coefficient * viscosity * self.length / (pi * d4);
 
-        Ok((r, T::zero()))
+        Ok((r, T::ZERO))
     }
 
     fn model_name(&self) -> &'static str {
@@ -147,7 +148,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), scalar_from_f64::<T>(2300.0))
+        (T::ZERO, <T as FloatElement>::from_f64(2300.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -158,14 +159,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
-        if self.diameter <= T::zero() {
+        if self.diameter <= T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: diameter = {} <= 0 for model '{}'",
                 self.diameter,
                 self.model_name()
             )));
         }
-        if self.length < T::zero() {
+        if self.length < T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: length = {} < 0 for model '{}'",
                 self.length,
@@ -175,7 +176,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
 
         // Entrance length validation: L/D > 10
         let ratio = self.length / self.diameter;
-        let limit = scalar_from_f64::<T>(10.0);
+        let limit = <T as FloatElement>::from_f64(10.0);
 
         if ratio < limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(

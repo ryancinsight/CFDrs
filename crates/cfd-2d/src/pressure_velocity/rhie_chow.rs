@@ -78,12 +78,12 @@ use crate::constants::numerical::TWO;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
 /// Complete Rhie-Chow interpolation with momentum coefficients
-pub struct RhieChowInterpolation<T: Cfd2dScalar + Copy> {
+pub struct RhieChowInterpolation<T: CfdScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -97,7 +97,7 @@ pub struct RhieChowInterpolation<T: Cfd2dScalar + Copy> {
     has_old_velocity: bool,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
+impl<T: CfdScalar + Copy + FloatElement> RhieChowInterpolation<T> {
     /// Create new interpolator with momentum coefficients
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
@@ -120,7 +120,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients for U component (zero-copy)
     /// `A_p` is the diagonal coefficient from U momentum discretization
     pub fn update_u_coefficients(&mut self, ap_u: &Field2D<T>) {
-        let min_ap = scalar::from_f64(1e-12);
+        let min_ap = <T as FloatElement>::from_f64(1e-12);
         for (dst, src) in self.ap_u_coefficients.data.iter_mut().zip(ap_u.data.iter()) {
             *dst = if <T as NumericElement>::is_finite(*src) && *src > min_ap {
                 *src
@@ -133,7 +133,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients for V component (zero-copy)
     /// `A_p` is the diagonal coefficient from V momentum discretization
     pub fn update_v_coefficients(&mut self, ap_v: &Field2D<T>) {
-        let min_ap = scalar::from_f64(1e-12);
+        let min_ap = <T as FloatElement>::from_f64(1e-12);
         for (dst, src) in self.ap_v_coefficients.data.iter_mut().zip(ap_v.data.iter()) {
             *dst = if <T as NumericElement>::is_finite(*src) && *src > min_ap {
                 *src
@@ -145,7 +145,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
 
     /// Compute face pressure coefficient d_f = (Volume/A_p)_f for x-direction (east face)
     pub fn d_face_x(&self, i: usize, j: usize, dx: T, dy: T) -> T {
-        let two: T = scalar::from_f64(TWO);
+        let two: T = <T as FloatElement>::from_f64(TWO);
         let volume = dx * dy;
         let d_p = volume / self.ap_u_coefficients.at(i, j);
         let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
@@ -158,7 +158,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
 
     /// Compute face pressure coefficient d_f = (Volume/A_p)_f for y-direction (north face)
     pub fn d_face_y(&self, i: usize, j: usize, dx: T, dy: T) -> T {
-        let two: T = scalar::from_f64(TWO);
+        let two: T = <T as FloatElement>::from_f64(TWO);
         let volume = dx * dy;
         let d_p = volume / self.ap_v_coefficients.at(i, j);
         let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
@@ -195,7 +195,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         // East face between cells (i,j) and (i+1,j)
 
         // Linear interpolation of velocity
-        let two: T = scalar::from_f64(TWO);
+        let two: T = <T as FloatElement>::from_f64(TWO);
         let u_bar = (u.at(i, j)[0] + u.at(i + 1, j)[0]) / two;
 
         // Interpolate pressure gradient coefficient d_f = (Volume/A_p)_f
@@ -280,7 +280,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         // North face between cells (i,j) and (i,j+1)
 
         // Linear interpolation of velocity
-        let two: T = scalar::from_f64(TWO);
+        let two: T = <T as FloatElement>::from_f64(TWO);
         let v_bar = (v.at(i, j)[1] + v.at(i, j + 1)[1]) / two;
 
         // Interpolate pressure gradient coefficient

@@ -27,8 +27,8 @@
 //! giving $u = 0$. □
 
 use crate::scalar::zero;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::lattice::D2Q9;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 
 /// Streaming operator for D2Q9 LBM on a flat contiguous buffer.
@@ -67,7 +67,7 @@ impl StreamingOperator {
     /// ```
     ///
     /// This is a pure permutation (Theorem above), so mass is exactly conserved.
-    pub fn stream<T: Cfd2dScalar + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
+    pub fn stream<T: CfdScalar + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
         for j in 0..ny {
             for i in 0..nx {
                 for q in 0..9 {
@@ -84,7 +84,7 @@ impl StreamingOperator {
     /// Streaming with interior-only update (boundary nodes excluded via mask).
     ///
     /// The `boundary_mask` is a flat `bool` slice with layout `mask[j*nx + i]`.
-    pub fn stream_with_boundaries<T: Cfd2dScalar + Copy>(
+    pub fn stream_with_boundaries<T: CfdScalar + Copy>(
         f_src: &[T],
         f_dst: &mut [T],
         boundary_mask: &[bool],
@@ -113,7 +113,7 @@ impl StreamingOperator {
     }
 
     /// Push-scheme streaming (alternative; pull scheme preferred for cache).
-    pub fn stream_push<T: Cfd2dScalar + Copy + NumericElement>(
+    pub fn stream_push<T: CfdScalar + Copy + NumericElement>(
         f_src: &[T],
         f_dst: &mut [T],
         nx: usize,

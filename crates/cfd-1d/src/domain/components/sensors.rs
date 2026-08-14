@@ -27,9 +27,9 @@
 //! a review. *Journal of Micromechanics and Microengineering*, 3(4), 168–182.
 
 use super::Component;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -51,7 +51,7 @@ pub enum SensorType {
 ///
 /// See module documentation for the governing theorem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FlowSensor<T: Cfd1dScalar + Copy> {
+pub struct FlowSensor<T: CfdScalar + Copy> {
     /// Insertion resistance [Pa·s/m³] (≥ 0; use 0.0 for ideal sensor)
     pub resistance: T,
     /// Measurement range [m³/s] (must be > 0)
@@ -60,19 +60,19 @@ pub struct FlowSensor<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + NumericElement> FlowSensor<T> {
+impl<T: CfdScalar + Copy + NumericElement> FlowSensor<T> {
     /// Create a new flow sensor with validated parameters.
     ///
     /// # Errors
     ///
     /// Returns `Error::InvalidConfiguration` if `resistance < 0` or `range ≤ 0`.
     pub fn new(resistance: T, range: T) -> Result<Self> {
-        if resistance < T::zero() {
+        if resistance < T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "FlowSensor resistance must be ≥ 0 (use 0.0 for ideal sensor)".into(),
             ));
         }
-        if range <= T::zero() {
+        if range <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "FlowSensor measurement range must be > 0".into(),
             ));
@@ -91,7 +91,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement> FlowSensor<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + NumericElement> Component<T> for FlowSensor<T> {
+impl<T: CfdScalar + Copy + NumericElement> Component<T> for FlowSensor<T> {
     /// Returns the sensor insertion resistance [Pa·s/m³].
     ///
     /// **Invariant**: `R_insertion ≥ 0`. A return value of `0.0` denotes
@@ -111,7 +111,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement> Component<T> for FlowSensor<T> {
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "resistance" => {
-                if value < T::zero() {
+                if value < T::ZERO {
                     return Err(Error::InvalidConfiguration(
                         "FlowSensor resistance must be ≥ 0".into(),
                     ));
@@ -119,7 +119,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement> Component<T> for FlowSensor<T> {
                 self.resistance = value;
             }
             "range" => {
-                if value <= T::zero() {
+                if value <= T::ZERO {
                     return Err(Error::InvalidConfiguration(
                         "FlowSensor range must be > 0".into(),
                     ));

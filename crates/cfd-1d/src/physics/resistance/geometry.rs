@@ -1,9 +1,10 @@
 //! Channel geometry definitions for resistance calculations.
 
 use cfd_core::error::Result;
+use eunomia::FloatElement;
 use eunomia::NumericElement;
 
-use super::traits::{scalar_from_f64, ResistanceScalar};
+use cfd_core::CfdScalar;
 
 /// Geometry enum for resistance model selection
 #[derive(Debug, Clone)]
@@ -55,12 +56,12 @@ pub enum ChannelGeometry<T> {
     },
 }
 
-impl<T: ResistanceScalar> ChannelGeometry<T> {
+impl<T: CfdScalar> ChannelGeometry<T> {
     /// Cross-sectional area \[m²]
     pub fn cross_sectional_area(&self) -> Result<T> {
         let pi = T::pi();
-        let four = T::one() + T::one() + T::one() + T::one();
-        let two = T::one() + T::one();
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
+        let two = T::ONE + T::ONE;
         match self {
             Self::Circular { diameter, .. } => Ok(pi * *diameter * *diameter / four),
             Self::Rectangular { width, height, .. } => Ok(*width * *height),
@@ -81,8 +82,8 @@ impl<T: ResistanceScalar> ChannelGeometry<T> {
 
     /// Hydraulic diameter Dh = 4A/P \[m]
     pub fn hydraulic_diameter(&self) -> Result<T> {
-        let two = T::one() + T::one();
-        let four = T::one() + T::one() + T::one() + T::one();
+        let two = T::ONE + T::ONE;
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
         match self {
             Self::Circular { diameter, .. } => Ok(*diameter),
             Self::Rectangular { width, height, .. } => {
@@ -107,20 +108,20 @@ impl<T: ResistanceScalar> ChannelGeometry<T> {
                     (b_val, a_val)
                 };
 
-                if a == b || b == T::zero() {
+                if a == b || b == T::ZERO {
                     return Ok(two * a);
                 }
 
-                let m = T::one() - (b * b) / (a * a);
+                let m = T::ONE - (b * b) / (a * a);
 
-                let mut a_n = T::one();
-                let mut b_n = <T as NumericElement>::sqrt(T::one() - m);
+                let mut a_n = T::ONE;
+                let mut b_n = <T as NumericElement>::sqrt(T::ONE - m);
                 let mut c_n = <T as NumericElement>::sqrt(m);
 
                 let mut sum = c_n * c_n / two;
-                let mut power = T::one();
+                let mut power = T::ONE;
 
-                let tolerance = scalar_from_f64::<T>(1e-14);
+                let tolerance = <T as FloatElement>::from_f64(1e-14);
 
                 for _ in 0..20 {
                     let a_next = (a_n + b_n) / two;
@@ -134,12 +135,12 @@ impl<T: ResistanceScalar> ChannelGeometry<T> {
                     sum += power * c_n * c_n;
                     power *= two;
 
-                    if c_n < tolerance || c_n == T::zero() {
+                    if c_n < tolerance || c_n == T::ZERO {
                         break;
                     }
                 }
 
-                let e_m = (pi / (two * a_n)) * (T::one() - sum);
+                let e_m = (pi / (two * a_n)) * (T::ONE - sum);
                 let perimeter = four * a * e_m;
                 let area = pi * a * b;
                 Ok(four * area / perimeter)

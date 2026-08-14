@@ -15,12 +15,12 @@
 //! Thus, the primary prognostic variable solved for is the nodal pressure field $\mathbf{P}$.
 
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Pressure, Time, VolumetricFlowRate};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
-pub struct NetworkState<T: Cfd1dScalar + Copy> {
+pub struct NetworkState<T: CfdScalar + Copy> {
     /// Node pressures
     pub pressures: Vec<Pressure<T>>,
     /// Edge flow rates
@@ -29,14 +29,14 @@ pub struct NetworkState<T: Cfd1dScalar + Copy> {
     pub time: Time<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> NetworkState<T> {
+impl<T: CfdScalar + Copy> NetworkState<T> {
     /// Create a new network state
     #[must_use]
     pub fn new(num_nodes: usize, num_edges: usize) -> Self {
         Self {
-            pressures: vec![Pressure::from_base(T::zero()); num_nodes],
-            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); num_edges],
-            time: Time::from_base(T::zero()),
+            pressures: vec![Pressure::from_base(T::ZERO); num_nodes],
+            flow_rates: vec![VolumetricFlowRate::from_base(T::ZERO); num_edges],
+            time: Time::from_base(T::ZERO),
         }
     }
 
@@ -45,7 +45,7 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
         let num_nodes = network.node_count();
         let num_edges = network.edge_count();
 
-        let mut pressures = vec![Pressure::from_base(T::zero()); num_nodes];
+        let mut pressures = vec![Pressure::from_base(T::ZERO); num_nodes];
         for (pressure, value) in pressures
             .iter_mut()
             .zip(network.pressures().iter().copied())
@@ -53,7 +53,7 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
             *pressure = value;
         }
 
-        let mut flow_rates = vec![VolumetricFlowRate::from_base(T::zero()); num_edges];
+        let mut flow_rates = vec![VolumetricFlowRate::from_base(T::ZERO); num_edges];
         for (flow_rate, value) in flow_rates
             .iter_mut()
             .zip(network.flow_rates().iter().copied())
@@ -64,7 +64,7 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
         Self {
             pressures,
             flow_rates,
-            time: Time::from_base(T::zero()),
+            time: Time::from_base(T::ZERO),
         }
     }
 

@@ -30,6 +30,7 @@
 
 use super::ManufacturedSolution;
 use crate::scalar;
+use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::Array2;
 use std::f64::consts::PI;
@@ -113,19 +114,19 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
     /// Create a standard test case with reasonable parameters
     pub fn standard_test_case() -> Self {
         Self::new(
-            scalar::from_f64::<T>(2.0 * PI), // kx
-            scalar::from_f64::<T>(2.0 * PI), // ky
-            scalar::from_f64::<T>(0.1),      // alpha (slow decay)
-            scalar::from_f64::<T>(0.1),      // a_uu
-            scalar::from_f64::<T>(0.05),     // a_uv
-            scalar::from_f64::<T>(0.1),      // a_vv
-            scalar::from_f64::<T>(1.0),      // u0_amp
-            scalar::from_f64::<T>(0.5),      // v0_amp
-            scalar::from_f64::<T>(0.15),     // k_amp
-            scalar::from_f64::<T>(0.01),     // eps_amp
+            <T as FloatElement>::from_f64(2.0 * PI), // kx
+            <T as FloatElement>::from_f64(2.0 * PI), // ky
+            <T as FloatElement>::from_f64(0.1),      // alpha (slow decay)
+            <T as FloatElement>::from_f64(0.1),      // a_uu
+            <T as FloatElement>::from_f64(0.05),     // a_uv
+            <T as FloatElement>::from_f64(0.1),      // a_vv
+            <T as FloatElement>::from_f64(1.0),      // u0_amp
+            <T as FloatElement>::from_f64(0.5),      // v0_amp
+            <T as FloatElement>::from_f64(0.15),     // k_amp
+            <T as FloatElement>::from_f64(0.01),     // eps_amp
             PressureStrainModelMMS::Quadratic,
-            scalar::from_f64::<T>(0.01), // nu_t
-            scalar::from_f64::<T>(1e-5), // nu
+            <T as FloatElement>::from_f64(0.01), // nu_t
+            <T as FloatElement>::from_f64(1e-5), // nu
         )
     }
 
@@ -137,7 +138,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         let cos_ky_y = scalar::cos(self.ky * y);
         let exp_decay = scalar::exp(-self.alpha * t);
 
-        let isotropic_part = self.k_amp * scalar::from_f64::<T>(2.0 / 3.0) * exp_decay;
+        let isotropic_part = self.k_amp * <T as FloatElement>::from_f64(2.0 / 3.0) * exp_decay;
 
         match (i, j) {
             (0, 0) => {
@@ -201,9 +202,9 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         let vv = self.exact_reynolds_stress(1, 1, x, y, t);
 
         match (i, j) {
-            (0, 0) => -scalar::from_f64::<T>(2.0) * uv * du_dy, // P_xx = -2⟨u'v'⟩∂U/∂y
-            (0, 1) | (1, 0) => -uu * dv_dx - vv * du_dy,        // P_xy = -⟨u'u'⟩∂V/∂x - ⟨v'v'⟩∂U/∂y
-            (1, 1) => -scalar::from_f64::<T>(2.0) * uv * dv_dx, // P_yy = -2⟨u'v'⟩∂V/∂x
+            (0, 0) => -<T as FloatElement>::from_f64(2.0) * uv * du_dy, // P_xx = -2⟨u'v'⟩∂U/∂y
+            (0, 1) | (1, 0) => -uu * dv_dx - vv * du_dy, // P_xy = -⟨u'u'⟩∂V/∂x - ⟨v'v'⟩∂U/∂y
+            (1, 1) => -<T as FloatElement>::from_f64(2.0) * uv * dv_dx, // P_yy = -2⟨u'v'⟩∂V/∂x
             _ => scalar::zero::<T>(),
         }
     }
@@ -243,24 +244,24 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         let vv = self.exact_reynolds_stress(1, 1, x, y, t);
 
         // Anisotropy tensor components
-        let a_xx = uu / k - scalar::from_f64::<T>(2.0 / 3.0);
+        let a_xx = uu / k - <T as FloatElement>::from_f64(2.0 / 3.0);
         let a_xy = uv / k;
-        let a_yy = vv / k - scalar::from_f64::<T>(2.0 / 3.0);
+        let a_yy = vv / k - <T as FloatElement>::from_f64(2.0 / 3.0);
 
         // Strain rate tensor from mean velocity gradients
         let s11 = self.velocity_gradient(0, 0, x, y, t);
-        let s12 = scalar::from_f64::<T>(0.5)
+        let s12 = <T as FloatElement>::from_f64(0.5)
             * (self.velocity_gradient(0, 1, x, y, t) + self.velocity_gradient(1, 0, x, y, t));
         let s22 = self.velocity_gradient(1, 1, x, y, t);
 
         // Rotation rate tensor
-        let w12 = scalar::from_f64::<T>(0.5)
+        let w12 = <T as FloatElement>::from_f64(0.5)
             * (self.velocity_gradient(0, 1, x, y, t) - self.velocity_gradient(1, 0, x, y, t));
 
         match self.pressure_strain_model {
             PressureStrainModelMMS::LinearReturnToIsotropy => {
                 // Φ_ij = -C1 ε/k (⟨u_i'u_j'⟩ - (2/3)k δ_ij)
-                let c1 = scalar::from_f64::<T>(1.8);
+                let c1 = <T as FloatElement>::from_f64(1.8);
                 let coeff = -c1 * eps / k;
 
                 match (i, j) {
@@ -295,7 +296,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         j: usize,
     ) -> T {
         // Slow pressure-strain (return-to-isotropy)
-        let c1 = scalar::from_f64::<T>(1.8);
+        let c1 = <T as FloatElement>::from_f64(1.8);
         let phi_slow_ij = match (i, j) {
             (0, 0) => -c1 * a_xx,
             (0, 1) | (1, 0) => -c1 * a_xy,
@@ -304,10 +305,10 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         };
 
         // Rapid pressure-strain (quadratic terms)
-        let c1_star = scalar::from_f64::<T>(1.7);
-        let c2_star = scalar::from_f64::<T>(-1.05);
-        let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
-        let four_thirds = scalar::from_f64::<T>(4.0 / 3.0);
+        let c1_star = <T as FloatElement>::from_f64(1.7);
+        let c2_star = <T as FloatElement>::from_f64(-1.05);
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
+        let four_thirds = <T as FloatElement>::from_f64(4.0 / 3.0);
 
         let phi_rapid_ij = match (i, j) {
             (0, 0) => {
@@ -341,8 +342,8 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         i: usize,
         j: usize,
     ) -> T {
-        let c1 = scalar::from_f64::<T>(1.7);
-        let c3 = scalar::from_f64::<T>(0.8);
+        let c1 = <T as FloatElement>::from_f64(1.7);
+        let c3 = <T as FloatElement>::from_f64(0.8);
 
         let c1_term = -c1 / time_scale;
         let c3_term = c3 / time_scale;
@@ -358,7 +359,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
     /// Compute the dissipation tensor ε_ij
     pub fn dissipation_tensor(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         let eps = self.exact_dissipation(x, y, t);
-        let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
 
         // Isotropic dissipation approximation: ε_ij = (2/3)ε δ_ij
         match (i, j) {
@@ -372,7 +373,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         // Approximate triple correlation transport using gradient-diffusion hypothesis
         // ⟨u_i'u_j'u_k'⟩ ≈ -C_s (k³/ε²) ∂⟨u_i'u_j'⟩/∂x_k
 
-        let c_s = scalar::from_f64::<T>(0.11);
+        let c_s = <T as FloatElement>::from_f64(0.11);
         let k = self.exact_tke(x, y, t);
         let eps = self.exact_dissipation(x, y, t);
 
@@ -389,7 +390,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
             (0, 0) => -diffusion_coeff * stress_gradient[0], // -∂⟨u'u'u'⟩/∂x - ∂⟨u'u'u'⟩/∂y
             (0, 1) | (1, 0) => {
                 -diffusion_coeff
-                    * scalar::from_f64::<T>(0.5)
+                    * <T as FloatElement>::from_f64(0.5)
                     * (stress_gradient[0] + stress_gradient[1])
             }
             (1, 1) => -diffusion_coeff * stress_gradient[1], // -∂⟨v'v'v'⟩/∂x - ∂⟨v'v'v'⟩/∂y
@@ -406,13 +407,13 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         let exp_decay = scalar::exp(-self.alpha * t);
 
         let isotropic_part_grad_x = self.k_amp
-            * scalar::from_f64::<T>(2.0 / 3.0)
+            * <T as FloatElement>::from_f64(2.0 / 3.0)
             * self.kx
             * cos_kx_x
             * sin_ky_y
             * exp_decay;
         let isotropic_part_grad_y = self.k_amp
-            * scalar::from_f64::<T>(2.0 / 3.0)
+            * <T as FloatElement>::from_f64(2.0 / 3.0)
             * self.ky
             * sin_kx_x
             * cos_ky_y
@@ -468,7 +469,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedReynoldsStressMMS<
         let ky_sq = self.ky * self.ky;
 
         let isotropic_part_laplacian = self.k_amp
-            * scalar::from_f64::<T>(2.0 / 3.0)
+            * <T as FloatElement>::from_f64(2.0 / 3.0)
             * (kx_sq + ky_sq)
             * sin_kx_x
             * sin_ky_y

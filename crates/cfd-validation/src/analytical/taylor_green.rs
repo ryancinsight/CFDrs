@@ -107,11 +107,11 @@ impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
 
     /// Get the decay rate.
     pub fn decay_rate(&self) -> ReciprocalTime<T> {
-        let pi = scalar::from_f64::<T>(PI);
+        let pi = <T as FloatElement>::from_f64(PI);
         let factor = if self.is_3d() {
-            scalar::from_f64::<T>(3.0)
+            <T as FloatElement>::from_f64(3.0)
         } else {
-            scalar::from_f64::<T>(2.0)
+            <T as FloatElement>::from_f64(2.0)
         };
         let length = self.length_scale.into_base();
         let value = factor * self.viscosity.into_base() * pi * pi / (length * length);
@@ -125,21 +125,22 @@ impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
         let density = self.density.into_base();
         let initial_energy = if self.is_3d() {
             // E₀ = (1/16) * ρ * U² * L³ for 3D.
-            let factor = scalar::from_f64::<T>(1.0 / 16.0);
+            let factor = <T as FloatElement>::from_f64(1.0 / 16.0);
             TaylorGreenKineticEnergy::Volumetric(Energy::from_base(
                 factor * density * velocity * velocity * length * length * length,
             ))
         } else {
             // E₀ = (1/4) * ρ * U² * L² for 2D, reported per unit depth.
-            let factor = scalar::from_f64::<T>(0.25);
+            let factor = <T as FloatElement>::from_f64(0.25);
             TaylorGreenKineticEnergy::PerDepth(Force::from_base(
                 factor * density * velocity * velocity * length * length,
             ))
         };
 
         let time = t.into_base();
-        let decay =
-            scalar::exp(-(scalar::from_f64::<T>(2.0) * self.decay_rate().into_base() * time));
+        let decay = scalar::exp(
+            -(<T as FloatElement>::from_f64(2.0) * self.decay_rate().into_base() * time),
+        );
         match initial_energy {
             TaylorGreenKineticEnergy::PerDepth(value) => {
                 TaylorGreenKineticEnergy::PerDepth(Force::from_base(value.into_base() * decay))
@@ -152,20 +153,21 @@ impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
 
     /// Get enstrophy (vorticity squared) at time `t`.
     pub fn enstrophy(&self, t: Time<T>) -> ReciprocalTimeSquared<T> {
-        let pi = scalar::from_f64::<T>(PI);
+        let pi = <T as FloatElement>::from_f64(PI);
         let velocity = self.velocity_scale.into_base();
         let length = self.length_scale.into_base();
         let initial_enstrophy = velocity * velocity * pi * pi / (length * length);
         let time = t.into_base();
-        let decay =
-            scalar::exp(-(scalar::from_f64::<T>(2.0) * self.decay_rate().into_base() * time));
+        let decay = scalar::exp(
+            -(<T as FloatElement>::from_f64(2.0) * self.decay_rate().into_base() * time),
+        );
         ReciprocalTimeSquared::from_base(initial_enstrophy * decay)
     }
 }
 
 impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVortex<T> {
     fn evaluate(&self, x: T, y: T, z: T, t: T) -> Vector3<T> {
-        let pi = scalar::from_f64::<T>(PI);
+        let pi = <T as FloatElement>::from_f64(PI);
         let decay = scalar::exp(-self.decay_rate().into_base() * t);
         let length = self.length_scale.into_base();
         let velocity = self.velocity_scale.into_base();
@@ -193,8 +195,9 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVo
     }
 
     fn pressure(&self, x: T, y: T, z: T, t: T) -> T {
-        let pi = scalar::from_f64::<T>(PI);
-        let decay = scalar::exp(-scalar::from_f64::<T>(2.0) * self.decay_rate().into_base() * t);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let decay =
+            scalar::exp(-<T as FloatElement>::from_f64(2.0) * self.decay_rate().into_base() * t);
         let length = self.length_scale.into_base();
         let density = self.density.into_base();
         let velocity = self.velocity_scale.into_base();
@@ -205,8 +208,8 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVo
 
         if self.is_3d() {
             let kz = pi * z / length;
-            let factor = scalar::from_f64::<T>(1.0 / 16.0);
-            let two = scalar::from_f64::<T>(2.0);
+            let factor = <T as FloatElement>::from_f64(1.0 / 16.0);
+            let two = <T as FloatElement>::from_f64(2.0);
 
             // p = ρU²/16 * (cos(2kx) + cos(2ky)) * (cos(2kz) + 2)
             //     * exp(-2νk²t).
@@ -218,8 +221,8 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVo
                 * (scalar::cos(two * kz) + two)
                 * decay
         } else {
-            let factor = scalar::from_f64::<T>(0.25);
-            let two = scalar::from_f64::<T>(2.0);
+            let factor = <T as FloatElement>::from_f64(0.25);
+            let two = <T as FloatElement>::from_f64(2.0);
 
             // p = -ρU²/4 * (cos(2kx) + cos(2ky)) * exp(-2νk²t).
             -factor
@@ -240,7 +243,7 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVo
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let two_pi_l = scalar::from_f64::<T>(2.0 * PI) * self.length_scale.into_base();
+        let two_pi_l = <T as FloatElement>::from_f64(2.0 * PI) * self.length_scale.into_base();
         [
             scalar::zero::<T>(),
             two_pi_l, // x: [0, 2πL]

@@ -8,6 +8,7 @@ use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::matrix::DMatrix;
 use crate::scalar;
 use cfd_core::error::Result;
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 
 /// Lid-driven cavity benchmark
@@ -32,7 +33,7 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
 
     /// Get Ghia et al. (1982) reference data for u-velocity along vertical centerline (x=0.5)
     pub fn ghia_u_centerline(&self, re: T) -> Vec<(T, T)> {
-        let re_f64 = scalar::to_f64(re);
+        let re_f64 = <T as NumericElement>::to_f64(re);
 
         // Tabulated data from Ghia et al. (1982) Table I, p. 396
         // Re = 100 column
@@ -57,7 +58,12 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
                 (0.0000, 0.00000),
             ]
             .into_iter()
-            .map(|(y, u)| (scalar::from_f64::<T>(y), scalar::from_f64::<T>(u)))
+            .map(|(y, u)| {
+                (
+                    <T as FloatElement>::from_f64(y),
+                    <T as FloatElement>::from_f64(u),
+                )
+            })
             .collect()
         } else {
             // Fallback or other Reynolds numbers would go here
@@ -67,7 +73,7 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
 
     /// Get Ghia et al. (1982) reference data for v-velocity along horizontal centerline (y=0.5)
     pub fn ghia_v_centerline(&self, re: T) -> Vec<(T, T)> {
-        let re_f64 = scalar::to_f64(re);
+        let re_f64 = <T as NumericElement>::to_f64(re);
 
         // Tabulated data from Ghia et al. (1982) Table II, p. 398
         // Re = 100 column
@@ -92,7 +98,12 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
                 (0.0000, 0.00000),
             ]
             .into_iter()
-            .map(|(x, v)| (scalar::from_f64::<T>(x), scalar::from_f64::<T>(v)))
+            .map(|(x, v)| {
+                (
+                    <T as FloatElement>::from_f64(x),
+                    <T as FloatElement>::from_f64(v),
+                )
+            })
             .collect()
         } else {
             vec![]
@@ -122,7 +133,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for LidDrivenCavity<T> {
         let _dx = self.size / scalar::from_usize::<T>(n);
         let _dt = config
             .time_step
-            .unwrap_or_else(|| scalar::from_f64::<T>(0.001));
+            .unwrap_or_else(|| <T as FloatElement>::from_f64(0.001));
 
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(n, n);
@@ -137,7 +148,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for LidDrivenCavity<T> {
         // Numerical solving loop (simplified for benchmark interface)
         let mut convergence = Vec::new();
         for iter in 0..config.max_iterations {
-            let residual = scalar::from_f64::<T>(1.0) / scalar::from_usize::<T>(iter + 1);
+            let residual = <T as FloatElement>::from_f64(1.0) / scalar::from_usize::<T>(iter + 1);
             convergence.push(residual);
             if residual < config.tolerance {
                 break;
@@ -164,7 +175,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for LidDrivenCavity<T> {
 
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Compare with Ghia et al. reference data for exact L2 error validation
-        let _ghia_data = self.ghia_reference_data(scalar::from_f64::<T>(100.0)); // Default Re=100
+        let _ghia_data = self.ghia_reference_data(<T as FloatElement>::from_f64(100.0)); // Default Re=100
 
         // Return true if converged at minimum
         Ok(!result.convergence.is_empty())

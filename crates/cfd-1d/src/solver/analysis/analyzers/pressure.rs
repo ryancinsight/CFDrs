@@ -2,25 +2,25 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PressureAnalysis;
 use aequitas::systems::si::quantities::{Pressure, PressureGradient};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use std::iter::Sum;
 
 /// Pressure analyzer for network components
-pub struct PressureAnalyzer<T: Cfd1dScalar + Copy> {
+pub struct PressureAnalyzer<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for PressureAnalyzer<T> {
+impl<T: CfdScalar + Copy> Default for PressureAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + Copy> PressureAnalyzer<T> {
+impl<T: CfdScalar + Copy> PressureAnalyzer<T> {
     /// Create new pressure analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -30,7 +30,7 @@ impl<T: Cfd1dScalar + Copy> PressureAnalyzer<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for PressureAnalyzer<T>
 {
     type Result = PressureAnalysis<T>;
@@ -59,7 +59,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
 
                 // Calculate pressure gradient
                 let length = edge.properties.length.into_base();
-                if length > T::zero() {
+                if length > T::ZERO {
                     let gradient = pressure_drop / length;
                     analysis.add_pressure_gradient(
                         edge.id.clone(),

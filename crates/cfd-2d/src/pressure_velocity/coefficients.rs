@@ -7,14 +7,14 @@
 //! diagonal dominance and the discrete maximum principle.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 
 /// Cell coefficients for discretized momentum equation
 /// Following Patankar notation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CellCoefficients<T: Cfd2dScalar + Copy> {
+pub struct CellCoefficients<T: CfdScalar + Copy> {
     /// Central coefficient (diagonal)
     pub ap: T,
     /// East neighbor coefficient
@@ -31,7 +31,7 @@ pub struct CellCoefficients<T: Cfd2dScalar + Copy> {
     pub d: T,
 }
 
-impl<T: Cfd2dScalar + Copy + NumericElement> CellCoefficients<T> {
+impl<T: CfdScalar + Copy + NumericElement> CellCoefficients<T> {
     /// Create zero coefficients
     #[must_use]
     pub fn zero() -> Self {

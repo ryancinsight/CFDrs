@@ -5,8 +5,9 @@
 
 use super::timing::BenchmarkStats;
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
-use crate::scalar::{self, ValidationScalar};
+use crate::scalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrix;
 use leto_ops::Scalar as LetoScalar;
 use std::collections::HashMap;
@@ -662,7 +663,7 @@ impl CfdPerformanceBenchmarks {
     /// Benchmark matrix-vector multiplication (key CFD operation)
     pub fn benchmark_spmv<T>(&self, matrix: &SparseMatrix<T>, vector: &[T]) -> Result<TimingResult>
     where
-        T: ValidationScalar + LetoScalar + std::fmt::Display,
+        T: CfdScalar + LetoScalar + std::fmt::Display,
     {
         let vector_array = leto::Array1::from_shape_vec([vector.len()], vector.to_vec())
             .map_err(|error| Error::InvalidConfiguration(error.to_string()))?;

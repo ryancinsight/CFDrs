@@ -53,7 +53,7 @@ impl AnalyticalUtils {
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         (pressure - reference_pressure) / dynamic_pressure
     }
@@ -64,7 +64,7 @@ impl AnalyticalUtils {
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         wall_shear_stress / dynamic_pressure
     }
@@ -76,7 +76,7 @@ impl AnalyticalUtils {
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure = half * density * velocity * velocity;
         drag_force / (dynamic_pressure * reference_area)
     }
@@ -88,7 +88,7 @@ impl AnalyticalUtils {
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure = half * density * velocity * velocity;
         lift_force / (dynamic_pressure * reference_area)
     }
@@ -100,9 +100,11 @@ impl AnalyticalUtils {
         geometry: FlowGeometry,
     ) -> bool {
         let critical_re = match geometry {
-            FlowGeometry::Pipe => scalar::from_f64(2300.0),
-            FlowGeometry::FlatPlate => scalar::from_f64(500_000.0),
-            FlowGeometry::Sphere | FlowGeometry::Cylinder => scalar::from_f64(200_000.0),
+            FlowGeometry::Pipe => <T as FloatElement>::from_f64(2300.0),
+            FlowGeometry::FlatPlate => <T as FloatElement>::from_f64(500_000.0),
+            FlowGeometry::Sphere | FlowGeometry::Cylinder => {
+                <T as FloatElement>::from_f64(200_000.0)
+            }
         };
         reynolds < critical_re
     }

@@ -39,10 +39,10 @@ pub mod flow_solver;
 pub mod profile;
 pub mod pulsatility;
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Dimensionless, DynamicViscosity, Frequency, Length, MassDensity, ReciprocalTime,
 };
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
@@ -63,7 +63,7 @@ pub use pulsatility::womersley_pulsatility_index;
 /// α = R · √(ω·ρ/μ) = R · √(2πf·ρ/μ)
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct WomersleyNumber<T: Cfd1dScalar + Copy> {
+pub struct WomersleyNumber<T: CfdScalar + Copy> {
     /// Vessel radius \[m]
     pub radius: Length<T>,
     /// Angular frequency of pulsation \[rad/s]
@@ -74,7 +74,7 @@ pub struct WomersleyNumber<T: Cfd1dScalar + Copy> {
     pub viscosity: DynamicViscosity<T>,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
+impl<T: CfdScalar + FloatElement + Copy> WomersleyNumber<T> {
     /// Create Womersley number calculator from physical parameters
     pub fn new(
         radius: Length<T>,
@@ -97,7 +97,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
         density: MassDensity<T>,
         viscosity: DynamicViscosity<T>,
     ) -> Self {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         let pi = T::pi();
         Self {
             radius: Length::from_base(diameter.into_base() / two),
@@ -147,7 +147,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     /// This is the characteristic length over which viscous effects penetrate
     /// from the wall into the flow during one oscillation cycle.
     pub fn stokes_layer_thickness(&self) -> Length<T> {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         Length::from_base(<T as NumericElement>::sqrt(
             two * self.viscosity.into_base() / (self.density.into_base() * self.omega.into_base()),
         ))
@@ -165,8 +165,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     /// Classify flow regime based on Womersley number
     pub fn flow_regime(&self) -> FlowRegime {
         let alpha = self.value().into_base();
-        let one = T::one();
-        let three = T::one() + T::one() + T::one();
+        let one = T::ONE;
+        let three = T::ONE + T::ONE + T::ONE;
         let ten = <T as FloatElement>::from_f64(10.0);
 
         if alpha < one {

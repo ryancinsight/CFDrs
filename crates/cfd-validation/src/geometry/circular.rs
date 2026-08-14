@@ -71,7 +71,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for CircularDomain<T> {
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
         let distance = self.distance_from_center(point);
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
 
         if scalar::abs(distance - self.radius) < tol {
             // Point is on the boundary, compute outward normal
@@ -116,13 +116,13 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for CircularDomain<T> {
         match face {
             BoundaryFace::Outer => {
                 let distance = self.distance_from_center(point);
-                let tol = scalar::from_f64::<T>(1e-10);
+                let tol = <T as FloatElement>::from_f64(1e-10);
 
                 if scalar::abs(distance - self.radius) < tol {
                     // Point is on boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+                    let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
                     Some(if angle >= scalar::zero() {
                         angle
                     } else {
@@ -148,7 +148,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for CircularDomain<T> {
 
     fn measure(&self) -> T {
         // Area of circle: πr²
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         pi * self.radius * self.radius
     }
 }

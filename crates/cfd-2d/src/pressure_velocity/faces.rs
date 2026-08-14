@@ -6,7 +6,7 @@ use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::physics::momentum::validate_boundary_consistency;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
@@ -31,7 +31,7 @@ fn map_pressure_index(idx: usize, reference_idx: Option<usize>) -> Option<usize>
     }
 }
 
-fn face_pressure_row<T: Cfd2dScalar + Copy + FloatElement>(
+fn face_pressure_row<T: CfdScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     idx: usize,
@@ -97,7 +97,7 @@ fn face_pressure_row<T: Cfd2dScalar + Copy + FloatElement>(
     }
 }
 
-fn set_face_matrix_row<T: Cfd2dScalar + Copy>(
+fn set_face_matrix_row<T: CfdScalar + Copy>(
     matrix: &mut SparseMatrix<T>,
     row_idx: usize,
     row: &FacePressureRow<T>,
@@ -131,7 +131,7 @@ fn set_face_matrix_row<T: Cfd2dScalar + Copy>(
     Ok(())
 }
 
-impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
+impl<T: CfdScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
     /// Solve pressure correction equation using face velocities (Rhie-Chow)
     pub fn solve_pressure_correction_from_faces(
         &self,

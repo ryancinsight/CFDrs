@@ -55,7 +55,7 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FloatElement + LetoScalar
     let h_squared = h * h;
 
     // Create tridiagonal matrix for -u'' using iterators
-    let diagonal_value = scalar::from_f64::<T>(TWO) / h_squared;
+    let diagonal_value = <T as FloatElement>::from_f64(TWO) / h_squared;
     let off_diagonal_value = -scalar::one::<T>() / h_squared;
 
     let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
@@ -89,7 +89,7 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FloatElement + LetoScalar
         (1..=n)
             .map(|_| {
                 // For the manufactured solution u(x) = x(1-x), the Laplacian is -2
-                scalar::from_f64(TWO)
+                <T as FloatElement>::from_f64(TWO)
             })
             .collect(),
     );
@@ -136,7 +136,7 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FloatElement + LetoScalar>
             values.push(scalar::one::<T>());
         } else {
             // Interior point: 5-point stencil
-            let center_coeff = scalar::from_f64::<T>(FOUR) / h2;
+            let center_coeff = <T as FloatElement>::from_f64(FOUR) / h2;
             let neighbor_coeff = -scalar::one::<T>() / h2;
 
             // Left neighbor
@@ -168,7 +168,7 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FloatElement + LetoScalar>
     })?;
 
     // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
-    let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+    let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
     let mut b = Array1::zeros([n]);
     let mut analytical = Array1::zeros([n]);
 
@@ -185,7 +185,7 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FloatElement + LetoScalar>
             // f = 2π²sin(πx)sin(πy)
             let sin_x = scalar::sin(pi * x);
             let sin_y = scalar::sin(pi * y);
-            b[idx] = scalar::from_f64::<T>(TWO) * pi * pi * sin_x * sin_y;
+            b[idx] = <T as FloatElement>::from_f64(TWO) * pi * pi * sin_x * sin_y;
             analytical[idx] = sin_x * sin_y;
         }
     }

@@ -28,7 +28,7 @@
 //! where $c_s = 1/\sqrt{3}$ is the lattice sound speed. This is exact
 //! within the weakly-compressible limit $Ma \ll 1$. □
 
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
 use crate::solvers::lbm::lattice::D2Q9;
 use crate::solvers::lbm::streaming::f_idx;
 use eunomia::FloatElement;
@@ -156,8 +156,8 @@ pub fn compute_velocity_flat<T: FloatElement>(
     for q in 0..9 {
         let (ex, ey) = D2Q9::VELOCITIES[q];
         let fq = f[f_idx(j, i, q, nx)];
-        ux += from_f64::<T>(f64::from(ex)) * fq;
-        uy += from_f64::<T>(f64::from(ey)) * fq;
+        ux += <T as FloatElement>::from_f64(f64::from(ex)) * fq;
+        uy += <T as FloatElement>::from_f64(f64::from(ey)) * fq;
     }
     [ux / density, uy / density]
 }
@@ -176,8 +176,8 @@ pub fn compute_velocity<T: FloatElement>(f_node: &[T; 9], density: T) -> [T; 2] 
     let mut uy = zero::<T>();
     for q in 0..9 {
         let (ex, ey) = D2Q9::VELOCITIES[q];
-        let ex_t = from_f64::<T>(f64::from(ex));
-        let ey_t = from_f64::<T>(f64::from(ey));
+        let ex_t = <T as FloatElement>::from_f64(f64::from(ex));
+        let ey_t = <T as FloatElement>::from_f64(f64::from(ey));
         ux += ex_t * f_node[q];
         uy += ey_t * f_node[q];
     }
@@ -186,7 +186,7 @@ pub fn compute_velocity<T: FloatElement>(f_node: &[T; 9], density: T) -> [T; 2] 
 
 /// LBM equation of state: p = c_s² ρ with c_s² = 1/3 (Theorem — LBM Pressure Relation).
 pub fn compute_pressure<T: FloatElement>(density: T) -> T {
-    from_f64::<T>(1.0 / 3.0) * density
+    <T as FloatElement>::from_f64(1.0 / 3.0) * density
 }
 
 /// Compute stress tensor Π_{αβ} = ∑_q e_{q,α} e_{q,β} (f_q - f_q^eq).
@@ -194,8 +194,8 @@ pub fn compute_stress_tensor<T: FloatElement>(f_node: &[T; 9], f_eq: &[T; 9]) ->
     let mut stress = [[zero(); 2]; 2];
     for q in 0..9 {
         let (ex, ey) = D2Q9::VELOCITIES[q];
-        let ex_t = from_f64::<T>(f64::from(ex));
-        let ey_t = from_f64::<T>(f64::from(ey));
+        let ex_t = <T as FloatElement>::from_f64(f64::from(ex));
+        let ey_t = <T as FloatElement>::from_f64(f64::from(ey));
         let f_neq = f_node[q] - f_eq[q];
         stress[0][0] += ex_t * ex_t * f_neq;
         stress[0][1] += ex_t * ey_t * f_neq;
@@ -207,7 +207,9 @@ pub fn compute_stress_tensor<T: FloatElement>(f_node: &[T; 9], f_eq: &[T; 9]) ->
 
 /// Compute kinetic energy density: E_k = ½ ρ |**u**|².
 pub fn compute_kinetic_energy<T: FloatElement>(density: T, velocity: &[T; 2]) -> T {
-    from_f64::<T>(0.5) * density * (velocity[0] * velocity[0] + velocity[1] * velocity[1])
+    <T as FloatElement>::from_f64(0.5)
+        * density
+        * (velocity[0] * velocity[0] + velocity[1] * velocity[1])
 }
 
 /// Compute vorticity ω = ∂v/∂x − ∂u/∂y at node (i, j) using central differences.
@@ -223,7 +225,7 @@ pub fn compute_vorticity<T: FloatElement>(
     if i == 0 || i >= nx - 1 || j == 0 || j >= ny - 1 {
         return zero();
     }
-    let two = from_f64::<T>(2.0);
+    let two = <T as FloatElement>::from_f64(2.0);
     let cell = |jj: usize, ii: usize, d: usize| velocity[(jj * nx + ii) * 2 + d];
     let dv_dx = (cell(j, i + 1, 1) - cell(j, i - 1, 1)) / (two * dx);
     let du_dy = (cell(j + 1, i, 0) - cell(j - 1, i, 0)) / (two * dy);

@@ -1,4 +1,4 @@
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::CrossSectionSpec;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
@@ -118,7 +118,7 @@ pub struct CoupledNetwork2dResult<T> {
 }
 
 /// Internal per-channel entry stored in [`Network2DSolver`].
-pub(crate) struct Channel2dEntry<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> {
+pub(crate) struct Channel2dEntry<T: CfdScalar + EunomiaRealField + Copy + FloatElement> {
     pub(crate) id: String,
     pub(crate) therapy_zone: TherapyZone,
     pub(crate) is_venturi_throat: bool,
@@ -134,7 +134,7 @@ pub(crate) struct Channel2dEntry<T: Cfd2dScalar + EunomiaRealField + Copy + Floa
 }
 
 /// Full-network 2D solver: one configured 2D channel domain per blueprint channel.
-pub struct Network2DSolver<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> {
+pub struct Network2DSolver<T: CfdScalar + EunomiaRealField + Copy + FloatElement> {
     pub(crate) blueprint: NetworkBlueprint,
     pub(crate) channels: Vec<Channel2dEntry<T>>,
     pub(crate) reference_trace: NetworkReferenceTrace<T>,
@@ -146,7 +146,7 @@ pub struct Network2DSolver<T: Cfd2dScalar + EunomiaRealField + Copy + FloatEleme
 
 impl<T> Network2DSolver<T>
 where
-    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+    T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
 {
     /// Return the authoritative cfd-1d reference trace used to configure the 2D network.
     #[must_use]

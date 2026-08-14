@@ -27,11 +27,6 @@ impl<T: RealField + Copy> CfdSimdOps<T> {
     }
 }
 
-#[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
 impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
     /// Compute gradient components with SIMD acceleration
     ///
@@ -58,7 +53,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
         let mut dudy = vec![T::ZERO; nx * ny];
         let mut dudx = vec![T::ZERO; nx * ny];
 
-        let two: T = from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
         let dx_inv = T::ONE / (two * dx);
         let dy_inv = T::ONE / (two * dy);
 
@@ -118,7 +113,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
             let idx = j * nx;
             let u_right = u[j * nx + 1];
             let u_here = u[idx];
-            dudx[idx] = (u_right - u_here) * dx_inv * from_f64(2.0);
+            dudx[idx] = (u_right - u_here) * dx_inv * <T as FloatElement>::from_f64(2.0);
 
             let u_up = u[(j + 1) * nx];
             let u_down = u[(j - 1) * nx];
@@ -130,7 +125,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
             let idx = j * nx + (nx - 1);
             let u_left = u[j * nx + (nx - 2)];
             let u_here = u[idx];
-            dudx[idx] = (u_here - u_left) * dx_inv * from_f64(2.0);
+            dudx[idx] = (u_here - u_left) * dx_inv * <T as FloatElement>::from_f64(2.0);
 
             let u_up = u[(j + 1) * nx + (nx - 1)];
             let u_down = u[(j - 1) * nx + (nx - 1)];
@@ -142,7 +137,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
             let idx = i;
             let u_up = u[nx + i];
             let u_here = u[idx];
-            dudy[idx] = (u_up - u_here) * dy_inv * from_f64(2.0);
+            dudy[idx] = (u_up - u_here) * dy_inv * <T as FloatElement>::from_f64(2.0);
 
             let u_right = u[i + 1];
             let u_left = u[i - 1];
@@ -154,7 +149,7 @@ impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
             let idx = (ny - 1) * nx + i;
             let u_down = u[(ny - 2) * nx + i];
             let u_here = u[idx];
-            dudy[idx] = (u_here - u_down) * dy_inv * from_f64(2.0);
+            dudy[idx] = (u_here - u_down) * dy_inv * <T as FloatElement>::from_f64(2.0);
 
             let u_right = u[(ny - 1) * nx + i + 1];
             let u_left = u[(ny - 1) * nx + i - 1];

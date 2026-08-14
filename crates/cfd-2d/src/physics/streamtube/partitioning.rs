@@ -56,7 +56,7 @@ impl ZweifachFung2D {
 
         let zero = scalar::zero();
         let one = scalar::one();
-        let two = scalar::from_f64(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         if target_fraction <= zero {
             return Some(y_coords[0]);
@@ -106,7 +106,7 @@ impl ZweifachFung2D {
                 let u1 = u_vel[i];
                 let du = u1 - u0;
 
-                return if <T as NumericElement>::abs(du) < scalar::from_f64(1e-12) {
+                return if <T as NumericElement>::abs(du) < <T as FloatElement>::from_f64(1e-12) {
                     // Uniform velocity in this cell
                     Some(y0 + delta_q / u0)
                 } else {
@@ -116,7 +116,7 @@ impl ZweifachFung2D {
                     let c = zero - delta_q;
 
                     // s = (-b + sqrt(b^2 - 4ac)) / 2a
-                    let disc = b * b - scalar::from_f64::<T>(4.0) * a * c;
+                    let disc = b * b - <T as FloatElement>::from_f64(4.0) * a * c;
                     if disc < zero {
                         // Fallback to linear if root imaginary due to precision edge cases
                         let t = delta_q / (q1 - q0);
@@ -136,7 +136,7 @@ impl ZweifachFung2D {
 /// Helper to cast float to T
 #[inline]
 fn half<T: FloatElement>() -> T {
-    scalar::from_f64(0.5)
+    <T as FloatElement>::from_f64(0.5)
 }
 
 #[cfg(test)]

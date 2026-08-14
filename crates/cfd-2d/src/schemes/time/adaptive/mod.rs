@@ -27,7 +27,7 @@ mod integrator;
 pub use integrator::AdaptiveTimeIntegrator;
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use std::fmt;
 
@@ -80,7 +80,7 @@ impl Default for AdaptationStrategy {
 
 /// Adaptive time step controller
 #[derive(Debug, Clone)]
-pub struct AdaptiveController<T: Cfd2dScalar + Copy> {
+pub struct AdaptiveController<T: CfdScalar + Copy> {
     /// Current time step
     pub dt_current: T,
     /// Minimum allowed time step
@@ -97,11 +97,11 @@ pub struct AdaptiveController<T: Cfd2dScalar + Copy> {
     pub max_rejections: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
+impl<T: CfdScalar + Copy + FloatElement> AdaptiveController<T> {
     /// Create new adaptive controller with default parameters
     pub fn new(dt_initial: T, strategy: AdaptationStrategy) -> Self {
-        let dt_min = scalar::from_f64::<T>(1e-12);
-        let dt_max = scalar::from_f64::<T>(1e6);
+        let dt_min = <T as FloatElement>::from_f64(1e-12);
+        let dt_max = <T as FloatElement>::from_f64(1e6);
 
         Self {
             dt_current: dt_initial,
@@ -142,21 +142,21 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
         let u_abs = <T as NumericElement>::abs(u_max);
         let v_abs = <T as NumericElement>::abs(v_max);
         let dt_cfl_x = if u_abs > scalar::zero() {
-            dx * scalar::from_f64::<T>(cfl_target) / u_abs
+            dx * <T as FloatElement>::from_f64(cfl_target) / u_abs
         } else {
-            scalar::from_f64::<T>(1e10) // Large value for zero velocity
+            <T as FloatElement>::from_f64(1e10) // Large value for zero velocity
         };
 
         let dt_cfl_y = if v_abs > scalar::zero() {
-            dy * scalar::from_f64::<T>(cfl_target) / v_abs
+            dy * <T as FloatElement>::from_f64(cfl_target) / v_abs
         } else {
-            scalar::from_f64::<T>(1e10)
+            <T as FloatElement>::from_f64(1e10)
         };
 
         let dt_cfl = <T as NumericElement>::min_scalar(dt_cfl_x, dt_cfl_y);
 
         // Apply safety factor and clamp to bounds
-        let dt_adapted = dt_cfl * scalar::from_f64::<T>(safety_factor);
+        let dt_adapted = dt_cfl * <T as FloatElement>::from_f64(safety_factor);
         <T as NumericElement>::min_scalar(
             <T as NumericElement>::max_scalar(dt_adapted, self.dt_min),
             self.dt_max,
@@ -178,7 +178,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
 
         for i in 0..n {
             let diff = <T as NumericElement>::abs(y1[i] - y2[i]);
-            let error = diff / (scalar::from_f64::<T>(2.0_f64.powi(p as i32)) - scalar::one::<T>());
+            let error =
+                diff / (<T as FloatElement>::from_f64(2.0_f64.powi(p as i32)) - scalar::one::<T>());
             error_max = <T as NumericElement>::max_scalar(error_max, error);
         }
 
@@ -207,16 +208,16 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
             AdaptationStrategy::CFLBased { .. } => return (self.dt_current, true), // No error-based adaptation
         };
 
-        let error_tolerance_t = scalar::from_f64::<T>(error_tolerance);
+        let error_tolerance_t = <T as FloatElement>::from_f64(error_tolerance);
 
         if error_estimate <= error_tolerance_t {
             // Step accepted - try to increase time step
             self.steps_accepted += 1;
 
-            let factor = scalar::from_f64::<T>(safety_factor)
+            let factor = <T as FloatElement>::from_f64(safety_factor)
                 * <T as FloatElement>::powf(
                     error_tolerance_t / error_estimate,
-                    scalar::from_f64::<T>(1.0 / 4.0),
+                    <T as FloatElement>::from_f64(1.0 / 4.0),
                 );
 
             let new_dt = <T as NumericElement>::min_scalar(self.dt_current * factor, self.dt_max);
@@ -231,10 +232,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
                 "Too many step rejections in adaptive time stepping"
             );
 
-            let factor = scalar::from_f64::<T>(safety_factor)
+            let factor = <T as FloatElement>::from_f64(safety_factor)
                 * <T as FloatElement>::powf(
                     error_tolerance_t / error_estimate,
-                    scalar::from_f64::<T>(1.0 / 3.0),
+                    <T as FloatElement>::from_f64(1.0 / 3.0),
                 );
 
             let new_dt = <T as NumericElement>::max_scalar(self.dt_current * factor, self.dt_min);
@@ -268,7 +269,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy> fmt::Display for AdaptiveController<T>
+impl<T: CfdScalar + Copy> fmt::Display for AdaptiveController<T>
 where
     T: fmt::Display,
 {

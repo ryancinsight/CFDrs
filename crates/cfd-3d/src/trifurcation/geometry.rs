@@ -98,7 +98,7 @@ impl<T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Cop
         use leto::{Point3, Vector3};
 
         // Start with parent cylinder distance
-        let half = scalar::from_f64::<T>(2.0);
+        let half = <T as FloatElement>::from_f64(2.0);
 
         let parent = FiniteCylinderSdf::new(
             Point3::new(-self.l_parent, scalar::zero::<T>(), scalar::zero::<T>()),
@@ -137,7 +137,7 @@ impl<T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Cop
         use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
         use leto::{Point3, Vector3};
 
-        let half = scalar::from_f64::<T>(2.0);
+        let half = <T as FloatElement>::from_f64(2.0);
 
         let parent = FiniteCylinderSdf::new(
             Point3::new(-self.l_parent, scalar::zero::<T>(), scalar::zero::<T>()),

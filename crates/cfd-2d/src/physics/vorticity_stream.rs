@@ -21,10 +21,10 @@
 //! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
 
 use crate::grid::{array2d::Array2D, StructuredGrid2D};
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
 use cfd_core::compute::solver::SolverConfiguration;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VorticityStreamConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct VorticityStreamConfig<T: CfdScalar + EunomiaRealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step for transient simulation
@@ -50,19 +50,21 @@ pub struct VorticityStreamConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
     pub sor_omega: T,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Default for VorticityStreamConfig<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::compute::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
-            .tolerance(from_f64(DEFAULT_TOLERANCE))
+            .tolerance(<T as FloatElement>::from_f64(DEFAULT_TOLERANCE))
             .build();
 
         Self {
             base,
-            time_step: from_f64(cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP),
-            stream_tolerance: from_f64(DEFAULT_TOLERANCE),
-            vorticity_tolerance: from_f64(DEFAULT_TOLERANCE),
-            sor_omega: from_f64(SOR_OPTIMAL_FACTOR),
+            time_step: <T as FloatElement>::from_f64(
+                cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP,
+            ),
+            stream_tolerance: <T as FloatElement>::from_f64(DEFAULT_TOLERANCE),
+            vorticity_tolerance: <T as FloatElement>::from_f64(DEFAULT_TOLERANCE),
+            sor_omega: <T as FloatElement>::from_f64(SOR_OPTIMAL_FACTOR),
         }
     }
 }
@@ -84,7 +86,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Default for Vortic
 /// ## References:
 /// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
-pub struct VorticityStreamSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct VorticityStreamSolver<T: CfdScalar + EunomiaRealField + Copy> {
     config: VorticityStreamConfig<T>,
     /// Stream function field [nx, ny]
     psi: Array2D<T>,
@@ -104,9 +106,7 @@ pub struct VorticityStreamSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     reynolds: T,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
-    VorticityStreamSolver<T>
-{
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> VorticityStreamSolver<T> {
     /// Create a new vorticity-stream solver
     pub fn new(config: VorticityStreamConfig<T>, grid: &StructuredGrid2D<T>, reynolds: T) -> Self {
         let nx = grid.nx;
@@ -150,7 +150,8 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
         let omega_sor = self.config.sor_omega;
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
-        let denominator = from_f64::<T>(GRADIENT_FACTOR) * (one::<T>() / dx2 + one::<T>() / dy2);
+        let denominator =
+            <T as FloatElement>::from_f64(GRADIENT_FACTOR) * (one::<T>() / dx2 + one::<T>() / dy2);
         let max_iterations = self.config.base.max_iterations().max(1);
 
         // SOR iteration for Poisson equation
@@ -213,7 +214,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
                 let convection = u * dwdx + v * dwdy;
 
                 // Diffusion term (central differencing)
-                let two = from_f64::<T>(GRADIENT_FACTOR);
+                let two = <T as FloatElement>::from_f64(GRADIENT_FACTOR);
                 let d2wdx2 = (self.omega_old[(i + 1, j)] - two * self.omega_old[(i, j)]
                     + self.omega_old[(i - 1, j)])
                     / dx2;
@@ -231,8 +232,8 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
 
     /// Update velocity field from stream function
     fn update_velocity(&mut self) {
-        let two_dx = from_f64::<T>(GRADIENT_FACTOR) * self.dx;
-        let two_dy = from_f64::<T>(GRADIENT_FACTOR) * self.dy;
+        let two_dx = <T as FloatElement>::from_f64(GRADIENT_FACTOR) * self.dx;
+        let two_dy = <T as FloatElement>::from_f64(GRADIENT_FACTOR) * self.dy;
 
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
@@ -248,7 +249,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
     fn update_boundary_vorticity(&mut self) {
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
-        let two = from_f64::<T>(GRADIENT_FACTOR);
+        let two = <T as FloatElement>::from_f64(GRADIENT_FACTOR);
 
         // Bottom wall (y = 0)
         for i in 1..self.nx - 1 {

@@ -4,11 +4,11 @@ use aequitas::systems::si::quantities::{
     HydraulicResistance, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 
-use crate::scalar::Cfd2dScalar;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{NetworkSolver, SolverConfig};
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use cfd_math::nonlinear_solver::{AndersonAccelerator, AndersonConfig, AndersonMethod};
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use cfd_schematics::geometry::metadata::{
@@ -42,7 +42,7 @@ const COUPLING_AITKEN_DROP_TOLERANCE: f64 = 1e-12;
 
 struct CoupledPassOutcome<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     network: cfd_1d::domain::network::Network<T, ConstantPropertyFluid<T>>,
     reference_trace: NetworkReferenceTrace<T>,
@@ -54,7 +54,7 @@ where
 
 struct ResistanceUpdateCandidate<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     edge_idx: EdgeIndex,
     current_linear: T,
@@ -62,7 +62,7 @@ where
 
 struct CoupledResistanceMixer<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField,
 {
     anderson: AndersonAccelerator<T>,
     previous_residual: Option<Array1<T>>,
@@ -74,21 +74,21 @@ where
 
 impl<T> CoupledResistanceMixer<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     fn new(history_depth: usize) -> Self {
         Self {
             anderson: AndersonAccelerator::new(AndersonConfig::<T> {
                 history_depth,
                 relaxation: scalar::one(),
-                drop_tolerance: scalar::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
+                drop_tolerance: <T as FloatElement>::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
                 method: AndersonMethod::QR,
             }),
             previous_residual: None,
             previous_relaxation: None,
-            relaxation_floor: scalar::from_f64(COUPLING_AITKEN_RELAXATION_MIN),
-            relaxation_ceiling: scalar::from_f64(COUPLING_AITKEN_RELAXATION_MAX),
-            residual_drop_tolerance: scalar::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
+            relaxation_floor: <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MIN),
+            relaxation_ceiling: <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MAX),
+            residual_drop_tolerance: <T as FloatElement>::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
         }
     }
 
@@ -163,7 +163,7 @@ where
 
 impl<T> Network2DSolver<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     /// Solve the junction-aware network using coupled 1D/2D iterations.
     ///
@@ -203,11 +203,11 @@ where
             .channels
             .iter()
             .map(|entry| {
-                let seed_flow = scalar::from_f64(entry.flow_rate_m3_s);
+                let seed_flow = <T as FloatElement>::from_f64(entry.flow_rate_m3_s);
                 let seed_reference_flow = entry.reference_trace.flow_rate_m3_s;
                 let seed_reference_drop = entry.reference_trace.pressure_drop_pa;
                 let seed_resistance = if <T as NumericElement>::abs(seed_reference_flow)
-                    > scalar::from_f64(MIN_LINEAR_RESISTANCE)
+                    > <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE)
                 {
                     <T as NumericElement>::abs(seed_reference_drop / seed_reference_flow)
                 } else {
@@ -225,8 +225,9 @@ where
                 if !<T as NumericElement>::is_finite(edge.resistance.into_base())
                     || edge.resistance.into_base() <= scalar::zero()
                 {
-                    edge.resistance =
-                        HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
+                    edge.resistance = HydraulicResistance::from_base(
+                        <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE),
+                    );
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((seed_flow, seed_resistance)) =
@@ -244,8 +245,9 @@ where
                 if !<T as NumericElement>::is_finite(props.resistance.into_base())
                     || props.resistance.into_base() <= scalar::zero()
                 {
-                    props.resistance =
-                        HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
+                    props.resistance = HydraulicResistance::from_base(
+                        <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE),
+                    );
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id) {
@@ -259,14 +261,15 @@ where
 
         let edge_index_by_id = edge_index_by_id(&working_network);
         let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
-            tolerance: scalar::from_f64(1e-12),
+            tolerance: <T as FloatElement>::from_f64(1e-12),
             max_iterations: 500,
             require_flow_convergence: true,
         });
         let mut coupling_mixer = CoupledResistanceMixer::<T>::new(COUPLING_ANDERSON_DEPTH);
         let channel_coupling_weights = build_channel_coupling_weights::<T>(&self.blueprint);
-        let convergence_threshold_pct =
-            scalar::from_f64(tolerance.max(COUPLING_CONVERGENCE_FLOOR_RELATIVE) * 100.0);
+        let convergence_threshold_pct = <T as FloatElement>::from_f64(
+            tolerance.max(COUPLING_CONVERGENCE_FLOOR_RELATIVE) * 100.0,
+        );
         let mut previous_reference_trace: Option<NetworkReferenceTrace<T>> = None;
         let mut final_reference_trace = self.reference_trace.clone();
         let mut final_channel_results = Vec::new();
@@ -379,7 +382,7 @@ fn run_coupled_pass<T>(
     separation_tracking_enabled: bool,
 ) -> CfdResult<CoupledPassOutcome<T>>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let solve_input = working_network.clone();
     let solve_result = solver.solve_owned_network_with_diagnostics(solve_input);
@@ -432,8 +435,8 @@ where
         )));
     }
 
-    let flow_floor: T = scalar::from_f64(1e-30);
-    let min_linear_resistance: T = scalar::from_f64(MIN_LINEAR_RESISTANCE);
+    let flow_floor: T = <T as FloatElement>::from_f64(1e-30);
+    let min_linear_resistance: T = <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE);
     let mut current_linear_values = Vec::with_capacity(channel_results.len());
     let mut weighted_target_values = Vec::with_capacity(channel_results.len());
     let mut update_candidates = Vec::with_capacity(channel_results.len());
@@ -548,15 +551,16 @@ where
         reference_trace: current_reference_trace,
         channel_results,
         all_channels_converged,
-        max_relative_flow_change_pct: max_relative_flow_change * scalar::from_f64::<T>(100.0),
+        max_relative_flow_change_pct: max_relative_flow_change
+            * <T as FloatElement>::from_f64(100.0),
         max_relative_resistance_change_pct: max_relative_resistance_change
-            * scalar::from_f64::<T>(100.0),
+            * <T as FloatElement>::from_f64(100.0),
     })
 }
 
 pub(crate) fn build_channel_coupling_weights<T>(blueprint: &NetworkBlueprint) -> Vec<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     let node_lookup: HashMap<
         &str,
@@ -604,7 +608,7 @@ where
             } else {
                 endpoint_weights.iter().copied().sum::<f64>() / endpoint_weights.len() as f64
             };
-            scalar::from_f64(clamp_coupling_weight(combined_weight))
+            <T as FloatElement>::from_f64(clamp_coupling_weight(combined_weight))
         })
         .collect()
 }
@@ -826,7 +830,7 @@ fn edge_index_by_id<T>(
     network: &cfd_1d::domain::network::Network<T, ConstantPropertyFluid<T>>,
 ) -> HashMap<String, EdgeIndex>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     network
         .graph

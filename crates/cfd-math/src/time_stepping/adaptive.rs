@@ -5,8 +5,8 @@
 //! accuracy while optimizing computational efficiency.
 
 use super::traits::{
-    from_f64, one, state_len, state_norm, state_zeros, zero, EmbeddedMethod, TimeState,
-    TimeStepController, TimeStepper,
+    one, state_len, state_norm, state_zeros, zero, EmbeddedMethod, TimeState, TimeStepController,
+    TimeStepper,
 };
 use cfd_core::error::Result;
 use eunomia::{FloatElement, RealField};
@@ -32,9 +32,9 @@ impl<T: RealField + Copy + FloatElement, M: EmbeddedMethod<T>> AdaptiveTimeStepp
         Self {
             method,
             controller: StandardController::new(),
-            safety_factor: from_f64(0.9),
-            dt_min: from_f64(1e-12),
-            dt_max: from_f64(1.0),
+            safety_factor: <T as FloatElement>::from_f64(0.9),
+            dt_min: <T as FloatElement>::from_f64(1e-12),
+            dt_max: <T as FloatElement>::from_f64(1.0),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -83,7 +83,7 @@ impl<T: RealField + Copy + FloatElement, M: EmbeddedMethod<T>> AdaptiveTimeStepp
             dt_safe.max_scalar(self.dt_min).min_scalar(self.dt_max)
         } else {
             // Reject step, reduce time step
-            dt_current * from_f64(0.5)
+            dt_current * <T as FloatElement>::from_f64(0.5)
         };
 
         Ok((u_new, dt_new, accepted))
@@ -110,8 +110,8 @@ impl<T: RealField + Copy + FloatElement> StandardController<T> {
     /// Create a new PI controller for adaptive time stepping
     pub fn new() -> Self {
         Self {
-            kp: from_f64(0.075),
-            ki: from_f64(0.175),
+            kp: <T as FloatElement>::from_f64(0.075),
+            ki: <T as FloatElement>::from_f64(0.175),
         }
     }
 }
@@ -119,7 +119,7 @@ impl<T: RealField + Copy + FloatElement> StandardController<T> {
 impl<T: RealField + Copy + FloatElement> TimeStepController<T> for StandardController<T> {
     fn adapt_step(&self, error_estimate: T, current_dt: T, tolerance: T) -> T {
         if error_estimate <= zero::<T>() {
-            return current_dt * from_f64(2.0);
+            return current_dt * <T as FloatElement>::from_f64(2.0);
         }
 
         let error_ratio = tolerance / error_estimate;
@@ -133,7 +133,10 @@ impl<T: RealField + Copy + FloatElement> TimeStepController<T> for StandardContr
             error_ratio
         };
 
-        current_dt * ratio.max_scalar(from_f64(0.1)).min_scalar(from_f64(5.0))
+        current_dt
+            * ratio
+                .max_scalar(<T as FloatElement>::from_f64(0.1))
+                .min_scalar(<T as FloatElement>::from_f64(5.0))
     }
 }
 
@@ -197,10 +200,10 @@ impl<T: RealField + Copy + FloatElement> EmbeddedMethod<T> for DormandPrince54<T
         // Dormand-Prince coefficients
         let c = [
             zero::<T>(),
-            from_f64(0.2),
-            from_f64(0.3),
-            from_f64(0.8),
-            from_f64(8.0 / 9.0),
+            <T as FloatElement>::from_f64(0.2),
+            <T as FloatElement>::from_f64(0.3),
+            <T as FloatElement>::from_f64(0.8),
+            <T as FloatElement>::from_f64(8.0 / 9.0),
             one::<T>(),
             one::<T>(),
         ];
@@ -208,48 +211,48 @@ impl<T: RealField + Copy + FloatElement> EmbeddedMethod<T> for DormandPrince54<T
         // Dormand-Prince coefficients (initialize at runtime)
         let mut a = [[zero::<T>(); 7]; 7];
         // Fill lower triangular part of A matrix
-        a[1][0] = from_f64(0.2);
-        a[2][0] = from_f64(3.0 / 40.0);
-        a[2][1] = from_f64(9.0 / 40.0);
-        a[3][0] = from_f64(44.0 / 45.0);
-        a[3][1] = from_f64(-56.0 / 15.0);
-        a[3][2] = from_f64(32.0 / 9.0);
-        a[4][0] = from_f64(19372.0 / 6561.0);
-        a[4][1] = from_f64(-25360.0 / 2187.0);
-        a[4][2] = from_f64(64448.0 / 6561.0);
-        a[4][3] = from_f64(-212.0 / 729.0);
-        a[5][0] = from_f64(9017.0 / 3168.0);
-        a[5][1] = from_f64(-355.0 / 33.0);
-        a[5][2] = from_f64(46732.0 / 5247.0);
-        a[5][3] = from_f64(49.0 / 176.0);
-        a[5][4] = from_f64(-5103.0 / 18656.0);
-        a[6][0] = from_f64(35.0 / 384.0);
+        a[1][0] = <T as FloatElement>::from_f64(0.2);
+        a[2][0] = <T as FloatElement>::from_f64(3.0 / 40.0);
+        a[2][1] = <T as FloatElement>::from_f64(9.0 / 40.0);
+        a[3][0] = <T as FloatElement>::from_f64(44.0 / 45.0);
+        a[3][1] = <T as FloatElement>::from_f64(-56.0 / 15.0);
+        a[3][2] = <T as FloatElement>::from_f64(32.0 / 9.0);
+        a[4][0] = <T as FloatElement>::from_f64(19372.0 / 6561.0);
+        a[4][1] = <T as FloatElement>::from_f64(-25360.0 / 2187.0);
+        a[4][2] = <T as FloatElement>::from_f64(64448.0 / 6561.0);
+        a[4][3] = <T as FloatElement>::from_f64(-212.0 / 729.0);
+        a[5][0] = <T as FloatElement>::from_f64(9017.0 / 3168.0);
+        a[5][1] = <T as FloatElement>::from_f64(-355.0 / 33.0);
+        a[5][2] = <T as FloatElement>::from_f64(46732.0 / 5247.0);
+        a[5][3] = <T as FloatElement>::from_f64(49.0 / 176.0);
+        a[5][4] = <T as FloatElement>::from_f64(-5103.0 / 18656.0);
+        a[6][0] = <T as FloatElement>::from_f64(35.0 / 384.0);
         a[6][1] = zero::<T>();
-        a[6][2] = from_f64(500.0 / 1113.0);
-        a[6][3] = from_f64(125.0 / 192.0);
-        a[6][4] = from_f64(-2187.0 / 6784.0);
-        a[6][5] = from_f64(11.0 / 84.0);
+        a[6][2] = <T as FloatElement>::from_f64(500.0 / 1113.0);
+        a[6][3] = <T as FloatElement>::from_f64(125.0 / 192.0);
+        a[6][4] = <T as FloatElement>::from_f64(-2187.0 / 6784.0);
+        a[6][5] = <T as FloatElement>::from_f64(11.0 / 84.0);
 
         // 4th-order solution coefficients
         let b4 = [
-            from_f64(35.0 / 384.0),
+            <T as FloatElement>::from_f64(35.0 / 384.0),
             zero::<T>(),
-            from_f64(500.0 / 1113.0),
-            from_f64(125.0 / 192.0),
-            from_f64(-2187.0 / 6784.0),
-            from_f64(11.0 / 84.0),
+            <T as FloatElement>::from_f64(500.0 / 1113.0),
+            <T as FloatElement>::from_f64(125.0 / 192.0),
+            <T as FloatElement>::from_f64(-2187.0 / 6784.0),
+            <T as FloatElement>::from_f64(11.0 / 84.0),
             zero::<T>(),
         ];
 
         // 5th-order solution coefficients (for error estimation)
         let b5 = [
-            from_f64(5179.0 / 57600.0),
+            <T as FloatElement>::from_f64(5179.0 / 57600.0),
             zero::<T>(),
-            from_f64(7571.0 / 16695.0),
-            from_f64(393.0 / 640.0),
-            from_f64(-92097.0 / 339200.0),
-            from_f64(187.0 / 2100.0),
-            from_f64(1.0 / 40.0),
+            <T as FloatElement>::from_f64(7571.0 / 16695.0),
+            <T as FloatElement>::from_f64(393.0 / 640.0),
+            <T as FloatElement>::from_f64(-92097.0 / 339200.0),
+            <T as FloatElement>::from_f64(187.0 / 2100.0),
+            <T as FloatElement>::from_f64(1.0 / 40.0),
         ];
 
         // Compute stages

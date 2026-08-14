@@ -115,6 +115,6 @@ impl ManufacturedFunctions {
 
     /// Trigonometric-exponential: cos(x) * sin(y) * exp(-2t)
     pub fn trig_exp<T: RealField + Copy + FloatElement>(x: T, y: T, t: T) -> T {
-        scalar::cos(x) * scalar::sin(y) * scalar::exp(scalar::from_f64::<T>(-2.0) * t)
+        scalar::cos(x) * scalar::sin(y) * scalar::exp(<T as FloatElement>::from_f64(-2.0) * t)
     }
 }

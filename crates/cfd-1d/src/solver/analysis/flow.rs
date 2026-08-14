@@ -3,18 +3,18 @@
 use super::blood_safety::{BloodShearLimits, HemolysisLimitViolation, ShearLimitViolation};
 use crate::domain::channel::FlowRegime;
 use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, ReciprocalTime, Time, Velocity, VolumetricFlowRate,
 };
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Comprehensive flow analysis for network systems
 #[derive(Debug, Clone)]
-pub struct FlowAnalysis<T: Cfd1dScalar + Copy> {
+pub struct FlowAnalysis<T: CfdScalar + Copy> {
     /// Total flow rate through the network [m³/s]
     pub total_flow_rate: VolumetricFlowRate<T>,
     /// Flow rates through individual components [m³/s]
@@ -31,12 +31,12 @@ pub struct FlowAnalysis<T: Cfd1dScalar + Copy> {
     pub flow_regimes: HashMap<String, FlowRegime>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
+impl<T: CfdScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     /// Create a new flow analysis
     #[must_use]
     pub fn new() -> Self {
         Self {
-            total_flow_rate: VolumetricFlowRate::from_base(T::zero()),
+            total_flow_rate: VolumetricFlowRate::from_base(T::ZERO),
             component_flows: HashMap::new(),
             velocities: HashMap::new(),
             reynolds_numbers: HashMap::new(),
@@ -49,7 +49,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     /// Add flow data for a component
     pub fn add_component_flow(&mut self, id: String, flow_rate: VolumetricFlowRate<T>) {
         self.component_flows.insert(id, flow_rate);
-        if flow_rate.into_base() > T::zero() {
+        if flow_rate.into_base() > T::ZERO {
             self.total_flow_rate = VolumetricFlowRate::from_base(
                 self.total_flow_rate.into_base() + flow_rate.into_base(),
             );
@@ -89,7 +89,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     /// Get the average flow rate
     pub fn average_flow_rate(&self) -> VolumetricFlowRate<T> {
         if self.component_flows.is_empty() {
-            VolumetricFlowRate::from_base(T::zero())
+            VolumetricFlowRate::from_base(T::ZERO)
         } else {
             let sum: T = self
                 .component_flows
@@ -163,7 +163,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
+impl<T: CfdScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
     /// Flag components whose time-integrated hemolysis exceeds configured limits.
     ///
     /// Residence times are provided externally because the reduced-order flow
@@ -203,13 +203,13 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
             });
 
             let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
-                (Some(value), Some(limit)) if limit.into_base() > T::zero() => Some(
+                (Some(value), Some(limit)) if limit.into_base() > T::ZERO => Some(
                     Dimensionless::from_base(value.into_base() / limit.into_base()),
                 ),
                 _ => None,
             };
             let taskin_ratio = match (taskin_value, limits.max_taskin_hi) {
-                (Some(value), Some(limit)) if limit.into_base() > T::zero() => Some(
+                (Some(value), Some(limit)) if limit.into_base() > T::ZERO => Some(
                     Dimensionless::from_base(value.into_base() / limit.into_base()),
                 ),
                 _ => None,
@@ -243,7 +243,7 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> Default for FlowAnalysis<T> {
+impl<T: CfdScalar + Copy + SafeFromUsize + Sum> Default for FlowAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -12,7 +12,7 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::scalar::{from_f64, max, one, zero};
+use crate::scalar::{max, one, zero};
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement};
 
@@ -62,7 +62,7 @@ struct CentralDifferenceFlux;
 
 impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for CentralDifferenceFlux {
     fn calculate_flux(&self, _phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        Ok(u * (phi_e - phi_w) / (from_f64::<T>(2.0) * dx))
+        Ok(u * (phi_e - phi_w) / (<T as FloatElement>::from_f64(2.0) * dx))
     }
 }
 
@@ -85,9 +85,9 @@ struct QuadraticUpwindFlux;
 impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for QuadraticUpwindFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Quadratic upstream interpolation
-        let three_eighths = from_f64::<T>(3.0 / 8.0);
-        let six_eighths = from_f64::<T>(6.0 / 8.0);
-        let one_eighth = from_f64::<T>(1.0 / 8.0);
+        let three_eighths = <T as FloatElement>::from_f64(3.0 / 8.0);
+        let six_eighths = <T as FloatElement>::from_f64(6.0 / 8.0);
+        let one_eighth = <T as FloatElement>::from_f64(1.0 / 8.0);
 
         if u > zero() {
             let phi_face = six_eighths * phi_p + three_eighths * phi_e - one_eighth * phi_w;
@@ -127,11 +127,11 @@ impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for PowerLa
         let abs_pe = <T as NumericElement>::abs(peclet);
 
         // Power law function A(|P|) = max(0, (1 - 0.1|P|)^5)
-        let a_func = if abs_pe < from_f64::<T>(10.0) {
+        let a_func = if abs_pe < <T as FloatElement>::from_f64(10.0) {
             let one = one::<T>();
-            let point_one = from_f64::<T>(0.1);
+            let point_one = <T as FloatElement>::from_f64(0.1);
             let term = one - point_one * abs_pe;
-            let five = from_f64::<T>(5.0);
+            let five = <T as FloatElement>::from_f64(5.0);
             max(<T as FloatElement>::powf(term, five), zero())
         } else {
             zero()
@@ -187,7 +187,7 @@ impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for HybridF
         // Hybrid scheme coefficients
         // For |Pe| < 2: use central differencing
         // For |Pe| >= 2: use upwind differencing
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let (a_w, a_e) = if abs_pe < two {
             // Central differencing with deferred correction

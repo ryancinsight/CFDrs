@@ -17,7 +17,7 @@ impl<T> RecordingMatrix<T> {
     }
 }
 
-impl<T: crate::scalar::Cfd2dScalar + Copy> MatrixUpdater<T> for RecordingMatrix<T> {
+impl<T: cfd_core::CfdScalar + Copy> MatrixUpdater<T> for RecordingMatrix<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
         self.entries.push((row, col, val));
         Ok(())

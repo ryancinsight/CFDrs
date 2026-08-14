@@ -4,7 +4,7 @@
 
 use eunomia::{FloatElement, RealField};
 
-use super::{from_f64, squared};
+use super::squared;
 
 /// WENO7 reconstruction scheme for high-order shock-capturing
 ///
@@ -19,7 +19,7 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            epsilon: from_f64::<T>(1e-6),
+            epsilon: <T as FloatElement>::from_f64(1e-6),
         }
     }
 
@@ -51,10 +51,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         let beta3 = self.smoothness_indicator_3(cells);
 
         // Linear weights for WENO7
-        let c0 = from_f64::<T>(1.0 / 35.0);
-        let c1 = from_f64::<T>(12.0 / 35.0);
-        let c2 = from_f64::<T>(18.0 / 35.0);
-        let c3 = from_f64::<T>(4.0 / 35.0);
+        let c0 = <T as FloatElement>::from_f64(1.0 / 35.0);
+        let c1 = <T as FloatElement>::from_f64(12.0 / 35.0);
+        let c2 = <T as FloatElement>::from_f64(18.0 / 35.0);
+        let c3 = <T as FloatElement>::from_f64(4.0 / 35.0);
 
         // Nonlinear weights
         let alpha0 = c0 / squared(self.epsilon + beta0);
@@ -95,10 +95,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
         let beta3 = self.smoothness_indicator_3(cells);
 
         // Linear weights (reversed for right reconstruction)
-        let c0 = from_f64::<T>(4.0 / 35.0);
-        let c1 = from_f64::<T>(18.0 / 35.0);
-        let c2 = from_f64::<T>(12.0 / 35.0);
-        let c3 = from_f64::<T>(1.0 / 35.0);
+        let c0 = <T as FloatElement>::from_f64(4.0 / 35.0);
+        let c1 = <T as FloatElement>::from_f64(18.0 / 35.0);
+        let c2 = <T as FloatElement>::from_f64(12.0 / 35.0);
+        let c3 = <T as FloatElement>::from_f64(1.0 / 35.0);
 
         // Nonlinear weights
         let alpha0 = c0 / squared(self.epsilon + beta0);
@@ -120,11 +120,11 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 0 (left): {u_{j-3}, u_{j-2}, u_{j-1}, u_j}
     #[must_use]
     fn eno4_stencil_0(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let neg_three = from_f64::<T>(-3.0);
-        let thirteen = from_f64::<T>(13.0);
-        let neg_twenty_three = from_f64::<T>(-23.0);
-        let twenty_five = from_f64::<T>(25.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let neg_three = <T as FloatElement>::from_f64(-3.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let neg_twenty_three = <T as FloatElement>::from_f64(-23.0);
+        let twenty_five = <T as FloatElement>::from_f64(25.0);
 
         one_twelfth
             * (neg_three * cells[0]
@@ -136,10 +136,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 1 (left): {u_{j-2}, u_{j-1}, u_j, u_{j+1}}
     #[must_use]
     fn eno4_stencil_1(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let neg_five = from_f64::<T>(-5.0);
-        let thirteen = from_f64::<T>(13.0);
-        let three = from_f64::<T>(3.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let neg_five = <T as FloatElement>::from_f64(-5.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let three = <T as FloatElement>::from_f64(3.0);
 
         one_twelfth * (cells[1] + neg_five * cells[2] + thirteen * cells[3] + three * cells[4])
     }
@@ -147,8 +147,8 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 2 (left): {u_{j-1}, u_j, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno4_stencil_2(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let seven = from_f64::<T>(7.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let seven = <T as FloatElement>::from_f64(7.0);
 
         one_twelfth * (-cells[2] + seven * cells[3] + seven * cells[4] - cells[5])
     }
@@ -156,10 +156,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 3 (left): {u_j, u_{j+1}, u_{j+2}, u_{j+3}}
     #[must_use]
     fn eno4_stencil_3(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let three = from_f64::<T>(3.0);
-        let thirteen = from_f64::<T>(13.0);
-        let neg_five = from_f64::<T>(-5.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let neg_five = <T as FloatElement>::from_f64(-5.0);
 
         one_twelfth * (three * cells[3] + thirteen * cells[4] + neg_five * cells[5] + cells[6])
     }
@@ -167,10 +167,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 0 (right): {u_{j-3}, u_{j-2}, u_{j-1}, u_j}
     #[must_use]
     fn eno4_stencil_0_right(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let three = from_f64::<T>(3.0);
-        let thirteen = from_f64::<T>(13.0);
-        let neg_five = from_f64::<T>(-5.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let neg_five = <T as FloatElement>::from_f64(-5.0);
 
         one_twelfth * (cells[0] + neg_five * cells[1] + thirteen * cells[2] + three * cells[3])
     }
@@ -178,8 +178,8 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 1 (right): {u_{j-2}, u_{j-1}, u_j, u_{j+1}}
     #[must_use]
     fn eno4_stencil_1_right(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let seven = from_f64::<T>(7.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let seven = <T as FloatElement>::from_f64(7.0);
 
         one_twelfth * (-cells[1] + seven * cells[2] + seven * cells[3] - cells[4])
     }
@@ -187,10 +187,10 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 2 (right): {u_{j-1}, u_j, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno4_stencil_2_right(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let neg_five = from_f64::<T>(-5.0);
-        let thirteen = from_f64::<T>(13.0);
-        let three = from_f64::<T>(3.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let neg_five = <T as FloatElement>::from_f64(-5.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let three = <T as FloatElement>::from_f64(3.0);
 
         one_twelfth * (three * cells[2] + thirteen * cells[3] + neg_five * cells[4] + cells[5])
     }
@@ -198,11 +198,11 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// 4th-order ENO stencil 3 (right): {u_j, u_{j+1}, u_{j+2}, u_{j+3}}
     #[must_use]
     fn eno4_stencil_3_right(&self, cells: &[T; 7]) -> T {
-        let one_twelfth = from_f64::<T>(1.0 / 12.0);
-        let neg_three = from_f64::<T>(-3.0);
-        let thirteen = from_f64::<T>(13.0);
-        let neg_twenty_three = from_f64::<T>(-23.0);
-        let twenty_five = from_f64::<T>(25.0);
+        let one_twelfth = <T as FloatElement>::from_f64(1.0 / 12.0);
+        let neg_three = <T as FloatElement>::from_f64(-3.0);
+        let thirteen = <T as FloatElement>::from_f64(13.0);
+        let neg_twenty_three = <T as FloatElement>::from_f64(-23.0);
+        let twenty_five = <T as FloatElement>::from_f64(25.0);
 
         one_twelfth
             * (twenty_five * cells[3]
@@ -214,17 +214,17 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Smoothness indicator beta0 for WENO7
     #[must_use]
     fn smoothness_indicator_0(&self, cells: &[T; 7]) -> T {
-        let one_240 = from_f64::<T>(1.0 / 240.0);
-        let c2107 = from_f64::<T>(2107.0);
-        let c9402 = from_f64::<T>(9402.0);
-        let c7042 = from_f64::<T>(7042.0);
-        let c1854 = from_f64::<T>(1854.0);
-        let c11003 = from_f64::<T>(11003.0);
-        let c17246 = from_f64::<T>(17246.0);
-        let c4642 = from_f64::<T>(4642.0);
-        let c7043 = from_f64::<T>(7043.0);
-        let c3882 = from_f64::<T>(3882.0);
-        let c547 = from_f64::<T>(547.0);
+        let one_240 = <T as FloatElement>::from_f64(1.0 / 240.0);
+        let c2107 = <T as FloatElement>::from_f64(2107.0);
+        let c9402 = <T as FloatElement>::from_f64(9402.0);
+        let c7042 = <T as FloatElement>::from_f64(7042.0);
+        let c1854 = <T as FloatElement>::from_f64(1854.0);
+        let c11003 = <T as FloatElement>::from_f64(11003.0);
+        let c17246 = <T as FloatElement>::from_f64(17246.0);
+        let c4642 = <T as FloatElement>::from_f64(4642.0);
+        let c7043 = <T as FloatElement>::from_f64(7043.0);
+        let c3882 = <T as FloatElement>::from_f64(3882.0);
+        let c547 = <T as FloatElement>::from_f64(547.0);
 
         let u0 = cells[0];
         let u1 = cells[1];
@@ -241,17 +241,17 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Smoothness indicator beta1 for WENO7
     #[must_use]
     fn smoothness_indicator_1(&self, cells: &[T; 7]) -> T {
-        let one_240 = from_f64::<T>(1.0 / 240.0);
-        let c547 = from_f64::<T>(547.0);
-        let c2522 = from_f64::<T>(2522.0);
-        let c1922 = from_f64::<T>(1922.0);
-        let c494 = from_f64::<T>(494.0);
-        let c3443 = from_f64::<T>(3443.0);
-        let c5966 = from_f64::<T>(5966.0);
-        let c1602 = from_f64::<T>(1602.0);
-        let c2843 = from_f64::<T>(2843.0);
-        let c1642 = from_f64::<T>(1642.0);
-        let c267 = from_f64::<T>(267.0);
+        let one_240 = <T as FloatElement>::from_f64(1.0 / 240.0);
+        let c547 = <T as FloatElement>::from_f64(547.0);
+        let c2522 = <T as FloatElement>::from_f64(2522.0);
+        let c1922 = <T as FloatElement>::from_f64(1922.0);
+        let c494 = <T as FloatElement>::from_f64(494.0);
+        let c3443 = <T as FloatElement>::from_f64(3443.0);
+        let c5966 = <T as FloatElement>::from_f64(5966.0);
+        let c1602 = <T as FloatElement>::from_f64(1602.0);
+        let c2843 = <T as FloatElement>::from_f64(2843.0);
+        let c1642 = <T as FloatElement>::from_f64(1642.0);
+        let c267 = <T as FloatElement>::from_f64(267.0);
 
         let u1 = cells[1];
         let u2 = cells[2];
@@ -268,17 +268,17 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Smoothness indicator beta2 for WENO7
     #[must_use]
     fn smoothness_indicator_2(&self, cells: &[T; 7]) -> T {
-        let one_240 = from_f64::<T>(1.0 / 240.0);
-        let c267 = from_f64::<T>(267.0);
-        let c1642 = from_f64::<T>(1642.0);
-        let c1602 = from_f64::<T>(1602.0);
-        let c494 = from_f64::<T>(494.0);
-        let c2843 = from_f64::<T>(2843.0);
-        let c5966 = from_f64::<T>(5966.0);
-        let c1922 = from_f64::<T>(1922.0);
-        let c3443 = from_f64::<T>(3443.0);
-        let c2522 = from_f64::<T>(2522.0);
-        let c547 = from_f64::<T>(547.0);
+        let one_240 = <T as FloatElement>::from_f64(1.0 / 240.0);
+        let c267 = <T as FloatElement>::from_f64(267.0);
+        let c1642 = <T as FloatElement>::from_f64(1642.0);
+        let c1602 = <T as FloatElement>::from_f64(1602.0);
+        let c494 = <T as FloatElement>::from_f64(494.0);
+        let c2843 = <T as FloatElement>::from_f64(2843.0);
+        let c5966 = <T as FloatElement>::from_f64(5966.0);
+        let c1922 = <T as FloatElement>::from_f64(1922.0);
+        let c3443 = <T as FloatElement>::from_f64(3443.0);
+        let c2522 = <T as FloatElement>::from_f64(2522.0);
+        let c547 = <T as FloatElement>::from_f64(547.0);
 
         let u2 = cells[2];
         let u3 = cells[3];
@@ -295,17 +295,17 @@ impl<T: RealField + Copy + FloatElement> WENO7<T> {
     /// Smoothness indicator beta3 for WENO7
     #[must_use]
     fn smoothness_indicator_3(&self, cells: &[T; 7]) -> T {
-        let one_240 = from_f64::<T>(1.0 / 240.0);
-        let c547 = from_f64::<T>(547.0);
-        let c3882 = from_f64::<T>(3882.0);
-        let c4642 = from_f64::<T>(4642.0);
-        let c1854 = from_f64::<T>(1854.0);
-        let c7043 = from_f64::<T>(7043.0);
-        let c17246 = from_f64::<T>(17246.0);
-        let c7042 = from_f64::<T>(7042.0);
-        let c11003 = from_f64::<T>(11003.0);
-        let c9402 = from_f64::<T>(9402.0);
-        let c2107 = from_f64::<T>(2107.0);
+        let one_240 = <T as FloatElement>::from_f64(1.0 / 240.0);
+        let c547 = <T as FloatElement>::from_f64(547.0);
+        let c3882 = <T as FloatElement>::from_f64(3882.0);
+        let c4642 = <T as FloatElement>::from_f64(4642.0);
+        let c1854 = <T as FloatElement>::from_f64(1854.0);
+        let c7043 = <T as FloatElement>::from_f64(7043.0);
+        let c17246 = <T as FloatElement>::from_f64(17246.0);
+        let c7042 = <T as FloatElement>::from_f64(7042.0);
+        let c11003 = <T as FloatElement>::from_f64(11003.0);
+        let c9402 = <T as FloatElement>::from_f64(9402.0);
+        let c2107 = <T as FloatElement>::from_f64(2107.0);
 
         let u3 = cells[3];
         let u4 = cells[4];

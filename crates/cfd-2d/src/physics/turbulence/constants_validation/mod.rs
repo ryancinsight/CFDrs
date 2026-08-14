@@ -34,11 +34,6 @@ fn scalar<T: FloatElement>(value: f64) -> T {
 }
 
 #[inline]
-fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
-}
-
-#[inline]
 fn zero<T: NumericElement>() -> T {
     <T as NumericElement>::ZERO
 }
@@ -112,10 +107,13 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
         println!("{}: {} Constants Validation", status, self.model_name);
         println!("  Reference: {}", self.reference);
-        println!("  Baseline RMS Error: {:.4}", to_f64(self.baseline_error));
+        println!(
+            "  Baseline RMS Error: {:.4}",
+            <T as NumericElement>::to_f64(self.baseline_error)
+        );
         println!(
             "  Max Uncertainty Bound: {:.4}",
-            to_f64(self.max_uncertainty_bound)
+            <T as NumericElement>::to_f64(self.max_uncertainty_bound)
         );
 
         println!("  Constant Sensitivity Analysis:");
@@ -123,9 +121,9 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
             println!(
                 "    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
                 constant_name,
-                to_f64(sensitivity.uncertainty_bound),
-                to_f64(sensitivity.minus_10_error),
-                to_f64(sensitivity.plus_10_error)
+                <T as NumericElement>::to_f64(sensitivity.uncertainty_bound),
+                <T as NumericElement>::to_f64(sensitivity.minus_10_error),
+                <T as NumericElement>::to_f64(sensitivity.plus_10_error)
             );
         }
         println!();

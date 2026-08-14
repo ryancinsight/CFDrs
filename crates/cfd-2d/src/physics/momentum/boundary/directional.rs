@@ -6,14 +6,14 @@
 use super::rotating::apply_rotating_wall_bc;
 use crate::physics::momentum::solver::MomentumComponent;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::Array1;
 
 use super::MatrixUpdater;
 
-pub(super) fn apply_west_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+pub(super) fn apply_west_boundary<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
@@ -140,7 +140,7 @@ pub(super) fn apply_west_boundary<T: Cfd2dScalar + Copy + FloatElement, M: Matri
     Ok(())
 }
 
-pub(super) fn apply_east_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+pub(super) fn apply_east_boundary<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
@@ -242,7 +242,7 @@ pub(super) fn apply_east_boundary<T: Cfd2dScalar + Copy + FloatElement, M: Matri
     Ok(())
 }
 
-pub(super) fn apply_north_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+pub(super) fn apply_north_boundary<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
@@ -343,7 +343,7 @@ pub(super) fn apply_north_boundary<T: Cfd2dScalar + Copy + FloatElement, M: Matr
     Ok(())
 }
 
-pub(super) fn apply_south_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+pub(super) fn apply_south_boundary<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,

@@ -1,7 +1,7 @@
 //! Traits for time-stepping methods.
 
 use cfd_core::error::{Error, Result};
-use eunomia::{FloatElement, NumericElement, RealField};
+use eunomia::{NumericElement, RealField};
 use leto::{Array1, Array2};
 
 /// Leto-backed ODE state vector used by time-stepping methods.
@@ -9,10 +9,6 @@ pub type TimeState<T> = Array1<T>;
 
 /// Leto-backed dense matrix used by time-stepping methods.
 pub type TimeMatrix<T> = Array2<T>;
-
-pub(crate) fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
 
 pub(crate) fn zero<T: NumericElement>() -> T {
     <T as NumericElement>::ZERO

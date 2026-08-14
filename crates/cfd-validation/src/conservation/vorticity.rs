@@ -50,37 +50,45 @@ impl<T: RealField + Copy + FloatElement> VorticityChecker<T> {
         for i in 2..self.nx - 2 {
             for j in 2..self.ny - 2 {
                 // Compute vorticity ω = ∂v/∂x - ∂u/∂y
-                let dv_dx = (v[[i + 1, j]] - v[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
-                let du_dy = (u[[i, j + 1]] - u[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
+                let dv_dx =
+                    (v[[i + 1, j]] - v[[i - 1, j]]) / (<T as FloatElement>::from_f64(2.0) * dx);
+                let du_dy =
+                    (u[[i, j + 1]] - u[[i, j - 1]]) / (<T as FloatElement>::from_f64(2.0) * dy);
                 let omega = dv_dx - du_dy;
 
                 // Convective term: u·∇ω
                 // Compute ∇ω using central differences on vorticity field
                 // First, compute vorticity at neighboring points
-                let omega_ip1 = ((v[[i + 2, j]] - v[[i, j]]) / (scalar::from_f64::<T>(2.0) * dx))
-                    - ((u[[i + 1, j + 1]] - u[[i + 1, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy));
+                let omega_ip1 = ((v[[i + 2, j]] - v[[i, j]])
+                    / (<T as FloatElement>::from_f64(2.0) * dx))
+                    - ((u[[i + 1, j + 1]] - u[[i + 1, j - 1]])
+                        / (<T as FloatElement>::from_f64(2.0) * dy));
 
-                let omega_im1 = ((v[[i, j]] - v[[i - 2, j]]) / (scalar::from_f64::<T>(2.0) * dx))
-                    - ((u[[i - 1, j + 1]] - u[[i - 1, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy));
+                let omega_im1 = ((v[[i, j]] - v[[i - 2, j]])
+                    / (<T as FloatElement>::from_f64(2.0) * dx))
+                    - ((u[[i - 1, j + 1]] - u[[i - 1, j - 1]])
+                        / (<T as FloatElement>::from_f64(2.0) * dy));
 
                 let omega_jp1 = ((v[[i + 1, j + 1]] - v[[i - 1, j + 1]])
-                    / (scalar::from_f64::<T>(2.0) * dx))
-                    - ((u[[i, j + 2]] - u[[i, j]]) / (scalar::from_f64::<T>(2.0) * dy));
+                    / (<T as FloatElement>::from_f64(2.0) * dx))
+                    - ((u[[i, j + 2]] - u[[i, j]]) / (<T as FloatElement>::from_f64(2.0) * dy));
 
                 let omega_jm1 = ((v[[i + 1, j - 1]] - v[[i - 1, j - 1]])
-                    / (scalar::from_f64::<T>(2.0) * dx))
-                    - ((u[[i, j]] - u[[i, j - 2]]) / (scalar::from_f64::<T>(2.0) * dy));
+                    / (<T as FloatElement>::from_f64(2.0) * dx))
+                    - ((u[[i, j]] - u[[i, j - 2]]) / (<T as FloatElement>::from_f64(2.0) * dy));
 
-                let domega_dx = (omega_ip1 - omega_im1) / (scalar::from_f64::<T>(2.0) * dx);
-                let domega_dy = (omega_jp1 - omega_jm1) / (scalar::from_f64::<T>(2.0) * dy);
+                let domega_dx = (omega_ip1 - omega_im1) / (<T as FloatElement>::from_f64(2.0) * dx);
+                let domega_dy = (omega_jp1 - omega_jm1) / (<T as FloatElement>::from_f64(2.0) * dy);
                 let u_dot_grad_omega = u[[i, j]] * domega_dx + v[[i, j]] * domega_dy;
 
                 // Viscous diffusion: ν∇²ω
                 // Use proper second-order central differences for Laplacian
-                let d2omega_dx2 =
-                    (omega_ip1 - scalar::from_f64::<T>(2.0) * omega + omega_im1) / (dx * dx);
-                let d2omega_dy2 =
-                    (omega_jp1 - scalar::from_f64::<T>(2.0) * omega + omega_jm1) / (dy * dy);
+                let d2omega_dx2 = (omega_ip1 - <T as FloatElement>::from_f64(2.0) * omega
+                    + omega_im1)
+                    / (dx * dx);
+                let d2omega_dy2 = (omega_jp1 - <T as FloatElement>::from_f64(2.0) * omega
+                    + omega_jm1)
+                    / (dy * dy);
                 let viscous_diffusion = viscosity * (d2omega_dx2 + d2omega_dy2);
 
                 // Vorticity transport equation residual: ∂ω/∂t + u·∇ω - ν∇²ω
@@ -166,8 +174,8 @@ impl<T: RealField + Copy + FloatElement> VorticityChecker<T> {
             let v_mid = v[[i_mid, j_mid]];
 
             // dl component (tangent vector)
-            let dl_x = scalar::from_f64::<T>(di as f64) * dx;
-            let dl_y = scalar::from_f64::<T>(dj as f64) * dy;
+            let dl_x = <T as FloatElement>::from_f64(di as f64) * dx;
+            let dl_y = <T as FloatElement>::from_f64(dj as f64) * dy;
 
             // u·dl contribution
             circulation = circulation + u_mid * dl_x + v_mid * dl_y;
@@ -176,7 +184,7 @@ impl<T: RealField + Copy + FloatElement> VorticityChecker<T> {
         // For inviscid flow, circulation should be conserved (constant)
         // Here we just check it's finite and reasonable
         let error = scalar::abs(circulation);
-        let is_conserved = error < self.tolerance * scalar::from_f64::<T>(100.0); // More lenient check
+        let is_conserved = error < self.tolerance * <T as FloatElement>::from_f64(100.0); // More lenient check
 
         let mut details = std::collections::HashMap::new();
         details.insert("rms_error".to_string(), error);
@@ -205,8 +213,10 @@ impl<T: RealField + Copy + FloatElement> VorticityChecker<T> {
         // Compute vorticity at all points
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let dv_dx = (v[[i + 1, j]] - v[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
-                let du_dy = (u[[i, j + 1]] - u[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
+                let dv_dx =
+                    (v[[i + 1, j]] - v[[i - 1, j]]) / (<T as FloatElement>::from_f64(2.0) * dx);
+                let du_dy =
+                    (u[[i, j + 1]] - u[[i, j - 1]]) / (<T as FloatElement>::from_f64(2.0) * dy);
                 let vorticity = dv_dx - du_dy;
 
                 let abs_vorticity = scalar::abs(vorticity);

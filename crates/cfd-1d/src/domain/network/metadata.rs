@@ -1,13 +1,13 @@
 //! Network metadata and properties
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Pressure, ThermodynamicTemperature, Volume};
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Metadata for the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkMetadata<T: Cfd1dScalar + Copy> {
+pub struct NetworkMetadata<T: CfdScalar + Copy> {
     /// Name of the network
     pub name: String,
     /// Description
@@ -22,7 +22,7 @@ pub struct NetworkMetadata<T: Cfd1dScalar + Copy> {
     pub properties: HashMap<String, String>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for NetworkMetadata<T> {
+impl<T: CfdScalar + Copy> Default for NetworkMetadata<T> {
     fn default() -> Self {
         Self {
             name: "Unnamed Network".to_string(),
@@ -35,7 +35,7 @@ impl<T: Cfd1dScalar + Copy> Default for NetworkMetadata<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy> NetworkMetadata<T> {
+impl<T: CfdScalar + Copy> NetworkMetadata<T> {
     /// Create new metadata with a name
     #[must_use]
     pub fn new(name: String) -> Self {

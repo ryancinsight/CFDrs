@@ -1,5 +1,5 @@
+use super::ops::{from_usize, l2_norm, vector_add, vector_add_assign, vector_sub};
 use super::{GmgMatrix, GmgVector, NonlinearOperator};
-use super::ops::{from_f64, from_usize, l2_norm, vector_add, vector_add_assign, vector_sub};
 use crate::error::Result;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -60,15 +60,15 @@ impl<T: RealField + FloatElement> GeometricMultigrid<T> {
             // Coarsen grid (simple 2:1 coarsening)
             current_nx = current_nx.div_ceil(2);
             current_ny = current_ny.div_ceil(2);
-            current_h *= from_f64::<T>(2.0);
+            current_h *= <T as FloatElement>::from_f64(2.0);
         }
 
         Ok(Self {
             grid_sizes,
             matrices,
-            relaxation_param: from_f64::<T>(0.8), // Weighted Jacobi
-            nu1: 2,                               // Pre-smoothing iterations
-            nu2: 2,                               // Post-smoothing iterations
+            relaxation_param: <T as FloatElement>::from_f64(0.8), // Weighted Jacobi
+            nu1: 2,                                               // Pre-smoothing iterations
+            nu2: 2,                                               // Post-smoothing iterations
         })
     }
 
@@ -78,7 +78,7 @@ impl<T: RealField + FloatElement> GeometricMultigrid<T> {
         let mut matrix = GmgMatrix::zeros([n, n]);
 
         let h_squared = h * h;
-        let four = from_f64::<T>(4.0);
+        let four = <T as FloatElement>::from_f64(4.0);
         let minus_one = -<T as NumericElement>::ONE;
 
         for i in 0..nx {

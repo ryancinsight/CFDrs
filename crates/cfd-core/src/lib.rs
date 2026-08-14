@@ -50,6 +50,9 @@ pub use crate::management::conversion;
 /// Domain management, coordination, and plugin system
 pub mod management;
 pub mod physics;
+pub mod scalar;
+
+pub use crate::scalar::CfdScalar;
 
 /// Prelude module for convenient imports of commonly used types
 ///

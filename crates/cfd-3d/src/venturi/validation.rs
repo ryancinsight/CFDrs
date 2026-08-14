@@ -59,7 +59,7 @@ pub fn iso_discharge_coefficient<
     _pipe_roughness: T,
     _d_inlet: T,
 ) -> T {
-    scalar::from_f64::<T>(0.995)
+    <T as FloatElement>::from_f64(0.995)
 }
 
 // ============================================================================
@@ -98,16 +98,16 @@ where
         // or re-calculate it. FemSolver ensures mass conservation weakly.
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
 
-        let d_inlet = scalar::from_f64::<T>(self.mesh_builder.d_inlet);
-        let d_throat = scalar::from_f64::<T>(self.mesh_builder.d_throat);
+        let d_inlet = <T as FloatElement>::from_f64(self.mesh_builder.d_inlet);
+        let d_throat = <T as FloatElement>::from_f64(self.mesh_builder.d_throat);
         let a_inlet = if config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
         } else {
             d_inlet * d_inlet
         };
 
         let a_throat = if config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_throat * d_throat
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * d_throat * d_throat
         } else {
             d_throat * d_throat
         };
@@ -132,7 +132,7 @@ where
         let u_in_avg = actual_flow / a_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
 
-        let dp_bernoulli = scalar::from_f64::<T>(0.5)
+        let dp_bernoulli = <T as FloatElement>::from_f64(0.5)
             * fluid_density
             * u_in_avg
             * u_in_avg
@@ -143,7 +143,7 @@ where
         // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
         // Allow tolerance for P1 discretization and non-uniform velocity profile effects.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
-        let numerical_tol = scalar::from_f64::<T>(0.10);
+        let numerical_tol = <T as FloatElement>::from_f64(0.10);
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).

@@ -4,8 +4,8 @@
 //! for any network derived from a [`cfd_schematics`] topology.
 
 use super::super::{Edge, EdgeType, NetworkGraph, Node, NodeType};
-use crate::scalar::Cfd1dScalar;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 
@@ -15,11 +15,11 @@ use petgraph::visit::EdgeRef;
 /// [`cfd_schematics`] topology. This builder is retained for low-level
 /// graph construction in blood-vessel models and other domain-specific
 /// applications that build the graph programmatically.
-pub struct NetworkBuilder<T: Cfd1dScalar + Copy> {
+pub struct NetworkBuilder<T: CfdScalar + Copy> {
     graph: NetworkGraph<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> NetworkBuilder<T> {
+impl<T: CfdScalar + Copy> NetworkBuilder<T> {
     /// Create a new network builder
     #[must_use]
     pub fn new() -> Self {
@@ -109,14 +109,14 @@ impl<T: Cfd1dScalar + Copy> NetworkBuilder<T> {
             let w = edge_ref.weight();
             let r = w.resistance.into_base();
             let k = w.quad_coeff.into_base();
-            if r < T::zero() {
+            if r < T::ZERO {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
                     idx.index(),
                     r
                 )));
             }
-            if k < T::zero() {
+            if k < T::ZERO {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge {} has negative quadratic coefficient: {}",
                     idx.index(),
@@ -135,7 +135,7 @@ impl<T: Cfd1dScalar + Copy> NetworkBuilder<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy> Default for NetworkBuilder<T> {
+impl<T: CfdScalar + Copy> Default for NetworkBuilder<T> {
     fn default() -> Self {
         Self::new()
     }

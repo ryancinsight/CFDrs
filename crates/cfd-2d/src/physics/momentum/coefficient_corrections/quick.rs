@@ -21,7 +21,7 @@
 use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
 use crate::fields::SimulationFields;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use super::super::solver::MomentumComponent;
@@ -32,7 +32,7 @@ use super::super::solver::MomentumComponent;
 ///
 /// # References
 /// * Leonard (1979), Patankar (1980) §5.4.3
-pub fn compute_quick_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn compute_quick_correction_x<T: CfdScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     u: T,
@@ -82,7 +82,7 @@ pub fn compute_quick_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
 ///
 /// # References
 /// * Leonard (1979), Patankar (1980) §5.4.3
-pub fn compute_quick_correction_y<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn compute_quick_correction_y<T: CfdScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     v: T,

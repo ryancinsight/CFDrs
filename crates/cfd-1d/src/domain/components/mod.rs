@@ -4,11 +4,11 @@
 //! channels, pumps, valves, mixers, and sensors with their characteristic
 //! hydraulic properties and behaviors.
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::Volume;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 
@@ -32,14 +32,14 @@ pub use sensors::{FlowSensor, SensorType};
 pub use valves::{Microvalve, ValveType};
 
 /// Trait for all microfluidic components
-pub trait Component<T: Cfd1dScalar + Copy + NumericElement> {
+pub trait Component<T: CfdScalar + Copy + NumericElement> {
     /// Get the hydraulic resistance of the component (linear part R)
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T;
 
     /// Get the linear (R) and quadratic (k) resistance coefficients
     /// such that ΔP = R·Q + k·Q|Q|
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
-        (self.resistance(fluid), T::zero())
+        (self.resistance(fluid), T::ZERO)
     }
 
     /// Get the pressure drop across the component for a given flow rate
@@ -75,7 +75,7 @@ pub trait Component<T: Cfd1dScalar + Copy + NumericElement> {
 #[inline]
 pub(crate) fn real_from_f64<T>(value: f64) -> T
 where
-    T: Cfd1dScalar + Copy + SafeFromF64,
+    T: CfdScalar + Copy + SafeFromF64,
 {
     T::from_f64_or_zero(value)
 }
@@ -84,7 +84,7 @@ where
 #[inline]
 pub(crate) fn try_real_from_f64<T>(value: f64, _context: &str) -> Result<T>
 where
-    T: Cfd1dScalar + Copy + SafeFromF64,
+    T: CfdScalar + Copy + SafeFromF64,
 {
     T::try_from_f64(value)
 }

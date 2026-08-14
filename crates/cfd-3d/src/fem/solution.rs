@@ -1,6 +1,7 @@
 //! Solution structure for FEM
 
-use crate::fem::{constants, scalar};
+use crate::fem::constants;
+use crate::scalar;
 use eunomia::{NumericElement, RealField};
 use leto::{Array1, Vector3};
 use std::ops::{Index, IndexMut};

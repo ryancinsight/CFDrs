@@ -41,11 +41,11 @@
 //! - Shur, M., Spalart, P.R., Strelets, M. & Travin, A. (1999). "Detached-
 //!   eddy simulation of an airfoil at high angle of attack." *IUTAM Symp.*
 
-use crate::scalar::Cfd3dScalar;
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 use super::constants::{DES_C_DES, SMAGORINSKY_CS_DEFAULT};
@@ -59,7 +59,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Blends RANS behaviour near walls with LES behaviour away from walls
 /// by selecting the minimum of the RANS wall-distance and LES filter scale.
 #[derive(Debug, Clone)]
-pub struct DESModel<T: Cfd3dScalar> {
+pub struct DESModel<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     /// DES constant C_DES = 0.65.
     pub c_des: T,
     /// Wall distance for each grid point (order: x-innermost, then y, then z).
@@ -100,7 +100,7 @@ pub struct DESModel<T: Cfd3dScalar> {
     pub background_turbulent_viscosity: Option<Vec<T>>,
 }
 
-impl<T: Cfd3dScalar> DESModel<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> DESModel<T> {
     /// Create a DES model with uniform wall distance and filter width.
     ///
     /// # Arguments
@@ -196,7 +196,7 @@ impl<T: Cfd3dScalar> DESModel<T> {
     }
 }
 
-impl<T: Cfd3dScalar> TurbulenceModel<T> for DESModel<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> TurbulenceModel<T> for DESModel<T> {
     /// Compute DES eddy viscosity.
     ///
     /// At each grid point, uses l_DES = min(d, C_DES·Δ_max) as the effective

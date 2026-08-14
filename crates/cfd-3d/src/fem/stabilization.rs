@@ -46,7 +46,7 @@ use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
 
-use super::scalar;
+use crate::scalar;
 
 // Named constants for stabilization
 const TWO: f64 = 2.0;
@@ -80,8 +80,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
     ///
     /// For steady-state: τ = [(2U/h)² + (4ν/h²)²]^(-1/2)
     pub fn tau_supg(&self) -> T {
-        let two = scalar::constant::<T>(TWO);
-        let four = scalar::constant::<T>(FOUR);
+        let two = <T as FloatElement>::from_f64(TWO);
+        let four = <T as FloatElement>::from_f64(FOUR);
 
         // Advection term: (2U/h)²
         let advection_term = if self.u_mag > scalar::zero::<T>() {
@@ -125,7 +125,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
     /// Pe = U*h/(2ν)
     pub fn peclet_number(&self) -> T {
         if self.nu > scalar::zero::<T>() {
-            (self.u_mag * self.h) / (scalar::constant::<T>(TWO) * self.nu)
+            (self.u_mag * self.h) / (<T as FloatElement>::from_f64(TWO) * self.nu)
         } else {
             scalar::zero::<T>()
         }
@@ -150,7 +150,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
         if pe < scalar::one::<T>() {
             // Diffusion-dominated: reduce stabilization
             tau_supg * pe
-        } else if pe > scalar::constant::<T>(100.0) {
+        } else if pe > <T as FloatElement>::from_f64(100.0) {
             // Highly advection-dominated: use full stabilization
             tau_supg
         } else {

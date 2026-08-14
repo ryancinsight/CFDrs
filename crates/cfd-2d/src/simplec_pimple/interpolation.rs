@@ -38,11 +38,11 @@ use crate::physics::MomentumSolver;
 use crate::pressure_velocity::PressureCorrectionSolver;
 use crate::pressure_velocity::RhieChowInterpolation;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
 
-fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>(
+fn apply_velocity_boundary_conditions_impl<T: CfdScalar + Copy + FloatElement>(
     grid: &StructuredGrid2D<T>,
     boundary_conditions: &std::collections::HashMap<
         String,
@@ -160,7 +160,7 @@ fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>
 }
 
 pub(super) fn solve_pressure_correction_with_caches<
-    T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement,
+    T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement,
 >(
     grid: &StructuredGrid2D<T>,
     pressure_solver: &PressureCorrectionSolver<T>,
@@ -308,7 +308,7 @@ pub(super) fn solve_pressure_correction_with_caches<
     }
 }
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Interpolate consistent face velocities using Rhie-Chow interpolation
     pub(super) fn interpolate_consistent_velocity(
         &self,

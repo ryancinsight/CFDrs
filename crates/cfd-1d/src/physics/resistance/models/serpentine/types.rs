@@ -1,4 +1,5 @@
-use super::traits::{scalar_from_f64, ResistanceScalar};
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Bend type in the serpentine channel
@@ -37,10 +38,10 @@ impl BendType {
     }
 
     /// Compute bend loss coefficient K at the given Reynolds number
-    pub fn loss_coefficient<T: ResistanceScalar>(&self, reynolds: T) -> T {
+    pub fn loss_coefficient<T: CfdScalar>(&self, reynolds: T) -> T {
         let (c1, c2) = self.loss_constants();
-        let c1_t = scalar_from_f64::<T>(c1);
-        let c2_t = scalar_from_f64::<T>(c2);
+        let c1_t = <T as FloatElement>::from_f64(c1);
+        let c2_t = <T as FloatElement>::from_f64(c2);
         c1_t + c2_t / reynolds
     }
 }

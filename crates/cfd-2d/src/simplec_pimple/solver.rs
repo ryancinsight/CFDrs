@@ -40,8 +40,8 @@ use crate::grid::StructuredGrid2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
@@ -57,7 +57,7 @@ struct SolidPressureLayers {
 /// This solver extends the basic SIMPLE algorithm with:
 /// - SIMPLEC: Consistent pressure-velocity coupling using Rhie-Chow interpolation
 /// - PIMPLE: Merged PISO-SIMPLE for better convergence in transient flows
-pub struct SimplecPimpleSolver<T: Cfd2dScalar + Copy> {
+pub struct SimplecPimpleSolver<T: CfdScalar + Copy> {
     pub(super) config: SimplecPimpleConfig<T>,
     pub(super) grid: StructuredGrid2D<T>,
     pub(super) momentum_solver: MomentumSolver<T>,
@@ -78,7 +78,7 @@ pub struct SimplecPimpleSolver<T: Cfd2dScalar + Copy> {
     _solid_pressure_layers: std::cell::RefCell<Option<SolidPressureLayers>>,
 }
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Create new SIMPLEC/PIMPLE solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -128,7 +128,8 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         // is one order tighter than the SIMPLE nonlinear residual contract.
         // This prevents the default 1e-8 linear target from over-solving a
         // configuration whose outer tolerance is materially looser.
-        momentum_solver.set_linear_solver_tolerance(config.tolerance * scalar::from_f64(0.1));
+        momentum_solver
+            .set_linear_solver_tolerance(config.tolerance * <T as FloatElement>::from_f64(0.1));
 
         // Create pressure solver using configuration
         let pressure_solver =
@@ -143,7 +144,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             let dx_f64 = NumericElement::to_f64(grid.dx);
             let dy_f64 = NumericElement::to_f64(grid.dy);
             let default_ap_f64 = 1.0 / (dx_f64 * dx_f64 + dy_f64 * dy_f64);
-            let default_ap = scalar::from_f64(default_ap_f64);
+            let default_ap = <T as FloatElement>::from_f64(default_ap_f64);
             let ap_u = Field2D::new(grid.nx, grid.ny, default_ap);
             let ap_v = Field2D::new(grid.nx, grid.ny, default_ap);
             rhie_chow.update_u_coefficients(&ap_u);

@@ -1,6 +1,8 @@
 //! WENO-Z reconstruction helpers for the 3D level-set solver.
 
-use super::scalar::{self, LevelSetScalar};
+use crate::scalar;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 /// Compute the upwind WENO5-Z spatial derivative `dφ/dx` at point `i`
 /// via flux differencing.
@@ -19,8 +21,8 @@ use super::scalar::{self, LevelSetScalar};
 /// ```
 ///
 /// where each `φ̂` is a WENO5 reconstruction at a cell face from 5 point values.
-pub(super) fn weno5_derivative<T: LevelSetScalar>(v: [T; 7], h: T, u: T) -> T {
-    let half = scalar::from_f64::<T>(0.5);
+pub(super) fn weno5_derivative<T: CfdScalar>(v: [T; 7], h: T, u: T) -> T {
+    let half = <T as FloatElement>::from_f64(0.5);
 
     let fl_right = weno5_reconstruct_left([v[1], v[2], v[3], v[4], v[5]]);
     let fl_left = weno5_reconstruct_left([v[0], v[1], v[2], v[3], v[4]]);
@@ -43,10 +45,10 @@ pub(super) fn weno5_derivative<T: LevelSetScalar>(v: [T; 7], h: T, u: T) -> T {
 ///
 /// Given `[φ_{i-2}, φ_{i-1}, φ_i, φ_{i+1}, φ_{i+2}]`, reconstructs
 /// `φ̂⁻_{i+½}` using three overlapping 3rd-order sub-stencils.
-pub(super) fn weno5_reconstruct_left<T: LevelSetScalar>(v: [T; 5]) -> T {
+pub(super) fn weno5_reconstruct_left<T: CfdScalar>(v: [T; 5]) -> T {
     // Keep the regularization representable for both f32 and f64 so the
     // fallback path remains well-defined for constant fields.
-    let eps = scalar::from_f64::<T>(1e-12);
+    let eps = <T as FloatElement>::from_f64(1e-12);
     let one = scalar::one::<T>();
     let two = one + one;
     let three = two + one;
@@ -67,9 +69,9 @@ pub(super) fn weno5_reconstruct_left<T: LevelSetScalar>(v: [T; 5]) -> T {
         b0,
         b1,
         b2,
-        scalar::from_f64::<T>(0.1),
-        scalar::from_f64::<T>(0.6),
-        scalar::from_f64::<T>(0.3),
+        <T as FloatElement>::from_f64(0.1),
+        <T as FloatElement>::from_f64(0.6),
+        <T as FloatElement>::from_f64(0.3),
         eps,
     );
 
@@ -78,15 +80,15 @@ pub(super) fn weno5_reconstruct_left<T: LevelSetScalar>(v: [T; 5]) -> T {
 
 /// Right-biased WENO5 reconstruction of `φ` at the left face of the middle cell,
 /// obtained by mirroring the left-biased stencil.
-pub(super) fn weno5_reconstruct_right<T: LevelSetScalar>(v: [T; 5]) -> T {
+pub(super) fn weno5_reconstruct_right<T: CfdScalar>(v: [T; 5]) -> T {
     weno5_reconstruct_left([v[4], v[3], v[2], v[1], v[0]])
 }
 
 /// WENO5 smoothness indicator for a 3-point sub-stencil (Jiang & Shu 1996).
 #[inline]
-pub(super) fn smoothness_indicator<T: LevelSetScalar>(v0: T, v1: T, v2: T) -> T {
-    let thirteen_over_twelve = scalar::from_f64::<T>(13.0 / 12.0);
-    let quarter = scalar::from_f64::<T>(0.25);
+pub(super) fn smoothness_indicator<T: CfdScalar>(v0: T, v1: T, v2: T) -> T {
+    let thirteen_over_twelve = <T as FloatElement>::from_f64(13.0 / 12.0);
+    let quarter = <T as FloatElement>::from_f64(0.25);
     let two = scalar::one::<T>() + scalar::one::<T>();
 
     let diff1 = v0 - two * v1 + v2;
@@ -96,7 +98,7 @@ pub(super) fn smoothness_indicator<T: LevelSetScalar>(v0: T, v1: T, v2: T) -> T 
 
 /// Compute normalized WENO5-Z nonlinear weights from smoothness indicators.
 #[inline]
-pub(super) fn nonlinear_weights<T: LevelSetScalar>(
+pub(super) fn nonlinear_weights<T: CfdScalar>(
     b0: T,
     b1: T,
     b2: T,
@@ -122,7 +124,7 @@ pub(super) fn nonlinear_weights<T: LevelSetScalar>(
 }
 
 #[inline]
-fn global_smoothness_indicator<T: LevelSetScalar>(b0: T, _b1: T, b2: T) -> T {
+fn global_smoothness_indicator<T: CfdScalar>(b0: T, _b1: T, b2: T) -> T {
     scalar::abs(b0 - b2)
 }
 

@@ -1,11 +1,11 @@
 use crate::grid::array2d::Array2D;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use std::collections::HashMap;
 
 /// Energy equation solver for transporting thermal scalar fields.
-pub struct EnergyEquationSolver<T: Cfd2dScalar + Copy> {
+pub struct EnergyEquationSolver<T: CfdScalar + Copy> {
     /// Temperature field
     pub temperature: Array2D<T>,
     /// Thermal diffusivity field
@@ -37,16 +37,16 @@ pub struct EnergyEquationSolver<T: Cfd2dScalar + Copy> {
     viscous_dissipation_cp: f64,
 }
 
-impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
+impl<T: CfdScalar + Copy> EnergyEquationSolver<T> {
     /// Create new energy equation solver
     pub fn new(nx: usize, ny: usize, initial_temperature: T, thermal_diffusivity: T) -> Self {
         Self {
             temperature: Array2D::new(nx, ny, initial_temperature),
             thermal_diffusivity: Array2D::new(nx, ny, thermal_diffusivity),
-            heat_source: Array2D::new(nx, ny, T::zero()),
+            heat_source: Array2D::new(nx, ny, T::ZERO),
             nx,
             ny,
-            work_buffer: Array2D::new(nx, ny, T::zero()),
+            work_buffer: Array2D::new(nx, ny, T::ZERO),
             include_viscous_dissipation: false,
             viscous_dissipation_mu: Array2D::new(nx, ny, 0.0),
             viscous_dissipation_rho: 1000.0,
@@ -136,10 +136,10 @@ impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
         // only consumed in the f64-specialized path (see below).
         let viscous_dissipation_contributions: Option<Array2D<T>> =
             if self.include_viscous_dissipation {
-                let two = T::one() + T::one();
+                let two = T::ONE + T::ONE;
                 let two_dx = two * dx;
                 let two_dy = two * dy;
-                let mut contribs = Array2D::new(self.nx, self.ny, T::zero());
+                let mut contribs = Array2D::new(self.nx, self.ny, T::ZERO);
                 for i in 1..self.nx - 1 {
                     for j in 1..self.ny - 1 {
                         let du_dx = (u_velocity[(i + 1, j)] - u_velocity[(i - 1, j)]) / two_dx;
@@ -149,7 +149,7 @@ impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
 
                         // Phi = 2*mu*[(du/dx)^2 + (dv/dy)^2] + mu*(du/dy + dv/dx)^2
                         // Compute in T-space using stored f64 mu converted via
-                        // repeated addition (safe for any Cfd2dScalar).
+                        // repeated addition (safe for any CfdScalar).
                         // For simplicity, use the viscous_dissipation_2d function
                         // on f64 and store the contribution to add/remove.
                         let phi = two * (du_dx * du_dx + dv_dy * dv_dy)
@@ -196,7 +196,7 @@ impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
                 let alpha = self.thermal_diffusivity[(i, j)];
 
                 // Face-interpolated temperatures (Central Differencing)
-                let two = T::one() + T::one();
+                let two = T::ONE + T::ONE;
                 let t_west = self.temperature[(i - 1, j)];
                 let t_east = self.temperature[(i + 1, j)];
                 let t_south = self.temperature[(i, j - 1)];

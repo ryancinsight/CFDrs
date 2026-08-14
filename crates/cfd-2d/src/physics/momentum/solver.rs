@@ -18,7 +18,7 @@ use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::IterativeSolverConfig;
 
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::FloatElement;
 use leto::Array1;
@@ -40,7 +40,7 @@ pub enum MomentumComponent {
 pub(crate) const MOMENTUM_RESTART: usize = 30;
 
 /// Momentum equation solver for 2D incompressible flow
-pub struct MomentumSolver<T: Cfd2dScalar + Copy> {
+pub struct MomentumSolver<T: CfdScalar + Copy> {
     /// Grid reference for boundary condition calculations
     pub(crate) grid: StructuredGrid2D<T>,
     /// Boundary conditions
@@ -75,7 +75,7 @@ pub struct MomentumSolver<T: Cfd2dScalar + Copy> {
     pub(crate) solution_v: Option<Array1<T>>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
+impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
     /// Create new momentum solver with default deferred correction scheme
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         let linear_solver_config = Self::linear_solver_config();
@@ -90,9 +90,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             coeffs_u: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
+                T::ONE,
+                T::ONE,
+                T::ONE,
                 MomentumComponent::U,
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
@@ -101,9 +101,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
+                T::ONE,
+                T::ONE,
+                T::ONE,
                 MomentumComponent::V,
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
@@ -134,9 +134,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             coeffs_u: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
+                T::ONE,
+                T::ONE,
+                T::ONE,
                 MomentumComponent::U,
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,
@@ -145,9 +145,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
+                T::ONE,
+                T::ONE,
+                T::ONE,
                 MomentumComponent::V,
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,

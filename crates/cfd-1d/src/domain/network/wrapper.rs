@@ -2,11 +2,11 @@
 
 use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
     QuadraticHydraulicResistance, VolumetricFlowRate,
 };
+use cfd_core::CfdScalar;
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
     error::{Error, Result},
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
 #[derive(Clone, Debug)]
-pub struct Network<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct Network<T: CfdScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// The underlying graph
     pub graph: NetworkGraph<T>,
     /// Fluid properties for the network
@@ -43,7 +43,7 @@ pub struct Network<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFlu
 
 /// Properties for edges in the network
 #[derive(Debug, Clone)]
-pub struct EdgeProperties<T: Cfd1dScalar + Copy> {
+pub struct EdgeProperties<T: CfdScalar + Copy> {
     /// Edge identifier
     pub id: String,
     /// Physical component type
@@ -85,7 +85,7 @@ pub const EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S: &str = "plasma_viscosity_pa_s";
 /// Edge-property key for a transiently assembled local apparent viscosity in Pa·s.
 pub const EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S: &str = "local_apparent_viscosity_pa_s";
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<T> {
     /// Convert a `ChannelSpec` from `cfd-schematics` into solver-layer `EdgeProperties`.
     ///
     /// This is the canonical bridge between the schematic domain model and the
@@ -130,7 +130,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
             length,
             cross_section,
             surface: SurfaceProperties {
-                roughness: Length::from_base(T::zero()),
+                roughness: Length::from_base(T::ZERO),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,
@@ -159,7 +159,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
 }
 
 /// Edge with properties for iteration
-pub struct EdgeWithProperties<'a, T: Cfd1dScalar + Copy> {
+pub struct EdgeWithProperties<'a, T: CfdScalar + Copy> {
     /// Edge identifier
     pub id: String,
     /// Flow rate
@@ -171,14 +171,14 @@ pub struct EdgeWithProperties<'a, T: Cfd1dScalar + Copy> {
 }
 
 /// Edge for parallel processing
-pub struct ParallelEdge<T: Cfd1dScalar + Copy> {
+pub struct ParallelEdge<T: CfdScalar + Copy> {
     /// Node indices (from, to) as usize
     pub nodes: (usize, usize),
     /// Conductance (1/resistance)
     pub conductance: HydraulicConductance<T>,
 }
 
-struct ResistanceUpdateContext<T: Cfd1dScalar + Copy> {
+struct ResistanceUpdateContext<T: CfdScalar + Copy> {
     calculator: crate::physics::resistance::ResistanceCalculator<T>,
     epsilon: T,
     is_blood_like: bool,
@@ -195,7 +195,7 @@ struct ResistanceUpdateContext<T: Cfd1dScalar + Copy> {
     tiny: T,
 }
 
-impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
+impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     /// Create a new network
     pub fn new(graph: NetworkGraph<T>, fluid: F) -> Self {
         let n_nodes = graph.node_count();
@@ -204,8 +204,8 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             graph,
             fluid,
             boundary_conditions: HashMap::new(),
-            pressures: vec![Pressure::from_base(T::zero()); n_nodes],
-            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); n_edges],
+            pressures: vec![Pressure::from_base(T::ZERO); n_nodes],
+            flow_rates: vec![VolumetricFlowRate::from_base(T::ZERO); n_edges],
             properties: HashMap::new(),
             residuals: Vec::new(),
             last_solver_method: None,
@@ -233,7 +233,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                             .flow_rates
                             .get(edge_idx.index())
                             .copied()
-                            .unwrap_or_else(|| VolumetricFlowRate::from_base(T::zero())),
+                            .unwrap_or_else(|| VolumetricFlowRate::from_base(T::ZERO)),
                         nodes: (from, to),
                         properties: props,
                     })
@@ -272,8 +272,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         );
         let idx = node.index();
         if idx >= self.pressures.len() {
-            self.pressures
-                .resize(idx + 1, Pressure::from_base(T::zero()));
+            self.pressures.resize(idx + 1, Pressure::from_base(T::ZERO));
         }
         self.pressures[idx] = pressure;
     }
@@ -293,8 +292,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         if let BoundaryCondition::Dirichlet { value, .. } = &condition {
             let idx = node.index();
             if idx >= self.pressures.len() {
-                self.pressures
-                    .resize(idx + 1, Pressure::from_base(T::zero()));
+                self.pressures.resize(idx + 1, Pressure::from_base(T::ZERO));
             }
             self.pressures[idx] = Pressure::from_base(*value);
         }
@@ -306,7 +304,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         let idx = edge.index();
         if idx >= self.flow_rates.len() {
             self.flow_rates
-                .resize(idx + 1, VolumetricFlowRate::from_base(T::zero()));
+                .resize(idx + 1, VolumetricFlowRate::from_base(T::ZERO));
         }
         self.flow_rates[idx] = flow_rate;
         if let Some(edge_data) = self.graph.edge_weight_mut(edge) {
@@ -336,13 +334,13 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     {
         // Calculate based on average edge length
         if self.properties.is_empty() {
-            T::one()
+            T::ONE
         } else {
             let total_length: T = self
                 .properties
                 .values()
                 .map(|p| p.length.into_base())
-                .fold(T::zero(), |a, b| a + b);
+                .fold(T::ZERO, |a, b| a + b);
             total_length / T::from_usize_or_one(self.properties.len())
         }
     }
@@ -354,7 +352,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     {
         // Direct copy: pressures[i] = solution[i]
         let n = solution.size();
-        self.pressures.resize(n, Pressure::from_base(T::zero()));
+        self.pressures.resize(n, Pressure::from_base(T::ZERO));
         for i in 0..n {
             self.pressures[i] = Pressure::from_base(solution[i]);
         }
@@ -362,7 +360,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         let epsilon = T::default_epsilon();
         let n_edges = self.graph.edge_count();
         self.flow_rates
-            .resize(n_edges, VolumetricFlowRate::from_base(T::zero()));
+            .resize(n_edges, VolumetricFlowRate::from_base(T::ZERO));
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
         let update_context = self.resistance_update_context()?;
 
@@ -385,14 +383,14 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
 
             // Invariant checks: physical coefficients must be non-negative
-            if resistance < T::zero() {
+            if resistance < T::ZERO {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
                     edge_idx.index(),
                     resistance
                 )));
             }
-            if quad_coeff < T::zero() {
+            if quad_coeff < T::ZERO {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative quadratic coefficient: {}",
                     edge_idx.index(),
@@ -437,7 +435,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or(T::zero(), VolumetricFlowRate::into_base);
+                .map_or(T::ZERO, VolumetricFlowRate::into_base);
             self.update_single_edge_resistance(edge_idx, flow, &update_context)?;
         }
 
@@ -573,7 +571,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                     d_h,
                     area,
                     props.length.into_base(),
-                    T::zero(),
+                    T::ZERO,
                 )
                 .calculate_coefficients(&self.fluid, &conditions)?
             } else {
@@ -643,7 +641,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or(T::zero(), VolumetricFlowRate::into_base);
+                .map_or(T::ZERO, VolumetricFlowRate::into_base);
             self.update_single_edge_resistance(edge_idx, flow_rate, &context)?;
         }
         Ok(())
@@ -690,7 +688,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
 
         for _ in 0..max_sweeps {
             updates.clear();
-            let mut max_change = T::zero();
+            let mut max_change = T::ZERO;
 
             next_node_hematocrit.copy_from_slice(&node_hematocrit);
 
@@ -750,7 +748,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 if let Some(props) = self.properties.get_mut(&edge_idx) {
                     props.properties.insert(
                         EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),
-                        <T as eunomia::RealField>::clamp(hematocrit, T::zero(), T::one()),
+                        <T as eunomia::RealField>::clamp(hematocrit, T::ZERO, T::ONE),
                     );
                 }
             }
@@ -773,20 +771,20 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         outflows: &mut Vec<(EdgeIndex, T)>,
     ) -> T {
         self.node_edge_fluxes_into(node_idx, true, inflows);
-        let total_in = inflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
+        let total_in = inflows.iter().fold(T::ZERO, |acc, (_, q)| acc + *q);
         if total_in > T::default_epsilon() {
-            return inflows.iter().fold(T::zero(), |acc, (edge_idx, q)| {
+            return inflows.iter().fold(T::ZERO, |acc, (edge_idx, q)| {
                 acc + *q * self.edge_hematocrit(*edge_idx, default_hematocrit)
             }) / total_in;
         }
 
         self.node_edge_fluxes_into(node_idx, false, outflows);
-        let total_out = outflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
+        let total_out = outflows.iter().fold(T::ZERO, |acc, (_, q)| acc + *q);
         if total_out > T::default_epsilon() {
             let seeded =
                 outflows
                     .iter()
-                    .fold((T::zero(), T::zero()), |(acc_h, acc_q), (edge_idx, q)| {
+                    .fold((T::ZERO, T::ZERO), |(acc_h, acc_q), (edge_idx, q)| {
                         let seeded_h = self
                             .properties
                             .get(edge_idx)
@@ -821,10 +819,10 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or_else(T::zero, VolumetricFlowRate::into_base);
-            if inflow && flow > T::zero() {
+                .map_or_else(|| T::ZERO, VolumetricFlowRate::into_base);
+            if inflow && flow > T::ZERO {
                 fluxes.push((edge_idx, flow));
-            } else if !inflow && flow < T::zero() {
+            } else if !inflow && flow < T::ZERO {
                 fluxes.push((edge_idx, -flow));
             }
         }
@@ -835,10 +833,10 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or_else(T::zero, VolumetricFlowRate::into_base);
-            if inflow && flow < T::zero() {
+                .map_or_else(|| T::ZERO, VolumetricFlowRate::into_base);
+            if inflow && flow < T::ZERO {
                 fluxes.push((edge_idx, -flow));
-            } else if !inflow && flow > T::zero() {
+            } else if !inflow && flow > T::ZERO {
                 fluxes.push((edge_idx, flow));
             }
         }
@@ -929,14 +927,14 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             let w = edge_ref.weight();
             let r = w.resistance.into_base();
             let k = w.quad_coeff.into_base();
-            if r < T::zero() {
+            if r < T::ZERO {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
                     idx.index(),
                     r
                 )));
             }
-            if k < T::zero() {
+            if k < T::ZERO {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative quadratic coefficient: {}",
                     idx.index(),
@@ -976,9 +974,9 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
             // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).
             let conductance = if r_eff > eps && r_eff.is_finite() {
-                T::one() / r_eff
+                T::ONE / r_eff
             } else {
-                T::zero()
+                T::ZERO
             };
 
             ParallelEdge {
@@ -990,7 +988,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
 }
 
 /// Map a `CrossSection` + length to the resistance-crate `ChannelGeometry`.
-fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
+fn channel_to_res_geometry<T: cfd_core::CfdScalar + Copy>(
     cross_section: &crate::domain::channel::CrossSection<T>,
     length: T,
 ) -> crate::physics::resistance::ChannelGeometry<T> {
@@ -1045,7 +1043,7 @@ fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
 /// entrance correction is undefined and the base laminar conductance must
 /// generate the first pressure-driven iterate.
 #[allow(clippy::too_many_arguments)]
-fn apply_resistance_corrections<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF64>(
+fn apply_resistance_corrections<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
     r: &mut T,
     d_h: T,
     area: T,
@@ -1069,11 +1067,11 @@ fn apply_resistance_corrections<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF
 ) {
     if d_h > epsilon && area > epsilon {
         let l_over_dh = length / d_h;
-        if l_over_dh < durst_limit && viscosity > epsilon && flow_rate != T::zero() {
+        if l_over_dh < durst_limit && viscosity > epsilon && flow_rate != T::ZERO {
             let velocity = <T as NumericElement>::abs(flow_rate) / area;
             let reynolds = density * velocity * d_h / viscosity;
             let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
-            let multiplier = T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
+            let multiplier = T::ONE + k_entrance / (sixty_four * l_over_dh).max(T::ONE);
             *r *= multiplier;
         }
 
@@ -1119,7 +1117,7 @@ fn apply_resistance_corrections<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF
 /// diameter, hematocrit in `[0, 0.95]`, and positive plasma viscosity, so it
 /// provides a finite resistance for the first linear solve. Once `Q != 0`, the
 /// shear rate `8|Q|/(A D_h)` is defined and the shear-dependent model enters.
-pub fn blood_microchannel_apparent_viscosity<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF64>(
+pub fn blood_microchannel_apparent_viscosity<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
     d_h: T,
     flow_rate: T,
     area: T,

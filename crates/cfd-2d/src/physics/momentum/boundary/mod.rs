@@ -100,8 +100,8 @@ pub use higher_order::apply_higher_order_wall_boundaries;
 pub use updater::MatrixUpdater;
 
 use super::solver::MomentumComponent;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use directional::{
     apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary,
 };
@@ -119,7 +119,7 @@ pub fn apply_momentum_boundaries<T, S, M>(
     grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     S: BuildHasher,
     M: MatrixUpdater<T>,
 {

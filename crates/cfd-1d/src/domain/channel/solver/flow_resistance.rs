@@ -42,16 +42,16 @@ use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::dimensionless::reynolds::{
     PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
 };
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
     /// Create a new channel with geometry.
     pub fn new(geometry: ChannelGeometry<T>) -> Self {
         Self {
@@ -101,11 +101,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
     fn update_flow_state(&mut self, fluid: &ConstantPropertyFluid<T>) -> Result<()> {
         let dh = self.geometry.hydraulic_diameter().into_base();
 
-        let kn_opt = if dh > T::zero() {
+        let kn_opt = if dh > T::ZERO {
             let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
             let lam = fluid.dynamic_viscosity().into_base() * sqrt_half_pi
                 / (fluid.density().into_base() * fluid.speed_of_sound().into_base());
-            if lam > T::zero() {
+            if lam > T::ZERO {
                 Some(lam / dh)
             } else {
                 None
@@ -159,7 +159,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
         let po = poiseuille_number(&self.geometry.cross_section);
         let resistance =
             po * fluid.dynamic_viscosity().into_base() * self.geometry.length.into_base()
-                / ((T::one() + T::one()) * area * dh * dh);
+                / ((T::ONE + T::ONE) * area * dh * dh);
         Ok(resistance)
     }
 
@@ -181,7 +181,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
         let r_u = self.turbulent_resistance(fluid)?;
 
         let weight = (re - re_l) / (re_u - re_l);
-        Ok(r_l * (T::one() - weight) + r_u * weight)
+        Ok(r_l * (T::ONE - weight) + r_u * weight)
     }
 
     /// Turbulent flow resistance (Re > 4000).
@@ -218,9 +218,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
     /// `R_slip = R_laminar / (1 + 4 · Kn · σ_v)`, `σ_v = 1`.
     fn slip_flow_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let r_laminar = self.laminar_resistance(fluid)?;
-        let kn = self.flow_state.knudsen_number.unwrap_or_else(T::zero);
-        let four = T::one() + T::one() + T::one() + T::one();
-        Ok(r_laminar / (T::one() + four * kn))
+        let kn = self.flow_state.knudsen_number.unwrap_or_else(|| T::ZERO);
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
+        Ok(r_laminar / (T::ONE + four * kn))
     }
 }
 

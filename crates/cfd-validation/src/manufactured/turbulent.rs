@@ -33,7 +33,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedKEpsilon<T> {
             ky,
             amplitude,
             nu_t,
-            production_scale: scalar::from_f64::<T>(0.1),
+            production_scale: <T as FloatElement>::from_f64(0.1),
         }
     }
 }
@@ -81,19 +81,19 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for Manufacture
         let dv_dy = self.ky * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
 
         let s_xx = du_dx;
-        let s_xy = scalar::from_f64::<T>(0.5) * (du_dy + dv_dx);
+        let s_xy = <T as FloatElement>::from_f64(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         let strain_rate_magnitude_sq =
-            s_xx * s_xx + scalar::from_f64::<T>(2.0) * s_xy * s_xy + s_yy * s_yy;
-        let production = scalar::from_f64::<T>(2.0) * self.nu_t * strain_rate_magnitude_sq;
+            s_xx * s_xx + <T as FloatElement>::from_f64(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let production = <T as FloatElement>::from_f64(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation rate from manufactured solution
         // For MMS, ε must satisfy: ε = P_k - ∇·(ν_t ∇k) + ∂k/∂t + convection
         let epsilon = production - diffusion + dk_dt + convection;
 
         // Ensure ε is positive and physically reasonable
-        let epsilon = scalar::max(epsilon, scalar::from_f64::<T>(1e-10));
+        let epsilon = scalar::max(epsilon, <T as FloatElement>::from_f64(1e-10));
 
         // Source term: P_k - ε + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
         production - epsilon + diffusion - dk_dt - convection
@@ -191,15 +191,15 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for Manufacture
         let dv_dy = self.ky * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
 
         let s_xx = du_dx;
-        let s_xy = scalar::from_f64::<T>(0.5) * (du_dy + dv_dx);
+        let s_xy = <T as FloatElement>::from_f64(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         let strain_rate_magnitude_sq =
-            s_xx * s_xx + scalar::from_f64::<T>(2.0) * s_xy * s_xy + s_yy * s_yy;
-        let production = scalar::from_f64::<T>(2.0) * self.nu_t * strain_rate_magnitude_sq;
+            s_xx * s_xx + <T as FloatElement>::from_f64(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let production = <T as FloatElement>::from_f64(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation term: β* k ω (standard k-ω model)
-        let beta = scalar::from_f64::<T>(0.09); // Standard k-ω constant
+        let beta = <T as FloatElement>::from_f64(0.09); // Standard k-ω constant
         let dissipation = beta * k * omega;
 
         // Source term: P_k - β* k ω + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
@@ -238,10 +238,10 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Modified vorticity ν̃ = ν + ν_t
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let wall_factor = if self.wall_distance < scalar::from_f64::<T>(10.0) {
+        let wall_factor = if self.wall_distance < <T as FloatElement>::from_f64(10.0) {
             self.wall_distance
         } else {
-            scalar::from_f64::<T>(10.0)
+            <T as FloatElement>::from_f64(10.0)
         }; // Damping near wall
         base * self.amplitude * wall_factor
     }
@@ -254,34 +254,34 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
         let dnu_dt = -nu_tilde;
 
         // Production term: C_b1 (1 - f_t2) ν̃ |Ω̃|
-        let cb1 = scalar::from_f64::<T>(0.1355);
+        let cb1 = <T as FloatElement>::from_f64(0.1355);
         let vorticity = self.kx * self.kx + self.ky * self.ky; // |Ω̃| approximation
         let production = cb1 * nu_tilde * scalar::sqrt(vorticity);
 
         // Destruction term: C_w1 f_w (ν̃/d)²
-        let cw1 = scalar::from_f64::<T>(3.239067816775729);
-        let kappa = scalar::from_f64::<T>(0.41);
-        let d = if self.wall_distance > scalar::from_f64::<T>(1e-10) {
+        let cw1 = <T as FloatElement>::from_f64(3.239067816775729);
+        let kappa = <T as FloatElement>::from_f64(0.41);
+        let d = if self.wall_distance > <T as FloatElement>::from_f64(1e-10) {
             self.wall_distance
         } else {
-            scalar::from_f64::<T>(1e-10)
+            <T as FloatElement>::from_f64(1e-10)
         };
         let chi = nu_tilde / d;
         let chi3 = chi * chi * chi;
-        let fv1_constant = scalar::from_f64::<T>(7.1);
+        let fv1_constant = <T as FloatElement>::from_f64(7.1);
         let denom = chi3 + fv1_constant * fv1_constant * fv1_constant;
         let fv1 = scalar::cbrt(chi3 / denom);
         let fv2 = scalar::one::<T>() - chi / (scalar::one::<T>() + chi * fv1);
         let s = vorticity + nu_tilde * fv2 / (kappa * kappa * d * d);
-        let r_limit = scalar::from_f64::<T>(10.0);
+        let r_limit = <T as FloatElement>::from_f64(10.0);
         let r_candidate = nu_tilde / (s * kappa * kappa * d * d);
         let r = if r_candidate < r_limit {
             nu_tilde / (s * kappa * kappa * d * d)
         } else {
             r_limit
         };
-        let g = r + scalar::one::<T>() / (scalar::from_f64::<T>(9.0) + r * r);
-        let fw_constant = scalar::from_f64::<T>(6.0);
+        let g = r + scalar::one::<T>() / (<T as FloatElement>::from_f64(9.0) + r * r);
+        let fw_constant = <T as FloatElement>::from_f64(6.0);
         let fw_inner = scalar::one::<T>() + fw_constant * fw_constant;
         let fw_denom = fw_inner + g * g;
         let fw = g * scalar::sqrt(fw_inner / fw_denom);
@@ -291,7 +291,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
         // Diffusion term: ∇·((ν + ν̃) ∇ν̃)
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
-        let nu = scalar::from_f64::<T>(1e-5); // Molecular viscosity
+        let nu = <T as FloatElement>::from_f64(1e-5); // Molecular viscosity
         let diffusion_coeff = nu + nu_tilde;
         let diffusion = diffusion_coeff * (kx_sq + ky_sq) * nu_tilde;
 
@@ -347,22 +347,25 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for Manufacture
         let dudy = self.strain_rate;
         let production = -(vv * dudy);
 
-        let k_raw = scalar::from_f64::<T>(0.5) * (uu + vv);
-        let k = scalar::max(scalar::abs(k_raw), scalar::from_f64::<T>(1e-12));
-        let c_mu = scalar::from_f64::<T>(0.09);
+        let k_raw = <T as FloatElement>::from_f64(0.5) * (uu + vv);
+        let k = scalar::max(scalar::abs(k_raw), <T as FloatElement>::from_f64(1e-12));
+        let c_mu = <T as FloatElement>::from_f64(0.09);
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
-        let length = scalar::max(scalar::sqrt(kx_sq + ky_sq), scalar::from_f64::<T>(1e-12));
+        let length = scalar::max(
+            scalar::sqrt(kx_sq + ky_sq),
+            <T as FloatElement>::from_f64(1e-12),
+        );
         let l_scale = scalar::one::<T>() / length;
-        let epsilon = scalar::powf(k, scalar::from_f64::<T>(1.5))
-            * scalar::powf(c_mu, scalar::from_f64::<T>(0.75))
+        let epsilon = scalar::powf(k, <T as FloatElement>::from_f64(1.5))
+            * scalar::powf(c_mu, <T as FloatElement>::from_f64(0.75))
             / l_scale;
 
-        let c1 = scalar::from_f64::<T>(1.8);
+        let c1 = <T as FloatElement>::from_f64(1.8);
         let redistribution = -(c1 * epsilon / k) * uv;
 
-        let nu = scalar::from_f64::<T>(1e-5);
-        let nu_t = scalar::max(c_mu * k * k / epsilon, scalar::from_f64::<T>(1e-12));
+        let nu = <T as FloatElement>::from_f64(1e-5);
+        let nu_t = scalar::max(c_mu * k * k / epsilon, <T as FloatElement>::from_f64(1e-12));
         let laplacian_uv = -(kx_sq + ky_sq) * uv;
         let diffusion = (nu + nu_t) * laplacian_uv;
 

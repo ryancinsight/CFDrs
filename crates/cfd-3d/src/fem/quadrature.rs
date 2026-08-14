@@ -22,8 +22,6 @@ use leto::Vector3;
 
 use eunomia::FloatElement;
 
-use super::scalar;
-
 /// Numerical integration for tetrahedra
 pub struct TetrahedronQuadrature<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     points: Vec<Vector3<T>>,
@@ -34,13 +32,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Tetrah
     /// Keast degree 3 quadrature rule (5 points)
     /// Precision O(h^4), enough for quadratic elements
     pub fn keast_degree_3() -> Self {
-        let a = scalar::constant(0.25);
-        let b = scalar::constant(0.5);
-        let c = scalar::constant(1.0 / 6.0);
+        let a = <T as FloatElement>::from_f64(0.25);
+        let b = <T as FloatElement>::from_f64(0.5);
+        let c = <T as FloatElement>::from_f64(1.0 / 6.0);
 
         let p1 = Vector3::new(a, a, a);
-        let six = scalar::constant(6.0);
-        let w1 = scalar::constant::<T>(-0.8) / six; // Normalized volume = 1/6
+        let six = <T as FloatElement>::from_f64(6.0);
+        let w1 = <T as FloatElement>::from_f64(-0.8) / six; // Normalized volume = 1/6
 
         // Other 4 points are permutations of (1/2, 1/6, 1/6)
         let points = vec![
@@ -51,7 +49,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Tetrah
             Vector3::new(c, c, c),
         ];
 
-        let w2 = scalar::constant::<T>(0.45) / six;
+        let w2 = <T as FloatElement>::from_f64(0.45) / six;
         let weights = vec![w1, w2, w2, w2, w2];
 
         Self { points, weights }

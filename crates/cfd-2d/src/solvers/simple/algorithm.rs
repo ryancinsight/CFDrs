@@ -2,19 +2,18 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrix;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::Array1;
 use std::collections::HashMap;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) algorithm
-pub struct SimpleAlgorithm<
-    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
-> {
+pub struct SimpleAlgorithm<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug>
+{
     pub(crate) pressure_relaxation: T,
     pub(crate) velocity_relaxation: T,
     pub(crate) max_iterations: usize,
@@ -27,14 +26,14 @@ pub struct SimpleAlgorithm<
     pub(crate) d_v: Option<Field2D<T>>,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: scalar::from_f64(0.3),
-            velocity_relaxation: scalar::from_f64(0.7),
+            pressure_relaxation: <T as FloatElement>::from_f64(0.3),
+            velocity_relaxation: <T as FloatElement>::from_f64(0.7),
             max_iterations: 50,
-            tolerance: scalar::from_f64(1e-6),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             pressure_matrix: None,
             matrix_builder: None,
             rhs: None,
@@ -167,7 +166,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> 
     }
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Default
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Default
     for SimpleAlgorithm<T>
 {
     fn default() -> Self {

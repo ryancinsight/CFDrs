@@ -1,17 +1,17 @@
 //! Network edge definitions
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::EdgeKind;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 
 /// Edge in the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Edge<T: Cfd1dScalar + Copy> {
+pub struct Edge<T: CfdScalar + Copy> {
     /// Unique identifier
     pub id: String,
     /// Type of edge
@@ -32,7 +32,7 @@ pub struct Edge<T: Cfd1dScalar + Copy> {
 
 use cfd_schematics::domain::model::ChannelSpec;
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
     fn from(spec: &ChannelSpec) -> Self {
         let mut resistance = T::from_f64_or_zero(spec.resistance.into_base());
         let mut quad_coeff = T::from_f64_or_zero(spec.quad_coeff.into_base());
@@ -67,7 +67,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
         Self {
             id: spec.id.as_str().to_string(),
             edge_type: spec.kind,
-            flow_rate: VolumetricFlowRate::from_base(T::zero()),
+            flow_rate: VolumetricFlowRate::from_base(T::ZERO),
             resistance: HydraulicResistance::from_base(resistance),
             quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
             area: Area::from_base(area),
@@ -75,24 +75,24 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy> Edge<T> {
+impl<T: CfdScalar + Copy> Edge<T> {
     /// Create a new edge
     #[must_use]
     pub fn new(id: String, edge_type: EdgeKind) -> Self {
         Self {
             id,
             edge_type,
-            flow_rate: VolumetricFlowRate::from_base(T::zero()),
-            resistance: HydraulicResistance::from_base(T::one()),
-            quad_coeff: QuadraticHydraulicResistance::from_base(T::zero()),
-            area: Area::from_base(T::zero()),
+            flow_rate: VolumetricFlowRate::from_base(T::ZERO),
+            resistance: HydraulicResistance::from_base(T::ONE),
+            quad_coeff: QuadraticHydraulicResistance::from_base(T::ZERO),
+            area: Area::from_base(T::ZERO),
         }
     }
 }
 
 /// Channel-specific properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChannelProperties<T: Cfd1dScalar + Copy> {
+pub struct ChannelProperties<T: CfdScalar + Copy> {
     /// Length of the channel
     pub length: Length<T>,
     /// Diameter or characteristic dimension

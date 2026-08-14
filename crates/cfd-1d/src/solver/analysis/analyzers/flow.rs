@@ -3,29 +3,29 @@
 use super::traits::NetworkAnalyzer;
 use crate::domain::channel::FlowRegime;
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::FlowAnalysis;
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, ReciprocalTime, Velocity, VolumetricFlowRate,
 };
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Flow analyzer for network components
-pub struct FlowAnalyzer<T: Cfd1dScalar + Copy> {
+pub struct FlowAnalyzer<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for FlowAnalyzer<T> {
+impl<T: CfdScalar + Copy> Default for FlowAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + Copy> FlowAnalyzer<T> {
+impl<T: CfdScalar + Copy> FlowAnalyzer<T> {
     /// Create new flow analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -35,7 +35,7 @@ impl<T: Cfd1dScalar + Copy> FlowAnalyzer<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for FlowAnalyzer<T>
 {
     type Result = FlowAnalysis<T>;
@@ -46,7 +46,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
         // Analyze flow in each edge
         for edge in network.edges_with_properties() {
             let flow_rate = edge.flow_rate.into_base();
-            if flow_rate != T::zero() {
+            if flow_rate != T::ZERO {
                 analysis
                     .add_component_flow(edge.id.clone(), VolumetricFlowRate::from_base(flow_rate));
 
@@ -57,7 +57,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
 
                 let hydraulic_diameter = edge.properties.hydraulic_diameter.map_or_else(
                     || {
-                        (T::one() + T::one() + T::one() + T::one()) * area
+                        (T::ONE + T::ONE + T::ONE + T::ONE) * area
                             / (T::pi() * <T as NumericElement>::sqrt(area))
                     },
                     |diameter| diameter.into_base(),
@@ -68,7 +68,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
                         / network.fluid().viscosity.into_base();
                 analysis.add_reynolds_number(edge.id.clone(), Dimensionless::from_base(reynolds));
 
-                if hydraulic_diameter > T::zero() {
+                if hydraulic_diameter > T::ZERO {
                     let eight = T::from_f64_or_one(8.0);
                     let shear_rate = eight * velocity_mag / hydraulic_diameter;
                     let shear_stress = network.fluid().viscosity.into_base() * shear_rate;
@@ -98,7 +98,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
     fn determine_flow_regime(
         &self,
         network: &Network<T>,
@@ -112,7 +112,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
         let area = properties.area.into_base();
         let hydraulic_diameter = properties.hydraulic_diameter.map_or_else(
             || {
-                (T::one() + T::one() + T::one() + T::one()) * area
+                (T::ONE + T::ONE + T::ONE + T::ONE) * area
                     / (T::pi() * <T as NumericElement>::sqrt(area))
             },
             |diameter| diameter.into_base(),
@@ -129,7 +129,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
     fn calculate_total_flow(&self, network: &Network<T>) -> T {
         // Sum outflow from all outlet nodes
         use petgraph::graph::NodeIndex;
-        let mut total = T::zero();
+        let mut total = T::ZERO;
         for (idx, node) in network.nodes().enumerate() {
             if matches!(node.node_type, crate::domain::network::NodeType::Outlet) {
                 // Sum flow rates of edges connected to this outlet node

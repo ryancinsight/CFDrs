@@ -20,9 +20,9 @@
 //! | `at_mut(i, j)` | returns `None` if out of bounds | `Option<&mut T>` |
 //! | `set(i, j, v)` | **debug-assert** only | `()` |
 
-use crate::scalar::Cfd2dScalar;
 use crate::{grid::array2d::Array2D, scalar};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use std::ops::{Index, IndexMut};
@@ -35,12 +35,12 @@ pub mod constants {
     /// Default Reynolds number for laminar flow
     #[must_use]
     pub fn default_reynolds<T: FloatElement>() -> T {
-        scalar::from_f64(100.0)
+        <T as FloatElement>::from_f64(100.0)
     }
 
     /// Minimum allowed time step for stability
     pub fn min_time_step<T: FloatElement>() -> T {
-        scalar::from_f64(1e-6)
+        <T as FloatElement>::from_f64(1e-6)
     }
 
     /// Maximum allowed time step
@@ -51,7 +51,7 @@ pub mod constants {
 
     /// Convergence tolerance for iterative methods
     pub fn convergence_tolerance<T: FloatElement>() -> T {
-        scalar::from_f64(1e-6)
+        <T as FloatElement>::from_f64(1e-6)
     }
 }
 
@@ -236,7 +236,7 @@ impl<T: Clone> Field2D<T> {
 /// This structure provides both vector and component access to velocity fields,
 /// supporting the requirements of SIMPLE, PISO, and other algorithms.
 #[derive(Debug, Clone)]
-pub struct SimulationFields<T: Cfd2dScalar + Copy> {
+pub struct SimulationFields<T: CfdScalar + Copy> {
     /// X-component of velocity field
     pub u: Field2D<T>,
     /// Y-component of velocity field  
@@ -269,7 +269,7 @@ pub struct SimulationFields<T: Cfd2dScalar + Copy> {
     pub ny: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
+impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
     /// Create new simulation fields with zero initialization
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
@@ -282,7 +282,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
             p: Field2D::new(nx, ny, scalar::zero()),
             p_prime: Field2D::new(nx, ny, scalar::zero()),
             density: Field2D::new(nx, ny, scalar::one()),
-            viscosity: Field2D::new(nx, ny, scalar::from_f64(0.001)),
+            viscosity: Field2D::new(nx, ny, <T as FloatElement>::from_f64(0.001)),
             force_u: Field2D::new(nx, ny, scalar::zero()),
             force_v: Field2D::new(nx, ny, scalar::zero()),
             mask: Field2D::new(nx, ny, true),
@@ -319,7 +319,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy> SimulationFields<T> {
+impl<T: CfdScalar + Copy> SimulationFields<T> {
     /// Efficiently copy data from another `SimulationFields` instance
     /// This is much more efficient than cloning when reusing buffers
     ///
@@ -404,7 +404,7 @@ impl<T: Cfd2dScalar + Copy> SimulationFields<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
+impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
     /// Get maximum velocity magnitude for stability analysis using iterators
     #[must_use]
     pub fn max_velocity_magnitude(&self) -> T {

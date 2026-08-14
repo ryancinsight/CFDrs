@@ -1,14 +1,14 @@
 //! Solution type for two-way branch junction problems.
 
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Solution to the two-way branch problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct TwoWayBranchSolution<T: Cfd1dScalar + Copy> {
+pub struct TwoWayBranchSolution<T: CfdScalar + Copy> {
     /// Parent branch volumetric flow rate [m³/s]
     pub q_parent: T,
     /// Daughter 1 volumetric flow rate [m³/s]
@@ -48,7 +48,7 @@ pub struct TwoWayBranchSolution<T: Cfd1dScalar + Copy> {
     pub mass_conservation_error: T,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchSolution<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> TwoWayBranchSolution<T> {
     /// Check if solution satisfies conservation laws within tolerance
     pub fn is_valid(&self, tolerance: T) -> bool {
         self.mass_conservation_error < tolerance && self.junction_pressure_error < tolerance
@@ -60,7 +60,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchSolution<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> fmt::Display for TwoWayBranchSolution<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> fmt::Display for TwoWayBranchSolution<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let q_parent_f = <T as NumericElement>::to_f64(self.q_parent);
         let q_1_f = <T as NumericElement>::to_f64(self.q_1);

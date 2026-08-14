@@ -1,24 +1,24 @@
 //! QUICK (Quadratic Upstream Interpolation for Convective Kinematics) scheme.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// QUICK scheme (Leonard, 1979) — third-order accurate interpolation
 /// based on quadratic upstream interpolation. Combines second-order central
 /// differencing with third-order upwind-biased interpolation.
-pub struct QUICKScheme<T: Cfd2dScalar + Copy> {
+pub struct QUICKScheme<T: CfdScalar + Copy> {
     /// Courant number for stability analysis
     courant_max: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for QUICKScheme<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for QUICKScheme<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> QUICKScheme<T> {
+impl<T: CfdScalar + Copy + FloatElement> QUICKScheme<T> {
     /// Create new QUICK scheme with default Courant limit of 0.8
     #[must_use]
     pub fn new() -> Self {
@@ -43,15 +43,15 @@ impl<T: Cfd2dScalar + Copy + FloatElement> QUICKScheme<T> {
         velocity: T,
     ) -> T {
         if velocity > scalar::zero() {
-            let six_eighths: T = scalar::from_f64(0.75);
-            let three_eighths: T = scalar::from_f64(0.375);
-            let one_eighth: T = scalar::from_f64(0.125);
+            let six_eighths: T = <T as FloatElement>::from_f64(0.75);
+            let three_eighths: T = <T as FloatElement>::from_f64(0.375);
+            let one_eighth: T = <T as FloatElement>::from_f64(0.125);
 
             six_eighths * phi_u + three_eighths * phi_c - one_eighth * phi_uu
         } else {
-            let six_eighths: T = scalar::from_f64(0.75);
-            let three_eighths: T = scalar::from_f64(0.375);
-            let one_eighth: T = scalar::from_f64(0.125);
+            let six_eighths: T = <T as FloatElement>::from_f64(0.75);
+            let three_eighths: T = <T as FloatElement>::from_f64(0.375);
+            let one_eighth: T = <T as FloatElement>::from_f64(0.125);
 
             six_eighths * phi_c + three_eighths * phi_u - one_eighth * phi_d
         }

@@ -1,6 +1,7 @@
 //! MMS validation and Richardson extrapolation study
 
 use cfd_core::error::{Error, Result};
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use std::collections::HashMap;
 
@@ -12,7 +13,7 @@ use crate::manufactured::ManufacturedSolution;
 use crate::scalar;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
-use cfd_2d::Cfd2dScalar;
+use cfd_core::CfdScalar;
 
 /// Automated MMS-Richardson convergence study
 pub struct MmsRichardsonStudy<T: RealField + Copy + FloatElement> {
@@ -22,7 +23,7 @@ pub struct MmsRichardsonStudy<T: RealField + Copy + FloatElement> {
 
 impl<T> MmsRichardsonStudy<T>
 where
-    T: RealField + Copy + FloatElement + Cfd2dScalar,
+    T: RealField + Copy + FloatElement + CfdScalar,
 {
     /// Create new MMS-Richardson study
     pub fn new(
@@ -61,9 +62,9 @@ where
     pub fn run_study(&self) -> Result<RichardsonMmsResult<T>> {
         // Default grid sizes for geometric refinement
         let grid_sizes = vec![
-            scalar::from_f64::<T>(0.25),   // coarse
-            scalar::from_f64::<T>(0.125),  // medium
-            scalar::from_f64::<T>(0.0625), // fine
+            <T as FloatElement>::from_f64(0.25),   // coarse
+            <T as FloatElement>::from_f64(0.125),  // medium
+            <T as FloatElement>::from_f64(0.0625), // fine
         ];
 
         self.run_study_with_grids(&grid_sizes)
@@ -84,8 +85,8 @@ where
             let error = self.compute_l2_error(h)?;
             println!(
                 "      h={:.4}, L2 error={:e}",
-                scalar::to_f64(h),
-                scalar::to_f64(error)
+                <T as NumericElement>::to_f64(h),
+                <T as NumericElement>::to_f64(error)
             );
             l2_errors.push(error);
         }
@@ -199,14 +200,14 @@ where
             let denominator = r_p - scalar::one::<T>();
 
             // Numerical stability protection: prevent division by near-zero
-            let eps = scalar::from_f64::<T>(1e-8);
+            let eps = <T as FloatElement>::from_f64(1e-8);
             let phi_exact = if scalar::abs(denominator) > eps {
                 phi_fine + (phi_fine - phi_coarse) / denominator
             } else {
                 // Fallback: use simple average when r^p ≈ 1 (unreliable convergence)
                 // This indicates numerical instability or poor grid refinement
                 println!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
-                (phi_coarse + phi_fine) / scalar::from_f64::<T>(2.0)
+                (phi_coarse + phi_fine) / <T as FloatElement>::from_f64(2.0)
             };
 
             extrapolated_solutions.push(phi_exact);
@@ -218,8 +219,8 @@ where
             grid_errors.push(error_fine);
 
             // Convergence rate
-            if scalar::abs(error_coarse) > scalar::from_f64::<T>(1e-12)
-                && scalar::abs(error_fine) > scalar::from_f64::<T>(1e-12)
+            if scalar::abs(error_coarse) > <T as FloatElement>::from_f64(1e-12)
+                && scalar::abs(error_fine) > <T as FloatElement>::from_f64(1e-12)
             {
                 let convergence_rate = scalar::ln(scalar::abs(error_fine))
                     / scalar::ln(scalar::abs(error_coarse))
@@ -253,7 +254,7 @@ where
         // the numerical solution against the exact manufactured solution.
 
         // Create numerical grid with specified size
-        let intervals = scalar::to_f64(scalar::one::<T>() / grid_size);
+        let intervals = <T as NumericElement>::to_f64(scalar::one::<T>() / grid_size);
         let n_intervals = if intervals.is_finite() && intervals >= 1.0 {
             intervals as usize
         } else {
@@ -332,7 +333,7 @@ where
         // Configure Poisson solver with production settings
         use cfd_core::compute::solver::SolverConfig;
         let solver_config = SolverConfig::builder()
-            .tolerance(scalar::from_f64::<T>(1e-12))
+            .tolerance(<T as FloatElement>::from_f64(1e-12))
             .max_iterations(1000)
             .parallel(false)
             .build();
@@ -442,10 +443,10 @@ impl<T: RealField + Copy + FloatElement> MmsRichardsonStudy<T> {
                 let numerator = scalar::ln((e3 - e2) / (e2 - e1));
                 let denominator = scalar::ln(r);
 
-                if scalar::abs(denominator) > scalar::from_f64::<T>(1e-12) {
+                if scalar::abs(denominator) > <T as FloatElement>::from_f64(1e-12) {
                     numerator / denominator
                 } else {
-                    scalar::from_f64::<T>(2.0) // Default to second order
+                    <T as FloatElement>::from_f64(2.0) // Default to second order
                 }
             } else {
                 // Use two-point estimation if only two points available
@@ -454,16 +455,16 @@ impl<T: RealField + Copy + FloatElement> MmsRichardsonStudy<T> {
                 if ratio > scalar::zero::<T>() && r > scalar::one::<T>() {
                     scalar::ln(ratio) / scalar::ln(r)
                 } else {
-                    scalar::from_f64::<T>(2.0) // Default to second order
+                    <T as FloatElement>::from_f64(2.0) // Default to second order
                 }
             };
 
             // Standard GCI formula (FS-based)
             // GCI = Fs * |(e2/e1) / (r^p - 1)|
             let r_p = scalar::powf(r, p);
-            let safety_factor = scalar::from_f64::<T>(1.25); // Standard safety factor
+            let safety_factor = <T as FloatElement>::from_f64(1.25); // Standard safety factor
 
-            if scalar::abs(r_p - scalar::one::<T>()) > scalar::from_f64::<T>(1e-8) {
+            if scalar::abs(r_p - scalar::one::<T>()) > <T as FloatElement>::from_f64(1e-8) {
                 let error_ratio = e2 / e1;
                 let gci = safety_factor * scalar::abs(error_ratio)
                     / scalar::abs(r_p - scalar::one::<T>());

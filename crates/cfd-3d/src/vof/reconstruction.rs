@@ -63,8 +63,10 @@
 
 use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::plic_geometry::volume_under_plane_3d;
-use super::scalar::{self, VofScalar};
 use super::solver::VofSolver;
+use crate::scalar;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 use std::cmp::Ordering;
 
@@ -224,7 +226,7 @@ pub fn youngs_normal_2d(alpha: &[Vec<f64>], i: usize, j: usize, dx: f64, dy: f64
     [-da_dx / mag, -da_dy / mag]
 }
 
-impl<T: VofScalar> DirectionalHeightCache<T> {
+impl<T: CfdScalar> DirectionalHeightCache<T> {
     fn build(solver: &VofSolver<T>) -> Self {
         let mut x_heights = vec![scalar::zero(); solver.ny * solver.nz];
         let mut y_heights = vec![scalar::zero(); solver.nx * solver.nz];
@@ -295,7 +297,7 @@ impl InterfaceReconstruction {
     }
 
     /// Reconstruct interface normals and curvature
-    pub fn reconstruct<T: VofScalar>(self, solver: &mut VofSolver<T>) {
+    pub fn reconstruct<T: CfdScalar>(self, solver: &mut VofSolver<T>) {
         let height_cache = if matches!(self, Self::PLIC) {
             Some(DirectionalHeightCache::build(solver))
         } else {
@@ -309,13 +311,13 @@ impl InterfaceReconstruction {
     /// Calculate interface normal vectors using gradient of volume fraction.
     ///
     /// Uses cache blocking for improved memory access patterns on 3D grids.
-    fn calculate_normals<T: VofScalar>(
+    fn calculate_normals<T: CfdScalar>(
         self,
         solver: &mut VofSolver<T>,
         height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
-        let interface_lower = scalar::constant::<T>(VOF_INTERFACE_LOWER);
-        let interface_upper = scalar::constant::<T>(VOF_INTERFACE_UPPER);
+        let interface_lower = <T as FloatElement>::from_f64(VOF_INTERFACE_LOWER);
+        let interface_upper = <T as FloatElement>::from_f64(VOF_INTERFACE_UPPER);
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -342,7 +344,8 @@ impl InterfaceReconstruction {
                                         }
                                         Self::Gradient => {
                                             let normal = self.calculate_gradient(solver, i, j, k);
-                                            let epsilon = scalar::constant::<T>(VOF_EPSILON);
+                                            let epsilon =
+                                                <T as FloatElement>::from_f64(VOF_EPSILON);
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
                                             } else {
@@ -367,7 +370,7 @@ impl InterfaceReconstruction {
 
     /// Determine whether the local interface is graph-like enough to justify
     /// a directional height function.
-    fn hybrid_selection<T: VofScalar>(
+    fn hybrid_selection<T: CfdScalar>(
         self,
         solver: &VofSolver<T>,
         i: usize,
@@ -375,7 +378,7 @@ impl InterfaceReconstruction {
         k: usize,
     ) -> HybridSelection<T> {
         let reference = self.calculate_gradient(solver, i, j, k);
-        let epsilon = scalar::constant::<T>(VOF_EPSILON);
+        let epsilon = <T as FloatElement>::from_f64(VOF_EPSILON);
         let reference_norm = reference.norm();
 
         if reference_norm <= epsilon {
@@ -397,7 +400,7 @@ impl InterfaceReconstruction {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let axis_dominance = scalar::constant::<T>(HYBRID_AXIS_DOMINANCE);
+        let axis_dominance = <T as FloatElement>::from_f64(HYBRID_AXIS_DOMINANCE);
         let axis = if abs_components[axes[0]] / reference_norm >= axis_dominance {
             Some(axes[0])
         } else {
@@ -409,14 +412,14 @@ impl InterfaceReconstruction {
 
     /// Calculate interface normal from the volume-fraction gradient using
     /// Youngs' mixed finite-difference stencil.
-    fn calculate_gradient<T: VofScalar>(
+    fn calculate_gradient<T: CfdScalar>(
         self,
         solver: &VofSolver<T>,
         i: usize,
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = scalar::constant::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -435,7 +438,7 @@ impl InterfaceReconstruction {
 
     /// Hybrid normal reconstruction: prefer a directional height function when
     /// the local gradient is graph-like, otherwise fall back to Youngs.
-    fn hybrid_normal<T: VofScalar>(
+    fn hybrid_normal<T: CfdScalar>(
         self,
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
@@ -448,7 +451,7 @@ impl InterfaceReconstruction {
             return selection.reference;
         };
 
-        let epsilon = scalar::constant::<T>(VOF_EPSILON);
+        let epsilon = <T as FloatElement>::from_f64(VOF_EPSILON);
         let candidate = Self::directional_height_normal(solver, cache, axis, i, j, k);
         if candidate.norm() <= epsilon {
             return selection.reference;
@@ -462,7 +465,7 @@ impl InterfaceReconstruction {
     }
 
     /// Directional height-function normal using a cached column integral.
-    fn directional_height_normal<T: VofScalar>(
+    fn directional_height_normal<T: CfdScalar>(
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
         axis: usize,
@@ -470,7 +473,7 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = scalar::constant::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         match axis {
             0 => {
@@ -526,7 +529,7 @@ impl InterfaceReconstruction {
     ///
     /// **Volume formula**: The exact formula of Scardovelli & Zaleski (2000)
     /// Eqs. 2.34–2.38 is used, implemented in `volume_under_plane_3d`.
-    fn plic_reconstruction<T: VofScalar>(
+    fn plic_reconstruction<T: CfdScalar>(
         self,
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
@@ -537,7 +540,7 @@ impl InterfaceReconstruction {
         // 1. Interface normal from a dominant-axis height function when it is
         // graph-like, otherwise use the Youngs gradient fallback.
         let mut normal = self.hybrid_normal(solver, cache, i, j, k);
-        let epsilon = scalar::constant::<T>(VOF_EPSILON);
+        let epsilon = <T as FloatElement>::from_f64(VOF_EPSILON);
 
         if normal.norm() > epsilon {
             normal = normal.normalize();
@@ -557,7 +560,7 @@ impl InterfaceReconstruction {
     ///
     /// Returns the curvature together with the unnormalised directional
     /// height normal so the caller can preserve the outward orientation.
-    fn directional_height_curvature<T: VofScalar>(
+    fn directional_height_curvature<T: CfdScalar>(
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
         axis: usize,
@@ -565,8 +568,8 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> (Vector3<T>, T) {
-        let two = scalar::constant::<T>(2.0);
-        let four = scalar::constant::<T>(4.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         match axis {
             0 => {
@@ -650,7 +653,7 @@ impl InterfaceReconstruction {
     /// The bisection terminates when the volume residual is smaller than
     /// `PLIC_TOLERANCE * dx * dy * dz`, with a finite-precision guard that
     /// returns the last midpoint if the interval stops shrinking.
-    fn find_plane_constant<T: VofScalar>(
+    fn find_plane_constant<T: CfdScalar>(
         self,
         normal: Vector3<T>,
         target_volume: T,
@@ -663,9 +666,9 @@ impl InterfaceReconstruction {
         let mut c_max =
             scalar::abs(normal.x) * dx + scalar::abs(normal.y) * dy + scalar::abs(normal.z) * dz;
 
-        let tolerance = scalar::constant::<T>(constants::PLIC_TOLERANCE);
+        let tolerance = <T as FloatElement>::from_f64(constants::PLIC_TOLERANCE);
         let volume_tolerance = tolerance * cell_volume;
-        let half = scalar::constant::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         loop {
             let c_mid = c_min + (c_max - c_min) * half;
@@ -694,14 +697,14 @@ impl InterfaceReconstruction {
     /// fall back to the divergence of the pre-computed normal field:
     ///
     /// `κ = −∇·n̂ = −(∂n̂_x/∂x + ∂n̂_y/∂y + ∂n̂_z/∂z)`
-    fn calculate_curvature<T: VofScalar>(
+    fn calculate_curvature<T: CfdScalar>(
         self,
         solver: &mut VofSolver<T>,
         height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
-        let two = scalar::constant::<T>(2.0);
-        let interface_lower = scalar::constant::<T>(VOF_INTERFACE_LOWER);
-        let interface_upper = scalar::constant::<T>(VOF_INTERFACE_UPPER);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let interface_lower = <T as FloatElement>::from_f64(VOF_INTERFACE_LOWER);
+        let interface_upper = <T as FloatElement>::from_f64(VOF_INTERFACE_UPPER);
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -766,7 +769,7 @@ impl InterfaceReconstruction {
 
     /// Determine whether a precomputed normal is graph-like enough to justify
     /// a directional height-function curvature estimate.
-    fn dominant_axis_from_normal<T: VofScalar>(normal: &Vector3<T>) -> Option<usize> {
+    fn dominant_axis_from_normal<T: CfdScalar>(normal: &Vector3<T>) -> Option<usize> {
         let abs_components = [
             scalar::abs(normal.x),
             scalar::abs(normal.y),
@@ -779,7 +782,7 @@ impl InterfaceReconstruction {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let axis_dominance = scalar::constant::<T>(HYBRID_AXIS_DOMINANCE);
+        let axis_dominance = <T as FloatElement>::from_f64(HYBRID_AXIS_DOMINANCE);
         if abs_components[axes[0]] >= axis_dominance {
             Some(axes[0])
         } else {

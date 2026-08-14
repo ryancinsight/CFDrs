@@ -87,8 +87,10 @@
 //! - Brackbill, J.U. et al. (1992). "A continuum method for modeling surface tension"
 //! - Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
 
-use super::scalar::{self, VofScalar};
+use crate::scalar;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
 use super::advection::AdvectionMethod;
@@ -97,7 +99,7 @@ use super::initialization::Initialization;
 use super::reconstruction::InterfaceReconstruction;
 
 /// VOF solver for multiphase flow
-pub struct VofSolver<T: VofScalar> {
+pub struct VofSolver<T: CfdScalar> {
     pub(crate) config: VofConfig,
     /// Grid dimensions
     pub(crate) nx: usize,
@@ -119,7 +121,7 @@ pub struct VofSolver<T: VofScalar> {
     pub(crate) curvature: Vec<T>,
 }
 
-impl<T: VofScalar> VofSolver<T> {
+impl<T: CfdScalar> VofSolver<T> {
     /// Create VOF solver — convenience alias matching `LevelSetSolver::new` ergonomics.
     pub fn new(nx: usize, ny: usize, nz: usize, config: VofConfig) -> Result<Self> {
         if nx == 0 || ny == 0 || nz == 0 {
@@ -348,9 +350,9 @@ impl<T: VofScalar> VofSolver<T> {
         }
 
         if max_advective_rate > scalar::zero() {
-            scalar::constant::<T>(self.config.cfl_number) / max_advective_rate
+            <T as FloatElement>::from_f64(self.config.cfl_number) / max_advective_rate
         } else {
-            scalar::constant(1e-3)
+            <T as FloatElement>::from_f64(1e-3)
         }
     }
 

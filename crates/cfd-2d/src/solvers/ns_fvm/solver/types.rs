@@ -1,17 +1,17 @@
 use crate::grid::array2d::Array2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::boundary::BloodModel;
 use crate::solvers::ns_fvm::config::SIMPLEConfig;
 use crate::solvers::ns_fvm::field::FlowField2D;
 use crate::solvers::ns_fvm::grid::StaggeredGrid2D;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// 2D Navier-Stokes FVM solver with SIMPLE pressure-velocity coupling.
 ///
 /// Used as the numerical engine by geometry-specific pass-through solvers
 /// (bifurcation, Venturi, serpentine, etc.).
-pub struct NavierStokesSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct NavierStokesSolver2D<T: CfdScalar + Copy + FloatElement> {
     /// Computational grid
     pub grid: StaggeredGrid2D<T>,
     /// Flow field (u, v, p, μ, γ̇)
@@ -55,7 +55,7 @@ pub struct NavierStokesSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
 }
 
 /// Turbulence model coupling state for the SIMPLE solver.
-pub(super) struct TurbulenceCoupling<T: Cfd2dScalar + Copy> {
+pub(super) struct TurbulenceCoupling<T: CfdScalar + Copy> {
     /// k-omega SST model.
     pub(super) model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel<T>,
     /// Turbulent kinetic energy at cell centers \[nx]\[ny].
@@ -66,7 +66,7 @@ pub(super) struct TurbulenceCoupling<T: Cfd2dScalar + Copy> {
     pub(super) update_interval: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Create a new solver.
     pub fn new(
         grid: StaggeredGrid2D<T>,
@@ -124,10 +124,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
         let ny = self.grid.ny;
         let size = nx * ny;
         // Initial k and omega from free-stream turbulence intensity ~1%.
-        let u_ref: T = scalar::from_f64(0.1);
-        let ti: T = scalar::from_f64(0.01);
-        let k_init = scalar::from_f64::<T>(1.5) * (u_ref * ti) * (u_ref * ti);
-        let omega_init = k_init / scalar::from_f64::<T>(0.001);
+        let u_ref: T = <T as FloatElement>::from_f64(0.1);
+        let ti: T = <T as FloatElement>::from_f64(0.01);
+        let k_init = <T as FloatElement>::from_f64(1.5) * (u_ref * ti) * (u_ref * ti);
+        let omega_init = k_init / <T as FloatElement>::from_f64(0.001);
         self.turbulence = Some(TurbulenceCoupling {
             model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel::new(nx, ny),
             k: vec![k_init; size],

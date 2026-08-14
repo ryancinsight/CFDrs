@@ -1,10 +1,10 @@
 //! Pressure correction Poisson solver.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use crate::solvers::ns_fvm::BloodModel;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 // A conservative fixed SOR factor for the masked pressure-correction grid.
@@ -33,7 +33,7 @@ const PRESSURE_SOR_REFINEMENT_ALPHA_P: f64 = 0.15;
 /// gains nothing from a tighter inner solve.
 const PRESSURE_SOR_SWEEP_TOLERANCE: f64 = 1e-2;
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
     ///
     /// Formulates the continuity residual from the intermediate velocity fields
@@ -44,7 +44,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
         let dx = self.grid.dx;
         let rho = self.density;
         let zero: T = scalar::zero();
-        let tiny: T = scalar::from_f64(1e-30);
+        let tiny: T = <T as FloatElement>::from_f64(1e-30);
 
         let a_p_u = &self.a_p_u;
         let a_p_v = &self.a_p_v;
@@ -170,7 +170,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
             let relaxation = match &self.blood {
                 BloodModel::Newtonian(_) => scalar::one(),
                 BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
-                    scalar::from_f64::<T>(PRESSURE_SOR_RELAXATION)
+                    <T as FloatElement>::from_f64(PRESSURE_SOR_RELAXATION)
                 }
             };
             // SIMPLE repeats this correction and uses the field continuity
@@ -179,13 +179,15 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
             // as a converged outer solution; a consumer-declared cap wins
             // over the alpha_p-derived default.
             let max_sweeps = self.config.pressure_sweep_cap.unwrap_or(
-                if self.config.alpha_p > scalar::from_f64::<T>(PRESSURE_SOR_REFINEMENT_ALPHA_P) {
+                if self.config.alpha_p
+                    > <T as FloatElement>::from_f64(PRESSURE_SOR_REFINEMENT_ALPHA_P)
+                {
                     PRESSURE_SOR_REFINED_MAX_SWEEPS
                 } else {
                     PRESSURE_SOR_MAX_SWEEPS
                 },
             );
-            let sweep_tolerance = scalar::from_f64::<T>(PRESSURE_SOR_SWEEP_TOLERANCE);
+            let sweep_tolerance = <T as FloatElement>::from_f64(PRESSURE_SOR_SWEEP_TOLERANCE);
             let mut first_sweep_update: T = zero;
             for sweep in 0..max_sweeps {
                 let mut max_update: T = zero;

@@ -1,6 +1,6 @@
 use super::SerpentineGeometry;
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{self, from_f64};
+use crate::scalar::{self};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
@@ -34,7 +34,7 @@ use std::f64::consts::PI;
 /// basis gives coefficients `a_n = -2 sin(nπ/2)/(nπ)`. Orthogonality gives
 /// `σ²(t)=Σ a_n² exp(-2n²π²Dt/w²)/2`, while `σ²(0)=1/4`. Substitution leaves
 /// the odd-mode series and the stated mixing fraction. ∎
-pub struct AdvectionDiffusionMixing<T: Cfd2dScalar + Copy> {
+pub struct AdvectionDiffusionMixing<T: CfdScalar + Copy> {
     /// Channel width \[m]
     pub width: T,
     /// Mean flow velocity \[m/s]
@@ -43,7 +43,7 @@ pub struct AdvectionDiffusionMixing<T: Cfd2dScalar + Copy> {
     pub diffusion_coeff: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
+impl<T: CfdScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
     /// Create mixing model
     pub fn new(width: T, velocity: T, diffusion_coeff: T) -> Self {
         Self {
@@ -57,7 +57,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
     ///
     /// Pe = u·w / D
     pub fn peclet_number(&self) -> T {
-        (self.velocity * self.width) / (self.diffusion_coeff + from_f64::<T>(1e-15))
+        (self.velocity * self.width) / (self.diffusion_coeff + <T as FloatElement>::from_f64(1e-15))
     }
 
     #[inline]
@@ -66,10 +66,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
             return scalar::one();
         }
 
-        let pi = from_f64::<T>(PI);
+        let pi = <T as FloatElement>::from_f64(PI);
         let pi_sq = pi * pi;
-        let eight_over_pi_sq = from_f64::<T>(8.0) / pi_sq;
-        let two = from_f64::<T>(2.0);
+        let eight_over_pi_sq = <T as FloatElement>::from_f64(8.0) / pi_sq;
+        let two = <T as FloatElement>::from_f64(2.0);
         let mut sum: T = scalar::zero();
 
         for mode in 0..256 {
@@ -93,12 +93,12 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
             return scalar::zero();
         }
 
-        let target_variance_ratio = from_f64::<T>(0.01);
+        let target_variance_ratio = <T as FloatElement>::from_f64(0.01);
         let mut lo: T = scalar::zero();
-        let mut hi = from_f64::<T>(0.5);
+        let mut hi = <T as FloatElement>::from_f64(0.5);
 
         for _ in 0..80 {
-            let mid = (lo + hi) / from_f64::<T>(2.0);
+            let mid = (lo + hi) / <T as FloatElement>::from_f64(2.0);
             if Self::variance_ratio_from_fourier_number(mid) > target_variance_ratio {
                 lo = mid;
             } else {
@@ -150,7 +150,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
 
 /// Solution for serpentine channel mixing
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct SerpentineMixingSolution<T: Cfd2dScalar + Copy> {
+pub struct SerpentineMixingSolution<T: CfdScalar + Copy> {
     /// Inlet concentration (first inlet) [mol/m³]
     pub c_inlet_a: T,
     /// Inlet concentration (second inlet) [mol/m³]
@@ -167,7 +167,7 @@ pub struct SerpentineMixingSolution<T: Cfd2dScalar + Copy> {
     pub pressure_drop: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
+impl<T: CfdScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
     /// Create solution from parameters
     pub fn new(
         geometry: &SerpentineGeometry<T>,
@@ -186,11 +186,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
         let total_length = geometry.total_length();
         let mixing_frac = mixing_model.mixing_fraction(total_length);
 
-        let d_h = from_f64::<T>(2.0) * (geometry.width * geometry.height)
+        let d_h = <T as FloatElement>::from_f64(2.0) * (geometry.width * geometry.height)
             / (geometry.width + geometry.height);
         let re = (density * velocity * d_h) / viscosity;
-        let f = from_f64::<T>(64.0) / re.max(from_f64::<T>(1.0));
-        let dynamic_pressure = from_f64::<T>(0.5) * density * velocity * velocity;
+        let f = <T as FloatElement>::from_f64(64.0) / re.max(<T as FloatElement>::from_f64(1.0));
+        let dynamic_pressure = <T as FloatElement>::from_f64(0.5) * density * velocity * velocity;
         let dp = f * (total_length / d_h) * dynamic_pressure;
 
         Self {
@@ -208,14 +208,14 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
     ///
     /// Typically consider "mixed" if fraction > 0.9 (90%)
     pub fn is_well_mixed(&self) -> bool {
-        self.mixing_fraction_outlet > from_f64::<T>(0.9)
+        self.mixing_fraction_outlet > <T as FloatElement>::from_f64(0.9)
     }
 
     /// Estimate outlet concentration (assuming complete mixing)
     ///
     /// For equal volume flows: c_outlet = (c_A + c_B) / 2
     pub fn estimated_outlet_concentration(&self) -> T {
-        (self.c_inlet_a + self.c_inlet_b) / from_f64::<T>(2.0)
+        (self.c_inlet_a + self.c_inlet_b) / <T as FloatElement>::from_f64(2.0)
     }
 }
 

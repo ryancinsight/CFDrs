@@ -19,11 +19,6 @@ use leto::geometry::Vector3;
 use leto::Array1;
 use leto_ops::{FiniteDifference, FiniteDifferenceScheme};
 
-#[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
 /// Compute the first derivative of a 1-D slice using central differences.
 ///
 /// # Errors
@@ -205,7 +200,7 @@ impl<T: RealField + FloatElement + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny);
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         gradients.extend((0..ny).flat_map(|j| {
             let dx = self.dx;
@@ -251,7 +246,7 @@ impl<T: RealField + FloatElement + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny * nz);
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         gradients.extend((0..nz).flat_map(|k| {
             let dx = self.dx;
@@ -301,7 +296,7 @@ impl<T: RealField + FloatElement + Copy> Gradient<T> {
             ));
         }
 
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let divergence: Vec<T> = (0..ny)
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
@@ -340,7 +335,7 @@ impl<T: RealField + FloatElement + Copy> Gradient<T> {
         }
 
         let mut curl = Vec::with_capacity(nx * ny);
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         for j in 0..ny {
             for i in 0..nx {

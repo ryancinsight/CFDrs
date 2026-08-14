@@ -1,4 +1,4 @@
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrixBuilder;
 
 /// Abstract interface for sparse matrix topological assembly and zero-allocation value updates.
@@ -13,13 +13,13 @@ pub trait MatrixUpdater<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()>;
 }
 
-impl<T: Cfd2dScalar + Copy> MatrixUpdater<T> for SparseMatrixBuilder<T> {
+impl<T: CfdScalar + Copy> MatrixUpdater<T> for SparseMatrixBuilder<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
         self.add_entry(row, col, val)
     }
 }
 
-impl<T: Cfd2dScalar + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T> {
+impl<T: CfdScalar + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
         let row_ptr = self.row_ptr().to_vec();
         let col_indices = self.col_indices().to_vec();

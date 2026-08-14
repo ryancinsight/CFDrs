@@ -43,16 +43,16 @@ where
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: scalar::from_f64::<T>(1e-8),
-            inlet_pressure: scalar::from_f64::<T>(100.0),
+            inlet_flow_rate: <T as FloatElement>::from_f64(1e-8),
+            inlet_pressure: <T as FloatElement>::from_f64(100.0),
             outlet_pressure: scalar::zero::<T>(),
-            time_step: scalar::from_f64::<T>(0.001),
+            time_step: <T as FloatElement>::from_f64(0.001),
             num_time_steps: 1,
             steady_state: true,
             max_nonlinear_iterations: 20,
-            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
+            nonlinear_tolerance: <T as FloatElement>::from_f64(1e-4),
             max_linear_iterations: 1000,
-            linear_tolerance: scalar::from_f64::<T>(1e-6),
+            linear_tolerance: <T as FloatElement>::from_f64(1e-6),
             mesh_resolution: 8,
         }
     }

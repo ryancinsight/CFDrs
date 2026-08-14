@@ -50,11 +50,11 @@
 //! - `efficiency ∈ [0, 1]` (clamped on set)
 
 use super::{real_from_f64, Component};
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -99,7 +99,7 @@ impl MixerType {
 /// via the Hagen-Poiseuille base term plus Idelchik minor losses.
 /// See module documentation for the governing equations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Micromixer<T: Cfd1dScalar + Copy> {
+pub struct Micromixer<T: CfdScalar + Copy> {
     /// Mixer geometry type
     pub mixer_type: MixerType,
     /// Hydraulic diameter of the mixer channel \[m] (must be > 0)
@@ -114,7 +114,7 @@ pub struct Micromixer<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
     /// Create a new micromixer with validated geometry.
     ///
     /// # Errors
@@ -126,12 +126,12 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
         length: Length<T>,
         n_bends: usize,
     ) -> Result<Self> {
-        if hydraulic_diameter.into_base() <= T::zero() {
+        if hydraulic_diameter.into_base() <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Micromixer hydraulic_diameter must be > 0".into(),
             ));
         }
-        if length.into_base() <= T::zero() {
+        if length.into_base() <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Micromixer length must be > 0".into(),
             ));
@@ -168,12 +168,12 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
     #[must_use]
     fn channel_area(&self) -> T {
         let pi = T::pi();
-        let r = self.hydraulic_diameter.into_base() / (T::one() + T::one());
+        let r = self.hydraulic_diameter.into_base() / (T::ONE + T::ONE);
         pi * r * r
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micromixer<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micromixer<T> {
     /// Compute the hydraulic resistance of the micromixer.
     ///
     /// ## Theorem: Micromixer Resistance
@@ -202,7 +202,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
 
         // Guard against degenerate geometry
         let d4 = d * d * d * d;
-        if d4 <= T::zero() || a <= T::zero() || d <= T::zero() {
+        if d4 <= T::ZERO || a <= T::ZERO || d <= T::ZERO {
             return real_from_f64(1e15);
         }
 
@@ -227,16 +227,16 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "efficiency" => {
-                self.efficiency = if value < T::zero() {
-                    T::zero()
-                } else if value > T::one() {
-                    T::one()
+                self.efficiency = if value < T::ZERO {
+                    T::ZERO
+                } else if value > T::ONE {
+                    T::ONE
                 } else {
                     value
                 };
             }
             "hydraulic_diameter" => {
-                if value <= T::zero() {
+                if value <= T::ZERO {
                     return Err(Error::InvalidConfiguration(
                         "hydraulic_diameter must be > 0".into(),
                     ));
@@ -244,7 +244,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
                 self.hydraulic_diameter = Length::from_base(value);
             }
             "length" => {
-                if value <= T::zero() {
+                if value <= T::ZERO {
                     return Err(Error::InvalidConfiguration("length must be > 0".into()));
                 }
                 self.length = Length::from_base(value);

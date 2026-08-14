@@ -46,8 +46,7 @@
 //! - **Cache-aware implementations**: Optimize memory layout for CFD data structures
 
 use super::traits::{
-    add_scaled_in_place, assign_base_plus_scaled, from_f64, state_len, state_zeros, TimeState,
-    TimeStepper,
+    add_scaled_in_place, assign_base_plus_scaled, state_len, state_zeros, TimeState, TimeStepper,
 };
 use cfd_core::error::Result;
 use eunomia::FloatElement;
@@ -117,7 +116,7 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta4<T> {
         // k1 = f(t, u)
         let k1 = f(t, u)?;
 
-        let dt_half = dt / from_f64(2.0);
+        let dt_half = dt / <T as FloatElement>::from_f64(2.0);
         let t2 = t + dt_half;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
@@ -142,8 +141,8 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta4<T> {
         let mut u_new = state_zeros(n);
         u_new.assign(u);
 
-        let coeff = dt / from_f64(6.0);
-        let coeff_2 = coeff * from_f64(2.0);
+        let coeff = dt / <T as FloatElement>::from_f64(6.0);
+        let coeff_2 = coeff * <T as FloatElement>::from_f64(2.0);
 
         add_scaled_in_place(&mut u_new, &k1, coeff, "RK4 final k1 accumulation")?;
         add_scaled_in_place(&mut u_new, &k2, coeff_2, "RK4 final k2 accumulation")?;
@@ -217,15 +216,21 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta3<T> {
         let k1 = f(t, u)?;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
-        let t2 = t + dt / from_f64(2.0);
+        let t2 = t + dt / <T as FloatElement>::from_f64(2.0);
         let mut u2 = state_zeros(n);
-        assign_base_plus_scaled(&mut u2, u, &k1, dt / from_f64(2.0), "RK3 k2 stage")?;
+        assign_base_plus_scaled(
+            &mut u2,
+            u,
+            &k1,
+            dt / <T as FloatElement>::from_f64(2.0),
+            "RK3 k2 stage",
+        )?;
         let k2 = f(t2, &u2)?;
 
         // k3 = f(t + dt, u - dt*k1 + 2*dt*k2)
         let t3 = t + dt;
         let mut u3 = state_zeros(n);
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         for i in 0..n {
             u3[i] = u[i] - dt * k1[i] + two * dt * k2[i];
         }
@@ -233,8 +238,8 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta3<T> {
 
         // u_new = u + dt/6 * (k1 + 4*k2 + k3)
         let mut u_new = state_zeros(n);
-        let coeff1 = dt / from_f64::<T>(6.0);
-        let four = from_f64::<T>(4.0);
+        let coeff1 = dt / <T as FloatElement>::from_f64(6.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         for i in 0..n {
             u_new[i] = u[i] + coeff1 * (k1[i] + four * k2[i] + k3[i]);
@@ -291,27 +296,27 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for LowStorageRK4<T> {
 
         // Coefficients for Carpenter-Kennedy low-storage RK4
         let a = [
-            from_f64::<T>(0.0),
-            from_f64::<T>(-0.4178904745),
-            from_f64::<T>(-1.1921516946),
-            from_f64::<T>(-1.6977846925),
-            from_f64::<T>(-1.5141834443),
+            <T as FloatElement>::from_f64(0.0),
+            <T as FloatElement>::from_f64(-0.4178904745),
+            <T as FloatElement>::from_f64(-1.1921516946),
+            <T as FloatElement>::from_f64(-1.6977846925),
+            <T as FloatElement>::from_f64(-1.5141834443),
         ];
 
         let b = [
-            from_f64::<T>(0.1496590219993),
-            from_f64::<T>(0.3792103129999),
-            from_f64::<T>(0.8229550293869),
-            from_f64::<T>(0.6994504559488),
-            from_f64::<T>(0.1530572479681),
+            <T as FloatElement>::from_f64(0.1496590219993),
+            <T as FloatElement>::from_f64(0.3792103129999),
+            <T as FloatElement>::from_f64(0.8229550293869),
+            <T as FloatElement>::from_f64(0.6994504559488),
+            <T as FloatElement>::from_f64(0.1530572479681),
         ];
 
         let c = [
-            from_f64::<T>(0.0),
-            from_f64::<T>(0.1496590219993),
-            from_f64::<T>(0.3704009573644),
-            from_f64::<T>(0.6222557631345),
-            from_f64::<T>(0.9582821306784),
+            <T as FloatElement>::from_f64(0.0),
+            <T as FloatElement>::from_f64(0.1496590219993),
+            <T as FloatElement>::from_f64(0.3704009573644),
+            <T as FloatElement>::from_f64(0.6222557631345),
+            <T as FloatElement>::from_f64(0.9582821306784),
         ];
 
         for stage in 0..5 {

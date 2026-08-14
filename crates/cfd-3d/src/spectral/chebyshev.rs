@@ -73,7 +73,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Chebys
 
         for j in 0..n {
             let theta = PI * (j as f64) / n_f64;
-            let x = scalar::from_f64::<T>(theta.cos());
+            let x = <T as FloatElement>::from_f64(theta.cos());
             points.push(x);
         }
 
@@ -84,7 +84,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Chebys
     /// Based on Trefethen (2000), Chapter 6
     fn differentiation_matrix(n: usize, points: &[T]) -> Result<Array2<T>> {
         let mut d = Array2::from_elem([n, n], scalar::zero::<T>());
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         // c_i = 2 for i = 0 or N, 1 otherwise
         let mut c = vec![scalar::one::<T>(); n];
@@ -96,7 +96,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Chebys
             for j in 0..n {
                 if i != j {
                     let sign_factor =
-                        scalar::from_f64::<T>(if (i + j) % 2 == 0 { 1.0 } else { -1.0 });
+                        <T as FloatElement>::from_f64(if (i + j) % 2 == 0 { 1.0 } else { -1.0 });
                     let num = c[i] * sign_factor;
                     let den = c[j] * (points[i] - points[j]);
                     d[[i, j]] = num / den;
@@ -216,7 +216,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Chebys
         let one = scalar::one::<T>();
 
         // Helper to convert f64 to T
-        let to_t = |val: f64| -> T { scalar::from_f64::<T>(val) };
+        let to_t = |val: f64| -> T { <T as FloatElement>::from_f64(val) };
 
         if big_n.is_multiple_of(2) {
             // N is even
@@ -279,24 +279,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Chebys
             )));
         }
 
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         // Barycentric weights for Chebyshev points
         let mut weights = vec![scalar::one::<T>(); self.n];
         weights[0] = scalar::one::<T>() / two;
-        weights[self.n - 1] = scalar::from_f64::<T>(if (self.n - 1).is_multiple_of(2) {
+        weights[self.n - 1] = <T as FloatElement>::from_f64(if (self.n - 1).is_multiple_of(2) {
             1.0
         } else {
             -1.0
         }) / two;
 
         for (j, weight) in weights.iter_mut().enumerate().take(self.n - 1).skip(1) {
-            *weight = scalar::from_f64::<T>(if j % 2 == 0 { 1.0 } else { -1.0 });
+            *weight = <T as FloatElement>::from_f64(if j % 2 == 0 { 1.0 } else { -1.0 });
         }
 
         // Check if x matches a grid point
         for (j, &x_j) in self.points.iter().enumerate() {
-            if scalar::abs::<T>(x - x_j) < scalar::from_f64::<T>(1e-14) {
+            if scalar::abs::<T>(x - x_j) < <T as FloatElement>::from_f64(1e-14) {
                 return Ok(values[j]);
             }
         }

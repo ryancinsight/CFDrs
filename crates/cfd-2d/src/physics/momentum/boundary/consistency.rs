@@ -1,13 +1,13 @@
 use super::super::solver::MomentumComponent;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{BoundaryErrorKind, Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
-fn get_dirichlet_value<T: Cfd2dScalar + Copy + FloatElement>(
+fn get_dirichlet_value<T: CfdScalar + Copy + FloatElement>(
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
 ) -> Option<T> {
@@ -58,7 +58,7 @@ pub fn validate_boundary_consistency<T, S>(
     _grid: &crate::grid::StructuredGrid2D<T>,
 ) -> Result<()>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     S: BuildHasher,
 {
     for direction in &["north", "south", "east", "west"] {
@@ -109,7 +109,7 @@ where
                 get_dirichlet_value(b2, component),
             ) {
                 let diff = scalar::abs(v1 - v2);
-                let epsilon = T::default_epsilon() * scalar::from_f64(100.0);
+                let epsilon = T::default_epsilon() * <T as FloatElement>::from_f64(100.0);
                 if diff > epsilon {
                     tracing::debug!(
                         corner = %format!("{b1_name}-{b2_name}"),

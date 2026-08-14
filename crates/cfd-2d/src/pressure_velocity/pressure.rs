@@ -19,7 +19,7 @@ use crate::fields::Field2D;
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::sparse::SparseMatrixBuilder;
@@ -28,7 +28,7 @@ use leto::{geometry::Vector2, Array1};
 use std::fmt::Debug;
 
 /// Pressure correction solver supporting multiple linear solver backends
-pub struct PressureCorrectionSolver<T: Cfd2dScalar + Copy> {
+pub struct PressureCorrectionSolver<T: CfdScalar + Copy> {
     pub(super) grid: StructuredGrid2D<T>,
     pub(super) solver_type: PressureLinearSolver,
     /// Linear solver configuration.
@@ -48,7 +48,7 @@ pub struct PressureCorrectionSolver<T: Cfd2dScalar + Copy> {
     pub(super) _face_matrix_dirichlet: std::cell::RefCell<Option<[bool; 4]>>,
 }
 
-impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
+impl<T: CfdScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver with specified linear solver
     ///
     /// ## Recommended Solver Selection

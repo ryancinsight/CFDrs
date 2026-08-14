@@ -32,7 +32,6 @@ pub mod problem;
 mod problem_validation;
 pub mod projection_solver;
 pub mod quadrature;
-mod scalar;
 pub mod shape_functions;
 pub mod solution;
 pub mod solver;

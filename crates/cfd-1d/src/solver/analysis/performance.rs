@@ -22,15 +22,15 @@
 //! For an ideal network without junction losses, `η_hyd → 1` as all power goes
 //! into moving fluid through the channel resistances.
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Dimensionless, Power, Pressure, Time, VolumetricFlowRate};
 use cfd_core::conversion::SafeFromUsize;
+use cfd_core::CfdScalar;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Network performance metrics
 #[derive(Debug, Clone)]
-pub struct PerformanceMetrics<T: Cfd1dScalar + Copy> {
+pub struct PerformanceMetrics<T: CfdScalar + Copy> {
     /// Throughput [m³/s]
     pub throughput: VolumetricFlowRate<T>,
     /// Pressure efficiency (useful pressure / total pressure)
@@ -43,14 +43,14 @@ pub struct PerformanceMetrics<T: Cfd1dScalar + Copy> {
     pub residence_times: HashMap<String, Time<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
+impl<T: CfdScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     /// Create new performance metrics
     #[must_use]
     pub fn new() -> Self {
         Self {
-            throughput: VolumetricFlowRate::from_base(T::zero()),
-            pressure_efficiency: Dimensionless::from_base(T::zero()),
-            power_consumption: Power::from_base(T::zero()),
+            throughput: VolumetricFlowRate::from_base(T::ZERO),
+            pressure_efficiency: Dimensionless::from_base(T::ZERO),
+            power_consumption: Power::from_base(T::ZERO),
             mixing_efficiency: None,
             residence_times: HashMap::new(),
         }
@@ -74,7 +74,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     /// Set total pressure drop
     pub fn set_total_pressure_drop(&mut self, pressure_drop: Pressure<T>) {
         // Store as part of pressure efficiency calculation
-        if pressure_drop.into_base() > T::zero() && self.throughput.into_base() > T::zero() {
+        if pressure_drop.into_base() > T::ZERO && self.throughput.into_base() > T::ZERO {
             self.pressure_efficiency =
                 Dimensionless::from_base(self.throughput.into_base() / pressure_drop.into_base());
         }
@@ -102,19 +102,19 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
 
     /// Calculate hydraulic efficiency
     pub fn hydraulic_efficiency(&self) -> Dimensionless<T> {
-        if self.power_consumption.into_base() > T::zero() {
+        if self.power_consumption.into_base() > T::ZERO {
             // Hydraulic efficiency: useful power / total power (White, 2011 - Fluid Mechanics)
             // Useful power = volumetric flow rate × pressure differential
             self.pressure_efficiency
         } else {
-            Dimensionless::from_base(T::zero())
+            Dimensionless::from_base(T::ZERO)
         }
     }
 
     /// Get average residence time
     pub fn average_residence_time(&self) -> Time<T> {
         if self.residence_times.is_empty() {
-            Time::from_base(T::zero())
+            Time::from_base(T::ZERO)
         } else {
             let sum: T = self
                 .residence_times
@@ -155,7 +155,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> Default for PerformanceMetrics<T> {
+impl<T: CfdScalar + Copy + SafeFromUsize + Sum> Default for PerformanceMetrics<T> {
     fn default() -> Self {
         Self::new()
     }

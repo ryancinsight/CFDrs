@@ -19,10 +19,10 @@
 
 use std::marker::PhantomData;
 
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use eunomia::NumericElement;
@@ -54,7 +54,7 @@ impl<T, F> NetworkBuilderSink<T, F> {
 
 impl<T, F> GraphSink for NetworkBuilderSink<T, F>
 where
-    T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
+    T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
     F: FluidTrait<T> + Clone,
 {
     type Output = Network<T, F>;

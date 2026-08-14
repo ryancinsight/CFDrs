@@ -62,16 +62,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Interp
     /// **Proof sketch**: Direct substitution into the piecewise formula
     /// and summation over the stencil j ∈ {-1, 0, 1}.
     fn roma_peskin_3(&self, r: T) -> T {
-        let three_half = scalar::from_f64::<T>(1.5);
+        let three_half = <T as FloatElement>::from_f64(1.5);
         if r >= three_half {
             return scalar::zero::<T>();
         }
 
         let one = scalar::one::<T>();
-        let three = scalar::from_f64::<T>(3.0);
-        let five = scalar::from_f64::<T>(5.0);
-        let six = scalar::from_f64::<T>(6.0);
-        let half = scalar::from_f64::<T>(0.5);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let five = <T as FloatElement>::from_f64(5.0);
+        let six = <T as FloatElement>::from_f64(6.0);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         if r <= half {
             // φ₃(r) = (1 + √(1 - 3r²)) / 3
@@ -99,18 +99,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Interp
     /// **Proof sketch**: The piecewise formula is derived by requiring conditions
     /// 1–4 plus continuity at r = 0, 1, 2.
     fn roma_peskin_4(&self, r: T) -> T {
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         if r >= two {
             return scalar::zero::<T>();
         }
 
         let one = scalar::one::<T>();
-        let three = scalar::from_f64::<T>(3.0);
-        let four = scalar::from_f64::<T>(4.0);
-        let five = scalar::from_f64::<T>(5.0);
-        let seven = scalar::from_f64::<T>(7.0);
-        let eight = scalar::from_f64::<T>(8.0);
-        let twelve = scalar::from_f64::<T>(12.0);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let five = <T as FloatElement>::from_f64(5.0);
+        let seven = <T as FloatElement>::from_f64(7.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
+        let twelve = <T as FloatElement>::from_f64(12.0);
 
         if r <= one {
             // φ₄(r) = (3 - 2r + √(1 + 4r - 4r²)) / 8
@@ -133,14 +133,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Interp
     ///
     /// This kernel satisfies the partition-of-unity property.
     fn peskin_4(&self, r: T) -> T {
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         if r >= two {
             return scalar::zero::<T>();
         }
 
         let one = scalar::one::<T>();
-        let four = scalar::from_f64::<T>(4.0);
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
 
         if r <= one {
             (one + scalar::cos::<T>(pi * r)) / four

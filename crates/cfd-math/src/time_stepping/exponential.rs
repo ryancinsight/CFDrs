@@ -10,10 +10,11 @@
 //! a machine-checked proof of the Padé approximation inside `leto-ops`.
 
 use super::traits::{
-    add_scaled_in_place, from_f64, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState,
+    add_scaled_in_place, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState,
 };
 use crate::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error};
+use eunomia::FloatElement;
 use eunomia::RealField;
 use leto_ops::{matexp, RealScalar};
 
@@ -163,9 +164,9 @@ impl<T: RealField + RealScalar + Copy> ExponentialRungeKutta4<T> {
     where
         F: Fn(&TimeState<T>) -> TimeState<T>,
     {
-        let half = from_f64::<T>(0.5);
-        let two = from_f64::<T>(2.0);
-        let six = from_f64::<T>(6.0);
+        let half = <T as FloatElement>::from_f64(0.5);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let six = <T as FloatElement>::from_f64(6.0);
         let n = state_len(u);
 
         let f0 = rhs_function(u);
@@ -226,10 +227,10 @@ impl<T: RealField + RealScalar + Copy> ExponentialTimeDifferencing<T> {
         let n = state_len(vector);
         let mut result = match function {
             PhiFunction::Phi1 => vector.clone(),
-            PhiFunction::Phi2 => state_scale(vector, from_f64(0.5)),
+            PhiFunction::Phi2 => state_scale(vector, <T as FloatElement>::from_f64(0.5)),
         };
         let mut term = result.clone();
-        let tolerance = from_f64::<T>(self.config.phi_tolerance);
+        let tolerance = <T as FloatElement>::from_f64(self.config.phi_tolerance);
 
         for iteration in 0..self.config.krylov_max_iter {
             let denominator = function.next_denominator::<T>(iteration);
@@ -260,8 +261,8 @@ enum PhiFunction {
 impl PhiFunction {
     fn next_denominator<T: RealScalar>(self, iteration: usize) -> T {
         match self {
-            Self::Phi1 => from_f64((iteration + 2) as f64),
-            Self::Phi2 => from_f64((iteration + 3) as f64),
+            Self::Phi1 => <T as FloatElement>::from_f64((iteration + 2) as f64),
+            Self::Phi2 => <T as FloatElement>::from_f64((iteration + 3) as f64),
         }
     }
 }

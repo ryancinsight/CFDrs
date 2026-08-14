@@ -20,7 +20,7 @@
 
 use super::super::tvd_limiters::TvdLimiter;
 use crate::fields::SimulationFields;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 
 use super::super::solver::MomentumComponent;
 
@@ -43,11 +43,11 @@ pub fn compute_tvd_correction_x<T, L>(
     limiter: &L,
 ) -> T
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     L: TvdLimiter<T>,
 {
     // Get velocity values for 3-point stencil
-    let (phi_u, phi_c, phi_d) = if u > T::zero() {
+    let (phi_u, phi_c, phi_d) = if u > T::ZERO {
         // Positive velocity: upwind is i-1, central is i, downwind is i+1
         match component {
             MomentumComponent::U => (
@@ -107,11 +107,11 @@ pub fn compute_tvd_correction_y<T, L>(
     limiter: &L,
 ) -> T
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     L: TvdLimiter<T>,
 {
     // Get velocity values for 3-point stencil
-    let (phi_u, phi_c, phi_d) = if v > T::zero() {
+    let (phi_u, phi_c, phi_d) = if v > T::ZERO {
         // Positive velocity: upwind is j-1, central is j, downwind is j+1
         match component {
             MomentumComponent::U => (
