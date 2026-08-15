@@ -4261,5 +4261,11 @@
   failure, and verify the generic response against an independent closed-form
   oracle and a negative-density rejection case.
 
+- [x] `cfd-2d` [minor]: Calibrate the k-ε log-law constants (von Kármán κ and
+  intercept B) against the DNS channel-flow database through Coeus's
+  Levenberg-Marquardt nonlinear least-squares solver
+  (`coeus_optim::least_squares`), closing the CFDrs → coeus adoption axis with
+  Coeus as the single source of truth for first-order model calibration.
+
 ## Rigor & Correctness
 - [x] Review all numerical bounds and geometry assumptions in `cfd-schematics`.
