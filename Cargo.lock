@@ -423,6 +423,7 @@ dependencies = [
  "cfd-math",
  "cfd-schematics",
  "cfd-validation",
+ "coeus-optim",
  "criterion",
  "eunomia",
  "gaia-mesh",

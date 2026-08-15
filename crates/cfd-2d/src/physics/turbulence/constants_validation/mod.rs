@@ -20,9 +20,14 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
+mod calibration;
 mod dns_database;
 mod sensitivity;
 
+pub use calibration::{
+    calibrate_log_law, kappa_from_k_epsilon_constants, standard_kappa, KepsilonCalibrationReport,
+    LogLawCalibration, LogLawProblem,
+};
 pub use dns_database::DnsChannelFlowDatabase;
 
 use eunomia::{FloatElement, NumericElement, RealField};
