@@ -43,6 +43,9 @@
   separate local-resolution residual.
 - The Pages caller now builds `cfd-validation` and runs the shared `mdbook test`
   gate before publishing the CFDrs book.
+- `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
+  zero result; documented negative inputs are handled before the provider call
+  and the invariant is checked explicitly.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

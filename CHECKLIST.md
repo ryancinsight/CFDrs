@@ -34,6 +34,15 @@
       overlay/lock mismatch; hosted exact-head package verification remains
       the reproducible closure gate.
 
+## ATLAS-CFDRS-HEMOLYSIS-107 [fix] — Remove silent model-error fallback
+
+- [x] Pre-validate the documented non-positive input behavior before the
+      provider call and remove `unwrap_or(0.0)` from `giersiepen_hi`.
+- [x] Preserve the existing negative-input and analytical reference tests.
+- [ ] Run the focused locked Nextest and hosted exact-head provider gate;
+      local compilation is currently blocked by the shared overlay/lock
+      mismatch, not by a source diagnostic.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 
 - [x] Wire `cfd-1d` resistance-model tests into the module graph and correct

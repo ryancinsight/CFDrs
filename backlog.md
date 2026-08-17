@@ -86,6 +86,18 @@ is a lock/overlay environment residual, not evidence of a missing Apollo
 `PlanScratch` export; the hosted exact-head package gate is the reproducible
 closure check.
 
+## ATLAS-CFDRS-HEMOLYSIS-107 [fix] — Remove silent model-error fallback (in progress 2026-08-17)
+
+`crates/cfd-1d/src/physics/hemolysis/models.rs:25-35` now handles the
+documented negative-input behavior before calling the cfd-core model and uses
+an invariant-checked `expect` for the provider result. A future provider
+validation error can no longer be silently converted into a zero hemolysis
+index. The existing value-semantic negative-input and reference-value tests
+remain the behavioral oracle. `cargo fmt --all -- --check` passes; the focused
+locked Nextest command is currently blocked before compilation by the shared
+Atlas overlay/lock mismatch recorded above. Hosted exact-head verification is
+required before closure.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 
 **Owner:** Atlas session; source merged as `54dcea3c`.

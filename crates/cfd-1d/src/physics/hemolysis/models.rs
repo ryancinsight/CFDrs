@@ -5,7 +5,7 @@ use aequitas::systems::si::quantities::{Pressure, Time};
 /// Thin wrapper delegating to [`cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic`]
 /// so that the single source of truth for all model constants lives in cfd-core.
 /// Returns `0.0` for non-positive inputs (no damage when shear or time is
-/// zero or negative) and `0.0` on conversion error (never expected in practice).
+/// zero or negative).
 ///
 /// # Arguments
 ///
@@ -23,9 +23,15 @@ use aequitas::systems::si::quantities::{Pressure, Time};
 #[inline]
 #[must_use]
 pub fn giersiepen_hi(shear: Pressure, duration: Time) -> f64 {
+    let shear_pa = shear.into_base();
+    let duration_s = duration.into_base();
+    if shear_pa < 0.0 || duration_s < 0.0 {
+        return 0.0;
+    }
+
     cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic()
-        .damage_index(shear.into_base(), duration.into_base())
-        .unwrap_or(0.0)
+        .damage_index(shear_pa, duration_s)
+        .expect("invariant: non-negative shear and duration satisfy the hemolysis model")
 }
 
 /// Amplify a baseline Giersiepen HI by the local cavitation potential.
