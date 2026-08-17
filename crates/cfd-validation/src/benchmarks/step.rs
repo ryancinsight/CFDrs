@@ -76,6 +76,20 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
         let nu = self.inlet_velocity * self.step_height / reynolds; // Kinematic viscosity
         let min_spacing = scalar::min(dx, dy);
         let dt = <T as FloatElement>::from_f64(0.01) * min_spacing * min_spacing / nu; // CFL condition
+        let dx_squared = dx * dx;
+        let dy_squared = dy * dy;
+        let two = <T as FloatElement>::from_f64(2.0);
+        let relaxation = <T as FloatElement>::from_f64(0.7);
+
+        // `zeros` constructs a C-contiguous Array2. Borrowing its dense storage
+        // once keeps the stencil hot loop on flat slices instead of recomputing
+        // a two-dimensional layout offset for every neighbor access.
+        let u_data = u
+            .as_slice_mut()
+            .expect("invariant: zero-initialized velocity field is contiguous");
+        let v_data = v
+            .as_slice_mut()
+            .expect("invariant: zero-initialized velocity field is contiguous");
 
         // Iterative solver for demonstration
         let mut convergence = Vec::new();
@@ -88,40 +102,31 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
             // Note: DMatrix indexing is (row, col) = (j, i) where j is y-direction, i is x-direction
             for j in 1..ny - 1 {
                 for i in 1..nx - 1 {
-                    let u_old = u[(j, i)];
+                    let index = j * nx + i;
+                    let u_old = u_data[index];
 
                     // Gauss-Seidel update for momentum equation with proper physics
                     // Solves the steady incompressible Navier-Stokes momentum equation
-                    let viscous_term = (u[(j, i + 1)]
-                        - <T as FloatElement>::from_f64(2.0) * u[(j, i)]
-                        + u[(j, i - 1)])
-                        / (dx * dx)
-                        + (u[(j + 1, i)] - <T as FloatElement>::from_f64(2.0) * u[(j, i)]
-                            + u[(j - 1, i)])
-                            / (dy * dy);
+                    let viscous_term = (u_data[index + 1] - two * u_old + u_data[index - 1])
+                        / dx_squared
+                        + (u_data[index + nx] - two * u_old + u_data[index - nx]) / dy_squared;
 
-                    let convective_u =
-                        (u[(j, i + 1)] - u[(j, i - 1)]) / (<T as FloatElement>::from_f64(2.0) * dx);
-                    let convective_v =
-                        (u[(j + 1, i)] - u[(j - 1, i)]) / (<T as FloatElement>::from_f64(2.0) * dy);
+                    let convective_u = (u_data[index + 1] - u_data[index - 1]) / (two * dx);
+                    let convective_v = (u_data[index + nx] - u_data[index - nx]) / (two * dy);
 
                     let u_update = u_old
                         + dt * (nu * viscous_term
                             - u_old * convective_u
-                            - v[(j, i)] * convective_v);
-                    u[(j, i)] = u_old + <T as FloatElement>::from_f64(0.7) * (u_update - u_old);
+                            - v_data[index] * convective_v);
+                    u_data[index] = u_old + relaxation * (u_update - u_old);
 
                     // Update v-velocity similarly
-                    let viscous_term_v = (v[(j, i + 1)]
-                        - <T as FloatElement>::from_f64(2.0) * v[(j, i)]
-                        + v[(j, i - 1)])
-                        / (dx * dx)
-                        + (v[(j + 1, i)] - <T as FloatElement>::from_f64(2.0) * v[(j, i)]
-                            + v[(j - 1, i)])
-                            / (dy * dy);
-                    let v_update = v[(j, i)] + dt * nu * viscous_term_v;
-                    v[(j, i)] =
-                        v[(j, i)] + <T as FloatElement>::from_f64(0.7) * (v_update - v[(j, i)]);
+                    let v_old = v_data[index];
+                    let viscous_term_v = (v_data[index + 1] - two * v_old + v_data[index - 1])
+                        / dx_squared
+                        + (v_data[index + nx] - two * v_old + v_data[index - nx]) / dy_squared;
+                    let v_update = v_old + dt * nu * viscous_term_v;
+                    v_data[index] = v_old + relaxation * (v_update - v_old);
 
                     let residual = scalar::abs(u_update - u_old);
                     if residual > local_max_residual {

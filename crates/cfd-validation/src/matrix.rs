@@ -74,6 +74,18 @@ impl<T> DMatrix<T> {
     {
         self.data.clone_from(&other.data);
     }
+
+    /// Return the logical row-major elements when the matrix is C-contiguous.
+    #[inline]
+    pub fn as_slice(&self) -> Option<&[T]> {
+        self.data.as_slice()
+    }
+
+    /// Return mutable logical row-major elements when the matrix is C-contiguous.
+    #[inline]
+    pub fn as_slice_mut(&mut self) -> Option<&mut [T]> {
+        self.data.as_slice_mut()
+    }
 }
 
 impl<T> Index<(usize, usize)> for DMatrix<T> {
