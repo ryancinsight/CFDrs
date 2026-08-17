@@ -93,13 +93,14 @@ closure check.
 
 `crates/cfd-1d/src/physics/hemolysis/models.rs:25-35` now handles the
 documented negative-input behavior before calling the cfd-core model and uses
-an invariant-checked `expect` for the provider result. A future provider
-validation error can no longer be silently converted into a zero hemolysis
-index. The existing value-semantic negative-input and reference-value tests
-remain the behavioral oracle. `cargo fmt --all -- --check` passes; the focused
-locked Nextest command is currently blocked before compilation by the shared
-Atlas overlay/lock mismatch recorded above. Hosted exact-head verification is
-required before closure.
+an invariant-checked `expect` for the provider result. A provider invariant
+violation can no longer be silently converted into a zero hemolysis
+index. NaN inputs now propagate as NaN explicitly, with value-semantic
+regressions alongside the negative-input and reference-value tests. The
+existing behavioral oracle remains unchanged for valid and negative inputs.
+`cargo fmt --all -- --check` passes; the focused locked Nextest command is
+currently blocked before compilation by the shared Atlas overlay/lock mismatch
+recorded above. Hosted exact-head verification is required before closure.
 
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 

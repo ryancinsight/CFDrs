@@ -41,6 +41,8 @@
 - [x] Pre-validate the documented non-positive input behavior before the
       provider call and remove `unwrap_or(0.0)` from `giersiepen_hi`.
 - [x] Preserve the existing negative-input and analytical reference tests.
+- [x] Define and test NaN propagation explicitly; positive infinity continues
+      through the provider's IEEE-754 arithmetic.
 - [ ] Run the focused locked Nextest and hosted exact-head provider gate;
       local compilation is currently blocked by the shared overlay/lock
       mismatch, not by a source diagnostic.

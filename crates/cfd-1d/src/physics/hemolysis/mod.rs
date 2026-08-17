@@ -108,6 +108,12 @@ mod tests {
     }
 
     #[test]
+    fn giersiepen_nan_inputs_propagate_nan() {
+        assert!(giersiepen_hi(shear(f64::NAN), duration(1.0)).is_nan());
+        assert!(giersiepen_hi(shear(1.0), duration(f64::NAN)).is_nan());
+    }
+
+    #[test]
     fn giersiepen_reference_value_at_100pa_1s() {
         // HI = 3.62e-5 × 1^0.765 × 100^1.991
         let expected =
