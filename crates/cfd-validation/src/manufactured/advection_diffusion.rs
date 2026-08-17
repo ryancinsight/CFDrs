@@ -69,40 +69,40 @@ impl<T: RealField + Copy + FloatElement> ManufacturedAdvectionDiffusion<T> {
 
     /// Create default solution with Pe ≈ 10 (advection-dominated)
     pub fn default_advection_dominated() -> Self {
-        let pi = scalar::from_f64::<T>(PI);
-        let two = scalar::from_f64::<T>(2.0);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let two = <T as FloatElement>::from_f64(2.0);
         Self::new(
-            two * pi,               // kx = 2π
-            two * pi,               // ky = 2π
-            scalar::from_f64(0.01), // α = 0.01
-            scalar::one::<T>(),     // vx = 1
-            scalar::from_f64(0.5),  // vy = 0.5
+            two * pi,                            // kx = 2π
+            two * pi,                            // ky = 2π
+            <T as FloatElement>::from_f64(0.01), // α = 0.01
+            scalar::one::<T>(),                  // vx = 1
+            <T as FloatElement>::from_f64(0.5),  // vy = 0.5
         )
     }
 
     /// Create solution with Pe ≈ 1 (balanced)
     pub fn default_balanced() -> Self {
-        let pi = scalar::from_f64::<T>(PI);
-        let two = scalar::from_f64::<T>(2.0);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let two = <T as FloatElement>::from_f64(2.0);
         Self::new(
-            two * pi,              // kx = 2π
-            two * pi,              // ky = 2π
-            scalar::from_f64(0.1), // α = 0.1
-            scalar::one::<T>(),    // vx = 1
-            scalar::from_f64(0.5), // vy = 0.5
+            two * pi,                           // kx = 2π
+            two * pi,                           // ky = 2π
+            <T as FloatElement>::from_f64(0.1), // α = 0.1
+            scalar::one::<T>(),                 // vx = 1
+            <T as FloatElement>::from_f64(0.5), // vy = 0.5
         )
     }
 
     /// Create solution with Pe << 1 (diffusion-dominated)
     pub fn default_diffusion_dominated() -> Self {
-        let pi = scalar::from_f64::<T>(PI);
-        let two = scalar::from_f64::<T>(2.0);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let two = <T as FloatElement>::from_f64(2.0);
         Self::new(
-            two * pi,              // kx = 2π
-            two * pi,              // ky = 2π
-            scalar::one::<T>(),    // α = 1.0
-            scalar::one::<T>(),    // vx = 1
-            scalar::from_f64(0.5), // vy = 0.5
+            two * pi,                           // kx = 2π
+            two * pi,                           // ky = 2π
+            scalar::one::<T>(),                 // α = 1.0
+            scalar::one::<T>(),                 // vx = 1
+            <T as FloatElement>::from_f64(0.5), // vy = 0.5
         )
     }
 

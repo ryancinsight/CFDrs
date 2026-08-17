@@ -69,7 +69,7 @@ impl<T: RealField + Copy + FloatElement> ConvergenceStudy<T> {
     ///
     /// Returns true if R² > 0.99, indicating consistent convergence behavior
     pub fn is_asymptotic(&self) -> bool {
-        self.r_squared > scalar::from_f64::<T>(0.99)
+        self.r_squared > <T as FloatElement>::from_f64(0.99)
     }
 
     /// Predict error for a given grid size using the power law model
@@ -132,7 +132,9 @@ where
     let denominator = n * sum_log_h2 - sum_log_h * sum_log_h;
 
     if scalar::abs(denominator)
-        < scalar::from_f64::<T>(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE)
+        < <T as FloatElement>::from_f64(
+            cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE,
+        )
     {
         return Err(Error::Numerical(
             cfd_core::error::NumericalErrorKind::SingularMatrix,

@@ -144,8 +144,8 @@ mod quick;
 pub use muscl::{MUSCLOrder, MUSCLScheme};
 pub use quick::QUICKScheme;
 
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -168,7 +168,7 @@ pub enum FluxLimiter {
 
 impl FluxLimiter {
     /// Apply flux limiter function
-    pub fn apply<T: Cfd2dScalar + Copy + FloatElement>(&self, r: T) -> T {
+    pub fn apply<T: CfdScalar + Copy + FloatElement>(&self, r: T) -> T {
         match self {
             FluxLimiter::None => one(),
             FluxLimiter::VanLeer => {
@@ -186,12 +186,12 @@ impl FluxLimiter {
                 }
             }
             FluxLimiter::Superbee => {
-                let two = from_f64::<T>(super::constants::FLUX_LIMITER_TWO);
+                let two = <T as FloatElement>::from_f64(super::constants::FLUX_LIMITER_TWO);
                 // Superbee limiter: φ(r) = max(0, min(1, 2r), min(2, r))
                 zero::<T>().max_scalar(one::<T>().min_scalar(two * r).max_scalar(two.min_scalar(r)))
             }
             FluxLimiter::MC => {
-                let two = from_f64::<T>(super::constants::FLUX_LIMITER_TWO);
+                let two = <T as FloatElement>::from_f64(super::constants::FLUX_LIMITER_TWO);
                 zero::<T>().max_scalar(((one::<T>() + r) / two).min_scalar(two.min_scalar(two * r)))
             }
             FluxLimiter::Minmod => {

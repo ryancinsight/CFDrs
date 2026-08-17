@@ -139,6 +139,7 @@ use super::{
 use crate::scalar;
 use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
+use eunomia::NumericElement;
 use eunomia::RealField;
 use leto::Vector3;
 
@@ -167,15 +168,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSol
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
             DeltaFunction::RomaPeskin4,
-            scalar::from_f64::<T>(config.smoothing_width),
+            <T as FloatElement>::from_f64(config.smoothing_width),
         );
 
         let forcing: Box<dyn ForcingMethod<T>> = if config.use_direct_forcing {
             Box::new(DirectForcing::new())
         } else {
             Box::new(FeedbackForcing::new(
-                scalar::from_f64::<T>(DEFAULT_PROPORTIONAL_GAIN),
-                scalar::from_f64::<T>(DEFAULT_INTEGRAL_GAIN),
+                <T as FloatElement>::from_f64(DEFAULT_PROPORTIONAL_GAIN),
+                <T as FloatElement>::from_f64(DEFAULT_INTEGRAL_GAIN),
             ))
         };
 
@@ -348,7 +349,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSol
 
     fn floored_grid_index(value: T, axis: &str) -> Result<isize> {
         let floored = scalar::floor::<T>(value);
-        let index = scalar::to_f64(floored);
+        let index = <T as NumericElement>::to_f64(floored);
         if !index.is_finite() || index < isize::MIN as f64 || index > isize::MAX as f64 {
             return Err(Error::InvalidConfiguration(format!(
                 "IBM grid {axis}-coordinate must be finite and within isize range after scaling"

@@ -1,5 +1,5 @@
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Dimensionless, Time, VolumetricFlowRate};
+use cfd_core::CfdScalar;
 use std::collections::HashMap;
 
 /// Canonical mixture key for transported RBC volume fraction.
@@ -9,12 +9,12 @@ pub const BLOOD_PLASMA_FLUID_ID: i32 = -10_002;
 
 /// Mixture composition keyed by `fluid_id` with mass/volume fractions.
 #[derive(Debug, Clone)]
-pub struct MixtureComposition<T: Cfd1dScalar + Copy> {
+pub struct MixtureComposition<T: CfdScalar + Copy> {
     /// Fraction per fluid id.
     pub fractions: HashMap<i32, Dimensionless<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
+impl<T: CfdScalar + Copy> MixtureComposition<T> {
     /// Create a new mixture and normalize to unit sum (when non-empty).
     #[must_use]
     pub fn new(mut fractions: HashMap<i32, Dimensionless<T>>) -> Self {
@@ -22,8 +22,8 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
             .values()
             .copied()
             .map(Dimensionless::into_base)
-            .fold(T::zero(), |acc, v| acc + v);
-        if sum > T::zero() {
+            .fold(T::ZERO, |acc, v| acc + v);
+        if sum > T::ZERO {
             for value in fractions.values_mut() {
                 *value = Dimensionless::from_base(value.into_base() / sum);
             }
@@ -41,12 +41,12 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
 
     /// Construct a two-species blood mixture from hematocrit.
     pub fn from_blood_hematocrit(hematocrit: Dimensionless<T>) -> Self {
-        let hct = hematocrit.into_base().max(T::zero()).min(T::one());
+        let hct = hematocrit.into_base().max(T::ZERO).min(T::ONE);
         let mut fractions = HashMap::new();
         fractions.insert(BLOOD_RBC_FLUID_ID, Dimensionless::from_base(hct));
         fractions.insert(
             BLOOD_PLASMA_FLUID_ID,
-            Dimensionless::from_base(T::one() - hct),
+            Dimensionless::from_base(T::ONE - hct),
         );
         Self::new(fractions)
     }
@@ -67,9 +67,9 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
         let total_weight = inputs
             .iter()
             .map(|(_, w)| w.into_base())
-            .fold(T::zero(), |acc, v| acc + v);
+            .fold(T::ZERO, |acc, v| acc + v);
 
-        if total_weight <= T::zero() {
+        if total_weight <= T::ZERO {
             return Self::empty();
         }
 
@@ -79,7 +79,7 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
                 let contribution = frac.into_base() * weight.into_base() / total_weight;
                 let entry = blended
                     .entry(*fluid_id)
-                    .or_insert_with(|| Dimensionless::from_base(T::zero()));
+                    .or_insert_with(|| Dimensionless::from_base(T::ZERO));
                 *entry = Dimensionless::from_base(entry.into_base() + contribution);
             }
         }
@@ -96,9 +96,9 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
         let total_weight = inputs
             .iter()
             .map(|(_, w)| *w)
-            .fold(T::zero(), |acc, v| acc + v);
+            .fold(T::ZERO, |acc, v| acc + v);
 
-        if total_weight <= T::zero() {
+        if total_weight <= T::ZERO {
             return Self::empty();
         }
 
@@ -108,7 +108,7 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
                 let contribution = frac.into_base() * *weight / total_weight;
                 let entry = blended
                     .entry(*fluid_id)
-                    .or_insert_with(|| Dimensionless::from_base(T::zero()));
+                    .or_insert_with(|| Dimensionless::from_base(T::ZERO));
                 *entry = Dimensionless::from_base(entry.into_base() + contribution);
             }
         }
@@ -131,13 +131,13 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
                 .fractions
                 .get(&k)
                 .copied()
-                .unwrap_or_else(|| Dimensionless::from_base(T::zero()))
+                .unwrap_or_else(|| Dimensionless::from_base(T::ZERO))
                 .into_base();
             let b = other
                 .fractions
                 .get(&k)
                 .copied()
-                .unwrap_or_else(|| Dimensionless::from_base(T::zero()))
+                .unwrap_or_else(|| Dimensionless::from_base(T::ZERO))
                 .into_base();
             <T as eunomia::NumericElement>::abs(a - b) <= tolerance.into_base()
         })
@@ -146,7 +146,7 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
 
 /// Composition state at one simulation timepoint.
 #[derive(Debug, Clone)]
-pub struct CompositionState<T: Cfd1dScalar + Copy> {
+pub struct CompositionState<T: CfdScalar + Copy> {
     /// Simulation time.
     pub time: Time<T>,
     /// Node mixture compositions keyed by node index.
@@ -157,7 +157,7 @@ pub struct CompositionState<T: Cfd1dScalar + Copy> {
     pub edge_flow_rates: HashMap<usize, VolumetricFlowRate<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy> CompositionState<T> {
+impl<T: CfdScalar + Copy> CompositionState<T> {
     /// Return average fluid concentrations in an edge at this state.
     ///
     /// In the current architecture, each edge stores a single mixed composition

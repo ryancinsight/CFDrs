@@ -30,12 +30,12 @@
 
 use super::AnalyticalSolution;
 use crate::scalar;
-use crate::scalar::ValidationScalar;
 use aequitas::systems::si::quantities::{
     AreaPerTime, Dimensionless, DynamicViscosity, Length, MassDensity, Pressure, PressureGradient,
     ReciprocalTime, Velocity,
 };
 use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;
@@ -112,7 +112,7 @@ impl<T: RealField + FloatElement + Copy> PowerLawModel<T> {
     pub fn blood_like(consistency: PowerLawConsistency<T>) -> Self {
         Self {
             consistency,
-            index: Dimensionless::from_base(scalar::from_f64(0.6)),
+            index: Dimensionless::from_base(<T as FloatElement>::from_f64(0.6)),
         }
     }
 }
@@ -132,9 +132,9 @@ impl<T: RealField + FloatElement + Copy> RheologicalModel<T> for PowerLawModel<T
 
     fn viscosity(&self, shear_rate: ReciprocalTime<T>) -> DynamicViscosity<T> {
         let shear_rate = shear_rate.into_base();
-        if scalar::abs(shear_rate) < scalar::from_f64::<T>(1e-12) {
+        if scalar::abs(shear_rate) < <T as FloatElement>::from_f64(1e-12) {
             // Avoid division by zero at centerline
-            return DynamicViscosity::from_base(scalar::from_f64(1e12));
+            return DynamicViscosity::from_base(<T as FloatElement>::from_f64(1e12));
         }
         DynamicViscosity::from_base(
             self.consistency.into_base()
@@ -246,7 +246,7 @@ impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
         let u_c = self.centerline_velocity().into_base();
 
         // Q' = 2·u_c·H·[n/(2n+1)]
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let factor = n / (two * n + scalar::one::<T>());
 
         AreaPerTime::from_base(two * u_c * h * factor)
@@ -289,7 +289,7 @@ impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
 
         Dimensionless::from_base(
             density.into_base()
-                * scalar::powf(u_c, scalar::from_f64::<T>(2.0) - n)
+                * scalar::powf(u_c, <T as FloatElement>::from_f64(2.0) - n)
                 * scalar::powf(h, n)
                 / k,
         )
@@ -336,7 +336,7 @@ impl<T: RealField + FloatElement + Copy> AnalyticalSolution<T> for PowerLawPoise
 // ============================================================================
 
 /// Wrapper for Casson blood rheology in Poiseuille flow
-impl<T: ValidationScalar> RheologicalModel<T> for CassonBlood<T> {
+impl<T: CfdScalar> RheologicalModel<T> for CassonBlood<T> {
     fn shear_stress(&self, shear_rate: ReciprocalTime<T>) -> Pressure<T> {
         let shear_rate = shear_rate.into_base();
         let gamma_dot = scalar::abs(shear_rate);
@@ -371,7 +371,7 @@ impl<T: ValidationScalar> RheologicalModel<T> for CassonBlood<T> {
 /// The velocity profile for Casson fluid must be solved numerically.
 /// We provide numerical integration and validation methods.
 #[derive(Debug, Clone)]
-pub struct CassonPoiseuille<T: ValidationScalar> {
+pub struct CassonPoiseuille<T: CfdScalar> {
     /// Casson blood model
     pub model: CassonBlood<T>,
     /// Channel half-width H \[m]
@@ -384,7 +384,7 @@ pub struct CassonPoiseuille<T: ValidationScalar> {
     pub plug_radius: Length<T>,
 }
 
-impl<T: ValidationScalar> CassonPoiseuille<T> {
+impl<T: CfdScalar> CassonPoiseuille<T> {
     /// Create Casson Poiseuille flow
     ///
     /// # Arguments
@@ -454,9 +454,9 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
         let dy = (half_width - y_abs) / scalar::from_usize::<T>(n_points);
         let mut integral = scalar::zero::<T>();
 
-        let two = scalar::from_f64::<T>(2.0);
-        let four = scalar::from_f64::<T>(4.0);
-        let three = scalar::from_f64::<T>(3.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let three = <T as FloatElement>::from_f64(3.0);
         let sqrt_tau_y = scalar::sqrt(self.model.yield_stress.into_base());
         let sqrt_mu_inf = scalar::sqrt(self.model.infinite_shear_viscosity.into_base());
 
@@ -502,9 +502,9 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
         let dy = self.half_width.into_base() / scalar::from_usize::<T>(n_points);
         let mut integral = scalar::zero::<T>();
 
-        let two = scalar::from_f64::<T>(2.0);
-        let four = scalar::from_f64::<T>(4.0);
-        let three = scalar::from_f64::<T>(3.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let three = <T as FloatElement>::from_f64(3.0);
 
         for i in 0..=n_points {
             let y = scalar::from_usize::<T>(i) * dy;
@@ -525,7 +525,7 @@ impl<T: ValidationScalar> CassonPoiseuille<T> {
     }
 }
 
-impl<T: ValidationScalar> AnalyticalSolution<T> for CassonPoiseuille<T> {
+impl<T: CfdScalar> AnalyticalSolution<T> for CassonPoiseuille<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let u = self.velocity_at_numerical(Length::from_base(y)).into_base();
         Vector3::new(u, scalar::zero::<T>(), scalar::zero::<T>())

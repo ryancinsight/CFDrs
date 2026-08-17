@@ -1,14 +1,14 @@
 //! Physical invariant validation for FEM Stokes problems.
 
 use super::problem::StokesFlowProblem;
-use super::scalar;
-use crate::scalar::Cfd3dScalar;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use leto::geometry::Vector3;
 
-pub(super) fn validate_physical_invariants<T: Cfd3dScalar>(
+pub(super) fn validate_physical_invariants<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
     problem: &StokesFlowProblem<T>,
 ) -> Result<()> {
     validate_fluid_properties(problem)?;
@@ -18,7 +18,9 @@ pub(super) fn validate_physical_invariants<T: Cfd3dScalar>(
     validate_element_viscosities(problem)
 }
 
-fn validate_fluid_properties<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
+fn validate_fluid_properties<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    problem: &StokesFlowProblem<T>,
+) -> Result<()> {
     if !<T as NumericElement>::is_finite(problem.fluid.density.into_base())
         || problem.fluid.density.into_base() <= scalar::zero::<T>()
     {
@@ -36,7 +38,9 @@ fn validate_fluid_properties<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> 
     Ok(())
 }
 
-fn validate_pressure_space<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
+fn validate_pressure_space<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    problem: &StokesFlowProblem<T>,
+) -> Result<()> {
     if problem.n_corner_nodes == 0 || problem.n_corner_nodes > problem.mesh.vertex_count() {
         return Err(Error::InvalidConfiguration(format!(
             "FEM pressure corner-node count must be in 1..={} but got {}",
@@ -47,14 +51,18 @@ fn validate_pressure_space<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Re
     Ok(())
 }
 
-fn validate_body_force<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
+fn validate_body_force<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    problem: &StokesFlowProblem<T>,
+) -> Result<()> {
     if let Some(force) = problem.body_force {
         validate_vector("FEM body force", force)?;
     }
     Ok(())
 }
 
-fn validate_boundary_values<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
+fn validate_boundary_values<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    problem: &StokesFlowProblem<T>,
+) -> Result<()> {
     for (&node, bc) in &problem.boundary_conditions {
         if node >= problem.mesh.vertex_count() {
             return Err(Error::InvalidConfiguration(format!(
@@ -148,7 +156,9 @@ fn validate_boundary_values<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> R
     Ok(())
 }
 
-fn validate_element_viscosities<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) -> Result<()> {
+fn validate_element_viscosities<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    problem: &StokesFlowProblem<T>,
+) -> Result<()> {
     if let Some(viscosities) = &problem.element_viscosities {
         if viscosities.len() != problem.mesh.cells.len() {
             return Err(Error::InvalidConfiguration(format!(
@@ -169,7 +179,10 @@ fn validate_element_viscosities<T: Cfd3dScalar>(problem: &StokesFlowProblem<T>) 
     Ok(())
 }
 
-fn validate_scalar<T: Cfd3dScalar>(label: &str, value: T) -> Result<()> {
+fn validate_scalar<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    label: &str,
+    value: T,
+) -> Result<()> {
     if !<T as NumericElement>::is_finite(value) {
         return Err(Error::InvalidConfiguration(format!(
             "{label} must be finite"
@@ -178,7 +191,10 @@ fn validate_scalar<T: Cfd3dScalar>(label: &str, value: T) -> Result<()> {
     Ok(())
 }
 
-fn validate_vector<T: Cfd3dScalar>(label: &str, vector: Vector3<T>) -> Result<()> {
+fn validate_vector<T: CfdScalar + cfd_mesh::domain::core::Scalar>(
+    label: &str,
+    vector: Vector3<T>,
+) -> Result<()> {
     validate_scalar(label, vector.x)?;
     validate_scalar(label, vector.y)?;
     validate_scalar(label, vector.z)

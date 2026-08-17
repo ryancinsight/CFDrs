@@ -4,10 +4,10 @@
 //! at a bifurcation point.
 
 use crate::domain::channel::{Channel, CrossSection};
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
@@ -40,7 +40,7 @@ use super::two_way_solution::TwoWayBranchSolution;
 /// - Fung (1993): Branch-junction pressure losses in biological networks
 /// - Murray's Law: D_0^3 = D_1^3 + D_2^3
 #[derive(Debug, Clone)]
-pub struct TwoWayBranchJunction<T: Cfd1dScalar + Copy> {
+pub struct TwoWayBranchJunction<T: CfdScalar + Copy> {
     /// Parent channel (incoming flow)
     pub parent: Channel<T>,
     /// First daughter channel (outgoing)
@@ -55,7 +55,7 @@ pub struct TwoWayBranchJunction<T: Cfd1dScalar + Copy> {
     pub flow_split_ratio: T,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
     /// Create a new two-way branch junction
     pub fn new(
         parent: Channel<T>,
@@ -243,7 +243,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
     }
 
     fn validate_split_ratio(&self) -> Result<(), Error> {
-        if self.flow_split_ratio < T::zero() || self.flow_split_ratio > T::one() {
+        if self.flow_split_ratio < T::ZERO || self.flow_split_ratio > T::ONE {
             return Err(Error::InvalidConfiguration(format!(
                 "flow split ratio must be within [0, 1], got {}",
                 <T as NumericElement>::to_f64(self.flow_split_ratio)
@@ -278,19 +278,15 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
         let tiny_flow = T::from_f64_or_one(1e-18);
         let q_parent_magnitude = <T as NumericElement>::abs(q_parent);
         if q_parent_magnitude <= tiny_flow {
-            return Ok(T::zero());
+            return Ok(T::ZERO);
         }
 
-        let orientation = if q_parent >= T::zero() {
-            T::one()
-        } else {
-            -T::one()
-        };
+        let orientation = if q_parent >= T::ZERO { T::ONE } else { -T::ONE };
         let tolerances = ScalarSolveTolerances::for_flow_interval(q_parent_magnitude);
 
         let lower_residual = self.daughter_pressure_residual(
             fluid,
-            T::zero(),
+            T::ZERO,
             q_parent_magnitude,
             temperature,
             pressure,
@@ -303,7 +299,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
             pressure,
         );
 
-        if lower_residual > T::zero() || upper_residual < T::zero() {
+        if lower_residual > T::ZERO || upper_residual < T::ZERO {
             return Err(Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
                     residual: <T as NumericElement>::to_f64(
@@ -315,7 +311,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
         }
 
         let q_1_magnitude = bisect_root(
-            T::zero(),
+            T::ZERO,
             q_parent_magnitude,
             Some(self.flow_split_ratio * q_parent_magnitude),
             tolerances,

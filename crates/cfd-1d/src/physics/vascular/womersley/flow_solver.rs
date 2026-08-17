@@ -5,11 +5,11 @@
 
 use super::profile::WomersleyProfile;
 use super::WomersleyNumber;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, HydraulicResistance, Length, MassDensity, Pressure, PressureGradient,
     ReciprocalTime, Time, Velocity,
 };
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// Provides time-varying flow solutions for vessel segments with
 /// given inlet conditions and geometry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WomersleyFlow<T: Cfd1dScalar + Copy> {
+pub struct WomersleyFlow<T: CfdScalar + Copy> {
     /// Vessel radius \[m]
     pub radius: Length<T>,
     /// Vessel length \[m]
@@ -35,7 +35,7 @@ pub struct WomersleyFlow<T: Cfd1dScalar + Copy> {
     pub mean_pressure_gradient: PressureGradient<T>,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyFlow<T> {
+impl<T: CfdScalar + FloatElement + Copy> WomersleyFlow<T> {
     /// Create new Womersley flow solver
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -76,9 +76,9 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyFlow<T> {
         // Mean (steady) component - Poiseuille
         let r = self.radius.into_base();
         let mu = self.viscosity.into_base();
-        let four = T::one() + T::one() + T::one() + T::one();
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
         let u_mean =
-            -self.mean_pressure_gradient.into_base() * r * r / (four * mu) * (T::one() - xi * xi);
+            -self.mean_pressure_gradient.into_base() * r * r / (four * mu) * (T::ONE - xi * xi);
 
         // Pulsatile component
         let u_pulsatile = self.profile().velocity(xi, t).into_base();
@@ -98,7 +98,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyFlow<T> {
         let pi = T::pi();
         let eight = <T as FloatElement>::from_f64(8.0);
 
-        let resistance = if alpha < T::one() {
+        let resistance = if alpha < T::ONE {
             // Low α: Z ≈ 8μL/(πR⁴) (Poiseuille resistance dominates)
             eight * mu * self.length.into_base() / (pi * <T as FloatElement>::powi(r, 4))
         } else {

@@ -9,6 +9,7 @@
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
 use crate::scalar;
+use eunomia::FloatElement;
 use eunomia::RealField;
 
 /// Manufactured solution for compressible Euler equations
@@ -67,7 +68,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedCompressibleEuler<
     /// Perturbation function for velocity
     fn velocity_perturbation(&self, x: T, y: T, t: T) -> T {
         self.amplitude
-            * scalar::from_f64::<T>(0.1)
+            * <T as FloatElement>::from_f64(0.1)
             * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
     }
 }
@@ -106,7 +107,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
         // Time derivatives (exact analytical)
         let kx = self.kx;
         let ky = self.ky;
-        let omega = scalar::from_f64::<T>(0.5); // Decay rate
+        let omega = <T as FloatElement>::from_f64(0.5); // Decay rate
 
         let cos_kx_x = scalar::cos(kx * x);
         let cos_ky_y = scalar::cos(ky * y);
@@ -177,7 +178,7 @@ impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T> for Ma
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let z = scalar::from_f64::<T>(0.5) + self.amplitude * base;
+        let z = <T as FloatElement>::from_f64(0.5) + self.amplitude * base;
 
         // Clamp to [0,1] for physical validity.
         scalar::min(scalar::max(z, scalar::zero::<T>()), scalar::one::<T>())

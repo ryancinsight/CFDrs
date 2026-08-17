@@ -1,44 +1,9 @@
-//! Crate-local Eunomia scalar helpers for validation provider migration.
+//! Numeric helpers shared by the validation kernels.
+//!
+//! The scalar seam itself is [`cfd_core::CfdScalar`]; this module holds only
+//! crate-local shorthands over the Eunomia numeric surface.
 
 use eunomia::{FloatElement, NumericElement};
-
-/// Real scalar supported by the validation and cross-fidelity benchmark stack.
-///
-/// Validation exercises cfd-1d, cfd-2d, cfd-3d, cfd-core fluid models, and
-/// cfd-mesh geometry in one crate. This trait centralizes the Atlas-provider
-/// scalar contract for those cross-crate calls.
-pub trait ValidationScalar:
-    cfd_2d::Cfd2dScalar
-    + cfd_mesh::domain::core::Scalar
-    + eunomia::RealField
-    + FloatElement
-    + NumericElement
-    + Copy
-    + std::fmt::Debug
-    + Send
-    + Sync
-    + 'static
-{
-}
-
-impl<T> ValidationScalar for T where
-    T: cfd_2d::Cfd2dScalar
-        + cfd_mesh::domain::core::Scalar
-        + eunomia::RealField
-        + FloatElement
-        + NumericElement
-        + Copy
-        + std::fmt::Debug
-        + Send
-        + Sync
-        + 'static
-{
-}
-
-#[inline]
-pub(crate) fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
 
 #[inline]
 pub(crate) fn from_usize<T: FloatElement>(value: usize) -> T {
@@ -54,11 +19,6 @@ pub(crate) fn zero<T: NumericElement>() -> T {
 #[inline]
 pub(crate) fn one<T: NumericElement>() -> T {
     <T as NumericElement>::ONE
-}
-
-#[inline]
-pub(crate) fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
 }
 
 #[inline]
@@ -118,7 +78,7 @@ pub(crate) fn powi<T: FloatElement>(value: T, exponent: i32) -> T {
 
 #[inline]
 pub(crate) fn cbrt<T: FloatElement>(value: T) -> T {
-    powf(value, from_f64(1.0 / 3.0))
+    powf(value, <T as FloatElement>::from_f64(1.0 / 3.0))
 }
 
 #[inline]

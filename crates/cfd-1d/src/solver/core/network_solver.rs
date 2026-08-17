@@ -1,21 +1,20 @@
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};
 use cfd_core::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind};
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
+use cfd_core::CfdScalar;
 use cfd_math::nonlinear_solver::{AndersonAccelerator, AndersonConfig, AndersonMethod};
 use eunomia::{FloatElement, NumericElement};
 
 use super::vector_bridge::{array_l2_norm, copy_array};
 use super::{
     workspace, ConvergenceChecker, LinearSolverMethod, LinearSystemSolver, MatrixAssembler,
-    NetworkProblem, NetworkSolveScalar, PrimarySolveDiagnostics, PrimarySolveError,
-    SolveFailureReason, SolverConfig,
+    NetworkProblem, PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason, SolverConfig,
 };
 
 /// Main network solver implementing the core CFD suite trait system
-pub struct NetworkSolver<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct NetworkSolver<T: CfdScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// Solver configuration
     config: SolverConfig<T>,
     /// Matrix assembler for building the linear system
@@ -25,13 +24,13 @@ pub struct NetworkSolver<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPrope
     _phantom: std::marker::PhantomData<F>,
 }
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Default for NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> Default for NetworkSolver<T, F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Create a new network solver with default configuration
     #[must_use]
     pub fn new() -> Self {
@@ -68,7 +67,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                 "Network has no nodes".to_string(),
             ));
         }
-        if self.config.tolerance <= T::zero() {
+        if self.config.tolerance <= T::ZERO {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Tolerance must be positive".to_string(),
             ));
@@ -76,14 +75,14 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         network.validate_coefficients()?;
         for props in network.properties.values() {
             let length = props.length.into_base();
-            if length <= T::zero() || !<T as NumericElement>::is_finite(length) {
+            if length <= T::ZERO || !<T as NumericElement>::is_finite(length) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid physical length",
                     props.id
                 )));
             }
             let area = props.area.into_base();
-            if area <= T::zero() || !<T as NumericElement>::is_finite(area) {
+            if area <= T::ZERO || !<T as NumericElement>::is_finite(area) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid cross-sectional area",
                     props.id
@@ -91,7 +90,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             }
             if let Some(d_h) = props.hydraulic_diameter {
                 let d_h = d_h.into_base();
-                if d_h <= T::zero() || !<T as NumericElement>::is_finite(d_h) {
+                if d_h <= T::ZERO || !<T as NumericElement>::is_finite(d_h) {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Edge '{}' has invalid hydraulic diameter",
                         props.id
@@ -103,7 +102,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     }
 }
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Solve the network flow problem iteratively for non-linear systems.
     ///
     /// ## Algorithm: Anderson-Accelerated Picard Iteration
@@ -226,7 +225,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             diagnostics.linear_solver_method = Some(method);
             diagnostics.picard_iterations = 1;
             network.last_solver_method = Some(method);
-            workspace.linear_solution.fill(T::zero());
+            workspace.linear_solution.fill(T::ZERO);
             let solution = LinearSystemSolver::new()
                 .with_method(method)
                 .with_tolerance(self.config.tolerance)
@@ -249,8 +248,8 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                 ));
             }
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
-            diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
-            diagnostics.last_solution_change_norm = Self::scalar_to_f64(array_l2_norm(&solution));
+            diagnostics.last_residual_norm = Self::diagnostic_f64(residual_norm);
+            diagnostics.last_solution_change_norm = Self::diagnostic_f64(array_l2_norm(&solution));
             if !<T as NumericElement>::is_finite(residual_norm) {
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
@@ -271,7 +270,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             return Ok((network, diagnostics));
         }
 
-        let mut max_boundary = T::one();
+        let mut max_boundary = T::ONE;
         for v in workspace.dirichlet_values.iter().flatten() {
             let boundary_magnitude = <T as NumericElement>::abs(*v);
             if boundary_magnitude > max_boundary {
@@ -340,7 +339,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             let picard_residual =
                 Self::compute_residual_norm(&matrix, &picard_solution, &workspace.rhs, n);
             if !<T as NumericElement>::is_finite(picard_residual) {
-                diagnostics.last_residual_norm = Self::scalar_to_f64(picard_residual);
+                diagnostics.last_residual_norm = Self::diagnostic_f64(picard_residual);
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
                     diagnostics,
@@ -372,8 +371,8 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             let rhs_norm = array_l2_norm(&workspace.rhs);
             let solution_change_norm = array_l2_norm(&(&solution - &workspace.last_solution));
 
-            diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
-            diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution_change_norm);
+            diagnostics.last_residual_norm = Self::diagnostic_f64(residual_norm);
+            diagnostics.last_solution_change_norm = Self::diagnostic_f64(solution_change_norm);
             if !<T as NumericElement>::is_finite(residual_norm)
                 || !<T as NumericElement>::is_finite(solution_change_norm)
             {
@@ -411,11 +410,11 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                 })?;
 
             let flows_converged = if self.config.require_flow_convergence {
-                let mut flow_diff_sq = T::zero();
-                let mut flow_norm_sq = T::zero();
+                let mut flow_diff_sq = T::ZERO;
+                let mut flow_norm_sq = T::ZERO;
                 for (i, new_flow) in network.flow_rates.iter().enumerate() {
                     let new_flow = new_flow.into_base();
-                    let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
+                    let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::ZERO);
                     let diff = new_flow - old_flow;
                     flow_diff_sq += diff * diff;
                     flow_norm_sq += new_flow * new_flow;
@@ -466,7 +465,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     }
 }
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolver<T, F> {
     type Problem = NetworkProblem<T, F>;
     type Solution = Network<T, F>;
 
@@ -479,7 +478,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolve
     }
 }
 
-impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T, F> {
+impl<T: CfdScalar + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T, F> {
     type Config = SolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -491,7 +490,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<
     }
 }
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Validatable<T> for NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> Validatable<T> for NetworkSolver<T, F> {
     type Problem = NetworkProblem<T, F>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {

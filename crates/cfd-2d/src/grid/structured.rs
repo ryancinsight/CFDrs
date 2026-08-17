@@ -12,7 +12,7 @@
 
 use super::boundary::BoundaryType;
 use super::traits::Grid2D;
-use crate::scalar::{from_f64, from_usize};
+use crate::scalar::from_usize;
 use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
@@ -142,7 +142,7 @@ impl<T> StructuredGrid2D<T> {
     {
         self.check_indices(i, j)?;
 
-        let half = from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let x = self.bounds.0 + (from_usize::<T>(i) + half) * self.dx;
         let y = self.bounds.2 + (from_usize::<T>(j) + half) * self.dy;
 

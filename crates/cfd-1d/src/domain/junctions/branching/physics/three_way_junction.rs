@@ -4,10 +4,10 @@
 //! (one parent to three daughters).
 
 use crate::domain::channel::Channel;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +18,7 @@ use super::two_way_junction::TwoWayBranchJunction;
 ///
 /// Generalizes the two-way branch formulation to a three-way split.
 #[derive(Debug, Clone)]
-pub struct ThreeWayBranchJunction<T: Cfd1dScalar + Copy> {
+pub struct ThreeWayBranchJunction<T: CfdScalar + Copy> {
     /// Parent channel (incoming flow)
     pub parent: Channel<T>,
     /// First daughter channel
@@ -35,7 +35,7 @@ pub struct ThreeWayBranchJunction<T: Cfd1dScalar + Copy> {
     pub flow_split_ratios: (T, T, T),
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
     /// Create a new three-way branch junction
     pub fn new(
         parent: Channel<T>,
@@ -74,14 +74,14 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
 
     fn validate_split_ratios(&self) -> Result<(), Error> {
         let (r1, r2, r3) = self.flow_split_ratios;
-        if r1 < T::zero() || r2 < T::zero() || r3 < T::zero() {
+        if r1 < T::ZERO || r2 < T::ZERO || r3 < T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "three-way flow split ratios must be nonnegative".to_string(),
             ));
         }
 
         let ratio_sum = r1 + r2 + r3;
-        let ratio_error = <T as NumericElement>::abs(ratio_sum - T::one());
+        let ratio_error = <T as NumericElement>::abs(ratio_sum - T::ONE);
         if ratio_error > T::from_f64_or_one(1e-12) {
             return Err(Error::InvalidConfiguration(format!(
                 "three-way flow split ratios must sum to 1.0, got {}",
@@ -122,7 +122,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
                 temperature,
                 pressure,
             ),
-            _ => T::zero(),
+            _ => T::ZERO,
         }
     }
 
@@ -135,11 +135,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
         temperature: T,
         pressure: T,
     ) -> T {
-        if target_dp <= T::zero() || q_parent <= T::zero() {
-            return T::zero();
+        if target_dp <= T::ZERO || q_parent <= T::ZERO {
+            return T::ZERO;
         }
 
-        let lower = T::zero();
+        let lower = T::ZERO;
         let upper = q_parent;
         let tolerances = ScalarSolveTolerances::for_target(target_dp, q_parent);
         bisect_monotone_target(lower, upper, target_dp, tolerances, |flow_rate| {
@@ -184,15 +184,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
         let tiny_flow = T::from_f64_or_one(1e-18);
         let q_parent_magnitude = <T as NumericElement>::abs(q_parent);
         if q_parent_magnitude <= tiny_flow {
-            return Ok((T::zero(), T::zero(), T::zero()));
+            return Ok((T::ZERO, T::ZERO, T::ZERO));
         }
-        let orientation = if q_parent >= T::zero() {
-            T::one()
-        } else {
-            -T::one()
-        };
+        let orientation = if q_parent >= T::ZERO { T::ONE } else { -T::ONE };
 
-        let lower_dp = T::zero();
+        let lower_dp = T::ZERO;
         let mut upper_dp = self
             .daughter_pressure_drop(fluid, 0, q_parent_magnitude, temperature, pressure)
             .max(self.daughter_pressure_drop(fluid, 1, q_parent_magnitude, temperature, pressure))
@@ -261,7 +257,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
             temperature,
             pressure,
         );
-        let q_3 = (q_parent_magnitude - q_1 - q_2).max(T::zero());
+        let q_3 = (q_parent_magnitude - q_1 - q_2).max(T::ZERO);
         Ok((orientation * q_1, orientation * q_2, orientation * q_3))
     }
 
@@ -428,7 +424,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
 
 /// Solution to the three-way branch problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ThreeWayBranchSolution<T: Cfd1dScalar + Copy> {
+pub struct ThreeWayBranchSolution<T: CfdScalar + Copy> {
     /// Parent flow rate [m³/s]
     pub q_parent: T,
     /// Daughter-1 flow rate [m³/s]
@@ -474,7 +470,7 @@ pub struct ThreeWayBranchSolution<T: Cfd1dScalar + Copy> {
     pub mass_conservation_error: T,
 }
 
-impl<T: Cfd1dScalar + Copy> ThreeWayBranchSolution<T> {
+impl<T: CfdScalar + Copy> ThreeWayBranchSolution<T> {
     /// Check if solution is valid
     pub fn is_valid(&self, tolerance: T) -> bool {
         self.mass_conservation_error < tolerance && self.junction_pressure_error < tolerance

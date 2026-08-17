@@ -25,16 +25,14 @@
 //! before accepting the solution. If the residual check fails, the solver
 //! falls through to the dense LU/QR tier regardless of system size.
 
-use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
-use cfd_math::linear_solver::Preconditioner;
+use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
+use cfd_math::linear_solver::Preconditioner;
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
 use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
 use serde::{Deserialize, Serialize};
-
-use super::NetworkSolveScalar;
 
 /// Linear solver method selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,19 +44,19 @@ pub enum LinearSolverMethod {
 }
 
 /// Linear system solver wrapper
-pub struct LinearSystemSolver<T: Cfd1dScalar + Copy> {
+pub struct LinearSystemSolver<T: CfdScalar + Copy> {
     method: LinearSolverMethod,
     max_iterations: usize,
     tolerance: T,
 }
 
-impl<T: NetworkSolveScalar> Default for LinearSystemSolver<T> {
+impl<T: CfdScalar> Default for LinearSystemSolver<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
+impl<T: CfdScalar> LinearSystemSolver<T> {
     const DIRECT_SOLVE_NODE_THRESHOLD: usize = 256;
 
     /// Create a new linear system solver
@@ -93,7 +91,7 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     where
         T: Copy,
     {
-        let mut x = Array1::from_elem([b.size()], T::zero());
+        let mut x = Array1::from_elem([b.size()], T::ZERO);
         self.solve_with_initial_guess(a, b, &mut x)
     }
 
@@ -160,10 +158,10 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
         a: &LetoCsrMatrix<T>,
         b: &Array1<T>,
     ) -> Result<(LetoCsrMatrix<T>, Array1<T>)> {
-        let mut scaling = Array1::from_elem([a.nrows()], T::one());
+        let mut scaling = Array1::from_elem([a.nrows()], T::ONE);
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
-            let mut row_max = T::zero();
+            let mut row_max = T::ZERO;
             for value in row.values() {
                 row_max = row_max.max_scalar(<T as NumericElement>::abs(*value));
             }
@@ -206,11 +204,11 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     }
 
     fn compute_equilibrated_residual_norm(a: &LetoCsrMatrix<T>, x: &Array1<T>, b: &Array1<T>) -> T {
-        let mut norm = T::zero();
+        let mut norm = T::ZERO;
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
-            let mut ax_i = T::zero();
-            let mut row_max = T::zero();
+            let mut ax_i = T::ZERO;
+            let mut row_max = T::ZERO;
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 ax_i += *value * x[*col_idx];
                 row_max = row_max.max_scalar(<T as NumericElement>::abs(*value));
@@ -228,10 +226,10 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     }
 
     fn compute_equilibrated_rhs_norm(a: &LetoCsrMatrix<T>, b: &Array1<T>) -> T {
-        let mut norm = T::zero();
+        let mut norm = T::ZERO;
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
-            let mut row_max = T::zero();
+            let mut row_max = T::ZERO;
             for value in row.values() {
                 row_max = row_max.max_scalar(<T as NumericElement>::abs(*value));
             }
@@ -269,15 +267,15 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     }
 }
 
-struct DiagJacobi<T: Cfd1dScalar + Copy> {
+struct DiagJacobi<T: CfdScalar + Copy> {
     inv_diag: Array1<T>,
 }
 
-impl<T: Cfd1dScalar + Copy + NumericElement + LetoScalar> DiagJacobi<T> {
+impl<T: CfdScalar + Copy + NumericElement + LetoScalar> DiagJacobi<T> {
     fn new(a: &LetoCsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
         let diag = a.diagonal();
-        let mut inv = Array1::from_elem([n], T::zero());
+        let mut inv = Array1::from_elem([n], T::ZERO);
         let eps = T::default_epsilon();
         for (i, val) in diag.iter().enumerate() {
             if !<T as NumericElement>::is_finite(*val) {
@@ -300,7 +298,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement + LetoScalar> DiagJacobi<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
+impl<T: CfdScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> leto::Result<()> {
         for idx in 0..r.shape()[0] {
             z[idx] = r[idx] * self.inv_diag[idx];
@@ -309,7 +307,7 @@ impl<T: Cfd1dScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + leto_ops::RealScalar>
+impl<T: CfdScalar + Copy + leto_ops::RealScalar>
     athena_core::Preconditioner<athena_leto::LetoBackend<T>> for DiagJacobi<T>
 {
     /// Elementwise apply straight over the borrowed views, needing no scratch.

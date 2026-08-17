@@ -4,13 +4,14 @@
 //! implementation, including Bernoulli contraction, throat friction, and
 //! Borda-Carnot expansion loss calculations.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use super::{
     ExpansionType, VenturiGeometry, DURST_ENTRANCE_BLEND_L_OVER_DH, LAMINAR_FRICTION_COEFF,
     LAMINAR_LIMIT_RE,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +45,7 @@ pub struct VenturiModel<T> {
     pub throat_roughness: T,
 }
 
-impl<T: ResistanceScalar> VenturiModel<T> {
+impl<T: CfdScalar> VenturiModel<T> {
     /// Create a new Venturi model with specified geometry
     pub fn new(
         inlet_diameter: T,
@@ -63,7 +64,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
             expansion_type: ExpansionType::Gradual {
                 half_angle_deg: 7.0,
             },
-            throat_roughness: T::zero(),
+            throat_roughness: T::ZERO,
         }
     }
 
@@ -85,7 +86,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
 
     /// Create a millifluidic Venturi with typical parameters
     pub fn millifluidic(inlet_diameter: T, throat_diameter: T, throat_length: T) -> Self {
-        let total_length = throat_length * scalar_from_f64::<T>(5.0);
+        let total_length = throat_length * <T as FloatElement>::from_f64(5.0);
         Self {
             inlet_diameter,
             throat_diameter,
@@ -98,7 +99,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
             expansion_type: ExpansionType::Gradual {
                 half_angle_deg: 5.0,
             },
-            throat_roughness: T::zero(),
+            throat_roughness: T::ZERO,
         }
     }
 
@@ -137,21 +138,19 @@ impl<T: ResistanceScalar> VenturiModel<T> {
     /// Inlet cross-sectional area \[m²]
     pub(crate) fn inlet_area(&self) -> T {
         let pi = T::pi();
-        pi * self.inlet_diameter * self.inlet_diameter / (T::one() + T::one() + T::one() + T::one())
+        pi * self.inlet_diameter * self.inlet_diameter / (T::ONE + T::ONE + T::ONE + T::ONE)
     }
 
     /// Throat cross-sectional area \[m²]
     pub(crate) fn throat_area(&self) -> T {
         let pi = T::pi();
-        pi * self.throat_diameter * self.throat_diameter
-            / (T::one() + T::one() + T::one() + T::one())
+        pi * self.throat_diameter * self.throat_diameter / (T::ONE + T::ONE + T::ONE + T::ONE)
     }
 
     /// Outlet cross-sectional area \[m²]
     pub(crate) fn outlet_area(&self) -> T {
         let pi = T::pi();
-        pi * self.outlet_diameter * self.outlet_diameter
-            / (T::one() + T::one() + T::one() + T::one())
+        pi * self.outlet_diameter * self.outlet_diameter / (T::ONE + T::ONE + T::ONE + T::ONE)
     }
 
     /// Calculate the Darcy friction factor in the throat.
@@ -159,47 +158,47 @@ impl<T: ResistanceScalar> VenturiModel<T> {
     /// Uses the Churchill (1977) all-regime correlation, which remains
     /// continuous across laminar, transitional, and turbulent regimes.
     pub(crate) fn friction_factor_for_reynolds(reynolds_throat: T) -> T {
-        Self::friction_factor_with_roughness(reynolds_throat, T::zero())
+        Self::friction_factor_with_roughness(reynolds_throat, T::ZERO)
     }
 
     pub(crate) fn friction_factor_with_roughness(reynolds_throat: T, relative_roughness: T) -> T {
-        let re_lam = scalar_from_f64::<T>(LAMINAR_LIMIT_RE);
-        if reynolds_throat <= T::zero() {
-            return scalar_from_f64::<T>(LAMINAR_FRICTION_COEFF);
+        let re_lam = <T as FloatElement>::from_f64(LAMINAR_LIMIT_RE);
+        if reynolds_throat <= T::ZERO {
+            return <T as FloatElement>::from_f64(LAMINAR_FRICTION_COEFF);
         }
 
         if reynolds_throat < re_lam {
-            scalar_from_f64::<T>(LAMINAR_FRICTION_COEFF) / reynolds_throat
+            <T as FloatElement>::from_f64(LAMINAR_FRICTION_COEFF) / reynolds_throat
         } else {
-            let eight = scalar_from_f64::<T>(8.0);
-            let twelve = scalar_from_f64::<T>(12.0);
-            let sixteen = scalar_from_f64::<T>(16.0);
-            let one_point_five = scalar_from_f64::<T>(1.5);
-            let zero_point_nine = scalar_from_f64::<T>(0.9);
-            let coeff_2_457 = scalar_from_f64::<T>(2.457);
-            let coeff_0_27 = scalar_from_f64::<T>(0.27);
-            let coeff_37_530 = scalar_from_f64::<T>(37_530.0);
-            let coeff_7 = scalar_from_f64::<T>(7.0);
-            let roughness = relative_roughness.max(T::zero());
+            let eight = <T as FloatElement>::from_f64(8.0);
+            let twelve = <T as FloatElement>::from_f64(12.0);
+            let sixteen = <T as FloatElement>::from_f64(16.0);
+            let one_point_five = <T as FloatElement>::from_f64(1.5);
+            let zero_point_nine = <T as FloatElement>::from_f64(0.9);
+            let coeff_2_457 = <T as FloatElement>::from_f64(2.457);
+            let coeff_0_27 = <T as FloatElement>::from_f64(0.27);
+            let coeff_37_530 = <T as FloatElement>::from_f64(37_530.0);
+            let coeff_7 = <T as FloatElement>::from_f64(7.0);
+            let roughness = relative_roughness.max(T::ZERO);
 
             let a_argument = <T as FloatElement>::powf(coeff_7 / reynolds_throat, zero_point_nine)
                 + coeff_0_27 * roughness;
-            let a_argument_recip = T::one() / a_argument;
+            let a_argument_recip = T::ONE / a_argument;
             let a_log = <T as FloatElement>::ln(a_argument_recip);
             let a = <T as FloatElement>::powf(coeff_2_457 * a_log, sixteen);
             let b = <T as FloatElement>::powf(coeff_37_530 / reynolds_throat, sixteen);
-            let inverse_sum = T::one() / <T as FloatElement>::powf(a + b, one_point_five);
+            let inverse_sum = T::ONE / <T as FloatElement>::powf(a + b, one_point_five);
             let blended = <T as FloatElement>::powf(eight / reynolds_throat, twelve) + inverse_sum;
 
-            eight * <T as FloatElement>::powf(blended, T::one() / twelve)
+            eight * <T as FloatElement>::powf(blended, T::ONE / twelve)
         }
     }
 
     pub(crate) fn throat_friction_factor(&self, reynolds_throat: T) -> T {
-        let relative_roughness = if self.throat_diameter > T::zero() {
+        let relative_roughness = if self.throat_diameter > T::ZERO {
             self.throat_roughness / self.throat_diameter
         } else {
-            T::zero()
+            T::ZERO
         };
         Self::friction_factor_with_roughness(reynolds_throat, relative_roughness)
     }
@@ -209,19 +208,19 @@ impl<T: ResistanceScalar> VenturiModel<T> {
         throat_length: T,
         throat_diameter: T,
     ) -> T {
-        if throat_length <= T::zero() || throat_diameter <= T::zero() {
-            return T::one();
+        if throat_length <= T::ZERO || throat_diameter <= T::ZERO {
+            return T::ONE;
         }
         let l_over_dh = throat_length / throat_diameter;
-        let limit = scalar_from_f64::<T>(DURST_ENTRANCE_BLEND_L_OVER_DH);
+        let limit = <T as FloatElement>::from_f64(DURST_ENTRANCE_BLEND_L_OVER_DH);
         if l_over_dh >= limit {
-            return T::one();
+            return T::ONE;
         }
-        let reynolds = reynolds_throat.max(scalar_from_f64::<T>(10.0));
-        let sixty_four = scalar_from_f64::<T>(64.0);
-        let k_entrance = scalar_from_f64::<T>(2.28)
-            + sixty_four / (reynolds * l_over_dh).max(scalar_from_f64::<T>(1.0e-30));
-        T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one())
+        let reynolds = reynolds_throat.max(<T as FloatElement>::from_f64(10.0));
+        let sixty_four = <T as FloatElement>::from_f64(64.0);
+        let k_entrance = <T as FloatElement>::from_f64(2.28)
+            + sixty_four / (reynolds * l_over_dh).max(<T as FloatElement>::from_f64(1.0e-30));
+        T::ONE + k_entrance / (sixty_four * l_over_dh).max(T::ONE)
     }
 
     /// Effective discharge coefficient adjusted for Reynolds number
@@ -229,13 +228,13 @@ impl<T: ResistanceScalar> VenturiModel<T> {
     /// At low Re (millifluidic regime), C_d decreases due to boundary layer growth.
     /// Empirical correction: C_d_eff = C_d_nominal × min(1, 0.5 + 0.5×(Re/1000)^0.3)
     pub(crate) fn discharge_coefficient_reynolds_correction(reynolds: T) -> T {
-        let re_ref = scalar_from_f64::<T>(1000.0);
+        let re_ref = <T as FloatElement>::from_f64(1000.0);
         let ratio = reynolds / re_ref;
 
-        let half = T::one() / (T::one() + T::one());
-        let exp = scalar_from_f64::<T>(0.3);
+        let half = T::ONE / (T::ONE + T::ONE);
+        let exp = <T as FloatElement>::from_f64(0.3);
         let correction = half + half * <T as FloatElement>::powf(ratio, exp);
-        let one = T::one();
+        let one = T::ONE;
         if correction > one {
             one
         } else {
@@ -244,28 +243,29 @@ impl<T: ResistanceScalar> VenturiModel<T> {
     }
 
     pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
-        let c_d_nom = scalar_from_f64::<T>(self.geometry_type.discharge_coefficient());
+        let c_d_nom = <T as FloatElement>::from_f64(self.geometry_type.discharge_coefficient());
         c_d_nom * Self::discharge_coefficient_reynolds_correction(reynolds)
     }
 
     /// Reynolds correction applied to diffuser pressure recovery.
     pub(crate) fn diffuser_recovery_reynolds_correction(reynolds: T) -> T {
-        let re_high = scalar_from_f64::<T>(2000.0);
-        let re_low = scalar_from_f64::<T>(200.0);
+        let re_high = <T as FloatElement>::from_f64(2000.0);
+        let re_low = <T as FloatElement>::from_f64(200.0);
 
         if reynolds > re_high {
-            T::one()
+            T::ONE
         } else if reynolds > re_low {
-            scalar_from_f64::<T>(0.60)
-                + scalar_from_f64::<T>(0.40) * (reynolds - re_low) / (re_high - re_low)
+            <T as FloatElement>::from_f64(0.60)
+                + <T as FloatElement>::from_f64(0.40) * (reynolds - re_low) / (re_high - re_low)
         } else {
-            scalar_from_f64::<T>(0.50) + scalar_from_f64::<T>(0.10) * (reynolds / re_low)
+            <T as FloatElement>::from_f64(0.50)
+                + <T as FloatElement>::from_f64(0.10) * (reynolds / re_low)
         }
     }
 
     /// Effective diffuser recovery efficiency including Reynolds degradation.
     pub(crate) fn effective_recovery_efficiency(&self, reynolds_throat: T) -> T {
-        let eta_r = scalar_from_f64::<T>(self.expansion_type.recovery_efficiency());
+        let eta_r = <T as FloatElement>::from_f64(self.expansion_type.recovery_efficiency());
         eta_r * Self::diffuser_recovery_reynolds_correction(reynolds_throat)
     }
 
@@ -277,7 +277,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
         throat_diameter: T,
         throat_velocity: T,
     ) -> T {
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
         darcy_friction_factor
             * (throat_length / throat_diameter)
             * half
@@ -288,7 +288,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
 
     #[inline]
     pub(crate) fn magnitude(value: T) -> T {
-        if value >= T::zero() {
+        if value >= T::ZERO {
             value
         } else {
             -value
@@ -296,7 +296,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -306,16 +306,16 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
 
         // Effective resistance: R_eff = R + k|Q|
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
+            if q >= T::ZERO {
                 q
             } else {
                 -q
             }
         } else if let Some(v) = conditions.velocity {
-            let v_abs = if v >= T::zero() { v } else { -v };
+            let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.inlet_area()
         } else {
-            T::zero()
+            T::ZERO
         };
 
         Ok(r + k * q_mag)
@@ -339,7 +339,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         } else if let Some(q) = conditions.flow_rate {
             q / a_inlet
         } else {
-            T::zero()
+            T::ZERO
         };
 
         let v_throat = v_inlet * a_inlet / a_throat;
@@ -349,7 +349,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         let q_abs = v_inlet_abs * a_inlet;
 
         // Compute shear-rate magnitude at throat wall: γ̇ = 8|V|/D for circular pipe.
-        let eight = scalar_from_f64::<T>(8.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
         let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
 
         // Get viscosity at throat shear rate (supports non-Newtonian fluids)
@@ -381,8 +381,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         // ΔP_contraction = ½ρV_t²(1 − (A_t/A_i)²) / C_d²
         //                = ½ρV_t²(1 − β⁴) / C_d²   where β⁴ = beta_sq·beta_sq
         // Note: (A_t/A_i)² = (D_t/D_i)⁴ = beta_sq², NOT beta_sq.
-        let half = T::one() / (T::one() + T::one());
-        let one = T::one();
+        let half = T::ONE / (T::ONE + T::ONE);
+        let one = T::ONE;
         let dp_contraction =
             half * density * v_throat_abs * v_throat_abs * (one - beta_sq * beta_sq) / (c_d * c_d);
 
@@ -401,7 +401,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         );
 
         // --- 3. Expansion loss (Borda-Carnot) ---
-        let k_exp = scalar_from_f64::<T>(self.expansion_type.loss_coefficient());
+        let k_exp = <T as FloatElement>::from_f64(self.expansion_type.loss_coefficient());
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
 
@@ -412,25 +412,25 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         // --- Net pressure drop ---
         let q_sq = q_abs * q_abs;
 
-        let vel_threshold = scalar_from_f64::<T>(1e-15);
+        let vel_threshold = <T as FloatElement>::from_f64(1e-15);
         if v_inlet_abs > vel_threshold {
             // Decompose: laminar part (friction ∝ V → R·Q) and inertial part (∝ V² → k·Q²)
             let r = dp_friction / q_abs;
-            let k_coeff = if q_sq > T::zero() {
+            let k_coeff = if q_sq > T::ZERO {
                 (dp_contraction + dp_expansion_loss - dp_recovery) / q_sq
             } else {
-                T::zero()
+                T::ZERO
             };
             Ok((r, k_coeff))
         } else {
             // Zero flow: return linear estimate from viscous part only
             // R = 128 μ L_throat / (π D_throat⁴) (Hagen-Poiseuille in throat)
-            let coeff = scalar_from_f64::<T>(128.0);
+            let coeff = <T as FloatElement>::from_f64(128.0);
             let pi = T::pi();
             let d2 = self.throat_diameter * self.throat_diameter;
             let d4 = d2 * d2;
             let r = coeff * viscosity * self.throat_length / (pi * d4);
-            Ok((r, T::zero()))
+            Ok((r, T::ZERO))
         }
     }
 
@@ -440,7 +440,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
 
     fn reynolds_range(&self) -> (T, T) {
         // Valid across laminar and turbulent regimes
-        (scalar_from_f64::<T>(0.1), scalar_from_f64::<T>(1e7))
+        (
+            <T as FloatElement>::from_f64(0.1),
+            <T as FloatElement>::from_f64(1e7),
+        )
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -452,14 +455,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
         self.validate_mach_number(fluid, conditions)?;
 
         // Positive dimensions
-        if self.throat_length <= T::zero() || self.total_length <= T::zero() {
+        if self.throat_length <= T::ZERO || self.total_length <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Venturi lengths must be positive".to_string(),
             ));
         }
-        if self.inlet_diameter <= T::zero()
-            || self.throat_diameter <= T::zero()
-            || self.outlet_diameter <= T::zero()
+        if self.inlet_diameter <= T::ZERO
+            || self.throat_diameter <= T::ZERO
+            || self.outlet_diameter <= T::ZERO
         {
             return Err(Error::PhysicsViolation(
                 "Venturi diameters must be positive".to_string(),
@@ -475,8 +478,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
 
         // Area ratio constraint: β = D_throat/D_inlet typically 0.2-0.75
         let beta = self.throat_diameter / self.inlet_diameter;
-        let beta_min = scalar_from_f64::<T>(0.1);
-        let beta_max = scalar_from_f64::<T>(0.9);
+        let beta_min = <T as FloatElement>::from_f64(0.1);
+        let beta_max = <T as FloatElement>::from_f64(0.9);
         if beta < beta_min || beta > beta_max {
             return Err(Error::PhysicsViolation(format!(
                 "Venturi β = D_throat/D_inlet = {beta:.3} outside recommended range [0.1, 0.9]"

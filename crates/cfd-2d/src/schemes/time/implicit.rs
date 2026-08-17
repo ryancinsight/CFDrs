@@ -12,8 +12,8 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, TWO};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use super::vector::{l2_norm, StateVector};
@@ -25,11 +25,11 @@ use super::vector::{l2_norm, StateVector};
 /// Reference: Hairer & Wanner (1996) - Solving Ordinary Differential Equations II
 pub fn backward_euler<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     let t_next = t + dt;
-    let tol = scalar::from_f64::<T>(1e-10);
+    let tol = <T as FloatElement>::from_f64(1e-10);
     let max_iter = 100;
 
     // Initial guess: Forward Euler predictor
@@ -64,7 +64,7 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = scalar::from_f64::<T>(0.5);
+            let relax = <T as FloatElement>::from_f64(0.5);
             let old_part = &y_old * (scalar::one::<T>() - relax);
             let next_part = &y_next * relax;
             y_next = &old_part + &next_part;
@@ -82,19 +82,19 @@ where
 /// Reference: Crank & Nicolson (1947), Patankar (1980)
 pub fn crank_nicolson<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
-    let half = scalar::from_f64::<T>(ONE_HALF);
+    let half = <T as FloatElement>::from_f64(ONE_HALF);
     let t_next = t + dt;
-    let tol = scalar::from_f64::<T>(1e-10);
+    let tol = <T as FloatElement>::from_f64(1e-10);
     let max_iter = 100;
 
     // Explicit part: dt/2 * f(t_n, y_n)
     let explicit_part = &f(t, y) * (dt * half);
 
     // Initial guess: Forward Euler predictor
-    let explicit_predictor = &explicit_part * scalar::from_f64::<T>(TWO);
+    let explicit_predictor = &explicit_part * <T as FloatElement>::from_f64(TWO);
     let mut y_next: StateVector<T> = y + &explicit_predictor;
 
     // AUDIT: pre-allocate y_old once (see backward_euler). `mem::swap` is also
@@ -124,7 +124,7 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = scalar::from_f64::<T>(0.5);
+            let relax = <T as FloatElement>::from_f64(0.5);
             let old_part = &y_old * (scalar::one::<T>() - relax);
             let next_part = &y_next * relax;
             y_next = &old_part + &next_part;

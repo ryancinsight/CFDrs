@@ -37,12 +37,13 @@
 
 use crate::domain::channel::cross_section::CrossSection;
 use crate::domain::channel::geometry::{ChannelGeometry, ChannelType};
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Area, Length};
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::constants::mathematical::{numeric, PI};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
+impl<T: CfdScalar + Copy + FloatElement> ChannelGeometry<T> {
     /// Create a rectangular channel geometry.
     pub fn rectangular(length: T, width: T, height: T, roughness: T) -> Self {
         use crate::domain::channel::surface::{SurfaceProperties, Wettability};
@@ -106,7 +107,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
                 height,
             } => {
                 (top_width.into_base() + bottom_width.into_base()) * height.into_base()
-                    / (T::one() + T::one())
+                    / (T::ONE + T::ONE)
             }
             CrossSection::Custom { area, .. } => area.into_base(),
         };
@@ -117,13 +118,13 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
     pub fn hydraulic_diameter(&self) -> Length<T> {
         let hydraulic_diameter = match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
-                let four = T::one() + T::one() + T::one() + T::one();
+                let four = T::ONE + T::ONE + T::ONE + T::ONE;
                 four * self.area().into_base()
-                    / ((T::one() + T::one()) * (width.into_base() + height.into_base()))
+                    / ((T::ONE + T::ONE) * (width.into_base() + height.into_base()))
             }
             CrossSection::Circular { diameter } => diameter.into_base(),
             CrossSection::Elliptical { .. } => {
-                let four = T::one() + T::one() + T::one() + T::one();
+                let four = T::ONE + T::ONE + T::ONE + T::ONE;
                 four * self.area().into_base() / self.wetted_perimeter().into_base()
             }
             CrossSection::Trapezoidal {
@@ -132,15 +133,15 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
                 height,
             } => {
                 let area = self.area().into_base();
-                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::one() + T::one());
+                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::ONE + T::ONE);
                 let side_length = <T as NumericElement>::sqrt(
                     <T as FloatElement>::powi(height.into_base(), 2)
                         + <T as FloatElement>::powi(hw, 2),
                 );
                 let perimeter = top_width.into_base()
                     + bottom_width.into_base()
-                    + (T::one() + T::one()) * side_length;
-                (T::one() + T::one() + T::one() + T::one()) * area / perimeter
+                    + (T::ONE + T::ONE) * side_length;
+                (T::ONE + T::ONE + T::ONE + T::ONE) * area / perimeter
             }
             CrossSection::Custom {
                 hydraulic_diameter, ..
@@ -156,7 +157,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
     pub fn wetted_perimeter(&self) -> Length<T> {
         let perimeter = match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
-                (T::one() + T::one()) * (width.into_base() + height.into_base())
+                (T::ONE + T::ONE) * (width.into_base() + height.into_base())
             }
             CrossSection::Circular { diameter } => T::pi() * diameter.into_base(),
             CrossSection::Elliptical {
@@ -168,20 +169,18 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
                 bottom_width,
                 height,
             } => {
-                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::one() + T::one());
+                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::ONE + T::ONE);
                 let side_length = <T as NumericElement>::sqrt(
                     <T as FloatElement>::powi(height.into_base(), 2)
                         + <T as FloatElement>::powi(hw, 2),
                 );
-                top_width.into_base()
-                    + bottom_width.into_base()
-                    + (T::one() + T::one()) * side_length
+                top_width.into_base() + bottom_width.into_base() + (T::ONE + T::ONE) * side_length
             }
             CrossSection::Custom {
                 area,
                 hydraulic_diameter,
             } => {
-                (T::one() + T::one() + T::one() + T::one()) * area.into_base()
+                (T::ONE + T::ONE + T::ONE + T::ONE) * area.into_base()
                     / hydraulic_diameter.into_base()
             }
         };
@@ -194,7 +193,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
     /// `P = 4a · E(m)`, where `m = 1 − (b/a)²`.
     fn ellipse_perimeter_agm(&self, major_axis: T, minor_axis: T) -> T {
         let pi = T::pi();
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         let a_val = major_axis / two;
         let b_val = minor_axis / two;
 
@@ -204,17 +203,17 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
             (b_val, a_val)
         };
 
-        if a == b || b == T::zero() {
+        if a == b || b == T::ZERO {
             return two * pi * a;
         }
 
-        let m = T::one() - (b * b) / (a * a);
+        let m = T::ONE - (b * b) / (a * a);
 
-        let mut a_n = T::one();
-        let mut b_n = <T as NumericElement>::sqrt(T::one() - m);
+        let mut a_n = T::ONE;
+        let mut b_n = <T as NumericElement>::sqrt(T::ONE - m);
         let mut c_n = <T as NumericElement>::sqrt(m);
         let mut sum = c_n * c_n / two;
-        let mut power = T::one();
+        let mut power = T::ONE;
         let tolerance = T::from_f64_or_one(1e-14);
 
         for _ in 0..20 {
@@ -229,13 +228,13 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
             sum += power * c_n * c_n;
             power *= two;
 
-            if c_n < tolerance || c_n == T::zero() {
+            if c_n < tolerance || c_n == T::ZERO {
                 break;
             }
         }
 
-        let e_m = (pi / (two * a_n)) * (T::one() - sum);
-        let four = T::one() + T::one() + T::one() + T::one();
+        let e_m = (pi / (two * a_n)) * (T::ONE - sum);
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
         four * a * e_m
     }
 }

@@ -16,14 +16,6 @@ mod analysis;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::{Array1, Array2};
 
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
-}
-
 fn abs<T: NumericElement>(value: T) -> T {
     <T as NumericElement>::abs(value)
 }
@@ -61,7 +53,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
     pub fn new() -> Self {
         Self {
             resolution: 200,
-            max_z: from_f64(10.0),
+            max_z: <T as FloatElement>::from_f64(10.0),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -99,7 +91,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
 
         let stability = if cfl_number <= max_cfl {
             StabilityStatus::Stable
-        } else if cfl_number <= max_cfl * from_f64(1.5) {
+        } else if cfl_number <= max_cfl * <T as FloatElement>::from_f64(1.5) {
             StabilityStatus::MarginallyStable
         } else {
             StabilityStatus::Unstable
@@ -119,27 +111,27 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
         let mut recommendations = Vec::new();
 
         if cfl > max_cfl {
-            let ratio = to_f64(cfl / max_cfl);
+            let ratio = <T as NumericElement>::to_f64(cfl / max_cfl);
             recommendations.push(format!(
                 "CFL number ({:.3}) exceeds stability limit ({:.3}) by {:.1}x",
-                to_f64(cfl),
-                to_f64(max_cfl),
+                <T as NumericElement>::to_f64(cfl),
+                <T as NumericElement>::to_f64(max_cfl),
                 ratio
             ));
             recommendations.push("Reduce time step or increase grid resolution".to_string());
             recommendations.push("Consider implicit methods for stiff problems".to_string());
-        } else if cfl > max_cfl * from_f64(0.8) {
+        } else if cfl > max_cfl * <T as FloatElement>::from_f64(0.8) {
             recommendations.push(format!(
                 "CFL number ({:.3}) approaching stability limit ({:.3})",
-                to_f64(cfl),
-                to_f64(max_cfl)
+                <T as NumericElement>::to_f64(cfl),
+                <T as NumericElement>::to_f64(max_cfl)
             ));
             recommendations.push("Monitor solution for oscillations".to_string());
         } else {
             recommendations.push(format!(
                 "CFL number ({:.3}) well within stability limit ({:.3})",
-                to_f64(cfl),
-                to_f64(max_cfl)
+                <T as NumericElement>::to_f64(cfl),
+                <T as NumericElement>::to_f64(max_cfl)
             ));
         }
 
@@ -246,12 +238,12 @@ impl NumericalScheme {
     /// Maximum CFL number for stability
     pub fn max_cfl_number<T: RealField + Copy + FloatElement>(&self) -> T {
         match self {
-            NumericalScheme::RK3 => from_f64(1.7),
-            NumericalScheme::RK4 => from_f64(2.8),
+            NumericalScheme::RK3 => <T as FloatElement>::from_f64(1.7),
+            NumericalScheme::RK4 => <T as FloatElement>::from_f64(2.8),
             NumericalScheme::ForwardEuler
             | NumericalScheme::LaxWendroff
-            | NumericalScheme::Upwind => from_f64(1.0),
-            NumericalScheme::CentralDifference => from_f64(0.0), // Unstable
+            | NumericalScheme::Upwind => <T as FloatElement>::from_f64(1.0),
+            NumericalScheme::CentralDifference => <T as FloatElement>::from_f64(0.0), // Unstable
         }
     }
 }

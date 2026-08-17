@@ -1,6 +1,6 @@
-use crate::scalar::Cfd1dScalar;
 use crate::solver::core::transient::composition::MixtureComposition;
 use aequitas::systems::si::quantities::{Dimensionless, Time, Volume};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 
@@ -17,7 +17,7 @@ pub enum SplitMode {
 
 /// Policy controlling droplet split behavior at junctions.
 #[derive(Debug, Clone)]
-pub struct DropletSplitPolicy<T: Cfd1dScalar + Copy> {
+pub struct DropletSplitPolicy<T: CfdScalar + Copy> {
     /// Split decision mode.
     pub mode: SplitMode,
     /// Minimum secondary-flow fraction needed to trigger split in auto mode.
@@ -29,7 +29,7 @@ pub struct DropletSplitPolicy<T: Cfd1dScalar + Copy> {
     pub max_split_branches: usize,
 }
 
-impl<T: Cfd1dScalar + Copy + FloatElement> Default for DropletSplitPolicy<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for DropletSplitPolicy<T> {
     fn default() -> Self {
         Self {
             mode: SplitMode::AutoFlowWeighted,
@@ -57,7 +57,7 @@ pub enum DropletState {
 
 /// Droplet injection definition.
 #[derive(Debug, Clone)]
-pub struct DropletInjection<T: Cfd1dScalar + Copy> {
+pub struct DropletInjection<T: CfdScalar + Copy> {
     /// Unique droplet id.
     pub droplet_id: i32,
     /// Carrier fluid id (for provenance).
@@ -74,7 +74,7 @@ pub struct DropletInjection<T: Cfd1dScalar + Copy> {
 
 /// Droplet boundary point on a channel.
 #[derive(Debug, Clone)]
-pub struct DropletBoundary<T: Cfd1dScalar + Copy> {
+pub struct DropletBoundary<T: CfdScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Relative position in channel [0, 1].
@@ -83,7 +83,7 @@ pub struct DropletBoundary<T: Cfd1dScalar + Copy> {
 
 /// Occupancy span for one channel segment [start, end].
 #[derive(Debug, Clone)]
-pub struct ChannelOccupancy<T: Cfd1dScalar + Copy> {
+pub struct ChannelOccupancy<T: CfdScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Start of occupied interval in channel coordinates.
@@ -94,7 +94,7 @@ pub struct ChannelOccupancy<T: Cfd1dScalar + Copy> {
 
 /// Position of a droplet while in network.
 #[derive(Debug, Clone)]
-pub struct DropletPosition<T: Cfd1dScalar + Copy> {
+pub struct DropletPosition<T: CfdScalar + Copy> {
     /// Current edge index.
     pub channel_index: usize,
     /// Relative position in edge [0, 1].
@@ -117,7 +117,7 @@ pub struct DropletPosition<T: Cfd1dScalar + Copy> {
 /// there is no stored point-droplet channel set that can diverge from span
 /// geometry.
 #[derive(Debug, Clone)]
-pub struct DropletSnapshot<T: Cfd1dScalar + Copy> {
+pub struct DropletSnapshot<T: CfdScalar + Copy> {
     /// Droplet id.
     pub droplet_id: i32,
     /// Current state.
@@ -136,7 +136,7 @@ pub struct DropletSnapshot<T: Cfd1dScalar + Copy> {
     pub local_mixture: Option<MixtureComposition<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy> DropletSnapshot<T> {
+impl<T: CfdScalar + Copy> DropletSnapshot<T> {
     /// Compute the ordered unique channel projection of finite-length spans.
     #[must_use]
     pub fn occupied_channels(&self) -> Vec<usize> {
@@ -160,15 +160,15 @@ impl<T: Cfd1dScalar + Copy> DropletSnapshot<T> {
     pub fn has_consistent_finite_length_occupancy(&self) -> bool {
         self.occupancy_spans.iter().all(|span| {
             span.start <= span.end
-                && span.start >= Dimensionless::from_base(T::zero())
-                && span.end <= Dimensionless::from_base(T::one())
+                && span.start >= Dimensionless::from_base(T::ZERO)
+                && span.end <= Dimensionless::from_base(T::ONE)
         })
     }
 }
 
 /// Droplet tracking state at one timepoint.
 #[derive(Debug, Clone)]
-pub struct DropletTrackingState<T: Cfd1dScalar + Copy> {
+pub struct DropletTrackingState<T: CfdScalar + Copy> {
     /// Simulation time.
     pub time: Time<T>,
     /// Droplet snapshots keyed by droplet id.
@@ -176,13 +176,13 @@ pub struct DropletTrackingState<T: Cfd1dScalar + Copy> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ActiveDroplet<T: Cfd1dScalar + Copy> {
+pub(crate) struct ActiveDroplet<T: CfdScalar + Copy> {
     pub(crate) state: DropletState,
     pub(crate) branches: Vec<DropletBranch<T>>,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DropletBranch<T: Cfd1dScalar + Copy> {
+pub(crate) struct DropletBranch<T: CfdScalar + Copy> {
     pub(crate) channel_index: usize,
     pub(crate) center: Dimensionless<T>,
     pub(crate) volume: Volume<T>,

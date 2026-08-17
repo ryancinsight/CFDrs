@@ -5,15 +5,19 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-1d"
+readme = "README.md"
 description = "1D CFD simulations for microfluidic networks"
+keywords = ["cfd", "microfluidics", "network", "hagen-poiseuille", "droplet"]
+categories = ["science", "simulation"]
 
 [features]
 default = []
 
 [dependencies]
 aequitas = { workspace = true, features = ["serde"] }
-cfd-core = { path = "../cfd-core" }
+cfd-core.workspace = true
 cfd-math = { path = "../cfd-math" }
 cfd-schematics = { path = "../cfd-schematics" }
 eunomia.workspace = true

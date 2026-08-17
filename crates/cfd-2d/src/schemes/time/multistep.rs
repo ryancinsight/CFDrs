@@ -12,8 +12,8 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::constants::mathematical::numeric::ONE_HALF;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use super::explicit::runge_kutta2;
@@ -33,13 +33,13 @@ pub fn adams_bashforth2<T, F>(
     dt: T,
 ) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     if let Some(y_prev) = y_prev {
         // Proper Adams-Bashforth 2nd order with history
-        let three_halves = scalar::from_f64::<T>(1.5);
-        let one_half = scalar::from_f64::<T>(ONE_HALF);
+        let three_halves = <T as FloatElement>::from_f64(1.5);
+        let one_half = <T as FloatElement>::from_f64(ONE_HALF);
 
         // Evaluate f at current and previous time steps
         let f_curr = f(t, y_curr);
@@ -75,16 +75,16 @@ pub fn bdf2<T, F>(
     dt: T,
 ) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + Clone,
+    T: CfdScalar + Copy + FloatElement + Clone,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     if let Some(y_prev) = y_prev {
         // Proper BDF2 with history
 
         // Constants for BDF2
-        let four_thirds = scalar::from_f64::<T>(4.0 / 3.0);
-        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
-        let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+        let four_thirds = <T as FloatElement>::from_f64(4.0 / 3.0);
+        let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
 
         // RHS: (4/3)y_n - (1/3)y_{n-1}
         let curr_term = y_curr * four_thirds;
@@ -93,12 +93,12 @@ where
 
         // Initial guess: extrapolate from previous steps (2nd-order predictor)
         // y_{n+1}^{(0)} = 2*y_n - y_{n-1}
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let predictor = y_curr * two;
         let mut y_next: StateVector<T> = &predictor - y_prev;
 
         // Fixed-point iteration parameters
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
         let max_iter = 100;
         let t_next = t + dt;
         let coeff = two_thirds * dt;
@@ -128,7 +128,7 @@ where
 
             // For very stiff problems, may need relaxation
             if iter > 20 {
-                let relax = scalar::from_f64::<T>(0.5);
+                let relax = <T as FloatElement>::from_f64(0.5);
                 let old_part = &y_old * (scalar::one::<T>() - relax);
                 let next_part = &y_next * relax;
                 y_next = &old_part + &next_part;
@@ -161,17 +161,17 @@ pub fn bdf3<T, F>(
     dt: T,
 ) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement + Clone,
+    T: CfdScalar + Copy + FloatElement + Clone,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     if let (Some(y_prev), Some(y_prev2)) = (y_prev, y_prev2) {
         // Proper BDF3 with full history
 
         // Constants for BDF3
-        let eighteen_elevenths = scalar::from_f64::<T>(18.0 / 11.0);
-        let nine_elevenths = scalar::from_f64::<T>(9.0 / 11.0);
-        let two_elevenths = scalar::from_f64::<T>(2.0 / 11.0);
-        let six_elevenths = scalar::from_f64::<T>(6.0 / 11.0);
+        let eighteen_elevenths = <T as FloatElement>::from_f64(18.0 / 11.0);
+        let nine_elevenths = <T as FloatElement>::from_f64(9.0 / 11.0);
+        let two_elevenths = <T as FloatElement>::from_f64(2.0 / 11.0);
+        let six_elevenths = <T as FloatElement>::from_f64(6.0 / 11.0);
 
         // RHS: (18/11)y_n - (9/11)y_{n-1} + (2/11)y_{n-2}
         let curr_term = y_curr * eighteen_elevenths;
@@ -182,14 +182,14 @@ where
 
         // Initial guess: extrapolate from previous steps (3rd-order predictor)
         // y_{n+1}^{(0)} = 3*y_n - 3*y_{n-1} + y_{n-2}
-        let three = scalar::from_f64::<T>(3.0);
+        let three = <T as FloatElement>::from_f64(3.0);
         let curr_predictor = y_curr * three;
         let prev_predictor = y_prev * three;
         let predictor_delta = &curr_predictor - &prev_predictor;
         let mut y_next: StateVector<T> = &predictor_delta + y_prev2;
 
         // Fixed-point iteration parameters
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
         let max_iter = 100;
         let t_next = t + dt;
         let coeff = six_elevenths * dt;
@@ -219,7 +219,7 @@ where
 
             // For very stiff problems, may need relaxation
             if iter > 20 {
-                let relax = scalar::from_f64::<T>(0.5);
+                let relax = <T as FloatElement>::from_f64(0.5);
                 let old_part = &y_old * (scalar::one::<T>() - relax);
                 let next_part = &y_next * relax;
                 y_next = &old_part + &next_part;

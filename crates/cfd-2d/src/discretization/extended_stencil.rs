@@ -16,11 +16,11 @@
 //! truncation error $O(\Delta x^{n+1-d})$.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Extended stencil trait for schemes needing wider access
-pub trait ExtendedStencilScheme<T: Cfd2dScalar + Copy> {
+pub trait ExtendedStencilScheme<T: CfdScalar + Copy> {
     /// Compute face value using extended stencil
     ///
     /// # Arguments
@@ -35,16 +35,16 @@ pub trait ExtendedStencilScheme<T: Cfd2dScalar + Copy> {
 /// Reference: Leonard, B.P. (1979). Computer Methods in Applied Mechanics and Engineering, 19(1), 59-98
 pub struct QuickScheme;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for QuickScheme {
+impl<T: CfdScalar + Copy + FloatElement> ExtendedStencilScheme<T> for QuickScheme {
     fn face_value(&self, values: &[T; 5], velocity: T, _positions: Option<&[T; 5]>) -> T {
         // Constants from Leonard (1979)
         const SIX_EIGHTHS: f64 = 6.0 / 8.0;
         const THREE_EIGHTHS: f64 = 3.0 / 8.0;
         const ONE_EIGHTH: f64 = 1.0 / 8.0;
 
-        let six_eighths: T = scalar::from_f64(SIX_EIGHTHS);
-        let three_eighths: T = scalar::from_f64(THREE_EIGHTHS);
-        let one_eighth: T = scalar::from_f64(ONE_EIGHTH);
+        let six_eighths: T = <T as FloatElement>::from_f64(SIX_EIGHTHS);
+        let three_eighths: T = <T as FloatElement>::from_f64(THREE_EIGHTHS);
+        let one_eighth: T = <T as FloatElement>::from_f64(ONE_EIGHTH);
 
         if velocity > scalar::zero() {
             // Flow from left to right: use φ_U, φ_C, φ_D
@@ -63,9 +63,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for QuickSch
 /// Reference: van Leer, B. (1979). Journal of Computational Physics, 32(1), 101-136
 pub struct MusclScheme;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for MusclScheme {
+impl<T: CfdScalar + Copy + FloatElement> ExtendedStencilScheme<T> for MusclScheme {
     fn face_value(&self, values: &[T; 5], velocity: T, _positions: Option<&[T; 5]>) -> T {
-        let half: T = scalar::from_f64(0.5);
+        let half: T = <T as FloatElement>::from_f64(0.5);
 
         // Compute gradients
         let grad_left = values[2] - values[1];
@@ -76,7 +76,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for MusclSch
             if r <= scalar::zero() {
                 scalar::zero()
             } else {
-                let two: T = scalar::from_f64(2.0);
+                let two: T = <T as FloatElement>::from_f64(2.0);
                 (two * r) / (scalar::one::<T>() + r)
             }
         };

@@ -32,13 +32,13 @@
 //! - Bruus, H. (2012). Acoustofluidics 7: The acoustic radiation force on small particles.
 //!   *Lab on a Chip*, 12(6), 1014-1021.
 
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, one};
+use crate::scalar::one;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Core parameters for calculating Acoustic Radiation Force fields
 #[derive(Debug, Clone, Copy)]
-pub struct GorkovPotential<T: Cfd2dScalar + Copy> {
+pub struct GorkovPotential<T: CfdScalar + Copy> {
     /// Fluid density $\rho_0$ [kg/m³]
     pub fluid_density: T,
     /// Fluid speed of sound $c_0$ \[m/s]
@@ -51,7 +51,7 @@ pub struct GorkovPotential<T: Cfd2dScalar + Copy> {
     pub particle_radius: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
+impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
     /// Instantiate a typical configuration for standard human Red Blood Cells in water/plasma.
     ///
     /// Values derived from Bruus (2012) standard physiological tables:
@@ -61,11 +61,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
     #[must_use]
     pub fn typical_rbc() -> Self {
         Self {
-            fluid_density: from_f64(1000.0),
-            fluid_sound_speed: from_f64(1500.0),
-            particle_density: from_f64(1090.0),
-            particle_sound_speed: from_f64(1639.0),
-            particle_radius: from_f64(2.5e-6),
+            fluid_density: <T as FloatElement>::from_f64(1000.0),
+            fluid_sound_speed: <T as FloatElement>::from_f64(1500.0),
+            particle_density: <T as FloatElement>::from_f64(1090.0),
+            particle_sound_speed: <T as FloatElement>::from_f64(1639.0),
+            particle_radius: <T as FloatElement>::from_f64(2.5e-6),
         }
     }
 
@@ -102,7 +102,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn f2_dipole(&self) -> T {
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let num = two * (self.particle_density - self.fluid_density);
         let den = two * self.particle_density + self.fluid_density;
         num / den
@@ -116,8 +116,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn contrast_factor(&self) -> T {
-        let three = from_f64::<T>(3.0);
-        let two = from_f64::<T>(2.0);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         (self.f1_monopole() / three) + (self.f2_dipole() / two)
     }
 
@@ -133,9 +133,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn standing_wave_force_1d(&self, pressure_amplitude: T, frequency: T, x: T) -> T {
-        let pi = from_f64::<T>(std::f64::consts::PI);
-        let two = from_f64::<T>(2.0);
-        let four = from_f64::<T>(4.0);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         let wave_number = (two * pi * frequency) / self.fluid_sound_speed;
         let e_ac = (pressure_amplitude * pressure_amplitude)

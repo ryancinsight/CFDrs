@@ -85,19 +85,19 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
         let mut forces = Vec::new();
 
         // Set up computational domain and mesh
-        let _domain_width = scalar::from_f64::<T>(10.0) * self.diameter;
-        let _domain_height = scalar::from_f64::<T>(5.0) * self.diameter;
+        let _domain_width = <T as FloatElement>::from_f64(10.0) * self.diameter;
+        let _domain_height = <T as FloatElement>::from_f64(5.0) * self.diameter;
 
         for iter in 0..config.max_iterations {
             // Immersed boundary method iteration
             // Using fractional step method with cylinder forcing
 
             // Calculate residual based on continuity equation
-            let residual = scalar::from_f64::<T>(1.0) / scalar::from_usize(iter + 1);
+            let residual = <T as FloatElement>::from_f64(1.0) / scalar::from_usize(iter + 1);
             convergence.push(residual);
 
             // Calculate forces on cylinder
-            let drag = scalar::from_f64::<T>(1.0);
+            let drag = <T as FloatElement>::from_f64(1.0);
             let lift = scalar::zero::<T>();
             forces.push(drag);
             forces.push(lift);
@@ -139,15 +139,15 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
         // For general implementation, we provide Re=20 steady reference
         // as the baseline validation case
 
-        let reference_cd = scalar::from_f64::<T>(5.57);
-        let reference_cl = scalar::from_f64::<T>(0.0106);
+        let reference_cd = <T as FloatElement>::from_f64(5.57);
+        let reference_cl = <T as FloatElement>::from_f64(0.0106);
 
         Some(BenchmarkResult {
             name: "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)".to_string(),
             values: vec![reference_cd, reference_cl],
             errors: vec![
-                scalar::from_f64::<T>(0.01),   // Cd uncertainty
-                scalar::from_f64::<T>(0.0001), // Cl uncertainty
+                <T as FloatElement>::from_f64(0.01),   // Cd uncertainty
+                <T as FloatElement>::from_f64(0.0001), // Cl uncertainty
             ],
             convergence: vec![],
             execution_time: 0.0,
@@ -173,23 +173,24 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
 
             // Validation criteria based on Schäfer & Turek benchmark tolerances
             // Allow 5% error for drag coefficient (robust for different numerical schemes)
-            let cd_tolerance = scalar::from_f64::<T>(0.05); // 5% relative error
+            let cd_tolerance = <T as FloatElement>::from_f64(0.05); // 5% relative error
             let cd_relative_error = scalar::abs(computed_cd - reference_cd) / reference_cd;
             let cd_valid = cd_relative_error <= cd_tolerance;
 
             // For lift coefficient at Re=20, expect near-zero with absolute tolerance
             // (symmetry breaking is minimal at low Re)
-            let cl_tolerance = scalar::from_f64::<T>(0.1); // Absolute tolerance for near-zero value
+            let cl_tolerance = <T as FloatElement>::from_f64(0.1); // Absolute tolerance for near-zero value
             let cl_valid = scalar::abs(computed_cl) < cl_tolerance;
 
             // Additional sanity checks
-            let cd_physically_reasonable =
-                computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
-            let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
+            let cd_physically_reasonable = computed_cd > scalar::zero::<T>()
+                && computed_cd < <T as FloatElement>::from_f64(20.0);
+            let cl_physically_reasonable =
+                scalar::abs(computed_cl) < <T as FloatElement>::from_f64(5.0);
 
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
-                scalar::abs(*last_residual) < scalar::from_f64::<T>(1e-4)
+                scalar::abs(*last_residual) < <T as FloatElement>::from_f64(1e-4)
             } else {
                 false
             };
@@ -203,12 +204,13 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
 
         // Fallback: basic sanity checks without reference
         let cd_physically_reasonable =
-            computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
-        let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
+            computed_cd > scalar::zero::<T>() && computed_cd < <T as FloatElement>::from_f64(20.0);
+        let cl_physically_reasonable =
+            scalar::abs(computed_cl) < <T as FloatElement>::from_f64(5.0);
 
         // Check convergence
         let converged = if let Some(last_residual) = result.convergence.last() {
-            scalar::abs(*last_residual) < scalar::from_f64::<T>(1e-4)
+            scalar::abs(*last_residual) < <T as FloatElement>::from_f64(1e-4)
         } else {
             false
         };

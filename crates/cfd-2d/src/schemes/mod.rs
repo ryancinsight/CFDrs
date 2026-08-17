@@ -14,7 +14,7 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::Complex as AtlasComplex;
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +68,7 @@ pub enum SpatialScheme {
 }
 
 /// Trait for spatial discretization schemes
-pub trait SpatialDiscretization<T: Cfd2dScalar + Copy> {
+pub trait SpatialDiscretization<T: CfdScalar + Copy> {
     /// Compute the spatial derivative on a cell-centered grid.
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
 
@@ -96,7 +96,7 @@ pub trait SpatialDiscretization<T: Cfd2dScalar + Copy> {
 }
 
 /// Trait for face reconstruction schemes used in finite volume methods
-pub trait FaceReconstruction<T: Cfd2dScalar + Copy> {
+pub trait FaceReconstruction<T: CfdScalar + Copy> {
     /// Reconstruct scalar value at x-face (between cells i and i+1)
     fn reconstruct_face_value_x(
         &self,

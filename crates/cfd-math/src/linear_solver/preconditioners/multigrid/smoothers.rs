@@ -5,13 +5,8 @@ use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn diagonal_epsilon<T: FloatElement>() -> T {
-    from_f64(1e-15)
+    <T as FloatElement>::from_f64(1e-15)
 }
 
 fn residual<T>(
@@ -278,7 +273,7 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
 
     /// Estimate eigenvalue bounds using Gershgorin circle theorem
     pub fn estimate_eigenvalues(matrix: &SparseMatrix<T>) -> (T, T) {
-        let mut min_eigen: T = from_f64(1e6);
+        let mut min_eigen: T = <T as FloatElement>::from_f64(1e6);
         let mut max_eigen = <T as NumericElement>::ZERO;
 
         let offsets = matrix.row_ptr();
@@ -304,7 +299,7 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
             let lower = if diag > row_sum {
                 diag - row_sum
             } else {
-                from_f64::<T>(0.1)
+                <T as FloatElement>::from_f64(0.1)
             };
             let upper = diag + row_sum;
 
@@ -313,8 +308,8 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
         }
 
         (
-            min_eigen.max_scalar(from_f64::<T>(0.1)),
-            max_eigen.max_scalar(from_f64::<T>(1.0)),
+            min_eigen.max_scalar(<T as FloatElement>::from_f64(0.1)),
+            max_eigen.max_scalar(<T as FloatElement>::from_f64(1.0)),
         )
     }
 }
@@ -329,9 +324,11 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
         b: &MultigridVector<T>,
         iterations: usize,
     ) {
-        let theta = (self.eigenvalues_max + self.eigenvalues_min) / from_f64::<T>(2.0);
-        let delta = (self.eigenvalues_max - self.eigenvalues_min) / from_f64::<T>(2.0);
-        let sigma = if NumericElement::abs(delta) < from_f64::<T>(1e-10) {
+        let theta =
+            (self.eigenvalues_max + self.eigenvalues_min) / <T as FloatElement>::from_f64(2.0);
+        let delta =
+            (self.eigenvalues_max - self.eigenvalues_min) / <T as FloatElement>::from_f64(2.0);
+        let sigma = if NumericElement::abs(delta) < <T as FloatElement>::from_f64(1e-10) {
             <T as NumericElement>::ZERO
         } else {
             theta / delta
@@ -349,7 +346,8 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
         let alpha = if sigma == <T as NumericElement>::ZERO {
             <T as NumericElement>::ONE / self.eigenvalues_max
         } else {
-            let rho_new = <T as NumericElement>::ONE / (from_f64::<T>(2.0) * sigma - rho_old);
+            let rho_new =
+                <T as NumericElement>::ONE / (<T as FloatElement>::from_f64(2.0) * sigma - rho_old);
             rho_new / rho_old
         };
 

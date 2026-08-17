@@ -1,5 +1,5 @@
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{self, from_f64};
+use crate::scalar::{self};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// - Throat section (constant width)
 /// - Diverging section (linear expansion)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiGeometry<T: Cfd2dScalar + Copy> {
+pub struct VenturiGeometry<T: CfdScalar + Copy> {
     /// Inlet width \[m]
     pub w_inlet: T,
     /// Throat width \[m]
@@ -28,17 +28,17 @@ pub struct VenturiGeometry<T: Cfd2dScalar + Copy> {
     pub height: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> VenturiGeometry<T> {
+impl<T: CfdScalar + Copy + FloatElement> VenturiGeometry<T> {
     /// Create standard ISO 5167 Venturi with area ratio 0.5
     pub fn iso_5167_standard() -> Self {
         Self {
-            w_inlet: from_f64::<T>(10e-3),
-            w_throat: from_f64::<T>(7.07e-3),
-            l_inlet: from_f64::<T>(10e-3),
-            l_converge: from_f64::<T>(1e-3),
-            l_throat: from_f64::<T>(2e-3),
-            l_diverge: from_f64::<T>(3e-3),
-            height: from_f64::<T>(1.0e-3),
+            w_inlet: <T as FloatElement>::from_f64(10e-3),
+            w_throat: <T as FloatElement>::from_f64(7.07e-3),
+            l_inlet: <T as FloatElement>::from_f64(10e-3),
+            l_converge: <T as FloatElement>::from_f64(1e-3),
+            l_throat: <T as FloatElement>::from_f64(2e-3),
+            l_diverge: <T as FloatElement>::from_f64(3e-3),
+            height: <T as FloatElement>::from_f64(1.0e-3),
         }
     }
 
@@ -67,8 +67,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiGeometry<T> {
     /// `VenturiSolver2D::new_stretched`.
     #[must_use]
     pub fn recommended_center_clustering_beta(&self) -> T {
-        let four = from_f64::<T>(4.0);
-        let max_beta = from_f64::<T>(0.9);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let max_beta = <T as FloatElement>::from_f64(0.9);
         let candidate = scalar::one::<T>() - four * self.w_throat / self.w_inlet;
         <T as NumericElement>::min_scalar(
             <T as NumericElement>::max_scalar(candidate, scalar::zero::<T>()),
@@ -121,7 +121,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiGeometry<T> {
             self.w_inlet
         };
 
-        let half_w = w_local / from_f64::<T>(2.0);
+        let half_w = w_local / <T as FloatElement>::from_f64(2.0);
         eunomia::NumericElement::abs(y) <= half_w
     }
 }

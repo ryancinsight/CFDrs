@@ -1,12 +1,12 @@
 //! Surface properties and wettability characteristics
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Angle, EnergyPerArea, Length};
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 
 /// Surface properties affecting flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SurfaceProperties<T: Cfd1dScalar + Copy> {
+pub struct SurfaceProperties<T: CfdScalar + Copy> {
     /// Surface roughness \[m]
     pub roughness: Length<T>,
     /// Contact angle \[radians]

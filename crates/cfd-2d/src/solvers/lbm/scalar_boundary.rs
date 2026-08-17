@@ -7,15 +7,15 @@
 //! - all other boundaries use a zero-gradient copy from the nearest interior cell
 
 use crate::scalar::zero;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::lattice::D2Q9;
 use crate::solvers::lbm::streaming::f_idx;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 
 #[inline]
-pub(crate) fn apply_scalar_boundaries<T: Cfd2dScalar + Copy + NumericElement>(
+pub(crate) fn apply_scalar_boundaries<T: CfdScalar + Copy + NumericElement>(
     g: &mut [T],
     boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>,
     nx: usize,
@@ -39,7 +39,7 @@ pub(crate) fn apply_scalar_boundaries<T: Cfd2dScalar + Copy + NumericElement>(
 }
 
 #[inline]
-fn apply_scalar_bounce_back<T: Cfd2dScalar + Copy + NumericElement>(
+fn apply_scalar_bounce_back<T: CfdScalar + Copy + NumericElement>(
     g: &mut [T],
     i: usize,
     j: usize,
@@ -56,7 +56,7 @@ fn apply_scalar_bounce_back<T: Cfd2dScalar + Copy + NumericElement>(
 }
 
 #[inline]
-fn copy_scalar_populations<T: Cfd2dScalar + Copy + NumericElement>(
+fn copy_scalar_populations<T: CfdScalar + Copy + NumericElement>(
     g: &mut [T],
     nx: usize,
     src_i: usize,

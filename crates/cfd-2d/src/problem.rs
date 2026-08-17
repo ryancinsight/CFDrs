@@ -16,16 +16,16 @@
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
 use std::collections::HashMap;
 
 /// Problem definition for 2D incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowProblem<T: Cfd2dScalar + FloatElement + Copy> {
+pub struct IncompressibleFlowProblem<T: CfdScalar + FloatElement + Copy> {
     /// Computational grid
     pub grid: StructuredGrid2D<T>,
     /// Boundary conditions at specific grid points
@@ -42,7 +42,7 @@ pub struct IncompressibleFlowProblem<T: Cfd2dScalar + FloatElement + Copy> {
     pub end_time: Option<T>,
 }
 
-impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowProblem<T> {
+impl<T: CfdScalar + FloatElement + Copy> IncompressibleFlowProblem<T> {
     /// Create new incompressible flow problem
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -138,7 +138,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowProblem<T> {
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowSolution<T: Cfd2dScalar + FloatElement + Copy> {
+pub struct IncompressibleFlowSolution<T: CfdScalar + FloatElement + Copy> {
     /// Final velocity field
     pub velocity: Array2D<Vector2<T>>,
     /// Final pressure field
@@ -151,7 +151,7 @@ pub struct IncompressibleFlowSolution<T: Cfd2dScalar + FloatElement + Copy> {
     pub time: T,
 }
 
-impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowSolution<T> {
+impl<T: CfdScalar + FloatElement + Copy> IncompressibleFlowSolution<T> {
     /// Create new solution
     pub fn new(
         velocity: Array2D<Vector2<T>>,

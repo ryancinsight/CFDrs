@@ -30,10 +30,10 @@
 //! Pump efficiency: `η = P_hyd / P_input`, typical range 0.1–0.7.
 
 use super::{constants, real_from_f64, Component};
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -56,7 +56,7 @@ pub enum PumpType {
 /// pump contributes zero passive resistance; its drive is applied as a Neumann source
 /// at the driven node. See module docs for the full theorem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Micropump<T: Cfd1dScalar + Copy> {
+pub struct Micropump<T: CfdScalar + Copy> {
     /// Maximum flow rate [m³/s] (free-delivery, ΔP = 0)
     pub max_flow_rate: T,
     /// Maximum pressure \[Pa] (stall point, Q = 0)
@@ -69,26 +69,26 @@ pub struct Micropump<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Micropump<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Micropump<T> {
     /// Create a new micropump
     pub fn new(max_flow_rate: T, max_pressure: T) -> Self {
         Self {
             max_flow_rate,
             max_pressure,
             efficiency: real_from_f64(constants::DEFAULT_PUMP_EFFICIENCY),
-            operating_point: T::one(),
+            operating_point: T::ONE,
             parameters: HashMap::new(),
         }
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for Micropump<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for Micropump<T> {
     /// Returns **zero** — pumps contribute no passive resistance to the conductance matrix.
     ///
     /// **Invariant**: A pump is a Neumann source (Q_pump injected at the driven node), not
     /// a negative-resistance element. Negative resistance corrupts the matrix Laplacian.
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
-        T::zero()
+        T::ZERO
     }
 
     fn component_type(&self) -> &'static str {

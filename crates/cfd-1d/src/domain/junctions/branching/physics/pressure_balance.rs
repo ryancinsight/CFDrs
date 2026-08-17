@@ -1,12 +1,12 @@
 //! Shared scalar pressure-balance utilities for branching junction solvers.
 
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 
 /// Scalar tolerances used by bracketed bisection solves.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct ScalarSolveTolerances<T: Cfd1dScalar + Copy> {
+pub(super) struct ScalarSolveTolerances<T: CfdScalar + Copy> {
     /// Absolute/relative target tolerance.
     pub value_tolerance: T,
     /// Interval-width tolerance.
@@ -15,7 +15,7 @@ pub(super) struct ScalarSolveTolerances<T: Cfd1dScalar + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> ScalarSolveTolerances<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> ScalarSolveTolerances<T> {
     /// Tolerances for flow-root solves over `[0, q_parent]`.
     pub(super) fn for_flow_interval(q_parent: T) -> Self {
         let tiny = T::from_f64_or_one(1e-18);
@@ -49,7 +49,7 @@ pub(super) fn bisect_root<T, F>(
     residual: F,
 ) -> T
 where
-    T: Cfd1dScalar + Copy + SafeFromF64,
+    T: CfdScalar + Copy + SafeFromF64,
     F: Fn(T) -> T,
 {
     let mut lower = lower;
@@ -60,7 +60,7 @@ where
         if <T as NumericElement>::abs(seed_residual) <= tolerances.value_tolerance {
             return seed;
         }
-        if seed_residual < T::zero() {
+        if seed_residual < T::ZERO {
             lower = seed;
         } else {
             upper = seed;
@@ -77,7 +77,7 @@ where
             return midpoint;
         }
 
-        if midpoint_residual < T::zero() {
+        if midpoint_residual < T::ZERO {
             lower = midpoint;
         } else {
             upper = midpoint;
@@ -96,7 +96,7 @@ pub(super) fn bisect_monotone_target<T, F>(
     value: F,
 ) -> T
 where
-    T: Cfd1dScalar + Copy + SafeFromF64,
+    T: CfdScalar + Copy + SafeFromF64,
     F: Fn(T) -> T,
 {
     let mut lower = lower;

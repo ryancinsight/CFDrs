@@ -11,7 +11,6 @@
 
 use super::AnalyticalSolution;
 use crate::scalar;
-use crate::scalar::ValidationScalar;
 use aequitas::systems::si::quantities::{
     Dimensionless, DynamicViscosity, Length, MassDensity, Pressure, PressureGradient,
     ReciprocalTime, Time, Velocity, VolumetricFlowRate,
@@ -19,12 +18,14 @@ use aequitas::systems::si::quantities::{
 use cfd_1d::physics::vascular::womersley::{
     WomersleyNumber as ExactWomersleyNumber, WomersleyProfile as ExactWomersleyProfile,
 };
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 use std::f64::consts::PI;
 
 /// Womersley pulsatile flow parameters
 #[derive(Debug, Clone)]
-pub struct WomersleyFlow<T: ValidationScalar> {
+pub struct WomersleyFlow<T: CfdScalar> {
     /// Pipe radius
     pub radius: Length<T>,
     /// Fluid density
@@ -37,7 +38,7 @@ pub struct WomersleyFlow<T: ValidationScalar> {
     pub pressure_gradient_amplitude: PressureGradient<T>,
 }
 
-impl<T: ValidationScalar> WomersleyFlow<T> {
+impl<T: CfdScalar> WomersleyFlow<T> {
     /// Create new Womersley flow parameters
     pub fn new(
         radius: Length<T>,
@@ -59,11 +60,13 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
     /// Typical values for human carotid artery
     pub fn physiological_blood_flow() -> Self {
         Self {
-            radius: Length::from_base(scalar::from_f64(4.0e-3)),
-            density: MassDensity::from_base(scalar::from_f64(1060.0)),
-            viscosity: DynamicViscosity::from_base(scalar::from_f64(0.0035)),
-            omega: ReciprocalTime::from_base(scalar::from_f64(2.0 * PI * 1.2)),
-            pressure_gradient_amplitude: PressureGradient::from_base(scalar::from_f64(1000.0)),
+            radius: Length::from_base(<T as FloatElement>::from_f64(4.0e-3)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
+            omega: ReciprocalTime::from_base(<T as FloatElement>::from_f64(2.0 * PI * 1.2)),
+            pressure_gradient_amplitude: PressureGradient::from_base(
+                <T as FloatElement>::from_f64(1000.0),
+            ),
         }
     }
 
@@ -81,7 +84,8 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
         let dpdx = self.pressure_gradient_amplitude.into_base();
         let radius = self.radius.into_base();
         Velocity::from_base(
-            -dpdx * radius * radius / (scalar::from_f64::<T>(4.0) * self.viscosity.into_base()),
+            -dpdx * radius * radius
+                / (<T as FloatElement>::from_f64(4.0) * self.viscosity.into_base()),
         )
     }
 
@@ -89,7 +93,7 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
     pub fn stokes_layer_thickness(&self) -> Length<T> {
         let nu = self.viscosity.into_base() / self.density.into_base();
         Length::from_base(scalar::sqrt(
-            scalar::from_f64::<T>(2.0) * nu / self.omega.into_base(),
+            <T as FloatElement>::from_f64(2.0) * nu / self.omega.into_base(),
         ))
     }
 
@@ -100,7 +104,7 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
 
     /// Check if flow is inertia-dominated (α > 10)
     pub fn is_inertia_dominated(&self) -> bool {
-        self.womersley_number().into_base() > scalar::from_f64::<T>(10.0)
+        self.womersley_number().into_base() > <T as FloatElement>::from_f64(10.0)
     }
 
     /// Create the canonical exact Womersley profile evaluator.
@@ -146,7 +150,7 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
     }
 }
 
-impl<T: ValidationScalar> AnalyticalSolution<T> for WomersleyFlow<T> {
+impl<T: CfdScalar> AnalyticalSolution<T> for WomersleyFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, t: T) -> Vector3<T> {
         // Assume pipe axis in x-direction, y is radial coordinate
         // In cylindrical coordinates: r = sqrt(y² + z²)
@@ -174,7 +178,7 @@ impl<T: ValidationScalar> AnalyticalSolution<T> for WomersleyFlow<T> {
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let length = scalar::from_f64::<T>(100.0) * self.radius.into_base();
+        let length = <T as FloatElement>::from_f64(100.0) * self.radius.into_base();
         [
             scalar::zero::<T>(),
             length,

@@ -2,15 +2,15 @@
 
 use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
 use cfd_core::error::Result as CfdResult;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// Discretized 2D Serpentine Flow Solver
 pub struct SerpentineSolver2D<
-    T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>,
+    T: CfdScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>,
 > {
     /// Serpentine channel geometry definition.
     pub geometry: SerpentineGeometry<T>,
@@ -20,7 +20,7 @@ pub struct SerpentineSolver2D<
     pub scalar_solver: ScalarTransportSolver2D<T>,
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>>
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>>
     SerpentineSolver2D<T>
 {
     /// Create new discretized serpentine solver
@@ -72,7 +72,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<O
             diffusion_coeff,
             c_left,
             c_right,
-            scalar::from_f64(1e-5),
+            <T as FloatElement>::from_f64(1e-5),
         )
     }
 
@@ -156,7 +156,10 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<O
             mixing_frac = one
                 - <T as NumericElement>::sqrt(
                     variance
-                        / <T as NumericElement>::max_scalar(var_inlet, scalar::from_f64(1e-10)),
+                        / <T as NumericElement>::max_scalar(
+                            var_inlet,
+                            <T as FloatElement>::from_f64(1e-10),
+                        ),
                 );
         }
 
@@ -195,8 +198,8 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<O
     }
 }
 
-fn half_sq<T: Cfd2dScalar + Copy + FloatElement>(val: T) -> T {
-    let half = scalar::from_f64::<T>(0.5);
+fn half_sq<T: CfdScalar + Copy + FloatElement>(val: T) -> T {
+    let half = <T as FloatElement>::from_f64(0.5);
     (val * half) * (val * half)
 }
 

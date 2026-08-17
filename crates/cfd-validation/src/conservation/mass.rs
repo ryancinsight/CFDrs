@@ -46,10 +46,12 @@ impl<T: RealField + Copy + FloatElement> MassConservationChecker<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // ∂u/∂x using central difference
-                let dudx = (u[[i + 1, j]] - u[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
+                let dudx =
+                    (u[[i + 1, j]] - u[[i - 1, j]]) / (<T as FloatElement>::from_f64(2.0) * dx);
 
                 // ∂v/∂y using central difference
-                let dvdy = (v[[i, j + 1]] - v[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
+                let dvdy =
+                    (v[[i, j + 1]] - v[[i, j - 1]]) / (<T as FloatElement>::from_f64(2.0) * dy);
 
                 // Divergence = ∂u/∂x + ∂v/∂y
                 let div = dudx + dvdy;
@@ -103,7 +105,7 @@ impl<T: RealField + Copy + FloatElement> MassConservationChecker<T> {
             // Mass flux gradient using central difference
             let flux_plus = area[i + 1] * u[i + 1];
             let flux_minus = area[i - 1] * u[i - 1];
-            let div = (flux_plus - flux_minus) / (scalar::from_f64::<T>(2.0) * dx);
+            let div = (flux_plus - flux_minus) / (<T as FloatElement>::from_f64(2.0) * dx);
 
             let abs_div = scalar::abs(div);
             max_divergence = scalar::max(max_divergence, abs_div);

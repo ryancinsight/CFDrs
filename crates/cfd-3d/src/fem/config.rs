@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use eunomia::{FloatElement, NumericElement};
 
-use super::{constants, scalar};
+use super::constants;
 
 // Use ElementType from cfd-core as the single source of truth
 pub use cfd_core::geometry::ElementType;
@@ -51,9 +51,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Defaul
         Self {
             base: cfd_core::compute::solver::SolverConfig::default(),
             use_stabilization: true,
-            tau: scalar::constant(constants::DEFAULT_STABILIZATION),
-            dt: Some(scalar::constant(constants::DEFAULT_TIME_STEP)),
-            reynolds: Some(scalar::constant(constants::DEFAULT_REYNOLDS)),
+            tau: <T as FloatElement>::from_f64(constants::DEFAULT_STABILIZATION),
+            dt: Some(<T as FloatElement>::from_f64(constants::DEFAULT_TIME_STEP)),
+            reynolds: Some(<T as FloatElement>::from_f64(constants::DEFAULT_REYNOLDS)),
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
             grad_div_penalty: <T as NumericElement>::ZERO,

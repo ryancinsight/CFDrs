@@ -49,7 +49,7 @@
 //!   non-Newtonian model of blood flow." *Theor. Biol. Med. Model.* 6:7.
 
 use super::non_newtonian_flow_split_exponent;
-use crate::scalar::Cfd1dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +58,7 @@ use serde::{Deserialize, Serialize};
 /// Provides methods for calculating optimal vessel diameters, branching angles,
 /// and validating bifurcation geometry against Murray's principle.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct MurraysLaw<T: Cfd1dScalar + Copy> {
+pub struct MurraysLaw<T: CfdScalar + Copy> {
     /// Bifurcation exponent k (default: 3.0 for laminar flow)
     ///
     /// - k = 3.0: Laminar Poiseuille flow (classic Murray's Law)
@@ -67,17 +67,17 @@ pub struct MurraysLaw<T: Cfd1dScalar + Copy> {
     pub exponent: T,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> Default for MurraysLaw<T> {
+impl<T: CfdScalar + FloatElement + Copy> Default for MurraysLaw<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
+impl<T: CfdScalar + FloatElement + Copy> MurraysLaw<T> {
     /// Create Murray's Law calculator with classic exponent k=3
     pub fn new() -> Self {
         Self {
-            exponent: (T::one() + T::one() + T::one()),
+            exponent: (T::ONE + T::ONE + T::ONE),
         }
     }
 
@@ -96,7 +96,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
     /// Create for area-preserving bifurcation (k = 2)
     pub fn area_preserving() -> Self {
         Self {
-            exponent: (T::one() + T::one()),
+            exponent: (T::ONE + T::ONE),
         }
     }
 
@@ -140,8 +140,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
     /// D₁ = D₂ = D₀ / 2^(1/k)
     /// ```
     pub fn symmetric_daughter_diameter(&self, parent_diameter: T) -> T {
-        let two = T::one() + T::one();
-        let one_over_k = T::one() / self.exponent;
+        let two = T::ONE + T::ONE;
+        let one_over_k = T::ONE / self.exponent;
         parent_diameter / <T as FloatElement>::powf(two, one_over_k)
     }
 
@@ -164,11 +164,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
         }
 
         let d2_k = d0_k - d1_k;
-        if d2_k <= T::zero() {
+        if d2_k <= T::ZERO {
             return None;
         }
 
-        let one_over_k = T::one() / self.exponent;
+        let one_over_k = T::ONE / self.exponent;
         Some(<T as FloatElement>::powf(d2_k, one_over_k))
     }
 
@@ -180,7 +180,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
     pub fn parent_diameter(&self, daughter1: T, daughter2: T) -> T {
         let d1_k = <T as FloatElement>::powf(daughter1, self.exponent);
         let d2_k = <T as FloatElement>::powf(daughter2, self.exponent);
-        let one_over_k = T::one() / self.exponent;
+        let one_over_k = T::ONE / self.exponent;
         <T as FloatElement>::powf(d1_k + d2_k, one_over_k)
     }
 
@@ -216,8 +216,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
     ///
     /// A_daughters / A_parent = 2^(1 - 2/k)
     pub fn ideal_area_ratio(&self) -> T {
-        let two = T::one() + T::one();
-        let exp = T::one() - two / self.exponent;
+        let two = T::ONE + T::ONE;
+        let exp = T::ONE - two / self.exponent;
         <T as FloatElement>::powf(two, exp)
     }
 }

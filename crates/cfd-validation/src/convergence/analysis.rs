@@ -29,21 +29,21 @@ pub enum ConvergenceOrder<T: RealField + Copy> {
 impl<T: RealField + Copy + FloatElement> ConvergenceOrder<T> {
     /// Determine convergence order from observed rate
     pub fn from_rate(rate: T) -> Self {
-        let tolerance = scalar::from_f64::<T>(0.15);
+        let tolerance = <T as FloatElement>::from_f64(0.15);
 
-        if rate < scalar::from_f64::<T>(0.5) {
+        if rate < <T as FloatElement>::from_f64(0.5) {
             Self::SubLinear
         } else if scalar::abs(rate - scalar::one::<T>()) < tolerance {
             Self::FirstOrder
-        } else if scalar::abs(rate - scalar::from_f64::<T>(2.0)) < tolerance {
+        } else if scalar::abs(rate - <T as FloatElement>::from_f64(2.0)) < tolerance {
             Self::SecondOrder
-        } else if scalar::abs(rate - scalar::from_f64::<T>(3.0)) < tolerance {
+        } else if scalar::abs(rate - <T as FloatElement>::from_f64(3.0)) < tolerance {
             Self::ThirdOrder
-        } else if scalar::abs(rate - scalar::from_f64::<T>(4.0)) < tolerance {
+        } else if scalar::abs(rate - <T as FloatElement>::from_f64(4.0)) < tolerance {
             Self::FourthOrder
-        } else if rate > scalar::from_f64::<T>(6.0) {
+        } else if rate > <T as FloatElement>::from_f64(6.0) {
             Self::Spectral
-        } else if rate > scalar::one::<T>() && rate < scalar::from_f64::<T>(2.0) {
+        } else if rate > scalar::one::<T>() && rate < <T as FloatElement>::from_f64(2.0) {
             Self::SuperLinear
         } else {
             Self::Custom(rate)
@@ -53,13 +53,13 @@ impl<T: RealField + Copy + FloatElement> ConvergenceOrder<T> {
     /// Get expected rate for this order
     pub fn expected_rate(&self) -> T {
         match self {
-            Self::SubLinear => scalar::from_f64::<T>(0.5),
+            Self::SubLinear => <T as FloatElement>::from_f64(0.5),
             Self::FirstOrder => scalar::one::<T>(),
-            Self::SuperLinear => scalar::from_f64::<T>(1.5),
-            Self::SecondOrder => scalar::from_f64::<T>(2.0),
-            Self::ThirdOrder => scalar::from_f64::<T>(3.0),
-            Self::FourthOrder => scalar::from_f64::<T>(4.0),
-            Self::Spectral => scalar::from_f64::<T>(10.0),
+            Self::SuperLinear => <T as FloatElement>::from_f64(1.5),
+            Self::SecondOrder => <T as FloatElement>::from_f64(2.0),
+            Self::ThirdOrder => <T as FloatElement>::from_f64(3.0),
+            Self::FourthOrder => <T as FloatElement>::from_f64(4.0),
+            Self::Spectral => <T as FloatElement>::from_f64(10.0),
             Self::Custom(rate) => *rate,
         }
     }
@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FloatElement> ConvergenceOrder<T> {
     /// Check if observed rate matches expected within tolerance
     pub fn matches(&self, observed_rate: T) -> bool {
         let expected = self.expected_rate();
-        let tolerance = scalar::from_f64::<T>(0.25); // 25% tolerance
+        let tolerance = <T as FloatElement>::from_f64(0.25); // 25% tolerance
         scalar::abs(observed_rate - expected) < expected * tolerance
     }
 }
@@ -95,7 +95,7 @@ impl ConvergenceAnalysis {
         }
 
         let mean_ratio = ratios.iter().copied().sum::<T>() / scalar::from_usize::<T>(ratios.len());
-        let tolerance = scalar::from_f64::<T>(0.05); // 5% variation allowed
+        let tolerance = <T as FloatElement>::from_f64(0.05); // 5% variation allowed
 
         ratios
             .iter()

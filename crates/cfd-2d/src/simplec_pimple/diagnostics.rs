@@ -20,11 +20,11 @@ use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Calculate velocity residual between two velocity fields (L∞ norm)
     pub(super) fn calculate_velocity_residual_from_vectors(
         &self,
@@ -48,7 +48,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
     /// Uses the standard central-difference discretization of the divergence operator.
     pub(super) fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
         let mut max_divergence = scalar::zero();
-        let two: T = scalar::from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;

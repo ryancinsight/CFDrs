@@ -32,7 +32,7 @@
 //! $\mu / \rho = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$. See He & Luo (1997). □
 
 use super::traits::CollisionOperator;
-use crate::scalar::{from_f64, one};
+use crate::scalar::one;
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use eunomia::FloatElement;
@@ -69,8 +69,8 @@ impl<T: FloatElement> BgkCollision<T> {
     ///
     /// τ = ½ + ν Δt / (c_s² Δx²)
     pub fn from_viscosity(nu: T, dt: T, dx: T) -> Self {
-        let cs2 = from_f64::<T>(LATTICE_CS2);
-        let half = from_f64::<T>(HALF);
+        let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);
+        let half = <T as FloatElement>::from_f64(HALF);
         let tau = half + nu * dt / (cs2 * dx * dx);
         Self::new(tau)
     }
@@ -94,7 +94,7 @@ impl<T: FloatElement> CollisionOperator<T> for BgkCollision<T> {
                 let u = [velocity[cell * 2], velocity[cell * 2 + 1]];
 
                 for q in 0..9 {
-                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
+                    let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
                     let lattice_vel = D2Q9::VELOCITIES[q];
                     let f_eq = equilibrium(rho, &u, q, weight, lattice_vel);
                     let idx = f_idx(j, i, q, nx);
@@ -111,8 +111,8 @@ impl<T: FloatElement> CollisionOperator<T> for BgkCollision<T> {
     /// Kinematic viscosity: ν = c_s²(τ − ½)Δt / Δx² × Δx² = c_s²(τ − ½)Δt
     /// (in physical units, divide by Δx² if Δx ≠ 1)
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2 = from_f64::<T>(LATTICE_CS2);
-        let half = from_f64::<T>(HALF);
+        let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);
+        let half = <T as FloatElement>::from_f64(HALF);
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }

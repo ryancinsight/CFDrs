@@ -80,21 +80,21 @@
 
 use super::{FaceReconstruction, Grid2D};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// First-order upwind scheme
-pub struct FirstOrderUpwind<T: Cfd2dScalar + Copy> {
+pub struct FirstOrderUpwind<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for FirstOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for FirstOrderUpwind<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> FirstOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> FirstOrderUpwind<T> {
     /// Create new first-order upwind scheme
     #[must_use]
     pub fn new() -> Self {
@@ -104,7 +104,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FirstOrderUpwind<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for FirstOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> FaceReconstruction<T> for FirstOrderUpwind<T> {
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -161,17 +161,17 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for FirstOrderU
 }
 
 /// Second-order upwind scheme
-pub struct SecondOrderUpwind<T: Cfd2dScalar + Copy> {
+pub struct SecondOrderUpwind<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for SecondOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for SecondOrderUpwind<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SecondOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> SecondOrderUpwind<T> {
     /// Create new second-order upwind scheme
     #[must_use]
     pub fn new() -> Self {
@@ -181,7 +181,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SecondOrderUpwind<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for SecondOrderUpwind<T> {
+impl<T: CfdScalar + Copy + FloatElement> FaceReconstruction<T> for SecondOrderUpwind<T> {
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -189,8 +189,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for SecondOrder
         i: usize,
         j: usize,
     ) -> T {
-        let half: T = scalar::from_f64(0.5);
-        let three_half: T = scalar::from_f64(1.5);
+        let half: T = <T as FloatElement>::from_f64(0.5);
+        let three_half: T = <T as FloatElement>::from_f64(1.5);
 
         if velocity_at_face > scalar::zero() {
             // Positive velocity: use backward-biased stencil
@@ -221,8 +221,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for SecondOrder
         i: usize,
         j: usize,
     ) -> T {
-        let half: T = scalar::from_f64(0.5);
-        let three_half: T = scalar::from_f64(1.5);
+        let half: T = <T as FloatElement>::from_f64(0.5);
+        let three_half: T = <T as FloatElement>::from_f64(1.5);
 
         if velocity_at_face > scalar::zero() {
             // Positive velocity: use backward-biased stencil

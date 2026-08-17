@@ -32,8 +32,8 @@ impl<T: RealField + Copy + FloatElement> Serpentine2D<T> {
             amplitude,
             periods,
             period_length,
-            l_inlet: width * scalar::from_f64::<T>(5.0),
-            l_outlet: width * scalar::from_f64::<T>(10.0),
+            l_inlet: width * <T as FloatElement>::from_f64(5.0),
+            l_outlet: width * <T as FloatElement>::from_f64(10.0),
         }
     }
 
@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FloatElement> Serpentine2D<T> {
         }
 
         let local_x = x - serpentine_start;
-        let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+        let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
         self.amplitude * scalar::sin(two_pi * local_x / self.period_length)
     }
 }
@@ -142,7 +142,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for Serpentine2D<T> {
         //
         // Reference: Weisstein, Eric W. "Arc Length." MathWorld.
 
-        let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+        let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
         let k = two_pi / self.period_length; // wave number
         let ak = self.amplitude * k; // A·k = A·2π/λ
 
@@ -155,7 +155,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for Serpentine2D<T> {
             let dydx = ak * scalar::cos(k * x_loc);
             let integrand = scalar::sqrt(scalar::one::<T>() + dydx * dydx);
             let weight = if i == 0 || i == n_quad {
-                scalar::from_f64::<T>(0.5)
+                <T as FloatElement>::from_f64(0.5)
             } else {
                 scalar::one()
             };

@@ -1,14 +1,14 @@
 use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use athena_leto::SuccessiveOverRelaxation;
+use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
 
-fn velocity_solution_guess<T: Cfd2dScalar + Copy>(
+fn velocity_solution_guess<T: CfdScalar + Copy>(
     component: MomentumComponent,
     fields: &SimulationFields<T>,
     nx: usize,
@@ -26,7 +26,7 @@ fn velocity_solution_guess<T: Cfd2dScalar + Copy>(
     solution
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
+impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
     /// Solve momentum equation for specified component.
     ///
     /// Integrates with any configured turbulence model by updating
@@ -137,7 +137,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             // self-coupling, which the strict constructor rejects. The
             // former preconditioner defaulted those to a unit pivot
             // silently; here that is opted into.
-            SuccessiveOverRelaxation::from_csr_with_identity_rows(matrix, T::one()).map_err(
+            SuccessiveOverRelaxation::from_csr_with_identity_rows(matrix, T::ONE).map_err(
                 |error| {
                     cfd_core::error::Error::Solver(format!(
                         "Momentum SOR preconditioner construction failed for {component:?}: {error}"
@@ -247,7 +247,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                     // Check if this is a masked (solid) cell
                     if !mask_data[idx] {
                         // For solid cells: assemble identity equation φ = 0
-                        builder.add_entry(idx, idx, T::one())?;
+                        builder.add_entry(idx, idx, T::ONE)?;
                         // RHS is already zero
                         continue;
                     }
@@ -256,7 +256,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                     if self.is_dirichlet_boundary(i, j, component) {
                         // For Dirichlet BC: assemble identity equation φ = bc_value
                         // This is handled in apply_momentum_boundaries, so skip coefficient assembly
-                        builder.add_entry(idx, idx, T::one())?;
+                        builder.add_entry(idx, idx, T::ONE)?;
                         // RHS will be set by boundary condition handler
                         continue;
                     }
@@ -324,7 +324,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                 MomentumComponent::U => self.matrix_u.take().unwrap(),
                 MomentumComponent::V => self.matrix_v.take().unwrap(),
             };
-            matrix.values_mut().fill(T::zero());
+            matrix.values_mut().fill(T::ZERO);
 
             let mut rhs = Array1::from_elem([n], scalar::zero::<T>());
 
@@ -355,12 +355,12 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                     let idx = j * nx + i;
 
                     if !mask_data[idx] {
-                        update_entry(idx, idx, T::one());
+                        update_entry(idx, idx, T::ONE);
                         continue;
                     }
 
                     if self.is_dirichlet_boundary(i, j, component) {
-                        update_entry(idx, idx, T::one());
+                        update_entry(idx, idx, T::ONE);
                         continue;
                     }
 
@@ -425,7 +425,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         solution: &Array1<T>,
     ) {
         let alpha = self.velocity_relaxation;
-        let one_minus_alpha = T::one() - alpha;
+        let one_minus_alpha = T::ONE - alpha;
 
         for j in 0..self.grid.ny {
             for i in 0..self.grid.nx {
@@ -447,9 +447,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                                 }
                             } else {
                                 if let Some(u_star) = fields.u_star.at_mut(i, j) {
-                                    *u_star = T::zero();
+                                    *u_star = T::ZERO;
                                 }
-                                *u = T::zero();
+                                *u = T::ZERO;
                             }
                         }
                     }
@@ -467,9 +467,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                                 }
                             } else {
                                 if let Some(v_star) = fields.v_star.at_mut(i, j) {
-                                    *v_star = T::zero();
+                                    *v_star = T::ZERO;
                                 }
-                                *v = T::zero();
+                                *v = T::ZERO;
                             }
                         }
                     }

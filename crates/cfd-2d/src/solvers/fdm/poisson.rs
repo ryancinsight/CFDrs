@@ -14,8 +14,8 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::Array1;
@@ -27,12 +27,12 @@ use crate::grid::StructuredGrid2D;
 use crate::scalar;
 
 /// Poisson equation solver
-pub struct PoissonSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct PoissonSolver<T: CfdScalar + EunomiaRealField + Copy> {
     config: FdmConfig<T>,
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
     /// Create new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self {
@@ -187,7 +187,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
 
         // Laplacian can include non-uniform spacing
         let one: T = scalar::one();
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         // Correct 5-point stencil for ∇²φ = f:
         // Center: φ_i,j coefficient = -(2/dx² + 2/dy²)

@@ -1,9 +1,9 @@
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Compute separate L2-norm residuals for convergence assessment.
     ///
     /// Returns (res_continuity_rms, res_continuity_l1, res_max_pointwise):

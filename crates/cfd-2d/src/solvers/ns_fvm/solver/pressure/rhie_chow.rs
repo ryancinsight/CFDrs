@@ -1,11 +1,11 @@
 //! Mass-flux and face-interpolation solvers.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Applies the mass flux correction from the solved pressure field.
     ///
     /// Updates face velocities (`u` and `v`) based on the pressure correction gradients
@@ -31,7 +31,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
             }
         }
 
-        let tiny: T = scalar::from_f64(1e-30);
+        let tiny: T = <T as FloatElement>::from_f64(1e-30);
         if <T as NumericElement>::abs(q_out) > tiny && <T as NumericElement>::abs(q_in) > tiny {
             let scale = q_in / q_out;
             for j in 0..ny {

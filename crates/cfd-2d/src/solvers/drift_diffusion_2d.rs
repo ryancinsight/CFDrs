@@ -28,19 +28,19 @@
 //! - Patankar, S.V. (1980). *Numerical Heat Transfer and Fluid Flow*. Hemisphere Publishing.
 
 use crate::grid::array2d::Array2D;
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, max, one, zero};
+use crate::scalar::{max, one, zero};
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::ScalarTransportConfig;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// 2D Drift-Diffusion Transport Solver
-pub struct DriftDiffusionSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct DriftDiffusionSolver2D<T: CfdScalar + Copy + FloatElement> {
     /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
     /// Create new drift-diffusion transport solver
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
@@ -65,9 +65,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
         let dy = grid.dy;
         let gamma = config.diffusion_coeff;
         let zero = zero::<T>();
-        let half = from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let one = one::<T>();
-        let omega = from_f64::<T>(0.8); // Under-relaxation
+        let omega = <T as FloatElement>::from_f64(0.8); // Under-relaxation
 
         for iteration in 0..config.max_iterations {
             let mut max_diff = zero;
@@ -135,7 +135,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
                         a_p_eff += d_in;
                     }
 
-                    if <T as NumericElement>::abs(a_p_eff) > from_f64::<T>(1e-30) {
+                    if <T as NumericElement>::abs(a_p_eff) > <T as FloatElement>::from_f64(1e-30) {
                         let c_e = if i < nx - 1 && field.mask[(i + 1, j)] {
                             self.c[(i + 1, j)]
                         } else {

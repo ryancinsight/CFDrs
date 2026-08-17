@@ -6,20 +6,15 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
-use cfd_2d::Cfd2dScalar;
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::{Vector2, Vector3};
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn from_usize<T: FloatElement>(value: usize) -> T {
     let value_u64 = u64::try_from(value).expect("invariant: sample count fits in u64");
-    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+    <T as FloatElement>::from_f64(<u64 as NumericElement>::to_f64(value_u64))
 }
 
 #[inline]
@@ -237,7 +232,7 @@ fn run_lid_driven_cavity<T>(
     run: LidDrivenCavityRun<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement,
+    T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement,
 {
     let zero: T = zero();
     let one: T = one();
@@ -342,7 +337,7 @@ impl GhiaReferenceData {
 /// Extract centerline u-velocity profile from fields
 fn extract_centerline_u<T>(fields: &SimulationFields<T>, nx: usize, ny: usize) -> Vec<T>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
 {
     let centerline_i = nx / 2; // Center x location
     (0..ny).map(|j| fields.u.at(centerline_i, j)).collect()
@@ -351,7 +346,7 @@ where
 /// Calculate L2 error between computed and reference u-velocity profiles
 fn calculate_l2_error<T>(computed: &[T], y_computed: &[T], reference: &GhiaReferenceData) -> T
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
     // Interpolate reference data to match computed grid points
     let mut l2_error: T = zero();
@@ -359,8 +354,8 @@ where
 
     for (&y_comp, &u_comp) in y_computed.iter().zip(computed.iter()) {
         // Convert reference data to T for comparison
-        let y_min: T = from_f64(reference.y[0]);
-        let y_max: T = from_f64(reference.y[reference.y.len() - 1]);
+        let y_min: T = <T as FloatElement>::from_f64(reference.y[0]);
+        let y_max: T = <T as FloatElement>::from_f64(reference.y[reference.y.len() - 1]);
 
         if y_comp < y_min || y_comp > y_max {
             continue; // Skip boundary points that may not be accurate
@@ -377,10 +372,10 @@ where
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {
                 // Linear interpolation between reference points
-                let y1: T = from_f64(reference.y[idx - 1]);
-                let y2: T = from_f64(reference.y[idx]);
-                let u1: T = from_f64(reference.u_centerline[idx - 1]);
-                let u2: T = from_f64(reference.u_centerline[idx]);
+                let y1: T = <T as FloatElement>::from_f64(reference.y[idx - 1]);
+                let y2: T = <T as FloatElement>::from_f64(reference.y[idx]);
+                let u1: T = <T as FloatElement>::from_f64(reference.u_centerline[idx - 1]);
+                let u2: T = <T as FloatElement>::from_f64(reference.u_centerline[idx]);
 
                 let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
                 let error = u_comp - u_ref;
@@ -391,7 +386,7 @@ where
             _ => continue,
         };
 
-        let u_ref: T = from_f64(reference.u_centerline[idx]);
+        let u_ref: T = <T as FloatElement>::from_f64(reference.u_centerline[idx]);
         let error = u_comp - u_ref;
         l2_error += error * error;
         count += 1;

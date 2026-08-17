@@ -45,7 +45,7 @@ impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Bifurcation3D<T> {
         // In practice, this uses cylinder intersection tests
 
         // Parent branch (assumed along Z-axis from Z=0 to Z=l_parent)
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let r_p = self.d_parent * half;
         if point.z >= scalar::zero() && point.z <= self.l_parent {
             let r_sq = point.x * point.x + point.y * point.y;
@@ -121,10 +121,10 @@ impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Bifurcation3D<T> {
     }
 
     fn measure(&self) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
-        let r_parent = self.d_parent * scalar::from_f64::<T>(0.5);
-        let r_daughter_1 = self.d_daughters[0] * scalar::from_f64::<T>(0.5);
-        let r_daughter_2 = self.d_daughters[1] * scalar::from_f64::<T>(0.5);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+        let r_parent = self.d_parent * <T as FloatElement>::from_f64(0.5);
+        let r_daughter_1 = self.d_daughters[0] * <T as FloatElement>::from_f64(0.5);
+        let r_daughter_2 = self.d_daughters[1] * <T as FloatElement>::from_f64(0.5);
         let v_p = pi * r_parent * r_parent * self.l_parent;
         let v_d1 = pi * r_daughter_1 * r_daughter_1 * self.l_daughters[0];
         let v_d2 = pi * r_daughter_2 * r_daughter_2 * self.l_daughters[1];

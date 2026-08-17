@@ -44,6 +44,7 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use leto::geometry::Vector3 as LetoVector3;
 use serde::{Deserialize, Serialize};
@@ -74,17 +75,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Defaul
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: scalar::from_f64::<T>(1e-8),
-            inlet_pressure: scalar::from_f64::<T>(100.0),
+            inlet_flow_rate: <T as FloatElement>::from_f64(1e-8),
+            inlet_pressure: <T as FloatElement>::from_f64(100.0),
             outlet_pressures: [
                 scalar::zero::<T>(),
                 scalar::zero::<T>(),
                 scalar::zero::<T>(),
             ],
             max_nonlinear_iterations: 20,
-            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
+            nonlinear_tolerance: <T as FloatElement>::from_f64(1e-4),
             max_linear_iterations: 1000,
-            linear_tolerance: scalar::from_f64::<T>(1e-6),
+            linear_tolerance: <T as FloatElement>::from_f64(1e-6),
             target_mesh_size: None,
         }
     }
@@ -133,30 +134,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
 
         // 1. Generate Volumetric Mesh from exact SDF
         let geom_f64 = crate::trifurcation::TrifurcationGeometry3D {
-            d_parent: scalar::to_f64(self.geometry.d_parent),
-            l_parent: scalar::to_f64(self.geometry.l_parent),
+            d_parent: <T as NumericElement>::to_f64(self.geometry.d_parent),
+            l_parent: <T as NumericElement>::to_f64(self.geometry.l_parent),
             d_daughters: [
-                scalar::to_f64(self.geometry.d_daughters[0]),
-                scalar::to_f64(self.geometry.d_daughters[1]),
-                scalar::to_f64(self.geometry.d_daughters[2]),
+                <T as NumericElement>::to_f64(self.geometry.d_daughters[0]),
+                <T as NumericElement>::to_f64(self.geometry.d_daughters[1]),
+                <T as NumericElement>::to_f64(self.geometry.d_daughters[2]),
             ],
             l_daughters: [
-                scalar::to_f64(self.geometry.l_daughters[0]),
-                scalar::to_f64(self.geometry.l_daughters[1]),
-                scalar::to_f64(self.geometry.l_daughters[2]),
+                <T as NumericElement>::to_f64(self.geometry.l_daughters[0]),
+                <T as NumericElement>::to_f64(self.geometry.l_daughters[1]),
+                <T as NumericElement>::to_f64(self.geometry.l_daughters[2]),
             ],
-            l_transition: scalar::to_f64(self.geometry.l_transition),
+            l_transition: <T as NumericElement>::to_f64(self.geometry.l_transition),
             transition: crate::bifurcation::ConicalTransition::SmoothCone {
-                length: scalar::to_f64(self.geometry.l_transition),
+                length: <T as NumericElement>::to_f64(self.geometry.l_transition),
             },
             branching_angles: [
-                scalar::to_f64(self.geometry.branching_angles[0]),
-                scalar::to_f64(self.geometry.branching_angles[1]),
-                scalar::to_f64(self.geometry.branching_angles[2]),
+                <T as NumericElement>::to_f64(self.geometry.branching_angles[0]),
+                <T as NumericElement>::to_f64(self.geometry.branching_angles[1]),
+                <T as NumericElement>::to_f64(self.geometry.branching_angles[2]),
             ],
         };
         let target_h = if let Some(h) = self.config.target_mesh_size {
-            scalar::to_f64(h)
+            <T as NumericElement>::to_f64(h)
         } else {
             geom_f64.d_parent / 8.0_f64
         };
@@ -191,10 +192,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
 
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
-        let fluid_props =
-            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
+        let fluid_props = fluid.properties_at(
+            <T as FloatElement>::from_f64(310.0),
+            self.config.inlet_pressure,
+        )?;
 
-        let inlet_area = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+        let inlet_area = <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0)
             * self.geometry.d_parent
             * self.geometry.d_parent;
         let q_inlet_target = self.config.inlet_flow_rate;
@@ -353,7 +356,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             boundary_conditions.insert(
                 v_idx,
                 cfd_core::physics::boundary::BoundaryCondition::VelocityInlet {
-                    velocity: LetoVector3::new(scalar::to_f64(u_inlet), 0.0_f64, 0.0_f64),
+                    velocity: LetoVector3::new(
+                        <T as NumericElement>::to_f64(u_inlet),
+                        0.0_f64,
+                        0.0_f64,
+                    ),
                 },
             );
         }
@@ -365,7 +372,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(0)
                 .min(self.config.outlet_pressures.len().saturating_sub(1));
-            let pressure = scalar::to_f64(self.config.outlet_pressures[idx]);
+            let pressure = <T as NumericElement>::to_f64(self.config.outlet_pressures[idx]);
             for &v_idx in nodes {
                 boundary_conditions.entry(v_idx).or_insert(
                     cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { pressure },
@@ -394,19 +401,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "Picard Iteration Basis".to_string(),
-            aequitas::systems::si::quantities::MassDensity::from_base(scalar::to_f64(
-                fluid_props.density.into_base(),
-            )),
-            aequitas::systems::si::quantities::DynamicViscosity::from_base(scalar::to_f64(
-                fluid_props.dynamic_viscosity.into_base(),
-            )),
-            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(scalar::to_f64(
-                fluid_props.specific_heat.into_base(),
-            )),
-            aequitas::systems::si::quantities::ThermalConductivity::from_base(scalar::to_f64(
-                fluid_props.thermal_conductivity.into_base(),
-            )),
-            aequitas::systems::si::quantities::Velocity::from_base(scalar::to_f64(
+            aequitas::systems::si::quantities::MassDensity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.density.into_base()),
+            ),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            ),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.specific_heat.into_base()),
+            ),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.thermal_conductivity.into_base()),
+            ),
+            aequitas::systems::si::quantities::Velocity::from_base(<T as NumericElement>::to_f64(
                 fluid_props.speed_of_sound.into_base(),
             )),
         );
@@ -420,13 +427,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
+            vec![
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base());
+                n_elements
+            ];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
         let mut fem_config = FemConfig::<f64>::default();
         fem_config.base.convergence.max_iterations = self.config.max_linear_iterations;
-        fem_config.base.convergence.tolerance = scalar::to_f64(self.config.linear_tolerance);
+        fem_config.base.convergence.tolerance =
+            <T as NumericElement>::to_f64(self.config.linear_tolerance);
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
         let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
@@ -481,9 +492,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
                     self.calculate_element_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
-                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
+                let shear_rate = <T as FloatElement>::from_f64(shear_rate_f64);
                 let new_visc_t = fluid.apparent_viscosity(shear_rate);
-                let new_visc = scalar::to_f64(new_visc_t.into_base());
+                let new_visc = <T as NumericElement>::to_f64(new_visc_t.into_base());
                 let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
@@ -502,7 +513,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 visc_change = max_change_f64,
                 "Trifurcation Picard iteration"
             );
-            if max_change_f64 < scalar::to_f64(self.config.nonlinear_tolerance) {
+            if max_change_f64 < <T as NumericElement>::to_f64(self.config.nonlinear_tolerance) {
                 break;
             }
         }
@@ -514,7 +525,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // 5. Build Result
         let empty_faces: [FaceId; 0] = [];
 
-        let q_parent_fem = scalar::from_f64::<T>(
+        let q_parent_fem = <T as FloatElement>::from_f64(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -524,7 +535,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 "inlet",
             )?,
         );
-        let q_d1 = scalar::from_f64::<T>(
+        let q_d1 = <T as FloatElement>::from_f64(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -534,7 +545,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 "outlet_0",
             )?,
         );
-        let q_d2 = scalar::from_f64::<T>(
+        let q_d2 = <T as FloatElement>::from_f64(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -544,7 +555,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 "outlet_1",
             )?,
         );
-        let q_d3 = scalar::from_f64::<T>(
+        let q_d3 = <T as FloatElement>::from_f64(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -555,13 +566,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             )?,
         );
 
-        let a_d1 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+        let a_d1 = <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[0]
             * self.geometry.d_daughters[0];
-        let a_d2 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+        let a_d2 = <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[1]
             * self.geometry.d_daughters[1];
-        let a_d3 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+        let a_d3 = <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[2]
             * self.geometry.d_daughters[2];
 
@@ -570,8 +581,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         let u_d3 = q_d3 / a_d3;
 
         let compute_poiseuille_wss = |q: T, d: T, mu: T| -> T {
-            scalar::from_f64::<T>(32.0) * mu * q
-                / (scalar::from_f64::<T>(std::f64::consts::PI) * d * d * d)
+            <T as FloatElement>::from_f64(32.0) * mu * q
+                / (<T as FloatElement>::from_f64(std::f64::consts::PI) * d * d * d)
         };
 
         let mu_eff = fluid_props.dynamic_viscosity.into_base();
@@ -590,7 +601,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     .get("inlet")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or(self.config.inlet_pressure, scalar::from_f64::<T>);
+            .map_or(self.config.inlet_pressure, <T as FloatElement>::from_f64);
 
         let p_out0 = self
             .average_boundary_pressure_on_faces_f64(
@@ -600,7 +611,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     .get("outlet_0")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
+            .map_or_else(|| scalar::zero::<T>(), <T as FloatElement>::from_f64);
         let p_out1 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
@@ -609,7 +620,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     .get("outlet_1")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
+            .map_or_else(|| scalar::zero::<T>(), <T as FloatElement>::from_f64);
         let p_out2 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
@@ -618,9 +629,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     .get("outlet_2")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
+            .map_or_else(|| scalar::zero::<T>(), <T as FloatElement>::from_f64);
 
-        let p_out_mean = (p_out0 + p_out1 + p_out2) / scalar::from_f64::<T>(3.0);
+        let p_out_mean = (p_out0 + p_out1 + p_out2) / <T as FloatElement>::from_f64(3.0);
         let dp = [
             scalar::abs(p_inlet_avg - p_out_mean),
             scalar::abs(p_inlet_avg - p_out0),
@@ -703,15 +714,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         match label {
             "inlet" => Some(leto::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
             "outlet_0" => {
-                let theta = scalar::to_f64(self.geometry.branching_angles[0]);
+                let theta = <T as NumericElement>::to_f64(self.geometry.branching_angles[0]);
                 Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_1" => {
-                let theta = scalar::to_f64(self.geometry.branching_angles[1]);
+                let theta = <T as NumericElement>::to_f64(self.geometry.branching_angles[1]);
                 Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_2" => {
-                let theta = scalar::to_f64(self.geometry.branching_angles[2]);
+                let theta = <T as NumericElement>::to_f64(self.geometry.branching_angles[2]);
                 Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             _ => None,

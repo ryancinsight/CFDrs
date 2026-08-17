@@ -46,8 +46,8 @@
 //!   *ASME J. Heat Transfer*, 124(2), 260–267.
 
 use crate::domain::channel::cross_section::CrossSection;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::CfdScalar;
 
 /// Shah-London 5-term polynomial coefficients for `Po(α)`.
 ///
@@ -69,11 +69,11 @@ const SHAH_LONDON_C: [f64; 5] = [1.3553, 1.9467, 1.7012, 0.9564, 0.2537];
 ///
 /// # Returns
 /// Poiseuille number `Po ∈ [56.908, 96]`.
-pub fn shah_london_po<T: Cfd1dScalar + Copy + SafeFromF64>(alpha: T) -> T {
-    let inv_a = T::one() / alpha;
+pub fn shah_london_po<T: CfdScalar + Copy + SafeFromF64>(alpha: T) -> T {
+    let inv_a = T::ONE / alpha;
     let mut power = inv_a;
-    let mut correction = T::zero();
-    let mut sign = -T::one();
+    let mut correction = T::ZERO;
+    let mut sign = -T::ONE;
 
     for &coeff in &SHAH_LONDON_C {
         let c = T::from_f64_or_one(coeff);
@@ -82,7 +82,7 @@ pub fn shah_london_po<T: Cfd1dScalar + Copy + SafeFromF64>(alpha: T) -> T {
         sign = -sign;
     }
 
-    T::from_f64_or_one(96.0) * (T::one() + correction)
+    T::from_f64_or_one(96.0) * (T::ONE + correction)
 }
 
 /// Compute the Poiseuille number `Po = f·Re` for a given cross-section shape.
@@ -90,9 +90,7 @@ pub fn shah_london_po<T: Cfd1dScalar + Copy + SafeFromF64>(alpha: T) -> T {
 /// Dispatches to the appropriate analytical formula based on cross-section type.
 ///
 /// See module-level documentation for the governing theorems and references.
-pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
-    cross_section: &CrossSection<T>,
-) -> T {
+pub fn poiseuille_number<T: CfdScalar + Copy + SafeFromF64>(cross_section: &CrossSection<T>) -> T {
     match cross_section {
         CrossSection::Circular { .. } => {
             // Exact Hagen-Poiseuille: Po = 64
@@ -107,7 +105,7 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
             } else {
                 (height, width)
             };
-            if b <= T::zero() {
+            if b <= T::ZERO {
                 return T::from_f64_or_one(64.0);
             }
             shah_london_po(a / b)
@@ -118,10 +116,10 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
         } => {
             // Exact Stokes solution: Po = 2π(a² + b²) / (a·b)
             // (Dryden, Murnaghan & Bateman 1932)
-            let two = T::one() + T::one();
+            let two = T::ONE + T::ONE;
             let a = major_axis.into_base() / two;
             let b = minor_axis.into_base() / two;
-            if a <= T::zero() || b <= T::zero() {
+            if a <= T::ZERO || b <= T::ZERO {
                 return T::from_f64_or_one(64.0);
             }
             T::from_f64_or_one(2.0 * std::f64::consts::PI) * (a * a + b * b) / (a * b)
@@ -136,8 +134,8 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
             let top_width = top_width.into_base();
             let bottom_width = bottom_width.into_base();
             let height = height.into_base();
-            let avg_width = (top_width + bottom_width) / (T::one() + T::one());
-            if height <= T::zero() || avg_width <= T::zero() {
+            let avg_width = (top_width + bottom_width) / (T::ONE + T::ONE);
+            if height <= T::ZERO || avg_width <= T::ZERO {
                 return T::from_f64_or_one(64.0);
             }
             let (a, b) = if avg_width >= height {

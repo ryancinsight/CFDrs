@@ -14,20 +14,20 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::scalar::Cfd2dScalar;
 use cfd_core::compute::solver::SolverConfig;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use serde::{Deserialize, Serialize};
 
 /// Finite Difference Method solver configuration
 /// Uses unified `SolverConfig` as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FdmConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct FdmConfig<T: CfdScalar + EunomiaRealField + Copy> {
     /// Base solver configuration (SSOT)
     pub base: SolverConfig<T>,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Default for FdmConfig<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),
@@ -35,7 +35,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Default for FdmCon
     }
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy> FdmConfig<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy> FdmConfig<T> {
     /// Get maximum iterations from base config
     pub fn max_iterations(&self) -> usize {
         self.base.convergence.max_iterations

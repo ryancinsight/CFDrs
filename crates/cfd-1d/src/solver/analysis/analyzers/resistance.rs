@@ -2,30 +2,30 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::{Network, NetworkGraphExt};
-use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::ResistanceAnalysis;
 use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use petgraph::algo::all_simple_paths;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Resistance analyzer for network components
-pub struct ResistanceAnalyzer<T: Cfd1dScalar + Copy> {
+pub struct ResistanceAnalyzer<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for ResistanceAnalyzer<T> {
+impl<T: CfdScalar + Copy> Default for ResistanceAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + Copy> ResistanceAnalyzer<T> {
+impl<T: CfdScalar + Copy> ResistanceAnalyzer<T> {
     /// Create new resistance analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -35,7 +35,7 @@ impl<T: Cfd1dScalar + Copy> ResistanceAnalyzer<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for ResistanceAnalyzer<T>
 {
     type Result = ResistanceAnalysis<T>;
@@ -56,7 +56,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
     fn populate_edge_resistances(
         &self,
         network: &Network<T>,
@@ -65,7 +65,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
         let fluid = network.fluid();
 
         for edge in network.edges_with_properties() {
-            let flow_rate = if edge.flow_rate.into_base() == T::zero() {
+            let flow_rate = if edge.flow_rate.into_base() == T::ZERO {
                 None
             } else {
                 Some(edge.flow_rate.into_base())
@@ -148,7 +148,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                     }
 
                     for edge_path in edge_paths {
-                        let mut resistance_sum = T::zero();
+                        let mut resistance_sum = T::ZERO;
                         let mut edge_ids = Vec::with_capacity(edge_path.len());
                         let mut edge_valid = true;
 
@@ -179,7 +179,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                             }
                             Some(best) => {
                                 let diff = <T as NumericElement>::abs(resistance_sum - best);
-                                let scale = <T as NumericElement>::abs(best) + T::one();
+                                let scale = <T as NumericElement>::abs(best) + T::ONE;
                                 if resistance_sum > best {
                                     best_resistance = Some(resistance_sum);
                                     best_paths = vec![edge_ids];
@@ -197,7 +197,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
     fn calculate_resistance(
         &self,
         properties: &crate::domain::network::EdgeProperties<T>,

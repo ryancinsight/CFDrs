@@ -41,11 +41,11 @@ impl<T: RealField + Copy + FloatElement> Venturi2D<T> {
             inlet_width,
             throat_width,
             outlet_width: inlet_width, // Symmetric usually
-            l_inlet: inlet_width * scalar::from_f64::<T>(2.0),
+            l_inlet: inlet_width * <T as FloatElement>::from_f64(2.0),
             l_converge: converge_len,
             l_throat: throat_len,
             l_diverge: diverge_len,
-            l_outlet: inlet_width * scalar::from_f64::<T>(2.0),
+            l_outlet: inlet_width * <T as FloatElement>::from_f64(2.0),
         }
     }
 
@@ -125,7 +125,8 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for Venturi2D<T> {
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
-        let y_max = scalar::max(self.inlet_width, self.outlet_width) * scalar::from_f64::<T>(0.6);
+        let y_max =
+            scalar::max(self.inlet_width, self.outlet_width) * <T as FloatElement>::from_f64(0.6);
         (
             Point2D::new(scalar::zero(), -y_max),
             Point2D::new(self.total_length(), y_max),

@@ -56,25 +56,25 @@
 //! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
 
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use leto::Array1;
 use leto_ops::{CooMatrix, CsrMatrix};
 
 /// Matrix assembler for building the linear system from network equations
-pub struct MatrixAssembler<T: Cfd1dScalar + Copy> {
+pub struct MatrixAssembler<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for MatrixAssembler<T> {
+impl<T: CfdScalar + Copy> Default for MatrixAssembler<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + Copy> MatrixAssembler<T> {
+impl<T: CfdScalar + Copy> MatrixAssembler<T> {
     /// Create a new matrix assembler
     #[must_use]
     pub fn new() -> Self {
@@ -84,7 +84,7 @@ impl<T: Cfd1dScalar + Copy> MatrixAssembler<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
+impl<T: CfdScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
     /// Classify boundary conditions into Dirichlet and Neumann arrays.
     ///
     /// Validates that at least one Dirichlet BC exists and that
@@ -168,7 +168,7 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
         let n = network.node_count();
         let mut coo = CooMatrix::new(n, n);
         let rhs = &mut workspace.rhs;
-        rhs.fill(T::zero());
+        rhs.fill(T::ZERO);
 
         let dirichlet_values = &workspace.dirichlet_values;
         let neumann_sources = &workspace.neumann_sources;
@@ -193,7 +193,7 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
                 )));
             }
 
-            if conductance <= T::zero() {
+            if conductance <= T::ZERO {
                 return Err(Error::InvalidConfiguration(
                     "Non-positive conductance encountered in network assembly".to_string(),
                 ));
@@ -238,7 +238,7 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
         // Inject identity rows for Dirichlet nodes with exact values
         for (idx, dir_val) in dirichlet_values.iter().enumerate() {
             if let Some(pressure) = dir_val {
-                coo.push(idx, idx, T::one());
+                coo.push(idx, idx, T::ONE);
                 rhs[idx] = *pressure;
             }
         }

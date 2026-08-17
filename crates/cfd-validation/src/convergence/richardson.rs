@@ -40,7 +40,7 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
 
     /// Create with standard second-order accuracy
     pub fn second_order(refinement_ratio: T) -> Result<Self> {
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         Self::with_order(two, refinement_ratio)
     }
 
@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        let epsilon_tolerance = scalar::from_f64::<T>(
+        let epsilon_tolerance = <T as FloatElement>::from_f64(
             cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE,
         );
 
@@ -100,7 +100,7 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
         let epsilon_21 = scalar::abs(f_medium - f_fine);
         let epsilon_32 = scalar::abs(f_coarse - f_medium);
 
-        let epsilon_tolerance = scalar::from_f64::<T>(
+        let epsilon_tolerance = <T as FloatElement>::from_f64(
             cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE,
         );
 
@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
 
         // Check if within 10% of expected ratio
         let relative_diff = scalar::abs((observed_ratio - expected_ratio) / expected_ratio);
-        let ten_percent = scalar::from_f64::<T>(0.1);
+        let ten_percent = <T as FloatElement>::from_f64(0.1);
         relative_diff < ten_percent
     }
 }
@@ -153,7 +153,7 @@ where
         let r32 = h_coarse_actual / h_medium; // Refinement ratio between medium and coarse
 
         // Check if refinement ratios are uniform (within 1% tolerance)
-        let one_percent = scalar::from_f64::<T>(0.01);
+        let one_percent = <T as FloatElement>::from_f64(0.01);
 
         if (scalar::abs(r21 - r32) / r21) > one_percent {
             return Err(Error::InvalidInput(format!(
@@ -167,7 +167,7 @@ where
         RichardsonExtrapolation::estimate_order(f_coarse_actual, f_medium, f_fine, r21)?
     } else {
         // Assume second order if not enough data
-        scalar::from_f64::<T>(2.0)
+        <T as FloatElement>::from_f64(2.0)
     };
 
     let extrapolator = RichardsonExtrapolation::with_order(order, r21)?;

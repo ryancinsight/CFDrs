@@ -4,7 +4,7 @@
 //! bilinear prolongation operators.
 
 use super::{
-    ops::{from_f64, l2_norm, matrix_vector_product},
+    ops::{l2_norm, matrix_vector_product},
     GeometricMultigrid, GmgMatrix, GmgVector,
 };
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -66,8 +66,8 @@ impl<T: RealField + FloatElement> GeometricMultigrid<T> {
                 let fine_i = i * 2;
                 let fine_j = j * 2;
 
-                let four = from_f64::<T>(4.0);
-                let two = from_f64::<T>(2.0);
+                let four = <T as FloatElement>::from_f64(4.0);
+                let two = <T as FloatElement>::from_f64(2.0);
                 let one = <T as NumericElement>::ONE;
 
                 if fine_i < fine_nx && fine_j < fine_ny {

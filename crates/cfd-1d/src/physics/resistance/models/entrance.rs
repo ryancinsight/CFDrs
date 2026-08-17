@@ -77,9 +77,11 @@
 //!   *Journal of Applied Mechanics*, 9(2), A55-A58.
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 // Named constants for entrance effects (Idelchik 1994 §5)
@@ -115,7 +117,7 @@ pub struct EntranceEffectsModel<T> {
     pub inlet_smoothness: T,
 }
 
-impl<T: ResistanceScalar> EntranceEffectsModel<T> {
+impl<T: CfdScalar> EntranceEffectsModel<T> {
     /// Create a new entrance effects model
     pub fn new(upstream_area: T, downstream_area: T, inlet_smoothness: T) -> Self {
         Self {
@@ -129,7 +131,7 @@ impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     ///
     /// Uses Idelchik (1994) §5: K = 0.5·(1 − A₂/A₁)·(1 + 0.1/Re)
     pub fn sudden_contraction(upstream_area: T, downstream_area: T) -> Self {
-        Self::new(upstream_area, downstream_area, T::zero())
+        Self::new(upstream_area, downstream_area, T::ZERO)
     }
 
     /// Create a model for smooth (well-rounded) contraction.
@@ -137,11 +139,11 @@ impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     /// Turbulent: K = 0.05 + 0.19·(A₁/A₂)   [Blevins 1984]
     /// Laminar:   K = 1.25                     [Langhaar 1942 exact]
     pub fn smooth_contraction(upstream_area: T, downstream_area: T) -> Self {
-        Self::new(upstream_area, downstream_area, T::one())
+        Self::new(upstream_area, downstream_area, T::ONE)
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     /// Calculate effective linearised hydraulic resistance [Pa·s/m³].
     ///
     /// Returns `R_eff = k · |Q|` where `k = K_entry · ρ / (2 A₂²)`.
@@ -154,16 +156,16 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
+            if q >= T::ZERO {
                 q
             } else {
                 -q
             }
         } else if let Some(v) = conditions.velocity {
-            let v_abs = if v >= T::zero() { v } else { -v };
+            let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.downstream_area
         } else {
-            T::zero()
+            T::ZERO
         };
         Ok(r + k * q_mag)
     }
@@ -194,9 +196,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
         let area_ratio = self.upstream_area / self.downstream_area;
 
         // K_entry [-]
-        let k_entry = if self.inlet_smoothness == T::zero() {
+        let k_entry = if self.inlet_smoothness == T::ZERO {
             self.calculate_sudden_contraction_coefficient(area_ratio, reynolds)
-        } else if self.inlet_smoothness == T::one() {
+        } else if self.inlet_smoothness == T::ONE {
             self.calculate_smooth_contraction_coefficient(area_ratio, reynolds)
         } else {
             let k_sudden = self.calculate_sudden_contraction_coefficient(area_ratio, reynolds);
@@ -206,10 +208,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
 
         // k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
         // Derivation: ΔP = K · ½ρV₂² = K · ρQ²/(2A₂²)
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         let k_coeff = k_entry * rho / (two * self.downstream_area * self.downstream_area);
 
-        Ok((T::zero(), k_coeff))
+        Ok((T::ZERO, k_coeff))
     }
 
     fn model_name(&self) -> &'static str {
@@ -217,7 +219,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), scalar_from_f64::<T>(MAX_REYNOLDS_ENTRANCE))
+        (
+            T::ZERO,
+            <T as FloatElement>::from_f64(MAX_REYNOLDS_ENTRANCE),
+        )
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -233,12 +238,12 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
                 "Entrance model: downstream_area must be ≤ upstream_area".to_string(),
             ));
         }
-        if self.downstream_area <= T::zero() {
+        if self.downstream_area <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Entrance model: downstream_area must be positive".to_string(),
             ));
         }
-        if self.upstream_area <= T::zero() {
+        if self.upstream_area <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Entrance model: upstream_area must be positive".to_string(),
             ));
@@ -248,7 +253,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> EntranceEffectsModel<T> {
+impl<T: CfdScalar> EntranceEffectsModel<T> {
     /// Compute K for sudden (sharp-edged) contraction (Idelchik 1994 §5).
     ///
     /// ```text
@@ -261,13 +266,13 @@ impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     ///   (classical Borda-Carnot sharp-elbow coefficient)
     fn calculate_sudden_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
         // contraction_ratio = 1 − A₂/A₁ = 1 − 1/area_ratio  ∈ [0, 1)
-        let contraction_ratio = T::one() - T::one() / area_ratio;
+        let contraction_ratio = T::ONE - T::ONE / area_ratio;
         // base: 0.5·(1 − A₂/A₁)
-        let k_base = (T::one() / (T::one() + T::one())) * contraction_ratio;
+        let k_base = (T::ONE / (T::ONE + T::ONE)) * contraction_ratio;
         // Low-Re correction: multiply by (1 + C/Re)
-        let c = scalar_from_f64::<T>(SUDDEN_CONTRACTION_CONSTANT);
+        let c = <T as FloatElement>::from_f64(SUDDEN_CONTRACTION_CONSTANT);
         let re_correction = c / reynolds;
-        k_base * (T::one() + re_correction)
+        k_base * (T::ONE + re_correction)
     }
 
     /// Compute K for smooth (well-rounded) contraction.
@@ -275,14 +280,14 @@ impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     /// Turbulent (Re > 10⁴): `K = 0.05 + 0.19 · (A₁/A₂)`  [Blevins 1984 ch. 6]
     /// Laminar: `K = 1.25`  [Langhaar 1942 exact analytical solution]
     fn calculate_smooth_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
-        let re_transition = scalar_from_f64::<T>(TURBULENT_TRANSITION_RE);
+        let re_transition = <T as FloatElement>::from_f64(TURBULENT_TRANSITION_RE);
         if reynolds > re_transition {
             // Turbulent smooth inlet correlation (Blevins 1984)
-            scalar_from_f64::<T>(SMOOTH_CONTRACTION_BASE)
-                + scalar_from_f64::<T>(SMOOTH_CONTRACTION_SLOPE) * area_ratio
+            <T as FloatElement>::from_f64(SMOOTH_CONTRACTION_BASE)
+                + <T as FloatElement>::from_f64(SMOOTH_CONTRACTION_SLOPE) * area_ratio
         } else {
             // Laminar: Langhaar (1942) exact total entrance coefficient = 1.25
-            scalar_from_f64::<T>(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT)
+            <T as FloatElement>::from_f64(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT)
         }
     }
 }

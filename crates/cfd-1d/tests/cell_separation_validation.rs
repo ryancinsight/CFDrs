@@ -26,7 +26,7 @@ use cfd_1d::physics::cell_separation::{
     CellProperties, CellSeparationModel,
 };
 use cfd_1d::physics::resistance::{FlowConditions, VenturiModel};
-use eunomia::{assert_relative_eq, FloatElement};
+use eunomia::assert_relative_eq;
 
 // ── Blood properties (Casson model at 37°C) ───────────────────────────────────
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³

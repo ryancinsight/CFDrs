@@ -58,7 +58,7 @@ impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Serpentine3D<T> {
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
         let total_l = self.wavelength * scalar::from_usize::<T>(self.num_periods);
-        let half_d = self.diameter / scalar::from_f64::<T>(2.0);
+        let half_d = self.diameter / <T as FloatElement>::from_f64(2.0);
         (
             Point3D::new(-self.amplitude - half_d, -half_d, scalar::zero()),
             Point3D::new(self.amplitude + half_d, half_d, total_l),
@@ -74,10 +74,10 @@ impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Serpentine3D<T> {
     }
 
     fn measure(&self) -> T {
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let total_l = self.wavelength * scalar::from_usize::<T>(self.num_periods);
-        let radius = self.diameter / scalar::from_f64::<T>(2.0);
-        let area = pi * scalar::powf(radius, scalar::from_f64::<T>(2.0));
+        let radius = self.diameter / <T as FloatElement>::from_f64(2.0);
+        let area = pi * scalar::powf(radius, <T as FloatElement>::from_f64(2.0));
         area * total_l
     }
 }

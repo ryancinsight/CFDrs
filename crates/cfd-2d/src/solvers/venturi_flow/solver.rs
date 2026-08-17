@@ -3,10 +3,10 @@
 use super::analytical::BernoulliVenturi;
 use super::geometry::VenturiGeometry;
 use super::solution::VenturiFlowSolution;
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{self, from_f64};
+use crate::scalar::{self};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::error::{Error, Result as CfdResult};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -15,12 +15,12 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// 2D Venturi flow solver using Finite Volume Method (FVM)
-pub struct VenturiSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
+pub struct VenturiSolver2D<T: CfdScalar + eunomia::RealField + Copy + FloatElement> {
     _geometry: VenturiGeometry<T>,
     solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<T> {
     /// Create a new discretized Venturi solver with uniform grid spacing.
     pub fn new(
         geometry: VenturiGeometry<T>,
@@ -108,7 +108,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
         );
 
         let ly = geometry.w_inlet;
-        let two_pi = from_f64::<T>(2.0 * std::f64::consts::PI);
+        let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
         let mut y_faces = Vec::with_capacity(ny + 1);
         let ny_t = scalar::from_usize::<T>(ny);
         for j in 0..=ny {
@@ -127,9 +127,12 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
             .map(|j| solver.grid.dy_at(j))
             .fold(ly, NumericElement::min_scalar);
         let cr = geometry.w_inlet
-            / <T as NumericElement>::max_scalar(geometry.w_throat, from_f64::<T>(1e-12));
-        if dy_min > geometry.w_throat / from_f64::<T>(2.0) {
-            let throat_half = geometry.w_throat / from_f64::<T>(2.0);
+            / <T as NumericElement>::max_scalar(
+                geometry.w_throat,
+                <T as FloatElement>::from_f64(1e-12),
+            );
+        if dy_min > geometry.w_throat / <T as FloatElement>::from_f64(2.0) {
+            let throat_half = geometry.w_throat / <T as FloatElement>::from_f64(2.0);
             tracing::debug!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
@@ -155,7 +158,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) {
-        let half_h = geometry.w_inlet / from_f64::<T>(2.0);
+        let half_h = geometry.w_inlet / <T as FloatElement>::from_f64(2.0);
         for i in 0..nx {
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
@@ -205,7 +208,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
         // For fully-developed 2D laminar flow, ū = (2/3) u_max.
         let throat_x_mid = self._geometry.l_inlet
             + self._geometry.l_converge
-            + self._geometry.l_throat / from_f64::<T>(2.0);
+            + self._geometry.l_throat / <T as FloatElement>::from_f64(2.0);
         let mut i_throat = 0usize;
         let mut best_distance = {
             let dx = self.solver.grid.x_center(0) - throat_x_mid;
@@ -239,10 +242,11 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
         let dp_recovery = p_outlet - p_inlet;
 
         let rho = self.solver.density;
-        let q_dyn = from_f64::<T>(0.5) * rho * u_inlet * u_inlet;
+        let q_dyn = <T as FloatElement>::from_f64(0.5) * rho * u_inlet * u_inlet;
         // Guard: avoid division by near-zero dynamic pressure.  Use 1e-6 Pa (not 1.0)
         // so Cp remains physically meaningful even at very low inlet velocities.
-        let q_dyn_safe = <T as NumericElement>::max_scalar(q_dyn, from_f64::<T>(1e-6));
+        let q_dyn_safe =
+            <T as NumericElement>::max_scalar(q_dyn, <T as FloatElement>::from_f64(1e-6));
         let cp_throat = dp_throat / q_dyn_safe;
         let cp_recovery = dp_recovery / q_dyn_safe;
 
@@ -300,11 +304,11 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<
 // ============================================================================
 
 /// Venturi validation against analytical and literature solutions
-pub struct VenturiValidator<T: Cfd2dScalar + Copy> {
+pub struct VenturiValidator<T: CfdScalar + Copy> {
     geometry: VenturiGeometry<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> VenturiValidator<T> {
+impl<T: CfdScalar + Copy + FloatElement> VenturiValidator<T> {
     /// Create new validator
     pub fn new(geometry: VenturiGeometry<T>) -> Self {
         Self { geometry }
@@ -335,7 +339,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiValidator<T> {
         let p_throat_error = eunomia::NumericElement::abs(numerical.p_throat - p_throat_analytical)
             / eunomia::NumericElement::max_scalar(
                 eunomia::NumericElement::abs(p_throat_analytical),
-                from_f64::<T>(1.0),
+                <T as FloatElement>::from_f64(1.0),
             );
 
         let mut result = VenturiValidationResult {
@@ -346,8 +350,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiValidator<T> {
         };
 
         // Check tolerances
-        let tolerance_u = from_f64::<T>(0.01); // 1%
-        let tolerance_p = from_f64::<T>(0.05); // 5%
+        let tolerance_u = <T as FloatElement>::from_f64(0.01); // 1%
+        let tolerance_p = <T as FloatElement>::from_f64(0.05); // 5%
 
         if u_throat_error < tolerance_u && p_throat_error < tolerance_p {
             result.validation_passed = true;
@@ -378,7 +382,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> VenturiValidator<T> {
 
 /// Validation result for Venturi
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiValidationResult<T: Cfd2dScalar + Copy> {
+pub struct VenturiValidationResult<T: CfdScalar + Copy> {
     /// Relative error in throat velocity
     pub u_throat_error: Option<T>,
     /// Relative error in throat pressure

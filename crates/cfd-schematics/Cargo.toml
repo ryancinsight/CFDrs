@@ -5,15 +5,19 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-schematics"
+readme = "README.md"
 description = "Schematic network design, geometry generation, and metadata export for microfluidic/millifluidic devices"
+keywords = ["microfluidics", "millifluidics", "schematic", "geometry", "cfd"]
+categories = ["science", "simulation"]
 
 [features]
 default = []
 
 [dependencies]
 aequitas = { workspace = true, features = ["serde"] }
-cfd-core = { path = "../cfd-core" }
+cfd-core.workspace = true
 iris.workspace = true
 petgraph.workspace = true
 plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }

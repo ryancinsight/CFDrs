@@ -6,7 +6,7 @@
 //! $\alpha_u + \alpha_p \le 1$ (typically $\alpha_u = 0.7$, $\alpha_p = 0.3$).
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,7 @@ impl Default for PressureLinearSolver {
 
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureVelocityConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct PressureVelocityConfig<T: CfdScalar + EunomiaRealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -55,7 +55,7 @@ pub struct PressureVelocityConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> PressureVelocityConfig<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {

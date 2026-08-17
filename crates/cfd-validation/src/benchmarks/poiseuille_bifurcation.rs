@@ -148,13 +148,13 @@ impl<T: RealField + Copy + FloatElement> BifurcationConfig2D<T> {
     pub fn with_murrays_law(d_parent: T, flow_rate: T, inlet_pressure: T) -> Self {
         // Murray's Law: d_p³ = d₁³ + d₂³
         // For symmetric bifurcation: d₁ = d₂ = d_p / 2^(1/3)
-        let two = scalar::from_f64::<T>(2.0);
-        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
         let daughter_ratio = scalar::powf(two, one_third);
         let d_daughter = d_parent / daughter_ratio;
 
         // Typical vessel length = 50 × diameter (entrance length)
-        let fifty = scalar::from_f64::<T>(50.0);
+        let fifty = <T as FloatElement>::from_f64(50.0);
 
         Self {
             d_parent,
@@ -166,7 +166,7 @@ impl<T: RealField + Copy + FloatElement> BifurcationConfig2D<T> {
             flow_rate,
             inlet_pressure,
             ny: 101,
-            tolerance: scalar::from_f64::<T>(1e-8),
+            tolerance: <T as FloatElement>::from_f64(1e-8),
             max_iterations: 1000,
         }
     }
@@ -294,7 +294,7 @@ pub fn validate_bifurcation<T: RealField + Copy + FloatElement>(
     solution: &BifurcationSolution2D<T>,
     config: &BifurcationConfig2D<T>,
 ) -> ValidationResult<T> {
-    let tolerance = scalar::from_f64::<T>(0.05); // 5% tolerance
+    let tolerance = <T as FloatElement>::from_f64(0.05); // 5% tolerance
 
     // Check 1: Mass conservation
     let mass_error = scalar::abs(
@@ -327,7 +327,7 @@ pub fn validate_bifurcation<T: RealField + Copy + FloatElement>(
         all_passed: mass_error < tolerance
             && murray_error < tolerance
             && dp_error < tolerance
-            && wss_error < scalar::from_f64::<T>(0.2), // 20% tolerance for WSS
+            && wss_error < <T as FloatElement>::from_f64(0.2), // 20% tolerance for WSS
     }
 }
 

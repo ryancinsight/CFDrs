@@ -14,8 +14,8 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use cfd_math::SparseMatrix;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::Array1;
@@ -33,7 +33,7 @@ use crate::scalar;
 /// This provides better convergence than Jacobi (which uses all old values).
 ///
 /// Returns an error if convergence is not achieved within `max_iterations`.
-pub fn solve_gauss_seidel<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
+pub fn solve_gauss_seidel<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
     matrix: &SparseMatrix<T>,
     rhs: &Array1<T>,
     config: &FdmConfig<T>,
@@ -42,7 +42,7 @@ pub fn solve_gauss_seidel<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElemen
     let n = rhs.shape()[0];
     let zero: T = scalar::zero();
     let one: T = scalar::one();
-    let singular_tolerance = scalar::from_f64::<T>(1e-14);
+    let singular_tolerance = <T as FloatElement>::from_f64(1e-14);
     let mut solution: Array1<T> = Array1::from_elem([n], zero);
 
     for iteration in 0..config.max_iterations() {

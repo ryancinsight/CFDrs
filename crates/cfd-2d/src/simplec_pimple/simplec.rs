@@ -3,11 +3,11 @@ use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::physics::MomentumComponent;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// SIMPLEC (Van Doormaal & Raithby, 1984) improves SIMPLE by using
     /// consistent discretization for the pressure correction equation.
     pub(super) fn solve_simplec(
@@ -23,8 +23,8 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         let mut converged = false;
 
         let mut u_prev = self.extract_velocity_field(fields);
-        let mut continuity_residual = scalar::from_f64(1e30);
-        let mut previous_velocity_residual = scalar::from_f64(1e30);
+        let mut continuity_residual = <T as FloatElement>::from_f64(1e30);
+        let mut previous_velocity_residual = <T as FloatElement>::from_f64(1e30);
         let mut previous_continuity_residual = continuity_residual;
         let mut divergence_streak = 0usize;
 
@@ -65,7 +65,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 let d_x_cache = &self._d_x_cache;
                 let d_y_cache = &self._d_y_cache;
 
-                let face_dt = if dt > scalar::from_f64(1.0) {
+                let face_dt = if dt > <T as FloatElement>::from_f64(1.0) {
                     None
                 } else {
                     Some(dt)

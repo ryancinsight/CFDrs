@@ -38,7 +38,7 @@ impl<T: RealField + Copy + FloatElement> AnnularDomain<T> {
         Self::new(
             scalar::zero(),
             scalar::zero(),
-            scalar::from_f64::<T>(0.5),
+            <T as FloatElement>::from_f64(0.5),
             scalar::one(),
         )
     }
@@ -91,7 +91,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for AnnularDomain<T> {
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
         let distance = self.distance_from_center(point);
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
 
         if scalar::abs(distance - self.inner_radius) < tol {
             // Point is on inner boundary, inward normal (towards center)
@@ -157,13 +157,13 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for AnnularDomain<T> {
         match face {
             BoundaryFace::Inner => {
                 let distance = self.distance_from_center(point);
-                let tol = scalar::from_f64::<T>(1e-10);
+                let tol = <T as FloatElement>::from_f64(1e-10);
 
                 if scalar::abs(distance - self.inner_radius) < tol {
                     // Point is on inner boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+                    let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
                     Some(if angle >= scalar::zero() {
                         angle
                     } else {
@@ -175,13 +175,13 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for AnnularDomain<T> {
             }
             BoundaryFace::Outer => {
                 let distance = self.distance_from_center(point);
-                let tol = scalar::from_f64::<T>(1e-10);
+                let tol = <T as FloatElement>::from_f64(1e-10);
 
                 if scalar::abs(distance - self.outer_radius) < tol {
                     // Point is on outer boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+                    let two_pi = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI);
                     Some(if angle >= scalar::zero() {
                         angle
                     } else {
@@ -207,7 +207,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for AnnularDomain<T> {
 
     fn measure(&self) -> T {
         // Area of annulus: π(R² - r²) where R is outer radius, r is inner radius
-        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let outer_area = pi * self.outer_radius * self.outer_radius;
         let inner_area = pi * self.inner_radius * self.inner_radius;
         outer_area - inner_area

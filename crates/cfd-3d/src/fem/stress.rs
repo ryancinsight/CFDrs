@@ -41,10 +41,9 @@
 //!   linear viscoelastic properties of polystyrene fluids. PhD thesis, MIT.
 
 use crate::linalg::{matrix3_scale, symmetric_part, Matrix3};
-use crate::scalar::Cfd3dScalar;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-
-use super::scalar;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 /// Calculate the Cauchy stress tensor from a scalar viscosity, pressure,
 /// and strain-rate tensor.
@@ -62,8 +61,8 @@ use super::scalar;
 /// * `mu` — Dynamic viscosity [Pa·s] (scalar, possibly element-local).
 /// * `pressure` — Mechanical pressure \[Pa].
 /// * `strain_rate` — Symmetric strain-rate tensor ε̇ = ½(∇u + (∇u)ᵀ).
-pub fn stress_tensor<T: Cfd3dScalar>(mu: T, pressure: T, strain_rate: &Matrix3<T>) -> Matrix3<T> {
-    let two = scalar::constant::<T>(2.0);
+pub fn stress_tensor<T: CfdScalar>(mu: T, pressure: T, strain_rate: &Matrix3<T>) -> Matrix3<T> {
+    let two = <T as FloatElement>::from_f64(2.0);
     let mut stress = matrix3_scale(strain_rate, two * mu);
 
     // Add pressure contribution to diagonal: σ_ij += −p δ_ij
@@ -78,7 +77,7 @@ pub fn stress_tensor<T: Cfd3dScalar>(mu: T, pressure: T, strain_rate: &Matrix3<T
 ///
 /// Convenience wrapper over [`stress_tensor`] that extracts
 /// `fluid.viscosity` as the scalar viscosity parameter.
-pub fn stress_tensor_with_fluid<T: Cfd3dScalar>(
+pub fn stress_tensor_with_fluid<T: CfdScalar>(
     fluid: &ConstantPropertyFluid<T>,
     pressure: T,
     strain_rate: &Matrix3<T>,
@@ -95,7 +94,7 @@ pub fn stress_tensor_with_fluid<T: Cfd3dScalar>(
 /// # Theorem (Symmetry)
 ///
 /// The output is symmetric by construction: ε̇_{ij} = ε̇_{ji}.
-pub fn strain_rate_tensor<T: Cfd3dScalar>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
+pub fn strain_rate_tensor<T: CfdScalar>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
     symmetric_part(velocity_gradient)
 }
 

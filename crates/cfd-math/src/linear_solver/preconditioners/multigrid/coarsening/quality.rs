@@ -10,13 +10,8 @@ use eunomia::{FloatElement, NumericElement, RealField};
 use leto_ops::Scalar as LetoScalar;
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn from_usize<T: FloatElement>(value: usize) -> T {
-    from_f64(usize_to_f64(value))
+    <T as FloatElement>::from_f64(usize_to_f64(value))
 }
 
 #[inline]
@@ -97,7 +92,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicDistances<T> {
                     max_distance = min_distance;
                 }
 
-                if min_distance > from_f64(2.0) {
+                if min_distance > <T as FloatElement>::from_f64(2.0) {
                     high_distance_points.push((i, min_distance));
                 }
             }
@@ -223,10 +218,10 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FloatElement + LetoS
         let row = strength_matrix.row(node);
         for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
             if val > <T as NumericElement>::ZERO && !visited[j] {
-                let edge_weight = if val > from_f64(0.5) {
+                let edge_weight = if val > <T as FloatElement>::from_f64(0.5) {
                     <T as NumericElement>::ONE
                 } else {
-                    from_f64(2.0)
+                    <T as FloatElement>::from_f64(2.0)
                 };
 
                 let new_dist = current_dist + edge_weight;
@@ -245,8 +240,11 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FloatElement + LetoS
             .iter()
             .zip(matrix_row.values().iter())
         {
-            if j != node && NumericElement::abs(val) > from_f64(1e-12) && !visited[j] {
-                let edge_weight = from_f64(3.0);
+            if j != node
+                && NumericElement::abs(val) > <T as FloatElement>::from_f64(1e-12)
+                && !visited[j]
+            {
+                let edge_weight = <T as FloatElement>::from_f64(3.0);
                 let new_dist = current_dist + edge_weight;
                 if new_dist < distances[j] {
                     distances[j] = new_dist;
@@ -257,7 +255,7 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FloatElement + LetoS
         }
     }
 
-    from_f64(100.0)
+    <T as FloatElement>::from_f64(100.0)
 }
 
 /// Analyze coarsening quality comprehensively

@@ -11,7 +11,7 @@ use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
 use std::collections::HashSet;
 
-use super::scalar;
+use crate::scalar;
 
 /// Extract vertex indices from a cell for element assembly.
 ///
@@ -242,7 +242,7 @@ pub fn extract_vertex_indices_cached<
                 .vertices
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
-            let target = (p_i + p_j) * scalar::constant::<T>(0.5);
+            let target = (p_i + p_j) * <T as FloatElement>::from_f64(0.5);
 
             let mut best_node = None;
             let mut min_dist = <T as NumericElement>::MAX_VALUE;
@@ -413,7 +413,7 @@ where
 
     let p_i = mesh.vertices.position(VertexId::from_usize(v_i)).coords;
     let p_j = mesh.vertices.position(VertexId::from_usize(v_j)).coords;
-    let target = (p_i + p_j) * scalar::constant::<T>(0.5);
+    let target = (p_i + p_j) * <T as FloatElement>::from_f64(0.5);
 
     let search = |skip_used: bool| -> Option<usize> {
         let mut best_node = None;

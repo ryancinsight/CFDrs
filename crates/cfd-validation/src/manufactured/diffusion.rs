@@ -24,7 +24,7 @@ pub struct ManufacturedDiffusion<T: RealField + Copy> {
 impl<T: RealField + Copy + FloatElement> ManufacturedDiffusion<T> {
     /// Create a new manufactured diffusion solution
     pub fn new(alpha: T) -> Self {
-        let pi = scalar::from_f64(PI);
+        let pi = <T as FloatElement>::from_f64(PI);
         Self {
             alpha,
             kx: pi,

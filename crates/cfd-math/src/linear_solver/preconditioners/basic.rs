@@ -14,11 +14,6 @@ use leto_ops::{
 };
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn vector_len<T>(vector: &Array1<T>) -> usize {
     vector.shape()[0]
 }
@@ -99,7 +94,7 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SORPreconditioner<T> {
 
         // Validate omega range for stability
         let zero = <T as NumericElement>::ZERO;
-        let two = from_f64(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         if omega <= zero || omega >= two {
             return Err(Error::InvalidConfiguration(
                 "SOR omega parameter must be in range (0, 2) for stability".to_string(),
@@ -123,7 +118,7 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SORPreconditioner<T> {
 
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
-        let omega = from_f64(omega_opt);
+        let omega = <T as FloatElement>::from_f64(omega_opt);
 
         Self::new(a, omega)
     }

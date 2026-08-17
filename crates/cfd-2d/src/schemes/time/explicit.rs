@@ -11,9 +11,8 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use super::vector::StateVector;
@@ -21,7 +20,7 @@ use super::vector::StateVector;
 /// Forward Euler step: y_{n+1} = y_n + dt*f(t_n, y_n)
 pub fn forward_euler<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     let increment = &f(t, y) * dt;
@@ -33,11 +32,11 @@ where
 /// Reference: Butcher (2016) - Numerical Methods for Ordinary Differential Equations
 pub fn runge_kutta2<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     let k1 = f(t, y);
-    let half_dt = dt * scalar::from_f64::<T>(ONE_HALF);
+    let half_dt = dt * <T as FloatElement>::from_f64(ONE_HALF);
     let k1_half = &k1 * half_dt;
     let y_mid = y + &k1_half;
     let k2 = f(t + half_dt, &y_mid);
@@ -50,14 +49,14 @@ where
 /// Reference: Butcher (2016) - Numerical Methods for Ordinary Differential Equations
 pub fn runge_kutta4<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
-    let two = scalar::from_f64::<T>(TWO);
-    let six = scalar::from_f64::<T>(SIX);
+    let two = <T as FloatElement>::from_f64(TWO);
+    let six = <T as FloatElement>::from_f64(SIX);
 
     let k1 = f(t, y);
-    let half_dt = dt * scalar::from_f64::<T>(ONE_HALF);
+    let half_dt = dt * <T as FloatElement>::from_f64(ONE_HALF);
     let k1_half = &k1 * half_dt;
     let y2 = y + &k1_half;
     let k2 = f(t + half_dt, &y2);

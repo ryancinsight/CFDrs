@@ -1,13 +1,13 @@
 //! u-momentum Gauss-Seidel solver.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::boundary::{BCType, BoundaryCondition};
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the u-momentum equation on the staggered grid.
     ///
     /// Calculates upwind convective fluxes and central differenced diffusive
@@ -111,8 +111,8 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                 let a_s = (d_s + f_s * half).max_scalar(zero) + f_s.max_scalar(zero);
 
                 let mut a_p = a_e + a_w + a_n + a_s;
-                if a_p < scalar::from_f64::<T>(1e-30) {
-                    a_p = scalar::from_f64::<T>(1e-10);
+                if a_p < <T as FloatElement>::from_f64(1e-30) {
+                    a_p = <T as FloatElement>::from_f64(1e-10);
                 }
 
                 let p_left = if i > 0 && i - 1 < nx {

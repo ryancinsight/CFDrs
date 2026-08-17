@@ -30,8 +30,9 @@
 //!
 //! **Reference:** Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed., §7.3.
 
-use crate::fem::{constants, scalar};
+use crate::fem::constants;
 use crate::linalg::{array2_set_column3, symmetric_part, Matrix3};
+use crate::scalar;
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array2, Vector3};
@@ -104,7 +105,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FluidE
         let e3 = vertices[3] - vertices[0];
 
         let det_j = e1.dot(e2.cross(e3)); // Signed 6V
-        self.volume = <T as NumericElement>::abs(det_j) / scalar::constant::<T>(6.0);
+        self.volume = <T as NumericElement>::abs(det_j) / <T as FloatElement>::from_f64(6.0);
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -142,7 +143,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FluidE
         let d3_vec = v4 - v1;
         let six_v = d1_vec.dot(d2_vec.cross(d3_vec));
 
-        if <T as NumericElement>::abs(six_v) < scalar::constant::<T>(1e-24) {
+        if <T as NumericElement>::abs(six_v) < <T as FloatElement>::from_f64(1e-24) {
             self.shape_derivatives = Array2::zeros([3, 4]);
             return;
         }
@@ -221,7 +222,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FluidE
                                     * self.shape_derivatives[[k, j]]
                                     + self.shape_derivatives[[k, i]]
                                         * self.shape_derivatives[[d, j]];
-                                k_e[[row, col]] += factor * cross_term * scalar::constant::<T>(0.5);
+                                k_e[[row, col]] +=
+                                    factor * cross_term * <T as FloatElement>::from_f64(0.5);
                             }
                         }
                     }

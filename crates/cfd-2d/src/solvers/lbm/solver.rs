@@ -31,7 +31,6 @@
 //! **Reference**: He & Luo (1997), *Phys. Rev. E* 56, 6811; Succi (2001), §4.3.
 
 use crate::grid::StructuredGrid2D;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
@@ -41,6 +40,7 @@ use crate::solvers::lbm::{
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ use std::collections::HashMap;
 
 /// Configuration for the LBM solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LbmConfig<T: Cfd2dScalar + Copy> {
+pub struct LbmConfig<T: CfdScalar + Copy> {
     /// Relaxation time τ ∈ (0.5, ∞).  Stability requires τ > 0.5.
     pub tau: T,
     /// Maximum number of time steps.
@@ -61,12 +61,12 @@ pub struct LbmConfig<T: Cfd2dScalar + Copy> {
     pub verbose: bool,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for LbmConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
-            tau: crate::scalar::from_f64(1.0),
+            tau: <T as FloatElement>::from_f64(1.0),
             max_steps: 10_000,
-            tolerance: crate::scalar::from_f64(1e-6),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             output_frequency: 100,
             verbose: false,
         }
@@ -90,7 +90,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> Default for LbmConfig<T> {
 /// density[j * nx + i]
 /// velocity[(j * nx + i) * 2 + d]   // d=0→x, d=1→y
 /// ```
-pub struct LbmSolver<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct LbmSolver<T: CfdScalar + Copy + FloatElement> {
     config: LbmConfig<T>,
     /// Flat distribution buffer (layout: j*nx*9 + i*9 + q)
     f: Vec<T>,
@@ -119,7 +119,7 @@ pub struct LbmSolver<T: Cfd2dScalar + Copy + FloatElement> {
     tau_g: Option<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> LbmSolver<T>
+impl<T: CfdScalar + Copy + FloatElement> LbmSolver<T>
 where
     T: Send + Sync + std::fmt::LowerExp,
 {

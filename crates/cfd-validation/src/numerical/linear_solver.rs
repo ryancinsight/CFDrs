@@ -1,8 +1,9 @@
 //! Linear solver validation against analytical solutions
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
+use cfd_math::linear_solver::IterativeSolverConfig;
+use eunomia::FloatElement;
 use leto::Array1;
 
 use super::error_metrics::compute_error_metrics;
@@ -11,14 +12,14 @@ use super::test_cases::{
     create_tridiagonal_system,
 };
 use super::validation_result::{ConvergenceInfo, ValidationResult};
-use crate::scalar::{self, ValidationScalar};
+use cfd_core::CfdScalar;
 
 /// Linear solver validator
 pub struct LinearSolverValidator;
 
 impl LinearSolverValidator {
     /// Validate linear solvers against analytical solutions
-    pub fn validate_all<T: ValidationScalar>() -> Result<Vec<ValidationResult<T>>> {
+    pub fn validate_all<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let mut results = Vec::new();
 
         // Test 1: Standard diagonal system
@@ -50,7 +51,7 @@ impl LinearSolverValidator {
 
     /// Test diagonal system: Ax = b where A is diagonal
     /// Literature: Golub & Van Loan (2013), "Matrix Computations", 4th Edition
-    fn test_diagonal_system<T: ValidationScalar>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_diagonal_system<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let n = 100;
         let mut results = Vec::new();
 
@@ -81,7 +82,8 @@ impl LinearSolverValidator {
                         },
                         literature_reference:
                             "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
-                        passed: error_metrics.relative_l2_error < scalar::from_f64::<T>(1e-12),
+                        passed: error_metrics.relative_l2_error
+                            < <T as FloatElement>::from_f64(1e-12),
                     };
                     results.push(result);
                 }
@@ -96,7 +98,7 @@ impl LinearSolverValidator {
 
     /// Test tridiagonal system (1D Poisson equation)
     /// Literature: Strang (2007), "Computational Science and Engineering"
-    fn test_tridiagonal_system<T: ValidationScalar>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_tridiagonal_system<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let n = 100;
         let mut results = Vec::new();
 
@@ -124,11 +126,11 @@ impl LinearSolverValidator {
                 convergence_info: ConvergenceInfo {
                     iterations: 50, // Typical for CG on Poisson
                     final_residual: error_metrics.l2_error,
-                    convergence_rate: Some(scalar::from_f64::<T>(0.95)), // Typical for CG
+                    convergence_rate: Some(<T as FloatElement>::from_f64(0.95)), // Typical for CG
                 },
                 literature_reference: "Strang (2007), Computational Science and Engineering"
                     .to_string(),
-                passed: error_metrics.relative_l2_error < scalar::from_f64::<T>(1e-10),
+                passed: error_metrics.relative_l2_error < <T as FloatElement>::from_f64(1e-10),
             };
             results.push(result);
         }
@@ -138,7 +140,7 @@ impl LinearSolverValidator {
 
     /// Test 2D Poisson equation
     /// Literature: `LeVeque` (2007), "Finite Difference Methods for ODEs and PDEs"
-    fn test_2d_poisson<T: ValidationScalar>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_2d_poisson<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let nx = 32;
         let ny = 32;
         let mut results = Vec::new();
@@ -167,11 +169,11 @@ impl LinearSolverValidator {
                 convergence_info: ConvergenceInfo {
                     iterations: 100, // Typical for 2D Poisson
                     final_residual: error_metrics.l2_error,
-                    convergence_rate: Some(scalar::from_f64::<T>(0.98)),
+                    convergence_rate: Some(<T as FloatElement>::from_f64(0.98)),
                 },
                 literature_reference: "LeVeque (2007), Finite Difference Methods for ODEs and PDEs"
                     .to_string(),
-                passed: error_metrics.relative_l2_error < scalar::from_f64::<T>(1e-8),
+                passed: error_metrics.relative_l2_error < <T as FloatElement>::from_f64(1e-8),
             };
             results.push(result);
         }
@@ -181,7 +183,7 @@ impl LinearSolverValidator {
 
     /// Test ill-conditioned system
     /// Literature: Higham (2002), "Accuracy and Stability of Numerical Algorithms"
-    fn test_ill_conditioned_system<T: ValidationScalar>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_ill_conditioned_system<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let n = 50;
         let mut results = Vec::new();
 
@@ -209,12 +211,13 @@ impl LinearSolverValidator {
                         convergence_info: ConvergenceInfo {
                             iterations: 200, // More iterations for ill-conditioned
                             final_residual: error_metrics.l2_error,
-                            convergence_rate: Some(scalar::from_f64::<T>(0.99)),
+                            convergence_rate: Some(<T as FloatElement>::from_f64(0.99)),
                         },
                         literature_reference:
                             "Higham (2002), Accuracy and Stability of Numerical Algorithms"
                                 .to_string(),
-                        passed: error_metrics.relative_l2_error < scalar::from_f64::<T>(1e-6), // Relaxed tolerance
+                        passed: error_metrics.relative_l2_error
+                            < <T as FloatElement>::from_f64(1e-6), // Relaxed tolerance
                     };
                     results.push(result);
                 }

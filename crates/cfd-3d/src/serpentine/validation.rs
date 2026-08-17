@@ -55,10 +55,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
         fluid_density: T,
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
-        let diameter = scalar::from_f64::<T>(self.mesh_builder.diameter);
-        let wavelength = scalar::from_f64::<T>(self.mesh_builder.wavelength);
-        let amplitude = scalar::from_f64::<T>(self.mesh_builder.amplitude);
-        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / wavelength;
+        let diameter = <T as FloatElement>::from_f64(self.mesh_builder.diameter);
+        let wavelength = <T as FloatElement>::from_f64(self.mesh_builder.wavelength);
+        let amplitude = <T as FloatElement>::from_f64(self.mesh_builder.amplitude);
+        let k = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI) / wavelength;
 
         // 1. Mathematically Exact Maximum Dean Number Analysis
         // For y = A sin(kx), exact curvature kappa = |y''| / (1 + y'^2)^(3/2)
@@ -68,7 +68,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
 
         // Area for mean velocity
         let area = if config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * diameter * diameter
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * diameter * diameter
         } else {
             diameter * diameter
         };
@@ -80,11 +80,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
 
         // Exact Maximum Dean Number calculation
         let de_exact_max = reynolds_num
-            * scalar::sqrt(diameter / (scalar::from_f64::<T>(2.0) * min_radius_of_curvature));
+            * scalar::sqrt(
+                diameter / (<T as FloatElement>::from_f64(2.0) * min_radius_of_curvature),
+            );
 
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
-        let de_tolerance = de_exact_max * scalar::from_f64::<T>(0.05); // 5% max deviation allowance for local averaging
+        let de_tolerance = de_exact_max * <T as FloatElement>::from_f64(0.05); // 5% max deviation allowance for local averaging
         let de_valid =
             scalar::abs(de_calc - de_exact_max) < de_tolerance || de_calc > scalar::zero::<T>();
 
@@ -94,13 +96,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
         let straight_length = wavelength * scalar::from_usize::<T>(self.mesh_builder.num_periods);
 
         let exact_straight_dp = if config.circular {
-            scalar::from_f64::<T>(32.0) * fluid_viscosity * straight_length * u_mean
+            <T as FloatElement>::from_f64(32.0) * fluid_viscosity * straight_length * u_mean
                 / (diameter * diameter)
         } else {
             // Exact infinite series solution for square duct yields f*Re ≈ 56.91
-            scalar::from_f64::<T>(28.455) * fluid_viscosity * straight_length * u_mean
+            <T as FloatElement>::from_f64(28.455) * fluid_viscosity * straight_length * u_mean
                 / (diameter * diameter)
-                * scalar::from_f64::<T>(2.0)
+                * <T as FloatElement>::from_f64(2.0)
         };
 
         let dp_actual = scalar::abs(solution.dp_total);

@@ -27,9 +27,10 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
-use super::traits::{scalar_from_f64, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 pub(crate) fn populate_shear_aware_conditions<T, F>(
     geometry: &ChannelGeometry<T>,
@@ -37,7 +38,7 @@ pub(crate) fn populate_shear_aware_conditions<T, F>(
     local_conditions: &mut FlowConditions<T>,
 ) -> Result<()>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     if local_conditions.reynolds_number.is_some() {
@@ -53,7 +54,7 @@ where
         v
     } else if let Some(q) = local_conditions.flow_rate {
         let area = geometry.cross_sectional_area()?;
-        if area <= T::zero() {
+        if area <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Channel area must be positive to compute Reynolds number".to_string(),
             ));
@@ -65,13 +66,13 @@ where
         ));
     };
 
-    let velocity_abs = if velocity >= T::zero() {
+    let velocity_abs = if velocity >= T::ZERO {
         velocity
     } else {
         -velocity
     };
     let dh = geometry.hydraulic_diameter()?;
-    if dh <= T::zero() {
+    if dh <= T::ZERO {
         return Err(Error::InvalidConfiguration(
             "Hydraulic diameter must be positive to compute Reynolds number".to_string(),
         ));
@@ -80,7 +81,7 @@ where
     let shear_rate = if let Some(sr) = local_conditions.shear_rate {
         sr
     } else {
-        scalar_from_f64::<T>(8.0) * velocity_abs / dh
+        <T as FloatElement>::from_f64(8.0) * velocity_abs / dh
     };
     let apparent_viscosity = fluid
         .viscosity_at_shear(
@@ -89,7 +90,7 @@ where
             local_conditions.pressure,
         )?
         .into_base();
-    if apparent_viscosity <= T::zero() {
+    if apparent_viscosity <= T::ZERO {
         return Err(Error::InvalidConfiguration(
             "Viscosity must be positive to compute Reynolds number".to_string(),
         ));
@@ -101,7 +102,7 @@ where
     Ok(())
 }
 
-pub(crate) fn rectangular_auto_selection_error<T: ResistanceScalar>(
+pub(crate) fn rectangular_auto_selection_error<T: CfdScalar>(
     conditions: &FlowConditions<T>,
 ) -> Error {
     match conditions.reynolds_number {
@@ -119,7 +120,7 @@ pub struct ResistanceCalculator<T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: ResistanceScalar> ResistanceCalculator<T> {
+impl<T: CfdScalar> ResistanceCalculator<T> {
     /// Create new resistance calculator
     #[must_use]
     pub fn new() -> Self {
@@ -363,7 +364,7 @@ impl<T: ResistanceScalar> ResistanceCalculator<T> {
     }
 }
 
-impl<T: ResistanceScalar> Default for ResistanceCalculator<T> {
+impl<T: CfdScalar> Default for ResistanceCalculator<T> {
     fn default() -> Self {
         Self::new()
     }

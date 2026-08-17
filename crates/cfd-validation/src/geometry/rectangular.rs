@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for RectangularDomain<T> 
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
 
         if scalar::abs(point.x - self.x_min) < tol {
             Some(Point2D::new(-scalar::one::<T>(), scalar::zero())) // Left boundary
@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for RectangularDomain<T> 
     }
 
     fn boundary_parameter(&self, face: BoundaryFace, point: &Point2D<T>) -> Option<T> {
-        let tol = scalar::from_f64::<T>(1e-10);
+        let tol = <T as FloatElement>::from_f64(1e-10);
         match face {
             BoundaryFace::Bottom => {
                 if scalar::abs(point.y - self.y_min) < tol {

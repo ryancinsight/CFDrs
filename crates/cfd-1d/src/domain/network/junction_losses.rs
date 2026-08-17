@@ -6,10 +6,10 @@
 //! faithful than a generic T-junction heuristic.
 
 use super::wrapper::Network;
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::QuadraticHydraulicResistance;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::geometry::metadata::{
     JunctionFamily, JunctionGeometryMetadata, MetadataContainer,
@@ -38,7 +38,7 @@ pub(crate) fn apply_blueprint_junction_losses<T, F>(
     blueprint: &NetworkBlueprint,
 ) -> JunctionLossAuditStats
 where
-    T: Cfd1dScalar + Copy + SafeFromF64,
+    T: CfdScalar + Copy + SafeFromF64,
     F: FluidTrait<T> + Clone,
 {
     use crate::domain::network::NodeType;
@@ -53,7 +53,7 @@ where
         |_| T::from_f64_or_zero(1060.0),
         |state| state.density.into_base(),
     );
-    let two: T = T::one() + T::one();
+    let two: T = T::ONE + T::ONE;
 
     let blueprint_node_meta: HashMap<
         &str,
@@ -153,23 +153,23 @@ where
             .first()
             .and_then(|eidx| network.graph.edge_weight(*eidx))
             .map(|edge| edge.area.into_base());
-        let branch_area_sum = branch_edges.iter().fold(T::zero(), |acc, eidx| {
+        let branch_area_sum = branch_edges.iter().fold(T::ZERO, |acc, eidx| {
             acc + network
                 .graph
                 .edge_weight(*eidx)
-                .map_or(T::zero(), |edge| edge.area.into_base())
+                .map_or(T::ZERO, |edge| edge.area.into_base())
         });
 
         for eidx in &branch_edges {
             if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
                 let area = edge.area.into_base();
                 let area_sq = area * area;
-                if area_sq <= T::zero() {
+                if area_sq <= T::ZERO {
                     continue;
                 }
                 let area_ratio_scale = run_area
-                    .filter(|area| *area > T::zero())
-                    .map_or(T::one(), |run_area| {
+                    .filter(|area| *area > T::ZERO)
+                    .map_or(T::ONE, |run_area| {
                         <T as eunomia::FloatElement>::powf(area / run_area, exp_t)
                     });
                 let k_correction = (k_branch_t * area_ratio_scale) * rho_blood / (two * area_sq);
@@ -183,16 +183,16 @@ where
             if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
                 let area = edge.area.into_base();
                 let area_sq = area * area;
-                if area_sq <= T::zero() {
+                if area_sq <= T::ZERO {
                     continue;
                 }
-                let area_ratio_scale = if branch_area_sum > T::zero() && area > T::zero() {
+                let area_ratio_scale = if branch_area_sum > T::ZERO && area > T::ZERO {
                     <T as eunomia::FloatElement>::powf(
                         branch_area_sum / area,
                         T::from_f64_or_zero(0.25),
                     )
                 } else {
-                    T::one()
+                    T::ONE
                 };
                 let k_correction = (k_run_t * area_ratio_scale) * rho_blood / (two * area_sq);
                 edge.quad_coeff = QuadraticHydraulicResistance::from_base(

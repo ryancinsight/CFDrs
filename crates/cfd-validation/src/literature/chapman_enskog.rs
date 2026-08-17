@@ -4,8 +4,8 @@
 //! Cambridge University Press, 3rd Edition.
 
 use super::{LiteratureValidation, ValidationReport};
-use crate::scalar;
 use cfd_core::error::Result;
+use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 
 /// Chapman-Enskog validation for transport coefficients
@@ -44,7 +44,7 @@ impl<T: RealField + Copy + FloatElement> ChapmanEnskogValidation<T> {
     /// Calculate viscosity using Chapman-Enskog theory
     /// μ = 5/16 * sqrt(π*m*k*T) / (π*σ²*Ω)
     fn theoretical_viscosity(&self) -> T {
-        let t = scalar::to_f64(self.temperature);
+        let t = <T as NumericElement>::to_f64(self.temperature);
 
         // Molecular constants for different gases (Chapman & Enskog, 1970)
         // Values: (molecular mass [kg], collision diameter [m], collision integral)
@@ -59,7 +59,7 @@ impl<T: RealField + Copy + FloatElement> ChapmanEnskogValidation<T> {
         let mu = 5.0 / 16.0 * (std::f64::consts::PI * m * k_b * t).sqrt()
             / (std::f64::consts::PI * sigma * sigma * omega);
 
-        scalar::from_f64(mu)
+        <T as FloatElement>::from_f64(mu)
     }
 
     /// Calculate thermal conductivity using Chapman-Enskog theory
@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FloatElement> ChapmanEnskogValidation<T> {
         };
         let k_b = 1.380649e-23;
 
-        scalar::from_f64::<T>(15.0 / 4.0 * k_b / m) * mu
+        <T as FloatElement>::from_f64(15.0 / 4.0 * k_b / m) * mu
     }
 }
 
@@ -90,16 +90,16 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for ChapmanEnsk
             test_name: format!(
                 "Chapman-Enskog {:?} at T={:.0}K",
                 self.gas_type,
-                scalar::to_f64(self.temperature)
+                <T as NumericElement>::to_f64(self.temperature)
             ),
             citation: self.citation().to_string(),
-            max_error: scalar::from_f64(0.01),
-            avg_error: scalar::from_f64(0.005),
+            max_error: <T as FloatElement>::from_f64(0.01),
+            avg_error: <T as FloatElement>::from_f64(0.005),
             passed: true,
             details: format!(
                 "μ={:.2e} Pa·s, k={:.3e} W/(m·K)",
-                scalar::to_f64(theoretical_mu),
-                scalar::to_f64(theoretical_k)
+                <T as NumericElement>::to_f64(theoretical_mu),
+                <T as NumericElement>::to_f64(theoretical_k)
             ),
         })
     }
@@ -109,7 +109,7 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for ChapmanEnsk
     }
 
     fn expected_accuracy(&self) -> T {
-        scalar::from_f64(0.02) // 2% accuracy for transport properties
+        <T as FloatElement>::from_f64(0.02) // 2% accuracy for transport properties
     }
 }
 

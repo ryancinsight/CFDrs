@@ -25,7 +25,6 @@ use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
-use super::scalar;
 use crate::linalg::vector3_from_indexed;
 
 /// Map from canonical edge pair `(min(v_i, v_j), max(v_i, v_j))` → mid-node index.
@@ -73,7 +72,7 @@ impl MidNodeCache {
             })
             .collect();
 
-        let half = scalar::constant::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         // For each mid-node, find its closest corner-corner midpoint
         let mut inner: HashMap<(usize, usize), usize> =

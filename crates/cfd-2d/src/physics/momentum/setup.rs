@@ -12,17 +12,17 @@
 //! is exactly conserved to machine precision.
 
 use super::solver::MomentumSolver;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 
 /// Builder for configuring boundary conditions for the MomentumSolver
-pub struct BoundarySetup<T: Cfd2dScalar + Copy> {
+pub struct BoundarySetup<T: CfdScalar + Copy> {
     conditions: HashMap<String, BoundaryCondition<T>>,
 }
 
-impl<T: Cfd2dScalar + Copy> BoundarySetup<T> {
+impl<T: CfdScalar + Copy> BoundarySetup<T> {
     /// Create a new BoundarySetup
     pub fn new() -> Self {
         Self {
@@ -55,7 +55,7 @@ impl<T: Cfd2dScalar + Copy> BoundarySetup<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> BoundarySetup<T> {
+impl<T: CfdScalar + Copy + FloatElement> BoundarySetup<T> {
     /// Apply the configured boundaries to the solver
     pub fn apply(self, solver: &mut MomentumSolver<T>) {
         for (name, bc) in self.conditions {
@@ -64,7 +64,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundarySetup<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy> Default for BoundarySetup<T> {
+impl<T: CfdScalar + Copy> Default for BoundarySetup<T> {
     fn default() -> Self {
         Self::new()
     }

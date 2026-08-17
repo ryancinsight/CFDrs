@@ -87,11 +87,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Defaul
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: scalar::from_f64::<T>(1e-7),
-            inlet_pressure: scalar::from_f64::<T>(100.0),
+            inlet_flow_rate: <T as FloatElement>::from_f64(1e-7),
+            inlet_pressure: <T as FloatElement>::from_f64(100.0),
             outlet_pressure: scalar::zero::<T>(),
             max_nonlinear_iterations: 15,
-            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
+            nonlinear_tolerance: <T as FloatElement>::from_f64(1e-4),
             resolution: (80, 8),
             circular: false,
         }
@@ -148,12 +148,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // Priority: inlet > outlet > wall. Process inlet/outlet first so that
         // shared corner/edge nodes get the correct BC instead of a no-slip wall BC.
         let mut boundary_conditions = HashMap::new();
-        let fluid_props =
-            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
+        let fluid_props = fluid.properties_at(
+            <T as FloatElement>::from_f64(310.0),
+            self.config.inlet_pressure,
+        )?;
 
-        let diameter = scalar::from_f64::<T>(self.builder.diameter);
+        let diameter = <T as FloatElement>::from_f64(self.builder.diameter);
         let area_inlet = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * diameter * diameter
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * diameter * diameter
         } else {
             diameter * diameter
         };
@@ -170,7 +172,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             boundary_conditions.insert(
                 v_idx,
                 BoundaryCondition::VelocityInlet {
-                    velocity: LetoVector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                    velocity: LetoVector3::new(
+                        0.0_f64,
+                        0.0_f64,
+                        <T as NumericElement>::to_f64(u_inlet),
+                    ),
                 },
             );
         }
@@ -178,7 +184,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             boundary_conditions
                 .entry(v_idx)
                 .or_insert(BoundaryCondition::PressureOutlet {
-                    pressure: scalar::to_f64(self.config.outlet_pressure),
+                    pressure: <T as NumericElement>::to_f64(self.config.outlet_pressure),
                 });
         }
         for &v_idx in &face_sets.wall_nodes {
@@ -193,19 +199,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "Picard Basis".to_string(),
-            aequitas::systems::si::quantities::MassDensity::from_base(scalar::to_f64(
-                fluid_props.density.into_base(),
-            )),
-            aequitas::systems::si::quantities::DynamicViscosity::from_base(scalar::to_f64(
-                fluid_props.dynamic_viscosity.into_base(),
-            )),
-            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(scalar::to_f64(
-                fluid_props.specific_heat.into_base(),
-            )),
-            aequitas::systems::si::quantities::ThermalConductivity::from_base(scalar::to_f64(
-                fluid_props.thermal_conductivity.into_base(),
-            )),
-            aequitas::systems::si::quantities::Velocity::from_base(scalar::to_f64(
+            aequitas::systems::si::quantities::MassDensity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.density.into_base()),
+            ),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            ),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.specific_heat.into_base()),
+            ),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.thermal_conductivity.into_base()),
+            ),
+            aequitas::systems::si::quantities::Velocity::from_base(<T as NumericElement>::to_f64(
                 fluid_props.speed_of_sound.into_base(),
             )),
         );
@@ -218,7 +224,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
+            vec![
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base());
+                n_elements
+            ];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -275,13 +284,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
                     self.calculate_cell_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
-                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
+                let shear_rate = <T as FloatElement>::from_f64(shear_rate_f64);
                 let new_visc_t = fluid.viscosity_at_shear(
                     shear_rate,
-                    scalar::from_f64::<T>(310.0),
+                    <T as FloatElement>::from_f64(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let new_visc = scalar::to_f64(new_visc_t.into_base());
+                let new_visc = <T as NumericElement>::to_f64(new_visc_t.into_base());
 
                 let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
@@ -302,7 +311,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 visc_change = max_change_f64,
                 "Serpentine Picard iteration"
             );
-            if max_change_f64 < scalar::to_f64(self.config.nonlinear_tolerance) {
+            if max_change_f64 < <T as NumericElement>::to_f64(self.config.nonlinear_tolerance) {
                 break;
             }
         }
@@ -320,15 +329,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let wavelength = scalar::from_f64::<T>(self.builder.wavelength);
-        let amplitude = scalar::from_f64::<T>(self.builder.amplitude);
-        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / wavelength;
+        let wavelength = <T as FloatElement>::from_f64(self.builder.wavelength);
+        let amplitude = <T as FloatElement>::from_f64(self.builder.amplitude);
+        let k = <T as FloatElement>::from_f64(2.0 * std::f64::consts::PI) / wavelength;
         let kappa_max = amplitude * k * k;
-        let rc = scalar::one::<T>() / scalar::max(kappa_max, scalar::from_f64::<T>(1e-10));
+        let rc = scalar::one::<T>() / scalar::max(kappa_max, <T as FloatElement>::from_f64(1e-10));
 
         let re =
             (fluid_props.density * u_inlet * diameter / fluid_props.dynamic_viscosity).into_base();
-        solution.dean_number = re * scalar::sqrt(diameter / (scalar::from_f64::<T>(2.0) * rc));
+        solution.dean_number =
+            re * scalar::sqrt(diameter / (<T as FloatElement>::from_f64(2.0) * rc));
 
         Ok(solution)
     }

@@ -110,17 +110,17 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         match stages {
             1 => Ok(self.euler_step(field, dt, dx, dy)),
             2 => {
-                let half = scalar::from_f64::<T>(0.5);
+                let half = <T as FloatElement>::from_f64(0.5);
                 let k1 = self.conservative_residual(field, dx, dy);
                 let midpoint = Self::add_scaled(field, &k1, half * dt);
                 let k2 = self.conservative_residual(&midpoint, dx, dy);
                 Ok(Self::add_scaled(field, &k2, dt))
             }
             3 => {
-                let one_fourth = scalar::from_f64::<T>(0.25);
-                let three_fourths = scalar::from_f64::<T>(0.75);
-                let one_third = scalar::from_f64::<T>(1.0 / 3.0);
-                let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+                let one_fourth = <T as FloatElement>::from_f64(0.25);
+                let three_fourths = <T as FloatElement>::from_f64(0.75);
+                let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+                let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
 
                 let u1 = self.euler_step(field, dt, dx, dy);
                 let u1_evolved = self.euler_step(&u1, dt, dx, dy);
@@ -134,9 +134,9 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
                 ))
             }
             4 => {
-                let half = scalar::from_f64::<T>(0.5);
-                let one_sixth = scalar::from_f64::<T>(1.0 / 6.0);
-                let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+                let half = <T as FloatElement>::from_f64(0.5);
+                let one_sixth = <T as FloatElement>::from_f64(1.0 / 6.0);
+                let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
 
                 let k1 = self.conservative_residual(field, dx, dy);
                 let u2 = Self::add_scaled(field, &k1, half * dt);
@@ -174,9 +174,9 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         let mut count = 0;
 
         let u = Array2::from_elem([self.nx, self.ny], constant_value);
-        let dt = scalar::from_f64::<T>(0.01);
-        let dx = scalar::from_f64::<T>(0.1);
-        let dy = scalar::from_f64::<T>(0.1);
+        let dt = <T as FloatElement>::from_f64(0.01);
+        let dx = <T as FloatElement>::from_f64(0.1);
+        let dy = <T as FloatElement>::from_f64(0.1);
         let mut u_current = u.clone();
 
         for _step in 0..10 {
@@ -229,9 +229,9 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         let mut count = 0;
 
         let u = Array2::from_elem([self.nx, self.ny], constant_value);
-        let dt = scalar::from_f64::<T>(0.01);
-        let dx = scalar::from_f64::<T>(0.1);
-        let dy = scalar::from_f64::<T>(0.1);
+        let dt = <T as FloatElement>::from_f64(0.01);
+        let dx = <T as FloatElement>::from_f64(0.1);
+        let dy = <T as FloatElement>::from_f64(0.1);
         let mut u_current = u.clone();
 
         for _step in 0..5 {
@@ -280,8 +280,8 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         let mut count = 0;
 
         let u = Array2::from_elem([self.nx, self.ny], constant_value);
-        let dx = scalar::from_f64::<T>(0.1);
-        let dy = scalar::from_f64::<T>(0.1);
+        let dx = <T as FloatElement>::from_f64(0.1);
+        let dy = <T as FloatElement>::from_f64(0.1);
         let residual = self.conservative_residual(&u, dx, dy);
 
         for i in 1..self.nx - 1 {
@@ -326,8 +326,8 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         let test_values = vec![
             scalar::zero::<T>(),
             scalar::one::<T>(),
-            scalar::from_f64::<T>(1.5),
-            scalar::from_f64::<T>(-1.0),
+            <T as FloatElement>::from_f64(1.5),
+            <T as FloatElement>::from_f64(-1.0),
         ];
 
         for &value in &test_values {

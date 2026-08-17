@@ -22,34 +22,33 @@
 
 use super::weno_helpers::{weno5_candidate_fluxes, weno5_smoothness_indicators, weno5_z_weights};
 use super::{constants, Grid2D, SpatialDiscretization};
-use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Fifth-order WENO-Z scheme.
 #[derive(Debug, Clone)]
-pub struct WENOZ5<T: Cfd2dScalar + Copy> {
+pub struct WENOZ5<T: CfdScalar + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for WENOZ5<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for WENOZ5<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> WENOZ5<T> {
+impl<T: CfdScalar + Copy + FloatElement> WENOZ5<T> {
     /// Create a WENO-Z5 scheme.
     pub fn new() -> Self {
         Self {
-            epsilon: scalar::from_f64(constants::WENO_EPSILON),
+            epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),
             _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for WENOZ5<T> {
+impl<T: CfdScalar + Copy + FloatElement> SpatialDiscretization<T> for WENOZ5<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let v = [
             grid.data[[i - 2, j]],

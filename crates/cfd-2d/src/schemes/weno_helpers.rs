@@ -7,19 +7,19 @@
 
 use super::{constants, weno_constants};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 #[inline]
 pub(crate) fn weno5_smoothness_indicators<T>(v: &[T; 5]) -> [T; 3]
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
-    let coeff_13_12: T = scalar::from_f64(weno_constants::WENO5_BETA_COEFF_13_12);
-    let coeff_quarter: T = scalar::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER);
-    let two: T = scalar::from_f64(2.0);
-    let three: T = scalar::from_f64(3.0);
-    let four: T = scalar::from_f64(4.0);
+    let coeff_13_12: T = <T as FloatElement>::from_f64(weno_constants::WENO5_BETA_COEFF_13_12);
+    let coeff_quarter: T = <T as FloatElement>::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER);
+    let two: T = <T as FloatElement>::from_f64(2.0);
+    let three: T = <T as FloatElement>::from_f64(3.0);
+    let four: T = <T as FloatElement>::from_f64(4.0);
 
     let beta0 = coeff_13_12 * FloatElement::powi(v[0] - two * v[1] + v[2], 2)
         + coeff_quarter * FloatElement::powi(v[0] - four * v[1] + three * v[2], 2);
@@ -36,13 +36,13 @@ where
 #[inline]
 pub(crate) fn weno5_candidate_fluxes<T>(v: &[T; 5]) -> [T; 3]
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
-    let one_third: T = scalar::from_f64(weno_constants::WENO5_FLUX_ONE_THIRD);
-    let seven_sixth: T = scalar::from_f64(weno_constants::WENO5_FLUX_SEVEN_SIXTH);
-    let eleven_sixth: T = scalar::from_f64(weno_constants::WENO5_FLUX_ELEVEN_SIXTH);
-    let one_sixth: T = scalar::from_f64(weno_constants::WENO5_FLUX_ONE_SIXTH);
-    let five_sixth: T = scalar::from_f64(weno_constants::WENO5_FLUX_FIVE_SIXTH);
+    let one_third: T = <T as FloatElement>::from_f64(weno_constants::WENO5_FLUX_ONE_THIRD);
+    let seven_sixth: T = <T as FloatElement>::from_f64(weno_constants::WENO5_FLUX_SEVEN_SIXTH);
+    let eleven_sixth: T = <T as FloatElement>::from_f64(weno_constants::WENO5_FLUX_ELEVEN_SIXTH);
+    let one_sixth: T = <T as FloatElement>::from_f64(weno_constants::WENO5_FLUX_ONE_SIXTH);
+    let five_sixth: T = <T as FloatElement>::from_f64(weno_constants::WENO5_FLUX_FIVE_SIXTH);
 
     let f0 = v[0] * one_third - seven_sixth * v[1] + eleven_sixth * v[2];
     let f1 = -v[1] * one_sixth + v[2] * five_sixth + v[3] * one_third;
@@ -54,11 +54,11 @@ where
 #[inline]
 pub(crate) fn weno5_js_weights<T>(epsilon: T, beta: &[T; 3]) -> [T; 3]
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
-    let d0: T = scalar::from_f64(constants::WENO5_WEIGHTS[0]);
-    let d1: T = scalar::from_f64(constants::WENO5_WEIGHTS[1]);
-    let d2: T = scalar::from_f64(constants::WENO5_WEIGHTS[2]);
+    let d0: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[0]);
+    let d1: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[1]);
+    let d2: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[2]);
 
     let alpha0 = d0 / FloatElement::powi(epsilon + beta[0], 2);
     let alpha1 = d1 / FloatElement::powi(epsilon + beta[1], 2);
@@ -71,11 +71,11 @@ where
 #[inline]
 pub(crate) fn weno5_z_weights<T>(epsilon: T, beta: &[T; 3]) -> [T; 3]
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
 {
-    let d0: T = scalar::from_f64(constants::WENO5_WEIGHTS[0]);
-    let d1: T = scalar::from_f64(constants::WENO5_WEIGHTS[1]);
-    let d2: T = scalar::from_f64(constants::WENO5_WEIGHTS[2]);
+    let d0: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[0]);
+    let d1: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[1]);
+    let d2: T = <T as FloatElement>::from_f64(constants::WENO5_WEIGHTS[2]);
     let tau5 = NumericElement::abs(beta[0] - beta[2]);
 
     let one: T = scalar::one();

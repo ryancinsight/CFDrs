@@ -2,17 +2,17 @@
 
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Area, Length, Volume};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Porous membrane represented as many cylindrical pores in parallel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PorousMembrane<T: Cfd1dScalar + Copy> {
+pub struct PorousMembrane<T: CfdScalar + Copy> {
     /// Membrane thickness \[m]
     pub thickness: Length<T>,
     /// Membrane width \[m]
@@ -27,7 +27,7 @@ pub struct PorousMembrane<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> PorousMembrane<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> PorousMembrane<T> {
     /// Create a new porous membrane component.
     pub fn new(
         thickness: Length<T>,
@@ -52,7 +52,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> PorousMembrane<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let model = MembranePoreModel::new(
             self.thickness.into_base(),
@@ -61,7 +61,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
             self.pore_radius.into_base(),
             self.porosity,
         );
-        let conditions = FlowConditions::new(T::zero());
+        let conditions = FlowConditions::new(T::ZERO);
         model
             .calculate_resistance(fluid, &conditions)
             .unwrap_or_else(|_| real_from_f64(1e12))
@@ -98,7 +98,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
 
 /// Organ chamber represented as a compartment with user-defined hydraulic resistance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrganCompartment<T: Cfd1dScalar + Copy> {
+pub struct OrganCompartment<T: CfdScalar + Copy> {
     /// Chamber length \[m]
     pub length: Length<T>,
     /// Chamber width \[m]
@@ -111,7 +111,7 @@ pub struct OrganCompartment<T: Cfd1dScalar + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> OrganCompartment<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> OrganCompartment<T> {
     /// Create a new organ compartment component.
     pub fn new(
         length: Length<T>,
@@ -134,7 +134,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> OrganCompartment<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for OrganCompartment<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for OrganCompartment<T> {
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         self.hydraulic_resistance
     }

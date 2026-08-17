@@ -7,15 +7,15 @@ use crate::pressure_velocity::boundary::{
     pressure_neighbor_for_side,
 };
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use std::collections::HashMap;
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
     pub(crate) fn assemble_pressure_correction(
         &mut self,
         fields: &SimulationFields<T>,
@@ -29,8 +29,8 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> 
         let ny = grid.ny;
         let dx = grid.dx;
         let dy = grid.dy;
-        let half = scalar::from_f64::<T>(0.5);
-        let two = scalar::from_f64::<T>(2.0);
+        let half = <T as FloatElement>::from_f64(0.5);
+        let two = <T as FloatElement>::from_f64(2.0);
         let has_pressure_anchor = pressure_has_anchor(boundary_conditions);
 
         let rhs = self.rhs.as_mut().unwrap();
@@ -464,7 +464,9 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> 
             "SIMPLE pressure correction",
             krylov::bicgstab(matrix, self.rhs.as_ref().unwrap(), pp, &solver_config),
         )
-        .ok_or_else(|| Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string()))?;
+        .ok_or_else(|| {
+            Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string())
+        })?;
 
         let pp = self.p_prime.as_mut().unwrap();
         if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {
@@ -482,7 +484,7 @@ impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> 
         let ny = grid.ny;
         let dx = grid.dx;
         let dy = grid.dy;
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let p_prime = self.p_prime.as_ref().unwrap();
         let d_u = self.d_u.as_ref().unwrap();

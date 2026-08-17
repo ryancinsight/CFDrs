@@ -20,7 +20,7 @@ mod vector_bridge;
 /// Workspace state and allocation for the 1D solver loop.
 pub mod workspace;
 
-pub use config::{NetworkSolveScalar, SolverConfig};
+pub use config::SolverConfig;
 pub use convergence::ConvergenceChecker;
 pub use geometry::NetworkDomain;
 pub use linear_system::{LinearSolverMethod, LinearSystemSolver};

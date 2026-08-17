@@ -19,12 +19,12 @@
 
 use super::NavierStokesSolver2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::cell_tracking::physics::VelocityFieldInterpolator;
 use aequitas::systems::si::quantities::{Length, Velocity};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     #[inline]
     fn uniform_bracket(query: T, origin: T, step: T, count: usize) -> (usize, T) {
         let zero: T = scalar::zero();
@@ -102,7 +102,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
         let left = coordinate(low);
         let right = coordinate(low + 1);
         let denom = right - left;
-        if <T as NumericElement>::abs(denom) <= scalar::from_f64::<T>(1.0e-30) {
+        if <T as NumericElement>::abs(denom) <= <T as FloatElement>::from_f64(1.0e-30) {
             (low, zero)
         } else {
             let mut fraction = (query - left) / denom;
@@ -122,7 +122,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
         let y_count = self.field.u.cols();
         let zero: T = scalar::zero();
         let one: T = scalar::one();
-        let half: T = scalar::from_f64(0.5);
+        let half: T = <T as FloatElement>::from_f64(0.5);
 
         if x_count == 0 || y_count == 0 {
             return zero;
@@ -175,7 +175,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
         let y_count = self.field.v.cols();
         let zero: T = scalar::zero();
         let one: T = scalar::one();
-        let half: T = scalar::from_f64(0.5);
+        let half: T = <T as FloatElement>::from_f64(0.5);
 
         if x_count == 0 || y_count == 0 {
             return zero;
@@ -223,12 +223,12 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
     }
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VelocityFieldInterpolator
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> VelocityFieldInterpolator
     for NavierStokesSolver2D<T>
 {
     fn velocity_at(&self, x: Length, y: Length) -> (Velocity, Velocity) {
-        let x_t: T = scalar::from_f64(x.into_base());
-        let y_t: T = scalar::from_f64(y.into_base());
+        let x_t: T = <T as FloatElement>::from_f64(x.into_base());
+        let y_t: T = <T as FloatElement>::from_f64(y.into_base());
 
         let u = self.interpolate_u_component(x_t, y_t);
         let v = self.interpolate_v_component(x_t, y_t);

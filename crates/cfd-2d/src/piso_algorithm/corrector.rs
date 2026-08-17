@@ -3,8 +3,8 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
@@ -12,7 +12,7 @@ use leto::geometry::Vector2;
 const ONE: f64 = 1.0;
 
 /// Pressure corrector for PISO algorithm
-pub struct PressureCorrector<T: Cfd2dScalar + Copy> {
+pub struct PressureCorrector<T: CfdScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -25,7 +25,7 @@ pub struct PressureCorrector<T: Cfd2dScalar + Copy> {
     pressure_relaxation: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> PressureCorrector<T> {
+impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
     /// Create new pressure corrector
     pub fn new(grid: &StructuredGrid2D<T>, num_correctors: usize, pressure_relaxation: T) -> Self {
         Self {
@@ -64,8 +64,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> PressureCorrector<T> {
     /// Journal of Computational Physics, 62(1), 40-65.
     fn solve_pressure_correction(&self, fields: &SimulationFields<T>, dt: T) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, scalar::zero::<T>());
-        let mut residual = scalar::from_f64::<T>(ONE);
-        let tolerance = scalar::from_f64(
+        let mut residual = <T as FloatElement>::from_f64(ONE);
+        let tolerance = <T as FloatElement>::from_f64(
             cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
         );
         let max_iter = cfd_core::physics::constants::numerical::solver::MAX_ITERATIONS_OUTER;
@@ -284,7 +284,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> PressureCorrector<T> {
     /// Omitting `(∇p)_cells` reduces this to plain pressure interpolation which does
     /// NOT suppress checkerboard oscillations. Both terms are mathematically mandatory.
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>, dt: T) {
-        let tiny = scalar::from_f64::<T>(1e-30);
+        let tiny = <T as FloatElement>::from_f64(1e-30);
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let two_t = scalar::one::<T>() + scalar::one::<T>();

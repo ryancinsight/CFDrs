@@ -44,7 +44,7 @@ pub fn compute_error_metrics<T: RealField + Copy + FloatElement>(
     let n = scalar::from_usize::<T>(computed.shape()[0]);
     let l2_error = scalar::sqrt(l2_sum);
     let analytical_norm = scalar::sqrt(analytical_l2_sum);
-    let relative_l2_error = if analytical_norm > scalar::from_f64::<T>(1e-12) {
+    let relative_l2_error = if analytical_norm > <T as FloatElement>::from_f64(1e-12) {
         l2_error / analytical_norm
     } else {
         l2_error

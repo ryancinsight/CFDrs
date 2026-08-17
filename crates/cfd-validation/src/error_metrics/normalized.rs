@@ -41,7 +41,7 @@ where
             .base_metric
             .compute_error(reference, &vec![scalar::zero(); reference.len()])?;
 
-        let tolerance_t = scalar::from_f64(self.tolerance);
+        let tolerance_t = <T as FloatElement>::from_f64(self.tolerance);
         if reference_norm < tolerance_t {
             // Reference is essentially zero, return absolute error
             Ok(absolute_error)

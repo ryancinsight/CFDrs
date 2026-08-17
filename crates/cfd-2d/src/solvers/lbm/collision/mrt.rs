@@ -24,7 +24,7 @@
 //! **Reference**: Lallemand & Luo (2000), §IV.
 
 use super::traits::CollisionOperator;
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
 use eunomia::FloatElement;
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$ for D2Q9
@@ -71,9 +71,9 @@ impl<T: FloatElement> RelaxationMatrix<T> {
 
         // Standard D2Q9 relaxation rates optimized for stability and acoustic damping
         // per Lallemand & Luo (2000)
-        let s_e = from_f64(1.64);
-        let s_eps = from_f64(1.54);
-        let s_q = from_f64(1.9);
+        let s_e = <T as FloatElement>::from_f64(1.64);
+        let s_eps = <T as FloatElement>::from_f64(1.54);
+        let s_q = <T as FloatElement>::from_f64(1.9);
 
         Self {
             s: [
@@ -123,7 +123,7 @@ impl<T: FloatElement> MrtCollision<T> {
         ];
         for i in 0..9 {
             for j in 0..9 {
-                m[i][j] = from_f64(rows[i][j]);
+                m[i][j] = <T as FloatElement>::from_f64(rows[i][j]);
             }
         }
 
@@ -159,7 +159,7 @@ impl<T: FloatElement> MrtCollision<T> {
 
         for q in 0..9 {
             for k in 0..9 {
-                m_inv[q][k] = from_f64(M_INV_ROWS[q][k]);
+                m_inv[q][k] = <T as FloatElement>::from_f64(M_INV_ROWS[q][k]);
             }
         }
 
@@ -215,8 +215,8 @@ impl<T: FloatElement> CollisionOperator<T> for MrtCollision<T> {
     }
 
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2 = from_f64::<T>(LATTICE_SOUND_SPEED_SQUARED);
-        let half = from_f64::<T>(RELAXATION_TIME_OFFSET);
+        let cs2 = <T as FloatElement>::from_f64(LATTICE_SOUND_SPEED_SQUARED);
+        let half = <T as FloatElement>::from_f64(RELAXATION_TIME_OFFSET);
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }
@@ -228,8 +228,8 @@ impl<T: FloatElement> MrtCollision<T> {
         m_eq[3] = rho * u[0];
         m_eq[5] = rho * u[1];
 
-        let two = from_f64::<T>(2.0);
-        let three = from_f64::<T>(3.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let three = <T as FloatElement>::from_f64(3.0);
         let u_sq = u[0] * u[0] + u[1] * u[1];
 
         m_eq[1] = zero::<T>() - two * rho + three * rho * u_sq;

@@ -57,8 +57,8 @@
 //! - Kelley, C. T. (1995). *Iterative Methods for Linear and Nonlinear Equations.*
 //!   SIAM. Ch. 1.
 
-use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
 
@@ -69,12 +69,12 @@ use leto::Array1;
 /// - **Change criterion**: `‖Δx‖/‖x‖ < ε` (non-linear/Picard fixed-point)
 ///
 /// Both must hold simultaneously for `has_converged_dual`.
-pub struct ConvergenceChecker<T: Cfd1dScalar + Copy> {
+pub struct ConvergenceChecker<T: CfdScalar + Copy> {
     tolerance: T,
     max_iterations: usize,
 }
 
-impl<T: Cfd1dScalar + Copy + FloatElement> ConvergenceChecker<T> {
+impl<T: CfdScalar + Copy + FloatElement> ConvergenceChecker<T> {
     /// Create a new convergence checker
     pub fn new(tolerance: T) -> Self {
         Self {
@@ -212,7 +212,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ConvergenceChecker<T> {
     }
 }
 
-fn ensure_matching_lengths<T: Cfd1dScalar + Copy>(
+fn ensure_matching_lengths<T: CfdScalar + Copy>(
     current: &Array1<T>,
     previous: &Array1<T>,
     context: &str,
@@ -228,20 +228,20 @@ fn ensure_matching_lengths<T: Cfd1dScalar + Copy>(
     )))
 }
 
-fn l2_norm<T: Cfd1dScalar + Copy + NumericElement>(vector: &Array1<T>) -> T {
+fn l2_norm<T: CfdScalar + Copy + NumericElement>(vector: &Array1<T>) -> T {
     <T as NumericElement>::sqrt(
         vector
             .iter()
-            .fold(T::zero(), |sum, value| sum + *value * *value),
+            .fold(T::ZERO, |sum, value| sum + *value * *value),
     )
 }
 
-fn l2_delta_norm<T: Cfd1dScalar + Copy + NumericElement>(
+fn l2_delta_norm<T: CfdScalar + Copy + NumericElement>(
     current: &Array1<T>,
     previous: &Array1<T>,
 ) -> T {
     <T as NumericElement>::sqrt(current.iter().zip(previous.iter()).fold(
-        T::zero(),
+        T::ZERO,
         |sum, (current, previous)| {
             let delta = *current - *previous;
             sum + delta * delta

@@ -30,7 +30,7 @@ use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array2;
 
-use super::scalar;
+use crate::scalar;
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
 pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -49,8 +49,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Lagran
     pub fn values(&self, l: &[T; 4]) -> [T; 10] {
         let mut n = [scalar::zero::<T>(); 10];
         let one = scalar::one::<T>();
-        let two = scalar::constant::<T>(2.0);
-        let four = scalar::constant::<T>(4.0);
+        let two = <T as FloatElement>::from_f64(2.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         // Corner nodes (0-3)
         for i in 0..4 {
@@ -79,7 +79,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Lagran
     pub fn gradients(&self, l: &[T; 4]) -> Array2<T> {
         let mut grad = Array2::zeros([3, 10]);
         let one = <T as NumericElement>::ONE;
-        let four = scalar::constant::<T>(4.0);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for (i, &li) in l.iter().enumerate() {

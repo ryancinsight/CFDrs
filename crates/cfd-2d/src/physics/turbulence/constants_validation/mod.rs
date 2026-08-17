@@ -6,7 +6,7 @@
 //! - Documents uncertainty bounds for each constant
 //!
 //! References:
-//! - Moser, Kim & Mansour (1999): DNS channel flow Re_τ = 590
+//! - Moser, Kim & Mansour (1999): DNS channel flow `Re_τ` = 590
 //! - Pope (2000): Turbulence modeling requirements
 //! - Wilcox (2008): Uncertainty quantification for turbulence constants
 //!
@@ -14,9 +14,9 @@
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
+//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \`overline{u_i^\prime` `u_j^\prime`}$
 //! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
+//! and the normal stresses $\`overline{u_i^\prime` `u_i^\prime`} \ge 0$. The implemented model
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
@@ -36,11 +36,6 @@ use std::collections::HashMap;
 #[inline]
 fn scalar<T: FloatElement>(value: f64) -> T {
     <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
-fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
 }
 
 #[inline]
@@ -67,6 +62,7 @@ impl<T: RealField + Copy> Default for TurbulenceConstantsValidator<T> {
 
 impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
     /// Create new validator with DNS database
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -117,10 +113,13 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
         println!("{}: {} Constants Validation", status, self.model_name);
         println!("  Reference: {}", self.reference);
-        println!("  Baseline RMS Error: {:.4}", to_f64(self.baseline_error));
+        println!(
+            "  Baseline RMS Error: {:.4}",
+            <T as NumericElement>::to_f64(self.baseline_error)
+        );
         println!(
             "  Max Uncertainty Bound: {:.4}",
-            to_f64(self.max_uncertainty_bound)
+            <T as NumericElement>::to_f64(self.max_uncertainty_bound)
         );
 
         println!("  Constant Sensitivity Analysis:");
@@ -128,9 +127,9 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
             println!(
                 "    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
                 constant_name,
-                to_f64(sensitivity.uncertainty_bound),
-                to_f64(sensitivity.minus_10_error),
-                to_f64(sensitivity.plus_10_error)
+                <T as NumericElement>::to_f64(sensitivity.uncertainty_bound),
+                <T as NumericElement>::to_f64(sensitivity.minus_10_error),
+                <T as NumericElement>::to_f64(sensitivity.plus_10_error)
             );
         }
         println!();

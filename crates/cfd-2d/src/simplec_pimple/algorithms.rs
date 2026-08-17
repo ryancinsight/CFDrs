@@ -30,11 +30,11 @@ use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
-impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
+impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Solve pressure-velocity coupling for one time step with adaptive stepping
     pub fn solve_time_step(
         &mut self,
@@ -110,12 +110,12 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         let mut dt = dt_initial;
         let mut step_count = 0;
         let mut residuals = Vec::new();
-        let mut last_residual = scalar::from_f64(1e10);
+        let mut last_residual = <T as FloatElement>::from_f64(1e10);
 
-        let dt_increase_factor = scalar::from_f64(1.2);
-        let dt_decrease_factor = scalar::from_f64(0.7);
-        let min_dt = dt_initial * scalar::from_f64(0.1);
-        let max_dt = scalar::from_f64(1e10);
+        let dt_increase_factor = <T as FloatElement>::from_f64(1.2);
+        let dt_decrease_factor = <T as FloatElement>::from_f64(0.7);
+        let min_dt = dt_initial * <T as FloatElement>::from_f64(0.1);
+        let max_dt = <T as FloatElement>::from_f64(1e10);
 
         while step_count < max_steps {
             let convergence_tolerance = target_residual.min_scalar(self.config.tolerance);
@@ -134,7 +134,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 let r1 = residuals[n - 2];
                 let r2 = residuals[n - 1];
 
-                let denominator = r2 - r1 * scalar::from_f64(2.0) + r0;
+                let denominator = r2 - r1 * <T as FloatElement>::from_f64(2.0) + r0;
                 if NumericElement::abs(denominator) > T::default_epsilon() {
                     let numerator = (r1 - r0) * (r1 - r0);
                     let r_accelerated = r0 - numerator / denominator;
@@ -150,14 +150,14 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             }
 
             // Adaptive time step adjustment
-            if residual < last_residual * scalar::from_f64(0.95) {
+            if residual < last_residual * <T as FloatElement>::from_f64(0.95) {
                 dt = (dt * dt_increase_factor).min(max_dt);
                 tracing::debug!(
                     "Time step increased to {:.6}, residual: {:.6e}",
                     dt,
                     residual
                 );
-            } else if residual > last_residual * scalar::from_f64(1.05) {
+            } else if residual > last_residual * <T as FloatElement>::from_f64(1.05) {
                 dt = (dt * dt_decrease_factor).max(min_dt);
                 tracing::debug!(
                     "Time step decreased to {:.6}, residual: {:.6e}",
@@ -170,7 +170,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             step_count += 1;
         }
 
-        let fallback_residual = scalar::from_f64(1e10);
+        let fallback_residual = <T as FloatElement>::from_f64(1e10);
         let final_residual = *residuals.last().unwrap_or(&fallback_residual);
         Ok((dt, final_residual))
     }

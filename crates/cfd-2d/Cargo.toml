@@ -5,8 +5,12 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cfd-2d"
+readme = "README.md"
 description = "2D CFD solvers including FDM, FVM, and LBM implementations"
+keywords = ["cfd", "navier-stokes", "simple", "piso", "turbulence"]
+categories = ["science", "simulation"]
 
 [dependencies]
 cfd-core.workspace = true

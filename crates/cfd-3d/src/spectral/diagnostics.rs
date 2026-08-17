@@ -9,7 +9,7 @@ use crate::atlas_array::{fft_1d_array, fft_3d_array, set, value, values};
 use apollo_fft::Complex64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use eunomia::{NumericElement, RealField};
+use eunomia::NumericElement;
 use leto::geometry::Vector3;
 use leto::{Array1, Array3};
 use serde::{Deserialize, Serialize};
@@ -86,14 +86,21 @@ pub struct ProbeSignalSpectrum {
 
 /// Compute the isotropic kinetic energy spectrum of a 3D velocity field.
 ///
+/// # Precision boundary
+///
+/// The spectrum is a diagnostic, not a simulation state: the FFT backend
+/// (`apollo_fft`) and every field of [`KineticEnergySpectrum`] are `f64`. The
+/// field samples are therefore lowered to `f64` once, at
+/// [`component_samples_as_f64`], and the transform runs entirely in double
+/// precision regardless of `T`. Nothing is narrowed back into `T`.
+///
 /// Fourier coefficients are grouped into integer shells using
 /// `floor(sqrt(kx^2 + ky^2 + kz^2))` after mapping FFT indices to signed
 /// wavenumbers. The returned shell energies sum to the total kinetic energy
 /// implied by Parseval's identity.
-pub fn kinetic_energy_spectrum<T>(velocity: &VelocityField<T>) -> Result<KineticEnergySpectrum>
-where
-    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
-{
+pub fn kinetic_energy_spectrum<T: NumericElement>(
+    velocity: &VelocityField<T>,
+) -> Result<KineticEnergySpectrum> {
     let (nx, ny, nz) = velocity.dimensions;
     if nx == 0 || ny == 0 || nz == 0 {
         return Err(Error::InvalidConfiguration(
@@ -117,9 +124,9 @@ where
         )));
     }
 
-    let ux = component_to_array(velocity, |value| value.x)?;
-    let uy = component_to_array(velocity, |value| value.y)?;
-    let uz = component_to_array(velocity, |value| value.z)?;
+    let ux = component_samples_as_f64(velocity, |value| value.x)?;
+    let uy = component_samples_as_f64(velocity, |value| value.y)?;
+    let uz = component_samples_as_f64(velocity, |value| value.z)?;
 
     let ux_hat = fft_3d_array(&ux)?;
     let uy_hat = fft_3d_array(&uy)?;
@@ -160,16 +167,18 @@ where
 
 /// Compute the isotropic enstrophy spectrum of a 3D velocity field.
 ///
+/// # Precision boundary
+///
+/// Same as [`kinetic_energy_spectrum`]: the samples are lowered to `f64` once
+/// at [`component_samples_as_f64`] and the whole transform is `f64`.
+///
 /// The vorticity is evaluated spectrally via `ω̂ = i k × û`, then grouped into
 /// integer shells using the same radial shell indexing as the kinetic-energy
 /// spectrum.
-pub fn enstrophy_spectrum<T>(
+pub fn enstrophy_spectrum<T: NumericElement>(
     velocity: &VelocityField<T>,
     domain_lengths: (f64, f64, f64),
-) -> Result<EnstrophySpectrum>
-where
-    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
-{
+) -> Result<EnstrophySpectrum> {
     let (nx, ny, nz) = velocity.dimensions;
     if nx == 0 || ny == 0 || nz == 0 {
         return Err(Error::InvalidConfiguration(
@@ -201,9 +210,9 @@ where
         )));
     }
 
-    let ux = component_to_array(velocity, |value| value.x)?;
-    let uy = component_to_array(velocity, |value| value.y)?;
-    let uz = component_to_array(velocity, |value| value.z)?;
+    let ux = component_samples_as_f64(velocity, |value| value.x)?;
+    let uy = component_samples_as_f64(velocity, |value| value.y)?;
+    let uz = component_samples_as_f64(velocity, |value| value.z)?;
 
     let ux_hat = fft_3d_array(&ux)?;
     let uy_hat = fft_3d_array(&uy)?;
@@ -349,9 +358,14 @@ pub fn probe_signal_spectrum(samples: &[f64], sample_period: f64) -> Result<Prob
     })
 }
 
-fn component_to_array<T, F>(velocity: &VelocityField<T>, component: F) -> Result<Array3<f64>>
+/// The single precision boundary of this module: read one velocity component
+/// out of the field and lower it to `f64` for the double-precision FFT.
+///
+/// `T` is consumed here and never reconstructed, so nothing downstream is a
+/// generic computation pretending to run in `T`.
+fn component_samples_as_f64<T, F>(velocity: &VelocityField<T>, component: F) -> Result<Array3<f64>>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
+    T: NumericElement,
     F: Fn(&Vector3<T>) -> T,
 {
     let (nx, ny, nz) = velocity.dimensions;

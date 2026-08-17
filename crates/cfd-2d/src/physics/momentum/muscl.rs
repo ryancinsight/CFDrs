@@ -46,7 +46,8 @@
 //! third-order finite-volume face accuracy for smooth cell-centered fields.
 
 use super::tvd_limiters::TvdLimiter;
-use crate::scalar::{from_f64, Cfd2dScalar};
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use eunomia::NumericElement;
 
 /// MUSCL reconstruction scheme order
@@ -59,7 +60,7 @@ pub enum MusclOrder {
 }
 
 /// MUSCL reconstruction interface
-pub trait MusclReconstruction<T: Cfd2dScalar + Copy> {
+pub trait MusclReconstruction<T: CfdScalar + Copy> {
     /// Reconstruct left interface value at cell face (φ_{i+1/2}^L)
     fn reconstruct_left(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T;
 
@@ -76,7 +77,7 @@ pub trait MusclReconstruction<T: Cfd2dScalar + Copy> {
 /// MUSCL reconstruction with TVD limiter
 pub struct MusclScheme<T, L>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     L: TvdLimiter<T>,
 {
     limiter: L,
@@ -86,7 +87,7 @@ where
 
 impl<T, L> MusclScheme<T, L>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     L: TvdLimiter<T>,
 {
     /// Create new MUSCL scheme with specified limiter and order
@@ -105,13 +106,13 @@ where
         let delta_ip1 = phi_ip1 - phi_i;
 
         // Avoid division by zero - use small epsilon
-        let epsilon = from_f64(1e-12);
+        let epsilon = <T as FloatElement>::from_f64(1e-12);
 
         // Compute r = δ_{i+1} / δ_i (with protection)
         let r = if <T as NumericElement>::abs(delta_i) > epsilon {
             delta_ip1 / delta_i
         } else {
-            T::zero()
+            T::ZERO
         };
 
         // Apply TVD limiter
@@ -124,7 +125,7 @@ where
 
 impl<T, L> MusclReconstruction<T> for MusclScheme<T, L>
 where
-    T: Cfd2dScalar + Copy,
+    T: CfdScalar + Copy,
     L: TvdLimiter<T>,
 {
     fn reconstruct_left(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T {
@@ -132,7 +133,7 @@ where
             MusclOrder::SecondOrder => {
                 // MUSCL2: Linear reconstruction with limiter
                 let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-                phi_i + slope / (T::one() + T::one()) // φ_i + (1/2) * slope
+                phi_i + slope / (T::ONE + T::ONE) // φ_i + (1/2) * slope
             }
             MusclOrder::ThirdOrder => {
                 // MUSCL3/QUICK-like: Quadratic reconstruction
@@ -144,19 +145,19 @@ where
                     let quick = quadratic_left_face(phi_im1, phi_i, phi_ip1);
 
                     // Blend QUICK with MUSCL2 based on limiter
-                    let muscl2 = phi_i + slope1 / (T::one() + T::one());
+                    let muscl2 = phi_i + slope1 / (T::ONE + T::ONE);
                     let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
                         slope2 / slope1
                     } else {
-                        T::zero()
+                        T::ZERO
                     };
 
                     let psi = self.limiter.limit(r);
-                    psi * quick + (T::one() - psi) * muscl2
+                    psi * quick + (T::ONE - psi) * muscl2
                 } else {
                     // Fall back to MUSCL2 at boundaries
                     let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-                    phi_i + slope / (T::one() + T::one())
+                    phi_i + slope / (T::ONE + T::ONE)
                 }
             }
         }
@@ -167,7 +168,7 @@ where
             MusclOrder::SecondOrder => {
                 // MUSCL2: Linear reconstruction with limiter
                 let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-                phi_i - slope / (T::one() + T::one()) // φ_i - (1/2) * slope
+                phi_i - slope / (T::ONE + T::ONE) // φ_i - (1/2) * slope
             }
             MusclOrder::ThirdOrder => {
                 // MUSCL3/QUICK-like: Quadratic reconstruction
@@ -179,19 +180,19 @@ where
                     let quick = quadratic_right_face(phi_i, phi_ip1, phi_ip2);
 
                     // Blend with MUSCL2
-                    let muscl2 = phi_i - slope1 / (T::one() + T::one());
+                    let muscl2 = phi_i - slope1 / (T::ONE + T::ONE);
                     let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
                         slope2 / slope1
                     } else {
-                        T::zero()
+                        T::ZERO
                     };
 
                     let psi = self.limiter.limit(r);
-                    psi * quick + (T::one() - psi) * muscl2
+                    psi * quick + (T::ONE - psi) * muscl2
                 } else {
                     // Fall back to MUSCL2 at boundaries
                     let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-                    phi_i - slope / (T::one() + T::one())
+                    phi_i - slope / (T::ONE + T::ONE)
                 }
             }
         }
@@ -210,18 +211,18 @@ where
 }
 
 #[inline]
-fn quadratic_left_face<T: Cfd2dScalar + Copy>(phi_im1: T, phi_i: T, phi_ip1: T) -> T {
-    let one_eighth = from_f64::<T>(0.125);
-    let three_eighths = from_f64::<T>(0.375);
-    let three_quarters = from_f64::<T>(0.75);
+fn quadratic_left_face<T: CfdScalar + Copy>(phi_im1: T, phi_i: T, phi_ip1: T) -> T {
+    let one_eighth = <T as FloatElement>::from_f64(0.125);
+    let three_eighths = <T as FloatElement>::from_f64(0.375);
+    let three_quarters = <T as FloatElement>::from_f64(0.75);
     -one_eighth * phi_im1 + three_quarters * phi_i + three_eighths * phi_ip1
 }
 
 #[inline]
-fn quadratic_right_face<T: Cfd2dScalar + Copy>(phi_i: T, phi_ip1: T, phi_ip2: T) -> T {
-    let one_eighth = from_f64::<T>(0.125);
-    let three_eighths = from_f64::<T>(0.375);
-    let three_quarters = from_f64::<T>(0.75);
+fn quadratic_right_face<T: CfdScalar + Copy>(phi_i: T, phi_ip1: T, phi_ip2: T) -> T {
+    let one_eighth = <T as FloatElement>::from_f64(0.125);
+    let three_eighths = <T as FloatElement>::from_f64(0.375);
+    let three_quarters = <T as FloatElement>::from_f64(0.75);
     three_eighths * phi_i + three_quarters * phi_ip1 - one_eighth * phi_ip2
 }
 

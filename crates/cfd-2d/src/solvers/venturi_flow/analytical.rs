@@ -1,10 +1,10 @@
 use super::geometry::VenturiGeometry;
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{self, from_f64};
+use crate::scalar::{self};
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Analytical Venturi solution based on Bernoulli equation
-pub struct BernoulliVenturi<T: Cfd2dScalar + Copy> {
+pub struct BernoulliVenturi<T: CfdScalar + Copy> {
     geometry: VenturiGeometry<T>,
     /// Inlet velocity \[m/s]
     pub u_inlet: T,
@@ -14,7 +14,7 @@ pub struct BernoulliVenturi<T: Cfd2dScalar + Copy> {
     pub rho: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> BernoulliVenturi<T> {
+impl<T: CfdScalar + Copy + FloatElement> BernoulliVenturi<T> {
     /// Create new Bernoulli solution
     pub fn new(geometry: VenturiGeometry<T>, u_inlet: T, p_inlet: T, rho: T) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BernoulliVenturi<T> {
 
     /// Calculate pressure at throat (from Bernoulli equation)
     pub fn pressure_throat(&self) -> T {
-        let one_half = from_f64::<T>(0.5);
+        let one_half = <T as FloatElement>::from_f64(0.5);
         let u_throat = self.velocity_throat();
         let dynamic_pressure_inlet = one_half * self.rho * self.u_inlet * self.u_inlet;
         let dynamic_pressure_throat = one_half * self.rho * u_throat * u_throat;
@@ -54,13 +54,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BernoulliVenturi<T> {
 }
 
 /// Venturi with viscous friction loss correction
-pub struct ViscousVenturi<T: Cfd2dScalar + Copy> {
+pub struct ViscousVenturi<T: CfdScalar + Copy> {
     bernoulli: BernoulliVenturi<T>,
     /// Loss coefficient (typical: 0.1-0.3)
     pub loss_coefficient: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ViscousVenturi<T> {
+impl<T: CfdScalar + Copy + FloatElement> ViscousVenturi<T> {
     /// Create Venturi with friction losses
     pub fn new(
         geometry: VenturiGeometry<T>,
@@ -78,7 +78,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ViscousVenturi<T> {
 
     /// Calculate outlet pressure with friction loss
     pub fn pressure_outlet_with_loss(&self) -> T {
-        let one_half = from_f64::<T>(0.5);
+        let one_half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure_inlet =
             one_half * self.bernoulli.rho * self.bernoulli.u_inlet * self.bernoulli.u_inlet;
 

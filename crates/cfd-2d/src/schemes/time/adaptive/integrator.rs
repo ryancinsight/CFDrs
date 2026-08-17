@@ -4,14 +4,13 @@
 //! provide CFL-based, error-based, or combined adaptive time stepping.
 
 use super::{AdaptationStrategy, AdaptiveController};
-use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 use super::super::StateVector;
 
 /// Adaptive time integrator combining base integrator with adaptive control
-pub struct AdaptiveTimeIntegrator<T: Cfd2dScalar + Copy> {
+pub struct AdaptiveTimeIntegrator<T: CfdScalar + Copy> {
     /// Base time integrator
     base_integrator: super::super::TimeIntegrator<T>,
     /// Adaptive controller
@@ -22,7 +21,7 @@ pub struct AdaptiveTimeIntegrator<T: Cfd2dScalar + Copy> {
     _residual_prev: Option<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
+impl<T: CfdScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
     /// Update the y_prev buffer used by Richardson-extrapolation error estimators.
     ///
     /// AUDIT: allocates ONCE on the first call (when the `Option` is `None`),
@@ -132,7 +131,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
             let y_full = self.base_integrator.step(&f, y, t, dt_current);
 
             // Take two half steps for error estimation
-            let two = scalar::from_f64::<T>(2.0);
+            let two = <T as FloatElement>::from_f64(2.0);
             let half_dt = dt_current / two;
             let y_half = self.base_integrator.step(&f, y, t, half_dt);
             let t_half = t + half_dt;
@@ -203,7 +202,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
             let y_full = self.base_integrator.step(&f, y, t, dt_current);
 
             // Take two half steps for error estimation
-            let two = scalar::from_f64::<T>(2.0);
+            let two = <T as FloatElement>::from_f64(2.0);
             let half_dt = dt_current / two;
             let y_half = self.base_integrator.step(&f, y, t, half_dt);
             let t_half = t + half_dt;
@@ -220,8 +219,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
             let error_tolerance = match self.controller.strategy {
                 AdaptationStrategy::Combined {
                     error_tolerance, ..
-                } => scalar::from_f64::<T>(error_tolerance),
-                _ => scalar::from_f64::<T>(1e-6), // Default tolerance
+                } => <T as FloatElement>::from_f64(error_tolerance),
+                _ => <T as FloatElement>::from_f64(1e-6), // Default tolerance
             };
 
             if error_estimate <= error_tolerance {
@@ -229,10 +228,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
                 self.controller.steps_accepted += 1;
 
                 // Try to increase step size for next step
-                let factor = scalar::from_f64::<T>(0.9)
+                let factor = <T as FloatElement>::from_f64(0.9)
                     * <T as FloatElement>::powf(
                         error_tolerance / error_estimate,
-                        scalar::from_f64::<T>(1.0 / 4.0),
+                        <T as FloatElement>::from_f64(1.0 / 4.0),
                     );
                 self.controller.dt_current =
                     <T as NumericElement>::min_scalar(dt_current * factor, self.controller.dt_max);
@@ -243,10 +242,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
 
             // Step rejected - reduce step size
             self.controller.steps_rejected += 1;
-            let factor = scalar::from_f64::<T>(0.9)
+            let factor = <T as FloatElement>::from_f64(0.9)
                 * <T as FloatElement>::powf(
                     error_tolerance / error_estimate,
-                    scalar::from_f64::<T>(1.0 / 3.0),
+                    <T as FloatElement>::from_f64(1.0 / 3.0),
                 );
             self.controller.dt_current =
                 <T as NumericElement>::max_scalar(dt_current * factor, self.controller.dt_min);

@@ -185,7 +185,7 @@ impl<T: RealField + FloatElement + Copy> TimeIntegratorTrait<T> for RungeKutta2 
 
         let k2 = f(t + dt, y_intermediate);
 
-        let half = scalar::from_f64::<T>(HALF);
+        let half = <T as FloatElement>::from_f64(HALF);
         let scale = dt * half;
         let len = ensure_same_len(&k1, &k2)?;
         ensure_same_len(y, &k1)?;
@@ -235,7 +235,7 @@ impl<T: RealField + FloatElement + Copy> TimeIntegratorTrait<T> for RungeKutta4 
             ));
         }
 
-        let half = scalar::from_f64::<T>(HALF);
+        let half = <T as FloatElement>::from_f64(HALF);
 
         let k1 = f(t, y);
 
@@ -255,8 +255,8 @@ impl<T: RealField + FloatElement + Copy> TimeIntegratorTrait<T> for RungeKutta4 
 
         let k4 = f(t + dt, y_k3);
 
-        let sixth = scalar::from_f64::<T>(ONE_SIXTH);
-        let two = scalar::from_f64::<T>(TWO);
+        let sixth = <T as FloatElement>::from_f64(ONE_SIXTH);
+        let two = <T as FloatElement>::from_f64(TWO);
         let scale = dt * sixth;
         let len = ensure_same_len(&k1, &k2)?;
         ensure_same_len(&k1, &k3)?;

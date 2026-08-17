@@ -6,11 +6,11 @@
 
 use super::{BloodModel, PoiseuilleFlow2D};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
+impl<T: CfdScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     /// Solve linear system for velocity with current viscosity
     ///
     /// Solves tridiagonal system using Thomas algorithm (direct solver)
@@ -27,7 +27,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
         // Allocate tridiagonal matrix coefficients
         let zero: T = scalar::zero();
         let one: T = scalar::one();
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let mut a = vec![zero; ny]; // Sub-diagonal
         let mut b = vec![zero; ny]; // Diagonal
         let mut c = vec![zero; ny]; // Super-diagonal
@@ -72,7 +72,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     pub(super) fn calculate_shear_rate(&mut self) {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         // Boundaries: use one-sided differences
         self.shear_rate[0] = <T as NumericElement>::abs((self.velocity[1] - self.velocity[0]) / dy);
@@ -112,7 +112,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
         }
 
         // Relative L2 norm
-        <T as NumericElement>::sqrt(sum_sq / (sum_sq_old + scalar::from_f64::<T>(1e-20)))
+        <T as NumericElement>::sqrt(sum_sq / (sum_sq_old + <T as FloatElement>::from_f64(1e-20)))
     }
 }
 
@@ -125,7 +125,7 @@ impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
 /// - d: right-hand side
 ///
 /// Returns solution vector x
-pub(super) fn thomas_algorithm<T: Cfd2dScalar + Copy + FloatElement>(
+pub(super) fn thomas_algorithm<T: CfdScalar + Copy + FloatElement>(
     a: &[T],
     b: &[T],
     c: &[T],
@@ -138,7 +138,7 @@ pub(super) fn thomas_algorithm<T: Cfd2dScalar + Copy + FloatElement>(
     }
 
     let zero: T = scalar::zero();
-    let pivot_tolerance = scalar::from_f64::<T>(1e-14);
+    let pivot_tolerance = <T as FloatElement>::from_f64(1e-14);
     let mut c_prime = vec![zero; n];
     let mut d_prime = vec![zero; n];
     let mut x = vec![zero; n];

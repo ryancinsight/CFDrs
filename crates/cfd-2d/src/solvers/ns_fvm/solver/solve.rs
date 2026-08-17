@@ -1,13 +1,13 @@
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::boundary::{BloodModel, BoundaryCondition};
 use crate::solvers::ns_fvm::config::SolveResult;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
         self.initialize_viscosity();
@@ -35,11 +35,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             // Channel height = span from first to last fluid centre + half-cells at edges.
             let h = y_max - y_min
                 + (dy_cells[0] + dy_cells[dy_cells.len().saturating_sub(1)])
-                    * scalar::from_f64::<T>(0.5);
+                    * <T as FloatElement>::from_f64(0.5);
 
             let mut discrete_sum: T = scalar::zero();
-            let half: T = scalar::from_f64(0.5);
-            let six: T = scalar::from_f64(6.0);
+            let half: T = <T as FloatElement>::from_f64(0.5);
+            let six: T = <T as FloatElement>::from_f64(6.0);
             let one: T = scalar::one();
             let zero: T = scalar::zero();
 
@@ -58,7 +58,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
 
             // Normalise the discrete profile so numerical mass flux matches continuous theory precisely
             let target_sum = u_inlet * h;
-            let tiny: T = scalar::from_f64(1e-30);
+            let tiny: T = <T as FloatElement>::from_f64(1e-30);
             if discrete_sum > tiny {
                 let normalize_factor = target_sum / discrete_sum;
                 for j in 0..ny {
@@ -69,7 +69,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             }
         }
 
-        let mut last_residual: T = scalar::from_f64(1e10);
+        let mut last_residual: T = <T as FloatElement>::from_f64(1e10);
         let zero: T = scalar::zero();
 
         let bc_inlet =
@@ -106,7 +106,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
                     let ny = self.grid.ny;
                     let zero: T = scalar::zero();
                     let mut velocity = vec![Vector2::new(zero, zero); nx * ny];
-                    let half: T = scalar::from_f64(0.5);
+                    let half: T = <T as FloatElement>::from_f64(0.5);
                     for i in 0..nx {
                         for j in 0..ny {
                             let u_cc = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
@@ -115,7 +115,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
                         }
                     }
                     let mu_mol = self.field.mu[(0, 0)]; // reference molecular viscosity
-                    let dt_pseudo: T = scalar::from_f64(1e-3);
+                    let dt_pseudo: T = <T as FloatElement>::from_f64(1e-3);
                     let _ = turb.model.update(
                         &mut turb.k,
                         &mut turb.omega,
@@ -204,7 +204,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             // Skip this check during the initial flow establishment phase so
             // high-Re or highly branched cases can settle before being judged.
             if iteration > 50 {
-                let growth_limit: T = scalar::from_f64(1e6);
+                let growth_limit: T = <T as FloatElement>::from_f64(1e6);
                 if res_max > growth_limit {
                     return Err(Error::Solver(format!(
                         "SIMPLE solver diverged: max pointwise residual {} exceeds limit",

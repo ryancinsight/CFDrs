@@ -65,6 +65,7 @@ use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::VenturiMeshBuilder;
 use eunomia::FloatElement;
+use eunomia::NumericElement;
 use leto::geometry::Vector3;
 
 use super::analysis::prepare_cell_shear_geometry;
@@ -107,7 +108,7 @@ fn pressure_coefficients_from_throat_flux<
     dp_throat: T,
     dp_recovery: T,
 ) -> Result<(T, T)> {
-    let half = scalar::from_f64::<T>(0.5);
+    let half = <T as FloatElement>::from_f64(0.5);
     if throat_area <= scalar::zero::<T>() || throat_flow_rate <= scalar::zero::<T>() {
         return Err(Error::Solver(
             "Venturi pressure coefficients require positive throat area and flow rate".to_string(),
@@ -190,7 +191,9 @@ where
         let half_height: Option<f64> = if is_circular {
             None
         } else {
-            self.config.rect_height.map(|h| scalar::to_f64(h) / 2.0)
+            self.config
+                .rect_height
+                .map(|h| <T as NumericElement>::to_f64(h) / 2.0)
         };
         for i in 0..base_mesh.vertex_count() {
             use cfd_mesh::domain::core::index::VertexId;
@@ -346,12 +349,14 @@ where
         // Explicitly classify boundary node sets first so that inlet/wall intersection
         // (rim) nodes can be treated consistently.
         let mut boundary_conditions = HashMap::new();
-        let fluid_props =
-            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
+        let fluid_props = fluid.properties_at(
+            <T as FloatElement>::from_f64(310.0),
+            self.config.inlet_pressure,
+        )?;
 
-        let d_inlet = scalar::from_f64::<T>(self.builder.d_inlet);
+        let d_inlet = <T as FloatElement>::from_f64(self.builder.d_inlet);
         let area_inlet = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
         } else {
             // Rectangular: width × height (height may differ from width)
             let h = self.config.rect_height.unwrap_or(d_inlet);
@@ -399,7 +404,11 @@ where
                 boundary_conditions.insert(
                     v_idx,
                     BoundaryCondition::VelocityInlet {
-                        velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                        velocity: Vector3::new(
+                            0.0_f64,
+                            0.0_f64,
+                            <T as NumericElement>::to_f64(u_inlet),
+                        ),
                     },
                 );
             }
@@ -408,7 +417,7 @@ where
         // Pass 2: apply the prescribed outlet pressure at the outlet trace.
         // This supplies the pressure reference while the velocity remains
         // unconstrained, so the outlet flux is still determined by continuity.
-        let outlet_pressure_f64 = scalar::to_f64(self.config.outlet_pressure);
+        let outlet_pressure_f64 = <T as NumericElement>::to_f64(self.config.outlet_pressure);
         for &v_idx in &outlet_nodes {
             if v_idx < n_corner_nodes {
                 boundary_conditions.insert(
@@ -436,8 +445,8 @@ where
 
         // Pass 4: Ensure all boundary vertices have a BC unless intentionally left as outlet natural boundary.
         let inlet_radius_sq = {
-            let half = scalar::from_f64::<T>(0.5);
-            let margin = scalar::from_f64::<T>(0.98);
+            let half = <T as FloatElement>::from_f64(0.5);
+            let margin = <T as FloatElement>::from_f64(0.98);
             let r = half * d_inlet * margin;
             r * r
         };
@@ -452,7 +461,7 @@ where
             } else if inlet_nodes.contains(&v_idx) {
                 let v = mesh.vertices.get(VertexId::from_usize(v_idx));
                 if self.config.circular {
-                    let r_sq = scalar::from_f64::<T>(
+                    let r_sq = <T as FloatElement>::from_f64(
                         v.position.x * v.position.x + v.position.y * v.position.y,
                     );
                     if r_sq >= inlet_radius_sq {
@@ -472,7 +481,11 @@ where
                         boundary_conditions.insert(
                             v_idx,
                             BoundaryCondition::VelocityInlet {
-                                velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                                velocity: Vector3::new(
+                                    0.0_f64,
+                                    0.0_f64,
+                                    <T as NumericElement>::to_f64(u_inlet),
+                                ),
                             },
                         );
                     }
@@ -493,7 +506,11 @@ where
                     boundary_conditions.insert(
                         v_idx,
                         BoundaryCondition::VelocityInlet {
-                            velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
+                            velocity: Vector3::new(
+                                0.0_f64,
+                                0.0_f64,
+                                <T as NumericElement>::to_f64(u_inlet),
+                            ),
                         },
                     );
                 }
@@ -525,19 +542,19 @@ where
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "Picard Basis".to_string(),
-            aequitas::systems::si::quantities::MassDensity::from_base(scalar::to_f64(
-                fluid_props.density.into_base(),
-            )),
-            aequitas::systems::si::quantities::DynamicViscosity::from_base(scalar::to_f64(
-                fluid_props.dynamic_viscosity.into_base(),
-            )),
-            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(scalar::to_f64(
-                fluid_props.specific_heat.into_base(),
-            )),
-            aequitas::systems::si::quantities::ThermalConductivity::from_base(scalar::to_f64(
-                fluid_props.thermal_conductivity.into_base(),
-            )),
-            aequitas::systems::si::quantities::Velocity::from_base(scalar::to_f64(
+            aequitas::systems::si::quantities::MassDensity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.density.into_base()),
+            ),
+            aequitas::systems::si::quantities::DynamicViscosity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base()),
+            ),
+            aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.specific_heat.into_base()),
+            ),
+            aequitas::systems::si::quantities::ThermalConductivity::from_base(
+                <T as NumericElement>::to_f64(fluid_props.thermal_conductivity.into_base()),
+            ),
+            aequitas::systems::si::quantities::Velocity::from_base(<T as NumericElement>::to_f64(
                 fluid_props.speed_of_sound.into_base(),
             )),
         );
@@ -550,7 +567,10 @@ where
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![scalar::to_f64(fluid_props.dynamic_viscosity.into_base()); n_elements];
+            vec![
+                <T as NumericElement>::to_f64(fluid_props.dynamic_viscosity.into_base());
+                n_elements
+            ];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -634,13 +654,13 @@ where
                 }
                 shear_sum_f64 += shear_rate_f64;
 
-                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
+                let shear_rate = <T as FloatElement>::from_f64(shear_rate_f64);
                 let new_visc_t = fluid.viscosity_at_shear(
                     shear_rate,
-                    scalar::from_f64::<T>(310.0),
+                    <T as FloatElement>::from_f64(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let mut new_visc = scalar::to_f64(new_visc_t.into_base());
+                let mut new_visc = <T as NumericElement>::to_f64(new_visc_t.into_base());
 
                 // Cap viscosity at 20x reference (stability)
                 let max_viscosity = problem.fluid.viscosity.into_base() * 20.0_f64;
@@ -724,7 +744,7 @@ where
                 break;
             }
 
-            let tol_f64 = scalar::to_f64(self.config.nonlinear_tolerance);
+            let tol_f64 = <T as NumericElement>::to_f64(self.config.nonlinear_tolerance);
             if vel_change_f64 < tol_f64 && max_change_f64 < tol_f64 {
                 tracing::debug!(iter, "Picard converged");
                 break;
@@ -832,11 +852,11 @@ where
         let mut u_in_sol_sum = scalar::zero::<T>();
         for &v_idx in &inlet_nodes {
             if v_idx < fem_solution.n_corner_nodes {
-                p_in_sum += scalar::from_f64::<T>(fem_solution.get_pressure(v_idx));
+                p_in_sum += <T as FloatElement>::from_f64(fem_solution.get_pressure(v_idx));
                 p_in_count += 1;
             }
             // Use axial (z) component for mass-flux diagnostic
-            u_in_sol_sum += scalar::from_f64::<T>(fem_solution.get_velocity(v_idx).z);
+            u_in_sol_sum += <T as FloatElement>::from_f64(fem_solution.get_velocity(v_idx).z);
             count_in += 1;
         }
 
@@ -854,16 +874,17 @@ where
         tracing::debug!(u_in_sol_avg = ?u_in_sol_avg, "Venturi average inlet velocity");
 
         // Identify throat section nodes and average pressure
-        let l_inlet = scalar::from_f64::<T>(self.builder.l_inlet);
-        let l_convergent = scalar::from_f64::<T>(self.builder.l_convergent);
-        let l_throat = scalar::from_f64::<T>(self.builder.l_throat);
-        let l_divergent = scalar::from_f64::<T>(self.builder.l_divergent);
-        let l_outlet = scalar::from_f64::<T>(self.builder.l_outlet);
-        let z_throat_center = l_inlet + l_convergent + l_throat / scalar::from_f64::<T>(2.0);
+        let l_inlet = <T as FloatElement>::from_f64(self.builder.l_inlet);
+        let l_convergent = <T as FloatElement>::from_f64(self.builder.l_convergent);
+        let l_throat = <T as FloatElement>::from_f64(self.builder.l_throat);
+        let l_divergent = <T as FloatElement>::from_f64(self.builder.l_divergent);
+        let l_outlet = <T as FloatElement>::from_f64(self.builder.l_outlet);
+        let z_throat_center =
+            l_inlet + l_convergent + l_throat / <T as FloatElement>::from_f64(2.0);
         let total_length = l_inlet + l_convergent + l_throat + l_divergent + l_outlet;
         // Use tolerance proportional to mesh spacing (half the axial element size)
         let throat_tol = total_length / scalar::from_usize::<T>(self.config.resolution.0.max(1))
-            * scalar::from_f64::<T>(0.6);
+            * <T as FloatElement>::from_f64(0.6);
         let mut p_throat_sum = scalar::zero::<T>();
         let mut p_throat_count = 0usize;
         let mut u_throat_max = scalar::zero::<T>();
@@ -872,13 +893,13 @@ where
 
         for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
-            let dist_z = scalar::abs(scalar::from_f64::<T>(v.position.z) - z_throat_center);
+            let dist_z = scalar::abs(<T as FloatElement>::from_f64(v.position.z) - z_throat_center);
             if dist_z < throat_tol {
                 if i < fem_solution.n_corner_nodes {
-                    p_throat_sum += scalar::from_f64::<T>(fem_solution.get_pressure(i));
+                    p_throat_sum += <T as FloatElement>::from_f64(fem_solution.get_pressure(i));
                     p_throat_count += 1;
                 }
-                let u_mag = scalar::from_f64::<T>(fem_solution.get_velocity(i).norm());
+                let u_mag = <T as FloatElement>::from_f64(fem_solution.get_velocity(i).norm());
                 if u_mag > u_throat_max {
                     u_throat_max = u_mag;
                 }
@@ -918,10 +939,10 @@ where
 
         for &v_idx in &outlet_nodes {
             if v_idx < fem_solution.n_corner_nodes {
-                p_out_sum += scalar::from_f64::<T>(fem_solution.get_pressure(v_idx));
+                p_out_sum += <T as FloatElement>::from_f64(fem_solution.get_pressure(v_idx));
                 p_out_count += 1;
             }
-            u_out_sum += scalar::from_f64::<T>(fem_solution.get_velocity(v_idx).z);
+            u_out_sum += <T as FloatElement>::from_f64(fem_solution.get_velocity(v_idx).z);
             count_out += 1;
         }
 
@@ -938,12 +959,12 @@ where
         // Sample pressure from interior inlet/outlet slices to reduce boundary-node artifacts.
         // Use flux-weighted averaging (u_z-weighted) for better effective pressure-drop estimate.
         let axial_dx = total_length / scalar::from_usize::<T>(self.config.resolution.0.max(1));
-        let slice_tol = axial_dx * scalar::from_f64::<T>(0.55);
-        let z_in_sample = axial_dx * scalar::from_f64::<T>(5.0);
-        let z_out_sample = total_length - axial_dx * scalar::from_f64::<T>(5.0);
-        let core_radius_frac = scalar::from_f64::<T>(0.90);
+        let slice_tol = axial_dx * <T as FloatElement>::from_f64(0.55);
+        let z_in_sample = axial_dx * <T as FloatElement>::from_f64(5.0);
+        let z_out_sample = total_length - axial_dx * <T as FloatElement>::from_f64(5.0);
+        let core_radius_frac = <T as FloatElement>::from_f64(0.90);
         let core_radius_sq = if self.config.circular {
-            let r_core = scalar::from_f64::<T>(0.5) * d_inlet * core_radius_frac;
+            let r_core = <T as FloatElement>::from_f64(0.5) * d_inlet * core_radius_frac;
             r_core * r_core
         } else {
             scalar::zero::<T>()
@@ -964,9 +985,9 @@ where
                 continue;
             }
 
-            let z = scalar::from_f64::<T>(v.position.z);
+            let z = <T as FloatElement>::from_f64(v.position.z);
             if self.config.circular {
-                let r_sq = scalar::from_f64::<T>(
+                let r_sq = <T as FloatElement>::from_f64(
                     v.position.x * v.position.x + v.position.y * v.position.y,
                 );
                 if r_sq > core_radius_sq {
@@ -975,8 +996,9 @@ where
             }
 
             if scalar::abs(z - z_in_sample) <= slice_tol {
-                let p_i = scalar::from_f64::<T>(fem_solution.get_pressure(i));
-                let uzi = scalar::from_f64::<T>(fem_solution.get_velocity(i).z.max(0.0_f64));
+                let p_i = <T as FloatElement>::from_f64(fem_solution.get_pressure(i));
+                let uzi =
+                    <T as FloatElement>::from_f64(fem_solution.get_velocity(i).z.max(0.0_f64));
                 let wi = uzi;
                 p_in_slice_sum += p_i;
                 p_in_slice_count += 1;
@@ -984,8 +1006,9 @@ where
                 p_in_slice_weight_sum += wi;
             }
             if scalar::abs(z - z_out_sample) <= slice_tol {
-                let p_i = scalar::from_f64::<T>(fem_solution.get_pressure(i));
-                let uzi = scalar::from_f64::<T>(fem_solution.get_velocity(i).z.max(0.0_f64));
+                let p_i = <T as FloatElement>::from_f64(fem_solution.get_pressure(i));
+                let uzi =
+                    <T as FloatElement>::from_f64(fem_solution.get_velocity(i).z.max(0.0_f64));
                 let wi = uzi;
                 p_out_slice_sum += p_i;
                 p_out_slice_count += 1;
@@ -1054,15 +1077,15 @@ where
         // Qin = u_in_avg * A_in (reference)
         // Qth = u_th_avg * A_th (slice-based)
         // q_in_face/q_out_face = integrated boundary flux
-        let d_throat = scalar::from_f64::<T>(self.builder.d_throat);
+        let d_throat = <T as FloatElement>::from_f64(self.builder.d_throat);
         let area_throat = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_throat * d_throat
+            <T as FloatElement>::from_f64(std::f64::consts::PI / 4.0) * d_throat * d_throat
         } else {
             let h = self.config.rect_height.unwrap_or(d_throat);
             d_throat * h
         };
         let coefficient_flow_rate = if q_in_face > 0.0_f64 {
-            scalar::from_f64::<T>(q_in_face)
+            <T as FloatElement>::from_f64(q_in_face)
         } else {
             self.config.inlet_flow_rate
         };
@@ -1078,9 +1101,9 @@ where
 
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;
-        solution.q_in_face = scalar::from_f64::<T>(q_in_face);
+        solution.q_in_face = <T as FloatElement>::from_f64(q_in_face);
         solution.mass_error = if q_in_face > 1e-12_f64 {
-            scalar::from_f64::<T>((q_in_face - q_out_face) / q_in_face)
+            <T as FloatElement>::from_f64((q_in_face - q_out_face) / q_in_face)
         } else {
             scalar::zero::<T>()
         };

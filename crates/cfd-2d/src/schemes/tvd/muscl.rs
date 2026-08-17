@@ -1,14 +1,14 @@
 //! MUSCL reconstruction scheme with TVD flux limiters.
 
 use super::FluxLimiter;
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, one, zero};
+use crate::scalar::{one, zero};
 use crate::schemes::grid::Grid2D;
 use crate::schemes::FaceReconstruction;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// MUSCL (Monotonic Upstream-centered Scheme for Conservation Laws)
-pub struct MUSCLScheme<T: Cfd2dScalar + Copy> {
+pub struct MUSCLScheme<T: CfdScalar + Copy> {
     /// MUSCL reconstruction order
     order: MUSCLOrder,
     /// TVD flux limiter
@@ -25,7 +25,7 @@ pub enum MUSCLOrder {
     ThirdOrder,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> MUSCLScheme<T> {
+impl<T: CfdScalar + Copy + FloatElement> MUSCLScheme<T> {
     /// Create new MUSCL scheme with specified order and limiter
     #[must_use]
     pub fn new(order: MUSCLOrder, limiter: FluxLimiter) -> Self {
@@ -81,13 +81,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MUSCLScheme<T> {
     /// Reconstruct left interface value at cell face for MUSCL2
     fn reconstruct_left_muscl2(&self, phi_im1: T, phi_i: T, phi_ip1: T) -> T {
         let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-        phi_i + slope * from_f64::<T>(0.5)
+        phi_i + slope * <T as FloatElement>::from_f64(0.5)
     }
 
     /// Reconstruct right interface value at cell face for MUSCL2
     fn reconstruct_right_muscl2(&self, phi_im1: T, phi_i: T, phi_ip1: T) -> T {
         let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-        phi_i - slope * from_f64::<T>(0.5)
+        phi_i - slope * <T as FloatElement>::from_f64(0.5)
     }
 
     /// Reconstruct left interface value at cell face for MUSCL3
@@ -103,10 +103,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            let quick = (from_f64::<T>(6.0) * phi_i - from_f64::<T>(2.0) * phi_im1
-                + from_f64::<T>(8.0) * phi_ip1
+            let quick = (<T as FloatElement>::from_f64(6.0) * phi_i
+                - <T as FloatElement>::from_f64(2.0) * phi_im1
+                + <T as FloatElement>::from_f64(8.0) * phi_ip1
                 - phi_ip2)
-                / from_f64::<T>(12.0);
+                / <T as FloatElement>::from_f64(12.0);
 
             let muscl2 = self.reconstruct_left_muscl2(phi_im1, phi_i, phi_ip1);
             let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
@@ -135,8 +136,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            let quick = (-phi_i + from_f64::<T>(5.0) * phi_ip1 + from_f64::<T>(2.0) * phi_ip2)
-                / from_f64::<T>(6.0);
+            let quick = (-phi_i
+                + <T as FloatElement>::from_f64(5.0) * phi_ip1
+                + <T as FloatElement>::from_f64(2.0) * phi_ip2)
+                / <T as FloatElement>::from_f64(6.0);
 
             let muscl2 = self.reconstruct_right_muscl2(phi_im1, phi_i, phi_ip1);
             let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
@@ -153,7 +156,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MUSCLScheme<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme<T> {
+impl<T: CfdScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme<T> {
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -173,7 +176,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme
                         if velocity_at_face >= zero() {
                             phi_0
                         } else {
-                            phi_0 - from_f64::<T>(0.5) * (phi_1 - phi_0)
+                            phi_0 - <T as FloatElement>::from_f64(0.5) * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[[0, j]]
@@ -190,7 +193,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme
                         if velocity_at_face <= zero() {
                             phi_nm1
                         } else {
-                            phi_nm1 + from_f64::<T>(0.5) * (phi_nm1 - phi_nm2)
+                            phi_nm1 + <T as FloatElement>::from_f64(0.5) * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[[nx - 1, j]]
@@ -250,7 +253,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme
                         if velocity_at_face >= zero() {
                             phi_0
                         } else {
-                            phi_0 - from_f64::<T>(0.5) * (phi_1 - phi_0)
+                            phi_0 - <T as FloatElement>::from_f64(0.5) * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[[i, 0]]
@@ -267,7 +270,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for MUSCLScheme
                         if velocity_at_face <= zero() {
                             phi_nm1
                         } else {
-                            phi_nm1 + from_f64::<T>(0.5) * (phi_nm1 - phi_nm2)
+                            phi_nm1 + <T as FloatElement>::from_f64(0.5) * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[[i, ny - 1]]

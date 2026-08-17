@@ -38,7 +38,7 @@
 //! The stability limit is $\beta \approx (w_0 + 1) s^2 / 2 \approx 0.8 s^2$ for damped RKC.
 
 use crate::error::Result;
-use crate::time_stepping::traits::{from_f64, one, state_len, state_zeros, zero, TimeState};
+use crate::time_stepping::traits::{one, state_len, state_zeros, zero, TimeState};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 
@@ -50,7 +50,7 @@ fn from_usize<T: FloatElement>(value: usize) -> T {
         value_u64 <= MAX_EXACT_F64_INTEGER,
         "RKC scalar conversion requires exact f64 representation of usize value"
     );
-    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+    <T as FloatElement>::from_f64(<u64 as NumericElement>::to_f64(value_u64))
 }
 
 /// RKC method configuration
@@ -72,10 +72,10 @@ impl<T: RealField + Copy + FloatElement> Default for RkcConfig<T> {
     fn default() -> Self {
         Self {
             num_stages: 10,
-            damping: from_f64(2.0 / 13.0),
-            atol: from_f64(1e-8),
-            rtol: from_f64(1e-6),
-            safety_factor: from_f64(0.9),
+            damping: <T as FloatElement>::from_f64(2.0 / 13.0),
+            atol: <T as FloatElement>::from_f64(1e-8),
+            rtol: <T as FloatElement>::from_f64(1e-6),
+            safety_factor: <T as FloatElement>::from_f64(0.9),
         }
     }
 }
@@ -130,8 +130,8 @@ impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
         }); // Index 0
 
         // w0 = 1 + epsilon / s^2
-        let two: T = from_f64(2.0);
-        let four: T = from_f64(4.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
+        let four: T = <T as FloatElement>::from_f64(4.0);
         let s_t = from_usize(s);
         let s_sq = s_t * s_t;
         let w0 = one::<T>() + epsilon / s_sq;
@@ -280,7 +280,7 @@ impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
                 }
 
                 let y_full = self.step_raw(rhs, t, &y, dt)?;
-                let dt_half = dt / from_f64(2.0);
+                let dt_half = dt / <T as FloatElement>::from_f64(2.0);
                 let y_half = self.step_raw(rhs, t, &y, dt_half)?;
                 let y_half_full = self.step_raw(rhs, t + dt_half, &y_half, dt_half)?;
 
@@ -296,7 +296,7 @@ impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
                         one::<T>()
                     };
                     let diff = <T as NumericElement>::abs(y_half_full[i] - y_full[i])
-                        / (from_f64::<T>(3.0) * denom);
+                        / (<T as FloatElement>::from_f64(3.0) * denom);
                     err_sum += diff * diff;
                 }
                 let n_t = from_usize(n);
@@ -306,19 +306,23 @@ impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
                     y = y_half_full;
                     t += dt;
                     let factor = if err_norm == zero::<T>() {
-                        from_f64(5.0)
+                        <T as FloatElement>::from_f64(5.0)
                     } else {
-                        let exponent: T = from_f64(1.0 / 3.0);
+                        let exponent: T = <T as FloatElement>::from_f64(1.0 / 3.0);
                         self.config.safety_factor * <T as FloatElement>::powf(err_norm, -exponent)
                     };
-                    let factor = factor.max_scalar(from_f64(0.1)).min_scalar(from_f64(5.0));
+                    let factor = factor
+                        .max_scalar(<T as FloatElement>::from_f64(0.1))
+                        .min_scalar(<T as FloatElement>::from_f64(5.0));
                     dt *= factor;
                     accepted = true;
                 } else {
-                    let exponent: T = from_f64(1.0 / 3.0);
+                    let exponent: T = <T as FloatElement>::from_f64(1.0 / 3.0);
                     let factor =
                         self.config.safety_factor * <T as FloatElement>::powf(err_norm, -exponent);
-                    let factor = factor.max_scalar(from_f64(0.1)).min_scalar(from_f64(0.5));
+                    let factor = factor
+                        .max_scalar(<T as FloatElement>::from_f64(0.1))
+                        .min_scalar(<T as FloatElement>::from_f64(0.5));
                     dt *= factor;
                     if t + dt > t_final {
                         dt = t_final - t;

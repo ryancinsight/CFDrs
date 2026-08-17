@@ -76,26 +76,26 @@
 use super::weno_helpers::{weno5_candidate_fluxes, weno5_js_weights, weno5_smoothness_indicators};
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 /// Fifth-order WENO scheme
-pub struct WENO5<T: Cfd2dScalar + Copy> {
+pub struct WENO5<T: CfdScalar + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for WENO5<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for WENO5<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> WENO5<T> {
+impl<T: CfdScalar + Copy + FloatElement> WENO5<T> {
     /// Create new WENO5 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: scalar::from_f64(constants::WENO_EPSILON),
+            epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -111,7 +111,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> WENO5<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for WENO5<T> {
+impl<T: CfdScalar + Copy + FloatElement> SpatialDiscretization<T> for WENO5<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract stencil
         let v = [
@@ -174,22 +174,22 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for WENO5<T>
 /// ### CFL Condition
 /// WENO9 requires CFL ≤ 1/18 due to extreme high-order accuracy requirements
 /// and nonlinear stability constraints.
-pub struct WENO9<T: Cfd2dScalar + Copy> {
+pub struct WENO9<T: CfdScalar + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> Default for WENO9<T> {
+impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> Default for WENO9<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
+impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
     /// Create new WENO9 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: scalar::from_f64(constants::WENO_EPSILON),
+            epsilon: <T as FloatElement>::from_f64(constants::WENO_EPSILON),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -200,11 +200,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
         // These are the optimized coefficients for 9th-order accuracy
 
         let mut beta: [T; 5] = [scalar::zero(); 5];
-        let beta_quad: T = scalar::from_f64(0.0015308084989341916);
-        let beta_biquad: T = scalar::from_f64(0.002_740_988_421_902_865);
-        let beta_oct: T = scalar::from_f64(0.031254897785245544);
-        let four: T = scalar::from_f64(4.0);
-        let five: T = scalar::from_f64(5.0);
+        let beta_quad: T = <T as FloatElement>::from_f64(0.0015308084989341916);
+        let beta_biquad: T = <T as FloatElement>::from_f64(0.002_740_988_421_902_865);
+        let beta_oct: T = <T as FloatElement>::from_f64(0.031254897785245544);
+        let four: T = <T as FloatElement>::from_f64(4.0);
+        let five: T = <T as FloatElement>::from_f64(5.0);
 
         // Beta_0 (stencil 0: u[j-5..j])
         beta[0] = beta_quad * FloatElement::powi(v[0] - four * v[1] + five * v[2], 2)
@@ -263,11 +263,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
         let d: [T; 5] = [
-            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]),
-            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]),
-            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]),
-            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]),
-            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]),
+            <T as FloatElement>::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]),
+            <T as FloatElement>::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]),
+            <T as FloatElement>::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]),
+            <T as FloatElement>::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]),
+            <T as FloatElement>::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]),
         ];
 
         let mut alpha: [T; 5] = [scalar::zero(); 5];
@@ -285,7 +285,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> SpatialDiscretization<T> for WENO9<T> {
+impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> SpatialDiscretization<T> for WENO9<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract 11-point stencil (requires boundary checking in real implementation)
         let v = [
@@ -310,7 +310,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> SpatialDiscretizatio
 
         // Compute reconstructed flux using 5 candidate stencils
         let mut flux: T = scalar::zero();
-        let denom: T = scalar::from_f64(weno_constants::WENO9_STENCIL_DENOM);
+        let denom: T = <T as FloatElement>::from_f64(weno_constants::WENO9_STENCIL_DENOM);
 
         for k in 0..5 {
             let mut q_k: T = scalar::zero();
@@ -320,7 +320,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> SpatialDiscretizatio
             // ...
             // k=4: v[5]..v[9] (u_i..u_{i+4})
             for j in 0..5 {
-                let coeff: T = scalar::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]);
+                let coeff: T =
+                    <T as FloatElement>::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]);
                 q_k += coeff * v[1 + k + j];
             }
             q_k /= denom;

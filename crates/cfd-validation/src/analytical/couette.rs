@@ -62,7 +62,7 @@ impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
             / self.gap_height.into_base();
         let pressure_contribution = self.pressure_gradient.into_base()
             * self.gap_height.into_base()
-            / scalar::from_f64::<T>(2.0);
+            / <T as FloatElement>::from_f64(2.0);
         Pressure::from_base(base_shear + pressure_contribution)
     }
 
@@ -92,7 +92,7 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T
         } else {
             // Plane Poiseuille contribution (Versteeg & Malalasekera):
             // u_p(y) = -(1/(2μ)) (dp/dx) y (h - y)
-            let two = scalar::from_f64::<T>(2.0);
+            let two = <T as FloatElement>::from_f64(2.0);
             let factor = -pressure_gradient / (two * viscosity);
             factor * y * (gap_height - y)
         };
@@ -116,7 +116,7 @@ impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = scalar::from_f64::<T>(1000.0);
+        let large = <T as FloatElement>::from_f64(1000.0);
         [
             scalar::zero::<T>(),
             large, // x: [0, L]

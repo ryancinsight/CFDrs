@@ -50,7 +50,7 @@ use cfd_mesh::{domain::core::index::FaceId, domain::core::Scalar, IndexedMesh};
 use eunomia::{FloatElement, NumericElement};
 use std::collections::{HashMap, HashSet};
 
-use super::scalar;
+use crate::scalar;
 
 // ── Named tolerancing constant ────────────────────────────────────────────────
 
@@ -189,8 +189,8 @@ impl<'a, T: Scalar + FloatElement> AxialBoundaryClassifier<'a, T> {
             }
         }
         let z_span = z_max - z_min;
-        let n_axial = scalar::constant::<T>(self.resolution_axial.max(1) as f64);
-        let z_tol = z_span / n_axial * scalar::constant::<T>(AXIAL_TOL_FACTOR);
+        let n_axial = <T as FloatElement>::from_f64(self.resolution_axial.max(1) as f64);
+        let z_tol = z_span / n_axial * <T as FloatElement>::from_f64(AXIAL_TOL_FACTOR);
         (z_min, z_max, z_tol)
     }
 
@@ -289,7 +289,7 @@ impl<'a, T: Scalar + FloatElement> AxialBoundaryClassifier<'a, T> {
             count += 1;
         }
         if count > 0 {
-            z_sum / scalar::constant::<T>(count as f64)
+            z_sum / <T as FloatElement>::from_f64(count as f64)
         } else {
             scalar::zero::<T>()
         }

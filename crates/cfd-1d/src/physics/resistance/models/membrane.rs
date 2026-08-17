@@ -62,9 +62,11 @@
 //! - Truskey, G. A., Yuan, F., & Deen, D. F. (2010).
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Porous membrane represented by equivalent parallel cylindrical pores.
@@ -82,7 +84,7 @@ pub struct MembranePoreModel<T> {
     pub porosity: T,
 }
 
-impl<T: ResistanceScalar> MembranePoreModel<T> {
+impl<T: CfdScalar> MembranePoreModel<T> {
     /// Create a new membrane pore model.
     pub fn new(thickness: T, width: T, height: T, pore_radius: T, porosity: T) -> Self {
         Self {
@@ -95,7 +97,7 @@ impl<T: ResistanceScalar> MembranePoreModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for MembranePoreModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -108,7 +110,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
 
         let area = self.width * self.height;
         let denom = self.porosity * area * self.pore_radius * self.pore_radius;
-        let eight = scalar_from_f64::<T>(8.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
         Ok(eight * mu * self.thickness / denom)
     }
 
@@ -117,7 +119,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), scalar_from_f64::<T>(100.0))
+        (T::ZERO, <T as FloatElement>::from_f64(100.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -127,8 +129,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
     ) -> Result<()> {
         self.validate_mach_number(fluid, conditions)?;
 
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
         if self.thickness <= zero {
             return Err(Error::InvalidConfiguration(
                 "Membrane thickness must be positive".to_string(),

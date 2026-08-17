@@ -30,11 +30,11 @@
 //! TVD limiters restore boundedness for higher-order schemes.
 
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// Trait for convection discretization schemes
-pub trait ConvectionScheme<T: Cfd2dScalar + Copy>: Send + Sync {
+pub trait ConvectionScheme<T: CfdScalar + Copy>: Send + Sync {
     /// Calculate convection coefficients for east and west faces
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T);
 
@@ -48,7 +48,7 @@ pub trait ConvectionScheme<T: Cfd2dScalar + Copy>: Send + Sync {
 /// First-order upwind scheme - stable but diffusive
 pub struct FirstOrderUpwind;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for FirstOrderUpwind {
+impl<T: CfdScalar + Copy + FloatElement> ConvectionScheme<T> for FirstOrderUpwind {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Upwind scheme: always take from upwind direction
         // ae coefficient includes diffusion + convection from east face
@@ -70,9 +70,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for FirstOrderUpw
 /// Central difference scheme - second-order accurate but can oscillate
 pub struct CentralDifference;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for CentralDifference {
+impl<T: CfdScalar + Copy + FloatElement> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two: T = scalar::from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
         let ae = de - fe / two;
         let aw = dw + fw / two;
         (ae, aw)
@@ -90,9 +90,9 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for CentralDiffer
 /// Hybrid scheme - switches between upwind and central difference
 pub struct HybridScheme;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for HybridScheme {
+impl<T: CfdScalar + Copy + FloatElement> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two: T = scalar::from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
 
         // Calculate Peclet numbers
         let pe_e = NumericElement::abs(fe) / de;
@@ -132,12 +132,12 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for HybridScheme 
 /// Power-law scheme - more accurate interpolation for convection-diffusion
 pub struct PowerLawScheme;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for PowerLawScheme {
+impl<T: CfdScalar + Copy + FloatElement> ConvectionScheme<T> for PowerLawScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
             let abs_pe = NumericElement::abs(pe);
-            let one_tenth: T = scalar::from_f64(0.1);
+            let one_tenth: T = <T as FloatElement>::from_f64(0.1);
             let factor = scalar::one::<T>() - one_tenth * abs_pe;
             if factor > scalar::zero() {
                 // Exact finite product for (1 - 0.1|Pe|)^5.
@@ -174,7 +174,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for PowerLawSchem
 /// Reference: Leonard, B.P. (1979). "A stable and accurate convective modelling procedure based on quadratic upstream interpolation"
 pub struct QuadraticUpstreamInterpolationScheme;
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T>
+impl<T: CfdScalar + Copy + FloatElement> ConvectionScheme<T>
     for QuadraticUpstreamInterpolationScheme
 {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
@@ -209,7 +209,7 @@ pub struct ConvectionSchemeFactory;
 impl ConvectionSchemeFactory {
     /// Create scheme by name
     #[must_use]
-    pub fn create<T: Cfd2dScalar + Copy + FloatElement>(
+    pub fn create<T: CfdScalar + Copy + FloatElement>(
         scheme_name: &str,
     ) -> Box<dyn ConvectionScheme<T>> {
         match scheme_name.to_lowercase().as_str() {

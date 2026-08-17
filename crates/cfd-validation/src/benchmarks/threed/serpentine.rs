@@ -5,26 +5,26 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
-use crate::scalar;
-use crate::scalar::ValidationScalar;
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_core::CfdScalar;
 use cfd_mesh::SerpentineMeshBuilder;
+use eunomia::NumericElement;
 
 /// 3D Serpentine Flow benchmark
-pub struct SerpentineFlow3D<T: ValidationScalar> {
+pub struct SerpentineFlow3D<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     /// The 3D serpentine geometry
     pub geometry: Serpentine3D<T>,
 }
 
-impl<T: ValidationScalar> SerpentineFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> SerpentineFlow3D<T> {
     /// Create a new 3D serpentine flow benchmark
     pub fn new(geometry: Serpentine3D<T>) -> Self {
         Self { geometry }
     }
 }
 
-impl<T: ValidationScalar> Benchmark<T> for SerpentineFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> Benchmark<T> for SerpentineFlow3D<T> {
     fn name(&self) -> &'static str {
         "3D Serpentine Micromixer Flow"
     }
@@ -38,9 +38,9 @@ impl<T: ValidationScalar> Benchmark<T> for SerpentineFlow3D<T> {
 
         // 1. Setup Mesh Builder
         let builder = SerpentineMeshBuilder::new(
-            scalar::to_f64(self.geometry.diameter),
-            scalar::to_f64(self.geometry.amplitude),
-            scalar::to_f64(self.geometry.wavelength),
+            <T as NumericElement>::to_f64(self.geometry.diameter),
+            <T as NumericElement>::to_f64(self.geometry.amplitude),
+            <T as NumericElement>::to_f64(self.geometry.wavelength),
         )
         .with_periods(self.geometry.num_periods);
 
@@ -73,7 +73,7 @@ impl<T: ValidationScalar> Benchmark<T> for SerpentineFlow3D<T> {
     fn validate(&self, result: &BenchmarkResult<T>) -> cfd_core::error::Result<bool> {
         // Basic physical sanity checks
         if let Some(&de) = result.metrics.get("Dean Number") {
-            return Ok(de >= T::zero());
+            return Ok(de >= T::ZERO);
         }
         Ok(false)
     }

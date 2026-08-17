@@ -37,7 +37,7 @@
 
 use super::traits::CollisionOperator;
 use crate::physics::non_newtonian::CarreauYasudaModel;
-use crate::scalar::{from_f64, max, one, zero};
+use crate::scalar::{max, one, zero};
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use eunomia::{CastFrom, FloatElement, NumericElement};
@@ -66,9 +66,9 @@ impl<T: FloatElement> CarreauYasudaBgk<T> {
     #[inline]
     #[must_use]
     fn compute_local_tau(&self, q_mag: T, rho: T) -> T {
-        let cs2 = from_f64::<T>(LATTICE_CS2);
-        let half = from_f64::<T>(0.5);
-        let tolerance = from_f64::<T>(1.0e-12);
+        let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);
+        let half = <T as FloatElement>::from_f64(0.5);
+        let tolerance = <T as FloatElement>::from_f64(1.0e-12);
         let lower_bound = half + tolerance;
         // Base case: starting with zero-shear viscosity τ_0
         let nu_0 = self.model.apparent_kinematic_viscosity(zero::<T>());
@@ -77,7 +77,7 @@ impl<T: FloatElement> CarreauYasudaBgk<T> {
         let mut tau = half + nu_0 * dt_dx2 / cs2;
 
         // Fixed-point iteration with a residual stop criterion.
-        let two = from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let rho_safe = if rho < tolerance { tolerance } else { rho };
 
         for _ in 0..32 {
@@ -139,7 +139,7 @@ impl<T: FloatElement> CollisionOperator<T> for CarreauYasudaBgk<T> {
                 let mut f_eq_cache = [zero; 9];
 
                 for q in 0..9 {
-                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
+                    let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
                     let e_x = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].0);
                     let e_y = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].1);
 
@@ -155,7 +155,7 @@ impl<T: FloatElement> CollisionOperator<T> for CarreauYasudaBgk<T> {
                 }
 
                 // |Q| = sqrt(2 * (Q_xx^2 + Q_yy^2 + 2*Q_xy^2))
-                let two = from_f64::<T>(2.0);
+                let two = <T as FloatElement>::from_f64(2.0);
                 let q_mag = <T as NumericElement>::sqrt(max(
                     two * (q_xx * q_xx + q_yy * q_yy + two * q_xy * q_xy),
                     zero,
@@ -177,14 +177,17 @@ impl<T: FloatElement> CollisionOperator<T> for CarreauYasudaBgk<T> {
     /// Returns the asymptotic infinite-shear base tau for trait compatibility
     fn tau(&self) -> T {
         let dt_dx2 = self.dt / (self.dx * self.dx);
-        let cs2 = from_f64::<T>(LATTICE_CS2);
-        let nu_inf = self.model.apparent_kinematic_viscosity(from_f64::<T>(1e6));
-        from_f64::<T>(0.5) + nu_inf * dt_dx2 / cs2
+        let cs2 = <T as FloatElement>::from_f64(LATTICE_CS2);
+        let nu_inf = self
+            .model
+            .apparent_kinematic_viscosity(<T as FloatElement>::from_f64(1e6));
+        <T as FloatElement>::from_f64(0.5) + nu_inf * dt_dx2 / cs2
     }
 
     /// Returns the asymptotic infinite-shear base viscosity
     fn viscosity(&self, _dt: T, _dx: T) -> T {
-        self.model.apparent_kinematic_viscosity(from_f64::<T>(1e6))
+        self.model
+            .apparent_kinematic_viscosity(<T as FloatElement>::from_f64(1e6))
     }
 }
 

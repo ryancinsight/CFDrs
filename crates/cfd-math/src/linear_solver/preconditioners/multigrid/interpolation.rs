@@ -6,11 +6,6 @@ use eunomia::{FloatElement, NumericElement, RealField};
 use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn usize_to_f64(value: usize) -> f64 {
     let value_u64 = u64::try_from(value).expect("invariant: usize count fits into u64");
     <u64 as NumericElement>::to_f64(value_u64)
@@ -18,7 +13,7 @@ fn usize_to_f64(value: usize) -> f64 {
 
 #[inline]
 fn from_usize<T: FloatElement>(value: usize) -> T {
-    from_f64(usize_to_f64(value))
+    <T as FloatElement>::from_f64(usize_to_f64(value))
 }
 
 #[inline]
@@ -257,7 +252,7 @@ pub fn create_standard_interpolation<T: RealField + Copy + FloatElement + LetoSc
                     let strength = {
                         let stored = csr_value(strength_matrix, fine_i, coarse_global_idx);
                         if stored == <T as NumericElement>::ZERO {
-                            from_f64(1e-6)
+                            <T as FloatElement>::from_f64(1e-6)
                         } else {
                             stored
                         }

@@ -11,13 +11,13 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::Array2;
 
 /// 2D grid for finite difference operations
 #[derive(Debug, Clone)]
-pub struct Grid2D<T: Cfd2dScalar + Copy> {
+pub struct Grid2D<T: CfdScalar + Copy> {
     /// Grid values
     pub data: Array2<T>,
     /// Grid spacing in x-direction
@@ -28,7 +28,7 @@ pub struct Grid2D<T: Cfd2dScalar + Copy> {
     pub ghost_cells: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Grid2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> Grid2D<T> {
     /// Create a new 2D grid
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, ghost_cells: usize) -> Self {
         let total_nx = nx + 2 * ghost_cells;

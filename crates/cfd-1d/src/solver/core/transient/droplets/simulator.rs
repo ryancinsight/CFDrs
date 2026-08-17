@@ -4,15 +4,14 @@ use super::types::{
     SplitMode,
 };
 use crate::domain::network::{Network, NodeType};
-use crate::scalar::Cfd1dScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
-use crate::solver::core::NetworkSolveScalar;
 use aequitas::systems::si::quantities::{Dimensionless, Time, Volume, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -52,7 +51,7 @@ impl TransientDropletSimulator {
     /// This convenience API first computes transient composition states using
     /// flow events and then runs droplet tracking with the default split policy.
     pub fn simulate_with_flow_events<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -73,7 +72,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet states with flow events and an explicit split policy.
     pub fn simulate_with_flow_events_and_policy<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -102,7 +101,7 @@ impl TransientDropletSimulator {
     ///
     /// This convenience API first computes transient composition states using
     /// pressure events and then runs droplet tracking with the default split policy.
-    pub fn simulate_with_pressure_events<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+    pub fn simulate_with_pressure_events<T: CfdScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
@@ -120,10 +119,7 @@ impl TransientDropletSimulator {
     }
 
     /// Simulate droplet states with pressure events and an explicit split policy.
-    pub fn simulate_with_pressure_events_and_policy<
-        T: NetworkSolveScalar,
-        F: FluidTrait<T> + Clone,
-    >(
+    pub fn simulate_with_pressure_events_and_policy<T: CfdScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
@@ -147,10 +143,7 @@ impl TransientDropletSimulator {
     }
 
     /// Simulate droplet state transitions on top of transient composition states.
-    pub fn simulate_on_composition<
-        T: Cfd1dScalar + Copy + FloatElement,
-        F: FluidTrait<T> + Clone,
-    >(
+    pub fn simulate_on_composition<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_states: Vec<CompositionState<T>>,
@@ -166,7 +159,7 @@ impl TransientDropletSimulator {
     /// Simulate droplet states with an explicit split policy.
     #[allow(clippy::too_many_lines)]
     pub fn simulate_on_composition_with_policy<
-        T: Cfd1dScalar + Copy + FloatElement,
+        T: CfdScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -203,7 +196,7 @@ impl TransientDropletSimulator {
 
         for state in &composition_states {
             let state_time = state.time.into_base();
-            let dt = (state_time - previous_time).max(T::zero());
+            let dt = (state_time - previous_time).max(T::ZERO);
             previous_time = state_time;
             for (edge_idx, flow_rate) in &state.edge_flow_rates {
                 state_network.set_flow_rate(EdgeIndex::new(*edge_idx), *flow_rate);
@@ -225,8 +218,8 @@ impl TransientDropletSimulator {
                             injection
                                 .relative_position
                                 .into_base()
-                                .max(T::zero())
-                                .min(T::one()),
+                                .max(T::ZERO)
+                                .min(T::ONE),
                         ),
                         volume: injection.volume,
                     }];
@@ -260,7 +253,7 @@ impl TransientDropletSimulator {
                 let branch_count = droplet.branches.len();
                 let mut occupancy_spans = Vec::with_capacity(branch_count);
                 let mut boundaries = Vec::with_capacity(branch_count * 2);
-                let mut total_volume = T::zero();
+                let mut total_volume = T::ZERO;
 
                 if droplet.state == DropletState::Network {
                     for branch in &droplet.branches {
@@ -305,14 +298,14 @@ impl TransientDropletSimulator {
         Ok(output)
     }
 
-    fn edge_area<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn edge_area<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge: EdgeIndex,
     ) -> T {
-        let one = T::one();
+        let one = T::ONE;
         network.properties.get(&edge).map_or(one, |p| {
             let area = p.area.into_base();
-            if area > T::zero() {
+            if area > T::ZERO {
                 area
             } else {
                 one
@@ -320,14 +313,14 @@ impl TransientDropletSimulator {
         })
     }
 
-    fn edge_length<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn edge_length<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge: EdgeIndex,
     ) -> T {
-        let one = T::one();
+        let one = T::ONE;
         network.properties.get(&edge).map_or(one, |p| {
             let length = p.length.into_base();
-            if length > T::zero() {
+            if length > T::ZERO {
                 length
             } else {
                 one
@@ -335,13 +328,13 @@ impl TransientDropletSimulator {
         })
     }
 
-    fn advance_droplet<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn advance_droplet<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         droplet: &mut ActiveDroplet<T>,
         dt: T,
         split_policy: &DropletSplitPolicy<T>,
     ) -> Result<()> {
-        if dt <= T::zero() {
+        if dt <= T::ZERO {
             return Ok(());
         }
 
@@ -376,17 +369,17 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn branch_interval<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn branch_interval<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         branch: &DropletBranch<T>,
     ) -> Result<(T, T)> {
         let (start_raw, end_raw) = Self::branch_interval_raw(network, branch)?;
-        let start = start_raw.max(T::zero());
-        let end = end_raw.min(T::one());
+        let start = start_raw.max(T::ZERO);
+        let end = end_raw.min(T::ONE);
         Ok((start, end))
     }
 
-    fn branch_interval_raw<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn branch_interval_raw<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         branch: &DropletBranch<T>,
     ) -> Result<(T, T)> {
@@ -399,8 +392,8 @@ impl TransientDropletSimulator {
                 "Edge area/length must be positive for finite-length droplet tracking".to_string(),
             ));
         }
-        let half = T::one() / (T::one() + T::one());
-        let frac_len = (branch.volume.into_base() / (area * length)).max(T::zero());
+        let half = T::ONE / (T::ONE + T::ONE);
+        let frac_len = (branch.volume.into_base() / (area * length)).max(T::ZERO);
         let half_len = frac_len * half;
         let center = branch.center.into_base();
         let start = center - half_len;
@@ -408,7 +401,7 @@ impl TransientDropletSimulator {
         Ok((start, end))
     }
 
-    fn advance_branch<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn advance_branch<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         mut branch: DropletBranch<T>,
         dt: T,
@@ -417,7 +410,7 @@ impl TransientDropletSimulator {
         any_trapped: &mut bool,
         split_policy: &DropletSplitPolicy<T>,
     ) -> Result<()> {
-        if dt <= T::zero() {
+        if dt <= T::ZERO {
             out_branches.push(branch);
             return Ok(());
         }
@@ -431,7 +424,7 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or(T::zero(), VolumetricFlowRate::into_base);
+                .map_or(T::ZERO, VolumetricFlowRate::into_base);
             if <T as NumericElement>::abs(q) <= eps {
                 out_branches.push(branch);
                 return Ok(());
@@ -454,11 +447,11 @@ impl TransientDropletSimulator {
             };
             let (start2, end) = Self::branch_interval_raw(network, &moved_branch)?;
 
-            let crosses_downstream = (q >= T::zero() && end > T::one() - eps)
-                || (q < T::zero() && start2 < T::zero() + eps);
+            let crosses_downstream =
+                (q >= T::ZERO && end > T::ONE - eps) || (q < T::ZERO && start2 < T::ZERO + eps);
 
             if !crosses_downstream {
-                branch.center = Dimensionless::from_base(new_center.max(T::zero()).min(T::one()));
+                branch.center = Dimensionless::from_base(new_center.max(T::ZERO).min(T::ONE));
                 out_branches.push(branch);
                 return Ok(());
             }
@@ -467,7 +460,7 @@ impl TransientDropletSimulator {
                 .graph
                 .edge_endpoints(edge_idx)
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge endpoints".to_string()))?;
-            let boundary_node = if q >= T::zero() { dst } else { src };
+            let boundary_node = if q >= T::ZERO { dst } else { src };
 
             if Self::is_sink_node(network, boundary_node)? {
                 *any_sink = true;
@@ -489,7 +482,7 @@ impl TransientDropletSimulator {
             let total_flow = selected
                 .iter()
                 .map(|(_, _, flow)| *flow)
-                .fold(T::zero(), |acc, v| acc + v);
+                .fold(T::ZERO, |acc, v| acc + v);
             if total_flow <= eps {
                 *any_trapped = true;
                 return Ok(());
@@ -510,15 +503,15 @@ impl TransientDropletSimulator {
                 }
 
                 let frac_len = child_volume.into_base() / (next_area * next_length);
-                let half = T::one() / (T::one() + T::one());
+                let half = T::ONE / (T::ONE + T::ONE);
                 let half_len = frac_len * half;
-                let center = if start_position <= T::zero() + eps {
+                let center = if start_position <= T::ZERO + eps {
                     half_len
                 } else {
-                    T::one() - half_len
+                    T::ONE - half_len
                 }
-                .max(T::zero())
-                .min(T::one());
+                .max(T::ZERO)
+                .min(T::ONE);
 
                 out_branches.push(DropletBranch {
                     channel_index: next_edge.index(),
@@ -533,7 +526,7 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn select_split_targets<T: Cfd1dScalar + Copy + FloatElement>(
+    fn select_split_targets<T: CfdScalar + Copy + FloatElement>(
         branch_volume: Volume<T>,
         mut outgoing: Vec<(EdgeIndex, T, T)>,
         split_policy: &DropletSplitPolicy<T>,
@@ -557,7 +550,7 @@ impl TransientDropletSimulator {
         match split_policy.mode {
             SplitMode::NeverSplit => dominant_only,
             SplitMode::AlwaysSplit => {
-                let total = outgoing.iter().map(|x| x.2).fold(T::zero(), |a, b| a + b);
+                let total = outgoing.iter().map(|x| x.2).fold(T::ZERO, |a, b| a + b);
                 if total <= eps {
                     return dominant_only;
                 }
@@ -575,7 +568,7 @@ impl TransientDropletSimulator {
                 }
             }
             SplitMode::AutoFlowWeighted => {
-                let total = outgoing.iter().map(|x| x.2).fold(T::zero(), |a, b| a + b);
+                let total = outgoing.iter().map(|x| x.2).fold(T::ZERO, |a, b| a + b);
                 if total <= eps {
                     return dominant_only;
                 }
@@ -604,7 +597,7 @@ impl TransientDropletSimulator {
         }
     }
 
-    fn merge_branches<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn merge_branches<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         droplet: &mut ActiveDroplet<T>,
     ) -> Result<()> {
@@ -632,7 +625,7 @@ impl TransientDropletSimulator {
                 if n_start <= c_end {
                     // Overlap -> merge by volume-weighted center.
                     let v_total = current.volume.into_base() + next.volume.into_base();
-                    let center = if v_total > T::zero() {
+                    let center = if v_total > T::ZERO {
                         (current.center.into_base() * current.volume.into_base()
                             + next.center.into_base() * next.volume.into_base())
                             / v_total
@@ -657,7 +650,7 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn is_sink_node<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn is_sink_node<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node: NodeIndex,
     ) -> Result<bool> {
@@ -674,7 +667,7 @@ impl TransientDropletSimulator {
         Ok(degree <= 1)
     }
 
-    fn select_outgoing_edges<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
+    fn select_outgoing_edges<T: CfdScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node: NodeIndex,
         previous_edge: EdgeIndex,
@@ -694,16 +687,16 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map_or(T::zero(), VolumetricFlowRate::into_base);
+                .map_or(T::ZERO, VolumetricFlowRate::into_base);
 
             if <T as NumericElement>::abs(q) <= eps {
                 continue;
             }
 
-            let candidate = if src == node && q > T::zero() {
-                Some((edge_idx, T::zero(), <T as NumericElement>::abs(q)))
-            } else if dst == node && q < T::zero() {
-                Some((edge_idx, T::one(), <T as NumericElement>::abs(q)))
+            let candidate = if src == node && q > T::ZERO {
+                Some((edge_idx, T::ZERO, <T as NumericElement>::abs(q)))
+            } else if dst == node && q < T::ZERO {
+                Some((edge_idx, T::ONE, <T as NumericElement>::abs(q)))
             } else {
                 None
             };

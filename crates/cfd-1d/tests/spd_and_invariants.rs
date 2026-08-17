@@ -19,7 +19,7 @@ use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 use leto::Array1;
 
-fn network_two_node<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
+fn network_two_node<T: cfd_core::CfdScalar + Copy + SafeFromF64>() -> (
     Network<T>,
     petgraph::graph::EdgeIndex,
     petgraph::graph::NodeIndex,

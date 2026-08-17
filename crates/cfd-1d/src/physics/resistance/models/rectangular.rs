@@ -47,9 +47,10 @@
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
-use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
+use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +69,7 @@ pub struct RectangularChannelModel<T> {
     pub length: T,
 }
 
-impl<T: ResistanceScalar> RectangularChannelModel<T> {
+impl<T: CfdScalar> RectangularChannelModel<T> {
     /// Create a new rectangular channel model
     pub fn new(width: T, height: T, length: T) -> Self {
         Self {
@@ -79,15 +80,15 @@ impl<T: ResistanceScalar> RectangularChannelModel<T> {
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(T::zero);
-        let q_abs = if q >= T::zero() { q } else { -q };
+        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }
 
@@ -104,9 +105,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         } else if let Some(q) = conditions.flow_rate {
             q / area
         } else {
-            T::zero()
+            T::ZERO
         };
-        let v_abs = if velocity >= T::zero() {
+        let v_abs = if velocity >= T::ZERO {
             velocity
         } else {
             -velocity
@@ -115,14 +116,14 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
         let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::zero() {
+            if shear_rate < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Rectangular channel wall shear rate must be nonnegative".to_string(),
                 ));
             }
             shear_rate
         } else {
-            scalar_from_f64::<T>(8.0) * v_abs / dh
+            <T as FloatElement>::from_f64(8.0) * v_abs / dh
         };
         let viscosity = fluid
             .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
@@ -147,10 +148,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
 
         // For laminar flow, the hydraulic resistance is constant:
         // R = (Po * mu * L) / (2 * A * Dh^2)
-        let r = (poiseuille_number * viscosity * self.length)
-            / ((T::one() + T::one()) * area * dh * dh);
+        let r =
+            (poiseuille_number * viscosity * self.length) / ((T::ONE + T::ONE) * area * dh * dh);
 
-        Ok((r, T::zero()))
+        Ok((r, T::ZERO))
     }
 
     fn model_name(&self) -> &'static str {
@@ -165,7 +166,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
-        if self.width <= T::zero() || self.height <= T::zero() {
+        if self.width <= T::ZERO || self.height <= T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: width and height must be > 0. Got ({}, {}) for model '{}'",
                 self.width,
@@ -173,7 +174,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
                 self.model_name()
             )));
         }
-        if self.length < T::zero() {
+        if self.length < T::ZERO {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: length = {} < 0 for model '{}'",
                 self.length,
@@ -185,7 +186,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         let dh = self.hydraulic_diameter();
 
         let ratio = self.length / dh;
-        let limit = scalar_from_f64::<T>(10.0);
+        let limit = <T as FloatElement>::from_f64(10.0);
 
         if ratio < limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
@@ -199,16 +200,17 @@ impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), scalar_from_f64::<T>(2300.0))
+        (T::ZERO, <T as FloatElement>::from_f64(2300.0))
     }
 }
 
-impl<T: ResistanceScalar> RectangularChannelModel<T> {
+impl<T: CfdScalar> RectangularChannelModel<T> {
     /// Hydraulic diameter: Dh = 4A/P = 2wh/(w+h)
     fn hydraulic_diameter(&self) -> T {
         let area = self.width * self.height;
-        let perimeter = scalar_from_f64::<T>(PERIMETER_FACTOR) * (self.width + self.height);
-        scalar_from_f64::<T>(HYDRAULIC_DIAMETER_FACTOR) * area / perimeter
+        let perimeter =
+            <T as FloatElement>::from_f64(PERIMETER_FACTOR) * (self.width + self.height);
+        <T as FloatElement>::from_f64(HYDRAULIC_DIAMETER_FACTOR) * area / perimeter
     }
 
     /// Calculate Poiseuille number for rectangular channels using Bahrami (2006) exact fit
@@ -225,20 +227,19 @@ impl<T: ResistanceScalar> RectangularChannelModel<T> {
     fn calculate_poiseuille_number(&self, epsilon: T) -> T {
         // Bahrami et al. 2006 exact rational fit:
         // Po_Darcy = 96 / [ (1 + ε)^2 * (1 - (192*ε/π^5) * tanh(π / 2ε)) ]
-        if epsilon == T::zero() {
+        if epsilon == T::ZERO {
             // Infinite parallel plates limit: fRe = 96
-            scalar_from_f64::<T>(96.0)
+            <T as FloatElement>::from_f64(96.0)
         } else {
-            let pi = scalar_from_f64::<T>(std::f64::consts::PI);
-            let c_192 = scalar_from_f64::<T>(192.0);
+            let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+            let c_192 = <T as FloatElement>::from_f64(192.0);
             let pi_pow_5 = <T as FloatElement>::powi(pi, 5);
 
-            let term1 = (T::one() + epsilon) * (T::one() + epsilon);
-            let tanh_arg = pi / (scalar_from_f64::<T>(2.0) * epsilon);
-            let term2 =
-                T::one() - (c_192 * epsilon / pi_pow_5) * <T as FloatElement>::tanh(tanh_arg);
+            let term1 = (T::ONE + epsilon) * (T::ONE + epsilon);
+            let tanh_arg = pi / (<T as FloatElement>::from_f64(2.0) * epsilon);
+            let term2 = T::ONE - (c_192 * epsilon / pi_pow_5) * <T as FloatElement>::tanh(tanh_arg);
 
-            scalar_from_f64::<T>(96.0) / (term1 * term2)
+            <T as FloatElement>::from_f64(96.0) / (term1 * term2)
         }
     }
 }

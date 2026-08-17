@@ -1,7 +1,7 @@
 //! Network graph operations
 
 use super::{Edge, Node};
-use crate::scalar::Cfd1dScalar;
+use cfd_core::CfdScalar;
 use petgraph::graph::{EdgeIndex, Graph, NodeIndex};
 use petgraph::Directed;
 
@@ -9,7 +9,7 @@ use petgraph::Directed;
 pub type NetworkGraph<T> = Graph<Node<T>, Edge<T>, Directed>;
 
 /// Extension trait for network graph operations
-pub trait NetworkGraphExt<T: Cfd1dScalar + Copy> {
+pub trait NetworkGraphExt<T: CfdScalar + Copy> {
     /// Find a node by ID
     fn find_node_by_id(&self, id: &str) -> Option<NodeIndex>;
 
@@ -23,7 +23,7 @@ pub trait NetworkGraphExt<T: Cfd1dScalar + Copy> {
     fn outlet_nodes(&self) -> Vec<NodeIndex>;
 }
 
-impl<T: Cfd1dScalar + Copy> NetworkGraphExt<T> for NetworkGraph<T> {
+impl<T: CfdScalar + Copy> NetworkGraphExt<T> for NetworkGraph<T> {
     fn find_node_by_id(&self, id: &str) -> Option<NodeIndex> {
         self.node_indices().find(|&idx| self[idx].id == id)
     }

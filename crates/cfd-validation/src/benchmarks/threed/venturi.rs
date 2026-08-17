@@ -6,25 +6,27 @@
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Venturi3D;
 use crate::scalar;
-use crate::scalar::ValidationScalar;
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_core::CfdScalar;
 use cfd_mesh::VenturiMeshBuilder;
+use eunomia::FloatElement;
+use eunomia::NumericElement;
 
 /// 3D Venturi Flow benchmark
-pub struct VenturiFlow3D<T: ValidationScalar> {
+pub struct VenturiFlow3D<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     /// The 3D venturi geometry
     pub geometry: Venturi3D<T>,
 }
 
-impl<T: ValidationScalar> VenturiFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> VenturiFlow3D<T> {
     /// Create a new 3D venturi flow benchmark
     pub fn new(geometry: Venturi3D<T>) -> Self {
         Self { geometry }
     }
 }
 
-impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> Benchmark<T> for VenturiFlow3D<T> {
     fn name(&self) -> &'static str {
         "3D Venturi Tube Flow"
     }
@@ -40,13 +42,13 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
         // Use resolution (40, 6) and circular=true, matching the validated VenturiSolver3D
         // configuration that produces correct PSPG-stabilised Stokes flow.
         let builder = VenturiMeshBuilder::new(
-            scalar::to_f64(self.geometry.d_inlet),
-            scalar::to_f64(self.geometry.d_throat),
-            scalar::to_f64(self.geometry.l_inlet),
-            scalar::to_f64(self.geometry.l_convergent),
-            scalar::to_f64(self.geometry.l_throat),
-            scalar::to_f64(self.geometry.l_divergent),
-            scalar::to_f64(self.geometry.l_outlet),
+            <T as NumericElement>::to_f64(self.geometry.d_inlet),
+            <T as NumericElement>::to_f64(self.geometry.d_throat),
+            <T as NumericElement>::to_f64(self.geometry.l_inlet),
+            <T as NumericElement>::to_f64(self.geometry.l_convergent),
+            <T as NumericElement>::to_f64(self.geometry.l_throat),
+            <T as NumericElement>::to_f64(self.geometry.l_divergent),
+            <T as NumericElement>::to_f64(self.geometry.l_outlet),
         )
         .with_resolution(40, 6)
         .with_circular(true);
@@ -56,7 +58,7 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
         // mm-scale geometries.  circular=true matches the builder above.
         let _ = config; // resolution from config would give PSPG dominance for mm-scale
         let solver_config = VenturiConfig3D {
-            inlet_flow_rate: scalar::from_f64(1.0e-7),
+            inlet_flow_rate: <T as FloatElement>::from_f64(1.0e-7),
             resolution: (40, 6),
             circular: true,
             ..VenturiConfig3D::default()
@@ -107,10 +109,7 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
 
     fn validate(&self, result: &BenchmarkResult<T>) -> cfd_core::error::Result<bool> {
         // ── Criterion 1: throat velocity is positive (flow reached the throat) ──
-        let u_throat_ok = result
-            .metrics
-            .get("u_throat")
-            .is_some_and(|&u| u > T::zero());
+        let u_throat_ok = result.metrics.get("u_throat").is_some_and(|&u| u > T::ZERO);
 
         // ── Criterion 2: throat velocity > inlet velocity ──
         // By continuity (∇·u = 0), area reduction → velocity increase.
@@ -121,8 +120,8 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
             result.metrics.get("u_throat"),
             result.metrics.get("u_inlet"),
         ) {
-            (Some(&u_th), Some(&u_in)) if u_in > T::zero() => u_th > u_in,
-            (Some(&u_th), _) => u_th > T::zero(),
+            (Some(&u_th), Some(&u_in)) if u_in > T::ZERO => u_th > u_in,
+            (Some(&u_th), _) => u_th > T::ZERO,
             _ => false,
         };
 
@@ -130,7 +129,7 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
         let cp_finite = result
             .metrics
             .get("Throat Cp")
-            .is_none_or(|&cp| scalar::abs(cp) < scalar::from_f64(1.0e8)); // if metric missing assume ok (pressure not primary criterion)
+            .is_none_or(|&cp| scalar::abs(cp) < <T as FloatElement>::from_f64(1.0e8)); // if metric missing assume ok (pressure not primary criterion)
 
         Ok(u_throat_ok && throat_accel_ok && cp_finite)
     }

@@ -14,15 +14,15 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::array2d::Array2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
-fn harmonic_face_coefficient<T: Cfd2dScalar + Copy + FloatElement>(
+fn harmonic_face_coefficient<T: CfdScalar + Copy + FloatElement>(
     ap_left: T,
     ap_right: T,
     volume: T,
 ) -> T {
-    let tiny = scalar::from_f64(1e-30);
+    let tiny = <T as FloatElement>::from_f64(1e-30);
     let ap_left = if ap_left > tiny { ap_left } else { tiny };
     let ap_right = if ap_right > tiny { ap_right } else { tiny };
     let d_left = volume / ap_left;
@@ -31,7 +31,7 @@ fn harmonic_face_coefficient<T: Cfd2dScalar + Copy + FloatElement>(
     if denom <= tiny {
         scalar::zero()
     } else {
-        scalar::from_f64::<T>(2.0) * d_left * d_right / denom
+        <T as FloatElement>::from_f64(2.0) * d_left * d_right / denom
     }
 }
 
@@ -40,7 +40,7 @@ fn harmonic_face_coefficient<T: Cfd2dScalar + Copy + FloatElement>(
 /// The face coefficient uses harmonic averaging of the adjacent momentum diagonals,
 /// matching the coefficient-aware Rhie-Chow formulation used by the pressure-velocity
 /// coupling solvers elsewhere in the crate.
-pub fn rhie_chow_interpolation<T: Cfd2dScalar + Copy + FloatElement>(
+pub fn rhie_chow_interpolation<T: CfdScalar + Copy + FloatElement>(
     fields: &SimulationFields<T>,
     ap_u: &Field2D<T>,
     ap_v: &Field2D<T>,
@@ -48,7 +48,7 @@ pub fn rhie_chow_interpolation<T: Cfd2dScalar + Copy + FloatElement>(
     dy: T,
 ) -> (Array2D<T>, Array2D<T>) {
     let (nx, ny) = fields.u.dimensions();
-    let two = scalar::from_f64::<T>(2.0);
+    let two = <T as FloatElement>::from_f64(2.0);
     let volume = dx * dy;
 
     let mut u_face = Array2D::new(nx + 1, ny, scalar::zero());

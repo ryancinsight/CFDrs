@@ -5,10 +5,10 @@
 
 use super::WomersleyNumber;
 use crate::physics::vascular::bessel::{bessel_j0, bessel_j0_j1};
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Pressure, PressureGradient, Time, Velocity, VolumetricFlowRate,
 };
+use cfd_core::CfdScalar;
 use eunomia::{Complex, FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -22,14 +22,14 @@ use serde::{Deserialize, Serialize};
 /// The low-$\alpha$ and high-$\alpha$ expressions are retained only as
 /// analytical limits for interpretation and tests, not as runtime branches.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WomersleyProfile<T: Cfd1dScalar + Copy> {
+pub struct WomersleyProfile<T: CfdScalar + Copy> {
     /// Womersley number parameters
     pub womersley: WomersleyNumber<T>,
     /// Pressure gradient amplitude [Pa/m]
     pub pressure_amplitude: PressureGradient<T>,
 }
 
-impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
+impl<T: CfdScalar + FloatElement + Copy> WomersleyProfile<T> {
     /// Create velocity profile calculator
     pub fn new(womersley: WomersleyNumber<T>, pressure_amplitude: PressureGradient<T>) -> Self {
         Self {
@@ -51,11 +51,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let rho = self.womersley.density.into_base();
         let omega = self.womersley.omega.into_base();
         let p_hat = self.pressure_amplitude.into_base();
-        let one = T::one();
+        let one = T::ONE;
 
         // Clamp xi to valid range
-        let xi = if xi < T::zero() {
-            T::zero()
+        let xi = if xi < T::ZERO {
+            T::ZERO
         } else if xi > one {
             one
         } else {
@@ -63,7 +63,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         };
 
         // i^{3/2} = e^{i 3pi/4} = (-1 + i) / sqrt(2)
-        let sqrt2 = <T as NumericElement>::sqrt(T::one() + T::one());
+        let sqrt2 = <T as NumericElement>::sqrt(T::ONE + T::ONE);
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         // z = i^{3/2} * alpha
@@ -74,10 +74,10 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let j0_z_xi = bessel_j0(z_xi);
 
         let ratio = j0_z_xi / j0_z;
-        let term_brackets = Complex::new(one, T::zero()) - ratio;
+        let term_brackets = Complex::new(one, T::ZERO) - ratio;
 
         // P_hat / (i * rho * omega) = -i * P_hat / (rho * omega)
-        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        let coeff = Complex::new(T::ZERO, -p_hat / (rho * omega));
 
         // e^{i \omega t} = cos(\omega t) + i \sin(\omega t)
         let phase = omega * t.into_base();
@@ -92,7 +92,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
 
     /// Calculate centerline velocity (maximum velocity)
     pub fn centerline_velocity(&self, t: Time<T>) -> Velocity<T> {
-        self.velocity(T::zero(), t)
+        self.velocity(T::ZERO, t)
     }
 
     /// Calculate wall shear stress using exact Bessel functions
@@ -105,9 +105,9 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let mu = self.womersley.viscosity.into_base();
         let omega = self.womersley.omega.into_base();
         let p_hat = self.pressure_amplitude.into_base();
-        let one = T::one();
+        let one = T::ONE;
 
-        let sqrt2 = <T as NumericElement>::sqrt(T::one() + T::one());
+        let sqrt2 = <T as NumericElement>::sqrt(T::ONE + T::ONE);
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
@@ -117,7 +117,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let term = z * j1_z / j0_z;
 
         // P_hat / (i * rho * omega)
-        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        let coeff = Complex::new(T::ZERO, -p_hat / (rho * omega));
 
         let phase = omega * t.into_base();
         let exp_iwt = Complex::new(
@@ -139,8 +139,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let rho = self.womersley.density.into_base();
         let omega = self.womersley.omega.into_base();
         let p_hat = self.pressure_amplitude.into_base();
-        let one = T::one();
-        let two = T::one() + T::one();
+        let one = T::ONE;
+        let two = T::ONE + T::ONE;
         let pi = T::pi();
 
         let sqrt2 = <T as NumericElement>::sqrt(two);
@@ -150,12 +150,12 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let (j0_z, j1_z) = bessel_j0_j1(z);
 
         // 2 * J_1(z) / (z * J_0(z))
-        let complex_two = Complex::new(two, T::zero());
+        let complex_two = Complex::new(two, T::ZERO);
         let term = complex_two * j1_z / (z * j0_z);
-        let bracket = Complex::new(one, T::zero()) - term;
+        let bracket = Complex::new(one, T::ZERO) - term;
 
         // P_hat / (i * rho * omega)
-        let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
+        let coeff = Complex::new(T::ZERO, -p_hat / (rho * omega));
 
         let phase = omega * t.into_base();
         let exp_iwt = Complex::new(

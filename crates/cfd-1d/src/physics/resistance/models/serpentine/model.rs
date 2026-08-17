@@ -4,12 +4,11 @@
 //! implementation, including Dean number calculation, curvature enhancement,
 //! and base friction factor computation.
 
-use super::traits::{
-    scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceModel, ResistanceScalar,
-};
+use super::traits::{FlowConditions, ResistanceModel};
 use super::{BendType, SerpentineCrossSection};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +37,7 @@ pub struct SerpentineModel<T> {
     pub bend_type: BendType,
 }
 
-impl<T: ResistanceScalar> SerpentineModel<T> {
+impl<T: CfdScalar> SerpentineModel<T> {
     /// Create a new serpentine model
     ///
     /// # Arguments
@@ -55,7 +54,7 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         let dh = cross_section.hydraulic_diameter();
         // Compute R/D_h ratio for bend loss coefficient lookup.
         let r_dh_f64 = if dh > 0.0 {
-            let bend_r_f64 = scalar_to_f64::<T>(bend_radius);
+            let bend_r_f64 = <T as NumericElement>::to_f64(bend_radius);
             bend_r_f64 / dh
         } else {
             2.0 // reasonable default R/D_h for smooth bends
@@ -88,10 +87,10 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
         bend_radius: T,
     ) -> Self {
         let cross_section = SerpentineCrossSection::Rectangular { width, height };
-        let straight_length = segment_length * scalar_from_f64::<T>(num_segments as f64);
+        let straight_length = segment_length * <T as FloatElement>::from_f64(num_segments as f64);
         let dh = cross_section.hydraulic_diameter();
         let r_dh_f64 = if dh > 0.0 {
-            let bend_r_f64 = scalar_to_f64::<T>(bend_radius);
+            let bend_r_f64 = <T as NumericElement>::to_f64(bend_radius);
             bend_r_f64 / dh
         } else {
             2.0
@@ -119,8 +118,8 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
 
     /// Dean number: De = Re × √(D_h / (2 R_c))
     pub(crate) fn dean_number(&self, reynolds: T) -> T {
-        let dh = scalar_from_f64::<T>(self.cross_section.hydraulic_diameter());
-        let two = T::one() + T::one();
+        let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
+        let two = T::ONE + T::ONE;
         let ratio = dh / (two * self.bend_radius);
         reynolds * <T as NumericElement>::sqrt(ratio)
     }
@@ -144,14 +143,14 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
     /// strictly inertial boundary layer regime mathematically proven by Ito:
     /// $f_c / f_s = 0.1033 De^{1/2}$.
     pub(crate) fn curvature_enhancement(&self, dean: T) -> T {
-        let zero = T::zero();
-        let one = T::one();
+        let zero = T::ZERO;
+        let one = T::ONE;
 
         if dean <= zero {
             return one;
         }
 
-        let de_f64 = scalar_to_f64::<T>(dean);
+        let de_f64 = <T as NumericElement>::to_f64(dean);
 
         if de_f64 < 20.0 {
             // Exact Dean 1928 Perturbation Series
@@ -165,33 +164,34 @@ impl<T: ResistanceScalar> SerpentineModel<T> {
             // Bound strictly to ensure mathematical stability near convergence radius
             let qc_qs_stable = qc_qs.clamp(0.5, 1.0);
 
-            scalar_from_f64::<T>(1.0 / qc_qs_stable)
+            <T as FloatElement>::from_f64(1.0 / qc_qs_stable)
         } else {
             // Asymptotic Boundary Layer Exact Scaling limit (Ito, 1959 limit)
             let enhancement = 0.1033 * de_f64.sqrt();
-            scalar_from_f64::<T>(enhancement.max(1.0))
+            <T as FloatElement>::from_f64(enhancement.max(1.0))
         }
     }
 
     /// Base (straight channel) friction factor
     pub(crate) fn base_friction_factor(&self, reynolds: T) -> T {
-        let re_lam = scalar_from_f64::<T>(2300.0);
-        let shah_factor = scalar_from_f64::<T>(self.cross_section.shah_london_fre_factor());
+        let re_lam = <T as FloatElement>::from_f64(2300.0);
+        let shah_factor =
+            <T as FloatElement>::from_f64(self.cross_section.shah_london_fre_factor());
 
         if reynolds < re_lam {
             // Laminar: f = 64/Re (circular) or f = C(α)/Re (rectangular)
-            let f_re = scalar_from_f64::<T>(64.0);
+            let f_re = <T as FloatElement>::from_f64(64.0);
             shah_factor * f_re / reynolds
         } else {
             // Turbulent: Blasius
-            let coeff = scalar_from_f64::<T>(0.3164);
-            let exp = scalar_from_f64::<T>(0.25);
+            let coeff = <T as FloatElement>::from_f64(0.3164);
+            let exp = <T as FloatElement>::from_f64(0.25);
             coeff / <T as FloatElement>::powf(reynolds, exp)
         }
     }
 }
 
-impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
+impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -200,17 +200,17 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::zero() {
+            if q >= T::ZERO {
                 q
             } else {
                 -q
             }
         } else if let Some(v) = conditions.velocity {
-            let area = scalar_from_f64::<T>(self.cross_section.area());
-            let v_abs = if v >= T::zero() { v } else { -v };
+            let area = <T as FloatElement>::from_f64(self.cross_section.area());
+            let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * area
         } else {
-            T::zero()
+            T::ZERO
         };
 
         Ok(r + k * q_mag)
@@ -224,8 +224,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
         let density = state.density.into_base();
 
-        let dh = scalar_from_f64::<T>(self.cross_section.hydraulic_diameter());
-        let area = scalar_from_f64::<T>(self.cross_section.area());
+        let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
+        let area = <T as FloatElement>::from_f64(self.cross_section.area());
 
         // Get velocity orientation, then use its magnitude for scalar losses.
         let velocity = if let Some(v) = conditions.velocity {
@@ -233,7 +233,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         } else if let Some(q) = conditions.flow_rate {
             q / area
         } else {
-            T::zero()
+            T::ZERO
         };
         let velocity_magnitude = <T as NumericElement>::abs(velocity);
 
@@ -242,8 +242,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         // Under laminar exact Poiseuille flow, $f \cdot Re = Po$.
         // $\gamma = (Po / 8) \cdot (8 V / D_h)$
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
-        let shape_correction = scalar_from_f64::<T>(f_re / 64.0);
-        let eight = scalar_from_f64::<T>(8.0);
+        let shape_correction = <T as FloatElement>::from_f64(f_re / 64.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
         let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         // Get viscosity (supports non-Newtonian)
@@ -258,7 +258,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         let re_safe = if reynolds > T::default_epsilon() {
             reynolds
         } else {
-            scalar_from_f64::<T>(0.01) // Small but nonzero
+            <T as FloatElement>::from_f64(0.01) // Small but nonzero
         };
 
         // --- 1. Friction with Dean curvature enhancement ---
@@ -273,7 +273,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
         // channels produce nearly identical resistance to straight channels,
         // making the GA's serpentine insertion mutations invisible to the
         // 1D flow solver.
-        let half = T::one() / (T::one() + T::one());
+        let half = T::ONE / (T::ONE + T::ONE);
         let dp_friction = f_effective
             * (self.straight_length / dh)
             * half
@@ -282,7 +282,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
             * velocity_magnitude;
 
         // --- 3. Bend minor losses ---
-        let n_bends = scalar_from_f64::<T>(self.num_bends() as f64);
+        let n_bends = <T as FloatElement>::from_f64(self.num_bends() as f64);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
         let dp_bends = n_bends * k_bend * half * density * velocity_magnitude * velocity_magnitude;
 
@@ -294,24 +294,26 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
 
         // Even at low velocity, K-factor (minor losses) must be captured to differentiate geometries.
         // As limits approach 0, we preserve the mathematically computed scalars.
-        let r = if q > T::zero() {
+        let r = if q > T::ZERO {
             dp_friction / q
         } else {
             // Analytical Hagen-Poiseuille limit for linear scaling
-            let coeff = scalar_from_f64::<T>(128.0);
+            let coeff = <T as FloatElement>::from_f64(128.0);
             let pi = T::pi();
             let d2 = dh * dh;
             let d4 = d2 * d2;
             coeff * viscosity * self.straight_length / (pi * d4)
         };
 
-        let k_coeff = if q_sq > T::zero() {
+        let k_coeff = if q_sq > T::ZERO {
             dp_bends / q_sq
         } else {
             // Keep geometric base K coefficient even if Q is exactly 0
-            let n_bends = scalar_from_f64::<T>(self.num_bends() as f64);
-            let k_bend_static = self.bend_type.loss_coefficient(scalar_from_f64::<T>(0.01));
-            let half = T::one() / (T::one() + T::one());
+            let n_bends = <T as FloatElement>::from_f64(self.num_bends() as f64);
+            let k_bend_static = self
+                .bend_type
+                .loss_coefficient(<T as FloatElement>::from_f64(0.01));
+            let half = T::ONE / (T::ONE + T::ONE);
             n_bends * k_bend_static * half * density / (area * area)
         };
 
@@ -323,7 +325,10 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (scalar_from_f64::<T>(0.01), scalar_from_f64::<T>(1e5))
+        (
+            <T as FloatElement>::from_f64(0.01),
+            <T as FloatElement>::from_f64(1e5),
+        )
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -333,7 +338,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
     ) -> Result<()> {
         self.validate_mach_number(fluid, conditions)?;
 
-        if self.straight_length <= T::zero() {
+        if self.straight_length <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Serpentine straight_length must be positive".to_string(),
             ));
@@ -345,7 +350,7 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SerpentineModel<T> {
             ));
         }
 
-        if self.bend_radius <= T::zero() {
+        if self.bend_radius <= T::ZERO {
             return Err(Error::PhysicsViolation(
                 "Serpentine bend_radius must be positive".to_string(),
             ));

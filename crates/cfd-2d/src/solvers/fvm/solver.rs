@@ -17,7 +17,7 @@ use super::flux::{FluxScheme, FluxSchemeFactory};
 use super::geometry::Face;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
-use crate::scalar::{from_f64, from_usize};
+use crate::scalar::from_usize;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::geometry::Vector2;
@@ -60,7 +60,7 @@ impl<T: FloatElement + core::ops::Neg<Output = T> + RealField> FvmSolver<T> {
             for i in 0..=nx {
                 let center = Vector2::new(
                     from_usize::<T>(i) * dx,
-                    (from_usize::<T>(j) + from_f64::<T>(0.5)) * dy,
+                    (from_usize::<T>(j) + <T as FloatElement>::from_f64(0.5)) * dy,
                 );
                 let normal = Vector2::new(<T as NumericElement>::ONE, <T as NumericElement>::ZERO);
 
@@ -77,7 +77,7 @@ impl<T: FloatElement + core::ops::Neg<Output = T> + RealField> FvmSolver<T> {
         for j in 0..=ny {
             for i in 0..nx {
                 let center = Vector2::new(
-                    (from_usize::<T>(i) + from_f64::<T>(0.5)) * dx,
+                    (from_usize::<T>(i) + <T as FloatElement>::from_f64(0.5)) * dx,
                     from_usize::<T>(j) * dy,
                 );
                 let normal = Vector2::new(<T as NumericElement>::ZERO, <T as NumericElement>::ONE);

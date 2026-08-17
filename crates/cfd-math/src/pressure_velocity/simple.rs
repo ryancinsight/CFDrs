@@ -13,10 +13,6 @@
 use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
 /// Configuration for the SIMPLE pressure-velocity coupling algorithm.
 ///
 /// Controls convergence criteria and under-relaxation for the iterative
@@ -53,9 +49,9 @@ impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            tolerance: from_f64(1e-6),
-            alpha_u: from_f64(0.7),
-            alpha_p: from_f64(0.3),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
+            alpha_u: <T as FloatElement>::from_f64(0.7),
+            alpha_p: <T as FloatElement>::from_f64(0.3),
             alpha_mu: T::ONE,
             viscosity_update_interval: 1,
             n_correctors: 1, // Default to traditional SIMPLE

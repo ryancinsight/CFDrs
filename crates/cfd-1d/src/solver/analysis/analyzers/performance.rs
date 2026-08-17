@@ -2,27 +2,27 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
-use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PerformanceMetrics;
 use aequitas::systems::si::quantities::{Dimensionless, Power, Pressure, VolumetricFlowRate};
 use cfd_core::conversion::SafeFromUsize;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Performance analyzer for network components
-pub struct PerformanceAnalyzer<T: Cfd1dScalar + Copy> {
+pub struct PerformanceAnalyzer<T: CfdScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Cfd1dScalar + Copy> Default for PerformanceAnalyzer<T> {
+impl<T: CfdScalar + Copy> Default for PerformanceAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd1dScalar + Copy> PerformanceAnalyzer<T> {
+impl<T: CfdScalar + Copy> PerformanceAnalyzer<T> {
     /// Create new performance analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -32,7 +32,7 @@ impl<T: Cfd1dScalar + Copy> PerformanceAnalyzer<T> {
     }
 }
 
-impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> NetworkAnalyzer<T>
+impl<T: CfdScalar + Copy + NumericElement + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for PerformanceAnalyzer<T>
 {
     type Result = PerformanceMetrics<T>;
@@ -64,18 +64,18 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> NetworkAnalyz
     }
 }
 
-impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAnalyzer<T> {
+impl<T: CfdScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAnalyzer<T> {
     fn calculate_total_pressure_drop(&self, network: &Network<T>) -> T {
         let pressures = network.pressures();
         if pressures.is_empty() {
-            return T::zero();
+            return T::ZERO;
         }
 
         // Find max and min pressures
         let max_pressure = pressures
             .iter()
             .map(|pressure| pressure.into_base())
-            .fold(T::zero(), |a, b| if a > b { a } else { b });
+            .fold(T::ZERO, |a, b| if a > b { a } else { b });
         let min_pressure = pressures
             .iter()
             .map(|pressure| pressure.into_base())
@@ -87,7 +87,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
     fn calculate_total_flow_rate(&self, network: &Network<T>) -> T {
         // Sum absolute flow rates at outlets
         use petgraph::graph::NodeIndex;
-        let mut total = T::zero();
+        let mut total = T::ZERO;
         for (idx, node) in network.nodes().enumerate() {
             if matches!(node.node_type, crate::domain::network::NodeType::Outlet) {
                 let node_idx = NodeIndex::new(idx);
@@ -104,8 +104,8 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
     }
 
     fn calculate_efficiency(&self, network: &Network<T>, pressure_drop: T, flow_rate: T) -> T {
-        if pressure_drop <= T::zero() || flow_rate <= T::zero() {
-            return T::zero();
+        if pressure_drop <= T::ZERO || flow_rate <= T::ZERO {
+            return T::ZERO;
         }
 
         // Calculate theoretical minimum power
@@ -114,20 +114,20 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
         // Calculate actual power (including losses)
         let actual_power = self.calculate_actual_power(network);
 
-        if actual_power > T::zero() {
+        if actual_power > T::ZERO {
             theoretical_power / actual_power
         } else {
-            T::one()
+            T::ONE
         }
     }
 
     fn calculate_actual_power(&self, network: &Network<T>) -> T {
         // Sum power losses in all components
-        let mut total_power = T::zero();
+        let mut total_power = T::ZERO;
 
         for edge in network.edges_with_properties() {
             let flow_rate = edge.flow_rate.into_base();
-            if flow_rate != T::zero() {
+            if flow_rate != T::ZERO {
                 let (from_idx, to_idx) = edge.nodes;
                 let pressures = network.pressures();
 

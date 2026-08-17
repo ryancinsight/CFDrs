@@ -31,11 +31,6 @@ use leto_ops::{
 use crate::sparse::SparseMatrixBuilder;
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn from_usize<T: FloatElement>(value: usize) -> T {
     let value_u64 = u64::try_from(value).expect("invariant: usize fits in u64");
     <T as FloatElement>::from_f64(<u64 as NumericElement>::to_f64(value_u64))
@@ -43,7 +38,7 @@ fn from_usize<T: FloatElement>(value: usize) -> T {
 
 #[inline]
 fn diagonal_epsilon<T: FloatElement>() -> T {
-    from_f64(1e-14)
+    <T as FloatElement>::from_f64(1e-14)
 }
 
 #[inline]
@@ -82,7 +77,7 @@ where
 {
     let n = matrix.nrows();
     let mut builder = SparseMatrixBuilder::new(n, matrix.ncols());
-    let pivot_scale = from_f64::<T>(pivot_tolerance);
+    let pivot_scale = <T as FloatElement>::from_f64(pivot_tolerance);
 
     for row_index in 0..n {
         let row = matrix.row(row_index);

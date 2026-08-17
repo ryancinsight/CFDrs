@@ -59,14 +59,14 @@ impl<T: RealField + Copy + FloatElement> ManufacturedBurgers<T> {
     ///
     /// Uses standard parameters: a=1, b=0.5, k=2π, ω=1, ν=0.01
     pub fn default_solution() -> Self {
-        let pi = scalar::from_f64::<T>(PI);
-        let two = scalar::from_f64::<T>(2.0);
+        let pi = <T as FloatElement>::from_f64(PI);
+        let two = <T as FloatElement>::from_f64(2.0);
         Self::new(
-            scalar::one::<T>(),     // a = 1
-            scalar::from_f64(0.5),  // b = 0.5
-            two * pi,               // k = 2π
-            scalar::one::<T>(),     // ω = 1
-            scalar::from_f64(0.01), // ν = 0.01
+            scalar::one::<T>(),                  // a = 1
+            <T as FloatElement>::from_f64(0.5),  // b = 0.5
+            two * pi,                            // k = 2π
+            scalar::one::<T>(),                  // ω = 1
+            <T as FloatElement>::from_f64(0.01), // ν = 0.01
         )
     }
 }

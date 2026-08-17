@@ -1,10 +1,11 @@
 use crate::physics::resistance::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
-    ResistanceModel, ResistanceScalar, SerpentineModel, VenturiModel,
+    ResistanceModel, SerpentineModel, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 
 /// Calculate linear (R) and quadratic (k) coefficients with automatic model selection
 pub fn calculate_coefficients_auto<T, F>(
@@ -13,7 +14,7 @@ pub fn calculate_coefficients_auto<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     let mut local_conditions = conditions.clone();
@@ -30,7 +31,7 @@ where
             }
 
             // Default to a smooth pipe if roughness is not specified by the geometry.
-            let dw = DarcyWeisbachModel::circular(*diameter, *length, T::zero());
+            let dw = DarcyWeisbachModel::circular(*diameter, *length, T::ZERO);
             if dw.is_applicable(&local_conditions) {
                 return dw.calculate_coefficients(fluid, &local_conditions);
             }
@@ -71,7 +72,7 @@ pub fn calculate_hagen_poiseuille_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     let model = HagenPoiseuilleModel { diameter, length };
@@ -88,7 +89,7 @@ pub fn calculate_rectangular_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     let model = RectangularChannelModel {
@@ -109,7 +110,7 @@ pub fn calculate_darcy_weisbach_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     let model = DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness);
@@ -124,7 +125,7 @@ pub fn calculate_serpentine_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     model.validate_invariants(fluid, conditions)?;
@@ -138,7 +139,7 @@ pub fn calculate_venturi_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: ResistanceScalar,
+    T: CfdScalar,
     F: FluidTrait<T>,
 {
     model.validate_invariants(fluid, conditions)?;

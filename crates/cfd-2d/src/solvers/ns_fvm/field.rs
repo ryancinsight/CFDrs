@@ -21,12 +21,12 @@ use super::boundary::BloodModel;
 use super::grid::StaggeredGrid2D;
 use crate::grid::array2d::{Array2D, Mask2D};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// 2D velocity and pressure fields on a staggered grid.
 #[derive(Debug, Clone)]
-pub struct FlowField2D<T: Cfd2dScalar + Copy> {
+pub struct FlowField2D<T: CfdScalar + Copy> {
     /// u-velocity at vertical faces \[nx+1]\[ny]
     pub u: Array2D<T>,
     /// v-velocity at horizontal faces \[nx]\[ny+1]
@@ -46,7 +46,7 @@ pub struct FlowField2D<T: Cfd2dScalar + Copy> {
     pub nu_t: Array2D<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> FlowField2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> FlowField2D<T> {
     /// Create a new zero-initialised flow field for an `nx × ny` grid.
     pub fn new(nx: usize, ny: usize) -> Self {
         let zero: T = scalar::zero();
@@ -67,7 +67,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> FlowField2D<T> {
     /// `γ̇ = √(2[D₁₁² + D₂₂² + 2D₁₂²])`, where `D = (∇u + ∇uᵀ)/2`.
     pub fn compute_shear_rate(&self, i: usize, j: usize, dx: T, dy: T) -> T {
         let zero: T = scalar::zero();
-        let two: T = scalar::from_f64(2.0);
+        let two: T = <T as FloatElement>::from_f64(2.0);
 
         let dudx = if i < self.u.rows() - 1 {
             (self.u[(i + 1, j)] - self.u[(i, j)]) / dx

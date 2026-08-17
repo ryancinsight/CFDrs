@@ -56,13 +56,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[inline]
-fn from_f64<T: FloatElement>(value: f64) -> T {
-    <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
 fn diagonal_epsilon<T: FloatElement>() -> T {
-    from_f64(1e-15)
+    <T as FloatElement>::from_f64(1e-15)
 }
 
 fn sparse_product<T: RealField + Copy + LetoScalar>(
@@ -303,28 +298,28 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             let coarsening_result = match self.config.coarsening_strategy {
                 CoarseningStrategy::RugeStueben => ruge_stueben_coarsening(
                     &current_level.matrix,
-                    from_f64(self.config.strength_threshold),
+                    <T as FloatElement>::from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::Aggregation => {
                     aggregation_coarsening(&current_level.matrix, 8) // Use default aggregate size
                 }
                 CoarseningStrategy::Hybrid => hybrid_coarsening(
                     &current_level.matrix,
-                    from_f64(self.config.strength_threshold),
+                    <T as FloatElement>::from_f64(self.config.strength_threshold),
                     4,
                 ),
                 CoarseningStrategy::Falgout => falgout_coarsening(
                     &current_level.matrix,
-                    from_f64(self.config.strength_threshold),
+                    <T as FloatElement>::from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::PMIS => pmis_coarsening(
                     &current_level.matrix,
-                    from_f64(self.config.strength_threshold),
+                    <T as FloatElement>::from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::HMIS => hmis_coarsening(
                     &current_level.matrix,
-                    from_f64(self.config.strength_threshold),
-                    from_f64(0.5),
+                    <T as FloatElement>::from_f64(self.config.strength_threshold),
+                    <T as FloatElement>::from_f64(0.5),
                 ),
             }
             .map_err(|e| Error::InvalidInput(format!("Coarsening failed: {e}")))?;
@@ -385,7 +380,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 
     /// Create smoother for a given matrix
     fn create_smoother(&self, _matrix: &SparseMatrix<T>) -> Box<dyn MultigridSmoother<T>> {
-        let relaxation = from_f64(self.config.relaxation_factor);
+        let relaxation = <T as FloatElement>::from_f64(self.config.relaxation_factor);
         match self.config.smoother_type {
             SmootherType::SymmetricGaussSeidel => {
                 Box::new(SymmetricGaussSeidelSmoother::new(relaxation))

@@ -14,15 +14,15 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
 use std::fmt::LowerExp;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
 /// Implementation follows Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
-pub struct PressureVelocitySolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
+pub struct PressureVelocitySolver<T: CfdScalar + EunomiaRealField + Copy> {
     /// Configuration
     config: PressureVelocityConfig<T>,
     /// Grid
@@ -47,7 +47,7 @@ pub struct PressureVelocitySolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     iterations: usize,
 }
 
-impl<T: Cfd2dScalar + EunomiaRealField + Copy + LowerExp + FloatElement> PressureVelocitySolver<T> {
+impl<T: CfdScalar + EunomiaRealField + Copy + LowerExp + FloatElement> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,

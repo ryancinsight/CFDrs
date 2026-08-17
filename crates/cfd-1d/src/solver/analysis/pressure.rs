@@ -15,15 +15,15 @@
 //! `P > max_pressure` and updates `min_pressure` only when `P < min_pressure`.
 //! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
 
-use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{Pressure, PressureGradient};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
+use cfd_core::CfdScalar;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Pressure analysis for network systems
 #[derive(Debug, Clone)]
-pub struct PressureAnalysis<T: Cfd1dScalar + Copy> {
+pub struct PressureAnalysis<T: CfdScalar + Copy> {
     /// Pressure distribution \[Pa]
     pub pressures: HashMap<String, Pressure<T>>,
     /// Pressure drops across components \[Pa]
@@ -36,7 +36,7 @@ pub struct PressureAnalysis<T: Cfd1dScalar + Copy> {
     pub pressure_gradients: HashMap<String, PressureGradient<T>>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis<T> {
     /// Create a new pressure analysis
     pub fn new() -> Self {
         Self {
@@ -73,7 +73,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis
     /// Get the average pressure
     pub fn average_pressure(&self) -> Pressure<T> {
         if self.pressures.is_empty() {
-            Pressure::from_base(T::zero())
+            Pressure::from_base(T::ZERO)
         } else {
             let sum: T = self.pressures.values().map(|p| p.into_base()).sum();
             Pressure::from_base(sum / T::from_usize_or_one(self.pressures.len()))
@@ -90,7 +90,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis
         if self.max_pressure.into_base() > self.min_pressure.into_base() {
             Pressure::from_base(self.max_pressure.into_base() - self.min_pressure.into_base())
         } else {
-            Pressure::from_base(T::zero())
+            Pressure::from_base(T::ZERO)
         }
     }
 
@@ -100,7 +100,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis
     }
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> Default for PressureAnalysis<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> Default for PressureAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

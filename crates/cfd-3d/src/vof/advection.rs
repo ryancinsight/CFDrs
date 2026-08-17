@@ -32,10 +32,12 @@
 
 use super::config::{VofConfig, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::plic_geometry::plic_volume_fraction_in_prism;
-use super::scalar::{self, VofScalar};
 use super::solver::VofSolver;
+use crate::scalar;
 use cfd_core::error::Error;
 use cfd_core::error::Result;
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +74,7 @@ pub enum AdvectionMethod {
 ///
 /// # Errors
 /// Returns [`Error::InvalidConfiguration`] if CFL > 1.
-fn check_cfl<T: VofScalar>(solver: &VofSolver<T>, dt: T) -> Result<()> {
+fn check_cfl<T: CfdScalar>(solver: &VofSolver<T>, dt: T) -> Result<()> {
     if !scalar::is_finite(dt) || dt <= scalar::zero() {
         return Err(Error::InvalidConfiguration(
             "VOF time step must be finite and positive for explicit interface transport"
@@ -142,7 +144,7 @@ impl AdvectionMethod {
     ///
     /// # Errors
     /// Returns [`Error::InvalidConfiguration`] if CFL > 1.
-    pub fn advect<T: VofScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
+    pub fn advect<T: CfdScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
         check_cfl(solver, dt)?;
         match self {
             Self::Geometric => self.geometric_advection(solver, dt),
@@ -170,13 +172,13 @@ impl AdvectionMethod {
     /// Volume balance: `α_new = α_old - (ΣF_out - ΣF_in) / V_cell`.
     ///
     /// **Reference**: Scardovelli & Zaleski (2000) Ann. Rev. Fluid Mech. 31:567.
-    fn geometric_advection<T: VofScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
+    fn geometric_advection<T: CfdScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
         // Use alpha_previous as write buffer; boundaries are copied as ghost values.
         solver.copy_boundaries();
 
         let zero = scalar::zero::<T>();
         let one = scalar::one::<T>();
-        let half = scalar::constant::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -340,7 +342,7 @@ impl AdvectionMethod {
     /// relevant face-normal component for the truncation.  The full 3D
     /// analytical formula from Scardovelli & Zaleski (2000) is used via
     /// `volume_fraction_in_prism`.
-    fn plic_face_flux<T: VofScalar>(
+    fn plic_face_flux<T: CfdScalar>(
         &self,
         solver: &VofSolver<T>,
         // Left/upstream cell index
@@ -364,7 +366,7 @@ impl AdvectionMethod {
         let zero = scalar::zero::<T>();
         let one = scalar::one::<T>();
 
-        if scalar::abs(u_face) < scalar::constant::<T>(1e-300) {
+        if scalar::abs(u_face) < <T as FloatElement>::from_f64(1e-300) {
             return zero;
         }
 
@@ -409,7 +411,7 @@ impl AdvectionMethod {
     }
 
     /// Algebraic advection (simpler but less accurate, first-order upwind).
-    fn algebraic_advection<T: VofScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
+    fn algebraic_advection<T: CfdScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
         // Use alpha_previous as temporary buffer (zero-copy optimization).
         solver.copy_boundaries();
 
@@ -455,16 +457,16 @@ impl AdvectionMethod {
     }
 
     /// Apply artificial compression to sharpen interface.
-    pub fn apply_compression<T: VofScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
+    pub fn apply_compression<T: CfdScalar>(self, solver: &mut VofSolver<T>, dt: T) -> Result<()> {
         let interface_compression = solver.config.interface_compression;
         if !interface_compression.is_finite() || !(0.0..=1.0).contains(&interface_compression) {
             return Err(Error::InvalidConfiguration(
                 "VOF interface_compression must be finite and in [0, 1]".to_string(),
             ));
         }
-        let compression_factor = scalar::constant::<T>(interface_compression);
-        let interface_lower = scalar::constant::<T>(VOF_INTERFACE_LOWER);
-        let interface_upper = scalar::constant::<T>(VOF_INTERFACE_UPPER);
+        let compression_factor = <T as FloatElement>::from_f64(interface_compression);
+        let interface_lower = <T as FloatElement>::from_f64(VOF_INTERFACE_LOWER);
+        let interface_upper = <T as FloatElement>::from_f64(VOF_INTERFACE_UPPER);
 
         for k in 0..solver.nz {
             for j in 0..solver.ny {
@@ -489,7 +491,7 @@ impl AdvectionMethod {
                         if normal.norm() > scalar::zero() {
                             let u_compression = normal * compression_factor;
 
-                            let two = scalar::constant::<T>(2.0);
+                            let two = <T as FloatElement>::from_f64(2.0);
                             let dalpha_dx = (solver.alpha[solver.index(i + 1, j, k)]
                                 - solver.alpha[solver.index(i - 1, j, k)])
                                 / (two * solver.dx);

@@ -49,9 +49,10 @@
 //!   for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
 
 use super::traits::{
-    from_f64, one, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState, TimeStepper,
+    one, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState, TimeStepper,
 };
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
+use eunomia::FloatElement;
 use eunomia::{NumericElement, RealField};
 use leto_ops::{solve, RealScalar};
 
@@ -149,7 +150,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
 
             // Check convergence
             let residual_norm = state_norm(&residual);
-            let tolerance = from_f64(Self::NEWTON_TOLERANCE);
+            let tolerance = <T as FloatElement>::from_f64(Self::NEWTON_TOLERANCE);
             if residual_norm < tolerance {
                 return Ok(u_stage_current);
             }
@@ -193,10 +194,10 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
     pub fn ars343() -> Self {
-        let half: T = from_f64(0.5);
-        let two: T = from_f64(2.0);
-        let three: T = from_f64(3.0);
-        let six: T = from_f64(6.0);
+        let half: T = <T as FloatElement>::from_f64(0.5);
+        let two: T = <T as FloatElement>::from_f64(2.0);
+        let three: T = <T as FloatElement>::from_f64(3.0);
+        let six: T = <T as FloatElement>::from_f64(6.0);
         let gamma = (three + <T as NumericElement>::sqrt(three)) / six;
         let delta = one::<T>() - one::<T>() / (two * gamma);
 

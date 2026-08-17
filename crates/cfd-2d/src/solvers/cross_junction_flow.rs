@@ -33,8 +33,8 @@
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -47,7 +47,7 @@ use serde::{Deserialize, Serialize};
 /// The horizontal channel runs along the x-axis and the vertical channel
 /// along the y-axis.  Both are centred on the same junction point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossJunctionGeometry<T: Cfd2dScalar + Copy> {
+pub struct CrossJunctionGeometry<T: CfdScalar + Copy> {
     /// Width of the horizontal channel \[m].
     pub horizontal_width: T,
     /// Total length of the horizontal channel \[m].
@@ -58,7 +58,7 @@ pub struct CrossJunctionGeometry<T: Cfd2dScalar + Copy> {
     pub vertical_length: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
+impl<T: CfdScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
     /// Create a symmetric cross-junction (equal channel widths and lengths).
     pub fn symmetric(width: T, length: T) -> Self {
         Self {
@@ -73,7 +73,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
     ///
     /// The junction is centred at the origin.
     pub fn contains(&self, x: T, y: T) -> bool {
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         // Horizontal channel: x ∈ [-L_h/2, L_h/2], y ∈ [-w_h/2, w_h/2]
         let half_h_len = self.horizontal_length / two;
@@ -94,7 +94,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
 
     /// Return the axis-aligned bounding box `[min_x, max_x, min_y, max_y]`.
     pub fn bounding_box(&self) -> [T; 4] {
-        let two = scalar::from_f64::<T>(2.0);
+        let two = <T as FloatElement>::from_f64(2.0);
         let half_h_len = self.horizontal_length / two;
         let half_v_len = self.vertical_length / two;
         let half_v_w = self.vertical_width / two;
@@ -119,14 +119,14 @@ impl<T: Cfd2dScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
 /// perpendicular channels.  The horizontal channel is driven by an
 /// imposed inlet velocity; the vertical channel can be configured as
 /// no-flow walls (closed side ports) or open outlets.
-pub struct CrossJunctionSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
+pub struct CrossJunctionSolver2D<T: CfdScalar + eunomia::RealField + Copy + FloatElement> {
     /// Cross-junction geometry.
     pub geometry: CrossJunctionGeometry<T>,
     /// Underlying Navier-Stokes solver.
     pub ns_solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> CrossJunctionSolver2D<T> {
+impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> CrossJunctionSolver2D<T> {
     /// Construct a new cross-junction solver.
     ///
     /// # Arguments
@@ -217,7 +217,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> CrossJunctionSol
         let q_total_in = q_west;
         let q_total_out = q_east + q_north + q_south;
         let q_total_in_abs = <T as NumericElement>::abs(q_total_in);
-        let mass_balance_error = if q_total_in_abs > scalar::from_f64::<T>(1e-30) {
+        let mass_balance_error = if q_total_in_abs > <T as FloatElement>::from_f64(1e-30) {
             <T as NumericElement>::abs(q_total_in - q_total_out) / q_total_in_abs
         } else {
             scalar::zero()
@@ -242,7 +242,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> CrossJunctionSol
 
 /// Solution data from a cross-junction flow simulation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossJunctionSolution<T: Cfd2dScalar + Copy> {
+pub struct CrossJunctionSolution<T: CfdScalar + Copy> {
     /// Flow rate through the west port (inlet).
     pub q_west: T,
     /// Flow rate through the east port (outlet).

@@ -36,7 +36,7 @@ impl RichardsonExtrapolation {
     where
         T: RealField + Copy + FloatElement,
     {
-        let eps = scalar::from_f64::<T>(1e-12);
+        let eps = <T as FloatElement>::from_f64(1e-12);
 
         // Check for sufficient variation
         let diff12 = f1 - f2;
@@ -53,12 +53,12 @@ impl RichardsonExtrapolation {
 
         let order = scalar::ln(ratio) / scalar::ln(r);
         if !NumericElement::is_finite(order)
-            || order < scalar::from_f64::<T>(0.1)
-            || order > scalar::from_f64::<T>(15.0)
+            || order < <T as FloatElement>::from_f64(0.1)
+            || order > <T as FloatElement>::from_f64(15.0)
         {
             return Err(format!(
                 "Richardson extrapolation numerically unstable: order {} out of bounds",
-                scalar::to_f64(order)
+                <T as NumericElement>::to_f64(order)
             ));
         }
 
@@ -70,7 +70,7 @@ impl RichardsonExtrapolation {
     where
         T: RealField + Copy + FloatElement,
     {
-        let eps = scalar::from_f64::<T>(1e-12);
+        let eps = <T as FloatElement>::from_f64(1e-12);
 
         // Simple asymptotic check: |f2 - f1| > |f3 - f2|
         // This ensures we're seeing convergence behavior
@@ -111,7 +111,7 @@ impl RichardsonExtrapolation {
         let r_pow_p = scalar::powf(r, order);
         let denominator = r_pow_p - scalar::one::<T>();
 
-        if scalar::abs(denominator) < scalar::from_f64::<T>(1e-8) {
+        if scalar::abs(denominator) < <T as FloatElement>::from_f64(1e-8) {
             return Err("Richardson extrapolation numerically unstable (r^p ≈ 1)".to_string());
         }
 
@@ -158,7 +158,7 @@ impl DataDrivenOrderEstimation {
             let e21 = phi_medium - phi_coarse; // change from coarse->medium
             let e32 = phi_fine - phi_medium; // change from medium->fine
 
-            let eps = scalar::from_f64::<T>(1e-12);
+            let eps = <T as FloatElement>::from_f64(1e-12);
             let e21_abs = scalar::abs(e21);
             let e32_abs = scalar::abs(e32);
             if e21_abs <= eps || e32_abs <= eps {
@@ -166,12 +166,14 @@ impl DataDrivenOrderEstimation {
             }
 
             // If refinement ratios are effectively uniform, use closed-form estimate
-            let one_percent = scalar::from_f64::<T>(0.01);
+            let one_percent = <T as FloatElement>::from_f64(0.01);
             if scalar::abs(r21 - r32) / r21 <= one_percent {
                 let r = r32;
                 let ratio = e21_abs / e32_abs;
                 let p_est = scalar::ln(ratio) / scalar::ln(r);
-                if p_est > scalar::from_f64::<T>(0.1) && p_est < scalar::from_f64::<T>(6.0) {
+                if p_est > <T as FloatElement>::from_f64(0.1)
+                    && p_est < <T as FloatElement>::from_f64(6.0)
+                {
                     order_estimates.push(p_est);
                 }
                 continue;
@@ -181,8 +183,8 @@ impl DataDrivenOrderEstimation {
             // e21/e32 ≈ (r21^p - 1) / (r32^p - 1)
             let target = e21_abs / e32_abs;
 
-            let mut lo = scalar::from_f64::<T>(0.1);
-            let mut hi = scalar::from_f64::<T>(8.0);
+            let mut lo = <T as FloatElement>::from_f64(0.1);
+            let mut hi = <T as FloatElement>::from_f64(8.0);
 
             let f = |p: T| -> T {
                 let r21_p = scalar::powf(r21, p);
@@ -190,7 +192,7 @@ impl DataDrivenOrderEstimation {
                 let num = r21_p - scalar::one::<T>();
                 let den = r32_p - scalar::one::<T>();
                 if scalar::abs(den) <= eps {
-                    return scalar::from_f64::<T>(1e12);
+                    return <T as FloatElement>::from_f64(1e12);
                 }
                 // General non-uniform refinement formula:
                 // |e21|/|e32| = r32^p * (r21^p - 1) / (r32^p - 1)
@@ -221,8 +223,8 @@ impl DataDrivenOrderEstimation {
             }
 
             // Bisection iteration
-            let tol = scalar::from_f64::<T>(1e-10);
-            let two = scalar::from_f64::<T>(2.0);
+            let tol = <T as FloatElement>::from_f64(1e-10);
+            let two = <T as FloatElement>::from_f64(2.0);
             for _ in 0..60 {
                 let mid = (lo + hi) / two;
                 let f_mid = f(mid);
@@ -242,8 +244,10 @@ impl DataDrivenOrderEstimation {
                 }
             }
 
-            let p_est = (lo + hi) / scalar::from_f64::<T>(2.0);
-            if p_est > scalar::from_f64::<T>(0.1) && p_est < scalar::from_f64::<T>(6.0) {
+            let p_est = (lo + hi) / <T as FloatElement>::from_f64(2.0);
+            if p_est > <T as FloatElement>::from_f64(0.1)
+                && p_est < <T as FloatElement>::from_f64(6.0)
+            {
                 order_estimates.push(p_est);
             }
         }
@@ -251,7 +255,7 @@ impl DataDrivenOrderEstimation {
         // Use median order estimate for robustness (resistant to outliers)
         if order_estimates.is_empty() {
             // No reliable data: fall back to second-order (most common in CFD)
-            scalar::from_f64::<T>(2.0)
+            <T as FloatElement>::from_f64(2.0)
         } else {
             // Sort estimates and take median
             order_estimates.sort_by(|a: &T, b: &T| a.partial_cmp(b).unwrap());

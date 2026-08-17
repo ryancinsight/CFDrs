@@ -84,16 +84,15 @@
 //! 4. **Narrow Band**: Update index set of cells within `band_width` grid spacings
 //!    of the interface.
 
-use super::{
-    advection,
-    config::LevelSetConfig,
-    scalar::{self, LevelSetScalar},
-};
+use super::{advection, config::LevelSetConfig};
+use crate::scalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
+use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
 /// Level Set solver for interface tracking
-pub struct LevelSetSolver<T: LevelSetScalar> {
+pub struct LevelSetSolver<T: CfdScalar> {
     config: LevelSetConfig,
     /// Grid dimensions
     nx: usize,
@@ -117,7 +116,7 @@ pub struct LevelSetSolver<T: LevelSetScalar> {
     time_step: usize,
 }
 
-impl<T: LevelSetScalar> LevelSetSolver<T> {
+impl<T: CfdScalar> LevelSetSolver<T> {
     /// Create a new Level Set solver
     pub fn new(
         config: LevelSetConfig,
@@ -188,7 +187,7 @@ impl<T: LevelSetScalar> LevelSetSolver<T> {
     /// Update narrow band indices based on current level set
     pub fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
-        let band_width = scalar::from_f64::<T>(self.config.band_width);
+        let band_width = <T as FloatElement>::from_f64(self.config.band_width);
         let cell_limit = band_width * scalar::min::<T>(scalar::min::<T>(self.dx, self.dy), self.dz);
 
         for idx in 0..self.phi.len() {
@@ -270,10 +269,10 @@ impl<T: LevelSetScalar> LevelSetSolver<T> {
             return Ok(());
         }
 
-        let cfl = scalar::from_f64::<T>(self.config.cfl_number);
+        let cfl = <T as FloatElement>::from_f64(self.config.cfl_number);
         // Keep the previous default dtau = dx_min / 6.0 when cfl_number = 0.5.
-        let dtau = dx_min * cfl / scalar::from_f64::<T>(3.0);
-        let tol = scalar::from_f64::<T>(self.config.tolerance);
+        let dtau = dx_min * cfl / <T as FloatElement>::from_f64(3.0);
+        let tol = <T as FloatElement>::from_f64(self.config.tolerance);
 
         // Store φ₀ for the sign function (must not be overwritten during iteration).
         self.phi_reinit.copy_from_slice(&self.phi);

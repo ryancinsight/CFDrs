@@ -10,10 +10,10 @@
 use super::physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
-use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -31,7 +31,7 @@ const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
 
 /// Configuration for branch-junction validation studies
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchingValidationConfig<T: Cfd1dScalar + Copy> {
+pub struct BranchingValidationConfig<T: CfdScalar + Copy> {
     /// Parent volumetric flow rate [m³/s]
     pub q_parent: T,
     /// Parent pressure \[Pa]
@@ -44,7 +44,7 @@ pub struct BranchingValidationConfig<T: Cfd1dScalar + Copy> {
 
 /// Result of branch-junction validation study
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchingValidationResult<T: Cfd1dScalar + Copy> {
+pub struct BranchingValidationResult<T: CfdScalar + Copy> {
     /// Test case name
     pub test_name: String,
     /// Two-way branch solution at coarse grid
@@ -71,7 +71,7 @@ pub struct BranchingValidationResult<T: Cfd1dScalar + Copy> {
     pub error_message: Option<String>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult<T> {
+impl<T: CfdScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult<T> {
     /// Create a new validation result
     pub fn new(test_name: String, expected_order: T) -> Self {
         Self {
@@ -131,11 +131,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResu
 // ============================================================================
 
 /// Comprehensive branching validator with multiple validation methods
-pub struct BranchingValidator<T: Cfd1dScalar + Copy> {
+pub struct BranchingValidator<T: CfdScalar + Copy> {
     config: BranchingValidationConfig<T>,
 }
 
-impl<T: Cfd1dScalar + Copy + SafeFromF64> BranchingValidator<T> {
+impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
     /// Create new validator with configuration
     pub fn new(config: BranchingValidationConfig<T>) -> Self {
         Self { config }
@@ -201,7 +201,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> BranchingValidator<T> {
         let p = expected_order;
         let e_a = error_coarse; // Approximate relative error
         let gci = T::from_f64_or_one(GCI_SAFETY_FACTOR_FS) * e_a
-            / (<T as FloatElement>::powf(r, p) - T::one());
+            / (<T as FloatElement>::powf(r, p) - T::ONE);
 
         // Validation criteria
         let gci_threshold = T::from_f64_or_one(0.05); // 5% threshold

@@ -26,14 +26,14 @@
 
 use crate::grid::array2d::Array2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for scalar transport solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalarTransportConfig<T: Cfd2dScalar + Copy> {
+pub struct ScalarTransportConfig<T: CfdScalar + Copy> {
     /// Maximum inner iterations
     pub max_iterations: usize,
     /// Convergence tolerance
@@ -42,7 +42,7 @@ pub struct ScalarTransportConfig<T: Cfd2dScalar + Copy> {
     pub diffusion_coeff: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for ScalarTransportConfig<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for ScalarTransportConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 5000,
@@ -50,21 +50,21 @@ impl<T: Cfd2dScalar + Copy + FloatElement> Default for ScalarTransportConfig<T> 
             // coarse grids (Δx ~ 0.003 m → Δx² ~ 1e-5).  Using 1e-8 demands
             // residuals an order of magnitude below the discretisation error,
             // which is unachievable with Gauss-Seidel on advection-dominated flows.
-            tolerance: scalar::from_f64(1e-5),
-            diffusion_coeff: scalar::from_f64(1e-9), // Typical diffusion
+            tolerance: <T as FloatElement>::from_f64(1e-5),
+            diffusion_coeff: <T as FloatElement>::from_f64(1e-9), // Typical diffusion
         }
     }
 }
 
 /// 2D Scalar Transport Solver
-pub struct ScalarTransportSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
+pub struct ScalarTransportSolver2D<T: CfdScalar + Copy + FloatElement> {
     /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
     /// Previous iteration for convergence check.
     _c_old: Array2D<T>,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
+impl<T: CfdScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
     /// Create new scalar transport solver
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
@@ -89,10 +89,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
         let dy = grid.dy;
         let gamma = config.diffusion_coeff;
         let zero: T = scalar::zero();
-        let half = scalar::from_f64::<T>(0.5);
+        let half = <T as FloatElement>::from_f64(0.5);
         let one: T = scalar::one();
-        let omega = scalar::from_f64::<T>(0.8); // Relaxation
-        let tiny = scalar::from_f64::<T>(1e-30);
+        let omega = <T as FloatElement>::from_f64(0.8); // Relaxation
+        let tiny = <T as FloatElement>::from_f64(1e-30);
 
         for iteration in 0..config.max_iterations {
             let mut max_diff = zero;

@@ -16,11 +16,12 @@ use leto::Array1;
 use leto_ops::CsrMatrix as LetoCsrMatrix;
 
 use super::vector_bridge::array_l2_norm;
-use super::{NetworkSolveScalar, NetworkSolver};
+use super::NetworkSolver;
 use crate::solver::core::workspace::SolverWorkspace;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 
-impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
+impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Apply Anderson acceleration (depth m=5) to the Picard iterate sequence.
     ///
     /// Delegates the least-squares subproblem to the Leto-backed `cfd-math`

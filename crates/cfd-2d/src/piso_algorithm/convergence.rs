@@ -9,13 +9,13 @@
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use crate::solvers::continuity::max_forward_continuity_residual;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// Convergence criteria for PISO iterations
 #[derive(Debug, Clone)]
-pub struct ConvergenceCriteria<T: Cfd2dScalar + Copy> {
+pub struct ConvergenceCriteria<T: CfdScalar + Copy> {
     /// Tolerance for velocity residual
     pub velocity_tolerance: T,
     /// Tolerance for pressure residual
@@ -26,19 +26,19 @@ pub struct ConvergenceCriteria<T: Cfd2dScalar + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for ConvergenceCriteria<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            velocity_tolerance: scalar::from_f64(1e-5),
-            pressure_tolerance: scalar::from_f64(1e-4),
-            continuity_tolerance: scalar::from_f64(1e-5),
+            velocity_tolerance: <T as FloatElement>::from_f64(1e-5),
+            pressure_tolerance: <T as FloatElement>::from_f64(1e-4),
+            continuity_tolerance: <T as FloatElement>::from_f64(1e-5),
         }
     }
 }
 
 /// Convergence monitor for tracking residuals
-pub struct ConvergenceMonitor<T: Cfd2dScalar + Copy> {
+pub struct ConvergenceMonitor<T: CfdScalar + Copy> {
     /// Velocity residual history
     pub velocity_residuals: Vec<T>,
     /// Pressure residual history
@@ -49,13 +49,13 @@ pub struct ConvergenceMonitor<T: Cfd2dScalar + Copy> {
     pub iteration: usize,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> Default for ConvergenceMonitor<T> {
+impl<T: CfdScalar + Copy + FloatElement> Default for ConvergenceMonitor<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ConvergenceMonitor<T> {
+impl<T: CfdScalar + Copy + FloatElement> ConvergenceMonitor<T> {
     /// Create new convergence monitor
     #[must_use]
     pub fn new() -> Self {

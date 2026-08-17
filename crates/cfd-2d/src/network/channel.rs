@@ -1,7 +1,7 @@
-use crate::scalar::Cfd2dScalar;
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity};
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::hemolysis::HemolysisModel;
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::CrossSectionSpec;
 use eunomia::{FloatElement, NumericElement};
 
@@ -27,10 +27,10 @@ pub(crate) fn solve_channel_entry<T>(
     separation_tracking_enabled: bool,
 ) -> CfdResult<Channel2dResult<T>>
 where
-    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
+    T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let zero: T = scalar::zero();
-    let tol_t = scalar::from_f64(tolerance);
+    let tol_t = <T as FloatElement>::from_f64(tolerance);
     entry.flow_rate_m3_s = flow_rate_m3_s;
     entry.reference_trace = reference_trace.clone();
 
@@ -45,7 +45,7 @@ where
     // The field solver owns a left velocity-inlet/right pressure-outlet
     // geometry. Solve the magnitude in that orientation and restore the
     // directed sign only on the extracted flow metric.
-    let u_inlet = scalar::from_f64(u_mean.abs());
+    let u_inlet = <T as FloatElement>::from_f64(u_mean.abs());
 
     entry.solver.config.tolerance = tol_t;
 
@@ -88,11 +88,11 @@ where
         let (field_inlet_pressure_pa, field_outlet_pressure_pa) =
             extract_field_inlet_outlet_pressure(&entry.solver);
         let field_pressure_drop_pa = field_inlet_pressure_pa - field_outlet_pressure_pa;
-        let field_outlet_flow_m3_s = scalar::from_f64::<T>(flow_direction)
-            * extract_field_outlet_flow_rate(&entry.solver, scalar::from_f64(area));
+        let field_outlet_flow_m3_s = <T as FloatElement>::from_f64(flow_direction)
+            * extract_field_outlet_flow_rate(&entry.solver, <T as FloatElement>::from_f64(area));
         let field_outlet_flow_error_m3_s = field_outlet_flow_m3_s - reference_trace.flow_rate_m3_s;
-        let min_flow: T = scalar::from_f64(MIN_FLOW_RATE_M3_S);
-        let hundred: T = scalar::from_f64(100.0);
+        let min_flow: T = <T as FloatElement>::from_f64(MIN_FLOW_RATE_M3_S);
+        let hundred: T = <T as FloatElement>::from_f64(100.0);
         let field_outlet_flow_error_pct =
             if <T as NumericElement>::abs(reference_trace.flow_rate_m3_s) > min_flow {
                 <T as NumericElement>::abs(
@@ -102,7 +102,7 @@ where
                 zero
             };
 
-        let flow_abs = <T as NumericElement>::abs(scalar::from_f64(flow_rate_m3_s));
+        let flow_abs = <T as NumericElement>::abs(<T as FloatElement>::from_f64(flow_rate_m3_s));
         let mut field_effective_resistance_pa_s_per_m3 = reference_trace.resistance_pa_s_per_m3;
         if flow_abs > min_flow {
             field_effective_resistance_pa_s_per_m3 =
@@ -184,7 +184,7 @@ where
                 0.5
             };
             let diff_pct = (y_tilde_ctc - y_tilde_rbc).abs() * 100.0;
-            field_separation_efficiency_pct = Some(scalar::from_f64(diff_pct));
+            field_separation_efficiency_pct = Some(<T as FloatElement>::from_f64(diff_pct));
         }
 
         (
@@ -210,7 +210,7 @@ where
                 "2D channel hemolysis inputs invalid (shear stress {shear_pa}, exposure time {t_s}): {error}"
             ))
         })?;
-    let hi_t = scalar::from_f64(hi);
+    let hi_t = <T as FloatElement>::from_f64(hi);
 
     Ok(Channel2dResult {
         channel_id: entry.id.clone(),
@@ -218,7 +218,7 @@ where
         is_venturi_throat: entry.is_venturi_throat,
         solve_result,
         projection: entry.projection.clone(),
-        wall_shear_pa: scalar::from_f64(shear_pa),
+        wall_shear_pa: <T as FloatElement>::from_f64(shear_pa),
         field_wall_shear_max_pa,
         field_wall_shear_mean_pa,
         field_inlet_pressure_pa,
@@ -228,7 +228,7 @@ where
         field_outlet_flow_m3_s,
         field_outlet_flow_error_m3_s,
         field_outlet_flow_error_pct,
-        transit_time_s: scalar::from_f64(t_s),
+        transit_time_s: <T as FloatElement>::from_f64(t_s),
         field_separation_efficiency_pct,
         hemolysis_index: hi_t,
         reference_trace: reference_trace.clone(),

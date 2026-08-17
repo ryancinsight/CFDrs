@@ -13,7 +13,6 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use crate::scalar;
 use eunomia::FloatElement;
 
 // ============================================================================
@@ -111,5 +110,5 @@ pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
 
 /// Convert f64 constant to generic `RealField` type
 pub fn to_realfield<T: FloatElement>(value: f64) -> T {
-    scalar::from_f64(value)
+    <T as FloatElement>::from_f64(value)
 }

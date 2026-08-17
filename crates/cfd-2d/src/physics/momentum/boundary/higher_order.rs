@@ -1,8 +1,8 @@
 use super::super::solver::MomentumComponent;
 use super::MatrixUpdater;
 use crate::scalar;
-use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::Array1;
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ pub fn apply_higher_order_wall_boundaries<T, S, M>(
     grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: Cfd2dScalar + Copy + FloatElement,
+    T: CfdScalar + Copy + FloatElement,
     S: BuildHasher,
     M: MatrixUpdater<T>,
 {
@@ -62,14 +62,14 @@ where
 }
 
 /// Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3 for west wall
-fn apply_higher_order_west_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+fn apply_higher_order_west_wall<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four: T = scalar::from_f64(4.0);
-    let three: T = scalar::from_f64(3.0);
+    let four: T = <T as FloatElement>::from_f64(4.0);
+    let three: T = <T as FloatElement>::from_f64(3.0);
 
     for j in 1..ny.saturating_sub(1) {
         let idx_0 = j * nx;
@@ -85,14 +85,14 @@ fn apply_higher_order_west_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixU
     Ok(())
 }
 
-fn apply_higher_order_east_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+fn apply_higher_order_east_wall<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four: T = scalar::from_f64(4.0);
-    let three: T = scalar::from_f64(3.0);
+    let four: T = <T as FloatElement>::from_f64(4.0);
+    let three: T = <T as FloatElement>::from_f64(3.0);
 
     for j in 1..ny.saturating_sub(1) {
         let idx_0 = j * nx + nx - 1;
@@ -108,14 +108,14 @@ fn apply_higher_order_east_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixU
     Ok(())
 }
 
-fn apply_higher_order_north_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+fn apply_higher_order_north_wall<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four: T = scalar::from_f64(4.0);
-    let three: T = scalar::from_f64(3.0);
+    let four: T = <T as FloatElement>::from_f64(4.0);
+    let three: T = <T as FloatElement>::from_f64(3.0);
 
     for i in 0..nx {
         let idx_0 = (ny - 1) * nx + i;
@@ -131,13 +131,13 @@ fn apply_higher_order_north_wall<T: Cfd2dScalar + Copy + FloatElement, M: Matrix
     Ok(())
 }
 
-fn apply_higher_order_south_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
+fn apply_higher_order_south_wall<T: CfdScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
     rhs: &mut Array1<T>,
     nx: usize,
 ) -> cfd_core::error::Result<()> {
-    let four: T = scalar::from_f64(4.0);
-    let three: T = scalar::from_f64(3.0);
+    let four: T = <T as FloatElement>::from_f64(4.0);
+    let three: T = <T as FloatElement>::from_f64(3.0);
 
     for i in 0..nx {
         let idx_0 = i;

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::scalar::Cfd2dScalar;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
@@ -11,16 +10,12 @@ use cfd_1d::{
 };
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use petgraph::graph::NodeIndex;
 
 use crate::scalar;
-
-#[inline]
-fn to_f64<T: NumericElement>(value: T) -> f64 {
-    <T as NumericElement>::to_f64(value)
-}
 
 /// Per-node diagnostic data from the authoritative cfd-1d reference solve.
 #[derive(Debug, Clone)]
@@ -95,7 +90,7 @@ pub fn solve_reference_trace<T>(
     target_total_flow_m3_s: f64,
 ) -> CfdResult<NetworkReferenceTrace<T>>
 where
-    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+    T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
 {
     let fluid = reference_fluid::<T>(density_kg_m3, viscosity_pa_s)?;
     let mut network = network_from_blueprint::<T, _>(blueprint, fluid).map_err(|e| {
@@ -175,7 +170,7 @@ pub(crate) fn build_reference_trace_from_solved_network<T>(
     target_total_flow_m3_s: f64,
 ) -> CfdResult<NetworkReferenceTrace<T>>
 where
-    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+    T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
 {
     let edge_flow_by_id: HashMap<String, T> = solved
         .edges_with_properties()
@@ -216,7 +211,8 @@ where
     let mut min_edge_resistance = f64::INFINITY;
     let mut max_edge_resistance = 0.0_f64;
     for edge in solved.edges_with_properties() {
-        let resistance = to_f64(edge.properties.resistance.into_base()).abs();
+        let resistance =
+            <T as NumericElement>::to_f64(edge.properties.resistance.into_base()).abs();
         min_edge_resistance = min_edge_resistance.min(resistance);
         max_edge_resistance = max_edge_resistance.max(resistance);
     }
@@ -291,7 +287,7 @@ where
         }
     }
 
-    let normalized_inlet_flow_f64 = to_f64(normalized_inlet_flow).abs();
+    let normalized_inlet_flow_f64 = <T as NumericElement>::to_f64(normalized_inlet_flow).abs();
     if normalized_inlet_flow_f64 <= 1e-30 {
         let boundary_summary = blueprint
             .nodes
@@ -302,12 +298,12 @@ where
                     .get(node.id.as_str())
                     .copied()
                     .unwrap_or_else(scalar::zero::<T>);
-                let incoming = to_f64(incoming);
+                let incoming = <T as NumericElement>::to_f64(incoming);
                 let outgoing = outgoing_by_node
                     .get(node.id.as_str())
                     .copied()
                     .unwrap_or_else(scalar::zero::<T>);
-                let outgoing = to_f64(outgoing);
+                let outgoing = <T as NumericElement>::to_f64(outgoing);
                 format!(
                     "{}({:?}):in={incoming:.3e},out={outgoing:.3e}",
                     node.id.as_str(),
@@ -318,7 +314,7 @@ where
             .join("; ");
         return Err(Error::InvalidInput(format!(
             "Network2DSolver reference trace produced zero inlet flow from the cfd-1d solve (normalized_inlet_flow={normalized_inlet_flow_f64:.3e}, normalized_outlet_flow={:.3e}, edge_resistance_range=[{min_edge_resistance:.3e}, {max_edge_resistance:.3e}], boundary_nodes=[{}])",
-            to_f64(normalized_outlet_flow).abs(),
+            <T as NumericElement>::to_f64(normalized_outlet_flow).abs(),
             boundary_summary
         )));
     }
@@ -402,7 +398,7 @@ pub(crate) fn reference_fluid<T>(
     viscosity_pa_s: f64,
 ) -> CfdResult<ConstantPropertyFluid<T>>
 where
-    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement,
+    T: CfdScalar + EunomiaRealField + Copy + FloatElement,
 {
     let fluid = ConstantPropertyFluid::new(
         "Blood reference fluid".to_string(),

@@ -31,21 +31,21 @@
 //! - Shan, X., & Chen, H. (1993). Lattice Boltzmann model for simulating flows with
 //!   multiple phases and components. *Physical Review E*, 47(3), 1815.
 
-use crate::scalar::Cfd2dScalar;
-use crate::scalar::{from_f64, zero};
+use crate::scalar::zero;
 use crate::solvers::lbm::lattice::D2Q9;
+use cfd_core::CfdScalar;
 use eunomia::{CastFrom, FloatElement};
 
 /// Configuration for Shan-Chen pseudopotential multiphase simulation
 #[derive(Debug, Clone, Copy)]
-pub struct ShanChenMultiphase<T: Cfd2dScalar + Copy> {
+pub struct ShanChenMultiphase<T: CfdScalar + Copy> {
     /// Interaction strength G ($G < 0$ for attraction). Usually around -5.0 to -6.0.
     pub g_c: T,
     /// Reference density $\rho_0$ for the exponential pseudopotential form
     pub rho_0: T,
 }
 
-impl<T: Cfd2dScalar + Copy + FloatElement> ShanChenMultiphase<T> {
+impl<T: CfdScalar + Copy + FloatElement> ShanChenMultiphase<T> {
     /// Compute the exponential effective mass $\psi(\rho)$
     ///
     /// $\psi(\rho) = \rho_0 [1 - \exp(-\rho / \rho_0)]$
@@ -84,7 +84,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ShanChenMultiphase<T> {
                     // Skip q=0 (rest particle has e_i = 0)
                     let ex = D2Q9::VELOCITIES[q].0;
                     let ey = D2Q9::VELOCITIES[q].1;
-                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
+                    let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
 
                     // Calculate neighbor coordinates (assuming periodic boundaries for bulk force)
                     let nb_x = (i as i32 + ex).rem_euclid(nx as i32) as usize;
@@ -114,7 +114,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> ShanChenMultiphase<T> {
     #[inline]
     #[must_use]
     pub fn shift_equilibrium_velocity(u: [T; 2], force: [T; 2], tau: T, rho: T) -> [T; 2] {
-        if rho > from_f64(1e-12) {
+        if rho > <T as FloatElement>::from_f64(1e-12) {
             [u[0] + (tau * force[0]) / rho, u[1] + (tau * force[1]) / rho]
         } else {
             u

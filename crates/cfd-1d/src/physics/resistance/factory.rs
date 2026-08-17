@@ -4,22 +4,20 @@ use super::models::{
     BendType, DarcyWeisbachModel, ExpansionType, HagenPoiseuilleModel, RectangularChannelModel,
     SerpentineCrossSection, SerpentineModel, VenturiGeometry, VenturiModel,
 };
-use super::traits::{scalar_to_f64, ResistanceScalar};
+use cfd_core::CfdScalar;
+use eunomia::NumericElement;
 
 /// Resistance model factory for creating standard models
 pub struct ResistanceModelFactory;
 
 impl ResistanceModelFactory {
     /// Create Hagen-Poiseuille model for circular channel
-    pub fn hagen_poiseuille<T: ResistanceScalar>(
-        diameter: T,
-        length: T,
-    ) -> HagenPoiseuilleModel<T> {
+    pub fn hagen_poiseuille<T: CfdScalar>(diameter: T, length: T) -> HagenPoiseuilleModel<T> {
         HagenPoiseuilleModel { diameter, length }
     }
 
     /// Create rectangular channel model
-    pub fn rectangular_channel<T: ResistanceScalar>(
+    pub fn rectangular_channel<T: CfdScalar>(
         width: T,
         height: T,
         length: T,
@@ -32,7 +30,7 @@ impl ResistanceModelFactory {
     }
 
     /// Create Darcy-Weisbach model for turbulent flow in any geometry
-    pub fn darcy_weisbach<T: ResistanceScalar>(
+    pub fn darcy_weisbach<T: CfdScalar>(
         hydraulic_diameter: T,
         length: T,
         roughness: T,
@@ -41,7 +39,7 @@ impl ResistanceModelFactory {
     }
 
     /// Create Darcy-Weisbach model for turbulent flow in a circular channel
-    pub fn darcy_weisbach_circular<T: ResistanceScalar>(
+    pub fn darcy_weisbach_circular<T: CfdScalar>(
         diameter: T,
         length: T,
         roughness: T,
@@ -60,14 +58,14 @@ impl ResistanceModelFactory {
     /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
     /// - `bend_radius`: Radius of curvature of bends \[m]
-    pub fn serpentine_circular<T: ResistanceScalar>(
+    pub fn serpentine_circular<T: CfdScalar>(
         diameter: T,
         straight_length: T,
         num_segments: usize,
         bend_radius: T,
     ) -> SerpentineModel<T> {
-        let dh_f64 = scalar_to_f64::<T>(diameter);
-        let br_f64 = scalar_to_f64::<T>(bend_radius);
+        let dh_f64 = <T as NumericElement>::to_f64(diameter);
+        let br_f64 = <T as NumericElement>::to_f64(bend_radius);
         let ratio = if dh_f64 > 0.0 { br_f64 / dh_f64 } else { 2.0 };
 
         SerpentineModel {
@@ -92,17 +90,17 @@ impl ResistanceModelFactory {
     /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
     /// - `bend_radius`: Radius of curvature of bends \[m]
-    pub fn serpentine_rectangular<T: ResistanceScalar>(
+    pub fn serpentine_rectangular<T: CfdScalar>(
         width: T,
         height: T,
         straight_length: T,
         num_segments: usize,
         bend_radius: T,
     ) -> SerpentineModel<T> {
-        let w = scalar_to_f64::<T>(width);
-        let h = scalar_to_f64::<T>(height);
+        let w = <T as NumericElement>::to_f64(width);
+        let h = <T as NumericElement>::to_f64(height);
         let dh = 2.0 * w * h / (w + h);
-        let br = scalar_to_f64::<T>(bend_radius);
+        let br = <T as NumericElement>::to_f64(bend_radius);
         let ratio = if dh > 0.0 { br / dh } else { 2.0 };
 
         SerpentineModel {
@@ -129,7 +127,7 @@ impl ResistanceModelFactory {
     /// - `throat_diameter`: Throat (constriction) diameter \[m]
     /// - `throat_length`: Length of the throat section \[m]
     /// - `total_length`: Total device length \[m]
-    pub fn venturi_symmetric<T: ResistanceScalar>(
+    pub fn venturi_symmetric<T: CfdScalar>(
         inlet_diameter: T,
         throat_diameter: T,
         throat_length: T,
@@ -149,7 +147,7 @@ impl ResistanceModelFactory {
     /// - `inlet_diameter`: Upstream pipe diameter \[m]
     /// - `throat_diameter`: Throat diameter \[m]
     /// - `throat_length`: Length of the throat section \[m]
-    pub fn venturi_millifluidic<T: ResistanceScalar>(
+    pub fn venturi_millifluidic<T: CfdScalar>(
         inlet_diameter: T,
         throat_diameter: T,
         throat_length: T,
@@ -167,7 +165,7 @@ impl ResistanceModelFactory {
     /// - `total_length`: Total device length \[m]
     /// - `geometry`: Venturi geometry type (determines discharge coefficient)
     /// - `expansion`: Expansion type (determines recovery efficiency)
-    pub fn venturi_custom<T: ResistanceScalar>(
+    pub fn venturi_custom<T: CfdScalar>(
         inlet_diameter: T,
         throat_diameter: T,
         outlet_diameter: T,
