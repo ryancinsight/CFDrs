@@ -5,8 +5,7 @@
 
 use apollo_fft::{
     fft_1d_array_typed as apollo_fft_1d_array, fft_3d_array_typed as apollo_fft_3d_array,
-    ifft_1d_array_typed as apollo_ifft_1d_array, ifft_3d_array_typed as apollo_ifft_3d_array,
-    Complex64,
+    ifft_3d_array_typed as apollo_ifft_3d_array, Complex64,
 };
 use apollo_nufft::nufft_type2_3d as apollo_nufft_type2_3d;
 use apollo_nufft::{nufft_type1_3d as apollo_nufft_type1_3d, UniformGrid3D};
@@ -45,10 +44,6 @@ pub(crate) fn map<T: Copy, U, const N: usize>(
 
 pub(crate) fn fft_1d_array(field: &Array1<f64>) -> Result<Array1<Complex64>> {
     Ok(apollo_fft_1d_array(field))
-}
-
-pub(crate) fn ifft_1d_array(field_hat: &Array1<Complex64>) -> Result<Array1<f64>> {
-    Ok(apollo_ifft_1d_array(field_hat))
 }
 
 pub(crate) fn fft_3d_array(field: &Array3<f64>) -> Result<Array3<Complex64>> {

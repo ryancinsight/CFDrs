@@ -10,5 +10,8 @@
 pub mod ilu;
 pub mod multigrid;
 
+#[cfg(test)]
+mod ssor_tests;
+
 pub use ilu::IncompleteLU;
 pub use multigrid::AlgebraicMultigrid;
