@@ -142,7 +142,7 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStepSolver<T> {
             config.simple.clone(),
         );
         self.apply_geometry_mask(&mut solver);
-        let solve = solver.solve(self.geometry.inlet_velocity)?;
+        let solve = solver.solve_parabolic_inlet(self.geometry.inlet_velocity)?;
         let wall_shear = collect_downstream_wall_shear(&solver, self.geometry.upstream_length)?;
         let reattachment_length = interpolate_reattachment(&wall_shear)?;
         Ok(BackwardFacingStepResult {
@@ -244,11 +244,11 @@ mod tests {
     #[test]
     fn wall_shear_crossing_is_linearly_interpolated() {
         let samples = [
-            WallShearSample {
+            WallShearSample::<f64> {
                 x: 1.0,
                 shear_rate: -1.0,
             },
-            WallShearSample {
+            WallShearSample::<f64> {
                 x: 2.0,
                 shear_rate: 1.0,
             },
@@ -260,11 +260,11 @@ mod tests {
     #[test]
     fn wall_shear_without_crossing_is_rejected() {
         let samples = [
-            WallShearSample {
+            WallShearSample::<f64> {
                 x: 1.0,
                 shear_rate: 1.0,
             },
-            WallShearSample {
+            WallShearSample::<f64> {
                 x: 2.0,
                 shear_rate: 2.0,
             },

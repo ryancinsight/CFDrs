@@ -1,6 +1,7 @@
 use crate::scalar;
 use crate::solvers::ns_fvm::boundary::{BloodModel, BoundaryCondition};
 use crate::solvers::ns_fvm::config::SolveResult;
+use crate::solvers::ns_fvm::solver::types::InletProfile;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::error::Error;
 use cfd_core::CfdScalar;
@@ -10,63 +11,24 @@ use leto::geometry::Vector2;
 impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
+        self.inlet_profile = InletProfile::Uniform;
+        self.solve_with_inlet_profile(u_inlet)
+    }
+
+    /// Drive the SIMPLE loop with a parabolic inlet on the fluid mask.
+    ///
+    /// Solid cells at the inlet remain zero. This is the provider-owned
+    /// boundary mode used by geometry-specific expansion and step solvers.
+    pub fn solve_parabolic_inlet(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
+        self.inlet_profile = InletProfile::Parabolic;
+        self.solve_with_inlet_profile(u_inlet)
+    }
+
+    fn solve_with_inlet_profile(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
         self.initialize_viscosity();
 
-        let ny = self.grid.ny;
-
-        // Parabolic inlet profile (supports non-uniform y-spacing)
-        let mut y_coords = Vec::with_capacity(ny);
-        let mut dy_cells = Vec::with_capacity(ny);
-        for j in 0..ny {
-            if self.field.mask[(0, j)] {
-                y_coords.push(self.grid.y_center(j));
-                dy_cells.push(self.grid.dy_at(j));
-            }
-        }
-        if !y_coords.is_empty() {
-            let y_min = y_coords
-                .iter()
-                .copied()
-                .fold(y_coords[0], NumericElement::min_scalar);
-            let y_max = y_coords
-                .iter()
-                .copied()
-                .fold(y_coords[0], NumericElement::max_scalar);
-            // Channel height = span from first to last fluid centre + half-cells at edges.
-            let h = y_max - y_min
-                + (dy_cells[0] + dy_cells[dy_cells.len().saturating_sub(1)])
-                    * <T as FloatElement>::from_f64(0.5);
-
-            let mut discrete_sum: T = scalar::zero();
-            let half: T = <T as FloatElement>::from_f64(0.5);
-            let six: T = <T as FloatElement>::from_f64(6.0);
-            let one: T = scalar::one();
-            let zero: T = scalar::zero();
-
-            for j in 0..ny {
-                if self.field.mask[(0, j)] {
-                    let dy_j = self.grid.dy_at(j);
-                    let y_local = (self.grid.y_center(j) - y_min) + half * dy_j;
-                    let y_frac = y_local / h;
-                    let u_val = six * u_inlet * y_frac * (one - y_frac);
-                    self.field.u[(0, j)] = u_val;
-                    discrete_sum += u_val * dy_j;
-                } else {
-                    self.field.u[(0, j)] = zero;
-                }
-            }
-
-            // Normalise the discrete profile so numerical mass flux matches continuous theory precisely
-            let target_sum = u_inlet * h;
-            let tiny: T = <T as FloatElement>::from_f64(1e-30);
-            if discrete_sum > tiny {
-                let normalize_factor = target_sum / discrete_sum;
-                for j in 0..ny {
-                    if self.field.mask[(0, j)] {
-                        self.field.u[(0, j)] *= normalize_factor;
-                    }
-                }
-            }
+        if matches!(self.inlet_profile, InletProfile::Parabolic) {
+            self.apply_parabolic_inlet(u_inlet);
         }
 
         let mut last_residual: T = <T as FloatElement>::from_f64(1e10);
@@ -80,6 +42,9 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
 
         for iteration in 0..self.config.max_iterations {
             self.solve_u_momentum(&bc_inlet, &bc_outlet, u_inlet)?;
+            if matches!(self.inlet_profile, InletProfile::Parabolic) {
+                self.apply_parabolic_inlet(u_inlet);
+            }
             self.solve_v_momentum(&bc_wall_noslip, &bc_wall_noslip)?;
 
             // Execute PISO pressure correction loops (n_correctors = 1 for SIMPLE, >1 for PISO)
@@ -233,5 +198,56 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             residual: last_residual,
             converged: false,
         })
+    }
+
+    fn apply_parabolic_inlet(&mut self, u_inlet: T) {
+        let ny = self.grid.ny;
+        let zero: T = scalar::zero();
+        let mut y_coords = Vec::with_capacity(ny);
+        let mut dy_cells = Vec::with_capacity(ny);
+        for j in 0..ny {
+            if self.field.mask[(0, j)] {
+                y_coords.push(self.grid.y_center(j));
+                dy_cells.push(self.grid.dy_at(j));
+            }
+        }
+        if y_coords.is_empty() {
+            return;
+        }
+        let y_min = y_coords
+            .iter()
+            .copied()
+            .fold(y_coords[0], NumericElement::min_scalar);
+        let y_max = y_coords
+            .iter()
+            .copied()
+            .fold(y_coords[0], NumericElement::max_scalar);
+        let half: T = <T as FloatElement>::from_f64(0.5);
+        let h = y_max - y_min + (dy_cells[0] + dy_cells[dy_cells.len().saturating_sub(1)]) * half;
+        let six: T = <T as FloatElement>::from_f64(6.0);
+        let one: T = scalar::one();
+        let mut discrete_sum: T = zero;
+        for j in 0..ny {
+            if self.field.mask[(0, j)] {
+                let dy_j = self.grid.dy_at(j);
+                let y_local = (self.grid.y_center(j) - y_min) + half * dy_j;
+                let y_frac = y_local / h;
+                let u_val = six * u_inlet * y_frac * (one - y_frac);
+                self.field.u[(0, j)] = u_val;
+                discrete_sum += u_val * dy_j;
+            } else {
+                self.field.u[(0, j)] = zero;
+            }
+        }
+        let target_sum = u_inlet * h;
+        let tiny: T = <T as FloatElement>::from_f64(1e-30);
+        if discrete_sum > tiny {
+            let normalize_factor = target_sum / discrete_sum;
+            for j in 0..ny {
+                if self.field.mask[(0, j)] {
+                    self.field.u[(0, j)] *= normalize_factor;
+                }
+            }
+        }
     }
 }

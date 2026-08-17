@@ -175,7 +175,11 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
                 }
                 BoundaryCondition::VelocityInlet { velocity } => {
                     for j in 0..ny {
-                        self.field.u[(0, j)] = velocity[0];
+                        self.field.u[(0, j)] = if self.field.mask[(0, j)] {
+                            velocity[0]
+                        } else {
+                            zero
+                        };
                     }
                 }
                 BoundaryCondition::PressureInlet {
@@ -199,7 +203,11 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
                         .and_then(|components| components.first().copied().flatten())
                         .unwrap_or(*value);
                     for j in 0..ny {
-                        self.field.u[(0, j)] = inlet_value;
+                        self.field.u[(0, j)] = if self.field.mask[(0, j)] {
+                            inlet_value
+                        } else {
+                            zero
+                        };
                     }
                 }
                 _ => {}
