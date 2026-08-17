@@ -14,7 +14,12 @@
 - [ ] Run the provider focused gate and publish the exact source head for
       hosted verification. Do not change the committed test budget or
       workload. Both exact hosted-timeout scenarios pass locally; hosted
-      confirmation remains the closure gate.
+      confirmation remains the closure gate. At head `521d9f76`, CI run
+      `32043011439` failed before checkout because the pinned Rust-toolchain
+      action download returned 503/429 (`95425551229`); this is infrastructure
+      evidence, not a Rust or test failure. Pages run `32043011748` also failed
+      before checkout on `actions/configure-pages` 429/502
+      (`95425552255`); both failed jobs were rerun asynchronously.
 - [x] Retag every book diagram, equation, and command fence explicitly and
       mark workspace-context API excerpts as `rust,ignore`; local `mdbook test
       docs/book` and `mdbook build docs/book` pass.

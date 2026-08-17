@@ -58,6 +58,14 @@ The Pages caller now enables the shared `mdbook-test` gate and builds
 `cfd-validation` before testing; hosted confirmation is part of the exact-head
 closure below.
 
+At exact head `521d9f76`, hosted CI run `32043011439` failed before checkout
+while downloading the pinned `dtolnay/rust-toolchain` action: GitHub returned
+503 and then 429 after the runner's three retries (job `95425551229`). The
+book run `32043011748` independently failed before checkout while downloading
+`actions/configure-pages` with 429/502 responses (job `95425552255`). These are
+infrastructure failures with no source or test execution. Both failed jobs
+were rerun asynchronously.
+
 ## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
 
 `cargo check --offline --examples` reaches `cfd-3d` and fails because
