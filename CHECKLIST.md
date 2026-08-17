@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
+
+- [x] Wire `cfd-1d` resistance-model tests into the module graph and correct
+      the laminar Darcy-Weisbach oracle to the documented
+      `32*mu*L/(A*D^2)` resistance law.
+- [x] Delete eleven unreachable historical, duplicate, or stub modules while
+      retaining `newton_fallback.rs` as the explicit `OPEN-033` feature
+      residual.
+- [x] Verify the exact post-change orphan count is one, formatting and diff
+      checks pass, locked `cfd-1d` check passes, and full package Nextest passes
+      (`738/738`, `3` skipped).
+- [x] Merge source PR #346 at `54dcea3c`; provider-owned hosted Rust and
+      book-figure gates pass in run `32033808279` at source head `b455a416`.
+
 ## ATLAS-CFDRS-CONFORMANCE-101 [patch] — done 2026-08-17
 
 - [x] Replace the debug/release `is_err()` and `is_ok()` checks in

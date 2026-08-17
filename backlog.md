@@ -29,6 +29,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
+
+**Owner:** Atlas session; source merged as `54dcea3c`.
+
+**Acceptance:** met. The source graph now reaches the real cfd-1d resistance
+model tests through `#[cfg(test)] mod tests;`; eleven historical, duplicate, or
+stub modules are deleted. The exact post-change scan reports one residual,
+`crates/cfd-1d/src/solver/core/newton_fallback.rs`, retained as the documented
+`OPEN-033` numerical feature gap rather than deleted as dead code. Local locked
+`cfd-1d` check and full package Nextest pass (`738/738`, `3` skipped). Provider
+CI run `32033808279` passes its Rust workspace and book-figure gates at source
+head `b455a416`; external `recurseml/analysis` remains report-only.
+
 ## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch] — done 2026-08-17
 
 **Owner:** Atlas session; closed at provider source head `e9c84bf6`.

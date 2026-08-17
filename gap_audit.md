@@ -45,6 +45,22 @@ slice and is not represented as a successful gate.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Unreachable source-module closure — CFDrs (2026-08-17)
+
+- Closed at merged provider default `54dcea3c`, source head `b455a416`.
+  Eleven files were removed from the source tree because no Cargo module or
+  include edge reached them: the duplicate enhanced error system, unused I/O
+  stubs, superseded norm and preconditioner modules, the duplicate performance
+  monitor, and the historical blueprint artefact. The cfd-1d resistance test
+  sidecar is now declared under `#[cfg(test)]` and its laminar Darcy-Weisbach
+  oracle follows the provider's documented `32*mu*L/(A*D^2)` derivation.
+- Exact post-change orphan scan: one residual,
+  `crates/cfd-1d/src/solver/core/newton_fallback.rs`. It remains because the
+  provider gap audit identifies it as `OPEN-033`, an unintegrated JFNK feature,
+  not as obsolete code. Local evidence is locked package check plus full
+  cfd-1d Nextest (`738/738`, `3` skipped); hosted provider run `32033808279`
+  passes the Rust workspace and book-figure gates at the exact source head.
+
 ## Legacy-audit coverage gap — approx/num-traits/rustfft unclassified (2026-08-13)
 
 - Closed: the `xtask` legacy-migration-audit only classified `nalgebra`,
