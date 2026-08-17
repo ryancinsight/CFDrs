@@ -467,7 +467,10 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
         .ok_or_else(|| {
             Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string())
         })?;
-        tracing::trace!(iterations = report.iterations, "SIMPLE pressure correction converged");
+        tracing::trace!(
+            iterations = report.iterations,
+            "SIMPLE pressure correction converged"
+        );
 
         let pp = self.p_prime.as_mut().unwrap();
         if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {

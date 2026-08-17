@@ -111,10 +111,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            let report = krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -154,10 +155,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            let report = krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
