@@ -29,6 +29,24 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones (in progress 2026-08-17)
+
+**Owner:** Atlas session; scope is the provider-owned cfd-2d pressure
+correction path. **Acceptance:** preserve the pressure operator and output
+values while eliminating the cached-CSR clone on each SIMPLE correction;
+prove the exact 35 µm validation case under the unchanged nextest budget;
+then pass the provider hosted gate at the exact source head.
+
+The implementation now borrows the immutable cached Laplacian in place. The
+initial assembly still stores one cache copy; subsequent corrections reuse the
+same sparse topology and values while rebuilding only the right-hand side and
+solution. Exact local Nextest run `5c15ba54-0b90-47a8-ab4c-f0eaf7b55d6c`
+passes `microventuri_35um_case_produces_converged_informative_2d_result` in
+16.785 s. The exact trifurcation case also passes locally in 16.903 s. The
+hosted baseline had timed out at 30.005--30.007 s, so these are not controlled
+cross-machine speedup claims; provider hosted confirmation at the exact
+post-change head remains pending.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 
 **Owner:** Atlas session; source merged as `54dcea3c`.

@@ -1,5 +1,21 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones
+
+- [x] Profile the exact hosted-timeout path and identify the repeated sparse
+      Laplacian clone in `cfd-2d` pressure correction.
+- [x] Borrow the immutable cached CSR operator in place; keep initial assembly,
+      right-hand-side construction, solver selection, tolerances, and output
+      semantics unchanged.
+- [x] Run the exact value-semantic regression through locked `cargo nextest`:
+      `microventuri_35um_case_produces_converged_informative_2d_result` passes
+      in 16.785 s under run
+      `5c15ba54-0b90-47a8-ab4c-f0eaf7b55d6c`.
+- [ ] Run the provider focused gate and publish the exact source head for
+      hosted verification. Do not change the committed test budget or
+      workload. Both exact hosted-timeout scenarios pass locally; hosted
+      confirmation remains the closure gate.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 
 - [x] Wire `cfd-1d` resistance-model tests into the module graph and correct

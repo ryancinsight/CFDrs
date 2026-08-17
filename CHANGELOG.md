@@ -30,6 +30,11 @@
   graph and retained the documented `OPEN-033` fallback as the only orphan
   residual. The merged PM head `5b95fe3a` passes the provider Rust and
   book-figure gates at exact head.
+- cfd-2d pressure correction now borrows its immutable cached CSR Laplacian
+  instead of cloning the sparse matrix for every SIMPLE correction. The exact
+  35 µm and 3D trifurcation validation cases pass locally in 16.785 s and
+  16.903 s under the unchanged nextest budget; hosted exact-head confirmation
+  remains pending.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.
