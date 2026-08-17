@@ -1,14 +1,20 @@
 # CFDrs Work Checklist
 
-## ATLAS-CFDRS-CONFORMANCE-101 [patch] — in progress
+## ATLAS-CFDRS-CONFORMANCE-101 [patch] — done 2026-08-17
 
-- [ ] Replace the debug/release `is_err()` and `is_ok()` checks in
+- [x] Replace the debug/release `is_err()` and `is_ok()` checks in
       `ensure_release_reports` with exact value assertions.
-- [ ] Pin both checkout and cache actions in both CI jobs to verified full
+- [x] Pin both checkout and cache actions in both CI jobs to verified full
       commit SHAs; align the stale `cfd-python` Cargo.lock package version;
       then pass the provider conformance scan and focused gates.
-- [ ] Record the exact provider head and hosted evidence before Atlas gitlink
+- [x] Record the exact provider head and hosted evidence before Atlas gitlink
       integration.
+
+Closure evidence: source `e9c84bf6`; local locked package check, focused
+Nextest 166/166, and doctests pass; the provider scan is at baseline
+(`existence_only_assertions=137`, `tag_pinned_actions=0`); hosted CI
+`32022469516` passes both Rust workspace and book-figure jobs. Provider-wide
+all-target strict Clippy remains a pre-existing debt outside this slice.
 
 ## CFDRS-LEGACY-AUDIT-HARDEN-001 — Harden legacy-migration-audit coverage — done 2026-08-13
 

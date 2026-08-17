@@ -29,18 +29,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch, in progress]
+## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch] — done 2026-08-17
 
-**Owner:** Atlas session; scope is the Milestone 12 release-mode regression
-assertion, the four mutable action references in `.github/workflows/ci.yml`,
-and the stale `cfd-python` package version recorded in `Cargo.lock`.
+**Owner:** Atlas session; closed at provider source head `e9c84bf6`.
 
-**Acceptance:** the assertion compares the documented error/value contract in
-debug and release builds; all action references are full commit SHA pins; the
-lock records the manifest's `cfd-python` version; the provider conformance scan
-returns no new `existence_only_assertions` or `tag_pinned_actions`; formatting,
-strict Clippy, focused Nextest, and hosted provider gates pass at the exact
-source head.
+**Acceptance:** met. The assertion compares the documented error/value contract
+in debug and release builds; all action references are full commit SHA pins; the
+lock records the manifest's `cfd-python` version; and the provider conformance
+scan returns the baseline `existence_only_assertions=137` and
+`tag_pinned_actions=0`. Formatting, locked package check, focused locked
+Nextest (166/166), doctests, and hosted provider CI run `32022469516` pass at
+the exact source head. The provider-wide all-target strict Clippy command
+remains blocked by pre-existing documentation, output, and test/bench lint
+debt outside this slice; no lint was weakened and no baseline was changed.
 
 ## Active lint-floor increment
 
