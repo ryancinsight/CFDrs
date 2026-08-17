@@ -118,7 +118,11 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
         let max_dt = <T as FloatElement>::from_f64(1e10);
 
         while step_count < max_steps {
-            let convergence_tolerance = target_residual.min_scalar(self.config.tolerance);
+            // `target_residual` is the caller's problem-scaled termination
+            // contract. The configured tolerance remains the minimum useful
+            // absolute tolerance for ordinary steps, but must not replace a
+            // looser dimensional target with an unreachable fixed threshold.
+            let convergence_tolerance = target_residual.max_scalar(self.config.tolerance);
             let residual =
                 self.solve_time_step_with_tolerance(fields, dt, nu, rho, convergence_tolerance)?;
             residuals.push(residual);

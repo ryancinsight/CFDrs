@@ -460,13 +460,17 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
             ..Default::default()
         };
         let pp = self.p_prime.as_mut().unwrap();
-        krylov::converged_or_none(
+        let report = krylov::converged_or_none(
             "SIMPLE pressure correction",
             krylov::bicgstab(matrix, self.rhs.as_ref().unwrap(), pp, &solver_config),
         )
         .ok_or_else(|| {
             Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string())
         })?;
+        tracing::trace!(
+            iterations = report.iterations,
+            "SIMPLE pressure correction converged"
+        );
 
         let pp = self.p_prime.as_mut().unwrap();
         if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {

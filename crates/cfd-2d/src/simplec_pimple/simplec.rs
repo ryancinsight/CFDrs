@@ -154,7 +154,7 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
             u_prev.copy_from(&self.u_corrected_workspace);
 
             #[cfg(debug_assertions)]
-            println!(
+            tracing::debug!(
                 "SIMPLEC iteration {} residuals: velocity={:.6e}, continuity={:.6e}",
                 iter + 1,
                 velocity_residual,

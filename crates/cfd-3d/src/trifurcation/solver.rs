@@ -166,13 +166,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         mesher.snap_iterations = 0;
         let mesh = mesher.build_volume(&geom_f64);
 
-        println!(
-            "DEBUG: Volumetric meshing complete. Vertices: {}, Cells: {}, Boundary Faces: {}",
-            mesh.vertex_count(),
-            mesh.cell_count(),
-            mesh.boundary_faces().len()
-        );
-
         let stats_vertex_count = mesh.vertex_count();
         let stats_cell_count = mesh.cell_count();
         let stats_boundary_face_count = mesh.boundary_faces().len();
@@ -389,14 +382,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 },
             );
         }
-
-        println!(
-            "DEBUG: Extracted BC sets! Inlet: {}, Outlet: {}, Wall: {}. Total BCs: {}",
-            face_sets.inlet_nodes.len(),
-            face_sets.outlet_nodes.len(),
-            face_sets.wall_nodes.len(),
-            boundary_conditions.len()
-        );
 
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(

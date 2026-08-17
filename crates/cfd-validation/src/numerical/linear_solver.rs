@@ -111,10 +111,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -124,8 +125,8 @@ impl LinearSolverValidator {
                 analytical_solution: analytical.clone(),
                 error_metrics: error_metrics.clone(),
                 convergence_info: ConvergenceInfo {
-                    iterations: 50, // Typical for CG on Poisson
-                    final_residual: error_metrics.l2_error,
+                    iterations: report.iterations,
+                    final_residual: report.final_residual_norm,
                     convergence_rate: Some(<T as FloatElement>::from_f64(0.95)), // Typical for CG
                 },
                 literature_reference: "Strang (2007), Computational Science and Engineering"
@@ -154,10 +155,11 @@ impl LinearSolverValidator {
         for kind in solvers {
             let name = kind.name();
             let mut computed = Array1::zeros([a.nrows()]);
-            krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
-                .ok_or_else(|| {
-                    cfd_core::error::Error::Solver(format!("{name} did not converge"))
-                })?;
+            let report =
+                krylov::converged_or_none(name, kind.solve(&a, &b, &mut computed, &config))
+                    .ok_or_else(|| {
+                        cfd_core::error::Error::Solver(format!("{name} did not converge"))
+                    })?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -167,8 +169,8 @@ impl LinearSolverValidator {
                 analytical_solution: analytical.clone(),
                 error_metrics: error_metrics.clone(),
                 convergence_info: ConvergenceInfo {
-                    iterations: 100, // Typical for 2D Poisson
-                    final_residual: error_metrics.l2_error,
+                    iterations: report.iterations,
+                    final_residual: report.final_residual_norm,
                     convergence_rate: Some(<T as FloatElement>::from_f64(0.98)),
                 },
                 literature_reference: "LeVeque (2007), Finite Difference Methods for ODEs and PDEs"

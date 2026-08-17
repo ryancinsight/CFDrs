@@ -1,5 +1,32 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
+
+- [x] Replace the fixed-threshold `min_scalar` selection with the caller's
+      problem-scaled target while retaining the configured tolerance as the
+      lower bound.
+- [x] Run the unchanged exact 35 µm and 3D trifurcation value-semantic filter
+      through locked Nextest: 2/2 pass at run
+      `0d725752-ad6c-4365-a569-013ca0caf8c5`.
+- [x] Route production debug output through `tracing` and consume the
+      provider solver reports in the touched validation paths.
+- [ ] Push the final source head and pass the exact hosted Rust and Pages
+      gates without changing the committed budget or workloads.
+
+## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces
+
+- [x] Retain the cached solid-distance layers while reusing their validity
+      bitmap across extrapolation passes.
+- [x] Reuse one per-layer update buffer without changing the layer-wise
+      Jacobi update order or pressure values.
+- [x] Run the exact high-contraction 35 µm validation case through locked
+      Nextest: 17.225 s, run
+      `713348f0-60ed-4765-819d-8c9eac422e27`.
+- [x] Run the exact 3D trifurcation validation case through locked Nextest:
+      15.791 s, run `2b79f809-b758-41d7-ade9-9b29aef23a16`.
+- [ ] Publish the exact source head and pass the provider hosted Rust and
+      Pages gates. Keep the 30-second test budget and workloads unchanged.
+
 ## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones
 
 - [x] Profile the exact hosted-timeout path and identify the repeated sparse
