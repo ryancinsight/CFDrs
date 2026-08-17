@@ -388,19 +388,35 @@ fn test_benchmark_run_integration() {
     let config = BenchmarkConfig::<f64>::default();
 
     // Run the benchmark
-    let result = step.run(&config);
-    assert!(result.is_ok(), "Benchmark should run without error");
+    let result = step
+        .run(&config)
+        .expect("backward-facing-step solve should produce a wall-shear crossing");
 
-    let result = result.expect("expected value");
-
-    // Check that result has expected structure
-    assert!(!result.values.is_empty(), "Should have reattachment length");
+    assert_eq!(
+        result.values.len(),
+        1,
+        "Should have one reattachment length"
+    );
+    let reattachment = result.values[0];
     assert!(
-        !result.convergence.is_empty(),
-        "Should have convergence history"
+        reattachment.is_finite() && reattachment > 0.0 && reattachment < step.channel_length,
+        "Reattachment must be a finite downstream position, got {reattachment}"
+    );
+    let last_residual = result
+        .convergence
+        .last()
+        .copied()
+        .expect("solve should record a residual history");
+    assert!(
+        last_residual.is_finite(),
+        "Residual history must remain finite, got {last_residual}"
     );
 
-    // Validate the result (may pass or fail depending on solver implementation)
-    let is_valid = step.validate(&result);
-    assert!(is_valid.is_ok(), "Validation should not error");
+    let is_valid = step
+        .validate(&result)
+        .expect("backward-facing-step result validation should not error");
+    assert!(
+        is_valid,
+        "computed reattachment should satisfy the benchmark contract"
+    );
 }

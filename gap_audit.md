@@ -45,6 +45,25 @@ slice and is not represented as a successful gate.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## ATLAS-CFDRS-BACKWARD-STEP-108 — field-derived reattachment (in progress 2026-08-17)
+
+The benchmark source now evolves a streamfunction–vorticity field instead of
+returning `6 * step_height`. The lower wall and vertical step use no-slip
+streamfunction boundaries, the inlet uses an integrated parabolic profile, the
+outlet uses a zero streamfunction gradient, and the velocity field is recovered
+from the discrete streamfunction curl. Reattachment is the first downstream
+negative-to-non-negative crossing of `du/dy` at the no-slip lower wall, with
+linear interpolation between grid columns. Fields without such a crossing now
+return a typed invalid-input error.
+
+The focused source and integration tests were updated to assert the crossing,
+boundary values, finite physical position, and exact error for a field without
+reattachment. `cargo fmt --all -- --check` and `git diff --check` pass. The
+locked local package gate remains blocked before compilation by the shared Atlas
+overlay's peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the
+current local graph provides `0.2.0`; hosted exact-head verification is required
+before closure.
+
 ## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
 
 `solve_adaptive` previously passed `min_scalar(target_residual,

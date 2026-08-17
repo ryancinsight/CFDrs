@@ -25,6 +25,11 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **cfd-validation**: The backward-facing-step benchmark now evolves a
+  streamfunction–vorticity field with explicit step, no-slip, parabolic-inlet,
+  and zero-gradient-outlet boundaries. Reattachment is reported only from a
+  negative-to-positive bottom-wall shear crossing; the former constant result
+  is removed. Focused and hosted verification remain pending for this head.
 - SIMPLEC adaptive stepping now preserves the caller's problem-scaled
   convergence target instead of replacing it with an unreachable fixed
   tolerance. The exact 35 µm and 3D trifurcation validation cases pass under
