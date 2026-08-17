@@ -33,5 +33,5 @@ test-group = 'gpu-device'
 # start together.  Serializing only this measured set preserves parallelism
 # for the rest of the workspace without changing the workload or timeout.
 [[profile.default.overrides]]
-filter = 'test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) | test(/ga_validation_geometry_produces_converged_informative_2d_result/) | test(/microventuri_35um_case_produces_converged_informative_2d_result/) | test(/test_benchmark_run_integration/) | test(/cross_fidelity_stenosis_shear_thinning/) | test(/cross_fidelity_venturi_total_loss_coefficient/)'
+filter = 'test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) | test(/test_venturi_blood_flow/) | test(/ga_validation_geometry_produces_converged_informative_2d_result/) | test(/microventuri_fallback_case_produces_converged_informative_2d_result/) | test(/microventuri_35um_case_produces_converged_informative_2d_result/) | test(/cross_fidelity_trifurcation_dominance/) | test(/test_benchmark_run_integration/) | test(/test_step_11_lid_driven_cavity/) | test(/cross_fidelity_stenosis_shear_thinning/) | test(/cross_fidelity_venturi_total_loss_coefficient/)'
 test-group = 'numerical-fidelity'
