@@ -24,7 +24,7 @@ Comprehensive medical-grade millifluidic CFD screening in a 96-well-plate footpr
 
 ```bash
 cargo run -p cfd-1d --example medical_millifluidic_screening
-```
+```text
 
 ## Part Reference
 

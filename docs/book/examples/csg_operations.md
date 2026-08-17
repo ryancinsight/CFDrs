@@ -23,7 +23,7 @@ full topology validation and STL export to `outputs/csg/`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::{Cube, IndexedMesh};
 use cfd_mesh::domain::geometry::primitives::{Cylinder, PrimitiveMesh};
@@ -40,7 +40,7 @@ let result = csg_boolean(&cube, &cyl, BooleanOp::Difference)?;
 
 ```bash
 CSG_TRACE=1 cargo run --example csg_operations --features csg
-```
+```text
 
 Enables seam-repair trace output for investigating watertightness failures
 after boolean operations.

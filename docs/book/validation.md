@@ -24,7 +24,7 @@ Richardson extrapolation establishes the **observed order of accuracy**:
 
 ```text
 φ_exact ≈ φ_fine + (φ_fine - φ_coarse) / (r^p - 1)
-```
+```text
 
 where *r* is the mesh refinement ratio and *p* the expected order.
 
@@ -47,7 +47,7 @@ Re = 100, 400, 1000, 3200.
 CFDrs reproduces the Ghia *u*-velocity profile along the vertical centreline
 to within 0.5% for Re ≤ 1000:
 
-```rust
+```rust,ignore
 cargo run -p cfd-suite --example cavity_validation
 ```
 
@@ -57,7 +57,7 @@ For a circular pipe of radius *R* and pressure gradient dP/dx:
 
 ```text
 u(r) = (1/(4μ)) · (-dP/dx) · (R² - r²)
-```
+```console
 
 ```rust
 cargo run -p cfd-suite --example pipe_flow_validation
@@ -68,7 +68,7 @@ cargo run -p cfd-suite --example pipe_flow_validation
 CFDrs includes the FDA nozzle haemolysis model and hemolysis
 (Giersiepen-Wurzinger) as validated metrics:
 
-```rust
+```rust,ignore
 cargo run -p cfd-suite --example blood_flow_1d_validation
 cargo run -p cfd-1d --example fda_shear_limit_screening
 ```

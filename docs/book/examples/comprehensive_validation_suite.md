@@ -28,7 +28,7 @@ end of the run.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_validation::benchmarks::{

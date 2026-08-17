@@ -22,7 +22,7 @@ validated against DNS data of Moser, Kim & Mansour (1999) at Re_τ = 395.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::physics::turbulence::{KOmegaSSTModel, TurbulenceModel};
 
 // Re_τ = u_τ · h / ν = 395  (DNS benchmark)
@@ -40,7 +40,7 @@ println!("Model: {}", sst_model.name());
 The **k-ω SST** (Shear Stress Transport) model blends the k-ω formulation in
 the near-wall region with the k-ε model in the free stream:
 
-```
+```text
 Dk/Dt  = P_k − β*kω + ∇·[(ν + σ_k νt) ∇k]
 Dω/Dt  = γ P_k/νt − β' ω² + ∇·[(ν + σ_ω νt) ∇ω] + CDkω
 ```

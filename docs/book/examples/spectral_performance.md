@@ -25,7 +25,7 @@ delegates plan reuse to `apollo-fft`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_3d::spectral::{FourierTransform, SpectralDerivative};
 use leto::Array1;
 

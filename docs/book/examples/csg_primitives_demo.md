@@ -24,7 +24,7 @@ and outward-normal orientation — no boolean operations, pure primitive baselin
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_mesh::{Cube, IndexedMesh, analyze_normals};
 use cfd_mesh::application::watertight::check::check_watertight;
 use cfd_mesh::domain::geometry::primitives::{Cone, Cylinder, PrimitiveMesh, UvSphere};

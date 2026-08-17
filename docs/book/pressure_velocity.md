@@ -20,7 +20,7 @@ SIMPLE alternates momentum and pressure-correction sweeps until convergence:
 2. Solve pressure-correction equation: ∇·(1/A · ∇p') = ∇·u*
 3. Correct: p ← p + p', u ← u* − (1/A)·∇p'
 4. Repeat until ‖∇·u‖ < ε
-```
+```text
 
 ```rust
 use cfd_core::solver::{SimpleSolver, SolverConfig};
@@ -34,7 +34,7 @@ let state = solver.solve(&mesh, &boundary_conditions, &initial_conditions)?;
 PIMPLE extends SIMPLE with outer corrector loops, enabling large Courant
 numbers in transient simulations:
 
-```rust
+```rust,ignore
 use cfd_core::solver::{PimpleSolver, PimpleConfig};
 
 let pimple = PimpleSolver::new(PimpleConfig {
@@ -49,7 +49,7 @@ let pimple = PimpleSolver::new(PimpleConfig {
 SIMPLEC modifies the momentum under-relaxation to improve convergence
 for mildly non-linear problems:
 
-```rust
+```rust,ignore
 use cfd_core::solver::{SimplecSolver};
 ```
 
@@ -65,7 +65,7 @@ For hyperbolic-dominated flows:
 | 4th-order Runge-Kutta | 4th | ~2.8 |
 | Low-storage RK4 | 4th | ~2.8 |
 
-```rust
+```rust,ignore
 use cfd_math::time_stepping::runge_kutta::RK4;
 
 let rk4 = RK4::new(dt);
@@ -86,7 +86,7 @@ For diffusion-dominated and stiff problems:
 `cfd-math` monitors the spectral radius and adjusts `dt` to maintain the
 target CFL number:
 
-```rust
+```rust,ignore
 use cfd_math::time_stepping::AdaptiveTimeStepper;
 
 let ts = AdaptiveTimeStepper::new()

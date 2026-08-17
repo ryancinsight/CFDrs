@@ -14,7 +14,7 @@ This chapter documents the integration contracts used to combine them.
 
 `cfd-3d` integrates the canonical closures through a single trait:
 
-```rust
+```rust,ignore
 pub trait TurbulenceModel<T: NumericElement> {
     fn turbulent_viscosity(
         &self,
@@ -53,7 +53,7 @@ For multiphase (e.g. liquid + gas), CFDrs uses a **volume-of-fluid**
 style coupling: each cell carries a phase-volume fraction `α ∈ [0, 1]`,
 and mixture properties are computed by a weighted sum:
 
-```rust
+```rust,ignore
 let rho_mix = rho_l * (1.0 - alpha) + rho_g * alpha;
 let mu_mix  = mu_l  * (1.0 - alpha) + mu_g  * alpha;
 ```
@@ -70,7 +70,7 @@ For details on phase transition models, Rayleigh–Plesset closures, and damage 
 
 All three regimes compose through the same `Integrate` trait:
 
-```rust
+```rust,ignore
 pub trait Integrate {
     fn step<F: FloatElement>(&mut self) -> Result<(), CfdError>;
 }

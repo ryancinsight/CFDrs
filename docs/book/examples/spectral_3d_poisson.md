@@ -22,7 +22,7 @@ spectral Poisson solver, and compares against the analytical solution.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_3d::spectral::{PoissonBoundaryCondition, PoissonSolver};
 use leto::Array1;
 use std::f64::consts::PI;

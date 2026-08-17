@@ -31,7 +31,7 @@
 
 ```bash
 cargo run -p cfd-2d --example blood_venturi
-```
+```text
 
 ## Part Reference
 

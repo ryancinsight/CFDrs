@@ -20,7 +20,7 @@ Uses `AnalysisOverlay` for typed CFD field visualization (no raw `cfd_1d::domain
 
 ```bash
 cargo run -p cfd-1d --example geometry_integration_demo
-```
+```text
 
 ## Part Reference
 

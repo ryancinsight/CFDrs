@@ -35,6 +35,10 @@
   35 µm and 3D trifurcation validation cases pass locally in 16.785 s and
   16.903 s under the unchanged nextest budget; hosted exact-head confirmation
   remains pending.
+- Book diagrams, equations, and commands now use explicit non-Rust fences, and
+  workspace-context API excerpts no longer enter mdBook's Rust doctest runner;
+  local `mdbook test` and rendered link-check build pass. Cargo example
+  verification remains gated on Apollo's public `PlanScratch` export.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

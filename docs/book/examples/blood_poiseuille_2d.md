@@ -24,7 +24,7 @@ analytical Poiseuille solution for the same pressure gradient.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::solvers::{BloodModel, PoiseuilleConfig, PoiseuilleFlow2D};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;

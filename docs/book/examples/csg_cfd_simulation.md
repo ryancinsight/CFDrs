@@ -24,7 +24,7 @@ in a single end-to-end pipeline using the `cfd-schematics` → `gaia` → `cfd-1
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_schematics::venturi_rect;
 use cfd_mesh::application::pipeline::{BlueprintMeshPipeline, PipelineConfig};
 use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
@@ -47,7 +47,7 @@ let screening = evaluate_venturi_screening(VenturiScreeningInput {
 
 ## Architecture
 
-```
+```text
 cfd-schematics (parametric blueprint)
   └─ gaia (mesh generation)
        └─ cfd-1d (screening / reduced-order model)

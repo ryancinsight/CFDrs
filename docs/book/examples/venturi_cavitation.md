@@ -23,7 +23,7 @@ showing differential inception thresholds driven by membrane mechanics.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
 use cfd_core::physics::cavitation::{
     SelectiveCavitationInput, SelectiveCavitationPopulation, CellMechanicalState,

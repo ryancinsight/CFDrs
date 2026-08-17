@@ -23,7 +23,7 @@ with LES turbulence, WENO5/7 reconstruction, and immersed-boundary geometry.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::physics::turbulence::{MilesLES, SigmaModel, VremanModel};
 use cfd_math::high_order::weno::WenoReconstruction;
 use cfd_math::time_stepping::RungeKuttaChebyshev;
@@ -33,7 +33,7 @@ let sigma  = SigmaModel::new();   // σ-model (Nicoud et al. 2011)
 let miles  = MilesLES::new();     // MILES: monotone implicit LES
 
 let weno = WenoReconstruction::weno5(); // 5th-order shock-capturing
-let rk_cheb = RungeKuttaChebyshev::new(stages=10); // stable for stiff diffusion
+let rk_cheb = RungeKuttaChebyshev::new(10); // stable for stiff diffusion
 ```
 
 ## Physics Background

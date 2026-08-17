@@ -8,7 +8,7 @@
 The vascular bifurcation is the keystone of CFDrs's biomedical flow
 support.  It is generated as a CSG composition:
 
-```rust
+```rust,ignore
 use cfd_schematics::bifurcation::BifurcationBuilder;
 use leto::Point3;
 
@@ -27,7 +27,7 @@ parent / child branch.
 
 ### Rheology Choices
 
-```rust
+```rust,ignore
 use cfd_1d::blood_rheology::Rheology;
 
 let rheo = Rheology::carreau {          // μ_0, μ_∞, λ, n

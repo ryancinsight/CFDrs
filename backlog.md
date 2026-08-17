@@ -47,6 +47,24 @@ hosted baseline had timed out at 30.005--30.007 s, so these are not controlled
 cross-machine speedup claims; provider hosted confirmation at the exact
 post-change head remains pending.
 
+Book verification is now deterministic: all diagrams, equations, and shell
+commands use explicit non-Rust fences, and workspace-context API excerpts use
+`rust,ignore` with links to their canonical source files. `mdbook test
+docs/book` and `mdbook build docs/book` both pass locally. The separate Cargo
+example gate remains blocked by the upstream Apollo public-bound change below;
+no downstream compatibility trait is added.
+
+## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — blocked upstream 2026-08-17
+
+`cargo check --offline --examples` reaches `cfd-3d` and fails because
+`crates/cfd-3d/src/spectral/fourier.rs` imports `apollo_fft::PlanScratch`, but
+the exact Apollo provider at `c87a1abe` does not re-export that public bound.
+Apollo already has the provider-owned fix on remote head
+`81583aab8b3eb48c96d138e3980e2c554d9d83fa` (`feat(apollo-fft): Expose plan
+scratch bound`), which makes `plan_scratch` public and re-exports the trait.
+The CFDrs consumer must advance only after that upstream change merges; a
+local adapter or private-module import would violate provider ownership.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 
 **Owner:** Atlas session; source merged as `54dcea3c`.

@@ -23,7 +23,7 @@ Spalart-Allmaras via `run_turbulence_validation::<f64>()`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::physics::turbulence::run_turbulence_validation;
 
 // Runs all four validation passes in sequence

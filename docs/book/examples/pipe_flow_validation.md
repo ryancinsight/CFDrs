@@ -22,7 +22,7 @@ Hagen-Poiseuille solution (Batchelor 1967 §4.2).
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, ConstantPropertyFluid};
@@ -38,7 +38,7 @@ let solution  = StokesFlowProblem::solve(&problem, &FemConfig::default())?;
 
 **Hagen-Poiseuille** (laminar, fully developed, circular pipe):
 
-```
+```text
 v_z(r) = −(dp/dz) · R² / (4μ) · (1 − (r/R)²)
 Q       = π R⁴ (−dp/dz) / (8μ)
 ```

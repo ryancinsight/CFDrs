@@ -17,7 +17,7 @@ Phase 1 — Design (cfd-schematics)
 
 Phase 2 — Simulation (cfd-2d or cfd-1d)
    Blueprint → network solve → AnalysisOverlay PNG
-```
+```console
 
 | Example | Crate | Description |
 |---------|-------|-------------|

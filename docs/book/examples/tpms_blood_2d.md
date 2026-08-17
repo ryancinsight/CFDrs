@@ -16,7 +16,7 @@
 
 ```text
 y_wall(x) = amplitude · (1 + cos(2π·x/λ)) / 2
-```
+```console
 
 Cells inside the wall region are masked as solid; the SIMPLE solver enforces zero velocity there.
 

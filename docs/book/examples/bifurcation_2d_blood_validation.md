@@ -21,7 +21,7 @@ solved on a staggered grid via the `BifurcationSolver2D` / SIMPLE path.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
