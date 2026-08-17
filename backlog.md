@@ -29,6 +29,17 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
+
+**Owner:** Atlas session; scope is `cfd-validation` backward-facing-step
+field setup, wall boundary semantics, reattachment measurement, and focused
+value-semantic tests. **Acceptance:** compute reattachment from the simulated
+wall shear sign change, make the step/no-slip/inlet/outlet boundary contract
+explicit, reject fields without a downstream sign change, and pass the
+unchanged focused validation gate plus hosted provider verification. No
+hardcoded correlation, reduced workload, or weakened assertion closes this
+item.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` adaptive SIMPLEC/PIMPLE
