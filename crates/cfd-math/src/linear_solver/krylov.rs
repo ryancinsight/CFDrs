@@ -334,7 +334,6 @@ pub enum SolveOutcome<T> {
 
 impl<T> SolveOutcome<T> {
     /// The report, whichever way the solve ended.
-    #[must_use]
     pub const fn report(&self) -> &SolveReport<T> {
         match self {
             Self::Converged(report) | Self::Stalled(report) | Self::BrokenDown(report) => report,
