@@ -10,6 +10,8 @@ mod membrane;
 mod rectangular;
 mod serpentine;
 pub mod slug_flow;
+#[cfg(test)]
+mod tests;
 pub(crate) mod traits;
 mod venturi;
 
