@@ -7,6 +7,8 @@ the step geometry mask, explicit inlet/outlet/no-slip contract, signed
 downstream lower-wall shear samples, and interpolated reattachment crossing to
 `crates/cfd-2d/src/solvers/ns_fvm/backward_step.rs`. The validation benchmark is
 now a thin adapter and no longer owns a second field solver or matrix type.
+The provider applies a normalized parabolic profile only on fluid inlet cells;
+solid inlet cells remain zero during every SIMPLE iteration.
 
 Focused local compilation remains blocked before source diagnostics by the
 shared Atlas overlay and the pre-existing dirty lock: the overlay's peer
@@ -63,14 +65,14 @@ slice and is not represented as a successful gate.
 
 ## ATLAS-CFDRS-BACKWARD-STEP-108 — field-derived reattachment (in progress 2026-08-17)
 
-The benchmark source now evolves a streamfunction–vorticity field instead of
-returning `6 * step_height`. The lower wall and vertical step use no-slip
-streamfunction boundaries, the inlet uses an integrated parabolic profile, the
-outlet uses a zero streamfunction gradient, and the velocity field is recovered
-from the discrete streamfunction curl. Reattachment is the first downstream
-negative-to-non-negative crossing of `du/dy` at the no-slip lower wall, with
-linear interpolation between grid columns. Fields without such a crossing now
-return a typed invalid-input error.
+The provider now owns the backward-facing-step SIMPLE field solve, geometry
+mask, and explicit boundary contract. Its normalized parabolic inlet is
+applied only to fluid cells, and its lower-wall velocity gradient supplies
+signed downstream shear samples. Reattachment is the first downstream
+negative-to-non-negative shear crossing, with linear interpolation between
+grid columns. Fields without such a crossing return a typed invalid-input
+error; the consumer adapter no longer owns a streamfunction field solver or a
+correlation result.
 
 The focused source and integration tests were updated to assert the crossing,
 boundary values, finite physical position, and exact error for a field without

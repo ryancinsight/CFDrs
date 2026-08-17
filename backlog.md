@@ -35,11 +35,12 @@
 step geometry, SIMPLE solve, signed wall-shear measurement, and the thin
 `cfd-validation` adapter plus focused value-semantic tests. **Acceptance:**
 compute reattachment from the simulated wall-shear sign change, make the
-step/no-slip/inlet/outlet boundary contract explicit in the provider, reject
-fields without a downstream sign change, and pass the unchanged focused
-validation gate plus hosted provider verification. No duplicated consumer
-solver, hardcoded correlation in the runtime path, reduced workload, or
-weakened assertion closes this item.
+step/no-slip/inlet/outlet boundary contract explicit in the provider, apply a
+normalized parabolic inlet only on fluid cells, reject fields without a
+downstream sign change, and pass the unchanged focused validation gate plus
+hosted provider verification. No duplicated consumer solver, hardcoded
+correlation in the runtime path, reduced workload, or weakened assertion
+closes this item.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 

@@ -26,10 +26,11 @@
 # Changelog
 
 - **cfd-2d/cfd-validation**: Backward-facing-step geometry, SIMPLE execution,
-  boundary masking, and signed lower-wall shear extraction now live in the
-  provider. `cfd-validation` maps its benchmark configuration to that provider
-  and reports the interpolated negative-to-nonnegative shear crossing; the
-  consumer-owned streamfunction solver and constant result are removed.
+  fluid-cell-only parabolic inlet, boundary masking, and signed lower-wall
+  shear extraction now live in the provider. `cfd-validation` maps its
+  benchmark configuration to that provider and reports the interpolated
+  negative-to-nonnegative shear crossing; the consumer-owned streamfunction
+  solver and constant result are removed.
 - SIMPLEC adaptive stepping now preserves the caller's problem-scaled
   convergence target instead of replacing it with an unreachable fixed
   tolerance. The exact 35 µm and 3D trifurcation validation cases pass under
