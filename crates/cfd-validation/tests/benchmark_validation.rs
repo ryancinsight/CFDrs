@@ -12,10 +12,11 @@ use cfd_validation::benchmarks::{
 fn test_backward_facing_step_reference_solution() {
     // Create benchmark with standard expansion ratio (ER=2.0)
     let step = BackwardFacingStep::<f64>::new(
-        1.0,  // step_height
-        2.0,  // channel_height
-        10.0, // channel_length
-        1.0,  // inlet_velocity
+        1.0, // step_height
+        2.0, // channel_height
+        3.0, // upstream_length
+        7.0, // downstream_length
+        1.0, // inlet_velocity
     );
 
     // Reference solution should be available
@@ -48,7 +49,7 @@ fn test_backward_facing_step_reference_solution() {
 
 #[test]
 fn test_backward_facing_step_validation_success() {
-    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 10.0, 1.0);
+    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Create a result that should pass validation
     // Reattachment length within 30% of reference (6.0)
@@ -71,7 +72,7 @@ fn test_backward_facing_step_validation_success() {
 
 #[test]
 fn test_backward_facing_step_validation_tolerance() {
-    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 10.0, 1.0);
+    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Test boundary of 30% tolerance
     // Reference is 6.0, so 30% tolerance means [4.2, 7.8]
@@ -124,7 +125,7 @@ fn test_backward_facing_step_validation_tolerance() {
 
 #[test]
 fn test_backward_facing_step_validation_failure_no_convergence() {
-    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 10.0, 1.0);
+    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Result with poor convergence
     let result = BenchmarkResult {
@@ -146,7 +147,7 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
 
 #[test]
 fn test_backward_facing_step_validation_failure_unphysical() {
-    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 10.0, 1.0);
+    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Unphysically large reattachment length
     let result = BenchmarkResult {
@@ -370,7 +371,7 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cl() {
 #[test]
 fn test_benchmark_with_generic_types() {
     // Test that benchmarks work with f32 as well as f64
-    let step_f32 = BackwardFacingStep::<f32>::new(1.0, 2.0, 10.0, 1.0);
+    let step_f32 = BackwardFacingStep::<f32>::new(1.0, 2.0, 3.0, 7.0, 1.0);
     let reference_f32 = step_f32.reference_solution();
     assert!(reference_f32.is_some(), "Should work with f32");
 
@@ -382,7 +383,7 @@ fn test_benchmark_with_generic_types() {
 #[test]
 fn test_benchmark_run_integration() {
     // Integration test: Run benchmark and validate results
-    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 10.0, 1.0);
+    let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     let config = BenchmarkConfig::<f64>::default();
 
