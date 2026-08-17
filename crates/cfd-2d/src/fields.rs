@@ -270,7 +270,11 @@ pub struct SimulationFields<T: CfdScalar + Copy> {
 }
 
 impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
-    /// Create new simulation fields with zero initialization
+    /// Create new simulation fields with zero initialization.
+    ///
+    /// **Default viscosity**: `0.001` Pa·s (dynamic viscosity of water at 20 °C).
+    /// For other fluids, use [`with_fluid`](Self::with_fluid) to set the correct
+    /// density and viscosity from a [`ConstantPropertyFluid`].
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             u: Field2D::new(nx, ny, scalar::zero()),
