@@ -156,7 +156,7 @@ dependencies = [
 [[package]]
 name = "apollo-nufft"
 version = "0.7.0"
-source = "git+https://github.com/ryancinsight/apollo#5a1545ac6165c0e372f5141e99d324b3b6c8980c"
+source = "git+https://github.com/ryancinsight/apollo#f2aa53708a1a3e08d3108795d59b8b89ab1d74cc"
 dependencies = [
  "apollo-fft",
  "apollo-leto-interop",
@@ -188,7 +188,7 @@ dependencies = [
 [[package]]
 name = "athena-core"
 version = "0.1.1"
-source = "git+https://github.com/ryancinsight/athena#d3a4afec4076bfcda4d31cf44fcd8fa00c5d55e9"
+source = "git+https://github.com/ryancinsight/athena#bd9346f6c34384b15f89dc9bcc571872799fbf98"
 dependencies = [
  "eunomia",
 ]
@@ -196,7 +196,7 @@ dependencies = [
 [[package]]
 name = "athena-leto"
 version = "0.1.1"
-source = "git+https://github.com/ryancinsight/athena#d3a4afec4076bfcda4d31cf44fcd8fa00c5d55e9"
+source = "git+https://github.com/ryancinsight/athena#bd9346f6c34384b15f89dc9bcc571872799fbf98"
 dependencies = [
  "athena-core",
  "eunomia",
