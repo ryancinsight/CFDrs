@@ -14,6 +14,7 @@ status-level = "all"
 # contracts retain normal parallelism.
 [test-groups]
 gpu-device = { max-threads = 1 }
+numerical-fidelity = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = 'package(cfd-core) & (test(/compute::gpu/) | test(/compute::tests/) | test(/gpu_tests/))'
@@ -26,3 +27,11 @@ test-group = 'gpu-device'
 [[profile.default.overrides]]
 filter = 'package(cfd-2d) & test(/accelerated/)'
 test-group = 'gpu-device'
+
+# These cases each fit the 30-second per-test budget in isolation, but their
+# finite-volume/FEM workloads contend for the hosted runner's CPU when they
+# start together.  Serializing only this measured set preserves parallelism
+# for the rest of the workspace without changing the workload or timeout.
+[[profile.default.overrides]]
+filter = 'test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) | test(/ga_validation_geometry_produces_converged_informative_2d_result/) | test(/microventuri_35um_case_produces_converged_informative_2d_result/) | test(/test_benchmark_run_integration/) | test(/cross_fidelity_stenosis_shear_thinning/) | test(/cross_fidelity_venturi_total_loss_coefficient/)'
+test-group = 'numerical-fidelity'
