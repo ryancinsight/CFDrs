@@ -66,6 +66,29 @@ fn test_fourier_transform_identity() {
     }
 }
 
+/// Verify that Apollo's native single-precision plan instantiates the same
+/// CFDrs value-semantic contract without widening through a fixed precision.
+#[test]
+fn test_fourier_transform_f32_instantiation() {
+    let n = 16;
+    let transform = FourierTransform::<f32>::new(n).unwrap();
+    let pi = std::f32::consts::PI;
+    let u = array_from_iter(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0_f32 * pi * i as f32 / n as f32;
+            x.sin() + 0.25_f32 * (3.0_f32 * x).cos()
+        }),
+    );
+
+    let u_hat = transform.forward(&u).unwrap();
+    let u_reconstructed = transform.inverse(&u_hat).unwrap();
+
+    for i in 0..n {
+        assert_relative_eq!(value(&u, i), value(&u_reconstructed, i), epsilon = 2e-5);
+    }
+}
+
 /// Test Parseval's theorem: ||u||² = N * ||û||².
 /// Reference: Canuto et al. (2006), Section 2.1.3.
 #[test]
