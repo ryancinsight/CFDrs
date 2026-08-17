@@ -59,7 +59,9 @@ slice and is not represented as a successful gate.
   provider gap audit identifies it as `OPEN-033`, an unintegrated JFNK feature,
   not as obsolete code. Local evidence is locked package check plus full
   cfd-1d Nextest (`738/738`, `3` skipped); hosted provider run `32033808279`
-  passes the Rust workspace and book-figure gates at the exact source head.
+  passes the Rust workspace and book-figure gates at the exact source head,
+  and PM head `5b95fe3a` passes the same gates in `32036370369` after the
+  inherited numerical-fidelity timeout rerun.
 
 ## Legacy-audit coverage gap — approx/num-traits/rustfft unclassified (2026-08-13)
 

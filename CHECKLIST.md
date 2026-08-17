@@ -13,6 +13,8 @@
       (`738/738`, `3` skipped).
 - [x] Merge source PR #346 at `54dcea3c`; provider-owned hosted Rust and
       book-figure gates pass in run `32033808279` at source head `b455a416`.
+- [x] Push PM commit `5b95fe3a`; its exact-head provider gates pass in run
+      `32036370369` after the inherited numerical-fidelity timeout rerun.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 [patch] — done 2026-08-17
 

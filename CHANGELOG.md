@@ -28,7 +28,8 @@
 - Removed eleven unreachable historical, duplicate, or stub source modules;
   wired the cfd-1d resistance-model test sidecar into the compiled module
   graph and retained the documented `OPEN-033` fallback as the only orphan
-  residual.
+  residual. The merged PM head `5b95fe3a` passes the provider Rust and
+  book-figure gates at exact head.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

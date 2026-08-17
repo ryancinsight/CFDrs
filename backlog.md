@@ -40,7 +40,8 @@ stub modules are deleted. The exact post-change scan reports one residual,
 `OPEN-033` numerical feature gap rather than deleted as dead code. Local locked
 `cfd-1d` check and full package Nextest pass (`738/738`, `3` skipped). Provider
 CI run `32033808279` passes its Rust workspace and book-figure gates at source
-head `b455a416`; external `recurseml/analysis` remains report-only.
+head `b455a416`; the pushed PM head `5b95fe3a` passes the same gates in run
+`32036370369`. External `recurseml/analysis` remains report-only.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch] — done 2026-08-17
 
