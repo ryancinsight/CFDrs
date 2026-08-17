@@ -51,19 +51,25 @@ Book verification is now deterministic: all diagrams, equations, and shell
 commands use explicit non-Rust fences, and workspace-context API excerpts use
 `rust,ignore` with links to their canonical source files. `mdbook test
 docs/book` and `mdbook build docs/book` both pass locally. The separate Cargo
-example gate remains blocked by the upstream Apollo public-bound change below;
-no downstream compatibility trait is added.
+example gate cannot resolve against the peer-dirty local Apollo overlay; the
+merged Apollo default and hosted exact-head package gate are the closure path.
+No downstream compatibility trait is added.
+The Pages caller now enables the shared `mdbook-test` gate and builds
+`cfd-validation` before testing; hosted confirmation is part of the exact-head
+closure below.
 
-## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — blocked upstream 2026-08-17
+## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
 
 `cargo check --offline --examples` reaches `cfd-3d` and fails because
 `crates/cfd-3d/src/spectral/fourier.rs` imports `apollo_fft::PlanScratch`, but
-the exact Apollo provider at `c87a1abe` does not re-export that public bound.
-Apollo already has the provider-owned fix on remote head
-`81583aab8b3eb48c96d138e3980e2c554d9d83fa` (`feat(apollo-fft): Expose plan
-scratch bound`), which makes `plan_scratch` public and re-exports the trait.
-The CFDrs consumer must advance only after that upstream change merges; a
-local adapter or private-module import would violate provider ownership.
+the peer-dirty local Apollo overlay at `c87a1abe` does not re-export that
+public bound. The provider-owned fix `81583aab8b3eb48c96d138e3980e2c554d9d83fa`
+is merged in Apollo's default at `ed6d6905afda394a9e12570543159ab1b262589e`
+(`feat(apollo-fft): Expose plan scratch bound`), which makes `plan_scratch`
+public and re-exports the trait. The CFDrs hosted exact-head gate must now
+verify the package/example build against that merged Apollo default; the
+peer-dirty local overlay is not modified, and no local adapter or private
+module import is added.
 
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 

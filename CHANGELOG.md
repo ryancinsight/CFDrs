@@ -38,7 +38,11 @@
 - Book diagrams, equations, and commands now use explicit non-Rust fences, and
   workspace-context API excerpts no longer enter mdBook's Rust doctest runner;
   local `mdbook test` and rendered link-check build pass. Cargo example
-  verification remains gated on Apollo's public `PlanScratch` export.
+  verification is now gated on the merged Apollo default that exports the
+  provider-owned `PlanScratch` bound; the peer-dirty local overlay remains a
+  separate local-resolution residual.
+- The Pages caller now builds `cfd-validation` and runs the shared `mdbook test`
+  gate before publishing the CFDrs book.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

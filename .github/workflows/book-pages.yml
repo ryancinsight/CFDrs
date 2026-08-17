@@ -35,6 +35,11 @@ jobs:
       # each backend into its own subdirectory, so the HTML lands in html/
       # rather than at build-dir. gaia points at the same subdirectory.
       output-path: target/book/cfdrs/html
+      # The book's workspace-context excerpts are explicitly ignored or text;
+      # the package build below is the compilation gate for the linked CFDrs
+      # examples, while mdBook catches any newly untyped Rust fence.
+      mdbook-test: true
+      cargo-package: cfd-validation
       # book.toml declares [output.linkcheck2] without optional = true, so
       # mdbook fails the render unless the backend binary is installed.
       mdbook-linkcheck2-version: "0.12.2"
