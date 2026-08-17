@@ -58,7 +58,7 @@ The Pages caller now enables the shared `mdbook-test` gate and builds
 `cfd-validation` before testing; hosted confirmation is part of the exact-head
 closure below.
 
-At exact head `57722595`, the preceding hosted Rust job `95426903063` in run
+At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas
 reusable action: GitHub returned 503 and then 429. The figure job passed after
 the failed-job rerun (`95427953989`). Pages job `95428903018` in run
@@ -66,8 +66,9 @@ the failed-job rerun (`95427953989`). Pages job `95428903018` in run
 codeload 503/429, so the fontconfig fix has not yet executed on hosted
 infrastructure. Atlas commit `bb505e5` adds the required
 `libfontconfig1-dev` install to the shared book workflow; this branch pins
-that exact shared-workflow commit. Figure rerun `95428996925` passes and the
-Rust retry remains in progress.
+that exact shared-workflow commit. The source-correctness head also defines
+NaN propagation for the hemolysis wrapper and adds value-semantic regressions.
+New exact-head CI and Pages runs `32044597678` and `32044597852` are queued.
 
 ## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
 
