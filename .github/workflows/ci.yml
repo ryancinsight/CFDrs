@@ -28,7 +28,7 @@ jobs:
         test(/test_benchmark_run_integration/) |
         test(/test_step_11_lid_driven_cavity/) |
         test(/cross_fidelity_stenosis_shear_thinning/) |
-        test(/cross_fidelity_venturi_total_loss_coefficient/)
+        test(/cross_fidelity_venturi_(two_dimensional|three_dimensional)_loss_coefficient/)
     steps:
       - uses: actions/checkout@v6
         with:

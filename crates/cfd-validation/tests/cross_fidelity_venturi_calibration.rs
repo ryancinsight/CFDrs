@@ -17,6 +17,17 @@ use cfd_schematics::interface::presets::venturi_rect;
 
 const MU: f64 = 3.5e-3;
 const RHO: f64 = 1060.0;
+const FLOW_RATE_M3_S: f64 = 5.0e-8;
+
+#[derive(Clone, Copy)]
+struct CalibrationGeometry {
+    width_inlet_m: f64,
+    width_throat_m: f64,
+    height_m: f64,
+    inlet_length_m: f64,
+    throat_length_m: f64,
+    diffuser_length_m: f64,
+}
 
 fn blood_fluid() -> ConstantPropertyFluid<f64> {
     ConstantPropertyFluid::new(
@@ -74,6 +85,48 @@ fn inlet_outlet_pressures(trace: &cfd_2d::network::NetworkReferenceTrace<f64>) -
     (inlet_pressure, outlet_pressure)
 }
 
+fn calibration_case() -> (NetworkBlueprint, CalibrationGeometry) {
+    let mut blueprint = venturi_rect("venturi-calibration", 2.0e-3, 0.5e-3, 0.5e-3, 2.0e-3);
+    blueprint
+        .metadata
+        .get_or_insert_with(Default::default)
+        .insert(GeometryAuthoringProvenance::selective_wrapper());
+
+    let inlet_section = channel(&blueprint, "inlet_section");
+    let throat_section = channel(&blueprint, "throat_section");
+    let diffuser_section = channel(&blueprint, "diffuser_section");
+    let (width_inlet_m, height_m) = rectangular_dims(&inlet_section.cross_section);
+    let (width_throat_m, _) = rectangular_dims(&throat_section.cross_section);
+
+    (
+        blueprint,
+        CalibrationGeometry {
+            width_inlet_m,
+            width_throat_m,
+            height_m,
+            inlet_length_m: inlet_section.length_m.into_base(),
+            throat_length_m: throat_section.length_m.into_base(),
+            diffuser_length_m: diffuser_section.length_m.into_base(),
+        },
+    )
+}
+
+fn one_dimensional_loss_coefficient(
+    blueprint: &NetworkBlueprint,
+    geometry: CalibrationGeometry,
+) -> (f64, f64) {
+    let inlet_area_m2 = geometry.width_inlet_m * geometry.height_m;
+    let inlet_mean_velocity_m_s = FLOW_RATE_M3_S / inlet_area_m2;
+    let dynamic_pressure_pa = 0.5 * RHO * inlet_mean_velocity_m_s * inlet_mean_velocity_m_s;
+    let trace_1d = solve_reference_trace::<f64>(blueprint, RHO, MU, FLOW_RATE_M3_S)
+        .expect("1D venturi reference trace");
+    let (p_inlet_1d, p_outlet_1d) = inlet_outlet_pressures(&trace_1d);
+    (
+        (p_inlet_1d - p_outlet_1d) / dynamic_pressure_pa,
+        inlet_mean_velocity_m_s,
+    )
+}
+
 /// ## Theorem (Venturi Loss-Coefficient Cross-Fidelity Consistency)
 ///
 /// For a steady laminar rectangular venturi with fixed contraction ratio and
@@ -92,41 +145,21 @@ fn inlet_outlet_pressures(trace: &cfd_2d::network::NetworkReferenceTrace<f64>) -
 /// resolved geometry and coarse-mesh error, all fidelities should preserve the
 /// same positive-loss regime and remain within an $O(1)$ envelope.
 #[test]
-fn cross_fidelity_venturi_total_loss_coefficient() {
-    let mut blueprint = venturi_rect("venturi-calibration", 2.0e-3, 0.5e-3, 0.5e-3, 2.0e-3);
-    blueprint
-        .metadata
-        .get_or_insert_with(Default::default)
-        .insert(GeometryAuthoringProvenance::selective_wrapper());
+fn cross_fidelity_venturi_two_dimensional_loss_coefficient() {
+    let (blueprint, geometry) = calibration_case();
+    let (total_loss_coeff_1d, inlet_mean_velocity_m_s) =
+        one_dimensional_loss_coefficient(&blueprint, geometry);
 
-    let inlet_section = channel(&blueprint, "inlet_section");
-    let throat_section = channel(&blueprint, "throat_section");
-    let diffuser_section = channel(&blueprint, "diffuser_section");
-    let (w_inlet, height_m) = rectangular_dims(&inlet_section.cross_section);
-    let (w_throat, _) = rectangular_dims(&throat_section.cross_section);
-
-    let flow_rate_m3_s = 5.0e-8_f64;
-    let inlet_area_m2 = w_inlet * height_m;
-    let inlet_mean_velocity_m_s = flow_rate_m3_s / inlet_area_m2;
-    let dynamic_pressure_pa = 0.5 * RHO * inlet_mean_velocity_m_s * inlet_mean_velocity_m_s;
-
-    let trace_1d = solve_reference_trace::<f64>(&blueprint, RHO, MU, flow_rate_m3_s)
-        .expect("1D venturi reference trace");
-    let (p_inlet_1d, p_outlet_1d) = inlet_outlet_pressures(&trace_1d);
-    let total_loss_coeff_1d = (p_inlet_1d - p_outlet_1d) / dynamic_pressure_pa;
-
-    let l_inlet_2d = inlet_section.length_m.into_base() * 0.5;
-    let l_converge_2d = inlet_section.length_m.into_base() * 0.5;
-    let l_throat = throat_section.length_m.into_base();
-    let l_diverge = diffuser_section.length_m.into_base();
+    let l_inlet_2d = geometry.inlet_length_m * 0.5;
+    let l_converge_2d = geometry.inlet_length_m * 0.5;
     let geometry_2d = VenturiGeometry::new(
-        w_inlet,
-        w_throat,
+        geometry.width_inlet_m,
+        geometry.width_throat_m,
         l_inlet_2d,
         l_converge_2d,
-        l_throat,
-        l_diverge,
-        height_m,
+        geometry.throat_length_m,
+        geometry.diffuser_length_m,
+        geometry.height_m,
     );
     let mut solver_2d = VenturiSolver2D::new(geometry_2d, BloodModel::Newtonian(MU), RHO, 120, 48);
     let solution_2d = solver_2d
@@ -134,50 +167,14 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         .expect("2D venturi solve");
     let total_loss_coeff_2d = -solution_2d.cp_recovery;
 
-    let l_inlet_3d = inlet_section.length_m.into_base() * 0.5;
-    let l_converge_3d = inlet_section.length_m.into_base() * 0.5;
-    let l_diverge_3d = diffuser_section.length_m.into_base() * 0.5;
-    let l_outlet_3d = diffuser_section.length_m.into_base() * 0.5;
-    let builder_3d = VenturiMeshBuilder::new(
-        w_inlet,
-        w_throat,
-        l_inlet_3d,
-        l_converge_3d,
-        l_throat,
-        l_diverge_3d,
-        l_outlet_3d,
-    );
-    let config_3d = VenturiConfig3D {
-        inlet_flow_rate: flow_rate_m3_s,
-        inlet_pressure: 100.0,
-        outlet_pressure: 0.0,
-        max_nonlinear_iterations: 15,
-        nonlinear_tolerance: 1e-4,
-        resolution: (30, 5),
-        circular: false,
-        rect_height: Some(height_m),
-    };
-    let solution_3d = VenturiSolver3D::new(builder_3d, config_3d)
-        .solve(blood_fluid())
-        .expect("3D venturi solve");
-    let throat_area_ratio = w_inlet / w_throat;
-    let total_loss_coeff_3d = -solution_3d.cp_recovery * throat_area_ratio.powi(2);
-
     assert!(total_loss_coeff_1d.is_finite() && total_loss_coeff_1d > 0.0);
     assert!(total_loss_coeff_2d.is_finite() && total_loss_coeff_2d > 0.0);
-    assert!(total_loss_coeff_3d.is_finite() && total_loss_coeff_3d > 0.0);
 
+    let throat_area_ratio = geometry.width_inlet_m / geometry.width_throat_m;
     let ratio_2d_to_1d = total_loss_coeff_2d / total_loss_coeff_1d;
-    let ratio_3d_to_1d = total_loss_coeff_3d / total_loss_coeff_1d;
-    let ratio_3d_to_2d = total_loss_coeff_3d / total_loss_coeff_2d;
-
     println!(
-        "CALIBRATION: 1D={}, 2D={}, 3D={}",
-        total_loss_coeff_1d, total_loss_coeff_2d, total_loss_coeff_3d
-    );
-    println!(
-        "CALIBRATION RATIOS: 2D/1D={}, 3D/1D={}, 3D/2D={}",
-        ratio_2d_to_1d, ratio_3d_to_1d, ratio_3d_to_2d
+        "CALIBRATION 1D/2D: 1D={}, 2D={}, ratio={}",
+        total_loss_coeff_1d, total_loss_coeff_2d, ratio_2d_to_1d
     );
 
     assert!(
@@ -194,6 +191,56 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         throat_area_ratio
     );
     assert!(
+        ratio_2d_to_1d > 0.25 && ratio_2d_to_1d < 0.75,
+        "2D/1D venturi loss-coefficient ratio {ratio_2d_to_1d} falls outside the calibrated envelope"
+    );
+}
+
+#[test]
+fn cross_fidelity_venturi_three_dimensional_loss_coefficient() {
+    let (blueprint, geometry) = calibration_case();
+    let (total_loss_coeff_1d, inlet_mean_velocity_m_s) =
+        one_dimensional_loss_coefficient(&blueprint, geometry);
+
+    let l_inlet_3d = geometry.inlet_length_m * 0.5;
+    let l_converge_3d = geometry.inlet_length_m * 0.5;
+    let l_diverge_3d = geometry.diffuser_length_m * 0.5;
+    let l_outlet_3d = geometry.diffuser_length_m * 0.5;
+    let builder_3d = VenturiMeshBuilder::new(
+        geometry.width_inlet_m,
+        geometry.width_throat_m,
+        l_inlet_3d,
+        l_converge_3d,
+        geometry.throat_length_m,
+        l_diverge_3d,
+        l_outlet_3d,
+    );
+    let config_3d = VenturiConfig3D {
+        inlet_flow_rate: FLOW_RATE_M3_S,
+        inlet_pressure: 100.0,
+        outlet_pressure: 0.0,
+        max_nonlinear_iterations: 15,
+        nonlinear_tolerance: 1e-4,
+        resolution: (30, 5),
+        circular: false,
+        rect_height: Some(geometry.height_m),
+    };
+    let solution_3d = VenturiSolver3D::new(builder_3d, config_3d)
+        .solve(blood_fluid())
+        .expect("3D venturi solve");
+    let throat_area_ratio = geometry.width_inlet_m / geometry.width_throat_m;
+    let total_loss_coeff_3d = -solution_3d.cp_recovery * throat_area_ratio.powi(2);
+
+    assert!(total_loss_coeff_1d.is_finite() && total_loss_coeff_1d > 0.0);
+    assert!(total_loss_coeff_3d.is_finite() && total_loss_coeff_3d > 0.0);
+
+    let ratio_3d_to_1d = total_loss_coeff_3d / total_loss_coeff_1d;
+    println!(
+        "CALIBRATION 1D/3D: 1D={}, 3D={}, ratio={}",
+        total_loss_coeff_1d, total_loss_coeff_3d, ratio_3d_to_1d
+    );
+
+    assert!(
         solution_3d.u_throat / solution_3d.u_inlet.max(1e-30) > 1.5,
         "3D venturi throat velocity must exceed inlet velocity by a meaningful margin"
     );
@@ -203,10 +250,6 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         solution_3d.mass_error
     );
 
-    assert!(
-        ratio_2d_to_1d > 0.25 && ratio_2d_to_1d < 0.75,
-        "2D/1D venturi loss-coefficient ratio {ratio_2d_to_1d} falls outside the calibrated envelope"
-    );
     // Envelope derivation (recalibrated 2026-07-31): the 1D coefficient comes
     // from literature venturi loss correlations; the exact-reduction FEM with
     // strict Picard tolerances (63e49604) and the no-slip inlet/wall rim
@@ -221,7 +264,4 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         ratio_3d_to_1d > 0.70 && ratio_3d_to_1d < 1.30,
         "3D/1D venturi loss-coefficient ratio {ratio_3d_to_1d} falls outside the calibrated envelope"
     );
-    // ratio_3d_to_2d = ratio_3d_to_1d / ratio_2d_to_1d algebraically, so its
-    // admissible band (0.93, 5.20) is implied by the two envelopes above and
-    // a separate assertion would be redundant.
 }
