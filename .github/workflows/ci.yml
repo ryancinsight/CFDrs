@@ -37,6 +37,11 @@ jobs:
         with:
           tool: cargo-nextest@0.9.140
 
+      - name: Install native fontconfig headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libfontconfig1-dev
+
       - name: Cache cargo dependencies
         uses: actions/cache@v6
         with:
