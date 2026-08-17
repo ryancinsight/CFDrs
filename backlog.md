@@ -71,6 +71,13 @@ verify the package/example build against that merged Apollo default; the
 peer-dirty local overlay is not modified, and no local adapter or private
 module import is added.
 
+The fresh local command `cargo check --locked --examples` now stops before
+compilation because the shared Atlas development overlay patches peer-local
+first-party trees that are not represented by this standalone lockfile. This
+is a lock/overlay environment residual, not evidence of a missing Apollo
+`PlanScratch` export; the hosted exact-head package gate is the reproducible
+closure check.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 
 **Owner:** Atlas session; source merged as `54dcea3c`.

@@ -24,7 +24,10 @@
 - [ ] Verify the Cargo example gate against Apollo's merged default
       `ed6d6905afda394a9e12570543159ab1b262589e`, which contains provider fix
       `81583aab8b3eb48c96d138e3980e2c554d9d83fa`; the peer-dirty local overlay
-      remains at `c87a1abe` and is not modified.
+      remains at `c87a1abe` and is not modified. The current local
+      `cargo check --locked --examples` stops before compilation on the shared
+      overlay/lock mismatch; hosted exact-head package verification remains
+      the reproducible closure gate.
 
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 
