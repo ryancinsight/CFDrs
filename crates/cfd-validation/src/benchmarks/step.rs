@@ -8,6 +8,9 @@ use crate::scalar;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, RealField};
 
+// Eight Gauss–Seidel sweeps keep the elliptic correction bounded inside each
+// explicit vorticity step; the recorded residual still includes the remaining
+// Poisson change, so stopping cannot be mistaken for elliptic convergence.
 const POISSON_SWEEPS_PER_VORTICITY_STEP: usize = 8;
 
 /// Backward facing step benchmark
@@ -250,14 +253,26 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
             || self.channel_length <= zero
             || self.inlet_velocity <= zero
             || config.reynolds_number <= zero
+            || !config.tolerance.is_finite()
+            || config.tolerance <= zero
         {
             return Err(Error::InvalidConfiguration(
-                "backward-facing-step dimensions, inlet velocity, and Reynolds number must be finite and positive"
+                "backward-facing-step dimensions, inlet velocity, Reynolds number, and tolerance must be finite and positive"
                     .to_string(),
             ));
         }
+        if config
+            .time_step
+            .is_some_and(|time_step| !time_step.is_finite() || time_step <= zero)
+        {
+            return Err(Error::InvalidConfiguration(
+                "backward-facing-step time step must be finite and positive".to_string(),
+            ));
+        }
 
-        let nx = config.resolution * 3; // Longer domain
+        let nx = config.resolution.checked_mul(3).ok_or_else(|| {
+            Error::InvalidConfiguration("backward-facing-step grid dimensions overflow".to_string())
+        })?;
         let ny = config.resolution;
         let inlet_height = self.channel_height - self.step_height;
         let flow_rate = self.inlet_velocity * inlet_height;
