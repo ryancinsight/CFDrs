@@ -1,3 +1,14 @@
+## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (in progress)
+
+The Atlas conformance scan reports one `existence_only_assertions` regression
+from the debug/release Milestone 12 guard test and four `tag_pinned_actions`
+from the two CI jobs' checkout and cache references. The test now compares the
+documented release-only error string in debug builds and `Ok(())` in release;
+the four action tags are being replaced with verified full commit SHAs. The
+provider lock also recorded `cfd-python` as `0.1.0` while its manifest is
+`0.3.0`; the offline lock refresh corrects that generated-state drift. The
+provider scan and exact hosted gates must pass before Atlas integration.
+
 > ## Vocabulary policy (canonical atlas-migration terms-of-art)
 
 > **Closed 2026-07-10 — sparse execution-policy duplication**: the prior

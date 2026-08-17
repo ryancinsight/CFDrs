@@ -29,6 +29,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch, in progress]
+
+**Owner:** Atlas session; scope is the Milestone 12 release-mode regression
+assertion, the four mutable action references in `.github/workflows/ci.yml`,
+and the stale `cfd-python` package version recorded in `Cargo.lock`.
+
+**Acceptance:** the assertion compares the documented error/value contract in
+debug and release builds; all action references are full commit SHA pins; the
+lock records the manifest's `cfd-python` version; the provider conformance scan
+returns no new `existence_only_assertions` or `tag_pinned_actions`; formatting,
+strict Clippy, focused Nextest, and hosted provider gates pass at the exact
+source head.
+
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex

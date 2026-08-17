@@ -1,5 +1,15 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-CONFORMANCE-101 [patch] — in progress
+
+- [ ] Replace the debug/release `is_err()` and `is_ok()` checks in
+      `ensure_release_reports` with exact value assertions.
+- [ ] Pin both checkout and cache actions in both CI jobs to verified full
+      commit SHAs; align the stale `cfd-python` Cargo.lock package version;
+      then pass the provider conformance scan and focused gates.
+- [ ] Record the exact provider head and hosted evidence before Atlas gitlink
+      integration.
+
 ## CFDRS-LEGACY-AUDIT-HARDEN-001 — Harden legacy-migration-audit coverage — done 2026-08-13
 
 - [x] Add `approx`, `num-traits`, `rustfft` to the audit's legacy manifest

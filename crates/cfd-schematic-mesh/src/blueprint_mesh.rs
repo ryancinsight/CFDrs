@@ -1957,8 +1957,10 @@ mod tests {
         use cfd_schematics::interface::presets::serpentine_chain;
         let bp = serpentine_chain("x", 3, 0.010, 0.002);
         let result = BlueprintMeshPipeline::run(&bp, &PipelineConfig::default());
-        assert!(result.is_err());
-        let msg = result.err().expect("checked above").to_string();
+        let Err(error) = result else {
+            panic!("wrong-diameter blueprint must be rejected");
+        };
+        let msg = error.to_string();
         assert!(
             msg.contains("hydraulic diameter") || msg.contains("channel error"),
             "unexpected error: {msg}"

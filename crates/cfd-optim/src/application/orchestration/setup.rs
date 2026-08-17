@@ -99,10 +99,17 @@ mod tests {
 
     #[test]
     fn milestone12_reports_are_debug_guarded() {
+        let result = ensure_release_reports().map_err(|error| error.to_string());
         if cfg!(debug_assertions) {
-            assert!(ensure_release_reports().is_err());
+            assert_eq!(
+                result,
+                Err(
+                    "Milestone 12 report orchestration is release-only; rerun with --release"
+                        .to_owned()
+                )
+            );
         } else {
-            assert!(ensure_release_reports().is_ok());
+            assert_eq!(result, Ok(()));
         }
     }
 }
