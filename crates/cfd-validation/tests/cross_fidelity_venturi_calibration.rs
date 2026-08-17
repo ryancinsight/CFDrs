@@ -97,6 +97,9 @@ fn calibration_case() -> (NetworkBlueprint, CalibrationGeometry) {
     let diffuser_section = channel(&blueprint, "diffuser_section");
     let (width_inlet_m, height_m) = rectangular_dims(&inlet_section.cross_section);
     let (width_throat_m, _) = rectangular_dims(&throat_section.cross_section);
+    let inlet_length_m = inlet_section.length_m.into_base();
+    let throat_length_m = throat_section.length_m.into_base();
+    let diffuser_length_m = diffuser_section.length_m.into_base();
 
     (
         blueprint,
@@ -104,9 +107,9 @@ fn calibration_case() -> (NetworkBlueprint, CalibrationGeometry) {
             width_inlet_m,
             width_throat_m,
             height_m,
-            inlet_length_m: inlet_section.length_m.into_base(),
-            throat_length_m: throat_section.length_m.into_base(),
-            diffuser_length_m: diffuser_section.length_m.into_base(),
+            inlet_length_m,
+            throat_length_m,
+            diffuser_length_m,
         },
     )
 }
@@ -199,8 +202,7 @@ fn cross_fidelity_venturi_two_dimensional_loss_coefficient() {
 #[test]
 fn cross_fidelity_venturi_three_dimensional_loss_coefficient() {
     let (blueprint, geometry) = calibration_case();
-    let (total_loss_coeff_1d, inlet_mean_velocity_m_s) =
-        one_dimensional_loss_coefficient(&blueprint, geometry);
+    let (total_loss_coeff_1d, _) = one_dimensional_loss_coefficient(&blueprint, geometry);
 
     let l_inlet_3d = geometry.inlet_length_m * 0.5;
     let l_converge_3d = geometry.inlet_length_m * 0.5;
