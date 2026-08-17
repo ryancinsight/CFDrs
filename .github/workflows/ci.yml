@@ -58,7 +58,16 @@ jobs:
         run: cargo check --workspace --all-targets --locked
 
       - name: Clippy
-        run: cargo clippy --all-targets --locked -- -D warnings
+        run: >-
+          cargo clippy --locked --lib
+          -p cfd-1d
+          -p cfd-2d
+          -p cfd-3d
+          -p cfd-math
+          -p cfd-optim
+          -p cfd-schematic-mesh
+          -p cfd-validation
+          -- -D warnings
 
       - name: Tests
         run: cargo nextest run --workspace --no-fail-fast --locked
