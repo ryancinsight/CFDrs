@@ -14,6 +14,21 @@ jobs:
     name: Rust workspace gate
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # Keep the measured finite-volume/FEM cases out of the parallel suite.
+      # They are run in a second invocation below so unrelated tests cannot
+      # consume the hosted runner while their existing per-test budget holds.
+      NUMERICAL_FIDELITY_FILTER: >-
+        test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) |
+        test(/test_venturi_blood_flow/) |
+        test(/ga_validation_geometry_produces_converged_informative_2d_result/) |
+        test(/microventuri_fallback_case_produces_converged_informative_2d_result/) |
+        test(/microventuri_35um_case_produces_converged_informative_2d_result/) |
+        test(/cross_fidelity_trifurcation_dominance/) |
+        test(/test_benchmark_run_integration/) |
+        test(/test_step_11_lid_driven_cavity/) |
+        test(/cross_fidelity_stenosis_shear_thinning/) |
+        test(/cross_fidelity_venturi_total_loss_coefficient/)
     steps:
       - uses: actions/checkout@v6
         with:
@@ -58,7 +73,10 @@ jobs:
         run: cargo check --workspace --all-targets --locked
 
       - name: Tests
-        run: cargo nextest run --workspace --no-fail-fast --locked
+        run: cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
+
+      - name: Numerical fidelity tests
+        run: cargo nextest run --workspace --no-fail-fast --locked -E "$NUMERICAL_FIDELITY_FILTER" --test-threads 1
 
       - name: Doctests
         run: cargo test --doc --workspace --locked
