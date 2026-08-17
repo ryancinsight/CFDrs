@@ -1,10 +1,9 @@
 use super::traits::{FlowConditions, ResistanceModel};
-use cfd_core::CfdScalar;
 use super::{darcy_weisbach::DarcyWeisbachModel, hagen_poiseuille::HagenPoiseuilleModel};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
-use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 
 #[test]
 fn test_hagen_poiseuille_resistance_matches_formula() {
@@ -36,7 +35,7 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
 
 #[test]
 fn test_darcy_weisbach_laminar_limit_friction_factor() {
-    // Laminar regime: Re=1000 < 2000, expect f ≈ 64/Re
+    // Laminar regime: Re=1000 < 2300, expect f ≈ 64/Re
     let fluid = ConstantPropertyFluid::new(
         "Test Water".to_string(),
         MassDensity::from_base(1000.0),
@@ -50,11 +49,10 @@ fn test_darcy_weisbach_laminar_limit_friction_factor() {
     cond.reynolds_number = Some(1000.0f64);
 
     let r = model.calculate_resistance(&fluid, &cond).unwrap();
-    // Compute equivalent resistance using f=64/Re
-    let re = 1000.0f64;
-    let f = 64.0f64 / re;
     let area = std::f64::consts::PI * (0.01f64.powi(2)) / 4.0f64;
-    let expected = f * 1.0f64 * fluid.density.into_base() / (2.0f64 * area * 0.01f64.powi(2));
+    // Darcy-Weisbach with f=64/Re and Re=rho*V*D/mu reduces to
+    // R = 32*mu*L/(A*D^2), the linear laminar resistance.
+    let expected = 32.0f64 * fluid.viscosity.into_base() * 1.0f64 / (area * 0.01f64.powi(2));
     let rel_err = (r - expected).abs() / expected.abs();
     assert!(
         rel_err < 1e-3,
