@@ -14,13 +14,14 @@
 - [ ] Run the provider focused gate and publish the exact source head for
       hosted verification. Do not change the committed test budget or
       workload. Both exact hosted-timeout scenarios pass locally; hosted
-      confirmation remains the closure gate. At head `90798ca7`, Rust run
-      `32043533301` failed before checkout on Atlas action-download 503/429
-      (`95426903063`), while the figure rerun passed (`95427953989`). Pages
-      run `32043533628` reached the package build and failed because the shared
-      workflow lacked `fontconfig.pc` for `yeslogic-fontconfig-sys`. Atlas
-      `bb505e5` adds `libfontconfig1-dev` to that shared workflow; this branch
-      pins the exact fix and requires a new exact-head run.
+      confirmation remains the closure gate. At head `57722595`, the
+      preceding Rust run `32043533301` failed before checkout on Atlas
+      action-download 503/429 (`95426903063`), while the figure rerun passed
+      (`95427953989`). Retry Pages job `95428903018` in run `32044071732` still
+      failed before checkout on codeload 503/429, so the fontconfig fix has not
+      yet executed hosted. Atlas `bb505e5` adds `libfontconfig1-dev` to that
+      shared workflow; this branch pins the exact fix. Figure rerun
+      `95428996925` passes and the Rust retry remains in progress.
 - [x] Retag every book diagram, equation, and command fence explicitly and
       mark workspace-context API excerpts as `rust,ignore`; local `mdbook test
       docs/book` and `mdbook build docs/book` pass.

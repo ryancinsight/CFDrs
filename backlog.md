@@ -58,15 +58,16 @@ The Pages caller now enables the shared `mdbook-test` gate and builds
 `cfd-validation` before testing; hosted confirmation is part of the exact-head
 closure below.
 
-At exact head `90798ca7`, hosted Rust job `95426903063` in run
+At exact head `57722595`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas
 reusable action: GitHub returned 503 and then 429. The figure job passed after
-the failed-job rerun (`95427953989`). Pages job `95426905897` in run
-`32043533628` reached the package build and exposed a missing hosted system
-dependency: `yeslogic-fontconfig-sys` could not find `fontconfig.pc`. Atlas
-commit `bb505e5` adds the required `libfontconfig1-dev` install to the shared
-book workflow; this branch pins that exact shared-workflow commit. The source
-and book gates remain open until the new exact-head run completes.
+the failed-job rerun (`95427953989`). Pages job `95428903018` in run
+`32044071732` still failed before checkout on `actions/configure-pages`
+codeload 503/429, so the fontconfig fix has not yet executed on hosted
+infrastructure. Atlas commit `bb505e5` adds the required
+`libfontconfig1-dev` install to the shared book workflow; this branch pins
+that exact shared-workflow commit. Figure rerun `95428996925` passes and the
+Rust retry remains in progress.
 
 ## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
 
