@@ -27,9 +27,9 @@
 //! generating objective, while ultrasound-only designs are not misclassified as
 //! non-cavitating merely because they have no venturi throat.
 
-use eunomia::FloatElement;
 use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::SdtMetrics;
+use eunomia::FloatElement;
 
 const RESIDENCE_REFERENCE_S: f64 = 0.020;
 const SEPARATION_SUPPORT_CAP: f64 = 0.35;
