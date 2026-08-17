@@ -46,8 +46,9 @@
 - `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
   zero result; documented negative inputs are handled before the provider call
   and the invariant is checked explicitly.
-- `cfd-1d::giersiepen_hi` explicitly propagates NaN inputs as NaN, with
-  value-semantic regressions for both shear and exposure duration.
+- `cfd-1d::giersiepen_hi` explicitly propagates NaN inputs as NaN and
+  canonicalizes signed zero, with value-semantic regressions for both shear
+  and exposure duration.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

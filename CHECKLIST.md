@@ -21,7 +21,8 @@
       failed before checkout on codeload 503/429, so the fontconfig fix has not
       yet executed hosted. Atlas `bb505e5` adds `libfontconfig1-dev` to that
       shared workflow; this branch pins the exact fix. The source-correctness
-      head also defines NaN propagation for the hemolysis wrapper. New
+      head also defines NaN propagation and signed-zero canonicalization for
+      the hemolysis wrapper. New
       exact-head CI and Pages runs `32044597678` and `32044597852` are queued.
 - [x] Retag every book diagram, equation, and command fence explicitly and
       mark workspace-context API excerpts as `rust,ignore`; local `mdbook test

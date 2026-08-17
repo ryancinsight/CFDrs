@@ -4,8 +4,9 @@ use aequitas::systems::si::quantities::{Pressure, Time};
 ///
 /// Thin wrapper delegating to [`cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic`]
 /// so that the single source of truth for all model constants lives in cfd-core.
-/// Returns `0.0` for non-positive finite inputs. NaN inputs propagate as NaN;
-/// positive infinity follows the IEEE-754 arithmetic of the provider model.
+/// Returns `0.0` for negative or zero inputs, including negative infinity.
+/// NaN inputs propagate as NaN; positive infinity follows the IEEE-754
+/// arithmetic of the provider model.
 ///
 /// # Arguments
 ///
@@ -27,6 +28,9 @@ pub fn giersiepen_hi(shear: Pressure, duration: Time) -> f64 {
     let duration_s = duration.into_base();
     if shear_pa.is_nan() || duration_s.is_nan() {
         return f64::NAN;
+    }
+    if shear_pa == 0.0 || duration_s == 0.0 {
+        return 0.0;
     }
     if shear_pa < 0.0 || duration_s < 0.0 {
         return 0.0;

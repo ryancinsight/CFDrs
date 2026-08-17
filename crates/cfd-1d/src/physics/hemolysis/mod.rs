@@ -114,6 +114,18 @@ mod tests {
     }
 
     #[test]
+    fn giersiepen_signed_zero_is_canonical_zero() {
+        assert_eq!(
+            giersiepen_hi(shear(-0.0), duration(1.0)).to_bits(),
+            0.0_f64.to_bits()
+        );
+        assert_eq!(
+            giersiepen_hi(shear(1.0), duration(-0.0)).to_bits(),
+            0.0_f64.to_bits()
+        );
+    }
+
+    #[test]
     fn giersiepen_reference_value_at_100pa_1s() {
         // HI = 3.62e-5 × 1^0.765 × 100^1.991
         let expected =

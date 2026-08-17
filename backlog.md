@@ -96,9 +96,10 @@ closure check.
 documented negative-input behavior before calling the cfd-core model and uses
 an invariant-checked `expect` for the provider result. A provider invariant
 violation can no longer be silently converted into a zero hemolysis
-index. NaN inputs now propagate as NaN explicitly, with value-semantic
-regressions alongside the negative-input and reference-value tests. The
-existing behavioral oracle remains unchanged for valid and negative inputs.
+index. NaN inputs now propagate as NaN explicitly and signed zero is
+canonicalized to positive zero, with value-semantic regressions alongside the
+negative-input and reference-value tests. The existing behavioral oracle
+remains unchanged for valid and negative inputs.
 `cargo fmt --all -- --check` passes; the focused locked Nextest command is
 currently blocked before compilation by the shared Atlas overlay/lock mismatch
 recorded above. Hosted exact-head verification is required before closure.
