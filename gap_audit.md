@@ -45,6 +45,24 @@ slice and is not represented as a successful gate.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## SIMPLEC pressure-solid workspace churn — CFDRS-PERF-108 (local implementation closed 2026-08-17)
+
+The high-contraction collocated SIMPLEC path already cached the pressure-solid
+distance layers, but each extrapolation cloned the full fluid mask and each
+layer allocated a temporary update vector. The provider now retains the
+validity bitmap and one update buffer in the topology cache. It resets the
+bitmap from the unchanged mask before each pass and applies each layer only
+after all of that layer's values have been computed, preserving the original
+Jacobi layer semantics.
+
+The exact value-semantic regressions pass through locked Nextest from a clean
+provider dependency graph: `microventuri_35um_case_produces_converged_informative_2d_result`
+passes in 17.225 s (`713348f0-60ed-4765-819d-8c9eac422e27`) and
+`cross_fidelity_trifurcation_dominance` passes in 15.791 s
+(`2b79f809-b758-41d7-ade9-9b29aef23a16`). These are local correctness and
+runtime observations, not a controlled cross-machine speedup claim. Hosted
+exact-head verification remains required.
+
 ## Pressure-correction sparse-matrix clone — CFDRS-PERF-102 (local implementation closed 2026-08-17)
 
 The high-contraction 2D SIMPLEC/PIMPLE path cloned its cached sparse pressure

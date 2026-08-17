@@ -25,6 +25,10 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- cfd-2d SIMPLEC pressure-solid extrapolation now reuses the cached validity
+  bitmap and per-layer update storage across solver iterations. The layer
+  ordering and pressure values are unchanged; the hot path no longer clones
+  the full mask or allocates an update vector for every distance layer.
 - Removed eleven unreachable historical, duplicate, or stub source modules;
   wired the cfd-1d resistance-model test sidecar into the compiled module
   graph and retained the documented `OPEN-033` fallback as the only orphan

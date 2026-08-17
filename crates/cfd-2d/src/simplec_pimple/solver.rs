@@ -47,9 +47,11 @@ use leto::geometry::Vector2;
 
 type PressureLayer = Box<[(usize, usize)]>;
 
-struct SolidPressureLayers {
+struct SolidPressureLayers<T> {
     mask: Box<[bool]>,
     layers: Box<[PressureLayer]>,
+    valid: Box<[bool]>,
+    updates: Vec<((usize, usize), T)>,
 }
 
 /// SIMPLEC/PIMPLE pressure-velocity coupling solver
@@ -75,7 +77,7 @@ pub struct SimplecPimpleSolver<T: CfdScalar + Copy> {
     pub(super) _vel_field_cache: std::cell::RefCell<Option<crate::fields::Field2D<Vector2<T>>>>,
     pub(super) _cons_vel_cache:
         std::cell::RefCell<Option<crate::grid::array2d::Array2D<Vector2<T>>>>,
-    _solid_pressure_layers: std::cell::RefCell<Option<SolidPressureLayers>>,
+    _solid_pressure_layers: std::cell::RefCell<Option<SolidPressureLayers<T>>>,
 }
 
 impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
@@ -264,44 +266,48 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
             *layers_cache = Some(SolidPressureLayers {
                 mask: mask.to_vec().into_boxed_slice(),
                 layers: layers.into_boxed_slice(),
+                valid: mask.to_vec().into_boxed_slice(),
+                updates: Vec::new(),
             });
         }
 
         let cached = layers_cache
-            .as_ref()
+            .as_mut()
             .expect("invariant: pressure layers are initialized above");
-        let mut valid = mask.to_vec();
+        cached.valid.copy_from_slice(mask);
         for layer in &cached.layers {
-            let mut updates = Vec::with_capacity(layer.len());
+            cached.updates.clear();
             for &(i, j) in layer {
                 let mut sum: T = scalar::zero();
                 let mut count = 0;
 
-                if i > 0 && valid[(i - 1) * ny + j] {
+                if i > 0 && cached.valid[(i - 1) * ny + j] {
                     sum += fields.p.at(i - 1, j);
                     count += 1;
                 }
-                if i < nx - 1 && valid[(i + 1) * ny + j] {
+                if i < nx - 1 && cached.valid[(i + 1) * ny + j] {
                     sum += fields.p.at(i + 1, j);
                     count += 1;
                 }
-                if j > 0 && valid[i * ny + j - 1] {
+                if j > 0 && cached.valid[i * ny + j - 1] {
                     sum += fields.p.at(i, j - 1);
                     count += 1;
                 }
-                if j < ny - 1 && valid[i * ny + j + 1] {
+                if j < ny - 1 && cached.valid[i * ny + j + 1] {
                     sum += fields.p.at(i, j + 1);
                     count += 1;
                 }
 
                 if count > 0 {
-                    updates.push(((i, j), sum / scalar::from_usize(count)));
+                    cached
+                        .updates
+                        .push(((i, j), sum / scalar::from_usize(count)));
                 }
             }
 
-            for ((i, j), value) in updates {
+            for &((i, j), value) in &cached.updates {
                 fields.p.set(i, j, value);
-                valid[i * ny + j] = true;
+                cached.valid[i * ny + j] = true;
             }
         }
     }

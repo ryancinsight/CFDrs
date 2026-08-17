@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces
+
+- [x] Retain the cached solid-distance layers while reusing their validity
+      bitmap across extrapolation passes.
+- [x] Reuse one per-layer update buffer without changing the layer-wise
+      Jacobi update order or pressure values.
+- [x] Run the exact high-contraction 35 µm validation case through locked
+      Nextest: 17.225 s, run
+      `713348f0-60ed-4765-819d-8c9eac422e27`.
+- [x] Run the exact 3D trifurcation validation case through locked Nextest:
+      15.791 s, run `2b79f809-b758-41d7-ade9-9b29aef23a16`.
+- [ ] Publish the exact source head and pass the provider hosted Rust and
+      Pages gates. Keep the 30-second test budget and workloads unchanged.
+
 ## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones
 
 - [x] Profile the exact hosted-timeout path and identify the repeated sparse

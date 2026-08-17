@@ -29,6 +29,22 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces (in progress 2026-08-17)
+
+**Owner:** Atlas session; scope is `cfd-2d` SIMPLEC/PIMPLE pressure-solid
+extrapolation. **Acceptance:** preserve layer-wise pressure values while
+removing per-iteration mask clones and per-layer update allocations; pass the
+exact high-contraction and trifurcation value-semantic tests under the
+unchanged nextest budget; then pass the provider hosted gate at the exact
+source head.
+
+The provider now caches the validity bitmap and one update buffer alongside
+the immutable solid-distance layers. Local locked Nextest passes the exact
+35 µm case in 17.225 s (`713348f0-60ed-4765-819d-8c9eac422e27`) and the exact
+3D trifurcation case in 15.791 s (`2b79f809-b758-41d7-ade9-9b29aef23a16`).
+These are not controlled cross-machine performance claims. Hosted exact-head
+verification is the remaining acceptance gate.
+
 ## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is the provider-owned cfd-2d pressure
