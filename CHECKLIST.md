@@ -1,5 +1,63 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones
+
+- [x] Profile the exact hosted-timeout path and identify the repeated sparse
+      Laplacian clone in `cfd-2d` pressure correction.
+- [x] Borrow the immutable cached CSR operator in place; keep initial assembly,
+      right-hand-side construction, solver selection, tolerances, and output
+      semantics unchanged.
+- [x] Run the exact value-semantic regression through locked `cargo nextest`:
+      `microventuri_35um_case_produces_converged_informative_2d_result` passes
+      in 16.785 s under run
+      `5c15ba54-0b90-47a8-ab4c-f0eaf7b55d6c`.
+- [ ] Run the provider focused gate and publish the exact source head for
+      hosted verification. Do not change the committed test budget or
+      workload. Both exact hosted-timeout scenarios pass locally; hosted
+      confirmation remains the closure gate. At head `6ede137a`, the
+      preceding Rust run `32043533301` failed before checkout on Atlas
+      action-download 503/429 (`95426903063`), while the figure rerun passed
+      (`95427953989`). Retry Pages job `95428903018` in run `32044071732` still
+      failed before checkout on codeload 503/429, so the fontconfig fix has not
+      yet executed hosted. Atlas `bb505e5` adds `libfontconfig1-dev` to that
+      shared workflow; this branch pins the exact fix. The source-correctness
+      head also defines NaN propagation and signed-zero canonicalization for
+      the hemolysis wrapper. New
+      exact-head CI and Pages runs `32046463302` and `32046464094` are queued
+      for source head `c86dc33f`. The preceding exact head `02c2ae80` reached
+      the hosted numerical-fidelity suite: 13/14 tests passed, while
+      `cfd-validation::benchmark_validation::test_benchmark_run_integration`
+      hit the unchanged 30-second budget at 30.003 s.
+- [x] Flatten the backward-facing-step stencil's contiguous Leto storage and
+      hoist invariant scalar terms in `c86dc33f`, preserving update order and
+      value semantics. Local format and diff gates pass; local locked Nextest
+      remains blocked before compilation by the shared Atlas overlay/lock
+      mismatch, so hosted exact-head verification is required.
+- [x] Retag every book diagram, equation, and command fence explicitly and
+      mark workspace-context API excerpts as `rust,ignore`; local `mdbook test
+      docs/book` and `mdbook build docs/book` pass.
+- [x] Enable the Pages caller's shared `mdbook-test` gate with
+      `cargo-package: cfd-validation`; hosted exact-head verification remains
+      pending after the caller change.
+- [ ] Verify the Cargo example gate against Apollo's merged default
+      `ed6d6905afda394a9e12570543159ab1b262589e`, which contains provider fix
+      `81583aab8b3eb48c96d138e3980e2c554d9d83fa`; the peer-dirty local overlay
+      remains at `c87a1abe` and is not modified. The current local
+      `cargo check --locked --examples` stops before compilation on the shared
+      overlay/lock mismatch; hosted exact-head package verification remains
+      the reproducible closure gate.
+
+## ATLAS-CFDRS-HEMOLYSIS-107 [fix] — Remove silent model-error fallback
+
+- [x] Pre-validate the documented non-positive input behavior before the
+      provider call and remove `unwrap_or(0.0)` from `giersiepen_hi`.
+- [x] Preserve the existing negative-input and analytical reference tests.
+- [x] Define and test NaN propagation explicitly; positive infinity continues
+      through the provider's IEEE-754 arithmetic.
+- [ ] Run the focused locked Nextest and hosted exact-head provider gate;
+      local compilation is currently blocked by the shared overlay/lock
+      mismatch, not by a source diagnostic.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 
 - [x] Wire `cfd-1d` resistance-model tests into the module graph and correct

@@ -22,7 +22,7 @@ using the unified `ComputeDispatcher` backed by `hephaestus-wgpu`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_core::compute::backend::ComputeCapability;
 use cfd_core::compute::dispatch::ComputeDispatcher;
 use cfd_core::compute::traits::ComputeBackend;

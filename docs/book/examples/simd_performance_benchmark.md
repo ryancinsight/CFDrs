@@ -23,7 +23,7 @@ flux kernels using `cfd-math::simd::CfdSimdOps` backed by `hermes`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_math::simd::cfd::CfdSimdOps;
 use std::time::Instant;
 

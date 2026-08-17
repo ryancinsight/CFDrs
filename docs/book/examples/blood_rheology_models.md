@@ -24,7 +24,7 @@ Five blood-viscosity models compared over the full physiological shear-rate rang
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 // Millifluidic channel: D = 1 mm, L = 30 mm, Q = 1 mL/min
 // For each model, apparent viscosity at γ̇_w = 8V/D feeds Hagen-Poiseuille:
 //   ΔP = 128 μ_app L Q / (π D⁴)

@@ -22,7 +22,7 @@ Baseline sanity check covering four primitives of the CFDrs stack:
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_core::physics::fluid_dynamics::{FlowField, FlowOperations};
 
 let flow_field = FlowField::<f64>::new(32, 32, 32);

@@ -17,7 +17,7 @@ The continuity and momentum equations for a constant-density fluid:
 ∇·u = 0
 
 ∂u/∂t + (u·∇)u = -∇(p/ρ) + ν ∇²u + f/ρ
-```
+```text
 
 where **u** is velocity, *p* pressure, *ρ* density, *ν* kinematic viscosity,
 and **f** body forces.  CFDrs resolves the incompressibility constraint through
@@ -40,7 +40,7 @@ Blood and polymer flows use the generalised Newtonian model:
 
 ```text
 τ = μ_eff(γ̇) · γ̇
-```
+```text
 
 `cfd-core` provides the rheology dispatch:
 
@@ -68,7 +68,7 @@ crate:
 Boundary conditions live in `cfd-core::physics::boundary` and are consumed
 by every discretisation layer through a single `BoundaryCondition<T>` enum:
 
-```rust
+```rust,ignore
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet};
 
 let bc = BoundaryConditionSet::<f64>::new()

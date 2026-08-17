@@ -29,6 +29,89 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones (in progress 2026-08-17)
+
+**Owner:** Atlas session; scope is the provider-owned cfd-2d pressure
+correction path. **Acceptance:** preserve the pressure operator and output
+values while eliminating the cached-CSR clone on each SIMPLE correction;
+prove the exact 35 µm validation case under the unchanged nextest budget;
+then pass the provider hosted gate at the exact source head.
+
+The implementation now borrows the immutable cached Laplacian in place. The
+initial assembly still stores one cache copy; subsequent corrections reuse the
+same sparse topology and values while rebuilding only the right-hand side and
+solution. Exact local Nextest run `5c15ba54-0b90-47a8-ab4c-f0eaf7b55d6c`
+passes `microventuri_35um_case_produces_converged_informative_2d_result` in
+16.785 s. The exact trifurcation case also passes locally in 16.903 s. The
+hosted baseline had timed out at 30.005--30.007 s, so these are not controlled
+cross-machine speedup claims; provider hosted confirmation at the exact
+post-change head remains pending.
+
+Book verification is now deterministic: all diagrams, equations, and shell
+commands use explicit non-Rust fences, and workspace-context API excerpts use
+`rust,ignore` with links to their canonical source files. `mdbook test
+docs/book` and `mdbook build docs/book` both pass locally. The separate Cargo
+example gate cannot resolve against the peer-dirty local Apollo overlay; the
+merged Apollo default and hosted exact-head package gate are the closure path.
+No downstream compatibility trait is added.
+The Pages caller now enables the shared `mdbook-test` gate and builds
+`cfd-validation` before testing; hosted confirmation is part of the exact-head
+closure below.
+
+At exact pre-runtime-fix head `02c2ae80`, hosted CI run `32044765872` completed
+format, check, ordinary tests, and 13/14 numerical-fidelity tests, but
+`cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the
+committed 30-second Nextest timeout at 30.003 s. The source fix at `c86dc33f`
+borrows contiguous Leto matrix storage once and hoists invariant stencil terms;
+it preserves the finite-difference update order and the test budget. New exact
+head CI run `32046463302` and Pages run `32046464094` are queued.
+
+At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
+`32043533301` failed before checkout while downloading the pinned Atlas
+reusable action: GitHub returned 503 and then 429. The figure job passed after
+the failed-job rerun (`95427953989`). Pages job `95428903018` in run
+`32044071732` still failed before checkout on `actions/configure-pages`
+codeload 503/429, so the fontconfig fix has not yet executed on hosted
+infrastructure. Atlas commit `bb505e5` adds the required
+`libfontconfig1-dev` install to the shared book workflow; this branch pins
+that exact shared-workflow commit. The source-correctness head also defines
+NaN propagation for the hemolysis wrapper and adds value-semantic regressions.
+New exact-head CI and Pages runs `32044597678` and `32044597852` are queued.
+
+## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
+
+`cargo check --offline --examples` reaches `cfd-3d` and fails because
+`crates/cfd-3d/src/spectral/fourier.rs` imports `apollo_fft::PlanScratch`, but
+the peer-dirty local Apollo overlay at `c87a1abe` does not re-export that
+public bound. The provider-owned fix `81583aab8b3eb48c96d138e3980e2c554d9d83fa`
+is merged in Apollo's default at `ed6d6905afda394a9e12570543159ab1b262589e`
+(`feat(apollo-fft): Expose plan scratch bound`), which makes `plan_scratch`
+public and re-exports the trait. The CFDrs hosted exact-head gate must now
+verify the package/example build against that merged Apollo default; the
+peer-dirty local overlay is not modified, and no local adapter or private
+module import is added.
+
+The fresh local command `cargo check --locked --examples` now stops before
+compilation because the shared Atlas development overlay patches peer-local
+first-party trees that are not represented by this standalone lockfile. This
+is a lock/overlay environment residual, not evidence of a missing Apollo
+`PlanScratch` export; the hosted exact-head package gate is the reproducible
+closure check.
+
+## ATLAS-CFDRS-HEMOLYSIS-107 [fix] — Remove silent model-error fallback (in progress 2026-08-17)
+
+`crates/cfd-1d/src/physics/hemolysis/models.rs:25-35` now handles the
+documented negative-input behavior before calling the cfd-core model and uses
+an invariant-checked `expect` for the provider result. A provider invariant
+violation can no longer be silently converted into a zero hemolysis
+index. NaN inputs now propagate as NaN explicitly and signed zero is
+canonicalized to positive zero, with value-semantic regressions alongside the
+negative-input and reference-value tests. The existing behavioral oracle
+remains unchanged for valid and negative inputs.
+`cargo fmt --all -- --check` passes; the focused locked Nextest command is
+currently blocked before compilation by the shared Atlas overlay/lock mismatch
+recorded above. Hosted exact-head verification is required before closure.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS — Close unreachable source modules [patch] — done 2026-08-17
 
 **Owner:** Atlas session; source merged as `54dcea3c`.

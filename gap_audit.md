@@ -45,6 +45,39 @@ slice and is not represented as a successful gate.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Pressure-correction sparse-matrix clone — CFDRS-PERF-102 (local implementation closed 2026-08-17)
+
+The high-contraction 2D SIMPLEC/PIMPLE path cloned its cached sparse pressure
+Laplacian on every pressure correction. The matrix topology and values are
+immutable for a fixed grid and boundary mask; only the right-hand side and
+solution change. The provider now borrows the cached CSR matrix in place after
+the first assembly, deleting the repeated sparse allocation/copy without
+changing the operator, linear solver, tolerance, or validation acceptance.
+
+The exact value-semantic regression
+`microventuri_35um_case_produces_converged_informative_2d_result` passes in
+16.785 s under locked `cargo nextest`, run
+`5c15ba54-0b90-47a8-ab4c-f0eaf7b55d6c`; the 30-second committed budget and test
+workload are unchanged. This is not a controlled cross-machine speedup claim:
+the hosted pre-change baseline timed out at 30.005 s. Provider focused and
+hosted exact-head verification remain pending. The separate
+`cross_fidelity_trifurcation_dominance` 3D case also passes locally in 16.903 s;
+the broad package and hosted exact-head gates remain the closure evidence.
+
+## CFDrs book and example gate — Apollo public-bound dependency
+
+The book's executable-test failure was caused by untyped diagrams, equations,
+commands, and non-self-contained workspace API excerpts. Those blocks now have
+explicit fence languages; `mdbook test docs/book` and `mdbook build docs/book`
+pass locally. This does not substitute for compiling the linked examples.
+
+The linked Cargo example gate is currently blocked at `cfd-3d`: its spectral
+consumer names the public `apollo_fft::PlanScratch` bound, while the integrated
+Apollo head `c87a1abe` does not expose it. Apollo remote head
+`81583aab8b3eb48c96d138e3980e2c554d9d83fa` contains the provider-owned
+re-export and public module change. CFDrs remains unadvanced until that
+upstream head is merged; no compatibility shim is permitted.
+
 ## Unreachable source-module closure — CFDrs (2026-08-17)
 
 - Closed at merged provider default `54dcea3c`, source head `b455a416`.

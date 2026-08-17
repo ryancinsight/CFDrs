@@ -23,7 +23,7 @@ for lid-driven cavity flow at Re = 100.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::vorticity_stream::{VorticityStreamConfig, VorticityStreamSolver};
 

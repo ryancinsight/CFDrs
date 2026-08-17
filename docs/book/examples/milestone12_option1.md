@@ -22,7 +22,7 @@ Selective Acoustic Residence/Separation track. Exploits the **Zweifach–Fung ef
 
 ```bash
 cargo run -p cfd-optim --example milestone12_option1
-```
+```text
 
 ## Part Reference
 

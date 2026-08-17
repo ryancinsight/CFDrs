@@ -14,7 +14,7 @@ Demonstrates the integration bridge between `cfd-schematics` and `cfd-1d`: defin
 
 ## Pattern
 
-```rust
+```rust,ignore
 // 1. Define with cfd-schematics types
 let blueprint = NetworkBlueprint { nodes, channels };
 
@@ -30,7 +30,7 @@ let solution = NetworkSolver::solve(problem)?;
 
 ```bash
 cargo run -p cfd-1d --example schematic_demo_integration
-```
+```text
 
 ## Part Reference
 

@@ -24,7 +24,7 @@ storing the coefficient matrix.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_math::linear_solver::{
     ConjugateGradient, IterativeSolverConfig, LaplacianOperator2D, LinearOperator,
 };

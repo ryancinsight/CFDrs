@@ -17,7 +17,7 @@ Selective Venturi Hydrodynamic Cavitation track. Centers on Rayleigh–Plesset b
 Bernoulli cavitation number:
 ```text
 σ = (p∞ − pᵥ) / (½ρv²)
-```
+```console
 When σ < 1, static pressure drops below vapour pressure (pᵥ ≈ 6.3 kPa at 37 °C), nucleating microbubbles.
 
 ## Design Constraints

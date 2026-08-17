@@ -24,7 +24,7 @@ jobs:
     # Body owned once by Atlas (ADR 0035), pinned by SHA like any action. The
     # shared workflow keeps the pull-request build and skips deployment there,
     # so PRs still prove the book builds without publishing it.
-    uses: ryancinsight/atlas/.github/workflows/book-pages.yml@4c31dd753f06dd93b4c04798cf781df253e3e532
+    uses: ryancinsight/atlas/.github/workflows/book-pages.yml@bb505e5e495c434c6ff1f52ffabe91deb594d23b
     permissions:
       contents: read
       # The shared deploy job publishes to Pages over OIDC.
@@ -35,6 +35,11 @@ jobs:
       # each backend into its own subdirectory, so the HTML lands in html/
       # rather than at build-dir. gaia points at the same subdirectory.
       output-path: target/book/cfdrs/html
+      # The book's workspace-context excerpts are explicitly ignored or text;
+      # the package build below is the compilation gate for the linked CFDrs
+      # examples, while mdBook catches any newly untyped Rust fence.
+      mdbook-test: true
+      cargo-package: cfd-validation
       # book.toml declares [output.linkcheck2] without optional = true, so
       # mdbook fails the render unless the backend binary is installed.
       mdbook-linkcheck2-version: "0.12.2"

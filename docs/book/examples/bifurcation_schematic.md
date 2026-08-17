@@ -28,7 +28,7 @@ Two-phase schematic-driven bifurcation simulation: design with `cfd-schematics` 
 
 ```bash
 cargo run -p cfd-2d --example bifurcation_schematic
-```
+```text
 
 ## Part Reference
 

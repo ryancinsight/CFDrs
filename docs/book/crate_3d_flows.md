@@ -20,4 +20,4 @@ cargo run -p cfd-3d --example spectral_poisson_3d
 cargo run -p cfd-3d --example bifurcation_3d_blood
 cargo run -p cfd-3d --example venturi_3d_cavitation
 cargo run -p cfd-3d --example serpentine_3d_dean
-```
+```text

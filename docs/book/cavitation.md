@@ -8,7 +8,7 @@
 Cavitation is modeled as a **phase transition** whose rate depends on local
 pressure-vs-vapor-pressure:
 
-```rust
+```rust,ignore
 pub trait Cavitation {
     fn inception_pressure<F: FloatElement>(&self) -> F;
     fn collapse_rate<F: FloatElement>(&self, p: F) -> F;
@@ -21,7 +21,9 @@ flows.
 
 Damage accumulation is integrated per timestep as
 
-    damage += (inception_indicator) · (collapse_rate · dt)
+```text
+damage += (inception_indicator) · (collapse_rate · dt)
+```
 
 and reported through the [`cfd-3d::posterior::damage`] hook.  Outputs are
 dimensionally consistent (kg/m²/s) so that downstream fatigue models can

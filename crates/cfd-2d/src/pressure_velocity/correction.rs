@@ -270,13 +270,7 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
                     .is_some_and(|cached| cached == dirichlet_sides)
         });
 
-        let matrix = if matrix_cache_valid {
-            self._laplacian_cache
-                .borrow()
-                .as_ref()
-                .expect("invariant: pressure matrix cache validity was established above")
-                .clone()
-        } else {
+        if !matrix_cache_valid {
             let mut builder = self.take_matrix_builder(system_size, system_size);
             let dx2_inv = scalar::one::<T>() / (dx * dx);
             let dy2_inv = scalar::one::<T>() / (dy * dy);
@@ -346,8 +340,7 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
             *self._laplacian_cache.borrow_mut() = Some(matrix.clone());
             *self._face_matrix_mask.borrow_mut() = Some(mask.to_vec());
             *self._face_matrix_dirichlet.borrow_mut() = Some(dirichlet_sides);
-            matrix
-        };
+        }
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -374,18 +367,28 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
             ._solution_cache
             .borrow_mut()
             .take()
-            .filter(|vector| vector.shape()[0] == matrix.nrows())
-            .unwrap_or_else(|| Array1::from_elem([matrix.nrows()], scalar::zero::<T>()));
+            .filter(|vector| vector.shape()[0] == system_size)
+            .unwrap_or_else(|| Array1::from_elem([system_size], scalar::zero::<T>()));
         p_correction_vec.fill(scalar::zero::<T>());
-        self.dispatch_solve(&matrix, &rhs, &mut p_correction_vec)?;
+        {
+            // The topology is immutable after the first assembly. Borrowing it
+            // in place avoids cloning every pressure matrix on the hot path;
+            // the prior clone copied all sparse values for every SIMPLE
+            // correction even though only the right-hand side changes.
+            let matrix_cache = self._laplacian_cache.borrow();
+            let matrix = matrix_cache
+                .as_ref()
+                .expect("invariant: pressure matrix is cached after assembly");
+            self.dispatch_solve(matrix, &rhs, &mut p_correction_vec)?;
 
-        self.scatter_correction(
-            &p_correction_vec,
-            reference_idx,
-            &map_index,
-            boundary_conditions,
-            output_correction,
-        )?;
+            self.scatter_correction(
+                &p_correction_vec,
+                reference_idx,
+                &map_index,
+                boundary_conditions,
+                output_correction,
+            )?;
+        }
 
         *self._rhs_cache.borrow_mut() = Some(rhs);
         *self._solution_cache.borrow_mut() = Some(p_correction_vec);

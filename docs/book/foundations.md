@@ -36,7 +36,7 @@ contracts — boundary conditions, time-stepping, state vectors — live in
 `BoundaryConditionSet<T>` collection. Solver crates consume these contracts
 through their grid- or mesh-specific setup paths.
 
-```rust
+```rust,ignore
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet};
 use leto::geometry::Vector3;
 
@@ -52,7 +52,7 @@ boundaries
 
 ## The CFDrs Simulation Lifecycle
 
-```
+```text
 +------------+   +-----------+   +----------+   +----------+
 | Geometry   |-->| Mesh/Grid |-->| Boundary |-->| Initial  |
 | (CSG)      |   |           |   | wiring   |   | state    |

@@ -25,7 +25,7 @@ as the polynomial-mode count `N` increases through `{4, 6, 8, 10, 12}`.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;
 use cfd_3d::spectral::solver::PoissonProblem;
 use cfd_3d::spectral::{SpectralConfig, SpectralSolver};

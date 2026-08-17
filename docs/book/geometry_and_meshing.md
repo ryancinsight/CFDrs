@@ -26,7 +26,7 @@ The root CSG examples construct `cfd-mesh` primitives through
 components, Euler characteristic, and normal orientation. Boolean composition
 uses one operation enum:
 
-```rust
+```rust,ignore
 use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 
 let union = csg_boolean(BooleanOp::Union, &left, &right)?;

@@ -22,7 +22,7 @@ Models blood flow through a millifluidic network whose topology derives from a T
 
 ```bash
 cargo run -p cfd-1d --example tpms_blood_1d
-```
+```text
 
 ## Part Reference
 

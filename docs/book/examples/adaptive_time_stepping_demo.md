@@ -22,7 +22,7 @@ y(t) = exp(−2t)), showing accuracy and efficiency tradeoffs.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::schemes::time::{
     AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, StateVector,
 };
@@ -42,13 +42,13 @@ demonstrate_combined_adaptation(&y0, t_final)?;
 ## Physics Background
 
 For explicit schemes, **CFL condition** bounds the time step:
-```
+```text
 CFL = |u| · Δt / Δx ≤ CFL_max
 ```
 CFL > 1 causes the numerical domain of dependence to exceed the physical one,
 leading to instability. **Richardson extrapolation** estimates the local
 truncation error by comparing a full step with two half-steps:
-```
+```text
 ε ≈ |y_full − y_half| / (2^p − 1)
 ```
 where p is the scheme order.

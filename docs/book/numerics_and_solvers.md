@@ -34,7 +34,7 @@ The Krylov solver APIs (BiCGSTAB, GMRES, IDR(s)) are documented in the [Matrix-F
 
 ## Time Integration
 
-```rust
+```rust,ignore
 pub trait Integrator<F: FloatElement> {
     fn step(&mut self, x: &mut NdArray<F, Ix3>, dt: F);
 }
@@ -50,7 +50,7 @@ explicit Adams-Bashforth pair is the default for incompressible time-stepping.
 
 ## Adaptive Time-Stepping
 
-```rust
+```rust,ignore
 let stepping = AdaptiveStepping::builder()
     .cfl_max(0.5)
     .atol_field(1e-6)

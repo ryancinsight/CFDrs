@@ -29,7 +29,7 @@ Prints a channel-by-channel table: flow rates, pressure drops, wall shear stress
 
 ```text
 De = Re · √(D_h / 2R_c)
-```
+```console
 
 Secondary Dean vortices pre-focus cells toward the centreline — ideal for cavitation-enhanced CTC lysis in SDT.
 

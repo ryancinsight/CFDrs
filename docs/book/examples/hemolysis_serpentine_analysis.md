@@ -16,7 +16,7 @@ Full-pipeline hemolysis analysis in a serpentine millifluidic channel. Quantifie
 
 ```text
 D = C · τ^α · t^β
-```
+```console
 where τ = wall shear stress, t = channel residence time (L/v̄).
 
 ## Pipeline

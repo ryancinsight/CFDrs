@@ -22,7 +22,7 @@ Microfluidic screens are serpentine or bifurcation arrays designed for
 mixing, separation, or hemolysis screening.  CFDrs handles them as a chain
 of bifurcations:
 
-```rust
+```rust,ignore
 use cfd_schematics::serpentine::SerpentineBuilder;
 
 let chip = SerpentineBuilder::new()
@@ -42,7 +42,7 @@ bifurcation chain and reports branches with shear stress above an FDA-style
 threshold.  The API is intentionally minimal so that custom geometries can
 plug in:
 
-```rust
+```rust,ignore
 let report = cfd_1d::screening::shear_violations(&state, &geometries)?;
 for branch in report.violations {
     eprintln!("branch {}: peak shear {} Pa (limit 9.0)", branch.id, branch.peak);

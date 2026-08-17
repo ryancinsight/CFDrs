@@ -16,7 +16,7 @@ Genetic algorithm track for in-place Dean–serpentine refinement of Option 2 ve
 
 ```text
 De = Re · √(D_h / 2R_c)
-```
+```console
 
 GA score rewards designs that co-localize Dean vortex focusing with venturi cavitation at bend apices.
 

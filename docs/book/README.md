@@ -8,7 +8,7 @@ consistent zero-copy, zero-cost-abstraction design.
 
 ## Architecture at a Glance
 
-```
+```text
                 +-----------------------------------------------------+
                 |  cfd-validation  |  cfd-optim  |  cfd-python       |
                 |  benchmarks, planning, Python bindings            |
@@ -51,7 +51,7 @@ consistent zero-copy, zero-cost-abstraction design.
 
 ## Getting Started
 
-```
+```console
 cargo run --example cavity_validation                  # lid-driven cavity, Re ~ 100
 cargo run --example pipe_flow_validation               # Hagen-Poiseuille 1-D benchmark
 cargo run --example mesh_3d_integration                # structured 16 x 4 mesh + CSG
@@ -64,6 +64,12 @@ member, so the run form is `cargo run -p cfd-validation
 --example richardson_convergence`.  See the `**Run**:` line on
 each example's `docs/book/examples/<name>.md` page for the
 canonical invocation.
+
+API excerpts in this book are marked `rust,ignore` when they require the
+workspace's Cargo dependency graph or a runtime fixture. Their canonical
+implementations are the linked Rust source files; the package and example
+targets remain the compilation gate. Untyped fences are explicitly `text` or
+`console` so diagrams, equations, and commands cannot be misread as doctests.
 
 ## Chapters
 

@@ -24,7 +24,7 @@ the extrapolated exact solution, and the Grid Convergence Index (GCI).
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_core::error::Result;
 use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, LidDrivenCavity};
 
@@ -37,7 +37,7 @@ let f = |n: usize| -> Result<f64> {
     Ok(result.values[0])
 };
 
-let (f1, f2, f3) = (f(64)?, f(32)?, f(16)?;
+let (f1, f2, f3) = (f(64)?, f(32)?, f(16)?);
 let r = 2.0;
 let p = ((f3 - f2) / (f2 - f1)).abs().ln() / r.ln();
 let f_rich = f1 + (f1 - f2) / (r.powf(p) - 1.0);

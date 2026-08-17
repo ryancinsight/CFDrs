@@ -26,4 +26,4 @@ cargo run -p cfd-1d --example tpms_blood_1d
 cargo run -p cfd-1d --example cavitation_venturi_analysis
 cargo run -p cfd-1d --example medical_millifluidic_screening
 cargo run -p cfd-1d --example hemolysis_serpentine_analysis
-```
+```text

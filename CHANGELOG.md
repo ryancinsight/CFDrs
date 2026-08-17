@@ -30,6 +30,30 @@
   graph and retained the documented `OPEN-033` fallback as the only orphan
   residual. The merged PM head `5b95fe3a` passes the provider Rust and
   book-figure gates at exact head.
+- cfd-2d pressure correction now borrows its immutable cached CSR Laplacian
+  instead of cloning the sparse matrix for every SIMPLE correction. The exact
+  35 µm and 3D trifurcation validation cases pass locally in 16.785 s and
+  16.903 s under the unchanged nextest budget; hosted exact-head confirmation
+  remains pending.
+- Book diagrams, equations, and commands now use explicit non-Rust fences, and
+  workspace-context API excerpts no longer enter mdBook's Rust doctest runner;
+  local `mdbook test` and rendered link-check build pass. Cargo example
+  verification is now gated on the merged Apollo default that exports the
+  provider-owned `PlanScratch` bound; the peer-dirty local overlay remains a
+  separate local-resolution residual.
+- The Pages caller now builds `cfd-validation` and runs the shared `mdbook test`
+  gate before publishing the CFDrs book.
+- **cfd-validation**: The backward-facing-step benchmark now borrows contiguous
+  Leto matrix storage once and hoists invariant stencil terms, removing repeated
+  layout work from its production hot loop without changing the update order or
+  committed Nextest budget. The preceding exact-head hosted run isolated the
+  remaining failure to `test_benchmark_run_integration` at 30.003 s.
+- `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
+  zero result; documented negative inputs are handled before the provider call
+  and the invariant is checked explicitly.
+- `cfd-1d::giersiepen_hi` explicitly propagates NaN inputs as NaN and
+  canonicalizes signed zero, with value-semantic regressions for both shear
+  and exposure duration.
 - Workspace packages now inherit the canonical Atlas lint floor; the initial
   ratchet increment also removes a cfd-core plugin resolver unwrap and makes
   xtask CLI output pass through a checked writer.

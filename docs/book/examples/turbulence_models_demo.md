@@ -22,7 +22,7 @@ showing how eddy viscosity and closure behaviour differ.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_2d::physics::turbulence::{
     KEpsilonModel, KOmegaSSTModel, SpalartAllmaras, TurbulenceModel,
 };

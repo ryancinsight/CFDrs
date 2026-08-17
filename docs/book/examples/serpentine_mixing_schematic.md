@@ -16,7 +16,7 @@ Schematic visualization of serpentine mixer geometry with flow analysis overlays
 
 ```bash
 cargo run -p cfd-2d --example serpentine_mixing_schematic
-```
+```text
 
 ## Part Reference
 

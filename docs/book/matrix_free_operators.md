@@ -10,7 +10,7 @@ linear operator is a trait, and the solver allocates only the action
 function `A·x`.  Matrix-free applications decouple memory footprint from
 discretization size.
 
-```rust
+```rust,ignore
 pub trait LinearOp<F: FloatElement> {
     fn apply(&self, x: &NdArray<F, Ix3>, y: &mut NdArray<F, Ix3>);
 }
@@ -25,7 +25,7 @@ three discretizations (Stencil, FEM, Spectral).
 the same convergence target at the same iteration count regardless of
 which discretization backs them.
 
-```rust
+```rust,ignore
 let krylov = BiCgStab::<f64>::new();
 let solution = krylov.solve(&op, &rhs, &preconditioner, 1e-6, 5000)?;
 ```

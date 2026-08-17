@@ -23,7 +23,7 @@ a different rheology or network model:
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_1d::domain::channel::Channel;
 
 // Casson model: √τ = √τ_y + √(μ_∞ · γ̇)

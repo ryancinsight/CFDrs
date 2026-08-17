@@ -19,4 +19,4 @@ Run all three with:
 cargo run -p cfd-validation --example comprehensive_validation_suite
 cargo run -p cfd-validation --example richardson_convergence
 cargo run -p cfd-validation --example blood_poiseuille_2d
-```
+```text

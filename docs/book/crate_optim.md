@@ -17,4 +17,4 @@ for CFD geometries.  Key examples demonstrate the Latin-hypercube sampler
 ```bash
 cargo run -p cfd-optim --example cell_sep_audit
 cargo run -p cfd-optim --example milestone12_validation
-```
+```text

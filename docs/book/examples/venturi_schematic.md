@@ -27,7 +27,7 @@ Two-phase schematic-driven Venturi simulation: design with `cfd-schematics`, sim
 
 ```bash
 cargo run -p cfd-2d --example venturi_schematic
-```
+```text
 
 ## Part Reference
 

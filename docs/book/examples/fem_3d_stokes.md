@@ -23,7 +23,7 @@ using P1/P1 stabilised tetrahedral finite elements.
 
 ## Key Code Snippet
 
-```rust
+```rust,ignore
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
@@ -40,7 +40,7 @@ let solution = FemSolver::solve(&problem, &FemConfig::default())?;
 
 The **Stokes equations** are the zero-inertia limit of Navier-Stokes:
 
-```
+```text
 −∇p + μ ∇²u = 0,   ∇·u = 0
 ```
 
