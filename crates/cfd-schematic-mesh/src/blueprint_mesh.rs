@@ -976,7 +976,8 @@ fn build_segment_mesh_with_policy(
         },
     };
 
-    let path = ChannelPath::straight(start_ext, end_ext).expect("invariant: straight channel path is valid");
+    let path = ChannelPath::straight(start_ext, end_ext)
+        .expect("invariant: straight channel path is valid");
     let mut pool = VertexPool::default_millifluidic();
     let mesher = SweepMesher {
         cap_start: true,
@@ -1260,7 +1261,9 @@ fn build_venturi_chain_mesh(
             position,
             Point3r::new(position.x + 1.0, position.y, position.z),
         );
-        let frame = &path_tmp.expect("invariant: straight channel path is valid").compute_frames()[0];
+        let frame = &path_tmp
+            .expect("invariant: straight channel path is valid")
+            .compute_frames()[0];
         let n = n_seg_pts;
         let two_pi = 2.0 * std::f64::consts::PI;
         (0..n)
@@ -1299,7 +1302,9 @@ fn build_venturi_chain_mesh(
             start_pos,
             Point3r::new(start_pos.x + 1.0, start_pos.y, start_pos.z),
         );
-        let frame = &path_tmp.expect("invariant: straight channel path is valid").compute_frames()[0];
+        let frame = &path_tmp
+            .expect("invariant: straight channel path is valid")
+            .compute_frames()[0];
         let center = pool.insert_or_weld(start_pos, -frame.tangent);
         let ring = &segment_rings[0].0;
         let n = ring.len();
@@ -1402,7 +1407,9 @@ fn build_venturi_chain_mesh(
         let end_pos = last_seg.end;
         let path_tmp =
             ChannelPath::straight(Point3r::new(end_pos.x - 1.0, end_pos.y, end_pos.z), end_pos);
-        let frames = path_tmp.expect("invariant: straight channel path is valid").compute_frames();
+        let frames = path_tmp
+            .expect("invariant: straight channel path is valid")
+            .compute_frames();
         let frame = frames
             .last()
             .expect("invariant: compute_frames on a 2-point straight path always yields ≥1 frame");

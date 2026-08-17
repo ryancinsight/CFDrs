@@ -306,7 +306,10 @@ fn normalized(path: &Path) -> String {
 }
 
 #[cfg(test)]
-#[expect(clippy::unwrap_used, reason = "test fixtures panic on setup/teardown failure")]
+#[expect(
+    clippy::unwrap_used,
+    reason = "test fixtures panic on setup/teardown failure"
+)]
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};

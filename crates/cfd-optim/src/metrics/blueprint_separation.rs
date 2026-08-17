@@ -110,12 +110,11 @@ pub fn compute_blueprint_separation_metrics(
             recovery_arm_idx += 1;
             if let Some(ref sub_split) = branch.recovery_sub_split {
                 if n_recoveries < 4 && !sub_split.sub_branches.is_empty() {
-                    let sub_widths: Vec<f64> =
-                        sub_split
-                            .sub_branches
-                            .iter()
-                            .map(|sub_branch| sub_branch.width_m.into_base())
-                            .collect();
+                    let sub_widths: Vec<f64> = sub_split
+                        .sub_branches
+                        .iter()
+                        .map(|sub_branch| sub_branch.width_m.into_base())
+                        .collect();
                     let sub_dimensions: Vec<(f64, f64)> = sub_split
                         .sub_branches
                         .iter()
@@ -137,9 +136,7 @@ pub fn compute_blueprint_separation_metrics(
                     let recovery_w = sub_split
                         .sub_branches
                         .get(sub_split.recovery_arm_index)
-                        .map_or(sub_widths[0], |sub_branch| {
-                            sub_branch.width_m.into_base()
-                        });
+                        .map_or(sub_widths[0], |sub_branch| sub_branch.width_m.into_base());
                     let recovery_dh_m = Length::from_base(
                         2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18),
                     );

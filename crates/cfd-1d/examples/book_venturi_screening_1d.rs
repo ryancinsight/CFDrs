@@ -1,11 +1,11 @@
 //! Book example: compact 1D Venturi selective-screening workflow.
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Pressure, Velocity,
+};
 use cfd_1d::{
     assess_venturi_screening, evaluate_venturi_screening, venturi_taper_length_m,
     VenturiScreeningInput,
-};
-use aequitas::systems::si::quantities::{
-    DynamicViscosity, Length, MassDensity, Pressure, Velocity,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -41,10 +41,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = evaluate_venturi_screening(input)?;
     let assessment = assess_venturi_screening(&result);
 
-    assert!(result.cavitation_number.is_finite(), "cavitation number must be finite");
+    assert!(
+        result.cavitation_number.is_finite(),
+        "cavitation number must be finite"
+    );
     assert!(result.effective_throat_velocity_m_s.into_base() > upstream_velocity);
-    assert!(result.bernoulli_drop_pa.into_base() > 0.0, "Bernoulli drop must be positive");
-    assert!(result.throat_static_pressure_pa.into_base() > 0.0, "throat pressure must stay physical");
+    assert!(
+        result.bernoulli_drop_pa.into_base() > 0.0,
+        "Bernoulli drop must be positive"
+    );
+    assert!(
+        result.throat_static_pressure_pa.into_base() > 0.0,
+        "throat pressure must stay physical"
+    );
 
     let summary = format!(
         "sigma={:.6}\nvelocity_up={:.6}\nvelocity_throat={:.6}\npressure_drop_pa={:.6}\nregime={:?}\nrisk={:?}\n",

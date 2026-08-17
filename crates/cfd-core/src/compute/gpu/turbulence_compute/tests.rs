@@ -12,16 +12,26 @@ fn coordinates(dimensions: [usize; 2], field: impl Fn(usize, usize) -> f32) -> V
         .collect()
 }
 
+fn compute() -> Option<GpuTurbulenceCompute> {
+    match GpuTurbulenceCompute::new() {
+        Ok(compute) => Some(compute),
+        Err(error) => {
+            eprintln!("Skipping GPU turbulence test: {error:?}");
+            None
+        }
+    }
+}
+
 #[test]
 fn smagorinsky_matches_linear_strain_and_zeroes_boundaries() {
+    let Some(compute) = compute() else { return };
     let dimensions = [9, 5];
     let grid = TurbulenceGrid::new(dimensions, [1.0; 2]).unwrap();
     let velocity_x = coordinates(dimensions, |x, _| x as f32);
     let velocity_y = coordinates(dimensions, |_, y| y as f32);
     let mut output = vec![-1.0; grid.element_count()];
 
-    GpuTurbulenceCompute::new()
-        .unwrap()
+    compute
         .compute_smagorinsky_sgs(&velocity_x, &velocity_y, grid, 0.5, &mut output)
         .unwrap();
 
@@ -37,11 +47,11 @@ fn smagorinsky_matches_linear_strain_and_zeroes_boundaries() {
 
 #[test]
 fn des_grid_scale_is_input_independent_constant() {
+    let Some(compute) = compute() else { return };
     let grid = TurbulenceGrid::new([5, 3], [0.25, 1.0]).unwrap();
     let mut output = vec![0.0; grid.element_count()];
 
-    GpuTurbulenceCompute::new()
-        .unwrap()
+    compute
         .compute_des_length_scale(grid, 0.5, &mut output)
         .unwrap();
 
@@ -50,14 +60,12 @@ fn des_grid_scale_is_input_independent_constant() {
 
 #[test]
 fn wall_distance_matches_rectangular_geometry() {
+    let Some(compute) = compute() else { return };
     let dimensions = [5, 5];
     let grid = TurbulenceGrid::new(dimensions, [0.5, 0.25]).unwrap();
     let mut output = vec![-1.0; grid.element_count()];
 
-    GpuTurbulenceCompute::new()
-        .unwrap()
-        .compute_wall_distance(grid, &mut output)
-        .unwrap();
+    compute.compute_wall_distance(grid, &mut output).unwrap();
 
     let expected = coordinates(dimensions, |x, y| {
         let distance_x = x.min(dimensions[0] - 1 - x) as f32 * 0.5;
@@ -76,7 +84,7 @@ fn rejects_invalid_grid_lengths_constants_and_values() {
     let grid = TurbulenceGrid::new([3, 3], [1.0; 2]).unwrap();
     let field = vec![0.0; grid.element_count()];
     let mut output = vec![0.0; grid.element_count()];
-    let compute = GpuTurbulenceCompute::new().unwrap();
+    let Some(compute) = compute() else { return };
     let length_error = compute
         .compute_smagorinsky_sgs(&field[..8], &field, grid, 0.1, &mut output)
         .unwrap_err();

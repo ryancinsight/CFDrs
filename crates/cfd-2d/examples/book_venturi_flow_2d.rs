@@ -28,9 +28,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let velocity_rel_err =
         (solution.u_throat - bernoulli.velocity_throat()).abs() / bernoulli.velocity_throat();
 
-    assert!(solution.u_throat.is_finite(), "throat velocity must be finite");
-    assert!(solution.p_throat.is_finite(), "throat pressure must be finite");
-    assert!(solution.dp_throat > 0.0, "Venturi throat pressure drop must be positive");
+    assert!(
+        solution.u_throat.is_finite(),
+        "throat velocity must be finite"
+    );
+    assert!(
+        solution.p_throat.is_finite(),
+        "throat pressure must be finite"
+    );
+    assert!(
+        solution.dp_throat > 0.0,
+        "Venturi throat pressure drop must be positive"
+    );
     assert!(
         velocity_rel_err < 0.2,
         "expected throat velocity to stay within 20% of Bernoulli, got {velocity_rel_err}"

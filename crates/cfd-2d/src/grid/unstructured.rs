@@ -120,8 +120,7 @@ impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
             return Vec::new();
         }
 
-        self.connectivity_indices
-            [self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
+        self.connectivity_indices[self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
             .iter()
             .map(|&neighbor_id| {
                 let ni = neighbor_id % self.nx;
@@ -136,7 +135,8 @@ impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
         let nx = self.nx;
 
         let neighbors: &[usize] = if id + 1 < self.connectivity_offsets.len() {
-            &self.connectivity_indices[self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
+            &self.connectivity_indices
+                [self.connectivity_offsets[id]..self.connectivity_offsets[id + 1]]
         } else {
             &[]
         };

@@ -113,36 +113,49 @@ fn compare_case(case: ComparisonCase) {
     );
 }
 
-#[test]
-fn primitive_selective_split_tree_1d_2d_cross_fidelity() {
-    let cases = [
-        ComparisonCase {
-            label: "Bi",
-            split_kind: PrimitiveSelectiveSplitKind::Bi,
-            max_flow_error_pct: 50.0,
-            mean_flow_error_pct: 35.0,
-        },
-        ComparisonCase {
-            label: "Tri",
-            split_kind: PrimitiveSelectiveSplitKind::Tri,
-            max_flow_error_pct: 50.0,
-            mean_flow_error_pct: 35.0,
-        },
-        ComparisonCase {
-            label: "Quad",
-            split_kind: PrimitiveSelectiveSplitKind::Quad,
-            max_flow_error_pct: 50.0,
-            mean_flow_error_pct: 35.0,
-        },
-        ComparisonCase {
-            label: "Penta",
-            split_kind: PrimitiveSelectiveSplitKind::Penta,
-            max_flow_error_pct: 50.0,
-            mean_flow_error_pct: 35.0,
-        },
-    ];
+const PRIMITIVE_SELECTIVE_CASES: [ComparisonCase; 4] = [
+    ComparisonCase {
+        label: "Bi",
+        split_kind: PrimitiveSelectiveSplitKind::Bi,
+        max_flow_error_pct: 50.0,
+        mean_flow_error_pct: 35.0,
+    },
+    ComparisonCase {
+        label: "Tri",
+        split_kind: PrimitiveSelectiveSplitKind::Tri,
+        max_flow_error_pct: 50.0,
+        mean_flow_error_pct: 35.0,
+    },
+    ComparisonCase {
+        label: "Quad",
+        split_kind: PrimitiveSelectiveSplitKind::Quad,
+        max_flow_error_pct: 50.0,
+        mean_flow_error_pct: 35.0,
+    },
+    ComparisonCase {
+        label: "Penta",
+        split_kind: PrimitiveSelectiveSplitKind::Penta,
+        max_flow_error_pct: 50.0,
+        mean_flow_error_pct: 35.0,
+    },
+];
 
-    for case in cases {
-        compare_case(case);
-    }
+#[test]
+fn primitive_selective_split_tree_1d_2d_cross_fidelity_bi() {
+    compare_case(PRIMITIVE_SELECTIVE_CASES[0]);
+}
+
+#[test]
+fn primitive_selective_split_tree_1d_2d_cross_fidelity_tri() {
+    compare_case(PRIMITIVE_SELECTIVE_CASES[1]);
+}
+
+#[test]
+fn primitive_selective_split_tree_1d_2d_cross_fidelity_quad() {
+    compare_case(PRIMITIVE_SELECTIVE_CASES[2]);
+}
+
+#[test]
+fn primitive_selective_split_tree_1d_2d_cross_fidelity_penta() {
+    compare_case(PRIMITIVE_SELECTIVE_CASES[3]);
 }

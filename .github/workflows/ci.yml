@@ -7,8 +7,85 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: 1.97.0
 
 jobs:
+  rust-workspace:
+    name: Rust workspace gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Keep the measured finite-volume/FEM cases out of the parallel suite.
+      # They are run in a second invocation below so unrelated tests cannot
+      # consume the hosted runner while their existing per-test budget holds.
+      NUMERICAL_FIDELITY_FILTER: >-
+        test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) |
+        test(/test_venturi_blood_flow/) |
+        test(/ga_validation_geometry_produces_converged_informative_2d_result/) |
+        test(/microventuri_fallback_case_produces_converged_informative_2d_result/) |
+        test(/microventuri_35um_case_produces_converged_informative_2d_result/) |
+        test(/cross_fidelity_trifurcation_dominance/) |
+        test(/test_benchmark_run_integration/) |
+        test(/test_step_11_lid_driven_cavity/) |
+        test(/cross_fidelity_stenosis_shear_thinning/) |
+        test(/cross_fidelity_venturi_(two_dimensional|three_dimensional)_loss_coefficient/)
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Atlas path dependencies
+        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
+        with:
+          manifest: Cargo.toml
+          destination: ..
+          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+
+      - name: Normalize materialized dependency lock
+        # The Atlas checkout action replaces git providers with path sources.
+        # Regenerate the ephemeral lock before every later --locked gate.
+        run: cargo metadata --format-version 1 --all-features > /dev/null
+
+      - name: Install nextest
+        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
+        with:
+          tool: cargo-nextest@0.9.140
+
+      - name: Install native fontconfig headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libfontconfig1-dev
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-workspace-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Check
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Tests
+        run: cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
+
+      - name: Numerical fidelity tests
+        run: cargo nextest run --workspace --no-fail-fast --locked -E "$NUMERICAL_FIDELITY_FILTER" --test-threads 1
+
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
+
   check-figures:
     name: Check book figures SSOT
     runs-on: ubuntu-latest
@@ -19,14 +96,19 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@1a7cdca7309f4a765b5bf644704521fa7c849208
+        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
         with:
           manifest: Cargo.toml
           destination: ..
-          atlas_ref: 1a7cdca7309f4a765b5bf644704521fa7c849208
+          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Normalize materialized dependency lock
+        run: cargo metadata --format-version 1 --all-features > /dev/null
 
       - name: Cache cargo dependencies
         uses: actions/cache@v6
@@ -38,4 +120,4 @@ jobs:
           key: ${{ runner.os }}-cargo-xtask-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check book figures
-        run: cargo run -p xtask -- check-figures
+        run: cargo run --locked -p xtask -- check-figures
