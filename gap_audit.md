@@ -45,6 +45,24 @@ slice and is not represented as a successful gate.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
+
+`solve_adaptive` previously passed `min_scalar(target_residual,
+config.tolerance)` to each SIMPLEC/PIMPLE step. The venturi caller derives a
+dimensional target from the grid's velocity-gradient scale and documents that
+target as the engineering convergence contract; the minimum operation instead
+forced the solver toward a fixed `2e-4` threshold that is unreachable at the
+microventuri scale. The provider now uses the larger of the caller target and
+configured tolerance, so the configured value remains a lower bound without
+discarding the problem scale.
+
+The exact two-test locked Nextest filter passes at source head
+`0d725752-ad6c-4365-a569-013ca0caf8c5`: the 35 µm test passes in 1.05 s after
+one SIMPLEC iteration, and the 3D trifurcation test passes in 16.56 s. The
+tests and 30-second budget are unchanged. These are local timing observations,
+not a controlled cross-machine speedup claim; hosted exact-head verification
+remains required.
+
 ## SIMPLEC pressure-solid workspace churn — CFDRS-PERF-108 (local implementation closed 2026-08-17)
 
 The high-contraction collocated SIMPLEC path already cached the pressure-solid

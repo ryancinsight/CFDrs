@@ -29,6 +29,21 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
+
+**Owner:** Atlas session; scope is `cfd-2d` adaptive SIMPLEC/PIMPLE
+convergence control and the exact CFDrs fidelity callers. **Acceptance:** keep
+the caller's dimensional target as the termination contract, retain the
+configured tolerance as a lower bound, preserve value-semantic outputs, and
+pass the exact hosted Rust and Pages gates at the final source head without
+changing test workloads or budgets.
+
+The previous `min_scalar` selection forced the 35 µm caller into an unreachable
+fixed threshold. The provider now selects `max_scalar(target_residual,
+config.tolerance)`. The exact two-test locked Nextest filter passes locally at
+`0d725752-ad6c-4365-a569-013ca0caf8c5`; hosted confirmation is the remaining
+acceptance gate.
+
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` SIMPLEC/PIMPLE pressure-solid

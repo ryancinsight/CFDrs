@@ -1,5 +1,18 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
+
+- [x] Replace the fixed-threshold `min_scalar` selection with the caller's
+      problem-scaled target while retaining the configured tolerance as the
+      lower bound.
+- [x] Run the unchanged exact 35 µm and 3D trifurcation value-semantic filter
+      through locked Nextest: 2/2 pass at run
+      `0d725752-ad6c-4365-a569-013ca0caf8c5`.
+- [x] Route production debug output through `tracing` and consume the
+      provider solver reports in the touched validation paths.
+- [ ] Push the final source head and pass the exact hosted Rust and Pages
+      gates without changing the committed budget or workloads.
+
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces
 
 - [x] Retain the cached solid-distance layers while reusing their validity
