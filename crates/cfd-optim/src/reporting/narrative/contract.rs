@@ -73,18 +73,39 @@ fn ensure_contains(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn load_contract_text_from_workspace() {
-        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("crate parent")
-            .parent()
-            .expect("workspace root")
-            .to_path_buf();
-        let txt = load_m12_contract_text(&workspace_root).expect("contract text must load");
-        assert!(txt.description.contains("hydrodynamic"));
-        assert!(txt.deliverable.contains("Final report"));
+    fn load_contract_text_from_fixture() {
+        let unique_suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must be after the Unix epoch")
+            .as_nanos();
+        let workspace_root = std::env::temp_dir().join(format!(
+            "cfdrs-contract-{}-{unique_suffix}",
+            std::process::id()
+        ));
+        let report = workspace_root.join("report");
+        std::fs::create_dir_all(&report).expect("fixture report directory must be created");
+
+        let schedule = format!("{M12_DESCRIPTION}\n{M12_EXIT}\n{M12_DELIVERABLE}\n");
+        std::fs::write(
+            report.join(SCHEDULE_PATH.strip_prefix("report/").unwrap()),
+            schedule,
+        )
+        .expect("schedule fixture must be written");
+        std::fs::write(
+            report.join(TDD_PATH.strip_prefix("report/").unwrap()),
+            format!("{M12_DESCRIPTION}\n{TDD_LIMITS_USAGE}\n"),
+        )
+        .expect("TDD fixture must be written");
+
+        let result = load_m12_contract_text(&workspace_root);
+        let cleanup_result = std::fs::remove_dir_all(&workspace_root);
+        assert!(cleanup_result.is_ok(), "fixture cleanup must succeed");
+        let txt = result.expect("contract text must load from the fixture");
+        assert_eq!(txt.description, M12_DESCRIPTION);
+        assert_eq!(txt.exit_criteria, M12_EXIT);
+        assert_eq!(txt.deliverable, M12_DELIVERABLE);
     }
 }
