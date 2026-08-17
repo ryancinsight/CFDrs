@@ -7,8 +7,60 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: 1.97.0
 
 jobs:
+  rust-workspace:
+    name: Rust workspace gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Atlas path dependencies
+        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
+        with:
+          manifest: Cargo.toml
+          destination: ..
+          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+
+      - name: Install nextest
+        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
+        with:
+          tool: cargo-nextest@0.9.140
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-workspace-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Check
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo nextest run --workspace --no-fail-fast --locked
+
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
+
   check-figures:
     name: Check book figures SSOT
     runs-on: ubuntu-latest
