@@ -43,6 +43,11 @@
   separate local-resolution residual.
 - The Pages caller now builds `cfd-validation` and runs the shared `mdbook test`
   gate before publishing the CFDrs book.
+- **cfd-validation**: The backward-facing-step benchmark now borrows contiguous
+  Leto matrix storage once and hoists invariant stencil terms, removing repeated
+  layout work from its production hot loop without changing the update order or
+  committed Nextest budget. The preceding exact-head hosted run isolated the
+  remaining failure to `test_benchmark_run_integration` at 30.003 s.
 - `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
   zero result; documented negative inputs are handled before the provider call
   and the invariant is checked explicitly.

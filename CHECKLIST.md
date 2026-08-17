@@ -23,7 +23,16 @@
       shared workflow; this branch pins the exact fix. The source-correctness
       head also defines NaN propagation and signed-zero canonicalization for
       the hemolysis wrapper. New
-      exact-head CI and Pages runs `32044597678` and `32044597852` are queued.
+      exact-head CI and Pages runs `32046463302` and `32046464094` are queued
+      for source head `c86dc33f`. The preceding exact head `02c2ae80` reached
+      the hosted numerical-fidelity suite: 13/14 tests passed, while
+      `cfd-validation::benchmark_validation::test_benchmark_run_integration`
+      hit the unchanged 30-second budget at 30.003 s.
+- [x] Flatten the backward-facing-step stencil's contiguous Leto storage and
+      hoist invariant scalar terms in `c86dc33f`, preserving update order and
+      value semantics. Local format and diff gates pass; local locked Nextest
+      remains blocked before compilation by the shared Atlas overlay/lock
+      mismatch, so hosted exact-head verification is required.
 - [x] Retag every book diagram, equation, and command fence explicitly and
       mark workspace-context API excerpts as `rust,ignore`; local `mdbook test
       docs/book` and `mdbook build docs/book` pass.

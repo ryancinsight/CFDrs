@@ -58,6 +58,14 @@ The Pages caller now enables the shared `mdbook-test` gate and builds
 `cfd-validation` before testing; hosted confirmation is part of the exact-head
 closure below.
 
+At exact pre-runtime-fix head `02c2ae80`, hosted CI run `32044765872` completed
+format, check, ordinary tests, and 13/14 numerical-fidelity tests, but
+`cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the
+committed 30-second Nextest timeout at 30.003 s. The source fix at `c86dc33f`
+borrows contiguous Leto matrix storage once and hoists invariant stencil terms;
+it preserves the finite-difference update order and the test budget. New exact
+head CI run `32046463302` and Pages run `32046464094` are queued.
+
 At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas
 reusable action: GitHub returned 503 and then 429. The figure job passed after
