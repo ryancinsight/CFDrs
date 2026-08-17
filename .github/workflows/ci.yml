@@ -71,14 +71,16 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@1a7cdca7309f4a765b5bf644704521fa7c849208
+        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
         with:
           manifest: Cargo.toml
           destination: ..
-          atlas_ref: 1a7cdca7309f4a765b5bf644704521fa7c849208
+          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Cache cargo dependencies
         uses: actions/cache@v6
@@ -90,4 +92,4 @@ jobs:
           key: ${{ runner.os }}-cargo-xtask-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check book figures
-        run: cargo run -p xtask -- check-figures
+        run: cargo run --locked -p xtask -- check-figures
