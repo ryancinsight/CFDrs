@@ -47,6 +47,11 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
 
+      - name: Normalize materialized dependency lock
+        # The Atlas checkout action replaces git providers with path sources.
+        # Regenerate the ephemeral lock before every later --locked gate.
+        run: cargo metadata --format-version 1 --all-features > /dev/null
+
       - name: Install nextest
         uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
         with:
@@ -101,6 +106,9 @@ jobs:
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Normalize materialized dependency lock
+        run: cargo metadata --format-version 1 --all-features > /dev/null
 
       - name: Cache cargo dependencies
         uses: actions/cache@v6
