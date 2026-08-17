@@ -1,3 +1,19 @@
+## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (in progress 2026-08-17)
+
+The first implementation placed a new streamfunction–vorticity solver in
+`cfd-validation`, which violated provider-first ownership because `cfd-2d`
+already owns the SIMPLE Navier–Stokes field and mask path. The follow-up moves
+the step geometry mask, explicit inlet/outlet/no-slip contract, signed
+downstream lower-wall shear samples, and interpolated reattachment crossing to
+`crates/cfd-2d/src/solvers/ns_fvm/backward_step.rs`. The validation benchmark is
+now a thin adapter and no longer owns a second field solver or matrix type.
+
+Focused local compilation remains blocked before source diagnostics by the
+shared Atlas overlay and the pre-existing dirty lock: the overlay's peer
+`repos/asclepius` requires `aequitas ^0.1.0`, while the current local provider
+is `0.2.0`; `--locked` therefore refuses the required lock update. The exact
+hosted provider gate is required before merge.
+
 ## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (closed 2026-08-17)
 
 The Atlas conformance scan's one `existence_only_assertions` regression from
