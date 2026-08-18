@@ -84,8 +84,9 @@ fn test_gmres_basic() {
     let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let solver = GMRES::new(config, 4); // Restart after 4 iterations
 
-    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
-    assert!(result.is_ok(), "GMRES should converge");
+    solver
+        .solve(&a, &b, &mut x, None::<&IdentityPreconditioner>)
+        .expect("invariant: manufactured GMRES system converges");
 
     assert_residual_below(&a, &x, &b, 1.5);
 }
@@ -113,8 +114,9 @@ fn test_gmres_restart() {
     let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(200);
     let solver = GMRES::new(config, 3); // Small restart dimension
 
-    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
-    assert!(result.is_ok(), "GMRES with restart should converge");
+    solver
+        .solve(&a, &b, &mut x, None::<&IdentityPreconditioner>)
+        .expect("invariant: restarted manufactured GMRES system converges");
     assert_residual_below(&a, &x, &b, 1e-6);
 }
 
@@ -134,8 +136,9 @@ fn test_gmres_with_preconditioner() {
     let solver = GMRES::new(config, n);
     let precond = IdentityPreconditioner;
 
-    let result = solver.solve(&a, &b, &mut x, Some(&precond));
-    assert!(result.is_ok(), "GMRES with preconditioner should work");
+    solver
+        .solve(&a, &b, &mut x, Some(&precond))
+        .expect("invariant: preconditioned manufactured GMRES system converges");
 
     assert_residual_below(&a, &x, &b, 1e-8);
 }

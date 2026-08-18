@@ -31,7 +31,8 @@ fn bench_cg(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
+            .expect("invariant: CG benchmark matrix is structurally valid");
 
         let b = Array1::from_elem([n], 1.0);
 
@@ -85,7 +86,8 @@ fn bench_cg_convergence(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
+            .expect("invariant: CG convergence matrix is structurally valid");
         let b = Array1::from_elem([n], 1.0);
         let solver =
             ConjugateGradient::new(IterativeSolverConfig::new(1e-8).with_max_iterations(1000));

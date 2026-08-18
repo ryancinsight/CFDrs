@@ -186,10 +186,8 @@ fn test_amg_construction_edge_cases() {
 
     // Dimension mismatch at application is a typed error, not a panic.
     let mut wrong = Array1::zeros([n * n + 1]);
-    assert!(
-        amg.apply_to(&r, &mut wrong).is_err(),
-        "output-length mismatch must be rejected"
-    );
+    amg.apply_to(&r, &mut wrong)
+        .expect_err("output-length mismatch must be rejected");
 
     // A capped hierarchy depth (max_levels = 1) is honored.
     let deep = poisson_2d(16);

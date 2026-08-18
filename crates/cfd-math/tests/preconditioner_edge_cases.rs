@@ -186,20 +186,16 @@ fn test_ilu0_extreme_values() {
     let a = LetoCsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
         .expect("valid CSR matrix");
 
-    let result = ILUPreconditioner::factor(&a);
+    let ilu = ILUPreconditioner::factor(&a).expect("extreme-value ILU factorization");
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
+    apply_preconditioner(&ilu, &b, &mut x).expect("extreme-value ILU application should succeed");
 
-    if let Ok(ilu) = result {
-        let b = filled_array(n, 1.0);
-        let mut x = Array1::zeros([n]);
-
-        if apply_preconditioner(&ilu, &b, &mut x).is_ok() {
-            for i in 0..n {
-                assert!(
-                    x[i].is_finite(),
-                    "Solution should be finite with extreme values"
-                );
-            }
-        }
+    for i in 0..n {
+        assert!(
+            x[i].is_finite(),
+            "Solution should be finite with extreme values"
+        );
     }
 }
 

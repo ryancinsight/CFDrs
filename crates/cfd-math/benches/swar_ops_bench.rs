@@ -18,13 +18,14 @@ fn bench_simd_add_f64(c: &mut Criterion) {
     group.bench_function("add_f64", |bencher| {
         bencher.iter(|| {
             ops.add_f64(black_box(&a), black_box(&b), black_box(&mut result))
-                .unwrap();
+                .expect("invariant: equal-length SIMD benchmark vectors");
         })
     });
 
     group.bench_function("dot_f64", |bencher| {
         bencher.iter(|| {
-            ops.dot_f64(black_box(&a), black_box(&b)).unwrap();
+            ops.dot_f64(black_box(&a), black_box(&b))
+                .expect("invariant: equal-length SIMD benchmark vectors");
         })
     });
 

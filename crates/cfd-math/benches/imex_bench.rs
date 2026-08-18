@@ -45,7 +45,7 @@ fn bench_imex_step(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     imex.imex_step(f_explicit, f_implicit, jacobian_zero, t, &u0, dt)
-                        .unwrap(),
+                        .expect("invariant: IMEX benchmark step accepts its manufactured state"),
                 )
             });
         });

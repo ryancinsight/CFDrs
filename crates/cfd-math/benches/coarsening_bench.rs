@@ -39,7 +39,8 @@ fn poisson_matrix(n: usize) -> CsrMatrix<f64> {
         }
     }
 
-    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size).unwrap()
+    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size)
+        .expect("invariant: Poisson benchmark matrix is structurally valid")
 }
 
 fn bench_falgout_coarsening(c: &mut Criterion) {
@@ -53,7 +54,10 @@ fn bench_falgout_coarsening(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &_| {
             b.iter(|| {
-                black_box(falgout_coarsening(&matrix, threshold).unwrap());
+                black_box(
+                    falgout_coarsening(&matrix, threshold)
+                        .expect("invariant: Poisson benchmark coarsening succeeds"),
+                );
             });
         });
     }

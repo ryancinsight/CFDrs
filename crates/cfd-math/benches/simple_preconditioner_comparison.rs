@@ -370,7 +370,8 @@ fn taylor_hood_saddle(nx: usize, ny: usize) -> (CsrMatrix<f64>, usize, usize) {
         row_offsets.push(col_indices.len());
     }
 
-    let matrix = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
+    let matrix = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
+        .expect("invariant: SIMPLE benchmark matrix is structurally valid");
     (matrix, n_velocity, n_pressure)
 }
 
@@ -381,15 +382,19 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
             let (matrix, n_velocity, n_pressure) = taylor_hood_saddle(nx, nx);
             let n = n_velocity + n_pressure;
             let b = vec![1.0f64; n];
-            let b_array = Array1::from_shape_vec([n], b.clone()).unwrap();
-            let csr = SimplePreconditioner::new(&matrix, n_velocity, n_pressure).unwrap();
+            let b_array = Array1::from_shape_vec([n], b.clone())
+                .expect("invariant: SIMPLE benchmark RHS matches matrix shape");
+            let csr = SimplePreconditioner::new(&matrix, n_velocity, n_pressure)
+                .expect("invariant: SIMPLE benchmark preconditioner accepts matrix");
             let jagged = JaggedSimplePreconditioner::new(&matrix, n_velocity, n_pressure);
 
             let flat = build_flat_stores(&matrix, n_velocity, n_pressure);
 
             // Parity gate: the CSR store and the raw flat transcription must
             // reproduce the jagged outputs before any measurement is trusted.
-            let csr_output = csr.apply(&b_array).unwrap();
+            let csr_output = csr
+                .apply(&b_array)
+                .expect("invariant: SIMPLE benchmark application accepts RHS");
             let jagged_output = jagged.apply(&b_array);
             let flat_output = csr_flat_apply(
                 &flat.divergence_offsets,
@@ -422,7 +427,8 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
         build.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, _| {
             bencher.iter(|| {
                 black_box(
-                    SimplePreconditioner::new(black_box(matrix), *n_velocity, *n_pressure).unwrap(),
+                    SimplePreconditioner::new(black_box(matrix), *n_velocity, *n_pressure)
+                        .expect("invariant: SIMPLE benchmark preconditioner accepts matrix"),
                 );
             });
         });
@@ -443,7 +449,10 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
         let label = format!("{nx}x{nx}");
         apply.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, _| {
             bencher.iter(|| {
-                black_box(csr.apply(black_box(b_array)).unwrap());
+                black_box(
+                    csr.apply(black_box(b_array))
+                        .expect("invariant: SIMPLE benchmark application accepts RHS"),
+                );
             });
         });
         apply.bench_with_input(BenchmarkId::new("csr_flat", &label), &(), |bencher, _| {

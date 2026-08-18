@@ -24,7 +24,8 @@ mod tests {
         let b = vec![0.5f32, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5];
         let mut result = vec![0.0f32; 8];
 
-        ops.add(&a, &b, &mut result).unwrap();
+        ops.add(&a, &b, &mut result)
+            .expect("invariant: equal-length f32 addition vectors");
 
         let expected = [1.5f32, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5];
         for (actual, expected) in result.iter().zip(expected.iter()) {
@@ -41,7 +42,8 @@ mod tests {
         let b = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let mut result = vec![0.0f32; 8];
 
-        ops.sub(&a, &b, &mut result).unwrap();
+        ops.sub(&a, &b, &mut result)
+            .expect("invariant: equal-length f32 subtraction vectors");
 
         let expected = [9.0f32, 7.0, 5.0, 3.0, 1.0, -1.0, -3.0, -5.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
@@ -58,7 +60,8 @@ mod tests {
         let b = vec![2.0f32, 3.0, 4.0, 5.0];
         let mut result = vec![0.0f32; 4];
 
-        ops.mul(&a, &b, &mut result).unwrap();
+        ops.mul(&a, &b, &mut result)
+            .expect("invariant: equal-length f32 multiplication vectors");
 
         let expected = [2.0f32, 6.0, 12.0, 20.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
@@ -75,7 +78,8 @@ mod tests {
         let b = vec![0.5f64, 1.5, 2.5, 3.5];
         let mut result = vec![0.0f64; 4];
 
-        ops.add_f64(&a, &b, &mut result).unwrap();
+        ops.add_f64(&a, &b, &mut result)
+            .expect("invariant: equal-length f64 addition vectors");
 
         let expected = [1.5f64, 3.5, 5.5, 7.5];
         for (actual, expected) in result.iter().zip(expected.iter()) {
@@ -92,7 +96,8 @@ mod tests {
         let b = vec![1.0f64, 2.0, 3.0, 4.0];
         let mut result = vec![0.0f64; 4];
 
-        ops.sub_f64(&a, &b, &mut result).unwrap();
+        ops.sub_f64(&a, &b, &mut result)
+            .expect("invariant: equal-length f64 subtraction vectors");
 
         let expected = [9.0f64, 7.0, 5.0, 3.0];
         for (actual, expected) in result.iter().zip(expected.iter()) {
@@ -109,7 +114,8 @@ mod tests {
         let b = vec![1.0f32, 2.0]; // Different size
         let mut result = vec![0.0f32; 3];
 
-        assert!(ops.add(&a, &b, &mut result).is_err());
+        ops.add(&a, &b, &mut result)
+            .expect_err("dimension mismatch must be rejected");
     }
 
     /// Test SIMD performance regression (no degradation vs scalar)
@@ -128,8 +134,10 @@ mod tests {
 
         let start = Instant::now();
         for _ in 0..10 {
-            ops.add(&a, &b, &mut temp_simd).unwrap();
-            ops.mul(&temp_simd, &b, &mut result_simd).unwrap();
+            ops.add(&a, &b, &mut temp_simd)
+                .expect("invariant: performance vectors have equal length");
+            ops.mul(&temp_simd, &b, &mut result_simd)
+                .expect("invariant: performance vectors have equal length");
         }
         let simd_time = start.elapsed();
         std::hint::black_box(&result_simd);
@@ -172,7 +180,8 @@ mod tests {
             let b = (0..size).map(|x| x as f32 * 0.05).collect::<Vec<f32>>();
             let mut result = vec![0.0f32; size];
 
-            ops.add(&a, &b, &mut result).unwrap();
+            ops.add(&a, &b, &mut result)
+                .expect("invariant: variable-size vectors have equal length");
 
             for i in 0..size {
                 let expected = a[i] + b[i];
@@ -191,7 +200,8 @@ mod tests {
         let b = vec![1.0f32; 4];
         let mut result = vec![0.0f32; 4];
 
-        ops.add(&a, &b, &mut result).unwrap();
+        ops.add(&a, &b, &mut result)
+            .expect("invariant: zero-case vectors have equal length");
         assert!(result.iter().all(|&v| v == 1.0));
 
         // Negative values
@@ -199,7 +209,8 @@ mod tests {
         let b = vec![1.0f32, 2.0, 3.0, 4.0];
         let mut result = vec![0.0f32; 4];
 
-        ops.add(&a, &b, &mut result).unwrap();
+        ops.add(&a, &b, &mut result)
+            .expect("invariant: signed-case vectors have equal length");
         assert!(result.iter().all(|&v| v == 0.0));
     }
 }
@@ -222,11 +233,12 @@ mod cfd_integration_tests {
         let dt_vec = vec![dt; 4];
 
         let mut scaled_rhs = vec![0.0f32; 4];
-        ops.mul(&dt_vec, &rhs, &mut scaled_rhs).unwrap();
+        ops.mul(&dt_vec, &rhs, &mut scaled_rhs)
+            .expect("invariant: time-step vectors have equal length");
 
         let mut velocity_new = vec![0.0f32; 4];
         ops.add(&velocity_old, &scaled_rhs, &mut velocity_new)
-            .unwrap();
+            .expect("invariant: velocity update vectors have equal length");
 
         let expected = [1.001f32, 2.002, 3.003, 4.004];
         for (actual, expected) in velocity_new.iter().zip(expected.iter()) {
@@ -254,7 +266,8 @@ mod cfd_integration_tests {
         let ax_values = (0..ax.shape()[0]).map(|idx| ax[idx]).collect::<Vec<f32>>();
 
         let mut residual = vec![0.0f32; 4];
-        ops.sub(&rhs, &ax_values, &mut residual).unwrap();
+        ops.sub(&rhs, &ax_values, &mut residual)
+            .expect("invariant: residual vectors have equal length");
 
         let expected = rhs
             .iter()
@@ -289,7 +302,8 @@ mod cfd_integration_tests {
         }
 
         let mut convection = vec![0.0f32; 4];
-        ops.mul(&u, &slopes, &mut convection).unwrap();
+        ops.mul(&u, &slopes, &mut convection)
+            .expect("invariant: convection vectors have equal length");
 
         let expected = u
             .iter()
