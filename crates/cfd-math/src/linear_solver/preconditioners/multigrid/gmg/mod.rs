@@ -80,9 +80,7 @@ mod tests {
     #[test]
     fn test_geometric_multigrid_creation() {
         let gmg = GeometricMultigrid::<f64>::new(16, 16, 4);
-        assert!(gmg.is_ok(), "GMG creation should succeed");
-
-        let gmg = gmg.unwrap();
+        let gmg = gmg.expect("invariant: positive grid dimensions create GMG");
         assert!(!gmg.grid_sizes.is_empty(), "Should have grid levels");
         assert!(!gmg.matrices.is_empty(), "Should have matrices");
         assert_eq!(gmg.grid_sizes[0], (16, 16), "Finest grid should be 16x16");
@@ -91,9 +89,7 @@ mod tests {
     #[test]
     fn test_poisson_matrix_creation() {
         let matrix = GeometricMultigrid::<f64>::create_poisson_matrix(4, 4, 0.25);
-        assert!(matrix.is_ok(), "Poisson matrix creation should succeed");
-
-        let matrix = matrix.unwrap();
+        let matrix = matrix.expect("invariant: positive grid dimensions create Poisson matrix");
         assert_eq!(matrix.shape(), [16, 16], "Matrix should be 16x16");
 
         // Check that diagonal elements are positive
@@ -109,9 +105,11 @@ mod tests {
 
     #[test]
     fn restrict_residual_full_weighting_matches_boundary_stencil() {
-        let gmg = GeometricMultigrid::<f64>::new(3, 3, 2).unwrap();
+        let gmg = GeometricMultigrid::<f64>::new(3, 3, 2)
+            .expect("invariant: positive grid dimensions create GMG");
         let fine_residual =
-            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect()).unwrap();
+            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect())
+                .expect("invariant: residual data matches its shape");
 
         let restricted = gmg.restrict_residual(&fine_residual, 3, 3, 2, 2);
 
@@ -124,7 +122,8 @@ mod tests {
 
     #[test]
     fn test_geometric_multigrid_solve() {
-        let mut gmg = GeometricMultigrid::<f64>::new(8, 8, 3).unwrap();
+        let mut gmg = GeometricMultigrid::<f64>::new(8, 8, 3)
+            .expect("invariant: positive grid dimensions create GMG");
 
         // Create a simple test problem: -Δu = 1 with u=0 on boundary
         let n = 8 * 8;
@@ -144,7 +143,9 @@ mod tests {
             }
         }
 
-        let (solution, iterations, residual_norm) = gmg.solve(&rhs, 1e-6, 10).unwrap();
+        let (solution, iterations, residual_norm) = gmg
+            .solve(&rhs, 1e-6, 10)
+            .expect("invariant: configured Poisson solve converges");
 
         assert!(iterations > 0, "Should require at least one iteration");
         assert!(residual_norm < 1.0, "Residual should be reduced");
@@ -222,7 +223,8 @@ mod tests {
 
     #[test]
     fn test_fas_solve_linear_problem() {
-        let gmg = GeometricMultigrid::<f64>::new(16, 16, 3).unwrap();
+        let gmg = GeometricMultigrid::<f64>::new(16, 16, 3)
+            .expect("invariant: positive grid dimensions create GMG");
         let operator = LinearPoissonOperator { gmg: &gmg };
 
         // Test problem: -Δu = 1, u=0 on boundary
@@ -246,8 +248,9 @@ mod tests {
         // might be slower than optimized linear MG. Relaxing tolerance for this test.
         let tolerance = 1e-3;
         let max_iter = 50;
-        let (solution, iterations, residual_norm) =
-            gmg.solve_fas(&operator, &rhs, tolerance, max_iter).unwrap();
+        let (solution, iterations, residual_norm) = gmg
+            .solve_fas(&operator, &rhs, tolerance, max_iter)
+            .expect("invariant: configured FAS solve converges");
 
         assert!(iterations > 0);
         assert!(iterations <= max_iter);
@@ -257,7 +260,9 @@ mod tests {
         );
 
         // Compare with standard linear solve
-        let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).unwrap();
+        let (linear_sol, _, _) = gmg
+            .solve(&rhs, tolerance, max_iter)
+            .expect("invariant: configured linear solve converges");
 
         let diff = vector_sub(&solution, &linear_sol);
         // The solutions should be relatively close
