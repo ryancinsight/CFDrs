@@ -1,6 +1,9 @@
+//! Criterion benchmark for the provider-backed turbulence length-scale kernel.
+
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};
 use criterion::{criterion_group, criterion_main, Criterion};
 
+/// Measures the DES length-scale kernel on a fixed two-dimensional grid.
 fn bench_compute_des(c: &mut Criterion) {
     // Initialize GPU compute
     // We do this inside the benchmark function but outside the loop
@@ -23,9 +26,13 @@ fn bench_compute_des(c: &mut Criterion) {
             compute
                 .compute_des_length_scale(grid, 0.65, &mut output)
                 .expect("Computation failed");
-        })
+        });
     });
 }
 
+#[expect(
+    missing_docs,
+    reason = "criterion_group generates the public benchmark-group function"
+)]
 criterion_group!(benches, bench_compute_des);
 criterion_main!(benches);
