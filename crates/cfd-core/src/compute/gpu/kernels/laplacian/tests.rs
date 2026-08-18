@@ -12,14 +12,14 @@ fn create_kernel() -> Option<Laplacian2DKernel> {
     let context = match GpuContext::create() {
         Ok(context) => context,
         Err(error) => {
-            eprintln!("Skipping GPU Laplacian test: {error:?}");
+            tracing::debug!(error = ?error, "GPU Laplacian test unavailable");
             return None;
         }
     };
     match Laplacian2DKernel::new(Arc::new(context)) {
         Ok(kernel) => Some(kernel),
         Err(error) => {
-            eprintln!("Skipping GPU Laplacian test: {error:?}");
+            tracing::debug!(error = ?error, "GPU Laplacian test unavailable");
             None
         }
     }
@@ -592,9 +592,7 @@ fn test_gpu_cpu_performance_benchmark() {
     let num_warmup_runs = 5;
     let num_timing_runs = 10;
 
-    println!("\n=== GPU vs CPU Performance Benchmark ===");
-    println!("Grid Size | CPU Time (ms) | GPU Time (ms) | Speedup | Throughput (MCells/s)");
-    println!("----------|---------------|---------------|---------|----------------------");
+    tracing::info!("GPU vs CPU Laplacian performance benchmark");
 
     for &n in &grid_sizes {
         let dx = 1.0 / (n - 1) as f32;
@@ -685,12 +683,14 @@ fn test_gpu_cpu_performance_benchmark() {
         let cpu_throughput = total_cells / (cpu_time / 1000.0) / 1e6; // MCells/s
         let gpu_throughput = total_cells / (gpu_time / 1000.0) / 1e6; // MCells/s
 
-        println!(
-            "{n:9} | {cpu_time:13.3} | {gpu_time:13.3} | {speedup:7.2}x | {cpu_throughput:18.1} (CPU)"
-        );
-        println!(
-            "{:9} | {:13} | {:13} | {:7} | {gpu_throughput:18.1} (GPU)",
-            "", "", "", ""
+        tracing::info!(
+            grid_size = n,
+            cpu_time_ms = cpu_time,
+            gpu_time_ms = gpu_time,
+            speedup,
+            cpu_throughput_mcells = cpu_throughput,
+            gpu_throughput_mcells = gpu_throughput,
+            "Laplacian benchmark sample"
         );
 
         // Verify correctness for this grid size.

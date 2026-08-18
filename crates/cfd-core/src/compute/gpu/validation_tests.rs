@@ -13,7 +13,7 @@ mod tests {
         let context = if let Ok(ctx) = GpuContext::create() {
             Arc::new(ctx)
         } else {
-            eprintln!("GPU not available, skipping test");
+            tracing::debug!("GPU validation test unavailable");
             return;
         };
 
