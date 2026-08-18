@@ -553,12 +553,15 @@ mod tests {
         let routing = tracker.classify_routing(&trajectories);
 
         let q_frac = flow.flow_fraction_wide().into_base();
-        eprintln!("--- Asymmetric bifurcation cell tracking ---");
-        eprintln!("  center_frac = {center_frac}, flow_fraction_wide = {q_frac:.4}");
-        eprintln!("  y_div = {:.6} m", y_div.into_base());
-        eprintln!(
+        tracing::warn!("--- Asymmetric bifurcation cell tracking ---");
+        tracing::warn!("  center_frac = {center_frac}, flow_fraction_wide = {q_frac:.4}");
+        tracing::warn!("  y_div = {:.6} m", y_div.into_base());
+        tracing::warn!(
             "  CTC center {}/{}, RBC center {}/{}",
-            routing.ctc_center, routing.ctc_total, routing.rbc_center, routing.rbc_total,
+            routing.ctc_center,
+            routing.ctc_total,
+            routing.rbc_center,
+            routing.rbc_total,
         );
 
         let exited = trajectories
@@ -570,7 +573,7 @@ mod tests {
         if routing.ctc_total >= 5 && routing.rbc_total >= 5 {
             let ctc_rate = routing.ctc_center as f64 / routing.ctc_total as f64;
             let rbc_rate = routing.rbc_center as f64 / routing.rbc_total as f64;
-            eprintln!("  CTC center rate = {ctc_rate:.3}, RBC center rate = {rbc_rate:.3}");
+            tracing::warn!("  CTC center rate = {ctc_rate:.3}, RBC center rate = {rbc_rate:.3}");
             // CTCs should route to center at >= rate than RBCs.
             assert!(
                 ctc_rate >= rbc_rate,

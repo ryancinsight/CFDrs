@@ -253,7 +253,8 @@ mod tests {
     use super::*;
 
     fn make_grid() -> StructuredGrid2D<f64> {
-        StructuredGrid2D::new(8, 8, 0.0, 8.0, 0.0, 8.0).unwrap()
+        StructuredGrid2D::new(8, 8, 0.0, 8.0, 0.0, 8.0)
+            .expect("invariant: test fixture operation succeeds")
     }
 
     #[test]
@@ -274,7 +275,7 @@ mod tests {
                 0.0
             }
         })
-        .unwrap();
+        .expect("invariant: test fixture operation succeeds");
 
         // Cells with i > 4 should be refined
         for i in 5..8 {
@@ -296,7 +297,7 @@ mod tests {
         // Refine 3 times, but max_level=2 should cap it
         for _ in 0..3 {
             grid.mark_for_refinement(RefinementCriterion::Gradient(0.0), |_, _| 1.0)
-                .unwrap();
+                .expect("invariant: test fixture operation succeeds");
         }
         for &level in grid.levels() {
             assert!(level <= 2, "Refinement level should not exceed max_level=2");
@@ -312,7 +313,8 @@ mod tests {
                 grid.set_level(i, j, 1);
             }
         }
-        grid.coarsen().unwrap();
+        grid.coarsen()
+            .expect("invariant: test fixture operation succeeds");
         let any_reduced = grid.levels().contains(&0);
         assert!(
             any_reduced,
@@ -324,7 +326,8 @@ mod tests {
     fn test_coarsen_at_zero_is_noop() {
         let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
         // All levels are 0, coarsen should do nothing
-        grid.coarsen().unwrap();
+        grid.coarsen()
+            .expect("invariant: test fixture operation succeeds");
         for &level in grid.levels() {
             assert_eq!(level, 0);
         }

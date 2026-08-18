@@ -1,6 +1,6 @@
 //! Momentum solver validation tests
 //!
-//! Tests cover momentum equation solving with BiCGSTAB convergence analysis.
+//! Tests cover momentum equation solving with `BiCGSTAB` convergence analysis.
 //!
 //! References:
 //! - Patankar, S. V. (1980). "Numerical Heat Transfer and Fluid Flow"
@@ -15,7 +15,7 @@ use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSol
 
 /// Test that momentum solver can be created and configured
 #[test]
-fn test_momentum_solver_creation() -> CfdResult<()> {
+fn test_momentum_solver_creation() {
     let nx = 3;
     let ny = 3;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
@@ -47,13 +47,11 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
     solver_with_bc.set_velocity_relaxation(0.7); // Valid range 0 < α ≤ 1
     solver_with_bc.set_velocity_relaxation(0.5); // More stable but slower
                                                  //solver_with_bc.set_velocity_relaxation(1.1); // This would be invalid, but not tested here
-
-    Ok(())
 }
 
 /// Test basic momentum solver execution with simple boundary conditions
 #[test]
-fn test_momentum_solver_basic_execution() -> CfdResult<()> {
+fn test_momentum_solver_basic_execution() {
     let nx = 3;
     let ny = 3;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
@@ -108,13 +106,11 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
     // Should not crash (may or may not converge depending on solver settings)
     assert!(result.is_ok(), "Momentum solver should complete");
     // Note: Convergence depends on numerical parameters, we verify execution completes
-
-    Ok(())
 }
 
 /// Test pressure-velocity coupling simulation setup
 #[test]
-fn test_pressure_velocity_coupling_setup() -> CfdResult<()> {
+fn test_pressure_velocity_coupling_setup() {
     let nx = 3;
     let ny = 3;
     let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
@@ -131,15 +127,15 @@ fn test_pressure_velocity_coupling_setup() -> CfdResult<()> {
     }
 
     // Verify field values are set correctly
-    assert_eq!(fields.u[(0, 0)], 0.1);
-    assert_eq!(fields.u[(2, 2)], 0.1);
-    assert_eq!(fields.p[(1, 1)], 0.5);
+    assert!((fields.u[(0, 0)] - 0.1_f64).abs() <= f64::EPSILON);
+    assert!((fields.u[(2, 2)] - 0.1_f64).abs() <= f64::EPSILON);
+    assert!((fields.p[(1, 1)] - 0.5_f64).abs() <= f64::EPSILON);
 
     // Test field copying (used in iterative coupling algorithms)
     let fields_copy = SimulationFields::new(nx, ny);
-    fields.copy_from(&fields_copy).unwrap();
-
-    Ok(())
+    fields
+        .copy_from(&fields_copy)
+        .expect("invariant: test fixture operation succeeds");
 }
 
 /// Test SIMPLE algorithm implementation foundation
@@ -212,7 +208,7 @@ fn test_simple_algorithm_foundation() -> CfdResult<()> {
 
 /// Test momentum solver boundary condition handling
 #[test]
-fn test_momentum_solver_boundaries() -> CfdResult<()> {
+fn test_momentum_solver_boundaries() {
     let nx = 3;
     let ny = 3;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
@@ -260,8 +256,6 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
         result.is_ok(),
         "Momentum solver should handle boundary conditions"
     );
-
-    Ok(())
 }
 
 ////! Test comprehensive SIMPLE/PISO-like algorithm implementation

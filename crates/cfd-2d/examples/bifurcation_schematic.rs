@@ -4,7 +4,7 @@
 //!
 //! **Phase 1 — Design (cfd-schematics)**
 //! - Define symmetric bifurcation topology as `NetworkBlueprint`
-//! - Murray's law sizing: r_d = r_p / 2^(1/3)
+//! - Murray's law sizing: `r_d` = `r_p` / 2^(1/3)
 //! - Render schematic PNG → `outputs/bifurcation_schematic.png`
 //!
 //! **Phase 2 — Simulation (cfd-2d)**
@@ -28,8 +28,9 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 Bifurcation Schematic + 2D CFD Example");
-    println!("==========================================");
+    tracing_subscriber::fmt::init();
+    tracing::info!("🔬 Bifurcation Schematic + 2D CFD Example");
+    tracing::info!("==========================================");
 
     // ── 0. Output directory ───────────────────────────────────────────────────
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -38,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&out)?;
 
     // ── Phase 1: Design (cfd-schematics) ─────────────────────────────────────
-    println!("\n📐 Phase 1: Schematic Design");
+    tracing::info!("\n📐 Phase 1: Schematic Design");
 
     // Murray's law: r_parent³ = r_d1³ + r_d2³ → r_d = r_p / 2^(1/3)
     // Using 1 mm parent radius → 0.794 mm daughter radius
@@ -106,27 +107,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         width: 900,
         height: 600,
         title: format!(
-            "Bifurcation — Murray's Law (r_p={:.1}mm, r_d={:.2}mm, θ={:.0}°)",
-            r_parent, r_daughter, angle_deg
+            "Bifurcation — Murray's Law (r_p={r_parent:.1}mm, r_d={r_daughter:.2}mm, θ={angle_deg:.0}°)"
         ),
         ..Default::default()
     };
 
     let schematic_path = out.join("bifurcation_schematic.png");
     renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
-    println!("  ✅ Schematic → {}", schematic_path.display());
-    println!(
-        "  Murray's law: r_parent={:.3} mm, r_daughter={:.3} mm",
-        r_parent, r_daughter
-    );
-    println!(
+    tracing::info!("  ✅ Schematic → {}", schematic_path.display());
+    tracing::info!("  Murray's law: r_parent={r_parent:.3} mm, r_daughter={r_daughter:.3} mm");
+    tracing::info!(
         "  Verification: r_p³ = {:.4}, r_d1³+r_d2³ = {:.4}",
         r_parent.powi(3),
         r_daughter.powi(3) * 2.0
     );
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
-    println!("\n⚙️  Phase 2: 2D CFD Simulation");
+    tracing::info!("\n⚙️  Phase 2: 2D CFD Simulation");
 
     // Convert mm to metres for the solver
     let geom = BifurcationGeometry::new_symmetric(
@@ -151,33 +148,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    println!("  Parent width:   {:.2} mm", w_parent);
-    println!("  Daughter width: {:.3} mm  (Murray's law)", w_daughter);
-    println!("  Inlet velocity: {:.0} mm/s", u_inlet * 1000.0);
-    println!("  Fluid: Casson blood, ρ={:.0} kg/m³", density);
+    tracing::info!("  Parent width:   {w_parent:.2} mm");
+    tracing::info!("  Daughter width: {w_daughter:.3} mm  (Murray's law)");
+    tracing::info!("  Inlet velocity: {:.0} mm/s", u_inlet * 1000.0);
+    tracing::info!("  Fluid: Casson blood, ρ={density:.0} kg/m³");
 
     let mut solver = BifurcationSolver2D::new(geom, blood, density, 60, 40, config);
     let sol = solver.solve(u_inlet)?;
 
-    println!("\n  📊 Results:");
-    println!("  Q_parent    = {:.4e} m²/s", sol.q_parent);
-    println!("  Q_daughter1 = {:.4e} m²/s", sol.q_daughter1);
-    println!("  Q_daughter2 = {:.4e} m²/s", sol.q_daughter2);
-    println!(
+    tracing::info!("\n  📊 Results:");
+    tracing::info!("  Q_parent    = {:.4e} m²/s", sol.q_parent);
+    tracing::info!("  Q_daughter1 = {:.4e} m²/s", sol.q_daughter1);
+    tracing::info!("  Q_daughter2 = {:.4e} m²/s", sol.q_daughter2);
+    tracing::info!(
         "  Mass balance error = {:.2e} ({:.2}%)",
         sol.mass_balance_error,
         sol.mass_balance_error * 100.0
     );
 
     let symmetry_err = (sol.q_daughter1 - sol.q_daughter2).abs() / sol.q_parent.abs().max(1e-20);
-    println!(
+    tracing::info!(
         "  Symmetry error = {:.2e} ({:.2}%)",
         symmetry_err,
         symmetry_err * 100.0
     );
 
     // ── Phase 3: Overlay Visualization ───────────────────────────────────────
-    println!("\n🎨 Phase 3: Flow Rate Overlay");
+    tracing::info!("\n🎨 Phase 3: Flow Rate Overlay");
 
     // Map flow rates to edges
     let edge_q: HashMap<usize, f64> = [
@@ -211,8 +208,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let overlay_path = out.join("bifurcation_flow_overlay.png");
     renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
-    println!("  ✅ Flow rate overlay → {}", overlay_path.display());
+    tracing::info!("  ✅ Flow rate overlay → {}", overlay_path.display());
 
-    println!("\n✅ Bifurcation example complete.");
+    tracing::info!("\n✅ Bifurcation example complete.");
     Ok(())
 }

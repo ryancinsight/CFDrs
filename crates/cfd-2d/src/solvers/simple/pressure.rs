@@ -576,7 +576,8 @@ mod tests {
     #[test]
     fn pressure_correction_equation_construction() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let mut fields = SimulationFields::<f64>::new(3, 3);
 
         for j in 0..3 {
@@ -596,9 +597,12 @@ mod tests {
         simple.ensure_buffers(3, 3);
         let max_residual = simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
-        let rhs = simple.rhs.as_ref().unwrap();
+        let rhs = simple
+            .rhs
+            .as_ref()
+            .expect("invariant: test fixture operation succeeds");
         let center_idx = 4;
 
         assert!(max_residual > 0.0);
@@ -609,7 +613,8 @@ mod tests {
     #[test]
     fn pressure_poisson_matrix_respects_boundary_conditions() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
@@ -621,9 +626,12 @@ mod tests {
         simple.ensure_buffers(3, 3);
         simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
-        let matrix = simple.pressure_matrix.take().unwrap();
+        let matrix = simple
+            .pressure_matrix
+            .take()
+            .expect("invariant: test fixture operation succeeds");
 
         let west_anchor = csr_value(&matrix, 0, 0);
         let east_mid_diag = csr_value(&matrix, 5, 5);
@@ -637,7 +645,8 @@ mod tests {
     #[test]
     fn pressure_correction_rejects_missing_boundary_side() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
@@ -656,7 +665,8 @@ mod tests {
     #[test]
     fn pressure_poisson_matrix_falls_back_to_anchor_without_pressure_boundary() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::wall_no_slip()),
@@ -668,9 +678,12 @@ mod tests {
         simple.ensure_buffers(3, 3);
         simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
-        let matrix = simple.pressure_matrix.take().unwrap();
+        let matrix = simple
+            .pressure_matrix
+            .take()
+            .expect("invariant: test fixture operation succeeds");
 
         let fallback_anchor = csr_value(&matrix, 0, 0);
         let corner_diag = csr_value(&matrix, 6, 6);

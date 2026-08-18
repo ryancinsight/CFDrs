@@ -1,3 +1,5 @@
+//! Cross-fidelity validation for primitive selective split trees.
+
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;

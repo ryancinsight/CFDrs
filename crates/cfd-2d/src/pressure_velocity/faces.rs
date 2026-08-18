@@ -462,12 +462,13 @@ mod tests {
 
     #[test]
     fn face_based_pressure_correction_with_walls_is_well_posed() {
-        let grid = StructuredGrid2D::new(6, 6, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::new(6, 6, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let solver = PressureCorrectionSolver::new(
             grid.clone(),
             PressureLinearSolver::GMRES { restart_dim: 10 },
         )
-        .unwrap();
+        .expect("invariant: test fixture operation succeeds");
         let fields: SimulationFields<f64> = SimulationFields::new(6, 6);
 
         let boundary_conditions = HashMap::from([
@@ -495,7 +496,7 @@ mod tests {
                 true,
                 &mut p_corr,
             )
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
         for i in 0..grid.nx {
             for j in 0..grid.ny {

@@ -250,7 +250,7 @@ fn test_k_epsilon_mms_validation() {
             dx,
             dy,
         )
-        .unwrap();
+        .expect("invariant: test fixture operation succeeds");
 
     for i in 0..nx * ny {
         assert!(k_field[i].is_finite(), "k became non-finite at index {i}");
@@ -320,7 +320,7 @@ fn test_k_epsilon_numerical_stability() {
                 dx,
                 dy,
             )
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
         let mut finite_count = 0;
         let mut positive_count = 0;
@@ -488,7 +488,7 @@ fn test_grid_size_independence() {
                 dx,
                 dy,
             )
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
         let interior_count = (1..n - 1)
             .flat_map(|j| (1..n - 1).map(move |i| (i, j)))
@@ -670,7 +670,7 @@ fn test_realizable_update_reduces_viscosity() {
             0.1,
             0.1,
         )
-        .unwrap();
+        .expect("invariant: test fixture operation succeeds");
     model_real
         .update(
             &mut k_real,
@@ -682,7 +682,7 @@ fn test_realizable_update_reduces_viscosity() {
             0.1,
             0.1,
         )
-        .unwrap();
+        .expect("invariant: test fixture operation succeeds");
 
     let any_differ = (0..n).any(|idx| (k_std[idx] - k_real[idx]).abs() > 1e-15);
     assert!(

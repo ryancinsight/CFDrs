@@ -287,12 +287,12 @@ where
 
         // Check convergence (steady state - residual becomes very small)
         if residual < run.convergence_tolerance {
-            println!("Converged at step {step}, residual: {residual:.2e}");
+            tracing::info!("Converged at step {step}, residual: {residual:.2e}");
             break;
         }
 
         if step % 100 == 0 {
-            println!("Step {step}, residual: {residual:.2e}");
+            tracing::info!("Step {step}, residual: {residual:.2e}");
         }
     }
 
@@ -365,10 +365,11 @@ where
         // Convert y_comp to f64 for binary search on f64 reference data
         let y_f64 = <T as NumericElement>::to_f64(y_comp);
 
-        let idx = match reference
-            .y
-            .binary_search_by(|&probe| probe.partial_cmp(&y_f64).unwrap())
-        {
+        let idx = match reference.y.binary_search_by(|&probe| {
+            probe
+                .partial_cmp(&y_f64)
+                .expect("invariant: test fixture operation succeeds")
+        }) {
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {
                 // Linear interpolation between reference points
@@ -475,8 +476,8 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
         "SIMPLEC Re=100 L2 error {l2_error:.4} exceeds 30% threshold. Check algorithm implementation."
     );
 
-    println!("✅ SIMPLEC Ghia cavity Re=100: L2 error = {l2_error:.4}");
-    println!("  Iterations: {}", solver.iterations());
+    tracing::info!("✅ SIMPLEC Ghia cavity Re=100: L2 error = {l2_error:.4}");
+    tracing::info!("  Iterations: {}", solver.iterations());
 
     Ok(())
 }
@@ -549,7 +550,7 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
         "SIMPLEC Re=400 L2 error {l2_error:.4} exceeds 35% threshold (target: <8%)"
     );
 
-    println!("✅ SIMPLEC Ghia cavity Re=400: L2 error = {l2_error:.4}");
+    tracing::info!("✅ SIMPLEC Ghia cavity Re=400: L2 error = {l2_error:.4}");
     Ok(())
 }
 
@@ -622,7 +623,7 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
         "PIMPLE Re=100 L2 error {l2_error:.4} exceeds 35% threshold (target: <5%)"
     );
 
-    println!("✅ PIMPLE Ghia cavity Re=100: L2 error = {l2_error:.4}");
+    tracing::info!("✅ PIMPLE Ghia cavity Re=100: L2 error = {l2_error:.4}");
     Ok(())
 }
 
@@ -716,13 +717,13 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     )?;
     let pimple_time = start.elapsed();
 
-    println!("🚀 Performance comparison:");
+    tracing::info!("🚀 Performance comparison:");
     let simplec_ms = simplec_time.as_secs_f64() * 1000.0;
     let simplec_iterations = simplec_solver.iterations();
-    println!("  SIMPLEC: {simplec_ms:.2} ms, {simplec_iterations} iterations",);
+    tracing::info!("  SIMPLEC: {simplec_ms:.2} ms, {simplec_iterations} iterations");
     let pimple_ms = pimple_time.as_secs_f64() * 1000.0;
     let pimple_iterations = pimple_solver.iterations();
-    println!("  PIMPLE:  {pimple_ms:.2} ms, {pimple_iterations} iterations",);
+    tracing::info!("  PIMPLE:  {pimple_ms:.2} ms, {pimple_iterations} iterations");
 
     // Both should converge
     assert!(simplec_solver.iterations() > 0);

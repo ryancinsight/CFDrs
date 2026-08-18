@@ -336,13 +336,14 @@ mod tests {
 
     #[test]
     fn test_backend_selection() {
-        let solver = AcceleratedPoissonSolver::new(100, 100, 0.01, 0.01).unwrap();
+        let solver = AcceleratedPoissonSolver::new(100, 100, 0.01, 0.01)
+            .expect("invariant: test fixture operation succeeds");
 
         // Should select SIMD or GPU if available
         match solver.backend() {
-            Backend::Gpu => println!("Using GPU acceleration"),
-            Backend::Simd => println!("Using SIMD acceleration"),
-            Backend::Cpu => println!("Using CPU fallback"),
+            Backend::Gpu => tracing::info!("Using GPU acceleration"),
+            Backend::Simd => tracing::info!("Using SIMD acceleration"),
+            Backend::Cpu => tracing::info!("Using CPU fallback"),
         }
     }
 
@@ -356,8 +357,11 @@ mod tests {
         // Set source term
         source[(nx / 2, ny / 2)] = 1.0;
 
-        let solver = AcceleratedPoissonSolver::new(nx, ny, 0.02, 0.02).unwrap();
-        let residual = solver.solve(&mut phi, &source, 100, 1.0).unwrap();
+        let solver = AcceleratedPoissonSolver::new(nx, ny, 0.02, 0.02)
+            .expect("invariant: test fixture operation succeeds");
+        let residual = solver
+            .solve(&mut phi, &source, 100, 1.0)
+            .expect("invariant: test fixture operation succeeds");
 
         assert!(residual < 1.0); // Should converge
     }

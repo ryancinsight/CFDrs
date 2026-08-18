@@ -47,9 +47,9 @@ mod tests {
         let x_interface = (i as f64) + 0.5;
         let expected = x_interface.powi(4);
 
-        println!("x^4 Test: i: {i}, x_interface: {x_interface}");
-        println!("Reconstructed: {flux}");
-        println!("Expected:      {expected}");
+        tracing::info!("x^4 Test: i: {i}, x_interface: {x_interface}");
+        tracing::info!("Reconstructed: {flux}");
+        tracing::info!("Expected:      {expected}");
 
         assert_relative_eq!(flux, expected, epsilon = 1e-8);
     }
@@ -91,10 +91,10 @@ mod tests {
         let x_interface = ((i as f64 - ghost as f64) + 0.5) * dx;
         let expected = x_interface.powi(8);
 
-        println!("x^8 Test: x_interface: {x_interface}");
-        println!("Reconstructed: {flux}");
-        println!("Expected:      {expected}");
-        println!("Error:         {}", (flux - expected).abs());
+        tracing::info!("x^8 Test: x_interface: {x_interface}");
+        tracing::info!("Reconstructed: {flux}");
+        tracing::info!("Expected:      {expected}");
+        tracing::info!("Error:         {}", (flux - expected).abs());
 
         // For 9th order, error should be tiny.
         // With dx=0.01, error ~ dx^9 = 1e-18.

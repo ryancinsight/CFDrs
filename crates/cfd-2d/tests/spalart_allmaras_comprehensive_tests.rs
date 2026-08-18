@@ -72,7 +72,7 @@ fn test_sa_wall_distance() {
 fn test_sa_trip_term() {
     let model = SpalartAllmaras::<f64>::new(5, 5);
     let trip = model.trip_term(1e-4, 0.01);
-    assert_eq!(trip, 0.0);
+    assert!(trip.abs() <= f64::EPSILON);
 }
 
 /// Test asymptotic behavior of eddy viscosity

@@ -8,7 +8,7 @@
 //!
 //! **Phase 2 — Simulation (cfd-2d)**
 //! - Run `SerpentineSolver2D` (microfluidic standard geometry)
-//! - Map pressure drop per segment to `AnalysisOverlay` (BlueRed colormap)
+//! - Map pressure drop per segment to `AnalysisOverlay` (`BlueRed` colormap)
 //! - Render overlay PNG → `outputs/serpentine_mixing_overlay.png`
 //!
 //! Run with:
@@ -28,8 +28,9 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 Serpentine Mixing Schematic + 2D CFD Example");
-    println!("================================================");
+    tracing_subscriber::fmt::init();
+    tracing::info!("🔬 Serpentine Mixing Schematic + 2D CFD Example");
+    tracing::info!("================================================");
 
     // ── 0. Output directory ───────────────────────────────────────────────────
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -38,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&out)?;
 
     // ── Phase 1: Design (cfd-schematics) ─────────────────────────────────────
-    println!("\n📐 Phase 1: Schematic Design");
+    tracing::info!("\n📐 Phase 1: Schematic Design");
 
     // Microfluidic standard serpentine: 5 cycles, 200 μm wide, 500 μm straight sections
     let n_cycles = 5_usize;
@@ -69,14 +70,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             NodeKind::Junction
         };
-        system.add_node(NodeSpec::new(format!("n{}", i), kind).with_point((x, y)));
+        system.add_node(NodeSpec::new(format!("n{i}"), kind).with_point((x, y)));
     }
 
     for i in 0..n_segments {
-        let from = format!("n{}", i);
+        let from = format!("n{i}");
         let to = format!("n{}", i + 1);
         system.add_channel(ChannelSpec::new_pipe_rect(
-            format!("ch{}", i),
+            format!("ch{i}"),
             from,
             to,
             seg_len / 1000.0, // length in m
@@ -102,19 +103,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let schematic_path = out.join("serpentine_schematic.png");
     renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
-    println!("  ✅ Schematic → {}", schematic_path.display());
+    tracing::info!("  ✅ Schematic → {}", schematic_path.display());
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
-    println!("\n⚙️  Phase 2: 2D CFD Simulation");
+    tracing::info!("\n⚙️  Phase 2: 2D CFD Simulation");
 
     let geom = SerpentineGeometry::<f64>::microfluidic_standard();
     let total_length = geom.total_length();
-    println!("  Geometry: microfluidic_standard()");
-    println!("  Width:          {:.0} μm", geom.width * 1e6);
-    println!("  Straight length:{:.0} μm", geom.l_straight * 1e6);
-    println!("  Turn radius:    {:.0} μm", geom.turn_radius * 1e6);
-    println!("  Cycles:         {}", geom.n_cycles);
-    println!("  Total length:   {:.2} mm", total_length * 1000.0);
+    tracing::info!("  Geometry: microfluidic_standard()");
+    tracing::info!("  Width:          {:.0} μm", geom.width * 1e6);
+    tracing::info!("  Straight length:{:.0} μm", geom.l_straight * 1e6);
+    tracing::info!("  Turn radius:    {:.0} μm", geom.turn_radius * 1e6);
+    tracing::info!("  Cycles:         {}", geom.n_cycles);
+    tracing::info!("  Total length:   {:.2} mm", total_length * 1000.0);
 
     let u_inlet = 0.01_f64; // 10 mm/s
     let diffusion_coeff = 1e-9_f64; // 1 nm²/s — typical small molecule in water
@@ -127,14 +128,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let l_mix = mixing_model.mixing_length_90_percent();
     let mixing_frac_analytical = mixing_model.mixing_fraction(total_length);
 
-    println!("\n  📐 Analytical Mixing Estimates:");
-    println!("  Peclet number:    {:.1e}", pe);
-    println!("  Mixing length:    {:.2} mm  (90% mixing)", l_mix * 1000.0);
-    println!(
+    tracing::info!("\n  📐 Analytical Mixing Estimates:");
+    tracing::info!("  Peclet number:    {pe:.1e}");
+    tracing::info!("  Mixing length:    {:.2} mm  (90% mixing)", l_mix * 1000.0);
+    tracing::info!(
         "  Mixing fraction:  {:.1}%  at outlet (analytical)",
         mixing_frac_analytical * 100.0
     );
-    println!(
+    tracing::info!(
         "  Well-mixed:       {}",
         if mixing_frac_analytical > 0.9 {
             "YES ✅"
@@ -143,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     );
 
-    println!("\n  Running SerpentineSolver2D (this may take a moment)...");
+    tracing::info!("\n  Running SerpentineSolver2D (this may take a moment)...");
     let mut solver = SerpentineSolver2D::new(
         geom.clone(),
         BloodModel::Newtonian(viscosity),
@@ -154,14 +155,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sol = solver.solve(u_inlet, diffusion_coeff, 0.0, 1.0)?;
 
-    println!("\n  📊 Simulation Results:");
-    println!("  Peclet number:    {:.1e}", sol.peclet);
-    println!(
+    tracing::info!("\n  📊 Simulation Results:");
+    tracing::info!("  Peclet number:    {:.1e}", sol.peclet);
+    tracing::info!(
         "  Mixing fraction:  {:.1}%  at outlet (numerical)",
         sol.mixing_fraction_outlet * 100.0
     );
-    println!("  Pressure drop:    {:.2} Pa", sol.pressure_drop);
-    println!(
+    tracing::info!("  Pressure drop:    {:.2} Pa", sol.pressure_drop);
+    tracing::info!(
         "  Well-mixed:       {}",
         if sol.is_well_mixed() {
             "YES ✅"
@@ -172,10 +173,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pressure drop per segment (estimated from total)
     let dp_per_segment = sol.pressure_drop / n_segments as f64;
-    println!("  ΔP per segment:   {:.3} Pa", dp_per_segment);
+    tracing::info!("  ΔP per segment:   {dp_per_segment:.3} Pa");
 
     // ── Phase 3: Overlay Visualization ───────────────────────────────────────
-    println!("\n🎨 Phase 3: Pressure Drop Overlay");
+    tracing::info!("\n🎨 Phase 3: Pressure Drop Overlay");
 
     // Assign cumulative pressure drop to each node (linear distribution)
     let p_inlet = sol.pressure_drop; // inlet is high pressure
@@ -211,8 +212,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let overlay_path = out.join("serpentine_mixing_overlay.png");
     renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
-    println!("  ✅ Pressure overlay → {}", overlay_path.display());
+    tracing::info!("  ✅ Pressure overlay → {}", overlay_path.display());
 
-    println!("\n✅ Serpentine mixing example complete.");
+    tracing::info!("\n✅ Serpentine mixing example complete.");
     Ok(())
 }

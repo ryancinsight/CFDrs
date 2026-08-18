@@ -113,7 +113,7 @@ fn asymmetric_bifurcation_matches_resistance_prediction() {
     );
 
     // Diagnostic: confirm the 2D ratio trends toward the analytical cubic law.
-    eprintln!(
+    tracing::warn!(
         "[B2 validation] flow-split ratio: 2D = {ratio_numerical:.3}, \
          1D analytical = {ratio_analytical:.3} — \
          2D/1D deviation = {:.1}%",

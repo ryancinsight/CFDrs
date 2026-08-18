@@ -483,7 +483,7 @@ mod tests {
 
         // Check filter width calculation
         let expected_delta = (0.1f64 * 0.1f64).sqrt();
-        for &delta in les.filter_width.iter() {
+        for &delta in &les.filter_width {
             assert_relative_eq!(delta, expected_delta, epsilon = 1e-10);
         }
     }
@@ -600,7 +600,7 @@ mod tests {
 
         // Check that filter width was updated
         let expected_delta = (0.2f64 * 0.2f64).sqrt();
-        for &delta in les.filter_width.iter() {
+        for &delta in &les.filter_width {
             assert_relative_eq!(delta, expected_delta, epsilon = 1e-10);
         }
     }

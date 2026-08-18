@@ -144,7 +144,7 @@ mod tests {
         // Check that strain rate is computed (non-zero for shear flow)
         assert!(strain.iter().any(|&s| s > 0.0));
 
-        for &value in strain.iter() {
+        for &value in &strain {
             assert_relative_eq!(value, 1.0, epsilon = 1e-10);
         }
 
@@ -187,7 +187,7 @@ mod tests {
         let strain = compute_strain_rate_magnitude(&velocity_u, &velocity_v, 0.1, 0.1);
 
         // Zero velocity field should give zero strain everywhere
-        for &s in strain.iter() {
+        for &s in &strain {
             assert_relative_eq!(s, 0.0, epsilon = 1e-15);
         }
     }

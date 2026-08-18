@@ -23,7 +23,8 @@ use std::f64::consts::PI;
 fn test_poisson_2d_sinusoidal_solution() {
     let nx = 21;
     let ny = 21;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let mut config = FdmConfig::default();
     config.base.convergence.max_iterations = 10000;
@@ -49,7 +50,9 @@ fn test_poisson_2d_sinusoidal_solution() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Verify solution at interior points
     let mut max_error: f64 = 0.0;
@@ -69,7 +72,7 @@ fn test_poisson_2d_sinusoidal_solution() {
     }
 
     // Error should be small for this grid resolution
-    assert!(max_error < 0.02, "Max error {} too large", max_error);
+    assert!(max_error < 0.02, "Max error {max_error} too large");
 }
 
 /// Debug test with small 5x5 grid to understand accuracy issues
@@ -77,7 +80,8 @@ fn test_poisson_2d_sinusoidal_solution() {
 fn test_poisson_debug_5x5() {
     let nx = 5;
     let ny = 5;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let mut config = FdmConfig::default();
     config.base.convergence.max_iterations = 10000;
@@ -102,7 +106,9 @@ fn test_poisson_debug_5x5() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Check center point (2, 2) at (0.5, 0.5)
     let x = 0.5;
@@ -110,11 +116,11 @@ fn test_poisson_debug_5x5() {
     let analytical = (PI * x).sin() * (PI * y).sin();
     let computed = solution[&(2, 2)];
 
-    println!("Center point (2,2) at (0.5, 0.5):");
-    println!("  Analytical: {}", analytical);
-    println!("  Computed: {}", computed);
-    println!("  Error: {}", (computed - analytical).abs());
-    println!(
+    tracing::info!("Center point (2,2) at (0.5, 0.5):");
+    tracing::info!("  Analytical: {analytical}");
+    tracing::info!("  Computed: {computed}");
+    tracing::info!("  Error: {}", (computed - analytical).abs());
+    tracing::info!(
         "  Relative error: {}%",
         100.0 * (computed - analytical).abs() / analytical
     );
@@ -126,7 +132,7 @@ fn test_poisson_debug_5x5() {
             let y = j as f64 / (ny - 1) as f64;
             let analytical = (PI * x).sin() * (PI * y).sin();
             let computed = solution[&(i, j)];
-            println!(
+            tracing::info!(
                 "({},{}) at ({:.2},{:.2}): analytical={:.4}, computed={:.4}, error={:.4}",
                 i,
                 j,
@@ -146,7 +152,8 @@ fn test_poisson_debug_5x5() {
 fn test_poisson_2d_laplace_equation() {
     let nx = 11;
     let ny = 11;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let mut config = FdmConfig::default();
     config.base.convergence.tolerance = 1e-10;
@@ -169,7 +176,9 @@ fn test_poisson_2d_laplace_equation() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Solution should be approximately monotonic in y-direction
     // Note: Near boundaries with large gradients (0→1 over small distance),
@@ -213,7 +222,8 @@ fn test_poisson_2d_laplace_equation() {
 fn test_poisson_2d_solver_stability() {
     let nx = 9;
     let ny = 9;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     // Test different source configurations
     let source_configs = vec![
@@ -239,7 +249,7 @@ fn test_poisson_2d_solver_stability() {
                     let i = (center_i as i32 + di) as usize;
                     let j = (center_j as i32 + dj) as usize;
                     if i < nx && j < ny {
-                        source.insert((i, j), 1.0 / ((di.abs() + dj.abs() + 1) as f64));
+                        source.insert((i, j), 1.0 / f64::from(di.abs() + dj.abs() + 1));
                     }
                 }
             }
@@ -260,7 +270,9 @@ fn test_poisson_2d_solver_stability() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver
+            .solve(&grid, &source, &boundary_values)
+            .expect("invariant: test fixture operation succeeds");
 
         // Basic stability validation
         // 1. No catastrophic values (solver doesn't explode)
@@ -268,19 +280,11 @@ fn test_poisson_2d_solver_stability() {
             let phi = solution[&(i, j)];
             assert!(
                 phi.is_finite(),
-                "Config {}, non-finite value at ({}, {}): {}",
-                config_idx,
-                i,
-                j,
-                phi
+                "Config {config_idx}, non-finite value at ({i}, {j}): {phi}"
             );
             assert!(
                 phi.abs() < 1e6,
-                "Config {}, excessively large value at ({}, {}): {}",
-                config_idx,
-                i,
-                j,
-                phi
+                "Config {config_idx}, excessively large value at ({i}, {j}): {phi}"
             );
         }
 
@@ -329,10 +333,7 @@ fn test_poisson_2d_solver_stability() {
         }
         assert!(
             max_interior - min_interior < 10.0,
-            "Config {}, excessive interior range: {} to {}",
-            config_idx,
-            min_interior,
-            max_interior
+            "Config {config_idx}, excessive interior range: {min_interior} to {max_interior}"
         );
     }
 }
@@ -343,7 +344,8 @@ fn test_poisson_2d_solver_stability() {
 fn test_poisson_2d_corner_singularity() {
     let nx = 11;
     let ny = 11;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -362,15 +364,17 @@ fn test_poisson_2d_corner_singularity() {
         boundary_values.insert((nx - 1, j), 1.0); // Right
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Solution should exist and be finite despite singularity
     for i in 0..nx {
         for j in 0..ny {
             let phi = solution[&(i, j)];
-            assert!(phi.is_finite(), "Non-finite value at ({}, {})", i, j);
-            assert!(phi >= 0.0, "Negative value at ({}, {})", i, j);
-            assert!(phi <= 1.0, "Value > 1 at ({}, {})", i, j);
+            assert!(phi.is_finite(), "Non-finite value at ({i}, {j})");
+            assert!(phi >= 0.0, "Negative value at ({i}, {j})");
+            assert!(phi <= 1.0, "Value > 1 at ({i}, {j})");
         }
     }
 }
@@ -384,7 +388,8 @@ fn test_poisson_2d_grid_convergence() {
     let mut errors = Vec::new();
 
     for &n in &grid_sizes {
-        let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
 
         let mut config = FdmConfig::default();
         config.base.convergence.max_iterations = 10000;
@@ -407,7 +412,9 @@ fn test_poisson_2d_grid_convergence() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver
+            .solve(&grid, &source, &boundary_values)
+            .expect("invariant: test fixture operation succeeds");
 
         // Compute L2 error
         let mut error_sum = 0.0;
@@ -422,7 +429,7 @@ fn test_poisson_2d_grid_convergence() {
                 count += 1;
             }
         }
-        let l2_error = (error_sum / count as f64).sqrt();
+        let l2_error = (error_sum / f64::from(count)).sqrt();
         errors.push(l2_error);
     }
 
@@ -430,8 +437,7 @@ fn test_poisson_2d_grid_convergence() {
     let reduction_factor = errors[0] / errors[1];
     assert!(
         reduction_factor > 3.0,
-        "Convergence rate {} too low (expect ~4 for 2nd order)",
-        reduction_factor
+        "Convergence rate {reduction_factor} too low (expect ~4 for 2nd order)"
     );
 }
 
@@ -441,7 +447,8 @@ fn test_poisson_2d_grid_convergence() {
 fn test_poisson_2d_minimal_grid() {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -456,7 +463,9 @@ fn test_poisson_2d_minimal_grid() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Just verify solver doesn't crash and produces finite result
     assert!(solution[&(1, 1)].is_finite());
@@ -468,7 +477,8 @@ fn test_poisson_2d_minimal_grid() {
 fn test_poisson_2d_rectangular_domain() {
     let nx = 11;
     let ny = 21; // Rectangular: 2:1 aspect ratio
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 2.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 2.0)
+        .expect("invariant: test fixture operation succeeds");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -485,7 +495,9 @@ fn test_poisson_2d_rectangular_domain() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("invariant: test fixture operation succeeds");
 
     // Verify solution is finite everywhere
     for i in 0..nx {

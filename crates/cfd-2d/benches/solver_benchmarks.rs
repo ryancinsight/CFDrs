@@ -1,3 +1,10 @@
+//! Criterion benchmarks for the 2D solver and network pipeline.
+
+#![expect(
+    missing_docs,
+    reason = "criterion_main generates the benchmark entry point"
+)]
+
 use cfd_2d::{
     grid::StructuredGrid2D,
     network::{solve_reference_trace, Network2dBuilderSink},
@@ -11,11 +18,13 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Benchmark
 use leto::geometry::Vector2;
 use std::collections::HashMap;
 
+/// Benchmark lattice-Boltzmann solver steps.
 fn benchmark_lbm_solver(c: &mut Criterion) {
     let mut group = c.benchmark_group("lbm_solver");
 
-    for size in [32, 64, 128].iter() {
-        let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0).unwrap();
+    for size in &[32, 64, 128] {
+        let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let config = LbmConfig::default();
         let mut solver = LbmSolver::new(config, &grid);
 
@@ -25,14 +34,16 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
                 |_x: f64, _y: f64| 1.0,
                 |_x: f64, _y: f64| Vector2::new(0.0, 0.0),
             )
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
 
         group.bench_with_input(BenchmarkId::new("step", size), size, |b, _| {
             b.iter(|| {
                 let boundaries = HashMap::new();
-                let _: () = solver.step(&boundaries).unwrap();
-                black_box(())
-            })
+                let _: () = solver
+                    .step(&boundaries)
+                    .expect("invariant: test fixture operation succeeds");
+                black_box(());
+            });
         });
     }
 
@@ -42,12 +53,17 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
 fn benchmark_grid_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("grid_creation");
 
-    for size in [50, 100, 200].iter() {
+    for size in &[50, 100, 200] {
         group.bench_with_input(
             BenchmarkId::new("structured_grid", size),
             size,
             |b, &size| {
-                b.iter(|| black_box(StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap()))
+                b.iter(|| {
+                    black_box(
+                        StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0)
+                            .expect("invariant: test fixture operation succeeds"),
+                    )
+                });
             },
         );
     }
@@ -55,6 +71,7 @@ fn benchmark_grid_creation(c: &mut Criterion) {
     group.finish();
 }
 
+/// Attach a benchmark provenance label to a generated network.
 fn with_provenance(
     mut blueprint: cfd_schematics::domain::model::NetworkBlueprint,
 ) -> cfd_schematics::domain::model::NetworkBlueprint {
@@ -117,7 +134,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                         solve_reference_trace::<f64>(blueprint, 1060.0, 3.5e-3, q_total)
                             .expect("reference trace"),
                     )
-                })
+                });
             },
         );
 
@@ -129,7 +146,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                     let blood = BloodModel::Newtonian(3.5e-3_f64);
                     let sink = Network2dBuilderSink::new(blood, 1060.0, q_total, grid_nx, grid_ny);
                     black_box(sink.build(blueprint).expect("network build"))
-                })
+                });
             },
         );
 
@@ -146,7 +163,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                     },
                     |mut network| black_box(network.solve_all(1e-6).expect("solve all")),
                     BatchSize::SmallInput,
-                )
+                );
             },
         );
 
@@ -165,7 +182,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                         black_box(network.solve_projected(1e-6).expect("projected solve"))
                     },
                     BatchSize::SmallInput,
-                )
+                );
             },
         );
     }

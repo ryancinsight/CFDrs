@@ -248,7 +248,8 @@ mod tests {
 
     #[test]
     fn test_simple_iteration_rejects_missing_required_boundary() {
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let mut simple = SimpleAlgorithm::<f64>::new();
         let mut momentum_solver = MomentumSolver::<f64>::new(&grid);
         let mut poisson_solver = PoissonSolver::<f64>::default();

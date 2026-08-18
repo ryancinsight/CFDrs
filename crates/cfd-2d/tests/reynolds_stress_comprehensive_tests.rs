@@ -97,18 +97,7 @@ fn test_homogeneous_shear_flow() {
     let model = ReynoldsStressModel::<f64>::new(1, 1); // Single cell for analytical test
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
-    // Homogeneous shear: constant du/dy = S
-    let shear_rate = 1.0;
-    let _velocity_gradient = [[0.0, shear_rate], [0.0, 0.0]];
-
-    // Analytical solution for linear pressure-strain model
-    // d⟨u'v'⟩/dt = -⟨u'u'⟩ S - ⟨v'v'⟩ S - C1 ε/k ⟨u'v'⟩
     let dt = 0.01;
-    let time_scale = stresses.k[[0, 0]] / stresses.epsilon[[0, 0]];
-
-    // Expected equilibrium shear stress
-    let _equilibrium_uv = -time_scale * (stresses.xx[[0, 0]] + stresses.yy[[0, 0]])
-        / (1.0 + model.c1 * time_scale / time_scale);
 
     // Run a few time steps
     for _ in 0..10 {
@@ -158,7 +147,7 @@ fn test_wall_boundary_conditions() {
 }
 
 /// Test turbulent channel flow benchmark
-/// Based on DNS data from Moser et al. (1999) at Re_τ = 590
+/// Based on DNS data from Moser et al. (1999) at `Re_τ` = 590
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_channel_flow_benchmark() {
@@ -240,7 +229,7 @@ fn test_convergence_stability() {
         k_history.push(k_before);
 
         let result = model.update_reynolds_stresses(&mut stresses, &velocity, dt, dx, dy);
-        assert!(result.is_ok(), "Update should succeed at step {}", step);
+        assert!(result.is_ok(), "Update should succeed at step {step}");
 
         // Check boundedness
         assert!(stresses.k[[5, 5]] >= 0.0, "k should remain non-negative");
@@ -332,8 +321,14 @@ fn test_pressure_strain_model_comparison() {
     }
 
     // Models should give different results
-    assert_ne!(results[0], results[1], "Linear and quadratic should differ");
-    assert_ne!(results[1], results[2], "Quadratic and SSG should differ");
+    assert!(
+        (results[0] - results[1]).abs() > f64::EPSILON,
+        "Linear and quadratic should differ"
+    );
+    assert!(
+        (results[1] - results[2]).abs() > f64::EPSILON,
+        "Quadratic and SSG should differ"
+    );
 
     // All should be finite
     for &phi in &results {
@@ -377,7 +372,7 @@ fn test_dissipation_tensor() {
     assert_relative_eq!(eps_yy_val, 2.0 / 3.0 * 0.1, epsilon = 1e-10);
 }
 
-/// Test TurbulenceModel trait implementation
+/// Test `TurbulenceModel` trait implementation
 #[test]
 fn test_turbulence_model_trait() {
     let model = ReynoldsStressModel::<f64>::new(5, 5);
@@ -410,7 +405,6 @@ fn test_numerical_stability() {
     stresses.k[[5, 5]] = 1e-6; // Very small k
     stresses.epsilon[[5, 5]] = 1e-8; // Very small ε
 
-    let _velocity_gradient = [[0.0, 1.0], [0.0, 0.0]];
     let strain_rate = [[0.0, 0.5], [0.5, 0.0]];
     let rotation_rate = [[0.0, 0.5], [-0.5, 0.0]];
 
@@ -535,8 +529,8 @@ fn test_mms_convergence_study_setup() {
     let study = ReynoldsStressConvergenceStudy::new(mms);
 
     // Test that study can be created
-    assert_eq!(study.mms.kx, 2.0 * PI);
-    assert_eq!(study.mms.alpha, 0.1);
+    assert!((study.mms.kx - 2.0 * PI).abs() <= f64::EPSILON);
+    assert!((study.mms.alpha - 0.1).abs() <= f64::EPSILON);
 }
 
 /// Test grid convergence for Reynolds stress MMS
@@ -584,24 +578,29 @@ fn test_reynolds_stress_mms_convergence() {
         for &err in error_set {
             assert!(
                 err < 1e-10,
-                "MMS evaluation should be very accurate, got error: {}",
-                err
+                "MMS evaluation should be very accurate, got error: {err}"
             );
         }
     }
 
-    println!("Reynolds Stress MMS Convergence Test:");
-    println!(
+    tracing::info!("Reynolds Stress MMS Convergence Test:");
+    tracing::info!(
         "  Grid 8x8:   L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
-        errors[0][0], errors[0][1], errors[0][2]
+        errors[0][0],
+        errors[0][1],
+        errors[0][2]
     );
-    println!(
+    tracing::info!(
         "  Grid 16x16: L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
-        errors[1][0], errors[1][1], errors[1][2]
+        errors[1][0],
+        errors[1][1],
+        errors[1][2]
     );
-    println!(
+    tracing::info!(
         "  Grid 32x32: L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
-        errors[2][0], errors[2][1], errors[2][2]
+        errors[2][0],
+        errors[2][1],
+        errors[2][2]
     );
 }
 
@@ -673,13 +672,19 @@ fn test_mms_pressure_strain_models() {
     assert!(phi_ssg.is_finite());
 
     // Models should give different results
-    assert_ne!(phi_linear, phi_quad, "Linear and quadratic should differ");
-    assert_ne!(phi_quad, phi_ssg, "Quadratic and SSG should differ");
+    assert!(
+        (phi_linear - phi_quad).abs() > f64::EPSILON,
+        "Linear and quadratic should differ"
+    );
+    assert!(
+        (phi_quad - phi_ssg).abs() > f64::EPSILON,
+        "Quadratic and SSG should differ"
+    );
 
-    println!("Pressure-Strain Model Comparison:");
-    println!("  Linear:    {:.6}", phi_linear);
-    println!("  Quadratic: {:.6}", phi_quad);
-    println!("  SSG:       {:.6}", phi_ssg);
+    tracing::info!("Pressure-Strain Model Comparison:");
+    tracing::info!("  Linear:    {phi_linear:.6}");
+    tracing::info!("  Quadratic: {phi_quad:.6}");
+    tracing::info!("  SSG:       {phi_ssg:.6}");
 }
 
 /// Test MMS with actual RSM solver integration
@@ -721,8 +726,8 @@ fn test_mms_rsm_solver_integration() {
     }
 
     // Create velocity field from MMS
-    let mut u = Array2::zeros([5, 5]);
-    let mut v = Array2::zeros([5, 5]);
+    let mut velocity_u = Array2::zeros([5, 5]);
+    let mut velocity_v = Array2::zeros([5, 5]);
 
     for i in 0..5 {
         for j in 0..5 {
@@ -730,12 +735,12 @@ fn test_mms_rsm_solver_integration() {
             let y = j as f64 * dy;
             let t = 0.0;
 
-            u[[i, j]] = mms.exact_mean_velocity(0, x, y, t);
-            v[[i, j]] = mms.exact_mean_velocity(1, x, y, t);
+            velocity_u[[i, j]] = mms.exact_mean_velocity(0, x, y, t);
+            velocity_v[[i, j]] = mms.exact_mean_velocity(1, x, y, t);
         }
     }
 
-    let velocity = [u, v];
+    let velocity = [velocity_u, velocity_v];
     let dt = 0.001;
 
     // Run one time step
@@ -768,8 +773,8 @@ fn test_mms_rsm_solver_integration() {
         }
     }
 
-    println!("MMS-RSM Integration Test: PASSED");
-    println!("  Solution remains bounded and physically realizable after update");
+    tracing::info!("MMS-RSM Integration Test: PASSED");
+    tracing::info!("  Solution remains bounded and physically realizable after update");
 }
 
 /// Test temporal convergence of MMS solution
@@ -806,8 +811,8 @@ fn test_mms_temporal_convergence() {
     assert_relative_eq!(ratio_1, expected_ratio_1, epsilon = 1e-10);
     assert_relative_eq!(ratio_2, expected_ratio_2, epsilon = 1e-10);
 
-    println!("MMS Temporal Convergence Test: PASSED");
-    println!("  Exponential decay verified with α = {}", mms.alpha);
+    tracing::info!("MMS Temporal Convergence Test: PASSED");
+    tracing::info!("  Exponential decay verified with α = {}", mms.alpha);
 }
 
 /// Comprehensive MMS validation test
@@ -869,8 +874,8 @@ fn test_mms_mathematical_consistency() {
     let expected_p_xy = -uu * dv_dx - vv * du_dy;
     assert_relative_eq!(p_xy, expected_p_xy, epsilon = 1e-10);
 
-    println!("MMS Mathematical Consistency Test: PASSED");
-    println!("  Turbulent kinetic energy consistency: ✓");
-    println!("  Velocity gradient computation: ✓");
-    println!("  Production term formulas: ✓");
+    tracing::info!("MMS Mathematical Consistency Test: PASSED");
+    tracing::info!("  Turbulent kinetic energy consistency: ✓");
+    tracing::info!("  Velocity gradient computation: ✓");
+    tracing::info!("  Production term formulas: ✓");
 }

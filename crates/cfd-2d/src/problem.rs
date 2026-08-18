@@ -206,7 +206,8 @@ mod tests {
 
     #[test]
     fn new_problem_initializes_provider_owned_fields() {
-        let grid = StructuredGrid2D::new(4, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::new(4, 3, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
         let problem = IncompressibleFlowProblem::new(grid, HashMap::new(), water());
 
         assert_eq!(problem.initial_velocity.rows(), 4);

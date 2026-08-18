@@ -403,7 +403,8 @@ mod tests {
         let c = vec![-1.0, -1.0, -1.0, 0.0];
         let d = vec![1.0, 0.0, 0.0, 1.0];
 
-        let x = numerics::thomas_algorithm(&a, &b, &c, &d).unwrap();
+        let x = numerics::thomas_algorithm(&a, &b, &c, &d)
+            .expect("invariant: test fixture operation succeeds");
 
         // Verify solution
         assert!(<f64 as NumericElement>::abs(x[0] - 1.0) < 1e-10);
@@ -424,28 +425,36 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let mut solver = PoiseuilleFlow2D::new(config.clone(), BloodModel::Casson(blood));
 
-        let iterations = solver.solve().unwrap();
-        println!("Converged in {iterations} iterations");
+        let iterations = solver
+            .solve()
+            .expect("invariant: test fixture operation succeeds");
+        tracing::info!("Converged in {iterations} iterations");
 
         // Debug: check shear rates and viscosities
         let max_shear_rate = solver
             .shear_rate
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("invariant: test fixture operation succeeds")
+            })
+            .expect("invariant: test fixture operation succeeds");
         let min_viscosity = solver
             .viscosity
             .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
-        println!("Max shear rate: {max_shear_rate:.6e} s^-1");
-        println!("Min viscosity: {min_viscosity:.6e} Pa·s");
+            .min_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("invariant: test fixture operation succeeds")
+            })
+            .expect("invariant: test fixture operation succeeds");
+        tracing::info!("Max shear rate: {max_shear_rate:.6e} s^-1");
+        tracing::info!("Min viscosity: {min_viscosity:.6e} Pa·s");
 
         // For validation with non-Newtonian fluid:
         // Use minimum viscosity (high-shear asymptotic value) for analytical comparison
         // This represents the Newtonian behavior at high shear rates
         let effective_viscosity = *min_viscosity;
-        println!("Effective viscosity (min): {effective_viscosity:.6e} Pa·s");
+        tracing::info!("Effective viscosity (min): {effective_viscosity:.6e} Pa·s");
 
         let analytical = solver.analytical_solution(effective_viscosity);
 
@@ -465,10 +474,10 @@ mod tests {
             })
             .fold(0.0_f64, |max, val| if val > max { val } else { max });
 
-        println!("Maximum relative error: {max_error:.2e}");
+        tracing::info!("Maximum relative error: {max_error:.2e}");
         let numerical_center = solver.velocity[solver.velocity.len() / 2];
         let analytical_center = analytical[analytical.len() / 2];
-        println!("Velocity at center: numerical={numerical_center:.6e}, analytical={analytical_center:.6e}");
+        tracing::info!("Velocity at center: numerical={numerical_center:.6e}, analytical={analytical_center:.6e}");
 
         // With high-shear viscosity, non-Newtonian blood should approach Newtonian behavior
         // Error comes from shear-thinning effects away from centerline

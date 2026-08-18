@@ -244,7 +244,7 @@ mod tests {
         assert_eq!(dynamic_constant.shape()[0], 10);
         assert_eq!(dynamic_constant.shape()[1], 10);
 
-        for &val in dynamic_constant.iter() {
+        for &val in &dynamic_constant {
             assert_relative_eq!(val, 0.15, epsilon = 1e-10);
         }
     }
@@ -277,7 +277,7 @@ mod tests {
         }
 
         // Check that all values remain within reasonable bounds
-        for &val in dynamic_constant.iter() {
+        for &val in &dynamic_constant {
             assert!(val >= 0.0);
             assert!(val <= 0.3); // Upper bound from implementation
         }

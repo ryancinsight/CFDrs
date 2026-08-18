@@ -436,7 +436,7 @@ mod tests {
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);
-        cfd_math::linear_solver::krylov::gmres(
+        let report = cfd_math::linear_solver::krylov::gmres(
             matrix,
             rhs,
             &mut gmres_solution,
@@ -444,6 +444,10 @@ mod tests {
             MOMENTUM_RESTART,
         )
         .expect("GMRES solve should succeed");
+        assert!(
+            report.converged(),
+            "GMRES report must mark the solve converged"
+        );
         assert!(
             gmres_solution[row] > 0.0,
             "GMRES solve should produce a positive interior response"

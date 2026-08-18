@@ -95,25 +95,26 @@ fn test_simplec_solver_creation_and_basic_functionality() {
             .expect("Solver failed at step {}");
 
         residuals.push(residual);
-        println!("Step {}: residual = {:.2e}", step, residual);
+        tracing::info!("Step {step}: residual = {residual:.2e}");
 
         // Check that residuals are reasonable (not NaN or infinite)
         assert!(
             residual.is_finite(),
-            "Residual became non-finite at step {}",
-            step
+            "Residual became non-finite at step {step}"
         );
-        assert!(residual >= 0.0, "Residual became negative at step {}", step);
+        assert!(residual >= 0.0, "Residual became negative at step {step}");
     }
 
     // Verify that solver is making progress (residuals should generally decrease)
     let initial_residual = residuals[0];
-    let final_residual = *residuals.last().unwrap();
+    let final_residual = *residuals
+        .last()
+        .expect("invariant: test fixture operation succeeds");
 
-    println!("✓ SIMPLEC solver basic functionality test passed");
-    println!("  Initial residual: {:.2e}", initial_residual);
-    println!("  Final residual: {:.2e}", final_residual);
-    println!("  Iterations: {}", solver.iterations());
+    tracing::info!("✓ SIMPLEC solver basic functionality test passed");
+    tracing::info!("  Initial residual: {initial_residual:.2e}");
+    tracing::info!("  Final residual: {final_residual:.2e}");
+    tracing::info!("  Iterations: {}", solver.iterations());
 
     // Basic sanity checks
     assert!(
@@ -127,8 +128,8 @@ fn test_simplec_solver_creation_and_basic_functionality() {
         for j in 0..ny {
             let u = fields.u.at(i, j);
             let v = fields.v.at(i, j);
-            assert!(u.is_finite(), "U velocity is not finite at ({}, {})", i, j);
-            assert!(v.is_finite(), "V velocity is not finite at ({}, {})", i, j);
+            assert!(u.is_finite(), "U velocity is not finite at ({i}, {j})");
+            assert!(v.is_finite(), "V velocity is not finite at ({i}, {j})");
             if u.abs() > 1e-6 || v.abs() > 1e-6 {
                 has_nonzero_velocity = true;
             }
@@ -141,7 +142,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
     // Check pressure field smoothness
     let pressure_smoothness = check_pressure_smoothness(&fields.p);
-    println!("  Pressure smoothness: {:.4}", pressure_smoothness);
+    tracing::info!("  Pressure smoothness: {pressure_smoothness:.4}");
     assert!(
         pressure_smoothness.is_finite(),
         "Pressure smoothness should be finite"
@@ -188,7 +189,7 @@ fn test_simplec_convergence_ghia_cavity_re100() {
     let max_time_steps = 100; // Fewer steps needed with adaptive stepping
     let convergence_tolerance = 1e-3; // Standard convergence tolerance
 
-    println!("Running SIMPLEC with adaptive time stepping...");
+    tracing::info!("Running SIMPLEC with adaptive time stepping...");
     let (final_dt, final_residual) = solver
         .solve_adaptive(
             &mut fields,
@@ -201,9 +202,8 @@ fn test_simplec_convergence_ghia_cavity_re100() {
         .expect("Adaptive solver failed");
 
     let converged = final_residual < convergence_tolerance;
-    println!(
-        "✓ Adaptive stepping completed - Final residual: {:.2e}, Final dt: {:.6}",
-        final_residual, final_dt
+    tracing::info!(
+        "✓ Adaptive stepping completed - Final residual: {final_residual:.2e}, Final dt: {final_dt:.6}"
     );
 
     if converged {
@@ -235,11 +235,11 @@ fn test_simplec_convergence_ghia_cavity_re100() {
             count += 1;
         }
 
-        l2_error = (l2_error / count as f64).sqrt();
+        l2_error = (l2_error / f64::from(count)).sqrt();
 
-        println!("✓ SIMPLEC convergence validation at Re=100");
-        println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
-        println!("  Iterations: {}", solver.iterations());
+        tracing::info!("✓ SIMPLEC convergence validation at Re=100");
+        tracing::info!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
+        tracing::info!("  Iterations: {}", solver.iterations());
 
         // Target: Achieve literature-standard accuracy (<8% L2 error)
         // Current: ~23% on 32x32 grid - acceptable for initial working implementation
@@ -252,26 +252,22 @@ fn test_simplec_convergence_ghia_cavity_re100() {
 
         // Verify pressure field smoothness - quantitative bounds from literature
         let pressure_smoothness = check_pressure_smoothness(&fields.p);
-        println!("  Pressure smoothness metric: {:.6}", pressure_smoothness);
+        tracing::info!("  Pressure smoothness metric: {pressure_smoothness:.6}");
 
         // For converged steady-state solutions, pressure smoothness should be very low
         // Literature threshold: <0.01 indicates well-behaved pressure field
         // Commercial CFD: <0.001 for high-quality solutions
         assert!(
             pressure_smoothness < 0.01,
-            "Pressure field smoothness {:.6} exceeds literature threshold of <0.01 for converged solution",
-            pressure_smoothness
+            "Pressure field smoothness {pressure_smoothness:.6} exceeds literature threshold of <0.01 for converged solution"
         );
     } else {
-        println!(
-            "⚠ SIMPLEC solver did not fully converge within {} steps",
-            max_time_steps
-        );
-        println!("  Final iterations: {}", solver.iterations());
+        tracing::info!("⚠ SIMPLEC solver did not fully converge within {max_time_steps} steps");
+        tracing::info!("  Final iterations: {}", solver.iterations());
 
         // Even if not fully converged, check basic functionality
         let pressure_smoothness = check_pressure_smoothness(&fields.p);
-        println!("  Pressure smoothness: {:.4}", pressure_smoothness);
+        tracing::info!("  Pressure smoothness: {pressure_smoothness:.4}");
 
         // Allow partial convergence for this benchmark setup.
         // Threshold captures regression while preserving numerical stability checks.
@@ -332,23 +328,19 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
             .expect("Solver failed");
 
         if step % 100 == 0 {
-            println!("PIMPLE Step {}: residual = {:.2e}", step, residual);
+            tracing::info!("PIMPLE Step {step}: residual = {residual:.2e}");
         }
 
         if residual < convergence_tolerance {
             converged = true;
-            println!(
-                "PIMPLE converged at step {} with residual {:.2e}",
-                step, residual
-            );
+            tracing::info!("PIMPLE converged at step {step} with residual {residual:.2e}");
             break;
         }
     }
 
     assert!(
         converged,
-        "PIMPLE solver did not converge within {} steps",
-        max_time_steps
+        "PIMPLE solver did not converge within {max_time_steps} steps"
     );
 
     // Extract and validate centerline profile
@@ -383,16 +375,17 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
     }
 
     let l2_norm = L2Norm;
-    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+    let l2_error = l2_norm
+        .compute_error(&interpolated_u, &ref_u)
+        .expect("invariant: test fixture operation succeeds");
 
-    println!("✓ PIMPLE + Rhie-Chow validation at Re=100");
-    println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
-    println!("  Iterations: {}", solver.iterations());
+    tracing::info!("✓ PIMPLE + Rhie-Chow validation at Re=100");
+    tracing::info!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
+    tracing::info!("  Iterations: {}", solver.iterations());
 
     assert!(
         l2_error < 0.05,
-        "PIMPLE L2 error {:.4} exceeds 5% threshold",
-        l2_error
+        "PIMPLE L2 error {l2_error:.4} exceeds 5% threshold"
     );
 
     // Verify pressure smoothness
@@ -492,10 +485,10 @@ fn test_rhie_chow_effectiveness() {
     let smoothness_no_rhie = check_pressure_smoothness(&fields_no_rhie.p);
     let smoothness_with_rhie = check_pressure_smoothness(&fields_with_rhie.p);
 
-    println!("Pressure smoothness comparison:");
-    println!("  Without Rhie-Chow: {:.4}", smoothness_no_rhie);
-    println!("  With Rhie-Chow: {:.4}", smoothness_with_rhie);
-    println!(
+    tracing::info!("Pressure smoothness comparison:");
+    tracing::info!("  Without Rhie-Chow: {smoothness_no_rhie:.4}");
+    tracing::info!("  With Rhie-Chow: {smoothness_with_rhie:.4}");
+    tracing::info!(
         "  Improvement factor: {:.2}x",
         smoothness_no_rhie / smoothness_with_rhie
     );
@@ -504,31 +497,26 @@ fn test_rhie_chow_effectiveness() {
     // Without Rhie-Chow: May show oscillations but should still be stable
     assert!(
         smoothness_no_rhie < 0.5,
-        "Solution without Rhie-Chow shows excessive oscillations: {:.4}",
-        smoothness_no_rhie
+        "Solution without Rhie-Chow shows excessive oscillations: {smoothness_no_rhie:.4}"
     );
 
     // With Rhie-Chow: Should achieve literature-quality smoothness
     assert!(
         smoothness_with_rhie < 0.01,
-        "Rhie-Chow solution smoothness {:.4} exceeds literature threshold of <0.01",
-        smoothness_with_rhie
+        "Rhie-Chow solution smoothness {smoothness_with_rhie:.4} exceeds literature threshold of <0.01"
     );
 
     // Relative improvement: Rhie-Chow should provide significant benefit
     assert!(
         smoothness_with_rhie < smoothness_no_rhie,
-        "Rhie-Chow should improve pressure smoothness: {:.4} vs {:.4}",
-        smoothness_with_rhie,
-        smoothness_no_rhie
+        "Rhie-Chow should improve pressure smoothness: {smoothness_with_rhie:.4} vs {smoothness_no_rhie:.4}"
     );
 
     // Quantitative improvement requirement
     let improvement_ratio = smoothness_no_rhie / smoothness_with_rhie;
     assert!(
         improvement_ratio > 10.0,
-        "Rhie-Chow improvement ({:.1}x) below expected factor of 10x",
-        improvement_ratio
+        "Rhie-Chow improvement ({improvement_ratio:.1}x) below expected factor of 10x"
     );
 }
 
@@ -576,7 +564,7 @@ fn check_pressure_smoothness(pressure: &cfd_2d::fields::Field2D<f64>) -> f64 {
         }
     }
 
-    oscillation_measure / count as f64
+    oscillation_measure / f64::from(count)
 }
 
 /// Simple test for pressure correction equation with known divergence
@@ -629,29 +617,27 @@ fn test_pressure_correction_basic() {
         }
     }
 
-    println!(
-        "Max pressure correction for divergence-free field: {:.2e}",
-        max_correction
-    );
+    tracing::info!("Max pressure correction for divergence-free field: {max_correction:.2e}");
 
     // Should be very small (close to machine precision)
     assert!(
         max_correction < 1e-10,
-        "Pressure correction too large for divergence-free field: {:.2e}",
-        max_correction
+        "Pressure correction too large for divergence-free field: {max_correction:.2e}"
     );
 }
 
 /// Rectangular channel aspect ratio convergence study
 /// Tests pressure drop accuracy across different channel geometries
 #[test]
-fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Result<()> {
+fn test_rectangular_channel_aspect_ratio_convergence() {
     // For this test, we'll validate the aspect ratio scaling conceptually
     // since the full RectangularChannelModel is in cfd-1d crate
 
-    println!("\nRectangular Channel Aspect Ratio Study:");
-    println!("This test validates the mathematical framework for aspect ratio effects.");
-    println!("Full implementation would test Shah & London (1978) correlations across AR range.");
+    tracing::info!("\nRectangular Channel Aspect Ratio Study:");
+    tracing::info!("This test validates the mathematical framework for aspect ratio effects.");
+    tracing::info!(
+        "Full implementation would test Shah & London (1978) correlations across AR range."
+    );
 
     // Test aspect ratios that should be covered
     let aspect_ratios = vec![0.5, 1.0, 2.0, 4.0, 8.0];
@@ -661,23 +647,19 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
         // Basic validation that aspect ratios are reasonable
         assert!(
             aspect_ratio > 0.0,
-            "Aspect ratio must be positive: {}",
-            aspect_ratio
+            "Aspect ratio must be positive: {aspect_ratio}"
         );
         assert!(
             aspect_ratio <= 10.0,
-            "Aspect ratio should be ≤ 10 for validity: {}",
-            aspect_ratio
+            "Aspect ratio should be ≤ 10 for validity: {aspect_ratio}"
         );
     }
 
     // Verify square channel reference value
-    let _square_ar = 1.0;
     // Shah & London (1978) exact value for square channel
     let expected_po_square = 56.91;
-    println!(
-        "Square channel (AR=1.0): Po = {:.2} (expected from Shah & London 1978)",
-        expected_po_square
+    tracing::info!(
+        "Square channel (AR=1.0): Po = {expected_po_square:.2} (expected from Shah & London 1978)"
     );
 
     // Verify that different aspect ratios would give different results
@@ -691,21 +673,19 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
         "Must include square channel reference case"
     );
 
-    println!("✓ Aspect ratio test framework validated");
-    println!("✓ Reference values verified against literature");
-
-    Ok(())
+    tracing::info!("✓ Aspect ratio test framework validated");
+    tracing::info!("✓ Reference values verified against literature");
 }
 
 /// AMG preconditioner parameter sensitivity analysis
 /// Tests convergence behavior with different AMG configurations
 #[test]
-fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
+fn test_amg_parameter_sensitivity() {
     use cfd_math::linear_solver::preconditioners::multigrid::*;
 
-    println!("\nAMG Parameter Sensitivity Analysis:");
-    println!("This test validates the AMG framework and configuration options.");
-    println!("Full implementation would test convergence across different strategies.");
+    tracing::info!("\nAMG Parameter Sensitivity Analysis:");
+    tracing::info!("This test validates the AMG framework and configuration options.");
+    tracing::info!("Full implementation would test convergence across different strategies.");
 
     // Test AMG configuration creation and validation
     let configs = vec![
@@ -731,7 +711,7 @@ fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
             "Strength threshold must be in (0,1)"
         );
 
-        println!("✓ {} configuration validated", name);
+        tracing::info!("✓ {name} configuration validated");
     }
 
     // Test cycle types
@@ -753,7 +733,7 @@ fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
             CycleType::FCycle => assert_eq!(config.cycle_type, CycleType::FCycle),
         }
 
-        println!("✓ {} cycle type validated", name);
+        tracing::info!("✓ {name} cycle type validated");
     }
 
     // Test smoother types
@@ -771,28 +751,26 @@ fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
 
         match smoother_type {
             SmootherType::GaussSeidel => {
-                assert_eq!(config.smoother_type, SmootherType::GaussSeidel)
+                assert_eq!(config.smoother_type, SmootherType::GaussSeidel);
             }
             SmootherType::SymmetricGaussSeidel => {
-                assert_eq!(config.smoother_type, SmootherType::SymmetricGaussSeidel)
+                assert_eq!(config.smoother_type, SmootherType::SymmetricGaussSeidel);
             }
             SmootherType::Jacobi => assert_eq!(config.smoother_type, SmootherType::Jacobi),
             SmootherType::SOR => assert_eq!(config.smoother_type, SmootherType::SOR),
             SmootherType::Chebyshev => assert_eq!(config.smoother_type, SmootherType::Chebyshev),
         }
 
-        println!("✓ {} smoother validated", name);
+        tracing::info!("✓ {name} smoother validated");
     }
 
-    println!("✓ AMG parameter framework fully validated");
-
-    Ok(())
+    tracing::info!("✓ AMG parameter framework fully validated");
 }
 
 /// Backward-facing step validation (Armaly et al. 1983)
 /// Tests flow separation and reattachment in a channel with sudden expansion
 #[test]
-fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
+fn test_backward_facing_step_recirculation() {
     // This is a complex 3D flow validation case that requires:
     // - Channel with sudden expansion (step height)
     // - Inlet fully developed flow
@@ -802,10 +780,10 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
     // Implement a 2D reduced-order benchmark as a baseline validation harness.
     // This establishes the framework for future 3D extension.
 
-    println!("\nBackward-Facing Step Validation (2D Reduced-Order):");
-    println!("This test establishes the framework for flow separation validation.");
-    println!("Full 3D implementation would validate against Armaly et al. (1983)");
-    println!("experimental data for recirculation length and velocity profiles.");
+    tracing::info!("\nBackward-Facing Step Validation (2D Reduced-Order):");
+    tracing::info!("This test establishes the framework for flow separation validation.");
+    tracing::info!("Full 3D implementation would validate against Armaly et al. (1983)");
+    tracing::info!("experimental data for recirculation length and velocity profiles.");
 
     // Step parameters (2D reduced-order)
     let step_height = 0.5; // h/H = 0.5
@@ -819,9 +797,9 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
     let ny = 64;
     let total_length = inlet_length + outlet_length;
 
-    println!("Step height ratio: {:.1}", step_height / channel_height);
-    println!("Reynolds number (based on step height): {:.0}", reynolds);
-    println!("Domain: {}x{} grid, length {:.1}", nx, ny, total_length);
+    tracing::info!("Step height ratio: {:.1}", step_height / channel_height);
+    tracing::info!("Reynolds number (based on step height): {reynolds:.0}");
+    tracing::info!("Domain: {nx}x{ny} grid, length {total_length:.1}");
 
     // Future enhancement: Implement full backward-facing step simulation
     // This is a standard CFD validation case (Armaly et al. 1983) that tests:
@@ -840,10 +818,8 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
     assert!(reynolds > 100.0); // Turbulent regime
     assert!(outlet_length > 5.0); // Sufficient length for reattachment
 
-    println!("✓ Framework validated for backward-facing step implementation");
-    println!("✓ Parameters suitable for flow separation studies");
-
-    Ok(())
+    tracing::info!("✓ Framework validated for backward-facing step implementation");
+    tracing::info!("✓ Parameters suitable for flow separation studies");
 }
 
 /// Parameter optimization study for SIMPLEC algorithm accuracy
@@ -873,9 +849,8 @@ fn test_simplec_parameter_optimization_re100() {
     let mut best_config = None;
 
     for (dt, alpha_u, alpha_p, tolerance, desc) in parameter_sets {
-        println!(
-            "Testing parameter set: {} (dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e})",
-            desc, dt, alpha_u, alpha_p, tolerance
+        tracing::info!(
+            "Testing parameter set: {desc} (dt={dt:.1e}, αu={alpha_u:.1}, αp={alpha_p:.1}, tol={tolerance:.1e})"
         );
 
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -934,8 +909,10 @@ fn test_simplec_parameter_optimization_re100() {
                 }
 
                 let l2_norm = L2Norm;
-                let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
-                println!(
+                let l2_error = l2_norm
+                    .compute_error(&interpolated_u, &ref_u)
+                    .expect("invariant: test fixture operation succeeds");
+                tracing::info!(
                     "  Result: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
                     l2_error * 100.0,
                     l2_error,
@@ -949,23 +926,22 @@ fn test_simplec_parameter_optimization_re100() {
                         Some((dt, alpha_u, alpha_p, tolerance, desc.to_string(), l2_error));
                 }
             } else {
-                println!("  Poor convergence: residual = {:.2e}", final_residual);
+                tracing::info!("  Poor convergence: residual = {final_residual:.2e}");
             }
         } else {
-            println!("  Failed to converge");
+            tracing::info!("  Failed to converge");
         }
     }
 
     // Report best configuration
     if let Some((dt, alpha_u, alpha_p, tolerance, desc, error)) = best_config {
-        println!(
+        tracing::info!(
             "\nBest parameter set: {} - L2 error = {:.4}%",
             desc,
             error * 100.0
         );
-        println!(
-            "Parameters: dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e}",
-            dt, alpha_u, alpha_p, tolerance
+        tracing::info!(
+            "Parameters: dt={dt:.1e}, αu={alpha_u:.1}, αp={alpha_p:.1}, tol={tolerance:.1e}"
         );
 
         // Accept results within 15% of literature (progress toward 8% target)
@@ -991,11 +967,11 @@ fn test_simplec_grid_convergence_study() {
     let grid_sizes = vec![16, 24, 32, 48];
     let mut results = Vec::new();
 
-    println!("\n=== Grid Convergence Study (Re=100) ===");
+    tracing::info!("\n=== Grid Convergence Study (Re=100) ===");
 
     for &nx in &grid_sizes {
         let ny = nx; // Square domain
-        println!("\nTesting {}×{} grid", nx, ny);
+        tracing::info!("\nTesting {nx}×{ny} grid");
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
@@ -1058,31 +1034,36 @@ fn test_simplec_grid_convergence_study() {
                     }
 
                     let l2_norm = L2Norm;
-                    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+                    let l2_error = l2_norm
+                        .compute_error(&interpolated_u, &ref_u)
+                        .expect("invariant: test fixture operation succeeds");
                     let dx = 1.0 / (nx - 1) as f64;
 
-                    println!("  Grid: {}×{}, dx={:.4}", nx, ny, dx);
-                    println!("  L2 error: {:.6} ({:.4}%)", l2_error, l2_error * 100.0);
-                    println!("  Residual: {:.2e}, dt: {:.6}", final_residual, final_dt);
+                    tracing::info!("  Grid: {nx}×{ny}, dx={dx:.4}");
+                    tracing::info!("  L2 error: {:.6} ({:.4}%)", l2_error, l2_error * 100.0);
+                    tracing::info!("  Residual: {final_residual:.2e}, dt: {final_dt:.6}");
 
                     results.push((nx, ny, dx, l2_error));
                 } else {
-                    println!("  Failed to converge: residual = {:.2e}", final_residual);
+                    tracing::info!("  Failed to converge: residual = {final_residual:.2e}");
                 }
             }
             Err(e) => {
-                println!("  Simulation failed: {:?}", e);
+                tracing::info!("  Simulation failed: {e:?}");
             }
         }
     }
 
     // Analyze convergence rates
     if results.len() >= 3 {
-        println!("\n=== Convergence Analysis ===");
+        tracing::info!("\n=== Convergence Analysis ===");
 
         // Sort by grid spacing (dx)
         let mut sorted_results = results.clone();
-        sorted_results.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        sorted_results.sort_by(|a, b| {
+            a.2.partial_cmp(&b.2)
+                .expect("invariant: test fixture operation succeeds")
+        });
 
         for i in 0..sorted_results.len() - 1 {
             let (nx1, _, dx1, err1) = sorted_results[i];
@@ -1092,29 +1073,29 @@ fn test_simplec_grid_convergence_study() {
             let error_ratio = err1 / err2;
             let observed_order = error_ratio.ln() / ratio.ln();
 
-            println!(
-                "  {}×{} → {}×{}: error ratio = {:.3}, observed order = {:.3}",
-                nx1, nx1, nx2, nx2, error_ratio, observed_order
+            tracing::info!(
+                "  {nx1}×{nx1} → {nx2}×{nx2}: error ratio = {error_ratio:.3}, observed order = {observed_order:.3}"
             );
         }
 
         // Check if we achieve approximately second-order accuracy
-        let (_, _, _, final_error) = sorted_results.last().unwrap();
-        let _target_order = 2.0;
+        let (_, _, _, final_error) = sorted_results
+            .last()
+            .expect("invariant: test fixture operation succeeds");
         let expected_error = 0.01; // Rough estimate for second-order convergence
 
         if *final_error < expected_error {
-            println!("✓ Grid convergence validated: error decreases with grid refinement");
-            println!("✓ Approximate second-order accuracy observed");
+            tracing::info!("✓ Grid convergence validated: error decreases with grid refinement");
+            tracing::info!("✓ Approximate second-order accuracy observed");
         } else {
-            println!(
+            tracing::info!(
                 "⚠ Grid convergence needs investigation: final error {:.4}%",
                 final_error * 100.0
             );
         }
     }
 
-    println!("\n✓ Grid convergence study completed");
+    tracing::info!("\n✓ Grid convergence study completed");
 }
 
 /// Comprehensive validation at higher Reynolds numbers (Re=400, Re=1000)
@@ -1129,7 +1110,7 @@ fn test_simplec_higher_reynolds_validation() {
     let reynolds_numbers = vec![400.0_f64, 1000.0_f64];
 
     for &reynolds in &reynolds_numbers {
-        println!("\n=== Testing Re = {} ===", reynolds);
+        tracing::info!("\n=== Testing Re = {reynolds} ===");
 
         let nu = lid_velocity / reynolds;
         let grid =
@@ -1172,7 +1153,14 @@ fn test_simplec_higher_reynolds_validation() {
                     // Get Ghia reference data for this Reynolds number
                     let cavity = LidDrivenCavity::new(1.0, 1.0, reynolds);
                     let ghia_data = cavity.ghia_u_centerline(reynolds);
-                    if !ghia_data.is_empty() {
+                    if ghia_data.is_empty() {
+                        tracing::info!("⚠ No reference data available for Re={reynolds}");
+                        // At least verify convergence
+                        assert!(
+                            final_residual < config.tolerance * 5.0,
+                            "Re={reynolds} failed to converge sufficiently"
+                        );
+                    } else {
                         let (ref_y, ref_u) =
                             ghia_data.into_iter().unzip::<_, _, Vec<f64>, Vec<f64>>();
                         // Interpolate numerical solution to match Ghia reference points
@@ -1193,9 +1181,11 @@ fn test_simplec_higher_reynolds_validation() {
                         }
 
                         let l2_norm = L2Norm;
-                        let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+                        let l2_error = l2_norm
+                            .compute_error(&interpolated_u, &ref_u)
+                            .expect("invariant: test fixture operation succeeds");
 
-                        println!(
+                        tracing::info!(
                             "✓ Re={} converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
                             reynolds,
                             l2_error * 100.0,
@@ -1206,7 +1196,11 @@ fn test_simplec_higher_reynolds_validation() {
 
                         // For higher Re, we expect higher errors due to more complex flow physics
                         // Re=400 target: <25%, Re=1000 target: <45% (turbulent regime)
-                        let max_error = if reynolds == 400.0 { 0.25 } else { 0.45 };
+                        let max_error = if (reynolds - 400.0).abs() <= f64::EPSILON {
+                            0.25
+                        } else {
+                            0.45
+                        };
                         assert!(
                             l2_error < max_error,
                             "Re={} L2 error {:.4}% exceeds target <{:.1}%",
@@ -1214,30 +1208,19 @@ fn test_simplec_higher_reynolds_validation() {
                             l2_error * 100.0,
                             max_error * 100.0
                         );
-                    } else {
-                        println!("⚠ No reference data available for Re={}", reynolds);
-                        // At least verify convergence
-                        assert!(
-                            final_residual < config.tolerance * 5.0,
-                            "Re={} failed to converge sufficiently",
-                            reynolds
-                        );
                     }
                 } else {
-                    panic!(
-                        "Re={} failed to converge: residual = {:.2e}",
-                        reynolds, final_residual
-                    );
+                    panic!("Re={reynolds} failed to converge: residual = {final_residual:.2e}");
                 }
             }
             Err(e) => {
-                panic!("Re={} simulation failed: {:?}", reynolds, e);
+                panic!("Re={reynolds} simulation failed: {e:?}");
             }
         }
     }
 
-    println!("\n✓ Higher Reynolds number validation completed successfully");
-    println!("✓ SIMPLEC algorithm demonstrates robustness across Re=100, 400, 1000");
+    tracing::info!("\n✓ Higher Reynolds number validation completed successfully");
+    tracing::info!("✓ SIMPLEC algorithm demonstrates robustness across Re=100, 400, 1000");
 }
 
 /// Performance benchmarking for production deployment
@@ -1254,11 +1237,11 @@ fn test_simplec_performance_benchmark() {
     let grid_sizes = vec![16, 24, 32, 48, 64];
     let mut performance_results = Vec::new();
 
-    println!("\n=== Performance Benchmark (Re=100) ===");
+    tracing::info!("\n=== Performance Benchmark (Re=100) ===");
 
     for &nx in &grid_sizes {
         let ny = nx; // Square domain
-        println!("\nBenchmarking {}×{} grid", nx, ny);
+        tracing::info!("\nBenchmarking {nx}×{ny} grid");
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
@@ -1304,15 +1287,15 @@ fn test_simplec_performance_benchmark() {
                     let time_per_cell = elapsed.as_secs_f64() / num_cells as f64;
                     let cells_per_second = num_cells as f64 / elapsed.as_secs_f64();
 
-                    println!("  Grid: {}×{} ({} cells)", nx, ny, num_cells);
-                    println!(
+                    tracing::info!("  Grid: {nx}×{ny} ({num_cells} cells)");
+                    tracing::info!(
                         "  Time: {:.3}s ({:.2e} s/cell, {:.0} cells/s)",
                         elapsed.as_secs_f64(),
                         time_per_cell,
                         cells_per_second
                     );
-                    println!("  Iterations: {}", solver.iterations());
-                    println!("  Final residual: {:.2e}", final_residual);
+                    tracing::info!("  Iterations: {}", solver.iterations());
+                    tracing::info!("  Final residual: {final_residual:.2e}");
 
                     performance_results.push((
                         nx,
@@ -1323,18 +1306,18 @@ fn test_simplec_performance_benchmark() {
                         solver.iterations(),
                     ));
                 } else {
-                    println!("  Failed to converge within tolerance");
+                    tracing::info!("  Failed to converge within tolerance");
                 }
             }
             Err(e) => {
-                println!("  Simulation failed: {:?}", e);
+                tracing::info!("  Simulation failed: {e:?}");
             }
         }
     }
 
     // Analyze performance scaling
     if performance_results.len() >= 2 {
-        println!("\n=== Performance Scaling Analysis ===");
+        tracing::info!("\n=== Performance Scaling Analysis ===");
 
         for i in 1..performance_results.len() {
             let (nx1, _, cells1, time1, _cps1, _) = performance_results[i - 1];
@@ -1343,7 +1326,7 @@ fn test_simplec_performance_benchmark() {
             let speedup = time1 / time2;
             let efficiency = speedup / ((cells2 as f64) / (cells1 as f64));
 
-            println!(
+            tracing::info!(
                 "  {}×{} → {}×{}: {:.2}x speedup, {:.1}% efficiency",
                 nx1,
                 nx1,
@@ -1372,32 +1355,27 @@ fn test_simplec_performance_benchmark() {
         let avg_time_per_cell = total_time / total_cells as f64;
         let avg_cells_per_second = total_cells as f64 / total_time;
 
-        println!("\n=== Overall Performance Summary ===");
-        println!("  Total cells processed: {}", total_cells);
-        println!("  Total computation time: {:.3}s", total_time);
-        println!(
-            "  Average performance: {:.2e} cells/s",
-            avg_cells_per_second
-        );
-        println!("  Average time per cell: {:.2e} s/cell", avg_time_per_cell);
+        tracing::info!("\n=== Overall Performance Summary ===");
+        tracing::info!("  Total cells processed: {total_cells}");
+        tracing::info!("  Total computation time: {total_time:.3}s");
+        tracing::info!("  Average performance: {avg_cells_per_second:.2e} cells/s");
+        tracing::info!("  Average time per cell: {avg_time_per_cell:.2e} s/cell");
 
         // Performance targets for production deployment
         let target_cells_per_second = 100_000.0; // Reasonable target for CFD solver
         if avg_cells_per_second >= target_cells_per_second {
-            println!(
-                "✓ Performance meets production targets (>{:.0} cells/s)",
-                target_cells_per_second
+            tracing::info!(
+                "✓ Performance meets production targets (>{target_cells_per_second:.0} cells/s)"
             );
         } else {
-            println!(
-                "⚠ Performance below target: {:.0} vs {:.0} cells/s",
-                avg_cells_per_second, target_cells_per_second
+            tracing::info!(
+                "⚠ Performance below target: {avg_cells_per_second:.0} vs {target_cells_per_second:.0} cells/s"
             );
-            println!("  Consider optimization for production deployment");
+            tracing::info!("  Consider optimization for production deployment");
         }
     }
 
-    println!("\n✓ Performance benchmarking completed");
+    tracing::info!("\n✓ Performance benchmarking completed");
 }
 
 /// Channel flow validation - test fully developed Poiseuille flow
@@ -1412,15 +1390,9 @@ fn test_simplec_channel_flow_validation() {
     let reynolds = 10.0_f64; // Low Reynolds number for laminar flow
     let nu = channel_height * channel_height * pressure_gradient.abs() / reynolds; // ν = -dp/dx * h² / Re
 
-    println!("\n=== Channel Flow Validation (Poiseuille Flow) ===");
-    println!(
-        "Reynolds number: {:.1}, Pressure gradient: {:.3}",
-        reynolds, pressure_gradient
-    );
-    println!(
-        "Channel height: {:.1}, Viscosity: {:.6}",
-        channel_height, nu
-    );
+    tracing::info!("\n=== Channel Flow Validation (Poiseuille Flow) ===");
+    tracing::info!("Reynolds number: {reynolds:.1}, Pressure gradient: {pressure_gradient:.3}");
+    tracing::info!("Channel height: {channel_height:.1}, Viscosity: {nu:.6}");
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height)
         .expect("Failed to create grid");
@@ -1447,14 +1419,26 @@ fn test_simplec_channel_flow_validation() {
     // Set up channel flow boundary conditions
     // Bottom wall (y=0): no-slip
     for i in 0..nx {
-        *fields.u.at_mut(i, 0).unwrap() = 0.0;
-        *fields.v.at_mut(i, 0).unwrap() = 0.0;
+        *fields
+            .u
+            .at_mut(i, 0)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
+        *fields
+            .v
+            .at_mut(i, 0)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
     }
 
     // Top wall (y=ny-1): no-slip
     for i in 0..nx {
-        *fields.u.at_mut(i, ny - 1).unwrap() = 0.0;
-        *fields.v.at_mut(i, ny - 1).unwrap() = 0.0;
+        *fields
+            .u
+            .at_mut(i, ny - 1)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
+        *fields
+            .v
+            .at_mut(i, ny - 1)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
     }
 
     // Inlet (x=0): fully developed parabolic profile
@@ -1462,21 +1446,37 @@ fn test_simplec_channel_flow_validation() {
     for j in 0..ny {
         let y = j as f64 * channel_height / (ny - 1) as f64;
         let u_parabolic = 6.0 * umax * y * (channel_height - y) / (channel_height * channel_height);
-        *fields.u.at_mut(0, j).unwrap() = u_parabolic;
-        *fields.v.at_mut(0, j).unwrap() = 0.0;
+        *fields
+            .u
+            .at_mut(0, j)
+            .expect("invariant: test fixture operation succeeds") = u_parabolic;
+        *fields
+            .v
+            .at_mut(0, j)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
     }
 
     // Outlet (x=nx-1): zero gradient (Neumann)
     for j in 0..ny {
-        *fields.u.at_mut(nx - 1, j).unwrap() = fields.u.at(nx - 2, j); // Extrapolate
-        *fields.v.at_mut(nx - 1, j).unwrap() = 0.0;
+        *fields
+            .u
+            .at_mut(nx - 1, j)
+            .expect("invariant: test fixture operation succeeds") = fields.u.at(nx - 2, j); // Extrapolate
+        *fields
+            .v
+            .at_mut(nx - 1, j)
+            .expect("invariant: test fixture operation succeeds") = 0.0;
     }
 
     // Apply pressure gradient
     for i in 0..nx {
         for j in 0..ny {
             let x_pos = i as f64 * 2.0 / (nx - 1) as f64; // x from 0 to 2
-            *fields.p_prime.at_mut(i, j).unwrap() = pressure_gradient * (x_pos - 0.0);
+            *fields
+                .p_prime
+                .at_mut(i, j)
+                .expect("invariant: test fixture operation succeeds") =
+                pressure_gradient * (x_pos - 0.0);
         }
     }
 
@@ -1508,15 +1508,15 @@ fn test_simplec_channel_flow_validation() {
                 let l2_norm = L2Norm;
                 let l2_error = l2_norm
                     .compute_error(&outlet_profile, &analytical_profile)
-                    .unwrap();
+                    .expect("invariant: test fixture operation succeeds");
 
-                println!(
+                tracing::info!(
                     "✓ Channel flow converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}",
                     l2_error * 100.0,
                     l2_error,
                     final_residual
                 );
-                println!(
+                tracing::info!(
                     "  Maximum velocity: {:.6} (analytical: {:.6})",
                     outlet_profile
                         .iter()
@@ -1540,21 +1540,18 @@ fn test_simplec_channel_flow_validation() {
 
                 assert!(
                     center_velocity > max_velocity * 0.9,
-                    "Center velocity {:.6} too low compared to max {:.6}",
-                    center_velocity,
-                    max_velocity
+                    "Center velocity {center_velocity:.6} too low compared to max {max_velocity:.6}"
                 );
 
-                println!("✓ Channel flow validation passed - correct parabolic profile achieved");
-            } else {
-                panic!(
-                    "Channel flow failed to converge: residual = {:.2e}",
-                    final_residual
+                tracing::info!(
+                    "✓ Channel flow validation passed - correct parabolic profile achieved"
                 );
+            } else {
+                panic!("Channel flow failed to converge: residual = {final_residual:.2e}");
             }
         }
         Err(e) => {
-            panic!("Channel flow simulation failed: {:?}", e);
+            panic!("Channel flow simulation failed: {e:?}");
         }
     }
 }
@@ -1570,7 +1567,7 @@ fn test_simplec_stokes_flow_validation() {
     let lid_velocity = 1.0_f64;
     let nu = lid_velocity / reynolds;
 
-    println!("\n=== Stokes Flow Validation (Re={:.4}) ===", reynolds);
+    tracing::info!("\n=== Stokes Flow Validation (Re={reynolds:.4}) ===");
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
     let fluid = constant_fluid("Test Fluid", 1.0, nu, 1000.0, 0.001, 1482.0);
@@ -1607,7 +1604,7 @@ fn test_simplec_stokes_flow_validation() {
     match result {
         Ok((final_dt, final_residual)) => {
             if final_residual < config.tolerance * 10.0 {
-                println!(
+                tracing::info!(
                     "✓ Stokes flow converged: residual = {:.2e}, dt = {:.6}, iterations = {}",
                     final_residual,
                     final_dt,
@@ -1634,13 +1631,12 @@ fn test_simplec_stokes_flow_validation() {
                     "Velocities should be small in Stokes regime"
                 );
 
-                println!(
+                tracing::info!(
                     "✓ Stokes flow validation passed - algorithm handles low Re flows correctly"
                 );
             } else {
-                println!(
-                    "⚠ Stokes flow convergence marginal: residual = {:.2e}",
-                    final_residual
+                tracing::info!(
+                    "⚠ Stokes flow convergence marginal: residual = {final_residual:.2e}"
                 );
                 // For very low Re, marginal convergence is still acceptable
                 assert!(
@@ -1650,7 +1646,7 @@ fn test_simplec_stokes_flow_validation() {
             }
         }
         Err(e) => {
-            panic!("Stokes flow simulation failed: {:?}", e);
+            panic!("Stokes flow simulation failed: {e:?}");
         }
     }
 }

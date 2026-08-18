@@ -22,6 +22,7 @@ use leto::geometry::{Vector2, Vector3};
 use leto::Array2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
     // 1. Setup Domain
     let length = 0.04; // 4 cm
     let height = 0.01; // 1 cm
@@ -90,8 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_points = 100;
 
     for i in 0..num_points {
-        let x =
-            x_center - throat_length / 2.0 + (throat_length * i as f64 / (num_points as f64 - 1.0));
+        let x = x_center - throat_length / 2.0
+            + (throat_length * f64::from(i) / (f64::from(num_points) - 1.0));
 
         // Cosine constriction
         let phase = 2.0 * std::f64::consts::PI * (x - x_center) / throat_length;
@@ -133,12 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let end_time = 0.005; // Simulate 50 steps
     let mut time = 0.0;
 
-    println!("Starting simulation...");
-    println!(
-        "Grid: {}x{}, Length: {}m, Height: {}m",
-        nx, ny, length, height
-    );
-    println!(
+    tracing::info!("Starting simulation...");
+    tracing::info!("Grid: {nx}x{ny}, Length: {length}m, Height: {height}m");
+    tracing::info!(
         "Fluid: {}, Viscosity range: {:.4}-{:.4} Pa.s",
         blood.name(),
         blood.viscosity_inf.into_base(),
@@ -163,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let strain_rate = (2.0 * (s11 * s11 + s22 * s22 + 2.0 * s12 * s12)).sqrt();
 
                 let mu = blood
-                    .viscosity_at_shear(strain_rate, 310.15, 101325.0)?
+                    .viscosity_at_shear(strain_rate, 310.15, 101_325.0)?
                     .into_base();
                 fields.viscosity.set(i, j, mu);
             }
@@ -207,18 +205,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         time += dt;
         if ((time / dt) as usize).is_multiple_of(10) {
             let u_max = fields.max_velocity_magnitude();
-            println!(
-                "Time: {:.3}s, Residual: {:.2e}, Max U: {:.2} m/s",
-                time, residual, u_max
-            );
+            tracing::info!("Time: {time:.3}s, Residual: {residual:.2e}, Max U: {u_max:.2} m/s");
         }
     }
 
-    println!("Simulation complete.");
+    tracing::info!("Simulation complete.");
 
     // Sample velocity at throat center
     let center_u = fields.u.at(nx / 2, ny / 2);
-    println!("Velocity at throat center: {:.2} m/s", center_u);
+    tracing::info!("Velocity at throat center: {center_u:.2} m/s");
 
     Ok(())
 }

@@ -349,7 +349,8 @@ mod tests {
     use super::*;
 
     fn make_grid() -> StructuredGrid2D<f64> {
-        StructuredGrid2D::new(6, 6, 0.0, 5.0, 0.0, 5.0).unwrap()
+        StructuredGrid2D::new(6, 6, 0.0, 5.0, 0.0, 5.0)
+            .expect("invariant: test fixture operation succeeds")
     }
 
     #[test]

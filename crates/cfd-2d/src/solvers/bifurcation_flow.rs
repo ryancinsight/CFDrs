@@ -362,9 +362,9 @@ mod tests {
         let result = solver.solve(0.1);
 
         assert!(result.is_ok());
-        let sol = result.unwrap();
+        let sol = result.expect("invariant: test fixture operation succeeds");
 
-        println!(
+        tracing::info!(
             "Bifurcation Mass Balance Error: {:?}",
             sol.mass_balance_error
         );
@@ -418,14 +418,17 @@ mod tests {
         let mut solver = BifurcationSolver2D::new(geom, blood, density, 50, 30, config);
         let u_inlet = 0.1;
 
-        let sol = solver.solve(u_inlet).unwrap();
+        let sol = solver
+            .solve(u_inlet)
+            .expect("invariant: test fixture operation succeeds");
 
-        println!("Non-Newtonian Bifurcation Q_parent: {:?}", sol.q_parent);
-        println!(
+        tracing::info!("Non-Newtonian Bifurcation Q_parent: {:?}", sol.q_parent);
+        tracing::info!(
             "Non-Newtonian Bifurcation Q_d1: {:?}, Q_d2: {:?}",
-            sol.q_daughter1, sol.q_daughter2
+            sol.q_daughter1,
+            sol.q_daughter2
         );
-        println!(
+        tracing::info!(
             "Non-Newtonian Mass Balance Error: {:?}",
             sol.mass_balance_error
         );

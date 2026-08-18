@@ -8,7 +8,7 @@
 //!
 //! **Phase 2 — Simulation (cfd-2d)**
 //! - Run `VenturiSolver2D` (ISO 5167, Newtonian blood, 60×30 grid)
-//! - Map pressure results to `AnalysisOverlay` (BlueRed colormap)
+//! - Map pressure results to `AnalysisOverlay` (`BlueRed` colormap)
 //! - Render overlay PNG → `outputs/venturi_pressure_overlay.png`
 //!
 //! Run with:
@@ -26,8 +26,9 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 Venturi Schematic + 2D CFD Example");
-    println!("======================================");
+    tracing_subscriber::fmt::init();
+    tracing::info!("🔬 Venturi Schematic + 2D CFD Example");
+    tracing::info!("======================================");
 
     // ── 0. Output directory ───────────────────────────────────────────────────
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -36,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&out)?;
 
     // ── Phase 1: Design (cfd-schematics) ─────────────────────────────────────
-    println!("\n📐 Phase 1: Schematic Design");
+    tracing::info!("\n📐 Phase 1: Schematic Design");
 
     // ISO 5167 Venturi dimensions (mm for schematic layout)
     // inlet(10mm) | converge(1mm) | throat(2mm) | diverge(3mm)
@@ -49,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let w_inlet = 10.0; // mm — inlet channel width for schematic
     let w_throat = 7.07; // mm — throat width (√2 ratio)
-    let w_mid = (w_inlet + w_throat) / 2.0;
+    let w_mid = f64::midpoint(w_inlet, w_throat);
 
     let mut system = NetworkBlueprint::new_with_explicit_positions("venturi-iso5167");
     system.box_dims = (x4 + 2.0, y * 2.0);
@@ -94,37 +95,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let schematic_path = out.join("venturi_schematic.png");
     renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
-    println!("  ✅ Schematic → {}", schematic_path.display());
+    tracing::info!("  ✅ Schematic → {}", schematic_path.display());
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
-    println!("\n⚙️  Phase 2: 2D CFD Simulation");
+    tracing::info!("\n⚙️  Phase 2: 2D CFD Simulation");
 
     let geom = VenturiGeometry::<f64>::iso_5167_standard();
     let u_inlet = 0.1_f64; // 100 mm/s
     let density = 1060.0_f64; // kg/m³ (blood)
 
-    println!("  Inlet width:  {:.1} mm", geom.w_inlet * 1000.0);
-    println!("  Throat width: {:.2} mm", geom.w_throat * 1000.0);
-    println!("  Area ratio:   {:.3}", geom.area_ratio());
+    tracing::info!("  Inlet width:  {:.1} mm", geom.w_inlet * 1000.0);
+    tracing::info!("  Throat width: {:.2} mm", geom.w_throat * 1000.0);
+    tracing::info!("  Area ratio:   {:.3}", geom.area_ratio());
 
     let mut solver =
         VenturiSolver2D::new(geom.clone(), BloodModel::Newtonian(1.0e-3), density, 60, 30);
     let sol = solver.solve(u_inlet)?;
 
-    println!("\n  📊 Results:");
-    println!("  u_inlet  = {:.4} m/s", sol.u_inlet);
-    println!(
+    tracing::info!("\n  📊 Results:");
+    tracing::info!("  u_inlet  = {:.4} m/s", sol.u_inlet);
+    tracing::info!(
         "  u_throat = {:.4} m/s  ({:.1}× acceleration)",
         sol.u_throat,
         sol.u_throat / sol.u_inlet.max(1e-12)
     );
-    println!("  p_inlet  = {:.2} Pa", sol.p_inlet);
-    println!(
+    tracing::info!("  p_inlet  = {:.2} Pa", sol.p_inlet);
+    tracing::info!(
         "  p_throat = {:.2} Pa  (ΔP = {:.2} Pa)",
-        sol.p_throat, sol.dp_throat
+        sol.p_throat,
+        sol.dp_throat
     );
-    println!("  p_outlet = {:.2} Pa", sol.p_outlet);
-    println!("  Cp_throat = {:.4}", sol.cp_throat);
+    tracing::info!("  p_outlet = {:.2} Pa", sol.p_outlet);
+    tracing::info!("  Cp_throat = {:.4}", sol.cp_throat);
 
     // Bernoulli validation
     let bernoulli = BernoulliVenturi::new(geom, u_inlet, sol.p_inlet, density);
@@ -134,20 +136,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let p_err = (sol.p_throat - bernoulli.pressure_throat()).abs()
         / bernoulli.pressure_throat().abs().max(1.0)
         * 100.0;
-    println!("\n  🔍 Bernoulli Validation:");
-    println!(
+    tracing::info!("\n  🔍 Bernoulli Validation:");
+    tracing::info!(
         "  u_throat error = {:.1}%  (ideal = {:.4} m/s)",
         u_err,
         bernoulli.velocity_throat()
     );
-    println!(
+    tracing::info!(
         "  p_throat error = {:.1}%  (ideal = {:.2} Pa)",
         p_err,
         bernoulli.pressure_throat()
     );
 
     // ── Phase 3: Overlay Visualization ───────────────────────────────────────
-    println!("\n🎨 Phase 3: Pressure Overlay");
+    tracing::info!("\n🎨 Phase 3: Pressure Overlay");
 
     // Assign pressure values to each node (0=inlet … 4=outlet)
     let node_p: HashMap<usize, f64> = [
@@ -163,9 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Assign mean pressure to each channel edge
     let edge_p: HashMap<usize, f64> = [
         (0, sol.p_inlet),
-        (1, (sol.p_inlet + sol.p_throat) / 2.0),
+        (1, f64::midpoint(sol.p_inlet, sol.p_throat)),
         (2, sol.p_throat),
-        (3, (sol.p_throat + sol.p_outlet) / 2.0),
+        (3, f64::midpoint(sol.p_throat, sol.p_outlet)),
     ]
     .into_iter()
     .collect();
@@ -183,8 +185,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let overlay_path = out.join("venturi_pressure_overlay.png");
     renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
-    println!("  ✅ Pressure overlay → {}", overlay_path.display());
+    tracing::info!("  ✅ Pressure overlay → {}", overlay_path.display());
 
-    println!("\n✅ Venturi example complete.");
+    tracing::info!("\n✅ Venturi example complete.");
     Ok(())
 }

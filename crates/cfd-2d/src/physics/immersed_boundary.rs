@@ -488,7 +488,8 @@ mod tests {
 
         let mut force_matrix = Array2::zeros([16 * 16, 2]);
 
-        ibm.spread_forces(&mut force_matrix).unwrap();
+        ibm.spread_forces(&mut force_matrix)
+            .expect("invariant: test fixture operation succeeds");
 
         // Check that forces were spread (should have non-zero entries)
         let has_nonzero = force_matrix.iter().any(|&x| x != 0.0);
@@ -521,7 +522,9 @@ mod tests {
             }
         }
 
-        let velocities = ibm.interpolate_velocities(&velocity_matrix).unwrap();
+        let velocities = ibm
+            .interpolate_velocities(&velocity_matrix)
+            .expect("invariant: test fixture operation succeeds");
 
         assert_eq!(velocities.len(), 1);
         assert_relative_eq!(velocities[0][0], constant_u, epsilon = 1e-10);
@@ -543,7 +546,8 @@ mod tests {
         // Current velocity is zero, desired is (1, 0)
         let current_velocities = vec![Vector2::new(0.0, 0.0)];
 
-        ibm.update_forces(&current_velocities).unwrap();
+        ibm.update_forces(&current_velocities)
+            .expect("invariant: test fixture operation succeeds");
 
         // Force should be (1/regularization, 0)
         let expected_force_x = 1.0 / ibm.config().regularization;

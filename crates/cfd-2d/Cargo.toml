@@ -44,6 +44,7 @@ serde_json.workspace = true
 proptest.workspace = true
 criterion.workspace = true
 rand.workspace = true
+tracing-subscriber.workspace = true
 
 [[bench]]
 name = "solver_benchmarks"

@@ -334,9 +334,12 @@ mod tests {
     use leto::geometry::Vector3;
 
     fn make_solver(nx: usize, ny: usize) -> PressureVelocitySolver<f64> {
-        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
-        let config = PressureVelocityConfig::new().unwrap();
-        PressureVelocitySolver::new(grid, config).unwrap()
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
+        let config =
+            PressureVelocityConfig::new().expect("invariant: test fixture operation succeeds");
+        PressureVelocitySolver::new(grid, config)
+            .expect("invariant: test fixture operation succeeds")
     }
 
     #[test]
@@ -349,9 +352,12 @@ mod tests {
 
     #[test]
     fn config_propagation_nx_ny() {
-        let grid = StructuredGrid2D::new(10, 6, 0.0, 2.0, 0.0, 1.0).unwrap();
-        let config = PressureVelocityConfig::new().unwrap();
-        let solver = PressureVelocitySolver::new(grid, config).unwrap();
+        let grid = StructuredGrid2D::new(10, 6, 0.0, 2.0, 0.0, 1.0)
+            .expect("invariant: test fixture operation succeeds");
+        let config =
+            PressureVelocityConfig::new().expect("invariant: test fixture operation succeeds");
+        let solver = PressureVelocitySolver::new(grid, config)
+            .expect("invariant: test fixture operation succeeds");
 
         // Velocity field dimensions should match grid
         assert_eq!(solver.velocity().rows(), 10);
@@ -362,11 +368,14 @@ mod tests {
 
     #[test]
     fn config_propagation_dx_dy() {
-        let grid = StructuredGrid2D::new(5, 5, 0.0, 4.0, 0.0, 2.0).unwrap();
+        let grid = StructuredGrid2D::new(5, 5, 0.0, 4.0, 0.0, 2.0)
+            .expect("invariant: test fixture operation succeeds");
         let dx: f64 = grid.dx;
         let dy: f64 = grid.dy;
-        let config = PressureVelocityConfig::new().unwrap();
-        let solver = PressureVelocitySolver::new(grid, config).unwrap();
+        let config =
+            PressureVelocityConfig::new().expect("invariant: test fixture operation succeeds");
+        let solver = PressureVelocitySolver::new(grid, config)
+            .expect("invariant: test fixture operation succeeds");
 
         assert!((solver.grid.dx - dx).abs() < 1e-15_f64);
         assert!((solver.grid.dy - dy).abs() < 1e-15_f64);

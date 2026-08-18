@@ -408,7 +408,7 @@ mod tests {
 
         assert!(result.is_ok(), "Solver failed: {:?}", result.err());
         let sol = result.expect("Solver failed to converge");
-        println!("Venturi Solution: {sol:?}");
+        tracing::info!("Venturi Solution: {sol:?}");
 
         // Qualification checks
         assert!(

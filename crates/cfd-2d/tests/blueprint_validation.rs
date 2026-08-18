@@ -1,3 +1,5 @@
+//! Blueprint validation tests for 2D projections.
+
 use aequitas::systems::si::quantities::Length;
 use cfd_2d::network::validate_blueprint_for_2d_projection;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};

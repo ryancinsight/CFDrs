@@ -180,8 +180,8 @@ mod tests {
     }
 
     fn make_solver(nx: usize, ny: usize) -> FvmSolver<f64> {
-        let grid =
-            StructuredGrid2D::new(nx, ny, 0.0, nx as f64 * 0.1, 0.0, ny as f64 * 0.1).unwrap();
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, nx as f64 * 0.1, 0.0, ny as f64 * 0.1)
+            .expect("invariant: test fixture operation succeeds");
         let config = FvmConfig {
             nx,
             ny,
@@ -209,7 +209,9 @@ mod tests {
         let velocity = Field2D::new(6, 6, Vector2::zeros());
         let source = Field2D::new(6, 6, 0.0);
 
-        solver.solve(&mut phi, &velocity, &source).unwrap();
+        solver
+            .solve(&mut phi, &velocity, &source)
+            .expect("invariant: test fixture operation succeeds");
 
         for i in 0..6 {
             for j in 0..6 {

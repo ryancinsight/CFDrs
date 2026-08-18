@@ -1,6 +1,6 @@
 //! Cross-fidelity validation: 2D N-furcation flow split vs fundamental continuity.
 //!
-//! Evaluates the generalized NFurcationSolver2D to ensure it accurately resolves
+//! Evaluates the generalized `NFurcationSolver2D` to ensure it accurately resolves
 //! 2D velocity fields for junctions with > 2 daughter branches (Quadfurcation/Pentafurcation).
 
 use cfd_2d::solvers::{NFurcationGeometry, NFurcationSolver2D};
@@ -8,7 +8,7 @@ use cfd_core::physics::fluid::BloodModel;
 use cfd_math::pressure_velocity::SIMPLEConfig;
 
 /// Validates a symmetric quadfurcation (4-way branch: 1 parent, 3 daughters = 4 total arms?
-/// Wait: JunctionFamily defines Quadfurcation = 4 branches total (1 parent, 3 daughters).
+/// Wait: `JunctionFamily` defines Quadfurcation = 4 branches total (1 parent, 3 daughters).
 /// Pentafurcation = 5 branches total (1 parent, 4 daughters).
 /// We'll test 1 parent -> 3 daughters (Quadfurcation) here.)
 #[test]

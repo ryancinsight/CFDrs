@@ -1,3 +1,5 @@
+//! Analytical validation tests for the energy equation solver.
+
 use cfd_2d::grid::array2d::Array2D;
 // Analytical validation tests for energy equation
 //
@@ -98,8 +100,7 @@ fn test_1d_steady_conduction_analytical() {
     // Assert convergence to analytical solution
     assert!(
         max_error < 1e-6,
-        "1D steady conduction error ({}) exceeds tolerance (1e-6)",
-        max_error
+        "1D steady conduction error ({max_error}) exceeds tolerance (1e-6)"
     );
 }
 
@@ -235,14 +236,12 @@ fn test_2d_transient_convection_diffusion_mms() {
     // With 21x21 grid and first-order upwind, expect ~5% error
     assert!(
         max_error < 0.5,
-        "2D transient convection-diffusion max error ({}) exceeds tolerance (0.5)",
-        max_error
+        "2D transient convection-diffusion max error ({max_error}) exceeds tolerance (0.5)"
     );
 
     assert!(
         rms_error < 0.2,
-        "2D transient convection-diffusion RMS error ({}) exceeds tolerance (0.2)",
-        rms_error
+        "2D transient convection-diffusion RMS error ({rms_error}) exceeds tolerance (0.2)"
     );
 }
 
@@ -290,8 +289,7 @@ fn test_uniform_temperature_conservation() {
             let error: f64 = temp_diff.abs();
             assert!(
                 error < 1e-10,
-                "Uniform temperature not conserved: error = {}",
-                error
+                "Uniform temperature not conserved: error = {error}"
             );
         }
     }
@@ -371,9 +369,7 @@ fn test_steady_heat_source_balance() {
     let t_center = solver.temperature[(nx / 2, ny / 2)];
     assert!(
         t_center > t_boundary,
-        "Center temperature ({}) should be above boundary temperature ({}) due to heat source",
-        t_center,
-        t_boundary
+        "Center temperature ({t_center}) should be above boundary temperature ({t_boundary}) due to heat source"
     );
 
     // Verify symmetry (temperature should be symmetric about center)
@@ -387,8 +383,7 @@ fn test_steady_heat_source_balance() {
             let max_diff = (t1 - t2).abs().max((t1 - t3).abs()).max((t1 - t4).abs());
             assert!(
                 max_diff < 1e-3,
-                "Temperature field not symmetric: max difference = {}",
-                max_diff
+                "Temperature field not symmetric: max difference = {max_diff}"
             );
         }
     }

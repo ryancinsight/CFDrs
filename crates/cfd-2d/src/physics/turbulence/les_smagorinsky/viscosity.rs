@@ -182,7 +182,7 @@ mod tests {
         // For C_S = 0.1, Δ = 0.1, |S| = 1.0, ρ = 1.0:
         // ν_SGS = (0.1 * 0.1)² * 1.0 * 1.0 = 0.0001
         let expected = 0.0001;
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert_relative_eq!(v, expected, epsilon = 1e-10);
         }
     }
@@ -252,7 +252,7 @@ mod tests {
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // All viscosities should be at least the minimum
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert!(v >= 1e-6);
         }
     }
@@ -265,7 +265,7 @@ mod tests {
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Zero strain should give exactly zero SGS viscosity by default.
-        for &v in viscosity.iter() {
+        for &v in &viscosity {
             assert_relative_eq!(v, 0.0, epsilon = 1e-15);
         }
     }

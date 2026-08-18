@@ -30,11 +30,12 @@ use cfd_2d::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, St
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  2D Blood Flow in TPMS-Derived Periodic Channel        ║");
-    println!("║  Gyroid cross-section + Mask + Carreau-Yasuda           ║");
-    println!("╚══════════════════════════════════════════════════════════╝");
-    println!();
+    tracing_subscriber::fmt::init();
+    tracing::info!("╔══════════════════════════════════════════════════════════╗");
+    tracing::info!("║  2D Blood Flow in TPMS-Derived Periodic Channel        ║");
+    tracing::info!("║  Gyroid cross-section + Mask + Carreau-Yasuda           ║");
+    tracing::info!("╚══════════════════════════════════════════════════════════╝");
+    tracing::info!(message = "");
 
     // ── 1. Domain ────────────────────────────────────────────────────────────
     //
@@ -46,21 +47,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nx: usize = 40;
     let ny: usize = 20;
 
-    println!("Domain: {:.1} mm × {:.1} mm", length * 1e3, height * 1e3);
-    println!("Grid  : {} × {} cells", nx, ny);
-    println!();
+    tracing::info!("Domain: {:.1} mm × {:.1} mm", length * 1e3, height * 1e3);
+    tracing::info!("Grid  : {nx} × {ny} cells");
+    tracing::info!(message = "");
 
     // ── 2. Blood Rheology ────────────────────────────────────────────────────
     let blood_params = CarreauYasudaBlood::<f64>::normal_blood();
     let rho = 1060.0_f64; // blood density [kg/m³]
 
-    println!("Fluid : Carreau-Yasuda blood (ρ = {} kg/m³)", rho);
-    println!(
+    tracing::info!("Fluid : Carreau-Yasuda blood (ρ = {rho} kg/m³)");
+    tracing::info!(
         "        μ₀ = {:.4} Pa·s, μ_∞ = {:.4} Pa·s",
         blood_params.zero_shear_viscosity.into_base(),
         blood_params.infinite_shear_viscosity.into_base()
     );
-    println!();
+    tracing::info!(message = "");
 
     // ── 3. SIMPLE Solver Configuration ───────────────────────────────────────
     //
@@ -112,30 +113,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let n_fluid = nx * ny - n_solid;
-    println!(
+    tracing::info!(
         "TPMS  : Gyroid cross-section, λ = {:.1} mm, 1 period",
         tpms_period * 1e3
     );
-    println!(
+    tracing::info!(
         "        Constriction amplitude = {:.1} mm per side",
         amplitude * 1e3
     );
-    println!(
+    tracing::info!(
         "        Min gap = {:.1} mm, Max gap = {:.1} mm",
         (height - 2.0 * amplitude) * 1e3,
         height * 1e3
     );
-    println!(
+    tracing::info!(
         "Mask  : {} fluid / {} solid cells ({:.0}% open)",
         n_fluid,
         n_solid,
         100.0 * n_fluid as f64 / (nx * ny) as f64
     );
-    println!();
+    tracing::info!(message = "");
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
     let u_inlet_val = 0.01; // 1 cm/s mean inlet → Re ≈ 6
-    println!(
+    tracing::info!(
         "Solving (u_inlet = {:.0} mm/s, SIMPLE + Gauss-Seidel) ...",
         u_inlet_val * 1e3
     );
@@ -144,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .solve(u_inlet_val)
         .map_err(|e| format!("Solver error: {e}"))?;
 
-    println!(
+    tracing::info!(
         "  {} in {} iterations (residual = {:.2e})",
         if result.converged {
             "Converged"
@@ -156,10 +157,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // ── 6. Post-Processing ───────────────────────────────────────────────────
-    println!();
-    println!("═══════════════════════════════════════════════════════");
-    println!("  RESULTS: TPMS PERIODIC CHANNEL BLOOD FLOW");
-    println!("═══════════════════════════════════════════════════════");
+    tracing::info!(message = "");
+    tracing::info!("═══════════════════════════════════════════════════════");
+    tracing::info!("  RESULTS: TPMS PERIODIC CHANNEL BLOOD FLOW");
+    tracing::info!("═══════════════════════════════════════════════════════");
 
     // Constriction is at x = 0 (cos max), expansion at x = λ/2 (cos min)
     let i_constriction = 0; // x ≈ 0: narrowest
@@ -180,28 +181,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("  Inlet centreline    : {:.4} m/s", u_inlet_sim);
-    println!("  Constriction centre : {:.4} m/s", u_constr);
-    println!("  Expansion centre    : {:.4} m/s", u_expand);
-    println!("  Outlet centreline   : {:.4} m/s", u_outlet_sim);
-    println!("  Global |u|_max      : {:.4} m/s", u_max);
-    println!();
+    tracing::info!("  Inlet centreline    : {u_inlet_sim:.4} m/s");
+    tracing::info!("  Constriction centre : {u_constr:.4} m/s");
+    tracing::info!("  Expansion centre    : {u_expand:.4} m/s");
+    tracing::info!("  Outlet centreline   : {u_outlet_sim:.4} m/s");
+    tracing::info!("  Global |u|_max      : {u_max:.4} m/s");
+    tracing::info!(message = "");
 
     // Viscosity (cell-centred)
     let mu_constr = solver.field.mu[(i_constriction.min(nx - 1), j_centre)];
     let mu_expand = solver.field.mu[(i_expansion.min(nx - 1), j_centre)];
-    println!("  Viscosity at constriction: {:.4} mPa·s", mu_constr * 1e3);
-    println!("  Viscosity at expansion   : {:.4} mPa·s", mu_expand * 1e3);
-    println!();
-    println!("  Shear-thinning: higher velocity at constrictions reduces");
-    println!("  local viscosity (Carreau-Yasuda μ → μ_∞ at high γ̇).");
+    tracing::info!("  Viscosity at constriction: {:.4} mPa·s", mu_constr * 1e3);
+    tracing::info!("  Viscosity at expansion   : {:.4} mPa·s", mu_expand * 1e3);
+    tracing::info!(message = "");
+    tracing::info!("  Shear-thinning: higher velocity at constrictions reduces");
+    tracing::info!("  local viscosity (Carreau-Yasuda μ → μ_∞ at high γ̇).");
 
     // Pressure drop
     let p_in = solver.field.p[(0, j_centre)];
     let p_out = solver.field.p[(nx - 1, j_centre)];
     let dp = p_in - p_out;
-    println!();
-    println!(
+    tracing::info!(message = "");
+    tracing::info!(
         "  Pressure drop ΔP   : {:.2} Pa ({:.4} mmHg)",
         dp,
         dp / 133.322
@@ -232,31 +233,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.0
     };
 
-    println!(
-        "  Wall shear (bottom) : max = {:.4} Pa, mean = {:.4} Pa",
-        tau_max, tau_mean
-    );
+    tracing::info!("  Wall shear (bottom) : max = {tau_max:.4} Pa, mean = {tau_mean:.4} Pa");
 
     // ── 7. Compare with 1D ───────────────────────────────────────────────────
-    println!();
-    println!("─────────────────────────────────────────────────────────");
-    println!("  1D vs 2D Comparison");
-    println!("─────────────────────────────────────────────────────────");
-    println!("                   1D (H-P network)    2D (N-S FVM)");
-    println!("  ΔP             ≈ 19.2 Pa            {:.1} Pa", dp);
-    println!(
-        "  Wall shear     ≈ 0.06–0.13 Pa       {:.2}–{:.2} Pa",
-        tau_mean, tau_max
-    );
-    println!(
+    tracing::info!(message = "");
+    tracing::info!("─────────────────────────────────────────────────────────");
+    tracing::info!("  1D vs 2D Comparison");
+    tracing::info!("─────────────────────────────────────────────────────────");
+    tracing::info!("                   1D (H-P network)    2D (N-S FVM)");
+    tracing::info!("  ΔP             ≈ 19.2 Pa            {dp:.1} Pa");
+    tracing::info!("  Wall shear     ≈ 0.06–0.13 Pa       {tau_mean:.2}–{tau_max:.2} Pa");
+    tracing::info!(
         "  μ_app          ≈ 7.5–11.8 mPa·s     {:.1}–{:.1} mPa·s",
         mu_constr * 1e3,
         mu_expand * 1e3
     );
-    println!();
-    println!("  The 2D solver captures spatially varying viscosity,");
-    println!("  velocity acceleration through constrictions, and higher");
-    println!("  wall shear than the 1D lumped-resistance model.");
+    tracing::info!(message = "");
+    tracing::info!("  The 2D solver captures spatially varying viscosity,");
+    tracing::info!("  velocity acceleration through constrictions, and higher");
+    tracing::info!("  wall shear than the 1D lumped-resistance model.");
 
     Ok(())
 }

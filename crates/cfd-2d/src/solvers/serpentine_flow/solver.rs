@@ -238,9 +238,9 @@ mod tests_discretized {
             "Serpentine solver failed: {:?}",
             result.err()
         );
-        let sol = result.unwrap();
+        let sol = result.expect("invariant: test fixture operation succeeds");
 
-        println!("Serpentine Mixing Solution: {sol:?}");
+        tracing::info!("Serpentine Mixing Solution: {sol:?}");
 
         // Qualitative checks
         assert!(sol.peclet > 0.0, "Peclet should be positive");

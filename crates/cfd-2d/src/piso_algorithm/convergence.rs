@@ -198,7 +198,8 @@ mod tests {
             }
         }
 
-        let grid = StructuredGrid2D::new(4, 4, 0.0, 1.5, 0.0, 6.0).unwrap();
+        let grid = StructuredGrid2D::new(4, 4, 0.0, 1.5, 0.0, 6.0)
+            .expect("invariant: test fixture operation succeeds");
 
         monitor.update(&fields_old, &fields_new, &grid);
 

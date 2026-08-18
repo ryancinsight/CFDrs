@@ -1,3 +1,5 @@
+//! Validation tests for extended 2D boundary conditions.
+
 use cfd_2d::grid::array2d::Array2D;
 // Analytical validation tests for extended boundary conditions
 //
@@ -30,9 +32,8 @@ use std::collections::HashMap;
 fn test_periodic_channel_flow() {
     let nx = 10;
     let ny = 21;
-    let _lx = 1.0; // Channel length [m]
+    // Channel length does not enter the boundary-structure contract.
     let ly = 0.1; // Channel height [m]
-    let _dy = ly / (ny - 1) as f64;
 
     // Flow parameters
     let dp_dx = -10.0; // Pressure gradient [Pa/m]
@@ -102,8 +103,12 @@ fn test_periodic_channel_flow() {
 
     // Validate periodicity property: u(x=0, y) = u(x=L, y)
     // This is enforced by periodic BC implementation
-    let bc_west = boundary_conditions.get(&(0, ny / 2)).unwrap();
-    let bc_east = boundary_conditions.get(&(nx - 1, ny / 2)).unwrap();
+    let bc_west = boundary_conditions
+        .get(&(0, ny / 2))
+        .expect("invariant: test fixture operation succeeds");
+    let bc_east = boundary_conditions
+        .get(&(nx - 1, ny / 2))
+        .expect("invariant: test fixture operation succeeds");
 
     match (bc_west, bc_east) {
         (BoundaryCondition::Periodic { .. }, BoundaryCondition::Periodic { .. }) => {
@@ -167,7 +172,9 @@ fn test_symmetric_cavity() {
     }
 
     // Validate symmetry BC creates zero-gradient condition
-    let bc_symmetry = boundary_conditions.get(&(0, ny / 2)).unwrap();
+    let bc_symmetry = boundary_conditions
+        .get(&(0, ny / 2))
+        .expect("invariant: test fixture operation succeeds");
 
     match bc_symmetry {
         BoundaryCondition::Symmetry => {
@@ -185,9 +192,9 @@ fn test_symmetric_cavity() {
 /// Test pressure inlet/outlet boundary conditions
 ///
 /// Physics:
-/// - Pressure inlet: P = P_in, zero-gradient velocity
-/// - Pressure outlet: P = P_out, zero-gradient velocity
-/// - Momentum balance: ΔP = ρ(u_out² - u_in²)/2 + friction losses
+/// - Pressure inlet: P = `P_in`, zero-gradient velocity
+/// - Pressure outlet: P = `P_out`, zero-gradient velocity
+/// - Momentum balance: ΔP = `ρ(u_out²` - `u_in²)/2` + friction losses
 ///
 /// Expected: Momentum balance holds within 10%
 #[test]
@@ -196,8 +203,8 @@ fn test_pressure_driven_flow() {
     let ny = 11;
 
     // Pressure parameters
-    let p_in = 101325.0 + 100.0; // Inlet pressure [Pa]
-    let p_out = 101325.0; // Outlet pressure (atmospheric) [Pa]
+    let p_in: f64 = 101_325.0 + 100.0; // Inlet pressure [Pa]
+    let p_out: f64 = 101_325.0; // Outlet pressure (atmospheric) [Pa]
 
     let mut boundary_conditions = HashMap::new();
 
@@ -239,19 +246,23 @@ fn test_pressure_driven_flow() {
     }
 
     // Validate pressure BC structure
-    let bc_inlet = boundary_conditions.get(&(0, ny / 2)).unwrap();
-    let bc_outlet = boundary_conditions.get(&(nx - 1, ny / 2)).unwrap();
+    let bc_inlet = boundary_conditions
+        .get(&(0, ny / 2))
+        .expect("invariant: test fixture operation succeeds");
+    let bc_outlet = boundary_conditions
+        .get(&(nx - 1, ny / 2))
+        .expect("invariant: test fixture operation succeeds");
 
     match bc_inlet {
         BoundaryCondition::PressureInlet { pressure, .. } => {
-            assert_eq!(*pressure, p_in, "Inlet pressure should match");
+            assert!((*pressure - p_in).abs() <= f64::EPSILON);
         }
         _ => panic!("Expected pressure inlet boundary condition"),
     }
 
     match bc_outlet {
         BoundaryCondition::PressureOutlet { pressure } => {
-            assert_eq!(*pressure, p_out, "Outlet pressure should match");
+            assert!((*pressure - p_out).abs() <= f64::EPSILON);
         }
         _ => panic!("Expected pressure outlet boundary condition"),
     }
@@ -338,7 +349,7 @@ fn test_periodic_energy_transport() {
     for _ in 0..10 {
         solver
             .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &boundary_conditions)
-            .unwrap();
+            .expect("invariant: test fixture operation succeeds");
     }
 
     // Calculate final total energy
@@ -357,8 +368,7 @@ fn test_periodic_energy_transport() {
     // Periodic BCs ensure no net flux through boundaries
     assert!(
         energy_error < 1e-6,
-        "Energy conservation error {} exceeds tolerance for periodic/adiabatic domain",
-        energy_error
+        "Energy conservation error {energy_error} exceeds tolerance for periodic/adiabatic domain"
     );
 
     // Validate periodicity: T(0,j) ≈ T(nx-1,j)
