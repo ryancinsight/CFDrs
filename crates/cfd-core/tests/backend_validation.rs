@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 //! Validation tests for backend abstraction pattern
 //!
 //! Validates the backend abstraction implementation against performance and correctness

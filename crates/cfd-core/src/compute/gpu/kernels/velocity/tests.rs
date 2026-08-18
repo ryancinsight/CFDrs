@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 #![allow(clippy::print_stdout)]
 #![allow(clippy::print_stderr)]
 use super::{GpuVelocityKernel, VelocityConfig};
