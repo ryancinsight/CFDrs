@@ -430,7 +430,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_zero, t, &u0, dt)
-            .unwrap();
+            .expect("invariant: IMEX step accepts scalar decay state");
 
         // Should produce reasonable result for exponential decay
         assert!(u1[0] > 0.0 && u1[0] < 1.0);
@@ -466,7 +466,7 @@ mod tests {
                 let step_size = (t_final - t).min(dt);
                 u = imex
                     .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u, step_size)
-                    .unwrap();
+                    .expect("invariant: IMEX convergence step accepts finite state");
                 t += step_size;
             }
 
@@ -482,8 +482,11 @@ mod tests {
             let expected_ratio = dt_ratio.powf(expected_order);
             let observed_order = ratio;
 
-            println!(
-                "dt ratio: {dt_ratio:.1}, error ratio: {observed_order:.2}, expected ratio: {expected_ratio:.2}"
+            tracing::debug!(
+                dt_ratio,
+                observed_order,
+                expected_ratio,
+                "IMEX convergence ratios"
             );
 
             // Check that observed convergence is reasonably close
@@ -511,7 +514,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
-            .unwrap();
+            .expect("invariant: IMEX analytical step accepts finite state");
 
         let analytical = state_from_vec((0..state_len(&u0)).map(|i| u0[i] * (-dt).exp()).collect());
 
@@ -545,7 +548,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
-            .unwrap();
+            .expect("invariant: IMEX Newton step accepts finite state");
 
         // Analytical solution for dy/dt = λy^3: y(t) = 1 / sqrt(y0^-2 - 2λt)
         let analytical = 1.0 / (u0[0].powi(-2) - 2.0 * lambda * dt).sqrt();

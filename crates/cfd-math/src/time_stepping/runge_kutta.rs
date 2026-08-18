@@ -368,7 +368,9 @@ mod tests {
         let dt = 0.1;
         let t = 0.0;
 
-        let u1 = rk4.step(exponential_decay, t, &u0, dt).unwrap();
+        let u1 = rk4
+            .step(exponential_decay, t, &u0, dt)
+            .expect("invariant: RK4 accepts scalar exponential decay");
 
         // Analytical solution: u(t) = u0 * exp(-t)
         let u_analytical = 1.0 * (-dt).exp();
@@ -391,7 +393,9 @@ mod tests {
         let dt = 0.01;
         let t = 0.0;
 
-        let u1 = rk4_ls.step(exponential_decay, t, &u0, dt).unwrap();
+        let u1 = rk4_ls
+            .step(exponential_decay, t, &u0, dt)
+            .expect("invariant: low-storage RK4 accepts finite state");
 
         let decay = (-dt).exp();
         assert_relative_eq!(u1[0], u0[0] * decay, epsilon = 1e-10);
@@ -408,7 +412,7 @@ mod tests {
 
         let u1 = rk4_ls
             .step(|_, u| Ok(state_zeros(state_len(u))), t, &u0, dt)
-            .unwrap();
+            .expect("invariant: low-storage RK4 preserves constant state");
 
         assert_relative_eq!(u1[0], u0[0], epsilon = 1e-14);
         assert_relative_eq!(u1[1], u0[1], epsilon = 1e-14);

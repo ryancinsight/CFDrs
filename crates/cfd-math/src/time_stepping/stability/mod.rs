@@ -319,10 +319,9 @@ mod tests {
         let b = vector_from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
         let c = vector_from_vec(vec![0.0, 0.5, 0.5, 1.0]);
 
-        let result = analyzer.compute_rk_stability_region(&a, &b, &c);
-        assert!(result.is_ok());
-
-        let region = result.unwrap();
+        let region = analyzer
+            .compute_rk_stability_region(&a, &b, &c)
+            .expect("invariant: RK4 Butcher tableau yields a stability region");
         assert_eq!(region.method_info.order, 4);
         assert_eq!(region.method_info.stages, 4);
         assert!(!region.boundary.is_empty());
@@ -340,7 +339,7 @@ mod tests {
         let c1 = vector_from_vec(vec![0.0]);
         let lim1 = analyzer
             .compute_rk_absolute_stability_limit(&a1, &b1, &c1)
-            .unwrap();
+            .expect("invariant: RK1 stability limit is computable");
         assert_relative_eq!(lim1, 2.0, epsilon = 1e-6);
 
         // RK3 (Kutta/Heun 3rd order as used in validation)
@@ -353,7 +352,7 @@ mod tests {
         let c3 = vector_from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
         let lim3 = analyzer
             .compute_rk_absolute_stability_limit(&a3, &b3, &c3)
-            .unwrap();
+            .expect("invariant: RK3 stability limit is computable");
         assert!(lim3 > 2.45 && lim3 < 2.58);
 
         // Classic RK4
@@ -368,7 +367,7 @@ mod tests {
         let c4 = vector_from_vec(vec![0.0, 0.5, 0.5, 1.0]);
         let lim4 = analyzer
             .compute_rk_absolute_stability_limit(&a4, &b4, &c4)
-            .unwrap();
+            .expect("invariant: RK4 stability limit is computable");
         assert!(lim4 > 2.7 && lim4 < 2.9);
     }
 
@@ -390,7 +389,7 @@ mod tests {
                 dt,
                 &wave_numbers,
             )
-            .unwrap();
+            .expect("invariant: RK4 von Neumann analysis accepts finite wave numbers");
 
         assert!(analysis.is_stable);
         for &amp in &analysis.amplification_factors {

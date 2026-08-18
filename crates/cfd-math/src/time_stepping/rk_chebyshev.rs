@@ -407,7 +407,9 @@ mod tests {
 
         let y0 = state_from_vec(vec![1.0]);
         let dt = 0.1;
-        let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
+        let y_final = rkc
+            .step(&rhs, 0.0, &y0, dt)
+            .expect("invariant: RKC accepts scalar exponential decay");
 
         let analytical = (-lambda * dt).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);
@@ -427,7 +429,9 @@ mod tests {
 
         let y0 = state_from_vec(vec![1.0]);
         let dt = 0.01; // lambda*dt = 1
-        let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
+        let y_final = rkc
+            .step(&rhs, 0.0, &y0, dt)
+            .expect("invariant: stiff RKC step accepts finite state");
 
         let analytical = (-lambda * dt).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);
@@ -440,7 +444,9 @@ mod tests {
         let rkc = RungeKuttaChebyshev::<f64>::new();
 
         let y0 = state_from_vec(vec![1.0]);
-        let (y_final, _) = rkc.solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1).unwrap();
+        let (y_final, _) = rkc
+            .solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1)
+            .expect("invariant: adaptive RKC solve accepts finite state");
 
         let analytical = (-lambda).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);

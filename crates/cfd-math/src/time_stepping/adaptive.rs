@@ -330,7 +330,7 @@ mod tests {
 
         let (u_new, dt_new, accepted) = stepper
             .adaptive_step(exponential_decay, t, &u0, dt_initial, tolerance)
-            .unwrap();
+            .expect("invariant: adaptive Dormand-Prince step accepts finite decay state");
 
         assert!(accepted);
         assert!(dt_new > 0.0);
