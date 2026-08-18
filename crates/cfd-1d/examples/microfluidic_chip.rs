@@ -6,15 +6,19 @@
 //! - Proper boundary conditions
 //! - Flow and pressure analysis
 //!
-//! Run with: cargo run --example microfluidic_chip
+//! Run with: cargo run --example `microfluidic_chip`
 
 use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, Pressure};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧪 Microfluidic Chip Simulation");
-    println!("================================");
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "🧪 Microfluidic Chip Simulation")?;
+    writeln!(output, "================================")?;
 
     // Create a microfluidic network
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
@@ -75,10 +79,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         network.add_edge_properties(edge_idx, props);
     }
 
-    println!("✅ Network created successfully!");
-    println!("   - Nodes: {}", network.node_count());
-    println!("   - Edges: {}", network.edge_count());
-    println!("   - Fluid: {}", network.fluid().name);
+    writeln!(output, "✅ Network created successfully!")?;
+    writeln!(output, "   - Nodes: {}", network.node_count())?;
+    writeln!(output, "   - Edges: {}", network.edge_count())?;
+    writeln!(output, "   - Fluid: {}", network.fluid().name)?;
 
     // Export structure for verification
     use std::fs;
@@ -98,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = output_dir.join("microfluidic_chip_structure.json");
     fs::write(&json_path, serde_json::to_string_pretty(&structure)?)?;
-    println!("✅ Exported structure to {}", json_path.display());
+    writeln!(output, "✅ Exported structure to {}", json_path.display())?;
 
     // Set boundary pressures
     network.set_pressure(inlet, Pressure::from_base(INLET_PRESSURE));
@@ -118,46 +122,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let solver = NetworkSolver::with_config(solver_config);
 
     // Solve the flow problem
-    println!("\n🔄 Solving flow equations...");
+    writeln!(output, "\n🔄 Solving flow equations...")?;
     let problem = NetworkProblem::new(network);
     let solved_network = solver.solve_network(&problem)?;
 
-    println!("✅ Solution completed");
+    writeln!(output, "✅ Solution completed")?;
 
     // Display results
-    println!("\n📊 Flow Analysis Results");
-    println!("========================");
+    writeln!(output, "\n📊 Flow Analysis Results")?;
+    writeln!(output, "========================")?;
 
     // Access solution vectors
     let pressures = solved_network.pressures();
     let flow_rates = solved_network.flow_rates();
 
     // Node pressures
-    println!("\n🔘 Node Pressures:");
+    writeln!(output, "\n🔘 Node Pressures:")?;
     let node_indices = [inlet, junction, outlet_1, outlet_2];
     let node_names = ["inlet", "junction", "outlet_1", "outlet_2"];
     for (idx, name) in node_indices.iter().zip(node_names.iter()) {
         if let Some(&pressure) = pressures.get(idx.index()) {
-            println!("   {}: {:.1} Pa", name, pressure.into_base());
+            writeln!(output, "   {name}: {:.1} Pa", pressure.into_base())?;
         }
     }
 
     // Edge flow rates
-    println!("\n➡️  Flow Rates:");
+    writeln!(output, "\n➡️  Flow Rates:")?;
     let mut total_flow: f64 = 0.0;
     for (edge_idx, flow_rate) in flow_rates.iter().enumerate() {
         let flow_rate = flow_rate.into_base();
         let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
-        println!(
-            "   Edge {:?}: {:.3} mL/min ({:.2e} m³/s)",
-            edge_idx, flow_ml_min, flow_rate
-        );
+        writeln!(
+            output,
+            "   Edge {edge_idx:?}: {flow_ml_min:.3} mL/min ({flow_rate:.2e} m³/s)"
+        )?;
         total_flow += flow_rate.abs();
     }
 
     // Mass conservation check
-    println!("\n🔬 Mass Conservation Check:");
-    println!("   Total flow magnitude: {:.2e} m³/s", total_flow);
+    writeln!(output, "\n🔬 Mass Conservation Check:")?;
+    writeln!(output, "   Total flow magnitude: {total_flow:.2e} m³/s")?;
 
     // Calculate Reynolds number for main channel
     let fluid = solved_network.fluid();
@@ -173,19 +177,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fluid.density.into_base() * avg_velocity * diameter / viscosity
     };
 
-    println!("\n📈 Flow Characteristics:");
-    println!("   Average velocity: {:.3} m/s", avg_velocity);
-    println!("   Reynolds number: {:.2}", reynolds);
-    println!(
+    writeln!(output, "\n📈 Flow Characteristics:")?;
+    writeln!(output, "   Average velocity: {avg_velocity:.3} m/s")?;
+    writeln!(output, "   Reynolds number: {reynolds:.2}")?;
+    writeln!(
+        output,
         "   Flow regime: {}",
         if reynolds < 2300.0 {
             "Laminar"
         } else {
             "Turbulent"
         }
-    );
+    )?;
 
-    println!("\n✅ Simulation completed successfully!");
+    writeln!(output, "\n✅ Simulation completed successfully!")?;
 
     Ok(())
 }
