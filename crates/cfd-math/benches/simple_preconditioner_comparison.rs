@@ -1,5 +1,5 @@
 //! Criterion comparison: CSR-shaped SIMPLE coupling store vs the historical
-//! jagged `Vec<Vec<(usize, f64)>>` layout (ATLAS-ARCH-008, CFDrs slice).
+//! jagged `Vec<Vec<(usize, f64)>>` layout (ATLAS-ARCH-008, `CFDrs` slice).
 //!
 //! `SimplePreconditioner` traverses the divergence and gradient coupling
 //! blocks once per application — every Krylov iteration. The flat store
@@ -268,9 +268,9 @@ fn build_flat_stores(matrix: &CsrMatrix<f64>, n_velocity: usize, n_pressure: usi
 ///
 /// This isolates the layout from the `row()` iterator helper and the
 /// `Array1`/`DiagonalPreconditioner` wrappers so the comparison attributes
-/// any difference to the store shape itself. Entries stay AoS-packed
-/// `(index, value)` pairs: the split SoA form loses ~14-35% on the
-/// sequential store read, while the flat AoS form holds parity with the
+/// any difference to the store shape itself. Entries stay `AoS`-packed
+/// `(index, value)` pairs: the split `SoA` form loses ~14-35% on the
+/// sequential store read, while the flat `AoS` form holds parity with the
 /// jagged baseline.
 fn csr_flat_apply(
     divergence_offsets: &[usize],
@@ -424,7 +424,7 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
     let mut build = c.benchmark_group("simple_coupling_build");
     for (nx, matrix, n_velocity, n_pressure, ..) in &fixtures {
         let label = format!("{nx}x{nx}");
-        build.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, _| {
+        build.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, ()| {
             bencher.iter(|| {
                 black_box(
                     SimplePreconditioner::new(black_box(matrix), *n_velocity, *n_pressure)
@@ -432,7 +432,7 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
                 );
             });
         });
-        build.bench_with_input(BenchmarkId::new("jagged", &label), &(), |bencher, _| {
+        build.bench_with_input(BenchmarkId::new("jagged", &label), &(), |bencher, ()| {
             bencher.iter(|| {
                 black_box(JaggedSimplePreconditioner::new(
                     black_box(matrix),
@@ -447,7 +447,7 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
     let mut apply = c.benchmark_group("simple_coupling_apply");
     for (nx, _, _, _, b, b_array, csr, jagged, flat) in &fixtures {
         let label = format!("{nx}x{nx}");
-        apply.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, _| {
+        apply.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, ()| {
             bencher.iter(|| {
                 black_box(
                     csr.apply(black_box(b_array))
@@ -455,7 +455,7 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
                 );
             });
         });
-        apply.bench_with_input(BenchmarkId::new("csr_flat", &label), &(), |bencher, _| {
+        apply.bench_with_input(BenchmarkId::new("csr_flat", &label), &(), |bencher, ()| {
             bencher.iter(|| {
                 black_box(csr_flat_apply(
                     black_box(&flat.divergence_offsets),
@@ -468,7 +468,7 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
                 ));
             });
         });
-        apply.bench_with_input(BenchmarkId::new("jagged", &label), &(), |bencher, _| {
+        apply.bench_with_input(BenchmarkId::new("jagged", &label), &(), |bencher, ()| {
             bencher.iter(|| {
                 black_box(jagged.apply(black_box(b_array)));
             });
