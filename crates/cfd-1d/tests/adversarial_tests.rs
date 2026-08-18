@@ -2,7 +2,7 @@
 //!
 //! Tests verify that:
 //! 1. Physics models never produce NaN for valid-but-extreme inputs
-//! 2. NetworkBuilder validates topology and rejects malformed networks with Err
+//! 2. `NetworkBuilder` validates topology and rejects malformed networks with `Err`
 //! 3. Solver correctly handles NaN/infinite resistance edges without panicking
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
@@ -65,8 +65,7 @@ fn test_zero_diameter_returns_inf_resistance() {
     let r = chan.resistance(&fluid);
     assert!(
         r.is_infinite(),
-        "Zero diameter should yield infinite resistance, got {}",
-        r
+        "Zero diameter should yield infinite resistance, got {r}"
     );
 }
 
@@ -76,7 +75,7 @@ fn test_zero_length_returns_zero_resistance() {
     let fluid = water();
     let chan = circular_channel(0.0, 1e-3, 0.0);
     let r = chan.resistance(&fluid);
-    assert_eq!(r, 0.0, "Zero length must yield exactly zero resistance");
+    assert_relative_eq!(r, 0.0, epsilon = 64.0 * f64::EPSILON);
 }
 
 /// Very small diameter produces very large but finite resistance.
@@ -87,8 +86,7 @@ fn test_tiny_diameter_large_resistance() {
     let r = chan.resistance(&fluid);
     assert!(
         r > 1e30,
-        "1 nm channel should have enormous resistance, got {}",
-        r
+        "1 nm channel should have enormous resistance, got {r}"
     );
     assert!(
         r.is_finite(),
@@ -112,7 +110,7 @@ fn test_extreme_length_stays_finite() {
 // NetworkBuilder Validation: structural topology errors must be Err (not panic)
 // ============================================================================
 
-/// NetworkBuilder::build() must reject empty graphs (no nodes).
+/// `NetworkBuilder::build()` must reject empty graphs (no nodes).
 #[test]
 fn test_empty_network_is_rejected() {
     let builder = NetworkBuilder::<f64>::new();
@@ -123,7 +121,7 @@ fn test_empty_network_is_rejected() {
     );
 }
 
-/// NetworkBuilder::build() must reject graph with junction but no inlet or outlet.
+/// `NetworkBuilder::build()` must reject graph with junction but no inlet or outlet.
 #[test]
 fn test_no_inlet_or_outlet_is_rejected() {
     let mut builder = NetworkBuilder::<f64>::new();
@@ -137,7 +135,7 @@ fn test_no_inlet_or_outlet_is_rejected() {
     );
 }
 
-/// NetworkBuilder::build() must reject disconnected components.
+/// `NetworkBuilder::build()` must reject disconnected components.
 #[test]
 fn test_disconnected_network_is_rejected() {
     let mut builder = NetworkBuilder::<f64>::new();
@@ -162,7 +160,7 @@ fn test_disconnected_network_is_rejected() {
 // ============================================================================
 
 /// Solver with NaN resistance on an edge must fail gracefully (not panic).
-/// Since NetworkBuilder validates zero resistance, we inject NaN after build().
+/// Since `NetworkBuilder` validates zero resistance, we inject NaN after `build()`.
 #[test]
 fn test_nan_resistance_does_not_panic() {
     let fluid = water();
@@ -214,14 +212,12 @@ fn test_nan_resistance_does_not_panic() {
                         .pressures()
                         .get(e.source().index())
                         .copied()
-                        .map(Pressure::into_base)
-                        .unwrap_or(0.0);
+                        .map_or(0.0, Pressure::into_base);
                     let p_tgt = solved
                         .pressures()
                         .get(e.target().index())
                         .copied()
-                        .map(Pressure::into_base)
-                        .unwrap_or(0.0);
+                        .map_or(0.0, Pressure::into_base);
                     (p_src - p_tgt) / e.weight().resistance.into_base()
                 })
                 .collect();
@@ -247,8 +243,7 @@ fn test_membrane_zero_pore_radius_is_very_high() {
     let r = membrane.resistance(&fluid);
     assert!(
         r > 1e11,
-        "Membrane with zero pore radius must have very high resistance (>1e11), got {}",
-        r
+        "Membrane with zero pore radius must have very high resistance (>1e11), got {r}"
     );
 }
 
@@ -260,8 +255,7 @@ fn test_membrane_zero_porosity_is_very_high() {
     let r = membrane.resistance(&fluid);
     assert!(
         r > 1e11,
-        "Zero-porosity membrane must have very high resistance (>1e11), got {}",
-        r
+        "Zero-porosity membrane must have very high resistance (>1e11), got {r}"
     );
 }
 
@@ -307,14 +301,12 @@ fn test_two_dirichlet_nodes_solve_correctly() {
                 .pressures()
                 .get(e.source().index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             let p_tgt = result
                 .pressures()
                 .get(e.target().index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             (p_src - p_tgt) / e.weight().resistance.into_base()
         })
         .collect();
@@ -335,13 +327,10 @@ fn test_womersley_zero_frequency_alpha_is_zero() {
         DynamicViscosity::from_base(0.0035),
     );
     let alpha = alpha_num.value().into_base();
-    assert_eq!(
-        alpha, 0.0,
-        "Zero-frequency Womersley number must be exactly 0"
-    );
+    assert_relative_eq!(alpha, 0.0, epsilon = 64.0 * f64::EPSILON);
 }
 
-/// WomersleyFlow solver must not panic at near-zero frequency.
+/// `WomersleyFlow` solver must not panic at near-zero frequency.
 #[test]
 fn test_womersley_near_zero_frequency_no_panic() {
     let flow = WomersleyFlow::<f64>::new(
@@ -356,8 +345,7 @@ fn test_womersley_near_zero_frequency_no_panic() {
     let u = flow.velocity(0.5, Time::from_base(0.0)).into_base();
     assert!(
         u.is_finite(),
-        "Near-zero-frequency velocity must be finite, got {}",
-        u
+        "Near-zero-frequency velocity must be finite, got {u}"
     );
 }
 
@@ -373,8 +361,7 @@ fn test_circular_channel_high_roughness_finite() {
     let r = chan.resistance(&fluid);
     assert!(
         r.is_finite(),
-        "High-roughness channel must return finite resistance, got {}",
-        r
+        "High-roughness channel must return finite resistance, got {r}"
     );
     assert!(r > 0.0, "Resistance must be strictly positive");
 }
@@ -396,6 +383,6 @@ fn test_near_inviscid_fluid_resistance_near_zero() {
     );
     let chan = circular_channel(0.1, 1e-3, 0.0);
     let r = chan.resistance(&inviscid);
-    assert!(r >= 0.0, "Resistance must be non-negative, got {}", r);
-    assert!(r < 1.0, "Near-inviscid resistance must be tiny, got {}", r);
+    assert!(r >= 0.0, "Resistance must be non-negative, got {r}");
+    assert!(r < 1.0, "Near-inviscid resistance must be tiny, got {r}");
 }
