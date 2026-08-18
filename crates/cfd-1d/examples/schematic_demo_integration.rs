@@ -5,7 +5,9 @@
 //! 2. Convert these specifications into `cfd-1d` simulation objects (`Node`, `Edge`).
 //! 3. Build and solve the network.
 //!
-//! Run with: cargo run -p cfd-1d --example schematic_demo_integration
+//! Run with: `cargo run -p cfd-1d --example schematic_demo_integration`
+
+use std::io::Write;
 
 use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{Edge, Network, NetworkBuilder, Node};
@@ -15,8 +17,10 @@ use cfd_core::physics::fluid::database;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔌 Schematic Integration Demo");
-    println!("============================");
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "🔌 Schematic Integration Demo")?;
+    writeln!(output, "============================")?;
 
     // 1. Define Schematic Specifications (Design Phase)
     // In a real app, these might come from a JSON file or UI
@@ -39,12 +43,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Cv = 0.5 (flow coefficient)
     let valve_spec = ChannelSpec::new_valve("valve1", "junction", "outlet", 0.5);
 
-    println!("✅ Defined specifications:");
-    println!(
+    writeln!(output, "✅ Defined specifications:")?;
+    writeln!(
+        output,
         "   - Nodes: {:?}, {:?}, {:?}",
         inlet_spec.id, junction_spec.id, outlet_spec.id
-    );
-    println!("   - Edges: {:?}, {:?}", pipe_spec.id, valve_spec.id);
+    )?;
+    writeln!(
+        output,
+        "   - Edges: {:?}, {:?}",
+        pipe_spec.id, valve_spec.id
+    )?;
 
     // 2. Build Simulation Network (Simulation Phase)
     let mut builder = NetworkBuilder::<f64>::new();
@@ -62,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     builder.add_edge(junction_idx, outlet_idx, Edge::from(&valve_spec));
 
     let graph = builder.build()?;
-    println!("\n✅ Built simulation graph");
+    writeln!(output, "\n✅ Built simulation graph")?;
 
     // 3. Setup Physics and Solve
     let fluid = database::water_20c::<f64>()?;
@@ -82,14 +91,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let solver = NetworkSolver::with_config(config);
 
-    println!("\n🔄 Solving...");
+    writeln!(output, "\n🔄 Solving...")?;
     let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
 
-    println!("✅ Solution converged!");
+    writeln!(output, "✅ Solution converged!")?;
 
     // 4. Analyze Results
-    println!("\n📊 Results:");
+    writeln!(output, "\n📊 Results:")?;
 
     // Check flow through the valve
     // We need to find the edge index for "valve1"
@@ -103,9 +112,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get(edge_ref.id().index())
             .copied()
             .map(aequitas::systems::si::quantities::VolumetricFlowRate::into_base)
-            .unwrap_or(0.0);
-        println!("   Valve Flow Rate: {:.4e} m^3/s", flow);
-        println!("   Valve Flow Rate: {:.2} mL/min", flow * 1e6 * 60.0);
+            .map_or(0.0, |flow| flow);
+        writeln!(output, "   Valve Flow Rate: {flow:.4e} m^3/s")?;
+        writeln!(
+            output,
+            "   Valve Flow Rate: {:.2} mL/min",
+            flow * 1e6 * 60.0
+        )?;
     }
 
     // Check pressure at junction
@@ -119,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get(node_idx.index())
             .copied()
             .map(aequitas::systems::si::quantities::Pressure::into_base)
-            .unwrap_or(0.0);
-        println!("   Junction Pressure: {:.2} Pa", pressure);
+            .map_or(0.0, |pressure| pressure);
+        writeln!(output, "   Junction Pressure: {pressure:.2} Pa")?;
     }
 
     Ok(())
