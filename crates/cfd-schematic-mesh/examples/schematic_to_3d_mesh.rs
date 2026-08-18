@@ -1,4 +1,4 @@
-//! JSON schematic → watertight 3-D mesh (STL + OpenFOAM).
+//! JSON schematic → watertight 3-D mesh (STL + `OpenFOAM`).
 //!
 //! Reads any `InterchangeChannelSystem` JSON produced by `cfd-schematics`,
 //! sweeps each channel centerline into a closed tube mesh, subtracts every
@@ -6,7 +6,7 @@
 //!
 //! - `*_solid.stl`    — chip body (substrate − channel voids) for manufacturing
 //! - `*_channels.stl` — channel void surfaces for inspection
-//! - `constant/polyMesh/` — OpenFOAM surface mesh for snappyHexMesh / CFD
+//! - `constant/polyMesh/` — `OpenFOAM` surface mesh for snappyHexMesh / CFD
 //!
 //! ## Usage
 //!
@@ -18,14 +18,14 @@
 //! cargo run -p gaia --example schematic_to_3d_mesh -- path/to/schematic.json
 //! ```
 //!
-//! If no JSON path is given, the example falls back to the mirrored_bifurcation
+//! If no JSON path is given, the example falls back to the `mirrored_bifurcation`
 //! output produced by `cfd-schematics`:
 //! ```sh
 //! cargo run -p cfd-schematics --example mirrored_bifurcation
 //! ```
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
@@ -40,23 +40,31 @@ use cfd_mesh::infrastructure::io::stl::write_stl_binary;
 use cfd_schematic_mesh::scheme_io;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("╔══════════════════════════════════════════╗");
-    println!("║  JSON Schematic → 3D Mesh (STL+OpenFOAM) ║");
-    println!("╚══════════════════════════════════════════╝");
+    writeln!(io::stdout(), "╔══════════════════════════════════════════╗")?;
+    writeln!(io::stdout(), "║  JSON Schematic → 3D Mesh (STL+OpenFOAM) ║")?;
+    writeln!(io::stdout(), "╚══════════════════════════════════════════╝")?;
 
     // ── Resolve JSON path ─────────────────────────────────────────────────────
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let json_path = std::env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            manifest_dir.join("../cfd-schematics/outputs/mirrored_bifurcation/schematic.json")
-        });
+    let json_path = std::env::args().nth(1).map_or_else(
+        || manifest_dir.join("../cfd-schematics/outputs/mirrored_bifurcation/schematic.json"),
+        PathBuf::from,
+    );
 
     if !json_path.exists() {
-        eprintln!("❌ Missing input file: {}", json_path.display());
-        eprintln!("Please run the cfd-schematics mirrored_bifurcation example first:");
-        eprintln!("  cargo run --example mirrored_bifurcation -p cfd-schematics");
+        writeln!(
+            io::stderr(),
+            "❌ Missing input file: {}",
+            json_path.display()
+        )?;
+        writeln!(
+            io::stderr(),
+            "Please run the cfd-schematics mirrored_bifurcation example first:"
+        )?;
+        writeln!(
+            io::stderr(),
+            "  cargo run --example mirrored_bifurcation -p cfd-schematics"
+        )?;
         return Ok(());
     }
 
@@ -66,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|n| n.to_str())
         .unwrap_or("schematic");
 
-    println!("📄 Loading JSON: {}", json_path.display());
+    writeln!(io::stdout(), "📄 Loading JSON: {}", json_path.display())?;
 
     let mut file = File::open(&json_path)?;
     let mut json_str = String::new();
@@ -84,18 +92,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         segments,
     )?;
 
-    println!(
+    writeln!(
+        io::stdout(),
         "🔧 {} channels parsed (substrate: {}×{}×{} mm)",
         schematic3d.channels.len(),
         interchange.box_dims.0,
         interchange.box_dims.1,
         substrate_height,
-    );
+    )?;
 
     // ── Build substrate block ─────────────────────────────────────────────────
     let (bw, bd) = interchange.box_dims;
-    let _half_h = substrate_height / 2.0;
-
     // Offset slightly so that the X=0 and X=100 boundaries of the substrate
     // don't perfectly hit the sweep segment boundaries causing CSG degeneracies
     // when subtracting to form open ports.
@@ -122,11 +129,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|ch| {
             let pts = ch.path.points();
-            let first = *pts.first().unwrap();
-            let last = *pts.last().unwrap();
-            (first, last)
+            let first = pts.first().copied().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("channel {} has an empty path", ch.id),
+                )
+            })?;
+            let last = pts.last().copied().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("channel {} has an empty path", ch.id),
+                )
+            })?;
+            Ok((first, last))
         })
-        .collect();
+        .collect::<Result<Vec<_>, io::Error>>()?;
 
     // A position is a "junction" if it appears as an endpoint more than once.
     let is_junction = |pt: &Point3r| -> bool {
@@ -142,11 +159,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut channel_meshes: Vec<IndexedMesh> = Vec::new();
 
     for channel_def in &schematic3d.channels {
-        println!("  → sweeping channel {} …", channel_def.id);
+        writeln!(io::stdout(), "  → sweeping channel {} …", channel_def.id)?;
 
         let pts = channel_def.path.points();
-        let first = *pts.first().unwrap();
-        let last = *pts.last().unwrap();
+        let first = pts.first().copied().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("channel {} has an empty path", channel_def.id),
+            )
+        })?;
+        let last = pts.last().copied().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("channel {} has an empty path", channel_def.id),
+            )
+        })?;
 
         // Only cap ends that are open ports (not shared with another channel).
         let cap_start = !is_junction(&first);
@@ -184,7 +211,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // N-ary union of all channel meshes in a single pass.
     let all_channels = if channel_meshes.len() == 1 {
-        channel_meshes.into_iter().next().unwrap()
+        channel_meshes.into_iter().next().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "channel mesh collection is empty",
+            )
+        })?
     } else {
         csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
     };
@@ -192,21 +224,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_channels = all_channels;
 
     // Repair orientation and clean up floating artifact faces from overlapping Union
-    println!("  → post-processing fluid mesh repairs …");
-    println!(
+    writeln!(io::stdout(), "  → post-processing fluid mesh repairs …")?;
+    writeln!(
+        io::stdout(),
         "      volume before repair: {}",
         all_channels.signed_volume()
-    );
+    )?;
     all_channels.orient_outward();
     all_channels.retain_largest_component();
     all_channels.rebuild_edges();
-    println!(
+    writeln!(
+        io::stdout(),
         "      volume after repair: {}",
         all_channels.signed_volume()
-    );
+    )?;
 
     // Single difference: substrate minus the consolidated watertight channel mesh.
-    println!("  → applying boolean difference (substrate − channels)");
+    writeln!(
+        io::stdout(),
+        "  → applying boolean difference (substrate − channels)"
+    )?;
     match csg_boolean(BooleanOp::Difference, &final_solid, &all_channels) {
         Ok(mut m) => {
             // Post-difference repair: the Difference can leave phantom seam triangles
@@ -217,33 +254,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             m.rebuild_edges();
             final_solid = m;
         }
-        Err(e) => eprintln!("  ⚠ final CSG difference failed: {}", e),
+        Err(e) => writeln!(io::stderr(), "  ⚠ final CSG difference failed: {e}")?,
     }
 
     let solid_vol = final_solid.signed_volume();
     let channels_vol = all_channels.signed_volume();
 
-    println!(
+    writeln!(
+        io::stdout(),
         "  → [DEBUG] final_solid AABB: {:?}",
         final_solid.bounding_box()
-    );
-    println!(
+    )?;
+    writeln!(
+        io::stdout(),
         "  → [DEBUG] all_channels AABB: {:?}",
         all_channels.bounding_box()
-    );
+    )?;
 
-    println!(
+    writeln!(
+        io::stdout(),
         "✅ Solid: {:>7} vertices / {:>7} faces, vol = {:>10.3} mm³",
         final_solid.vertices.len(),
         final_solid.faces.len(),
         solid_vol
-    );
-    println!(
+    )?;
+    writeln!(
+        io::stdout(),
         "✅ Chans: {:>7} vertices / {:>7} faces, vol = {:>10.3} mm³",
         all_channels.vertices.len(),
         all_channels.faces.len(),
         channels_vol
-    );
+    )?;
 
     // ── Output directories ────────────────────────────────────────────────────
     let out_dir = manifest_dir.join(format!("outputs/schematic_to_3d/{design_name}"));
@@ -252,11 +293,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── STL export ────────────────────────────────────────────────────────────
     let solid_path = out_dir.join(format!("{design_name}_solid.stl"));
     write_stl_binary(&mut File::create(&solid_path)?, &final_solid)?;
-    println!("📦 Solid STL  → {}", solid_path.display());
+    writeln!(io::stdout(), "📦 Solid STL  → {}", solid_path.display())?;
 
     let channels_path = out_dir.join(format!("{design_name}_channels.stl"));
     write_stl_binary(&mut File::create(&channels_path)?, &all_channels)?;
-    println!("📦 Channels STL → {}", channels_path.display());
+    writeln!(
+        io::stdout(),
+        "📦 Channels STL → {}",
+        channels_path.display()
+    )?;
 
     // ── OpenFOAM export (solid mesh = chip body for snappyHexMesh) ───────────
     // All faces in the raw-CSG solid are unlabeled wall faces (region 0).
@@ -268,7 +313,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &of_dir,
         &[(RegionId::new(0), "walls", PatchType::Wall)],
     )?;
-    println!("🌊 OpenFOAM   → {}/", of_dir.display());
+    writeln!(io::stdout(), "🌊 OpenFOAM   → {}/", of_dir.display())?;
 
     // ── Copy originating schematics for reference ─────────────────────────────
     if let Some(src_dir) = json_path.parent() {
@@ -276,11 +321,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let src = src_dir.join(format!("schematic.{ext}"));
             if src.exists() {
                 std::fs::copy(&src, out_dir.join(format!("schematic.{ext}")))?;
-                println!("📎 Copied schematic.{ext}");
+                writeln!(io::stdout(), "📎 Copied schematic.{ext}")?;
             }
         }
     }
 
-    println!("\n✅ All outputs written to: {}", out_dir.display());
+    writeln!(
+        io::stdout(),
+        "\n✅ All outputs written to: {}",
+        out_dir.display()
+    )?;
     Ok(())
 }
