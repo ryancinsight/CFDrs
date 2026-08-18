@@ -6,7 +6,7 @@
 //! References:
 //! - ASME V&V 20-2009: "Standard for Verification and Validation in Computational Fluid Dynamics"
 //! - ISO/IEC 25010:2011: "Systems and software quality models"
-//! - Rust Performance Book: https://nnethercote.github.io/perf-book/
+//! - Rust Performance Book: <https://nnethercote.github.io/perf-book/>
 
 use core::ops::Mul;
 
@@ -42,7 +42,7 @@ fn select_backend() -> Backend {
     }
 }
 
-fn compute_squares<T, S>(backend: &Backend, storage: &S) -> Vec<T>
+fn compute_squares<T, S>(backend: Backend, storage: &S) -> Vec<T>
 where
     S: AsRef<[T]>,
     T: Copy + Mul<Output = T>,
@@ -82,7 +82,7 @@ fn test_compute_squares_integers_correctness() {
     let input = vec![0, 1, 2, 3, 4, 5, 10, 100];
     let expected = vec![0, 1, 4, 9, 16, 25, 100, 10000];
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(
         result.len(),
@@ -102,18 +102,14 @@ fn test_compute_squares_floats_correctness() {
     let input: Vec<f64> = vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
     let expected: Vec<f64> = vec![0.0, 0.25, 1.0, 2.25, 4.0, 6.25, 9.0];
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(result.len(), expected.len());
     for (i, (&computed, &expected_val)) in result.iter().zip(expected.iter()).enumerate() {
         let error = (computed - expected_val).abs();
         assert!(
             error < 1e-10,
-            "Element {} mismatch: {} vs {} (error: {})",
-            i,
-            computed,
-            expected_val,
-            error
+            "Element {i} mismatch: {computed} vs {expected_val} (error: {error})"
         );
     }
 }
@@ -127,7 +123,7 @@ fn test_slice_storage_zero_copy() {
     let data = [1.0f64, 2.0, 3.0, 4.0, 5.0];
     let slice: &[f64] = &data;
 
-    let result = compute_squares(&backend, &slice);
+    let result = compute_squares(backend, &slice);
     let expected = vec![1.0, 4.0, 9.0, 16.0, 25.0];
 
     assert_eq!(result, expected);
@@ -160,7 +156,7 @@ fn test_large_dataset_validation() {
     let n = 10_000;
     let input: Vec<f64> = (0..n).map(|i| i as f64 * 0.1).collect();
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(result.len(), n, "Output size must match input size");
 
@@ -171,9 +167,7 @@ fn test_large_dataset_validation() {
         let error = (result[idx] - expected).abs();
         assert!(
             error < 1e-10,
-            "Element {} error {} exceeds tolerance",
-            idx,
-            error
+            "Element {idx} error {error} exceeds tolerance"
         );
     }
 }
@@ -186,7 +180,7 @@ fn test_empty_input() {
     let backend = Backend::Cpu;
     let input: Vec<f64> = vec![];
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(result.len(), 0, "Empty input should produce empty output");
 }
@@ -199,7 +193,7 @@ fn test_single_element() {
     let backend = Backend::Cpu;
     let input = vec![42.0];
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(result.len(), 1);
     assert_eq!(result[0], 1764.0);
@@ -215,7 +209,7 @@ fn test_extreme_values() {
 
     // Test with very small values - use relative tolerance for floating point
     let small: Vec<f64> = vec![1e-10, 1e-20, 1e-100];
-    let small_result = compute_squares(&backend, &small);
+    let small_result = compute_squares(backend, &small);
     let small_expected: Vec<f64> = vec![1e-20, 1e-40, 1e-200];
 
     for (i, (&result, &expected_val)) in small_result.iter().zip(small_expected.iter()).enumerate()
@@ -227,17 +221,13 @@ fn test_extreme_values() {
         };
         assert!(
             rel_error < 1e-10 || result == expected_val,
-            "Small value {} mismatch: {} vs {} (rel_error: {})",
-            i,
-            result,
-            expected_val,
-            rel_error
+            "Small value {i} mismatch: {result} vs {expected_val} (rel_error: {rel_error})"
         );
     }
 
     // Test with moderately large values (avoid overflow)
     let large = vec![1e10, 1e20];
-    let large_result = compute_squares(&backend, &large);
+    let large_result = compute_squares(backend, &large);
     assert_eq!(large_result, vec![1e20, 1e40]);
 }
 
@@ -250,7 +240,7 @@ fn test_mixed_signs() {
     let input = vec![-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
     let expected = vec![9.0, 4.0, 1.0, 0.0, 1.0, 4.0, 9.0];
 
-    let result = compute_squares(&backend, &input);
+    let result = compute_squares(backend, &input);
 
     assert_eq!(
         result, expected,
@@ -271,13 +261,12 @@ fn test_linear_scaling_property() {
 
     for &size in &sizes {
         let input: Vec<f64> = (0..size).map(|i| i as f64).collect();
-        let result = compute_squares(&backend, &input);
+        let result = compute_squares(backend, &input);
 
         assert_eq!(
             result.len(),
             size,
-            "Output size must match input for size {}",
-            size
+            "Output size must match input for size {size}"
         );
 
         // Verify first, middle, and last elements
@@ -296,22 +285,22 @@ fn test_type_genericity() {
 
     // Test i32
     let i32_data = vec![1i32, 2, 3];
-    let i32_result = compute_squares(&backend, &i32_data);
+    let i32_result = compute_squares(backend, &i32_data);
     assert_eq!(i32_result, vec![1, 4, 9]);
 
     // Test i64
     let i64_data = vec![1i64, 2, 3];
-    let i64_result = compute_squares(&backend, &i64_data);
+    let i64_result = compute_squares(backend, &i64_data);
     assert_eq!(i64_result, vec![1, 4, 9]);
 
     // Test f32
     let f32_data = vec![1.0f32, 2.0, 3.0];
-    let f32_result = compute_squares(&backend, &f32_data);
+    let f32_result = compute_squares(backend, &f32_data);
     assert_eq!(f32_result, vec![1.0, 4.0, 9.0]);
 
     // Test f64
     let f64_data = vec![1.0f64, 2.0, 3.0];
-    let f64_result = compute_squares(&backend, &f64_data);
+    let f64_result = compute_squares(backend, &f64_data);
     assert_eq!(f64_result, vec![1.0, 4.0, 9.0]);
 }
 
@@ -325,7 +314,7 @@ fn test_cfd_application_scenario() {
     // Simulate velocity field magnitude calculation (u² + v²)
     // For simplicity, just test u² component
     let velocity_u = vec![1.0, 2.0, 3.0, 4.0, 5.0]; // m/s
-    let u_squared = compute_squares(&backend, &velocity_u);
+    let u_squared = compute_squares(backend, &velocity_u);
 
     // Verify physical reasonableness
     assert_eq!(u_squared.len(), velocity_u.len());
