@@ -163,17 +163,31 @@ mod tests {
     #[test]
     fn direct_solver_solves_small_system() {
         let mut builder = SparseMatrixBuilder::new(2, 2);
-        builder.add_entry(0, 0, 3.0_f64).unwrap();
-        builder.add_entry(0, 1, 1.0_f64).unwrap();
-        builder.add_entry(1, 0, 1.0_f64).unwrap();
-        builder.add_entry(1, 1, 2.0_f64).unwrap();
+        builder
+            .add_entry(0, 0, 3.0_f64)
+            .expect("invariant: small-system fixture entry is valid");
+        builder
+            .add_entry(0, 1, 1.0_f64)
+            .expect("invariant: small-system fixture entry is valid");
+        builder
+            .add_entry(1, 0, 1.0_f64)
+            .expect("invariant: small-system fixture entry is valid");
+        builder
+            .add_entry(1, 1, 2.0_f64)
+            .expect("invariant: small-system fixture entry is valid");
 
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).unwrap();
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64])
+            .expect("invariant: small-system RHS shape matches values");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("invariant: small-system matrix builds");
 
         let solver = DirectSparseSolver::default();
-        let rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).unwrap();
-        let x = solver.solve(&matrix, &rhs).unwrap();
+        let rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64])
+            .expect("invariant: small-system solve RHS shape matches values");
+        let x = solver
+            .solve(&matrix, &rhs)
+            .expect("invariant: nonsingular small system solves");
 
         assert!((x[0] - 2.0_f64).abs() < 1e-8_f64);
         assert!((x[1] - 3.0_f64).abs() < 1e-8_f64);
@@ -182,18 +196,24 @@ mod tests {
     #[test]
     fn direct_solver_singular_system_does_not_panic() {
         let builder = SparseMatrixBuilder::new(2, 2);
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).unwrap();
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64])
+            .expect("invariant: singular-system RHS shape matches values");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("invariant: singular-system matrix builds");
 
         let solver = DirectSparseSolver::default();
-        let rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).unwrap();
+        let rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64])
+            .expect("invariant: singular-system solve RHS shape matches values");
         let result = catch_unwind(AssertUnwindSafe(|| solver.solve(&matrix, &rhs)));
 
         assert!(
             result.is_ok(),
             "direct solver must not panic on singular input"
         );
-        assert!(result.unwrap().is_err());
+        let solve_result = result.expect("invariant: singular solve returns without panic");
+        let error = solve_result.expect_err("singular system must return a solver error");
+        assert!(matches!(error, Error::Solver(_)));
     }
 
     #[test]
@@ -206,11 +226,19 @@ mod tests {
             pivot_tolerance: 1e-12,
         };
         let mut builder = SparseMatrixBuilder::new(2, 2);
-        builder.add_entry(0, 0, 2.0_f64).unwrap();
-        builder.add_entry(1, 1, 4.0_f64).unwrap();
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).unwrap();
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
-        let rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).unwrap();
+        builder
+            .add_entry(0, 0, 2.0_f64)
+            .expect("invariant: dense-fallback fixture entry is valid");
+        builder
+            .add_entry(1, 1, 4.0_f64)
+            .expect("invariant: dense-fallback fixture entry is valid");
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64])
+            .expect("invariant: dense-fallback RHS shape matches values");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("invariant: dense-fallback matrix builds");
+        let rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64])
+            .expect("invariant: dense-fallback solve RHS shape matches values");
         // Should succeed via dense fallback.
         let x = solver
             .solve(&matrix, &rhs)
@@ -222,16 +250,29 @@ mod tests {
     #[test]
     fn dense_lu_fallback_uses_leto_provider() {
         let mut builder = SparseMatrixBuilder::new(2, 2);
-        builder.add_entry(0, 0, 4.0_f64).unwrap();
-        builder.add_entry(0, 1, 1.0_f64).unwrap();
-        builder.add_entry(1, 0, 2.0_f64).unwrap();
-        builder.add_entry(1, 1, 3.0_f64).unwrap();
+        builder
+            .add_entry(0, 0, 4.0_f64)
+            .expect("invariant: dense-provider fixture entry is valid");
+        builder
+            .add_entry(0, 1, 1.0_f64)
+            .expect("invariant: dense-provider fixture entry is valid");
+        builder
+            .add_entry(1, 0, 2.0_f64)
+            .expect("invariant: dense-provider fixture entry is valid");
+        builder
+            .add_entry(1, 1, 3.0_f64)
+            .expect("invariant: dense-provider fixture entry is valid");
 
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).unwrap();
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64])
+            .expect("invariant: dense-provider RHS shape matches values");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("invariant: dense-provider matrix builds");
 
-        let rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).unwrap();
-        let x = solve_leto_csr_with_leto_dense_array(&matrix, &rhs).unwrap();
+        let rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64])
+            .expect("invariant: dense-provider solve RHS shape matches values");
+        let x = solve_leto_csr_with_leto_dense_array(&matrix, &rhs)
+            .expect("invariant: dense provider solves nonsingular fixture");
 
         assert!((x[0] + 0.4_f64).abs() < 1e-12_f64);
         assert!((x[1] - 2.6_f64).abs() < 1e-12_f64);
