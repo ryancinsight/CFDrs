@@ -67,10 +67,10 @@ fn test_hagen_poiseuille_reynolds_range() {
     let (re_min, re_max) = model.reynolds_range();
 
     // Verify lower bound is zero (valid from zero velocity)
-    assert_eq!(re_min, 0.0);
+    assert_relative_eq!(re_min, 0.0, epsilon = 64.0 * f64::EPSILON);
 
     // Verify upper bound is at laminar-turbulent transition (Re ≈ 2300)
-    assert!((2000.0..=2400.0).contains(&re_max), "Re_max = {}", re_max);
+    assert!((2000.0..=2400.0).contains(&re_max), "Re_max = {re_max}");
 }
 
 /// Test Darcy-Weisbach with Colebrook-White for smooth pipes.
@@ -113,10 +113,10 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
 
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
-    let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
-                                     // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
-                                     // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
-                                     // R_eff = f ρ L V / (2 A D)
+    let f_expected: f64 = 0.030_844_9; // More precise value from Colebrook-White
+                                       // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
+                                       // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
+                                       // R_eff = f ρ L V / (2 A D)
     let v: f64 = conditions_turbulent.velocity.expect("test invariant");
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
@@ -395,9 +395,9 @@ fn test_resistance_scaling_laws() -> Result<()> {
 /// Test entrance effects for sudden contraction (sharp-edged inlet).
 ///
 /// Validates against Idelchik (1994) Handbook of Hydraulic Resistance, §5:
-/// K_entry = 0.5·(1 − A₂/A₁)·(1 + C/Re)  where C = 0.1
+/// `K_entry = 0.5·(1 − A₂/A₁)·(1 + C/Re)` where `C = 0.1`.
 ///
-/// The quadratic resistance coefficient k = K_entry·ρ/(2·A₂²) [Pa·s²/m⁶].
+/// The quadratic resistance coefficient `k = K_entry·ρ/(2·A₂²)` [Pa·s²/m⁶].
 #[test]
 fn test_entrance_effects_sudden_contraction() -> Result<()> {
     // Test case: contraction from 4 mm² to 1 mm² (area ratio A₁/A₂ = 4)
@@ -438,8 +438,8 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
 /// Test entrance effects for smooth contraction (well-rounded inlet).
 ///
 /// Validates against Blevins (1984) Applied Fluid Dynamics Handbook:
-/// K_entry = 0.05 + 0.19 * (A₁/A₂) for turbulent flow.
-/// k = K_entry · ρ / (2 · A₂²)   [Pa·s²/m⁶]
+/// `K_entry = 0.05 + 0.19 * (A₁/A₂)` for turbulent flow.
+/// `k = K_entry · ρ / (2 · A₂²)` [Pa·s²/m⁶].
 #[test]
 fn test_entrance_effects_smooth_contraction() -> Result<()> {
     // Test case: smooth contraction with area ratio = 2
@@ -494,9 +494,7 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
     // Higher Reynolds number should give lower resistance (less entrance effects)
     assert!(
         resistance_high < resistance_low,
-        "Entrance resistance should decrease with increasing Re: {} vs {}",
-        resistance_high,
-        resistance_low
+        "Entrance resistance should decrease with increasing Re: {resistance_high} vs {resistance_low}"
     );
 
     // Verify the ratio matches theoretical expectation: K = 0.5·(1−A₂/A₁)·(1+C/Re)
@@ -542,8 +540,7 @@ fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
         if previous_resistance > 0.0 {
             assert!(
                 resistance > previous_resistance,
-                "Entrance resistance should increase with area ratio: {} vs previous",
-                resistance
+                "Entrance resistance should increase with area ratio: {resistance} vs previous"
             );
         }
 
@@ -590,9 +587,9 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
 
 /// Test Venturi energy conservation.
 ///
-/// Validates that the net pressure drop (contraction - recovery + losses) is >= 0
+/// Validates that the net pressure drop (contraction - recovery + losses) is >= 0.
 /// for a symmetric Venturi. Since the Venturi model returns (0, k) representing
-/// R_eff = k|Q|, if k > 0 then energy is dissipated.
+/// `R_eff = k|Q|`; if `k > 0`, energy is dissipated.
 #[test]
 fn test_venturi_energy_conservation() -> Result<()> {
     let model =
@@ -612,8 +609,8 @@ fn test_venturi_energy_conservation() -> Result<()> {
 
 /// Test serpentine Dean number monotonicity.
 ///
-/// Dean number De = Re * sqrt(D_h / (2 * R_c)). As Re increases, De increases,
-/// increasing the curvature enhancement f_c / f_s and secondary losses. We test this
+/// Dean number `De = Re * sqrt(D_h / (2 * R_c))`. As `Re` increases, `De` increases,
+/// increasing the curvature enhancement `f_c / f_s` and secondary losses. We test this
 /// by comparing the serpentine resistance to an equivalent straight channel.
 #[test]
 fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {

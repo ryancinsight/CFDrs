@@ -1,4 +1,7 @@
+//! Integration tests for converting cfd-schematics models into cfd-1d networks.
+
 use cfd_1d::domain::network::{Edge, EdgeType, NetworkBuilder, Node, NodeType};
+use eunomia::assert_relative_eq;
 
 #[test]
 fn test_new_components_integration() {
@@ -68,7 +71,11 @@ fn test_from_spec_conversion() {
     let edge: Edge<f64> = Edge::from(&c_spec);
     assert_eq!(edge.id, "c1");
     assert_eq!(edge.edge_type, EdgeKind::Valve);
-    assert_eq!(edge.quad_coeff.into_base(), 4.0);
+    assert_relative_eq!(
+        edge.quad_coeff.into_base(),
+        4.0,
+        epsilon = 64.0 * f64::EPSILON
+    );
 }
 
 #[test]
