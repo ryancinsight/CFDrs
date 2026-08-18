@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: venturi calibration across 1D, 2D, and 3D.
 //!
 //! This complements the existing directional venturi test with a quantitative

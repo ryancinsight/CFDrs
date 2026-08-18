@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Serpentine-with-Venturi Demonstration
 //!
 //! Demonstrates the `serpentine_venturi_rect` preset which places venturi

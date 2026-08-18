@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Production-ready performance profiling for CFD algorithms
 //!
 //! This module provides comprehensive performance analysis including:

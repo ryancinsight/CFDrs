@@ -170,7 +170,7 @@ fn option2_candidate_space_contains_venturi_topologies() {
     );
 
     for candidate in &venturi {
-        let spec = candidate.topology_spec().unwrap();
+        let spec = candidate.topology_spec().expect("expected value");
         assert!(
             !spec.venturi_placements.is_empty(),
             "venturi candidate '{}' must have non-empty venturi_placements",
@@ -367,7 +367,7 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
 
     if ranked.len() >= 2 {
         let top_selectivity = ranked[0].venturi.cavitation_selectivity_score;
-        let bottom_selectivity = ranked.last().unwrap().venturi.cavitation_selectivity_score;
+        let bottom_selectivity = ranked.last().expect("expected value").venturi.cavitation_selectivity_score;
         assert!(
             top_selectivity >= bottom_selectivity - 0.01,
             "top selectivity ({top_selectivity:.4}) should be >= bottom ({bottom_selectivity:.4})"

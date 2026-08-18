@@ -78,12 +78,12 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
 
         let (matrix, rhs) = match component {
             MomentumComponent::U => (
-                self.matrix_u.as_ref().unwrap(),
-                self.rhs_u.as_ref().unwrap(),
+                self.matrix_u.as_ref().expect("expected value"),
+                self.rhs_u.as_ref().expect("expected value"),
             ),
             MomentumComponent::V => (
-                self.matrix_v.as_ref().unwrap(),
-                self.rhs_v.as_ref().unwrap(),
+                self.matrix_v.as_ref().expect("expected value"),
+                self.rhs_v.as_ref().expect("expected value"),
             ),
         };
 
@@ -215,8 +215,8 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             }
         } else {
             match component {
-                MomentumComponent::U => self.rhs_u.as_mut().unwrap().fill(scalar::zero::<T>()),
-                MomentumComponent::V => self.rhs_v.as_mut().unwrap().fill(scalar::zero::<T>()),
+                MomentumComponent::U => self.rhs_u.as_mut().expect("expected value").fill(scalar::zero::<T>()),
+                MomentumComponent::V => self.rhs_v.as_mut().expect("expected value").fill(scalar::zero::<T>()),
             }
         }
 
@@ -321,8 +321,8 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             }
         } else {
             let mut matrix = match component {
-                MomentumComponent::U => self.matrix_u.take().unwrap(),
-                MomentumComponent::V => self.matrix_v.take().unwrap(),
+                MomentumComponent::U => self.matrix_u.take().expect("expected value"),
+                MomentumComponent::V => self.matrix_v.take().expect("expected value"),
             };
             matrix.values_mut().fill(T::ZERO);
 

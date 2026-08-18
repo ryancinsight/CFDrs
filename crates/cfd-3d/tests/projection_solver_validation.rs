@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! # Validation Tests for 3D FEM Projection Solver
 //!
 //! These tests validate the Chorin projection method implementation against

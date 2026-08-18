@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! # Comprehensive FEM Solver Tests
 //!
 //! ## Test Coverage Matrix

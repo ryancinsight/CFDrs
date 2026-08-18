@@ -112,10 +112,10 @@ impl BenchmarkStats {
         let std_dev = variance.sqrt();
 
         let mut sorted = measurements.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).expect("expected value"));
 
-        let min = *sorted.first().unwrap();
-        let max = *sorted.last().unwrap();
+        let min = *sorted.first().expect("expected value");
+        let max = *sorted.last().expect("expected value");
         let median = if samples.is_multiple_of(2) {
             f64::midpoint(sorted[samples / 2 - 1], sorted[samples / 2])
         } else {

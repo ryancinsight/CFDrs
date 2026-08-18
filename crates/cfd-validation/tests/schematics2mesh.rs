@@ -29,7 +29,7 @@ fn test_schematics2mesh_stl_output() {
     // 2. Convert to 3D Schematic representation
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
-    let schematic3d = scheme_io::from_blueprint(&system, substrate_height, segments).unwrap();
+    let schematic3d = scheme_io::from_blueprint(&system, substrate_height, segments).expect("expected value");
 
     // 3. Sweep and collect into an IndexedMesh
     let mesher = SweepMesher::new();
@@ -67,13 +67,13 @@ fn test_schematics2mesh_stl_output() {
     // 4. Write to STL
     let mut stl_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     stl_path.push("outputs");
-    std::fs::create_dir_all(&stl_path).unwrap();
+    std::fs::create_dir_all(&stl_path).expect("expected value");
     stl_path.push("schematics2mesh_bifurcation.stl");
 
-    let mut file = File::create(&stl_path).unwrap();
-    write_stl_binary(&mut file, &mesh).unwrap();
+    let mut file = File::create(&stl_path).expect("expected value");
+    write_stl_binary(&mut file, &mesh).expect("expected value");
 
     // Check that STL exists and isn't empty
-    let metadata = std::fs::metadata(&stl_path).unwrap();
+    let metadata = std::fs::metadata(&stl_path).expect("expected value");
     assert!(metadata.len() > 84); // Header + triangle count
 }

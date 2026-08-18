@@ -260,7 +260,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         // Drop the full candidate + evaluation here (end of closure).
         // Only push lightweight data to accumulators.
         if is_venturi {
-            pareto_acc.lock().unwrap().push(ParetoPoint {
+            pareto_acc.lock().expect("expected value").push(ParetoPoint {
                 cancer_targeted_cavitation,
                 healthy_cell_protection_index,
                 rbc_venturi_protection,
@@ -270,7 +270,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         }
 
         if option1_score.is_some() || option2_score.is_some() {
-            deferred_acc.lock().unwrap().push(LightweightResult {
+            deferred_acc.lock().expect("expected value").push(LightweightResult {
                 params: params.clone(),
                 lineage_key,
                 is_venturi,
@@ -281,9 +281,9 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     });
     progress.finish();
 
-    let mut pareto_points = pareto_acc.into_inner().unwrap();
+    let mut pareto_points = pareto_acc.into_inner().expect("expected value");
     sort_pareto_points(&mut pareto_points);
-    let deferred = deferred_acc.into_inner().unwrap();
+    let deferred = deferred_acc.into_inner().expect("expected value");
 
     // Persist lightweight Pareto points (~32 bytes each).
     let option2_pool_all_path = out_dir.join("option2_pool_all.json");

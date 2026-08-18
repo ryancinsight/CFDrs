@@ -44,8 +44,8 @@ fn spectral_poisson_error_is_finite() {
     use leto::Array1;
 
     let n = 4;
-    let config = SpectralConfig::<f64>::new(n, n, n).unwrap();
-    let mut solver = SpectralSolver::new(config).unwrap();
+    let config = SpectralConfig::<f64>::new(n, n, n).expect("expected value");
+    let mut solver = SpectralSolver::new(config).expect("expected value");
     let source = Array1::from_elem([n * n * n], 1.0);
     let problem = PoissonProblem {
         source_term: source,
@@ -62,7 +62,7 @@ fn spectral_poisson_error_is_finite() {
             PoissonBoundaryCondition::Dirichlet(0.0),
         ),
     };
-    let solution = solver.solve(&problem).unwrap();
+    let solution = solver.solve(&problem).expect("expected value");
     for val in solution.u.iter() {
         assert!(val.is_finite(), "Solution must be finite, got {val}");
     }
@@ -81,8 +81,8 @@ fn spectral_poisson_solution_dimensions() {
     let nx = 4;
     let ny = 5;
     let nz = 3;
-    let config = SpectralConfig::<f64>::new(nx, ny, nz).unwrap();
-    let mut solver = SpectralSolver::new(config).unwrap();
+    let config = SpectralConfig::<f64>::new(nx, ny, nz).expect("expected value");
+    let mut solver = SpectralSolver::new(config).expect("expected value");
     let source = Array1::from_elem([nx * ny * nz], 0.0);
     let problem = PoissonProblem {
         source_term: source,
@@ -99,7 +99,7 @@ fn spectral_poisson_solution_dimensions() {
             PoissonBoundaryCondition::Dirichlet(0.0),
         ),
     };
-    let solution = solver.solve(&problem).unwrap();
+    let solution = solver.solve(&problem).expect("expected value");
 
     assert_eq!(solution.nx, nx, "Solution nx must match config");
     assert_eq!(solution.ny, ny, "Solution ny must match config");

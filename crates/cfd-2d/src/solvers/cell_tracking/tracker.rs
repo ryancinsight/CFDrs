@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time};
 
 use super::physics::{CellTrackerConfig, VelocityFieldInterpolator};

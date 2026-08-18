@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! MMS validation and Richardson extrapolation study
 
 use cfd_core::error::{Error, Result};
@@ -523,7 +524,7 @@ mod tests {
 
         let study = MmsRichardsonStudy::new(Box::new(mms), Box::new(geometry));
 
-        let result = study.run_study().unwrap();
+        let result = study.run_study().expect("expected value");
 
         // Check that we have results
         assert_eq!(result.grid_sizes.len(), 3);

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Cavitation Risk Analysis in a Venturi-Style Millifluidic Device
 //!
 //! Demonstrates cavitation assessment for Sonodynamic Therapy (SDT) design:

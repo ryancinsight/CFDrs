@@ -29,7 +29,7 @@
 //!     .with_surface_flux(FluxType::LaxFriedrichs)
 //!     .with_limiter(LimiterType::Minmod);
 //!
-//! let dg_op = DGOperator::new(order, num_components, Some(params)).unwrap();
+//! let dg_op = DGOperator::new(order, num_components, Some(params)).expect("expected value");
 //!
 //! // Create a time integrator
 //! let integrator = TimeIntegratorFactory::create(TimeIntegration::SSPRK3);
@@ -44,8 +44,8 @@
 //! let mut solver = DGSolver::new(dg_op, integrator, solver_params);
 //!
 //! // Set initial condition
-//! let u0 = |x: f64| Array1::from_shape_vec([1], vec![x.sin()]).unwrap();
-//! solver.initialize(u0).unwrap();
+//! let u0 = |x: f64| Array1::from_shape_vec([1], vec![x.sin()]).expect("expected value");
+//! solver.initialize(u0).expect("expected value");
 //!
 //! // Define the right-hand side function
 //! fn f(_t: f64, u: &Array2<f64>) -> Result<Array2<f64>> {
@@ -56,7 +56,7 @@
 //! }
 //!
 //! // Run the solver
-//! solver.solve(f, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).unwrap();
+//! solver.solve(f, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).expect("expected value");
 //!
 //! // Evaluate the solution
 //! let x = 0.5;
@@ -510,7 +510,7 @@ mod tests {
         // Create a DG solution with a quadratic polynomial
         let order = 2;
         let num_components = 1;
-        let mut sol = DGSolution::new(order, num_components).unwrap();
+        let mut sol = DGSolution::new(order, num_components).expect("expected value");
 
         // Set the coefficients for u(x) = 1 + x + x²
         // In the Legendre basis: 4/3*P₀(x) + P₁(x) + (2/3)*P₂(x)
@@ -537,7 +537,7 @@ mod tests {
         // Create a DG solution with a constant function
         let order = 2;
         let num_components = 1;
-        let mut sol = DGSolution::new(order, num_components).unwrap();
+        let mut sol = DGSolution::new(order, num_components).expect("expected value");
 
         // Set the coefficients for u(x) = 2.0
         // Since P₀(x) = 1.0, u(x) = 2.0 * P₀(x)

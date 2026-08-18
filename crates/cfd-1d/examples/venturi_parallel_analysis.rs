@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Venturi Throat Analysis in Parallel Millifluidic Sections
 //!
 //! Demonstrates frustum (tapered) channels with venturi throats in parallel

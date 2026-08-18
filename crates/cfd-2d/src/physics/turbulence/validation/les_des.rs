@@ -49,7 +49,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                 test_name: "Smagorinsky LES SGS Viscosity".to_string(),
                 passed: false,
                 metric: "Update failed".to_string(),
-                details: format!("Error: {:?}", result.err().unwrap()),
+                details: format!("Error: {:?}", result.expect_err("expected value")),
             };
         }
 
@@ -122,7 +122,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                 test_name: "DES Length Scale Calculation".to_string(),
                 passed: false,
                 metric: "Update failed".to_string(),
-                details: format!("Error: {:?}", result.err().unwrap()),
+                details: format!("Error: {:?}", result.expect_err("expected value")),
             };
         }
 
@@ -202,7 +202,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("expected value");
         }
 
         let wall_shear_stress =
@@ -269,7 +269,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("expected value");
         }
 
         let mut u_plus_calculated = Vec::new();
@@ -365,7 +365,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("expected value");
 
             if step % 5 == 0 {
                 let current_ke = Self::calculate_kinetic_energy(&velocity_u, &velocity_v);

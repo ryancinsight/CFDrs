@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Branch-junction validation against analytical solutions and literature benchmarks
 //!
 //! This module provides comprehensive validation tools proving CFD simulations
@@ -91,6 +92,7 @@ impl<T: CfdScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult
     }
 
     /// Print validation summary
+    #[allow(clippy::print_stdout)]
     pub fn print_summary(&self) {
         println!("\n{}", "=".repeat(70));
         println!("Branching Validation: {}", self.test_name);
@@ -517,7 +519,7 @@ mod tests {
 
         let result = validator
             .validate_against_analytical(&branch_junction, blood)
-            .unwrap();
+            .expect("expected value");
 
         // For water (Newtonian), symmetric geometry should match analytical
         assert!(result.l2_error.is_some());
@@ -548,7 +550,7 @@ mod tests {
 
         let result = validator
             .validate_blood_flow(&branch_junction, blood)
-            .unwrap();
+            .expect("expected value");
 
         // Blood should have physiological properties
         assert!(result.validation_passed || result.error_message.is_some());
@@ -589,7 +591,7 @@ mod tests {
 
         let result = validator
             .validate_three_way_against_analytical(&branch, blood)
-            .unwrap();
+            .expect("expected value");
         assert!(result.validation_passed, "{:?}", result.error_message);
     }
 
@@ -613,7 +615,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let result = validator
             .validate_three_way_blood_flow(&branch, blood)
-            .unwrap();
+            .expect("expected value");
 
         assert!(result.validation_passed, "{:?}", result.error_message);
     }

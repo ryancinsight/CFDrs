@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive CFD validation analysis suite
 
 use eunomia::NumericElement;
@@ -573,7 +574,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
             let rt = moirai::Moirai::builder()
                 .worker_threads(threads)
                 .build()
-                .unwrap_or_else(|_| moirai::Moirai::builder().worker_threads(1).build().unwrap());
+                .unwrap_or_else(|_| moirai::Moirai::builder().worker_threads(1).build().expect("expected value"));
             let start = Instant::now();
             let mut sum = 0.0f64;
             for _ in 0..3 {

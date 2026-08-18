@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Validation tools for 3D trifurcation simulations
 //!
 //! Provides mesh convergence studies, error metrics, and comparison with

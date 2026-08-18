@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Medical-Grade Millifluidic CFD Screening
 //!
 //! Comprehensive example combining all medical-relevant analyses in a single

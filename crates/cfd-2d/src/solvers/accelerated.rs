@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Accelerated solvers using SIMD/GPU when available
 //!
 //! Provides unified interface that automatically uses best available acceleration
@@ -336,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_backend_selection() {
-        let solver = AcceleratedPoissonSolver::new(100, 100, 0.01, 0.01).unwrap();
+        let solver = AcceleratedPoissonSolver::new(100, 100, 0.01, 0.01).expect("expected value");
 
         // Should select SIMD or GPU if available
         match solver.backend() {
@@ -356,8 +357,8 @@ mod tests {
         // Set source term
         source[(nx / 2, ny / 2)] = 1.0;
 
-        let solver = AcceleratedPoissonSolver::new(nx, ny, 0.02, 0.02).unwrap();
-        let residual = solver.solve(&mut phi, &source, 100, 1.0).unwrap();
+        let solver = AcceleratedPoissonSolver::new(nx, ny, 0.02, 0.02).expect("expected value");
+        let residual = solver.solve(&mut phi, &source, 100, 1.0).expect("expected value");
 
         assert!(residual < 1.0); // Should converge
     }

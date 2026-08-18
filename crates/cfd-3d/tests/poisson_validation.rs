@@ -21,7 +21,7 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
     let nx = 8;
     let ny = 8;
     let nz = 4;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     // Manufactured solution: u = sin(PI * x) * sin(PI * y) * sin(PI * z)
     // Laplacian: ∇²u = -3 * PI^2 * sin(PI * x) * sin(PI * y) * sin(PI * z)
@@ -54,7 +54,7 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Verify solution matches analytical one
     for i in 0..nx {
@@ -92,7 +92,7 @@ fn test_poisson_3d_constant_source() {
     let nx = 6;
     let ny = 6;
     let nz = 4;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     // Constant source: f = 1
     let f = Array1::from_elem([nx * ny * nz], 1.0);
@@ -111,7 +111,7 @@ fn test_poisson_3d_constant_source() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Solution should be smooth and bounded
     for idx in 0..nx * ny * nz {
@@ -140,7 +140,7 @@ fn test_poisson_3d_neumann_bc() {
     let nx = 6;
     let ny = 6;
     let nz = 4;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     // Simple source term
     let f = Array1::from_elem([nx * ny * nz], 1.0);
@@ -159,7 +159,7 @@ fn test_poisson_3d_neumann_bc() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Solution should be finite and bounded
     for idx in 0..nx * ny * nz {
@@ -174,7 +174,7 @@ fn test_poisson_3d_robin_bc() {
     let nx = 6;
     let ny = 6;
     let nz = 4;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     // Simple source term
     let f = Array1::from_elem([nx * ny * nz], 1.0);
@@ -197,7 +197,7 @@ fn test_poisson_3d_robin_bc() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Solution should be finite and bounded
     for idx in 0..nx * ny * nz {
@@ -213,7 +213,7 @@ fn test_poisson_3d_laplace_equation() {
     let nx = 6;
     let ny = 6;
     let nz = 4;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     // Zero source: Laplace equation
     let f = Array1::zeros([nx * ny * nz]);
@@ -232,7 +232,7 @@ fn test_poisson_3d_laplace_equation() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Solution should be smooth and bounded
     for idx in 0..nx * ny * nz {
@@ -261,7 +261,7 @@ fn test_poisson_3d_all_dirichlet() {
     let nx = 5;
     let ny = 5;
     let nz = 3;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     let f = Array1::from_elem([nx * ny * nz], 2.0);
 
@@ -278,7 +278,7 @@ fn test_poisson_3d_all_dirichlet() {
         PoissonBoundaryCondition::Dirichlet(0.5),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Verify solution is finite
     for idx in 0..nx * ny * nz {
@@ -293,7 +293,7 @@ fn test_poisson_3d_minimal_grid() {
     let nx = 3;
     let ny = 3;
     let nz = 2;
-    let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
+    let solver = PoissonSolver::<f64>::new(nx, ny, nz).expect("expected value");
 
     let f = Array1::from_elem([nx * ny * nz], 1.0);
 
@@ -310,7 +310,7 @@ fn test_poisson_3d_minimal_grid() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
+    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
 
     // Just verify solver doesn't crash and produces finite values
     for idx in 0..nx * ny * nz {

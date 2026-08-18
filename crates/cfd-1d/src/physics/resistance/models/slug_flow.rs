@@ -219,8 +219,8 @@ mod tests {
         let cond1 = FlowConditions::new(0.01); // v = 0.01 m/s
         let cond2 = FlowConditions::new(10.0); // v = 10.0 m/s
 
-        let (r1, k1) = model.calculate_coefficients(&fluid, &cond1).unwrap();
-        let (r2, k2) = model.calculate_coefficients(&fluid, &cond2).unwrap();
+        let (r1, k1) = model.calculate_coefficients(&fluid, &cond1).expect("expected value");
+        let (r2, k2) = model.calculate_coefficients(&fluid, &cond2).expect("expected value");
 
         // Exact mathematical proof validation: The multiplier is velocity independent
         assert_relative_eq!(r1, r2, epsilon = 1e-12);

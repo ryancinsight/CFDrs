@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Performance benchmarking for CFD operations
 //!
 //! Measures execution time, throughput, and identifies performance bottlenecks
@@ -720,21 +721,21 @@ impl CfdPerformanceBenchmarks {
                         for j in 0..64 {
                             let idx = i * 64 + j;
                             if i > 0 {
-                                builder.add_entry(idx, idx - 64, -1.0).unwrap();
+                                builder.add_entry(idx, idx - 64, -1.0).expect("expected value");
                             }
                             if i < 63 {
-                                builder.add_entry(idx, idx + 64, -1.0).unwrap();
+                                builder.add_entry(idx, idx + 64, -1.0).expect("expected value");
                             }
                             if j > 0 {
-                                builder.add_entry(idx, idx - 1, -1.0).unwrap();
+                                builder.add_entry(idx, idx - 1, -1.0).expect("expected value");
                             }
                             if j < 63 {
-                                builder.add_entry(idx, idx + 1, -1.0).unwrap();
+                                builder.add_entry(idx, idx + 1, -1.0).expect("expected value");
                             }
-                            builder.add_entry(idx, idx, 4.0).unwrap();
+                            builder.add_entry(idx, idx, 4.0).expect("expected value");
                         }
                     }
-                    let _matrix = builder.build().unwrap();
+                    let _matrix = builder.build().expect("expected value");
                 }),
             ),
             (
@@ -783,7 +784,7 @@ mod tests {
                 }
                 seed = std::hint::black_box(acc);
             })
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(result.operation_name, "test_operation");
         assert!(!result.measurements.is_empty());
@@ -799,7 +800,7 @@ mod tests {
     #[test]
     fn test_cfd_benchmarks() {
         let cfd_benchmarks = CfdPerformanceBenchmarks::new();
-        let results = cfd_benchmarks.run_cfd_suite().unwrap();
+        let results = cfd_benchmarks.run_cfd_suite().expect("expected value");
 
         assert!(!results.is_empty());
         for result in results {

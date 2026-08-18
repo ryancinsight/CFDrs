@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! # cfd-optim — Millifluidic SDT Design Optimiser
 //!
 //! Generates and ranks the **top-5 millifluidic designs** for Sonodynamic

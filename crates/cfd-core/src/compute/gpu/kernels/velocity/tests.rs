@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use super::{GpuVelocityKernel, VelocityConfig};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
@@ -42,7 +43,7 @@ fn interior_indices(dimensions: [usize; 3]) -> impl Iterator<Item = usize> {
 fn correction_matches_linear_pressure_gradient_and_zeroes_boundaries() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [9, 5, 3];
-    let config = VelocityConfig::new(dimensions, [1.0; 3], 0.5, 2.0).unwrap();
+    let config = VelocityConfig::new(dimensions, [1.0; 3], 0.5, 2.0).expect("expected value");
     let pressure = coordinates(dimensions, |x, y, z| {
         (2 * x) as f32 - (4 * y) as f32 + (6 * z) as f32
     });
@@ -60,7 +61,7 @@ fn correction_matches_linear_pressure_gradient_and_zeroes_boundaries() {
             config,
             [&mut output_x, &mut output_y, &mut output_z],
         )
-        .unwrap();
+        .expect("expected value");
 
     let mut expected_x = vec![0.0; config.element_count()];
     let mut expected_y = vec![0.0; config.element_count()];
@@ -79,7 +80,7 @@ fn correction_matches_linear_pressure_gradient_and_zeroes_boundaries() {
 fn divergence_source_matches_linear_velocity_field() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [5, 4, 3];
-    let config = VelocityConfig::new(dimensions, [1.0; 3], 0.5, 2.0).unwrap();
+    let config = VelocityConfig::new(dimensions, [1.0; 3], 0.5, 2.0).expect("expected value");
     let velocity_x = coordinates(dimensions, |x, _, _| (2 * x) as f32);
     let velocity_y = coordinates(dimensions, |_, y, _| -(4 * y as i32) as f32);
     let velocity_z = coordinates(dimensions, |_, _, z| (6 * z) as f32);
@@ -87,7 +88,7 @@ fn divergence_source_matches_linear_velocity_field() {
 
     kernel
         .divergence_source(&velocity_x, &velocity_y, &velocity_z, config, &mut output)
-        .unwrap();
+        .expect("expected value");
 
     let mut expected = vec![0.0; config.element_count()];
     for index in interior_indices(dimensions) {
@@ -98,7 +99,7 @@ fn divergence_source_matches_linear_velocity_field() {
 
 #[test]
 fn rejects_length_and_nonfinite_fields() {
-    let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).unwrap();
+    let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).expect("expected value");
     let field = vec![1.0; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
     let Some(kernel) = kernel() else { return };

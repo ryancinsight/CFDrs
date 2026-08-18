@@ -62,7 +62,7 @@ fn test_advection_diffusion_mms_dirichlet_linear_solution() {
             let x = i as f64 * dx;
             let y = j as f64 * dy;
             let phi_exact = x + y;
-            let phi_num = *result.get(&(i, j)).unwrap();
+            let phi_num = *result.get(&(i, j)).expect("expected value");
             let err = <f64 as NumericElement>::abs(phi_num - phi_exact);
             if err > max_err {
                 max_err = err;

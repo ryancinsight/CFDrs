@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive edge case testing for CFD algorithms
 //!
 //! This module provides thorough validation of boundary conditions, numerical stability,

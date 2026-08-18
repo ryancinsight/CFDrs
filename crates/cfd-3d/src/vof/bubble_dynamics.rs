@@ -403,7 +403,7 @@ mod tests {
                 MassDensity::from_base(1000.0),
                 Time::from_base(1.0e-7),
             )
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(radius.into_base(), 0.0);
         assert_eq!(solver.radii[0], 0.0);

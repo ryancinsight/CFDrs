@@ -276,7 +276,7 @@ impl<T: RealField + Copy + FloatElement + std::iter::Sum> ConvergenceMonitor<T> 
 
         let start = self.history.len() - window - 1;
         let previous_error = self.history[start];
-        let current_error = *self.history.last().unwrap();
+        let current_error = *self.history.last().expect("expected value");
 
         if previous_error <= scalar::zero::<T>() || current_error <= scalar::zero::<T>() {
             return None;

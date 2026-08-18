@@ -29,7 +29,7 @@ fn rk4_benchmark(c: &mut Criterion) {
     c.bench_function("rk4_step_10k", |b| {
         b.iter(|| {
             rk4.step(black_box(f), black_box(t), black_box(&u0), black_box(dt))
-                .unwrap()
+                .expect("expected value")
         })
     });
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use super::GpuFieldOps;
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;

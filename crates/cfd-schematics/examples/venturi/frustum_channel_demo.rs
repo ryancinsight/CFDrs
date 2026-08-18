@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Frustum Channel Demonstration
 //!
 //! This example demonstrates the new frustum (tapered) channel functionality

@@ -82,7 +82,7 @@ mod tests {
         let gmg = GeometricMultigrid::<f64>::new(16, 16, 4);
         assert!(gmg.is_ok(), "GMG creation should succeed");
 
-        let gmg = gmg.unwrap();
+        let gmg = gmg.expect("expected value");
         assert!(!gmg.grid_sizes.is_empty(), "Should have grid levels");
         assert!(!gmg.matrices.is_empty(), "Should have matrices");
         assert_eq!(gmg.grid_sizes[0], (16, 16), "Finest grid should be 16x16");
@@ -93,7 +93,7 @@ mod tests {
         let matrix = GeometricMultigrid::<f64>::create_poisson_matrix(4, 4, 0.25);
         assert!(matrix.is_ok(), "Poisson matrix creation should succeed");
 
-        let matrix = matrix.unwrap();
+        let matrix = matrix.expect("expected value");
         assert_eq!(matrix.shape(), [16, 16], "Matrix should be 16x16");
 
         // Check that diagonal elements are positive
@@ -109,9 +109,9 @@ mod tests {
 
     #[test]
     fn restrict_residual_full_weighting_matches_boundary_stencil() {
-        let gmg = GeometricMultigrid::<f64>::new(3, 3, 2).unwrap();
+        let gmg = GeometricMultigrid::<f64>::new(3, 3, 2).expect("expected value");
         let fine_residual =
-            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect()).unwrap();
+            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect()).expect("expected value");
 
         let restricted = gmg.restrict_residual(&fine_residual, 3, 3, 2, 2);
 
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_geometric_multigrid_solve() {
-        let mut gmg = GeometricMultigrid::<f64>::new(8, 8, 3).unwrap();
+        let mut gmg = GeometricMultigrid::<f64>::new(8, 8, 3).expect("expected value");
 
         // Create a simple test problem: -Δu = 1 with u=0 on boundary
         let n = 8 * 8;
@@ -144,7 +144,7 @@ mod tests {
             }
         }
 
-        let (solution, iterations, residual_norm) = gmg.solve(&rhs, 1e-6, 10).unwrap();
+        let (solution, iterations, residual_norm) = gmg.solve(&rhs, 1e-6, 10).expect("expected value");
 
         assert!(iterations > 0, "Should require at least one iteration");
         assert!(residual_norm < 1.0, "Residual should be reduced");
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_fas_solve_linear_problem() {
-        let gmg = GeometricMultigrid::<f64>::new(16, 16, 3).unwrap();
+        let gmg = GeometricMultigrid::<f64>::new(16, 16, 3).expect("expected value");
         let operator = LinearPoissonOperator { gmg: &gmg };
 
         // Test problem: -Δu = 1, u=0 on boundary
@@ -247,7 +247,7 @@ mod tests {
         let tolerance = 1e-3;
         let max_iter = 50;
         let (solution, iterations, residual_norm) =
-            gmg.solve_fas(&operator, &rhs, tolerance, max_iter).unwrap();
+            gmg.solve_fas(&operator, &rhs, tolerance, max_iter).expect("expected value");
 
         assert!(iterations > 0);
         assert!(iterations <= max_iter);
@@ -257,7 +257,7 @@ mod tests {
         );
 
         // Compare with standard linear solve
-        let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).unwrap();
+        let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).expect("expected value");
 
         let diff = vector_sub(&solution, &linear_sol);
         // The solutions should be relatively close

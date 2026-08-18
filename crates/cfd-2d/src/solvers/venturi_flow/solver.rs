@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Discretized Venturi solver and validation against analytical solutions.
 
 use super::analytical::BernoulliVenturi;

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 2D Poiseuille flow solver with non-Newtonian blood rheology
 //!
 //! # Physical Problem
@@ -403,7 +404,7 @@ mod tests {
         let c = vec![-1.0, -1.0, -1.0, 0.0];
         let d = vec![1.0, 0.0, 0.0, 1.0];
 
-        let x = numerics::thomas_algorithm(&a, &b, &c, &d).unwrap();
+        let x = numerics::thomas_algorithm(&a, &b, &c, &d).expect("expected value");
 
         // Verify solution
         assert!(<f64 as NumericElement>::abs(x[0] - 1.0) < 1e-10);
@@ -424,20 +425,20 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let mut solver = PoiseuilleFlow2D::new(config.clone(), BloodModel::Casson(blood));
 
-        let iterations = solver.solve().unwrap();
+        let iterations = solver.solve().expect("expected value");
         println!("Converged in {iterations} iterations");
 
         // Debug: check shear rates and viscosities
         let max_shear_rate = solver
             .shear_rate
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|a, b| a.partial_cmp(b).expect("expected value"))
+            .expect("expected value");
         let min_viscosity = solver
             .viscosity
             .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .min_by(|a, b| a.partial_cmp(b).expect("expected value"))
+            .expect("expected value");
         println!("Max shear rate: {max_shear_rate:.6e} s^-1");
         println!("Min viscosity: {min_viscosity:.6e} Pa·s");
 

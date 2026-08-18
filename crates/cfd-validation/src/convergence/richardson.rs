@@ -137,7 +137,7 @@ where
         .zip(solutions.iter())
         .map(|(h, f)| (*h, *f))
         .collect();
-    paired.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    paired.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("expected value"));
 
     let f_fine = paired[0].1;
     let f_coarse = paired[1].1;
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn test_richardson_second_order() {
         // Test with exact second-order convergence
-        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).unwrap();
+        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
 
         // Solutions: f(h) = 1 + h²
         let f_fine = 1.0 + 0.01; // h = 0.1
@@ -202,14 +202,14 @@ mod tests {
         let f_fine = 1.01; // h = 0.1
 
         let order = RichardsonExtrapolation::<f64>::estimate_order(f_coarse, f_medium, f_fine, 2.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(order, 2.0, epsilon = 0.01);
     }
 
     #[test]
     fn test_gci_calculation() {
-        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).unwrap();
+        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
         let f_fine = 1.01;
         let f_coarse = 1.04;
         let safety_factor = 1.25; // Recommended for 3+ grids

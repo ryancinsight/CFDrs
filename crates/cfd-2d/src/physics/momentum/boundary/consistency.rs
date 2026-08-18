@@ -100,8 +100,8 @@ where
     ];
 
     for (b1_name, b2_name) in corners {
-        let b1 = boundaries.get(b1_name).unwrap();
-        let b2 = boundaries.get(b2_name).unwrap();
+        let b1 = boundaries.get(b1_name).expect("expected value");
+        let b2 = boundaries.get(b2_name).expect("expected value");
 
         for component in [MomentumComponent::U, MomentumComponent::V] {
             if let (Some(v1), Some(v2)) = (

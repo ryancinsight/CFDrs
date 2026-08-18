@@ -322,7 +322,7 @@ mod tests {
         };
 
         let reporter = MarkdownReporter::new();
-        let markdown = reporter.generate_report(&report).unwrap();
+        let markdown = reporter.generate_report(&report).expect("expected value");
 
         // Verify key sections are present
         assert!(markdown.contains("# CFD Validation Report"));

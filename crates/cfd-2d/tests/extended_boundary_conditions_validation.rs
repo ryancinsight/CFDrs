@@ -102,8 +102,8 @@ fn test_periodic_channel_flow() {
 
     // Validate periodicity property: u(x=0, y) = u(x=L, y)
     // This is enforced by periodic BC implementation
-    let bc_west = boundary_conditions.get(&(0, ny / 2)).unwrap();
-    let bc_east = boundary_conditions.get(&(nx - 1, ny / 2)).unwrap();
+    let bc_west = boundary_conditions.get(&(0, ny / 2)).expect("expected value");
+    let bc_east = boundary_conditions.get(&(nx - 1, ny / 2)).expect("expected value");
 
     match (bc_west, bc_east) {
         (BoundaryCondition::Periodic { .. }, BoundaryCondition::Periodic { .. }) => {
@@ -167,7 +167,7 @@ fn test_symmetric_cavity() {
     }
 
     // Validate symmetry BC creates zero-gradient condition
-    let bc_symmetry = boundary_conditions.get(&(0, ny / 2)).unwrap();
+    let bc_symmetry = boundary_conditions.get(&(0, ny / 2)).expect("expected value");
 
     match bc_symmetry {
         BoundaryCondition::Symmetry => {
@@ -239,8 +239,8 @@ fn test_pressure_driven_flow() {
     }
 
     // Validate pressure BC structure
-    let bc_inlet = boundary_conditions.get(&(0, ny / 2)).unwrap();
-    let bc_outlet = boundary_conditions.get(&(nx - 1, ny / 2)).unwrap();
+    let bc_inlet = boundary_conditions.get(&(0, ny / 2)).expect("expected value");
+    let bc_outlet = boundary_conditions.get(&(nx - 1, ny / 2)).expect("expected value");
 
     match bc_inlet {
         BoundaryCondition::PressureInlet { pressure, .. } => {
@@ -338,7 +338,7 @@ fn test_periodic_energy_transport() {
     for _ in 0..10 {
         solver
             .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &boundary_conditions)
-            .unwrap();
+            .expect("expected value");
     }
 
     // Calculate final total energy

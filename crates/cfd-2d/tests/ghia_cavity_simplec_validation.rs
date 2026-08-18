@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Ghia et al. (1982) lid-driven cavity benchmark validation with SIMPLEC/PIMPLE + Rhie-Chow
 //!
 //! This test validates the SIMPLEC and PIMPLE solvers with Rhie-Chow interpolation
@@ -108,7 +109,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
     // Verify that solver is making progress (residuals should generally decrease)
     let initial_residual = residuals[0];
-    let final_residual = *residuals.last().unwrap();
+    let final_residual = *residuals.last().expect("expected value");
 
     println!("✓ SIMPLEC solver basic functionality test passed");
     println!("  Initial residual: {:.2e}", initial_residual);
@@ -383,7 +384,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
     }
 
     let l2_norm = L2Norm;
-    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
 
     println!("✓ PIMPLE + Rhie-Chow validation at Re=100");
     println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
@@ -934,7 +935,7 @@ fn test_simplec_parameter_optimization_re100() {
                 }
 
                 let l2_norm = L2Norm;
-                let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+                let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
                 println!(
                     "  Result: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
                     l2_error * 100.0,
@@ -1058,7 +1059,7 @@ fn test_simplec_grid_convergence_study() {
                     }
 
                     let l2_norm = L2Norm;
-                    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+                    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
                     let dx = 1.0 / (nx - 1) as f64;
 
                     println!("  Grid: {}×{}, dx={:.4}", nx, ny, dx);
@@ -1082,7 +1083,7 @@ fn test_simplec_grid_convergence_study() {
 
         // Sort by grid spacing (dx)
         let mut sorted_results = results.clone();
-        sorted_results.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        sorted_results.sort_by(|a, b| a.2.partial_cmp(&b.2).expect("expected value"));
 
         for i in 0..sorted_results.len() - 1 {
             let (nx1, _, dx1, err1) = sorted_results[i];
@@ -1099,7 +1100,7 @@ fn test_simplec_grid_convergence_study() {
         }
 
         // Check if we achieve approximately second-order accuracy
-        let (_, _, _, final_error) = sorted_results.last().unwrap();
+        let (_, _, _, final_error) = sorted_results.last().expect("expected value");
         let _target_order = 2.0;
         let expected_error = 0.01; // Rough estimate for second-order convergence
 
@@ -1193,7 +1194,7 @@ fn test_simplec_higher_reynolds_validation() {
                         }
 
                         let l2_norm = L2Norm;
-                        let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
+                        let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
 
                         println!(
                             "✓ Re={} converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
@@ -1447,14 +1448,14 @@ fn test_simplec_channel_flow_validation() {
     // Set up channel flow boundary conditions
     // Bottom wall (y=0): no-slip
     for i in 0..nx {
-        *fields.u.at_mut(i, 0).unwrap() = 0.0;
-        *fields.v.at_mut(i, 0).unwrap() = 0.0;
+        *fields.u.at_mut(i, 0).expect("expected value") = 0.0;
+        *fields.v.at_mut(i, 0).expect("expected value") = 0.0;
     }
 
     // Top wall (y=ny-1): no-slip
     for i in 0..nx {
-        *fields.u.at_mut(i, ny - 1).unwrap() = 0.0;
-        *fields.v.at_mut(i, ny - 1).unwrap() = 0.0;
+        *fields.u.at_mut(i, ny - 1).expect("expected value") = 0.0;
+        *fields.v.at_mut(i, ny - 1).expect("expected value") = 0.0;
     }
 
     // Inlet (x=0): fully developed parabolic profile
@@ -1462,21 +1463,21 @@ fn test_simplec_channel_flow_validation() {
     for j in 0..ny {
         let y = j as f64 * channel_height / (ny - 1) as f64;
         let u_parabolic = 6.0 * umax * y * (channel_height - y) / (channel_height * channel_height);
-        *fields.u.at_mut(0, j).unwrap() = u_parabolic;
-        *fields.v.at_mut(0, j).unwrap() = 0.0;
+        *fields.u.at_mut(0, j).expect("expected value") = u_parabolic;
+        *fields.v.at_mut(0, j).expect("expected value") = 0.0;
     }
 
     // Outlet (x=nx-1): zero gradient (Neumann)
     for j in 0..ny {
-        *fields.u.at_mut(nx - 1, j).unwrap() = fields.u.at(nx - 2, j); // Extrapolate
-        *fields.v.at_mut(nx - 1, j).unwrap() = 0.0;
+        *fields.u.at_mut(nx - 1, j).expect("expected value") = fields.u.at(nx - 2, j); // Extrapolate
+        *fields.v.at_mut(nx - 1, j).expect("expected value") = 0.0;
     }
 
     // Apply pressure gradient
     for i in 0..nx {
         for j in 0..ny {
             let x_pos = i as f64 * 2.0 / (nx - 1) as f64; // x from 0 to 2
-            *fields.p_prime.at_mut(i, j).unwrap() = pressure_gradient * (x_pos - 0.0);
+            *fields.p_prime.at_mut(i, j).expect("expected value") = pressure_gradient * (x_pos - 0.0);
         }
     }
 
@@ -1508,7 +1509,7 @@ fn test_simplec_channel_flow_validation() {
                 let l2_norm = L2Norm;
                 let l2_error = l2_norm
                     .compute_error(&outlet_profile, &analytical_profile)
-                    .unwrap();
+                    .expect("expected value");
 
                 println!(
                     "✓ Channel flow converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}",

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 3D Serpentine flow benchmark with Dean vortex validation
 //!
 //! Validates 3D Dean vortices and secondary flow effects in
@@ -94,8 +95,8 @@ mod tests {
         let benchmark = SerpentineFlow3D::new(geometry);
         let config = BenchmarkConfig::default();
 
-        let result = benchmark.run(&config).unwrap();
-        assert!(benchmark.validate(&result).unwrap());
+        let result = benchmark.run(&config).expect("expected value");
+        assert!(benchmark.validate(&result).expect("expected value"));
         println!(
             "3D Serpentine Results: De = {:?}",
             result.metrics.get("Dean Number")

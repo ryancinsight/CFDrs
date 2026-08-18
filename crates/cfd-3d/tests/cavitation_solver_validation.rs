@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Validation tests for cavitation-VOF solver integration
 //!
 //! Tests cover:
@@ -79,7 +80,7 @@ fn test_cavitation_inception() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
+    let mut solver = CavitationVofSolver::new(10, 10, 10, config).expect("expected value");
 
     // Create low pressure field (should trigger cavitation)
     let velocity_field = vec![Vector3::zeros(); 1000];
@@ -89,7 +90,7 @@ fn test_cavitation_inception() {
     // Step simulation
     solver
         .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
-        .unwrap();
+        .expect("expected value");
 
     // Check that cavitation was detected
     let stats = solver.cavitation_statistics();
@@ -148,7 +149,7 @@ fn test_damage_accumulation() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
+    let mut solver = CavitationVofSolver::new(10, 10, 10, config).expect("expected value");
 
     // Create cavitating conditions
     let velocity_field = vec![Vector3::new(20.0, 0.0, 0.0); 1000]; // High velocity
@@ -158,7 +159,7 @@ fn test_damage_accumulation() {
     {
         let mut volume_fraction = solver.volume_fraction();
         volume_fraction.fill(0.1);
-        solver.set_volume_fraction(&volume_fraction).unwrap();
+        solver.set_volume_fraction(&volume_fraction).expect("expected value");
     }
 
     // Run multiple steps to accumulate damage
@@ -169,7 +170,7 @@ fn test_damage_accumulation() {
         let pressure_field = Array2::from_elem([10, 100], p_val);
         solver
             .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
-            .unwrap();
+            .expect("expected value");
     }
 
     // Check damage accumulation
@@ -222,7 +223,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(6, 4, 3, config).unwrap();
+    let mut solver = CavitationVofSolver::new(6, 4, 3, config).expect("expected value");
 
     let velocity_field = vec![Vector3::zeros(); 6 * 4 * 3];
     let pressure_field = Array2::from_elem([6, 4 * 3], 1.0e6);
@@ -235,11 +236,11 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
             &pressure_field,
             &density_field,
         )
-        .unwrap();
+        .expect("expected value");
 
     let energy = solver
         .sonoluminescence_energy_field(&pressure_field, 293.15, 50e-12, 1.0)
-        .unwrap();
+        .expect("expected value");
 
     assert_eq!(energy.shape(), [6, 4 * 3]);
 
@@ -284,7 +285,7 @@ fn test_mass_conservation() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(20, 10, 10, config).unwrap();
+    let mut solver = CavitationVofSolver::new(20, 10, 10, config).expect("expected value");
 
     // Initialize with some void fraction
     {
@@ -297,7 +298,7 @@ fn test_mass_conservation() {
                 }
             }
         }
-        solver.set_volume_fraction(&volume_fraction).unwrap();
+        solver.set_volume_fraction(&volume_fraction).expect("expected value");
     }
 
     let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 2000];
@@ -311,7 +312,7 @@ fn test_mass_conservation() {
     for _ in 0..50 {
         solver
             .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
-            .unwrap();
+            .expect("expected value");
     }
 
     // Check volume conservation (should be close, cavitation adds/removes mass)
@@ -373,7 +374,7 @@ fn test_bubble_dynamics_integration() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();
+    let mut solver = CavitationVofSolver::new(5, 5, 5, config).expect("expected value");
 
     // Test with varying pressure (should cause bubble oscillation)
     let velocity_field = vec![Vector3::zeros(); 125];
@@ -395,7 +396,7 @@ fn test_bubble_dynamics_integration() {
         let density_field = Array2::from_elem([5, 25], 998.0);
         solver
             .step(time(1e-6), &velocity_field, &pressure_field, &density_field)
-            .unwrap();
+            .expect("expected value");
 
         // Check that bubble radii are updated
         if let Some(radius_field) = solver.bubble_radius_field() {
@@ -451,7 +452,7 @@ fn test_cavitation_statistics() {
         nuclei_transport: None,
     };
 
-    let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
+    let mut solver = CavitationVofSolver::new(10, 10, 10, config).expect("expected value");
 
     // Create mixed conditions
     let velocity_field = vec![Vector3::zeros(); 1000];
@@ -481,12 +482,12 @@ fn test_cavitation_statistics() {
                 }
             }
         }
-        solver.set_volume_fraction(&volume_fraction).unwrap();
+        solver.set_volume_fraction(&volume_fraction).expect("expected value");
     }
 
     solver
         .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
-        .unwrap();
+        .expect("expected value");
 
     let stats = solver.cavitation_statistics();
 
@@ -563,7 +564,7 @@ fn test_cavitation_model_comparison() {
             nuclei_transport: None,
         };
 
-        let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();
+        let mut solver = CavitationVofSolver::new(5, 5, 5, config).expect("expected value");
 
         // Test with cavitating conditions
         let velocity_field = vec![Vector3::new(10.0, 0.0, 0.0); 125];
@@ -572,7 +573,7 @@ fn test_cavitation_model_comparison() {
 
         solver
             .step(time(1e-5), &velocity_field, &pressure_field, &density_field)
-            .unwrap();
+            .expect("expected value");
 
         let stats = solver.cavitation_statistics();
 

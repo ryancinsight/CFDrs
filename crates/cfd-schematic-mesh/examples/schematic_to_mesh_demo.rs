@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Example demonstrating conversion of a schematic to a 3D mesh.
 //!
 //! This example creates a simple 1D schematic using `cfd-schematics`,

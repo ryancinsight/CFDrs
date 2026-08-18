@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Turbulence Model Constants Validation against DNS Databases
 //!
 //! Implements MAJOR-004: Turbulence Model Constants Validation

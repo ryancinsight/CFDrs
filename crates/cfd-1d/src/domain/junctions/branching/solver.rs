@@ -301,7 +301,7 @@ mod tests {
 
         let solution = solver
             .solve_two_way_branch(&junction, blood, 1000.0, 1e-6)
-            .unwrap();
+            .expect("expected value");
 
         assert!(solution.q_parent > 0.0);
         assert!(solution.p_parent >= 0.0);

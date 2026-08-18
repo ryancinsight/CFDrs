@@ -163,7 +163,7 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect("expected value");
                 }
 
                 (k, epsilon, vec![], vec![])
@@ -185,7 +185,7 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect("expected value");
                 }
 
                 (k, vec![], omega, vec![])
@@ -204,7 +204,7 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect("expected value");
                 }
 
                 (vec![], vec![], vec![], nu_tilde)

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Validation tests for SIMPLEC and PIMPLE algorithms
 //! including Ghia cavity benchmark comparisons
 
@@ -367,7 +368,7 @@ where
 
         let idx = match reference
             .y
-            .binary_search_by(|&probe| probe.partial_cmp(&y_f64).unwrap())
+            .binary_search_by(|&probe| probe.partial_cmp(&y_f64).expect("expected value"))
         {
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {

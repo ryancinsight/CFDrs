@@ -26,13 +26,13 @@ fn bench_spmv(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
-        let x = Array1::from_shape_vec([n], vec![1.0; n]).unwrap();
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).expect("expected value");
+        let x = Array1::from_shape_vec([n], vec![1.0; n]).expect("expected value");
         let mut y = Array1::zeros([n]);
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
-                black_box(a.apply(black_box(&x), black_box(&mut y))).unwrap();
+                black_box(a.apply(black_box(&x), black_box(&mut y))).expect("expected value");
             });
         });
     }

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 1D Blood Flow through a TPMS-Inspired Channel Network
 //!
 //! Demonstrates simulating blood flow through a millifluidic network whose
@@ -259,7 +260,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  NODE PRESSURES");
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.node_indices() {
-        let n = solution.graph.node_weight(idx).unwrap();
+        let n = solution.graph.node_weight(idx).expect("expected value");
         let p = solution
             .pressures
             .get(idx.index())
@@ -279,7 +280,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  CHANNEL FLOW RATES & HEMODYNAMICS");
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.edge_indices() {
-        let e = solution.graph.edge_weight(idx).unwrap();
+        let e = solution.graph.edge_weight(idx).expect("expected value");
         let q = solution
             .flow_rates
             .get(idx.index())

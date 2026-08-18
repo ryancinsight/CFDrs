@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Example demonstrating a complete microfluidic chip simulation using cfd-1d.
 //!
 //! This example creates a microfluidic network with:

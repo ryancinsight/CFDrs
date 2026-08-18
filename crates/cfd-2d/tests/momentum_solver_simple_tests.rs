@@ -137,7 +137,7 @@ fn test_pressure_velocity_coupling_setup() -> CfdResult<()> {
 
     // Test field copying (used in iterative coupling algorithms)
     let fields_copy = SimulationFields::new(nx, ny);
-    fields.copy_from(&fields_copy).unwrap();
+    fields.copy_from(&fields_copy).expect("expected value");
 
     Ok(())
 }

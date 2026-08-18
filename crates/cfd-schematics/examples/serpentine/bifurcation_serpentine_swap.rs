@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Bifurcation → Serpentine channel swap example.
 //!
 //! Uses `create_geometry` with three `SplitType::Bifurcation` levels
@@ -126,7 +127,7 @@ fn find_leaf_channel_pairs(bp: &NetworkBlueprint) -> Vec<(usize, usize)> {
         .map(|(y_key, indices)| {
             let (a, b) = (indices[0], indices[1]);
             // Left channel has from.x < half_x, right has from.x >= half_x.
-            let fa = node_pos.get(bp.channels[a].from.as_str()).unwrap().0;
+            let fa = node_pos.get(bp.channels[a].from.as_str()).expect("expected value").0;
             if fa < half_x {
                 (y_key, a, b)
             } else {

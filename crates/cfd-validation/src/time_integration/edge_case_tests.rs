@@ -35,7 +35,7 @@ mod time_integration_edge_tests {
         // ODE: dy/dt = 0
         let f = |_t: f64, _y: &State<f64>| state_zeros(3);
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // Solution should remain zero
         for i in 0..3 {
@@ -56,7 +56,7 @@ mod time_integration_edge_tests {
         // ODE: dy/dt = 2.0
         let f = |_t: f64, _y: &State<f64>| state_from_elem(2, constant);
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // y(0.1) = 1.0 + 2.0 * 0.1 = 1.2
         let expected = 1.0 + constant * dt;
@@ -81,7 +81,7 @@ mod time_integration_edge_tests {
         // Take 10 small steps
         let mut current_t = t;
         for _ in 0..10 {
-            integrator.step(&mut y, current_t, dt, f).unwrap();
+            integrator.step(&mut y, current_t, dt, f).expect("expected value");
             current_t += dt;
         }
 
@@ -103,7 +103,7 @@ mod time_integration_edge_tests {
         // Any ODE
         let f = |_t: f64, y: &State<f64>| scaled(y, 2.0);
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // With dt=0, solution should not change
         for i in 0..2 {
@@ -122,7 +122,7 @@ mod time_integration_edge_tests {
         // ODE: dy/dt = y
         let f = |_t: f64, y: &State<f64>| y.clone();
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // Solution should be close to initial (exp(1e-10) ≈ 1.0)
         assert_relative_eq!(y[0], 1.0, epsilon = 1e-8);
@@ -173,7 +173,7 @@ mod time_integration_edge_tests {
         // Stable ODE: dy/dt = -0.1*y
         let f = |_t: f64, y: &State<f64>| scaled(y, -0.1);
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // Solution should remain bounded (stability check)
         assert!(
@@ -199,7 +199,7 @@ mod time_integration_edge_tests {
         // Take several steps
         let mut current_t = t;
         for _ in 0..10 {
-            integrator.step(&mut y, current_t, dt, f).unwrap();
+            integrator.step(&mut y, current_t, dt, f).expect("expected value");
             current_t += dt;
         }
 
@@ -223,7 +223,7 @@ mod time_integration_edge_tests {
         // Coupled system: dy1/dt = -y2, dy2/dt = y1 (harmonic oscillator)
         let f = |_t: f64, y: &State<f64>| state_from_vec(vec![-y[1], y[0]]);
 
-        integrator.step(&mut y, t, dt, f).unwrap();
+        integrator.step(&mut y, t, dt, f).expect("expected value");
 
         // Both components should be finite
         assert!(
@@ -255,8 +255,8 @@ mod time_integration_edge_tests {
         // ODE: dy/dt = -y
         let f = |_t: f64, y: &State<f64>| scaled(y, -1.0);
 
-        euler.step(&mut y_euler, t, dt, f).unwrap();
-        rk2.step(&mut y_rk2, t, dt, f).unwrap();
+        euler.step(&mut y_euler, t, dt, f).expect("expected value");
+        rk2.step(&mut y_rk2, t, dt, f).expect("expected value");
 
         // Exact: y(0.1) = exp(-0.1) ≈ 0.9048
         let exact = (-0.1_f64).exp();

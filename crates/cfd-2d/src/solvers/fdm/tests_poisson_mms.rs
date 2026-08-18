@@ -30,7 +30,7 @@ fn test_poisson_mms_dirichlet_quadratic_interior_accuracy() {
     let mut boundary_values: HashMap<(usize, usize), f64> = HashMap::new();
 
     for (i, j) in grid.iter() {
-        let center = grid.cell_center(i, j).unwrap();
+        let center = grid.cell_center(i, j).expect("expected value");
         let x = center[0];
         let y = center[1];
         let phi = x * x + y * y;
@@ -54,7 +54,7 @@ fn test_poisson_mms_dirichlet_quadratic_interior_accuracy() {
     let mut max_err = 0.0f64;
     for j in 1..ny - 1 {
         for i in 1..nx - 1 {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let x = center[0];
             let y = center[1];
             let phi_exact = x * x + y * y;

@@ -472,7 +472,7 @@ mod tests {
         let registry = AlgorithmComplexityRegistry::new();
         let cg = registry.get("ConjugateGradient");
         assert!(cg.is_some());
-        assert_eq!(cg.unwrap().time_complexity, "O(k · nnz(A))");
+        assert_eq!(cg.expect("expected value").time_complexity, "O(k · nnz(A))");
     }
 
     #[test]

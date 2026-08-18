@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 2D Bifurcation flow solver for branching microfluidic junctions
 //!
 //! This module implements a validated solver for bifurcating flows, which are
@@ -362,7 +363,7 @@ mod tests {
         let result = solver.solve(0.1);
 
         assert!(result.is_ok());
-        let sol = result.unwrap();
+        let sol = result.expect("expected value");
 
         println!(
             "Bifurcation Mass Balance Error: {:?}",
@@ -418,7 +419,7 @@ mod tests {
         let mut solver = BifurcationSolver2D::new(geom, blood, density, 50, 30, config);
         let u_inlet = 0.1;
 
-        let sol = solver.solve(u_inlet).unwrap();
+        let sol = solver.solve(u_inlet).expect("expected value");
 
         println!("Non-Newtonian Bifurcation Q_parent: {:?}", sol.q_parent);
         println!(

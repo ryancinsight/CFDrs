@@ -192,7 +192,7 @@ mod tests {
 
         let solution = solver.solve(fluid).expect("Solver failed"); // Pass by value
 
-        let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
+        let fluid_props = fluid.properties_at(310.0, 100.0).expect("expected value");
         let validator = SerpentineValidator3D::new(builder);
         let result = validator
             .validate_flow(

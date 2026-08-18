@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Hemolysis Analysis in a Serpentine Millifluidic Channel
 //!
 //! Demonstrates a full-pipeline medical-grade analysis:

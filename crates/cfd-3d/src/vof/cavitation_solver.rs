@@ -1267,8 +1267,8 @@ mod tests {
             .expect("bubble dynamics should be configured")
             .number_density = NumberDensity::from_base(2.0e6);
 
-        let mut solver_low = CavitationVofSolver::new(1, 1, 1, low_density).unwrap();
-        let mut solver_high = CavitationVofSolver::new(1, 1, 1, high_density).unwrap();
+        let mut solver_low = CavitationVofSolver::new(1, 1, 1, low_density).expect("expected value");
+        let mut solver_high = CavitationVofSolver::new(1, 1, 1, high_density).expect("expected value");
 
         if let Some(radius_field) = solver_low.bubble_radius_field.as_mut() {
             radius_field[[0, 0]] = 5.0e-7;
@@ -1280,10 +1280,10 @@ mod tests {
         let pressure_field = CavitationField::from_elem([1, 1], 1.0e5);
         let energy_low = solver_low
             .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
-            .unwrap();
+            .expect("expected value");
         let energy_high = solver_high
             .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
-            .unwrap();
+            .expect("expected value");
 
         let ratio = energy_high[[0, 0]] / energy_low[[0, 0]];
         assert!((ratio - 2.0).abs() < 1e-12 * 2.0);

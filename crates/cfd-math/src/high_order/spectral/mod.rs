@@ -135,13 +135,13 @@ mod tests {
     #[test]
     fn test_lgl_nodes() {
         // Test LGL nodes for n=2 (should be -1, 0, 1)
-        let nodes = compute_lgl_nodes(2).unwrap();
+        let nodes = compute_lgl_nodes(2).expect("expected value");
         assert_relative_eq!(nodes[0], -1.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[1], 0.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[2], 1.0, epsilon = 1e-10);
 
         // Test symmetry for n=4
-        let nodes = compute_lgl_nodes(4).unwrap();
+        let nodes = compute_lgl_nodes(4).expect("expected value");
         assert_relative_eq!(nodes[0], -1.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[4], 1.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[1], -nodes[3], epsilon = 1e-10);
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_lgl_weights() {
-        let nodes = compute_lgl_nodes(2).unwrap();
+        let nodes = compute_lgl_nodes(2).expect("expected value");
         let weights = compute_lgl_weights(&nodes, 2);
 
         // Weights should be [1/3, 4/3, 1/3] for n=2
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn test_derivative_matrix() {
         let n = 4;
-        let nodes = compute_lgl_nodes(n).unwrap();
+        let nodes = compute_lgl_nodes(n).expect("expected value");
         let d = compute_derivative_matrix(&nodes, n);
 
         // Derivative of constant should be zero

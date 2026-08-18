@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 1D Blood Flow Validation Tests
 //!
 //! Validation of 1D network solver for non-Newtonian blood flow in:

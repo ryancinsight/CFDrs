@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Multi-physics CFD validation tests
 //!
 //! Tests coupled physics problems including:

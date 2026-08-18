@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Validation tools for 3D bifurcation simulations
 //!
 //! Provides mesh convergence studies, error metrics, and comparison with
@@ -319,10 +320,10 @@ mod tests {
         config.mesh_resolution = 4;
         let solver = BifurcationSolver3D::new(validator.geometry.clone(), config);
 
-        let water = cfd_core::physics::fluid::water_20c::<f64>().unwrap();
-        let solution = solver.solve(water).unwrap();
+        let water = cfd_core::physics::fluid::water_20c::<f64>().expect("expected value");
+        let solution = solver.solve(water).expect("expected value");
 
-        let result = validator.validate_blood_flow(&solution).unwrap();
+        let result = validator.validate_blood_flow(&solution).expect("expected value");
 
         // Debug output
         println!(

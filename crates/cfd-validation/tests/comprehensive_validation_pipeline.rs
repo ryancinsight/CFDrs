@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive validation pipeline integration test
 //!
 //! This test demonstrates the complete CFD validation workflow:

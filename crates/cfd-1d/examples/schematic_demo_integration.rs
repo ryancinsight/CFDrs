@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Example demonstrating cfd-1d simulation using cfd-schematics specifications.
 //!
 //! This example shows how to:

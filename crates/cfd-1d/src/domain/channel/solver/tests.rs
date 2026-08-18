@@ -7,11 +7,11 @@ use eunomia::assert_relative_eq;
 #[test]
 fn test_circular_shape_factor_is_64() {
     let geom = ChannelGeometry::circular(0.01_f64, 0.001, 0.0);
-    let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+    let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
     let mut ch = Channel::new(geom);
     ch.flow_state.reynolds_number = Some(100.0);
     ch.flow_state.flow_regime = FlowRegime::Laminar;
-    let r = ch.laminar_resistance(&fluid).unwrap();
+    let r = ch.laminar_resistance(&fluid).expect("expected value");
 
     // R = Po * mu * L / (2 * A * Dh^2)
     // For circular: Po = 64, A = π D²/4, Dh = D
@@ -51,11 +51,11 @@ fn test_flow_regime_turbulent_above_4000() {
 fn test_square_channel_shape_factor_approx_56_9() {
     // Square channel (AR=1): Po should be ~56.9 per Shah-London
     let geom = ChannelGeometry::rectangular(0.01_f64, 0.001, 0.001, 0.0);
-    let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+    let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
     let mut ch = Channel::new(geom);
     ch.flow_state.reynolds_number = Some(100.0);
     ch.flow_state.flow_regime = FlowRegime::Laminar;
-    let r = ch.laminar_resistance(&fluid).unwrap();
+    let r = ch.laminar_resistance(&fluid).expect("expected value");
 
     // Extract Po from measured resistance: R = Po · μ · L / (2·A·D_h²)
     let w = 0.001_f64;

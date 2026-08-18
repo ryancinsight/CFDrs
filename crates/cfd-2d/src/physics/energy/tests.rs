@@ -422,7 +422,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         let final_energy: f64 = solver.temperature.iter().sum();
 
@@ -468,7 +468,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         let final_temp_diff = solver.temperature[(2, 3)] - solver.temperature[(4, 3)];
 
@@ -567,7 +567,7 @@ mod energy_tests {
                 dy,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // Verify against exact solution at t=0.001
         let temp_clone = solver.temperature.clone();
@@ -583,8 +583,8 @@ mod energy_tests {
                     }
                 })
             })
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap();
+            .max_by(|a, b| a.partial_cmp(b).expect("expected value"))
+            .expect("expected value");
 
         // Should be reasonably accurate (relaxed tolerance for numerical stability)
         assert!(max_error < 0.1, "Max error too high: {max_error}");
@@ -613,7 +613,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // Temperature should increase dramatically (but not explode due to small dt)
         assert!(solver.temperature[(2, 2)] > initial_temp);
@@ -629,7 +629,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // Temperature should decrease
         assert!(solver.temperature[(2, 2)] < initial_temp);
@@ -713,7 +713,7 @@ mod energy_tests {
                 1.0,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // With leftward flow, hot fluid should move left (to lower indices)
         // Position 4 should be warmer than position 6
@@ -751,7 +751,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // With very small α, temperature should barely change
         for i in 0..5 {
@@ -857,7 +857,7 @@ mod energy_tests {
                     dy,
                     &boundary_conditions,
                 )
-                .unwrap();
+                .expect("expected value");
 
             // Compute L2 error against analytical solution at t=dt
             let mut l2_error = 0.0;
@@ -984,7 +984,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             )
-            .unwrap();
+            .expect("expected value");
 
         // With effectively zero diffusivity and no convection, temperature should barely change
         let change =
@@ -1112,7 +1112,7 @@ mod energy_tests {
                     0.25,
                     &boundary_conditions,
                 )
-                .unwrap();
+                .expect("expected value");
         }
 
         // Check that field remained essentially unchanged (steady state preserved) - relaxed
@@ -1169,7 +1169,7 @@ mod energy_tests {
         let bcs = HashMap::new();
         solver_off
             .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &bcs)
-            .unwrap();
+            .expect("expected value");
 
         // Dissipation run
         let mut solver_on = EnergyEquationSolver::<f64>::new(nx, ny, 300.0, 0.01);
@@ -1177,7 +1177,7 @@ mod energy_tests {
         solver_on.set_viscous_dissipation_params(1e-3, 1000.0, 4186.0);
         solver_on
             .solve_explicit(&u_velocity, &v_velocity, dt, dx, dy, &bcs)
-            .unwrap();
+            .expect("expected value");
 
         // Interior temperature should be at least as high with dissipation on
         let mut total_diff = 0.0;
@@ -1209,7 +1209,7 @@ mod energy_tests {
         let bcs = HashMap::new();
         solver
             .solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &bcs)
-            .unwrap();
+            .expect("expected value");
 
         // heat_source should be unchanged
         for i in 0..nx {

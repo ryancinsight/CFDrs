@@ -101,7 +101,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
             },
         );
         network.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
-        network.update_resistances().unwrap();
+        network.update_resistances().expect("expected value");
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");
         flow_rate * edge_data.resistance.into_base()

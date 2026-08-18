@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Geometry Integration Demo
 //!
 //! Demonstrates the full pipeline:

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! End-to-end FDA-oriented blood shear limit screening example.
 //!
 //! This example:

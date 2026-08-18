@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 2D Blood Flow in a Venturi (IBM + Non-Newtonian)
 //!
 //! This example simulates blood flow through a Venturi constriction using:

@@ -33,13 +33,13 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
         let two = <T as FloatElement>::from_f64(2.0);
         let has_pressure_anchor = pressure_has_anchor(boundary_conditions);
 
-        let rhs = self.rhs.as_mut().unwrap();
+        let rhs = self.rhs.as_mut().expect("expected value");
         rhs.fill(scalar::zero::<T>());
-        let p_prime = self.p_prime.as_mut().unwrap();
+        let p_prime = self.p_prime.as_mut().expect("expected value");
         p_prime.fill(scalar::zero::<T>());
 
-        let d_u = self.d_u.as_ref().unwrap();
-        let d_v = self.d_v.as_ref().unwrap();
+        let d_u = self.d_u.as_ref().expect("expected value");
+        let d_v = self.d_v.as_ref().expect("expected value");
 
         let n = nx * ny;
         let should_rebuild = self.pressure_matrix.is_none();
@@ -242,7 +242,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
             self.pressure_matrix = Some(matrix_builder.build()?);
             self.matrix_builder = Some(SparseMatrixBuilder::new(n, n));
         } else {
-            let matrix = self.pressure_matrix.as_mut().unwrap();
+            let matrix = self.pressure_matrix.as_mut().expect("expected value");
             matrix.values_mut().fill(scalar::zero::<T>());
 
             let row_ptr = matrix.row_ptr().to_vec();
@@ -453,16 +453,16 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
     }
 
     pub(crate) fn solve_pressure_correction(&mut self) -> Result<()> {
-        let matrix = self.pressure_matrix.as_ref().unwrap();
+        let matrix = self.pressure_matrix.as_ref().expect("expected value");
         let solver_config = IterativeSolverConfig {
             tolerance: self.tolerance,
             max_iterations: 2000,
             ..Default::default()
         };
-        let pp = self.p_prime.as_mut().unwrap();
+        let pp = self.p_prime.as_mut().expect("expected value");
         let report = krylov::converged_or_none(
             "SIMPLE pressure correction",
-            krylov::bicgstab(matrix, self.rhs.as_ref().unwrap(), pp, &solver_config),
+            krylov::bicgstab(matrix, self.rhs.as_ref().expect("expected value"), pp, &solver_config),
         )
         .ok_or_else(|| {
             Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string())
@@ -472,7 +472,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
             "SIMPLE pressure correction converged"
         );
 
-        let pp = self.p_prime.as_mut().unwrap();
+        let pp = self.p_prime.as_mut().expect("expected value");
         if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {
             pp.fill(scalar::zero::<T>());
         }
@@ -490,9 +490,9 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
         let dy = grid.dy;
         let two = <T as FloatElement>::from_f64(2.0);
 
-        let p_prime = self.p_prime.as_ref().unwrap();
-        let d_u = self.d_u.as_ref().unwrap();
-        let d_v = self.d_v.as_ref().unwrap();
+        let p_prime = self.p_prime.as_ref().expect("expected value");
+        let d_u = self.d_u.as_ref().expect("expected value");
+        let d_v = self.d_v.as_ref().expect("expected value");
 
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn pressure_correction_equation_construction() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let mut fields = SimulationFields::<f64>::new(3, 3);
 
         for j in 0..3 {
@@ -557,9 +557,9 @@ mod tests {
         simple.ensure_buffers(3, 3);
         let max_residual = simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("expected value");
 
-        let rhs = simple.rhs.as_ref().unwrap();
+        let rhs = simple.rhs.as_ref().expect("expected value");
         let center_idx = 4;
 
         assert!(max_residual > 0.0);
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn pressure_poisson_matrix_respects_boundary_conditions() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
@@ -582,9 +582,9 @@ mod tests {
         simple.ensure_buffers(3, 3);
         simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("expected value");
 
-        let matrix = simple.pressure_matrix.take().unwrap();
+        let matrix = simple.pressure_matrix.take().expect("expected value");
 
         let west_anchor = csr_value(&matrix, 0, 0);
         let east_mid_diag = csr_value(&matrix, 5, 5);
@@ -598,7 +598,7 @@ mod tests {
     #[test]
     fn pressure_correction_rejects_missing_boundary_side() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn pressure_poisson_matrix_falls_back_to_anchor_without_pressure_boundary() {
         let mut simple = SimpleAlgorithm::<f64>::new();
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let fields = SimulationFields::<f64>::new(3, 3);
         let boundary_conditions = HashMap::from([
             ("west".to_string(), BoundaryCondition::wall_no_slip()),
@@ -629,9 +629,9 @@ mod tests {
         simple.ensure_buffers(3, 3);
         simple
             .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
-            .unwrap();
+            .expect("expected value");
 
-        let matrix = simple.pressure_matrix.take().unwrap();
+        let matrix = simple.pressure_matrix.take().expect("expected value");
 
         let fallback_anchor = csr_value(&matrix, 0, 0);
         let corner_diag = csr_value(&matrix, 6, 6);

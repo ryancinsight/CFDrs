@@ -28,7 +28,7 @@ fn test_robin_bc_assembly() {
     ));
 
     // Setup Fluid
-    let fluid = ConstantPropertyFluid::water_20c().unwrap();
+    let fluid = ConstantPropertyFluid::water_20c().expect("expected value");
 
     // Setup Boundary Conditions (Robin on all nodes)
     // Robin: 1.0 * u + 1.0 * du/dn = 2.0

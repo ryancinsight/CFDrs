@@ -403,7 +403,7 @@ mod tests {
     fn step_semi_implicit_preserves_positive_radius() {
         let rp = test_model(1e-6);
 
-        let (r1, v1) = rp.step_semi_implicit(1e-6, 0.0, 1.0e5, 1e-7).unwrap();
+        let (r1, v1) = rp.step_semi_implicit(1e-6, 0.0, 1.0e5, 1e-7).expect("expected value");
         assert!(r1 > 0.0);
         assert!(v1.is_finite());
     }
@@ -412,8 +412,8 @@ mod tests {
     fn step_semi_implicit_responds_to_ambient_pressure() {
         let rp = test_model(1e-6);
 
-        let (low_r, _) = rp.step_semi_implicit(1e-6, 0.0, 5.0e4, 1e-7).unwrap();
-        let (high_r, _) = rp.step_semi_implicit(1e-6, 0.0, 1.5e5, 1e-7).unwrap();
+        let (low_r, _) = rp.step_semi_implicit(1e-6, 0.0, 5.0e4, 1e-7).expect("expected value");
+        let (high_r, _) = rp.step_semi_implicit(1e-6, 0.0, 1.5e5, 1e-7).expect("expected value");
 
         assert!(
             low_r > high_r,
@@ -425,7 +425,7 @@ mod tests {
     fn step_semi_implicit_treats_collapsed_bubble_as_absorbing_state() {
         let rp = test_model(1e-6);
 
-        let (r1, v1) = rp.step_semi_implicit(0.0, 0.0, 1.0e5, 1e-7).unwrap();
+        let (r1, v1) = rp.step_semi_implicit(0.0, 0.0, 1.0e5, 1e-7).expect("expected value");
         assert_eq!(r1, 0.0);
         assert_eq!(v1, 0.0);
     }
@@ -447,7 +447,7 @@ mod tests {
                 emissivity,
                 flash_duration,
             )
-            .unwrap()
+            .expect("expected value")
             .radiated_energy;
 
         let e_strong = rp
@@ -458,7 +458,7 @@ mod tests {
                 emissivity,
                 flash_duration,
             )
-            .unwrap()
+            .expect("expected value")
             .radiated_energy;
 
         assert!(e_strong.into_base() > e_weak.into_base());

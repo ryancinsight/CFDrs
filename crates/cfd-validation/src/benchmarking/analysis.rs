@@ -572,14 +572,14 @@ mod tests {
         }
 
         // Analyze trend
-        let trend = analyzer.analyze_trend("test_benchmark").unwrap();
+        let trend = analyzer.analyze_trend("test_benchmark").expect("expected value");
         assert!(trend.r_squared > 0.0); // Should have some correlation
 
         // The trend should show slight degradation (increasing mean)
         assert_eq!(trend.trend_type, TrendType::Degrading);
 
         // Check regression detection (should not trigger with default threshold)
-        let regression = analyzer.detect_regression("test_benchmark").unwrap();
+        let regression = analyzer.detect_regression("test_benchmark").expect("expected value");
         assert!(regression.is_none()); // Slope should be small
     }
 
@@ -641,10 +641,10 @@ mod tests {
         }
 
         // Should detect regression
-        let regression = analyzer.detect_regression("degrading_benchmark").unwrap();
+        let regression = analyzer.detect_regression("degrading_benchmark").expect("expected value");
         assert!(regression.is_some());
 
-        let alert = regression.unwrap();
+        let alert = regression.expect("expected value");
         assert!(alert.degradation_rate > 0.0);
         assert!(alert.confidence > 0.9);
     }

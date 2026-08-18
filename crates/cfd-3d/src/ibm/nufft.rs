@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn samples_irregular_probe_locations() {
-        let grid = UniformGrid3D::new(8, 8, 8, 0.25, 0.25, 0.25).unwrap();
+        let grid = UniformGrid3D::new(8, 8, 8, 0.25, 0.25, 0.25).expect("expected value");
         let coupler = NufftMarkerCoupler3D::new(grid);
         let field = build_field(grid);
         let probes = vec![
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn spreads_marker_forces_to_grid() {
-        let grid = UniformGrid3D::new(6, 6, 6, 0.2, 0.2, 0.2).unwrap();
+        let grid = UniformGrid3D::new(6, 6, 6, 0.2, 0.2, 0.2).expect("expected value");
         let coupler = NufftMarkerCoupler3D::new(grid);
         let mut marker = LagrangianPoint::new(Vector3::new(0.37, 0.41, 0.43), 1.0);
         marker.force = Vector3::new(1.0, -0.5, 0.25);

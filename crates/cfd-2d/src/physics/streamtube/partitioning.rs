@@ -170,21 +170,21 @@ mod tests {
         }
 
         // Check 50% flow fraction (should be exactly at centerline y = 0.0)
-        let y_sep_50 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5).unwrap();
+        let y_sep_50 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5).expect("expected value");
         assert!(
             abs(y_sep_50) < 1e-6,
             "50% flow must split exactly at the centerline. Got: {y_sep_50}"
         );
 
         // Check 100% flow fraction
-        let y_sep_100 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 1.0).unwrap();
+        let y_sep_100 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 1.0).expect("expected value");
         assert!(
             abs(y_sep_100 - half_h) < 1e-6,
             "100% flow must split exactly at upper wall. Got {y_sep_100}"
         );
 
         // Check 0% flow fraction
-        let y_sep_0 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.0).unwrap();
+        let y_sep_0 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.0).expect("expected value");
         assert!(
             abs(y_sep_0 - (-half_h)) < 1e-6,
             "0% flow must split exactly at lower wall. Got {y_sep_0}"
@@ -196,7 +196,7 @@ mod tests {
         let y_coords = vec![0.0_f64, 0.25, 0.5, 0.75, 1.0];
         let u_vel: Vec<f64> = y_coords.iter().map(|&y| 1.0 + y).collect();
 
-        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.25).unwrap();
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.25).expect("expected value");
         let expected = -1.0 + 1.75_f64.sqrt();
 
         assert_relative_eq!(y_sep, expected, epsilon = 1e-12);

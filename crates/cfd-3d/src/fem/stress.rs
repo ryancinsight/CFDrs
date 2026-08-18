@@ -151,7 +151,7 @@ mod tests {
     /// to `stress_tensor(fluid.viscosity, ...)`.
     #[test]
     fn stress_tensor_with_fluid_matches_scalar_api() {
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let pressure = 50.0;
         let grad_u = Matrix3::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
         let eps = strain_rate_tensor(&grad_u);

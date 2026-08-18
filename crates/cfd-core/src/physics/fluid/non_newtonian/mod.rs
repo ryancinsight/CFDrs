@@ -45,7 +45,7 @@ mod tests {
         );
 
         use crate::physics::fluid::traits::Fluid;
-        let props = fluid.properties_at(300.0, 101325.0).unwrap();
+        let props = fluid.properties_at(300.0, 101325.0).expect("expected value");
         assert_relative_eq!(props.dynamic_viscosity.into_base(), 2.581_138_830_084_19);
         assert!(!fluid.is_temperature_dependent());
     }
@@ -79,14 +79,14 @@ mod tests {
             Some(t_ref)
         );
 
-        let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
+        let props_ref = fluid.properties_at(t_ref, 101325.0).expect("expected value");
         assert_relative_eq!(
             props_ref.dynamic_viscosity.into_base(),
             2.581_138_830_084_19
         );
 
         let t_high = 350.0;
-        let props_high = fluid.properties_at(t_high, 101325.0).unwrap();
+        let props_high = fluid.properties_at(t_high, 101325.0).expect("expected value");
 
         let r = 8.314462618;
         let arg = (ea_k / r) * (1.0 / t_high - 1.0 / t_ref);
@@ -115,7 +115,7 @@ mod tests {
         );
 
         use crate::physics::fluid::traits::Fluid;
-        let props = fluid.properties_at(300.0, 101325.0).unwrap();
+        let props = fluid.properties_at(300.0, 101325.0).expect("expected value");
         assert_relative_eq!(props.dynamic_viscosity.into_base(), 1.5811388300841898);
         assert!(!fluid.is_temperature_dependent());
     }
@@ -147,11 +147,11 @@ mod tests {
             Some(t_ref)
         );
 
-        let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
+        let props_ref = fluid.properties_at(t_ref, 101325.0).expect("expected value");
         assert_relative_eq!(props_ref.dynamic_viscosity.into_base(), 1.5811388300841898);
 
         let t_high = 350.0;
-        let props_high = fluid.properties_at(t_high, 101325.0).unwrap();
+        let props_high = fluid.properties_at(t_high, 101325.0).expect("expected value");
 
         let r = 8.314462618;
         let arg = (ea_k / r) * (1.0 / t_high - 1.0 / t_ref);

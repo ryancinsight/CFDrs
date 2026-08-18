@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};
 use criterion::{criterion_group, criterion_main, Criterion};
 

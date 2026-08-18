@@ -9,7 +9,7 @@ use leto::Array1;
 fn test_dg_operator_new() {
     let order = 2;
     let num_components = 1;
-    let dg_op = DGOperator::new(order, num_components, None).unwrap();
+    let dg_op = DGOperator::new(order, num_components, None).expect("expected value");
 
     assert_eq!(dg_op.order, order);
     assert_eq!(dg_op.num_components, num_components);
@@ -30,14 +30,14 @@ fn test_dg_operator_new() {
 fn test_dg_operator_compute_derivative() {
     let order = 2;
     let num_components = 1;
-    let dg_op = DGOperator::new(order, num_components, None).unwrap();
+    let dg_op = DGOperator::new(order, num_components, None).expect("expected value");
 
     // u(x) = x -> u' (x) = 1
     // In Legendre basis: u(x) = P_1(x) -> u' (x) = P_0(x)
     let mut u = matrix_zeros(1, order + 1);
     u[[0, 1]] = 1.0;
 
-    let du_dx = dg_op.compute_derivative(&u).unwrap();
+    let du_dx = dg_op.compute_derivative(&u).expect("expected value");
 
     assert_relative_eq!(du_dx[[0, 0]], 1.0, epsilon = 1e-10);
     assert_relative_eq!(du_dx[[0, 1]], 0.0, epsilon = 1e-10);
@@ -48,7 +48,7 @@ fn test_dg_operator_compute_derivative() {
 fn test_dg_operator_rhs() {
     let order = 2;
     let num_components = 1;
-    let dg_op = DGOperator::new(order, num_components, None).unwrap();
+    let dg_op = DGOperator::new(order, num_components, None).expect("expected value");
 
     // Test with a constant solution u(x) = 1
     let mut u = matrix_zeros(1, order + 1);
@@ -58,7 +58,7 @@ fn test_dg_operator_rhs() {
     let flux = |u: &Array1<f64>| u.clone();
     let bc = |_: f64, u: &Array1<f64>, _: bool| u.clone();
 
-    let rhs = dg_op.rhs(&u, flux, bc).unwrap();
+    let rhs = dg_op.rhs(&u, flux, bc).expect("expected value");
 
     for i in 0..=order {
         assert_relative_eq!(rhs[[0, i]], 0.0, epsilon = 1e-10);
@@ -69,11 +69,11 @@ fn test_dg_operator_rhs() {
 fn test_dg_operator_project() {
     let order = 3;
     let num_components = 1;
-    let dg_op = DGOperator::new(order, num_components, None).unwrap();
+    let dg_op = DGOperator::new(order, num_components, None).expect("expected value");
 
     // Project f(x) = x^2
     let f = |x: f64| vector_from_element(1, x * x);
-    let u = dg_op.project(f).unwrap();
+    let u = dg_op.project(f).expect("expected value");
 
     // Verify projection at quadrature points
     for (i, &xi) in dg_op.basis.quad_points.iter().enumerate() {
@@ -102,7 +102,7 @@ fn test_dg_operator_project() {
 fn test_dg_operator_numerical_flux() {
     let order = 2;
     let num_components = 1;
-    let dg_op = DGOperator::new(order, num_components, None).unwrap();
+    let dg_op = DGOperator::new(order, num_components, None).expect("expected value");
 
     let u = vector_from_element(1, 1.0);
     let f = vector_from_element(1, 1.0);

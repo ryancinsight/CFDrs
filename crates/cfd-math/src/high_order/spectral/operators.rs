@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_spectral_diff_op() {
         let order = 4;
-        let element = SpectralElement::new(order).unwrap();
+        let element = SpectralElement::new(order).expect("expected value");
         let diff_op = SpectralDiffOp::new(&element);
 
         // Test derivative of a linear function
@@ -467,7 +467,7 @@ mod tests {
     #[test]
     fn test_spectral_interp() {
         let order = 4;
-        let element = SpectralElement::new(order).unwrap();
+        let element = SpectralElement::new(order).expect("expected value");
         let interp = SpectralInterp::new(&element);
 
         // Test interpolation of a polynomial
@@ -488,7 +488,7 @@ mod tests {
     #[test]
     fn test_spectral_quadrature() {
         let order = 4;
-        let quad = SpectralQuadrature::gauss_lobatto(order + 1).unwrap();
+        let quad = SpectralQuadrature::gauss_lobatto(order + 1).expect("expected value");
 
         // Test integration of a polynomial
         let f = |x: f64| x.powi(6); // Degree 6

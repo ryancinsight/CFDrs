@@ -87,7 +87,7 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q = conditions.flow_rate.unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }
@@ -280,10 +280,10 @@ mod tests {
         let conditions = FlowConditions::new(0.0);
         let (r_wh, _) = model_wh
             .calculate_coefficients(&water(), &conditions)
-            .unwrap();
+            .expect("expected value");
         let (r_hw, _) = model_hw
             .calculate_coefficients(&water(), &conditions)
-            .unwrap();
+            .expect("expected value");
         assert_relative_eq!(r_wh, r_hw, max_relative = 1e-10);
     }
 

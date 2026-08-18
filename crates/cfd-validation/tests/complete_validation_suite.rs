@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Complete CFD validation suite integration test
 //!
 //! This comprehensive test validates the entire CFD validation framework:
@@ -93,7 +94,7 @@ fn test_complete_cfd_validation_suite() {
         "Comprehensive report generation must succeed"
     );
 
-    let report = report.unwrap();
+    let report = report.expect("expected value");
 
     // Phase 7: Quality Assessment
     println!("\n🎯 Phase 7: Quality Assessment & Validation");
@@ -631,7 +632,7 @@ fn test_performance_regression_monitoring() {
     }
 
     // Check no false regressions
-    let regression = analyzer.detect_regression("stability_test").unwrap();
+    let regression = analyzer.detect_regression("stability_test").expect("expected value");
     assert!(
         regression.is_none(),
         "Should not detect regression in stable data"
@@ -651,7 +652,7 @@ fn test_performance_regression_monitoring() {
     }
 
     // Should detect regression
-    let regression = analyzer.detect_regression("regression_test").unwrap();
+    let regression = analyzer.detect_regression("regression_test").expect("expected value");
     assert!(regression.is_some(), "Should detect performance regression");
 
     println!("✅ Performance regression monitoring test passed");

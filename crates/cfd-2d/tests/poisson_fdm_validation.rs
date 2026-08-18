@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive 2D FDM Poisson solver validation tests
 //!
 //! Validates the finite difference Poisson solver
@@ -23,7 +24,7 @@ use std::f64::consts::PI;
 fn test_poisson_2d_sinusoidal_solution() {
     let nx = 21;
     let ny = 21;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let mut config = FdmConfig::default();
     config.base.convergence.max_iterations = 10000;
@@ -49,7 +50,7 @@ fn test_poisson_2d_sinusoidal_solution() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Verify solution at interior points
     let mut max_error: f64 = 0.0;
@@ -77,7 +78,7 @@ fn test_poisson_2d_sinusoidal_solution() {
 fn test_poisson_debug_5x5() {
     let nx = 5;
     let ny = 5;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let mut config = FdmConfig::default();
     config.base.convergence.max_iterations = 10000;
@@ -102,7 +103,7 @@ fn test_poisson_debug_5x5() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Check center point (2, 2) at (0.5, 0.5)
     let x = 0.5;
@@ -146,7 +147,7 @@ fn test_poisson_debug_5x5() {
 fn test_poisson_2d_laplace_equation() {
     let nx = 11;
     let ny = 11;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let mut config = FdmConfig::default();
     config.base.convergence.tolerance = 1e-10;
@@ -169,7 +170,7 @@ fn test_poisson_2d_laplace_equation() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Solution should be approximately monotonic in y-direction
     // Note: Near boundaries with large gradients (0→1 over small distance),
@@ -213,7 +214,7 @@ fn test_poisson_2d_laplace_equation() {
 fn test_poisson_2d_solver_stability() {
     let nx = 9;
     let ny = 9;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     // Test different source configurations
     let source_configs = vec![
@@ -260,7 +261,7 @@ fn test_poisson_2d_solver_stability() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
         // Basic stability validation
         // 1. No catastrophic values (solver doesn't explode)
@@ -343,7 +344,7 @@ fn test_poisson_2d_solver_stability() {
 fn test_poisson_2d_corner_singularity() {
     let nx = 11;
     let ny = 11;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -362,7 +363,7 @@ fn test_poisson_2d_corner_singularity() {
         boundary_values.insert((nx - 1, j), 1.0); // Right
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Solution should exist and be finite despite singularity
     for i in 0..nx {
@@ -384,7 +385,7 @@ fn test_poisson_2d_grid_convergence() {
     let mut errors = Vec::new();
 
     for &n in &grid_sizes {
-        let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
         let mut config = FdmConfig::default();
         config.base.convergence.max_iterations = 10000;
@@ -407,7 +408,7 @@ fn test_poisson_2d_grid_convergence() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
         // Compute L2 error
         let mut error_sum = 0.0;
@@ -441,7 +442,7 @@ fn test_poisson_2d_grid_convergence() {
 fn test_poisson_2d_minimal_grid() {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -456,7 +457,7 @@ fn test_poisson_2d_minimal_grid() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Just verify solver doesn't crash and produces finite result
     assert!(solution[&(1, 1)].is_finite());
@@ -468,7 +469,7 @@ fn test_poisson_2d_minimal_grid() {
 fn test_poisson_2d_rectangular_domain() {
     let nx = 11;
     let ny = 21; // Rectangular: 2:1 aspect ratio
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 2.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 2.0).expect("expected value");
 
     let config = FdmConfig::default();
     let solver = PoissonSolver::new(config);
@@ -485,7 +486,7 @@ fn test_poisson_2d_rectangular_domain() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
 
     // Verify solution is finite everywhere
     for i in 0..nx {

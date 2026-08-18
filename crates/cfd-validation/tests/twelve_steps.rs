@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{
@@ -40,7 +41,7 @@ fn test_step_1_linear_convection() {
 
     // Initial Condition: Square wave from 0.5 to 1.0
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         if (0.5..=1.0).contains(&x) {
             u.set(i, 0, 2.0);
         } else {
@@ -108,7 +109,7 @@ fn test_step_1_linear_convection() {
     // Discrete Initial Mass explicitly
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         let val = if (0.5..=1.0).contains(&x) { 2.0 } else { 1.0 };
         init_mass_discrete += val * dx;
     }
@@ -144,7 +145,7 @@ fn test_step_2_nonlinear_convection() {
 
     // Initial Condition: Square wave u=2 inside [0.5, 1.0], u=1 elsewhere
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         if (0.5..=1.0).contains(&x) {
             u.set(i, 0, 2.0);
         } else {
@@ -190,7 +191,7 @@ fn test_step_2_nonlinear_convection() {
     // Initial mass calculation
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         let val = if (0.5..=1.0).contains(&x) { 2.0 } else { 1.0 };
         init_mass_discrete += val * dx;
     }
@@ -234,7 +235,7 @@ fn test_step_3_diffusion() {
     let mut u_new = Field2D::new(nx, 2, 0.0);
 
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         u.set(i, 0, analytical(x, 0.0));
     }
 
@@ -246,9 +247,9 @@ fn test_step_3_diffusion() {
 
             // Neighbors with Fixed BC u=0 at walls (Dirichlet for infinite domain approx)
             // Or use analytical BC
-            let x_w = grid.cell_center(0, 0).unwrap()[0] - dx;
+            let x_w = grid.cell_center(0, 0).expect("expected value")[0] - dx;
             let val_w_bc = analytical(x_w, t); // Analytical BC at west ghost
-            let x_e = grid.cell_center(nx - 1, 0).unwrap()[0] + dx;
+            let x_e = grid.cell_center(nx - 1, 0).expect("expected value")[0] + dx;
             let val_e_bc = analytical(x_e, t); // Analytical BC at east ghost
 
             let u_west = if i == 0 { val_w_bc } else { u.at(i - 1, 0) };
@@ -272,7 +273,7 @@ fn test_step_3_diffusion() {
     // 4. Verification
     let mut l2_error = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         let u_num = u.at(i, 0);
         let u_ana = analytical(x, t);
         l2_error += (u_num - u_ana).powi(2);
@@ -317,7 +318,7 @@ fn test_step_4_burgers() {
     // It will steepen into a N-wave shock and then decay.
 
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         u.set(i, 0, (x).sin());
     }
 
@@ -402,7 +403,7 @@ fn test_step_4_burgers() {
     // Initial mass
     let mut init_mass = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap()[0];
+        let x = grid.cell_center(i, 0).expect("expected value")[0];
         init_mass += (x).sin() * dx;
     }
 
@@ -452,7 +453,7 @@ fn test_step_5_2d_linear_convection() {
     // Initial Condition: Square block u=2 in [0.5, 1.0] x [0.5, 1.0]
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                 u.set(i, j, 2.0);
             } else {
@@ -505,7 +506,7 @@ fn test_step_5_2d_linear_convection() {
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let val =
                 if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                     2.0
@@ -548,7 +549,7 @@ fn test_step_6_nonlinear_convection() {
     // Initial Condition
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                 u.set(i, j, 2.0);
             } else {
@@ -603,7 +604,7 @@ fn test_step_6_nonlinear_convection() {
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let val =
                 if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                     2.0
@@ -661,7 +662,7 @@ fn test_step_7_diffusion() {
 
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             u.set(i, j, analytical(center[0], center[1], 0.0));
         }
     }
@@ -672,7 +673,7 @@ fn test_step_7_diffusion() {
         for i in 0..nx {
             for j in 0..ny {
                 let u_curr = u.at(i, j);
-                let center = grid.cell_center(i, j).unwrap();
+                let center = grid.cell_center(i, j).expect("expected value");
 
                 // Boundaries fixed to analytical solution
                 if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
@@ -700,7 +701,7 @@ fn test_step_7_diffusion() {
     let mut l2_error = 0.0;
     for i in 1..nx - 1 {
         for j in 1..ny - 1 {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let u_num = u.at(i, j);
             let u_ana = analytical(center[0], center[1], t);
             l2_error += (u_num - u_ana).powi(2);
@@ -735,7 +736,7 @@ fn test_step_8_burgers_2d() {
 
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let r2 = (center[0] - 1.0).powi(2) + (center[1] - 1.0).powi(2);
             u.set(i, j, (-r2 / 0.1).exp());
         }
@@ -917,7 +918,7 @@ fn test_step_12_channel_flow() {
         ..Default::default()
     };
 
-    let mut solver = SimplecPimpleSolver::new(grid.clone(), config).unwrap();
+    let mut solver = SimplecPimpleSolver::new(grid.clone(), config).expect("expected value");
 
     // Inlet (West): uniform plug flow u=1 via Moving-wall BC
     solver.set_boundary(
@@ -977,7 +978,7 @@ fn test_step_12_channel_flow() {
 
         solver
             .solve_adaptive(&mut fields, dt, nu, rho, 1, 1e-8)
-            .unwrap();
+            .expect("expected value");
 
         let mut temporal_res = 0.0_f64;
         k = 0;
@@ -1119,7 +1120,7 @@ fn solve_poisson_2d(
 
     // Precompute Dirichlet boundary values on all boundary nodes.
     let bc_val = |i: usize, j: usize| -> f64 {
-        let center = grid.cell_center(i, j).unwrap();
+        let center = grid.cell_center(i, j).expect("expected value");
         boundary_val_func(center[0], center[1])
     };
 
@@ -1136,18 +1137,18 @@ fn solve_poisson_2d(
 
     for j in 1..ny - 1 {
         for i in 1..nx - 1 {
-            let row = interior_dof(i, j).unwrap();
-            let _center = grid.cell_center(i, j).unwrap();
+            let row = interior_dof(i, j).expect("expected value");
+            let _center = grid.cell_center(i, j).expect("expected value");
 
             // Diagonal (negated)
-            builder.add_entry(row, row, diag).unwrap();
+            builder.add_entry(row, row, diag).expect("expected value");
 
             // RHS: negated source + Dirichlet contributions moved to RHS
             let mut rhs_val = -source.at(i, j);
 
             // West neighbour
             if let Some(col) = interior_dof(i - 1, j) {
-                builder.add_entry(row, col, -coeff_x).unwrap();
+                builder.add_entry(row, col, -coeff_x).expect("expected value");
             } else {
                 // Dirichlet: move contribution to RHS
                 // (-L) entry would be -coeff_x · p_west; move to RHS: +coeff_x · g_west
@@ -1156,21 +1157,21 @@ fn solve_poisson_2d(
 
             // East neighbour
             if let Some(col) = interior_dof(i + 1, j) {
-                builder.add_entry(row, col, -coeff_x).unwrap();
+                builder.add_entry(row, col, -coeff_x).expect("expected value");
             } else {
                 rhs_val += coeff_x * bc_val(i + 1, j);
             }
 
             // South neighbour
             if let Some(col) = interior_dof(i, j - 1) {
-                builder.add_entry(row, col, -coeff_y).unwrap();
+                builder.add_entry(row, col, -coeff_y).expect("expected value");
             } else {
                 rhs_val += coeff_y * bc_val(i, j - 1);
             }
 
             // North neighbour
             if let Some(col) = interior_dof(i, j + 1) {
-                builder.add_entry(row, col, -coeff_y).unwrap();
+                builder.add_entry(row, col, -coeff_y).expect("expected value");
             } else {
                 rhs_val += coeff_y * bc_val(i, j + 1);
             }
@@ -1180,17 +1181,17 @@ fn solve_poisson_2d(
     }
 
     // Solve the SPD interior system with CG + ILU(0).
-    let matrix = builder.build().unwrap();
+    let matrix = builder.build().expect("expected value");
     let solver = ConjugateGradient::new(IterativeSolverConfig {
         tolerance: 1e-10,
         max_iterations: 10_000,
         ..Default::default()
     });
-    let preconditioner = ILUPreconditioner::factor(&matrix).unwrap();
+    let preconditioner = ILUPreconditioner::factor(&matrix).expect("expected value");
     let mut x_interior = Array1::<f64>::zeros([n_interior]);
     solver
         .solve_preconditioned(&matrix, &rhs, &preconditioner, &mut x_interior)
-        .unwrap();
+        .expect("expected value");
 
     // Scatter interior solution + Dirichlet BCs into the full field.
     let mut p = Field2D::new(nx, ny, 0.0);
@@ -1215,7 +1216,7 @@ fn solve_poisson_2d(
 fn test_step_9_laplace() {
     let nx = 30;
     let ny = 30;
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     let analytical = |x: f64, y: f64| x * x - y * y; // p = x^2 - y^2 => p_xx = 2, p_yy = -2 => sum = 0.
 
@@ -1226,7 +1227,7 @@ fn test_step_9_laplace() {
     let mut l2_error = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let p_ana = analytical(center[0], center[1]);
             l2_error += (p_num.at(i, j) - p_ana).powi(2);
         }
@@ -1246,7 +1247,7 @@ fn test_step_9_laplace() {
 fn test_step_10_poisson() {
     let nx = 40;
     let ny = 40;
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, 1.0).expect("expected value");
     // Use domain [0,1]x[0,1] actually to match sin(pi*x) logic easily
     // Or just map analytical
 
@@ -1257,7 +1258,7 @@ fn test_step_10_poisson() {
     // Source b = -2*pi^2 * sin(pi*x)*sin(pi*y)
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             source.set(
                 i,
                 j,
@@ -1278,7 +1279,7 @@ fn test_step_10_poisson() {
     let mut l2_error = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("expected value");
             let p_ana = analytical_func(center[0], center[1]);
             l2_error += (p_num.at(i, j) - p_ana).powi(2);
         }

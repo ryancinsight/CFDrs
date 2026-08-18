@@ -513,13 +513,13 @@ mod tests {
         let model = DarcyWeisbachModel::circular(d, 0.1, 0.0);
         let fluid = water();
         let cond = conditions_with_re(500.0);
-        let (r, k) = model.calculate_coefficients(&fluid, &cond).unwrap();
+        let (r, k) = model.calculate_coefficients(&fluid, &cond).expect("expected value");
         assert!(r > 0.0, "Laminar R should be positive, got {r}");
         assert!((k - 0.0).abs() < 1e-12, "Laminar K should be zero, got {k}");
 
         // Turbulent regime: should return (R = 0, K > 0)
         let cond_turb = conditions_with_re(50_000.0);
-        let (r2, k2) = model.calculate_coefficients(&fluid, &cond_turb).unwrap();
+        let (r2, k2) = model.calculate_coefficients(&fluid, &cond_turb).expect("expected value");
         assert!(
             (r2 - 0.0).abs() < 1e-12,
             "Turbulent R should be zero, got {r2}"

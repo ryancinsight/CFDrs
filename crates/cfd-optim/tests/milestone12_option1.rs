@@ -99,7 +99,7 @@ fn option1_candidate_space_contains_acoustic_selective_topologies() {
     );
 
     for candidate in &acoustic {
-        let spec = candidate.topology_spec().unwrap();
+        let spec = candidate.topology_spec().expect("expected value");
         assert!(
             spec.split_stages
                 .iter()

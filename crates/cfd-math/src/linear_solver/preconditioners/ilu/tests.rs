@@ -67,7 +67,7 @@ fn test_ilu0_construction() {
     let ilu = IncompleteLU::new(&matrix);
 
     assert!(ilu.is_ok());
-    let ilu = ilu.unwrap();
+    let ilu = ilu.expect("expected value");
     assert_eq!(ilu.fill_level(), 0);
 }
 
@@ -77,7 +77,7 @@ fn test_iluk_construction() {
     let ilu = IncompleteLU::with_fill_level(&matrix, 1);
 
     assert!(ilu.is_ok());
-    let ilu = ilu.unwrap();
+    let ilu = ilu.expect("expected value");
     assert_eq!(ilu.fill_level(), 1);
 }
 
@@ -227,7 +227,7 @@ fn test_ilu_multiple_fill_levels() {
         let ilu = IncompleteLU::with_fill_level(&matrix, k);
         assert!(ilu.is_ok(), "ILU({k}) construction failed");
 
-        let ilu = ilu.unwrap();
+        let ilu = ilu.expect("expected value");
         assert_eq!(ilu.fill_level(), k);
 
         // Test that matrix dimensions are correct

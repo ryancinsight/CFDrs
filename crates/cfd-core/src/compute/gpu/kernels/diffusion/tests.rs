@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use super::{DiffusionConfig, GpuDiffusionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
@@ -23,11 +24,11 @@ fn kernel() -> Option<GpuDiffusionKernel> {
 #[test]
 fn constant_field_is_exact_identity_across_partial_workgroups() {
     let Some(kernel) = kernel() else { return };
-    let config = DiffusionConfig::new([9, 5, 3], [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new([9, 5, 3], [1.0; 3], 0.125, 1.0).expect("expected value");
     let input = vec![7.25; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).unwrap();
+    kernel.execute(&input, config, &mut output).expect("expected value");
 
     assert_eq!(output, input);
 }
@@ -36,7 +37,7 @@ fn constant_field_is_exact_identity_across_partial_workgroups() {
 fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [5, 4, 3];
-    let config = DiffusionConfig::new(dimensions, [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new(dimensions, [1.0; 3], 0.125, 1.0).expect("expected value");
     let input: Vec<f32> = (0..dimensions[2])
         .flat_map(|z| {
             (0..dimensions[1])
@@ -45,7 +46,7 @@ fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
         .collect();
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).unwrap();
+    kernel.execute(&input, config, &mut output).expect("expected value");
 
     let mut expected = input.clone();
     for z in 1..dimensions[2] - 1 {
@@ -61,7 +62,7 @@ fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
 
 #[test]
 fn rejects_length_and_nonfinite_input() {
-    let config = DiffusionConfig::new([3, 3, 3], [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new([3, 3, 3], [1.0; 3], 0.125, 1.0).expect("expected value");
     let input = vec![1.0; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
     let Some(kernel) = kernel() else { return };

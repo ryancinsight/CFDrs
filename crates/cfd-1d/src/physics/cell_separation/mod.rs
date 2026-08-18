@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Inertial microfluidic cell separation for millifluidic device design.
 //!
 //! This module provides physics-based models for predicting the lateral

@@ -597,7 +597,7 @@ mod tests {
         config.mesh_resolution = 1;
         let solver = BifurcationSolver3D::new(geom, config);
 
-        let water = cfd_core::physics::fluid::water_20c::<f64>().unwrap();
+        let water = cfd_core::physics::fluid::water_20c::<f64>().expect("expected value");
         let result = solver.solve(water);
         assert!(result.is_err());
     }

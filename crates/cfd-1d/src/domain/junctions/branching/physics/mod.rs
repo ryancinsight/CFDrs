@@ -38,7 +38,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let solution = branch
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(solution.q_1 + solution.q_2, 1.0e-6, epsilon = 1e-10);
     }
@@ -53,7 +53,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let solution = branch
             .solve(blood, 1.0e-8, 100.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert!(solution.mu_1 > 0.0);
         assert!(solution.mu_2 > 0.0);
@@ -83,7 +83,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let solution = branch
             .solve(blood, 9.0e-9, 120.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(
             solution.q_1 + solution.q_2 + solution.q_3,
@@ -131,7 +131,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let solution = branch
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(solution.dp_1, solution.dp_2, epsilon = 1e-10);
         assert_relative_eq!(solution.p_1, solution.p_2, epsilon = 1e-10);
@@ -151,7 +151,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let solution = branch
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert!(
             solution.junction_pressure_error < 0.15,
@@ -173,10 +173,10 @@ mod tests {
 
         let low_seed_solution = branch_low_seed
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
         let high_seed_solution = branch_high_seed
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert!(low_seed_solution.junction_pressure_error < 1e-8);
         assert!(high_seed_solution.junction_pressure_error < 1e-8);
@@ -202,10 +202,10 @@ mod tests {
 
         let prescribed = branch
             .solve_with_prescribed_split(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
         let balanced = branch
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(prescribed.q_1, 2.0e-7, epsilon = 1e-18);
         assert!(balanced.junction_pressure_error < prescribed.junction_pressure_error);
@@ -232,7 +232,7 @@ mod tests {
             );
             let solution = branch
                 .solve_with_prescribed_split(blood, q_parent, 1000.0, 310.15, 101325.0)
-                .unwrap();
+                .expect("expected value");
             let q_sum = solution.q_1 + solution.q_2 + solution.q_3;
             assert_relative_eq!(q_sum, q_parent, epsilon = 1e-10);
             assert!(solution.mass_conservation_error < 1e-10);
@@ -258,10 +258,10 @@ mod tests {
 
         let low_seed_solution = low_seed
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
         let high_seed_solution = high_seed
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert!(low_seed_solution.junction_pressure_error < 1e-8);
         assert!(high_seed_solution.junction_pressure_error < 1e-8);
@@ -293,10 +293,10 @@ mod tests {
 
         let prescribed = branch
             .solve_with_prescribed_split(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
         let balanced = branch
             .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
-            .unwrap();
+            .expect("expected value");
 
         assert_relative_eq!(prescribed.q_1, 2.0e-7, epsilon = 1e-18);
         assert_relative_eq!(prescribed.q_2, 3.0e-7, epsilon = 1e-18);

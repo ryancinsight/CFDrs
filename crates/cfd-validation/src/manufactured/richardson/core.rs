@@ -258,7 +258,7 @@ impl DataDrivenOrderEstimation {
             <T as FloatElement>::from_f64(2.0)
         } else {
             // Sort estimates and take median
-            order_estimates.sort_by(|a: &T, b: &T| a.partial_cmp(b).unwrap());
+            order_estimates.sort_by(|a: &T, b: &T| a.partial_cmp(b).expect("expected value"));
             let median_idx = order_estimates.len() / 2;
             order_estimates[median_idx]
         }
@@ -285,7 +285,7 @@ mod tests {
         let r = 2.0; // refinement ratio
 
         let (extrapolated, order) =
-            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
+            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Should extrapolate to very close to exact solution (1.0)
         assert!(
@@ -495,13 +495,13 @@ mod tests {
         let r = 2.0;
 
         let (extrapolated1, order1) =
-            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
+            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Scale all values by constant factor
         let scale = 3.14159;
         let (extrapolated2, order2) =
             RichardsonExtrapolation::extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r)
-                .unwrap();
+                .expect("expected value");
 
         // Extrapolated value should scale, order should be invariant
         assert!(

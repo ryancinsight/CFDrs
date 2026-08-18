@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Discretized 2D serpentine flow solver using FVM.
 
 use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution};
@@ -238,7 +239,7 @@ mod tests_discretized {
             "Serpentine solver failed: {:?}",
             result.err()
         );
-        let sol = result.unwrap();
+        let sol = result.expect("expected value");
 
         println!("Serpentine Mixing Solution: {sol:?}");
 

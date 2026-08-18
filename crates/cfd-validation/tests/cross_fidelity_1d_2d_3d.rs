@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: 1D vs 2D vs 3D simulation consistency.
 //!
 //! # Purpose

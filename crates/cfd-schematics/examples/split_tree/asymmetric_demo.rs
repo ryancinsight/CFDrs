@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{create_geometry, SplitType};
 

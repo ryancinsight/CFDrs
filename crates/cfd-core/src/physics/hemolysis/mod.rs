@@ -46,9 +46,9 @@ mod tests {
         let model = HemolysisModel::giersiepen_standard();
         let t = 1.0;
 
-        let d1 = model.damage_index(50.0, t).unwrap();
-        let d2 = model.damage_index(100.0, t).unwrap();
-        let d3 = model.damage_index(200.0, t).unwrap();
+        let d1 = model.damage_index(50.0, t).expect("expected value");
+        let d2 = model.damage_index(100.0, t).expect("expected value");
+        let d3 = model.damage_index(200.0, t).expect("expected value");
 
         assert!(d2 > d1);
         assert!(d3 > d2);
@@ -59,9 +59,9 @@ mod tests {
         let model = HemolysisModel::giersiepen_standard();
         let tau = 100.0;
 
-        let d1 = model.damage_index(tau, 0.1).unwrap();
-        let d2 = model.damage_index(tau, 1.0).unwrap();
-        let d3 = model.damage_index(tau, 10.0).unwrap();
+        let d1 = model.damage_index(tau, 0.1).expect("expected value");
+        let d2 = model.damage_index(tau, 1.0).expect("expected value");
+        let d3 = model.damage_index(tau, 10.0).expect("expected value");
 
         assert!(d2 > d1);
         assert!(d3 > d2);
@@ -71,8 +71,8 @@ mod tests {
     fn test_heuser_opitz_threshold() {
         let model = HemolysisModel::heuser_opitz();
 
-        let d_below = model.damage_index(100.0, 1.0).unwrap();
-        let d_above = model.damage_index(200.0, 1.0).unwrap();
+        let d_below = model.damage_index(100.0, 1.0).expect("expected value");
+        let d_above = model.damage_index(200.0, 1.0).expect("expected value");
 
         assert_eq!(d_below, 0.0);
         assert!(d_above > 0.0);
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn test_nih_calculation() {
         let calc: HemolysisCalculator<f64> =
-            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).unwrap();
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).expect("expected value");
 
         let delta_hb = 0.1;
         let nih = calc.normalized_index(delta_hb);
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_modified_index_and_exposure_time_are_value_semantic() {
         let calc: HemolysisCalculator<f64> =
-            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).unwrap();
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).expect("expected value");
 
         let mih = calc.modified_index(0.1, 10.0);
         let expected_mih: f64 = 5e-3 / (1e-4 * 10.0) * 0.1 * (1.0 - 0.45);
@@ -127,9 +127,9 @@ mod tests {
             5e-3,
             1e-4,
         )
-        .unwrap();
+        .expect("expected value");
 
-        let tau_crit = calc.critical_shear_stress(1.0).unwrap();
+        let tau_crit = calc.critical_shear_stress(1.0).expect("expected value");
 
         assert!(tau_crit > 10.0);
         assert!(tau_crit < 1000.0);

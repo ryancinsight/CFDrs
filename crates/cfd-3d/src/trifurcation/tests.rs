@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 #[cfg(test)]
 mod tests {
     use super::super::geometry::TrifurcationGeometry3D;
