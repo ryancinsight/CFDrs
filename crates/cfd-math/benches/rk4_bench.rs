@@ -35,7 +35,7 @@ fn rk4_benchmark(c: &mut Criterion) {
         b.iter(|| {
             rk4.step(black_box(f), black_box(t), black_box(&u0), black_box(dt))
                 .expect("invariant: RK4 benchmark step accepts its manufactured state")
-        })
+        });
     });
 }
 

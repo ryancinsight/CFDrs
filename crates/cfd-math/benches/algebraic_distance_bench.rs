@@ -58,7 +58,7 @@ fn bench_algebraic_distances(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("compute", size), |b| {
         b.iter(|| {
             black_box(AlgebraicDistances::compute(&coarsening, &matrix));
-        })
+        });
     });
 
     group.finish();
