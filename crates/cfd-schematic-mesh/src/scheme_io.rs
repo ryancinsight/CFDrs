@@ -307,7 +307,7 @@ pub fn from_blueprint(
         channels.push(ChannelDef {
             id: ch.id.as_str().to_string(),
             path: ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
-                message: format!("channel {} has invalid path: {error}", ch.id),
+                message: format!("channel {:?} has invalid path: {error}", ch.id),
             })?,
             profile,
             width_scales,
