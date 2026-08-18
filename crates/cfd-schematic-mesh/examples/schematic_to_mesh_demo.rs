@@ -4,20 +4,24 @@
 //! converts it to a 3D `Schematic` using `gaia`'s interchange,
 //! and verifies that the resulting channel profile preserves the rectangular shape.
 //!
-//! Run with: cargo run -p gaia --example schematic_to_mesh_demo
+//! Run with: `cargo run -p gaia --example schematic_to_mesh_demo`
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::{self, Write};
+
     use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
     use cfd_mesh::application::channel::profile::ChannelProfile;
     use cfd_schematic_mesh::scheme_io;
     use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
     use cfd_schematics::geometry::generator::create_geometry;
 
-    println!("🔌 Schematic to Mesh Integration Demo");
-    println!("=====================================");
+    let standard_output = io::stdout();
+    let mut terminal = standard_output.lock();
+    writeln!(terminal, "🔌 Schematic to Mesh Integration Demo")?;
+    writeln!(terminal, "=====================================")?;
 
     // 1. Create a simple schematic (single straight channel)
-    println!("1. Generating schematic...");
+    writeln!(terminal, "1. Generating schematic...")?;
     let box_dims = (100.0, 50.0);
     let config = GeometryConfig {
         channel_width: Length::from_base(1.0e-3),  // 1mm width
@@ -32,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &ChannelTypeConfig::AllStraight,
     );
 
-    println!("   Generated {} channels.", system.channels.len());
+    writeln!(terminal, "   Generated {} channels.", system.channels.len())?;
 
     // 2. Add a Frustum (Venturi) channel manually for testing
     use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
@@ -76,16 +80,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     system_with_frustum.add_channel(frustum_channel);
 
-    println!("2. Converting to 3D Schematic...");
+    writeln!(terminal, "2. Converting to 3D Schematic...")?;
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
 
     let schematic3d = scheme_io::from_blueprint(&system_with_frustum, substrate_height, segments)?;
 
-    println!("   Converted {} channels.", schematic3d.channels.len());
+    writeln!(
+        terminal,
+        "   Converted {} channels.",
+        schematic3d.channels.len()
+    )?;
 
     // 3. Inspect Profiles and Mesh
-    println!("3. Inspecting Profiles and Meshing...");
+    writeln!(terminal, "3. Inspecting Profiles and Meshing...")?;
 
     // Prepare Mesher
     use cfd_mesh::application::channel::sweep::SweepMesher;
@@ -96,23 +104,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pool = VertexPool::new(1e-3);
 
     for (i, channel_def) in schematic3d.channels.iter().enumerate() {
-        println!("   Processing Channel {} (ID: {})...", i, channel_def.id);
+        writeln!(
+            terminal,
+            "   Processing Channel {i} (ID: {})...",
+            channel_def.id
+        )?;
 
         match &channel_def.profile {
             ChannelProfile::Rectangular { width, height } => {
-                println!(
-                    "      Profile: Rectangular ({:.3} x {:.3} mm)",
-                    width, height
-                );
+                writeln!(
+                    terminal,
+                    "      Profile: Rectangular ({width:.3} x {height:.3} mm)"
+                )?;
             }
             ChannelProfile::Circular { radius, .. } => {
-                println!("      Profile: Circular (r = {:.3} mm)", radius);
+                writeln!(terminal, "      Profile: Circular (r = {radius:.3} mm)")?;
             }
-            _ => println!("      Profile: Other"),
+            ChannelProfile::RoundedRectangular { .. } => {
+                writeln!(terminal, "      Profile: Other")?;
+            }
         }
 
         if let Some(scales) = &channel_def.width_scales {
-            println!("      Has width scales: yes (len={})", scales.len());
+            writeln!(
+                terminal,
+                "      Has width scales: yes (len={})",
+                scales.len()
+            )?;
             // Verify scaling values for Frustum
             if channel_def.id.contains("99") {
                 // The frustum channel
@@ -128,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     (scales[2] - 1.0).abs() < 1e-4,
                     "End scale should be 1.0 (1.0/1.0)"
                 );
-                println!("      ✅ Width scales verified for Frustum");
+                writeln!(terminal, "      ✅ Width scales verified for Frustum")?;
             }
 
             // Mesh with variable sweep
@@ -141,7 +159,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     RegionId::new(0),
                 )
                 .expect("variable sweep should succeed");
-            println!("      Generated {} faces with variable sweep.", faces.len());
+            writeln!(
+                terminal,
+                "      Generated {} faces with variable sweep.",
+                faces.len()
+            )?;
             assert!(!faces.is_empty());
 
             // Check bounding box widths if it's the Frustum
@@ -152,7 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // We can just verify that bounds exist and aren't uniform.
             }
         } else {
-            println!("      Has width scales: no");
+            writeln!(terminal, "      Has width scales: no")?;
             // Mesh with standard sweep
             let faces = mesher.sweep(
                 &channel_def.profile,
@@ -160,7 +182,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &mut pool,
                 RegionId::new(0),
             );
-            println!("      Generated {} faces with standard sweep.", faces.len());
+            writeln!(
+                terminal,
+                "      Generated {} faces with standard sweep.",
+                faces.len()
+            )?;
             assert!(!faces.is_empty());
         }
     }
