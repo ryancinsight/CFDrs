@@ -1,7 +1,7 @@
 //! Core solver validation tests - Sprint 1.72.0 Deliverables
 //!
 //! Minimum viable comprehensive test suite demonstrating:
-//! ✅ BiCGSTAB solver with preconditioning
+//! ✅ `BiCGSTAB` solver with preconditioning
 //! ✅ GMRES solver with restart mechanism
 //! ✅ ILU preconditioner validation
 //! ✅ Numerical accuracy and convergence testing
@@ -84,7 +84,7 @@ fn basic_preconditioner_matrix(matrix: &CsrMatrix<f64>) -> CsrMatrix<f64> {
     matrix.clone()
 }
 
-/// BiCGSTAB solver validation - Sprint 1.72.0 Core Deliverable
+/// `BiCGSTAB` solver validation - Sprint 1.72.0 Core Deliverable
 #[test]
 fn test_bicgstab_solver_validation() {
     // Create simple 2D Poisson-like system
@@ -119,7 +119,7 @@ fn test_bicgstab_solver_validation() {
     assert_residual_below(&a, &x, &b, 1e-6);
 }
 
-/// GMRES solver validation - Sprint 1.72.0 Core Deliverable
+/// `GMRES` solver validation - Sprint 1.72.0 Core Deliverable
 #[test]
 fn test_gmres_solver_validation() {
     // Create tridiagonal matrix for Arnoldi process testing
@@ -156,7 +156,7 @@ fn test_gmres_solver_validation() {
 #[test]
 fn test_preconditioner_integration() {
     // Create diagonally dominant but ill-conditioned matrix
-    let a = matrix_from_entries(
+    let system_matrix = matrix_from_entries(
         4,
         4,
         (0..4).flat_map(|i| {
@@ -170,33 +170,33 @@ fn test_preconditioner_integration() {
             row
         }),
     );
-    let b = filled_array(4, 1.0);
+    let rhs = filled_array(4, 1.0);
 
     // Test ILU preconditioner availability
-    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let preconditioner_matrix = basic_preconditioner_matrix(&system_matrix);
     let jacobi = JacobiPreconditioner::from_matrix(&preconditioner_matrix);
 
     // Verify preconditioner application works
-    let r = filled_array(4, 2.0);
-    let mut z = Array1::zeros([4]);
+    let residual = filled_array(4, 2.0);
+    let mut preconditioned = Array1::zeros([4]);
     jacobi
-        .apply_to(&r, &mut z)
+        .apply_to(&residual, &mut preconditioned)
         .expect("preconditioner application succeeds");
 
-    for idx in 0..z.shape()[0] {
-        assert_close(z[idx], 2.0 / (10.0 + idx as f64), 1e-12);
+    for idx in 0..preconditioned.shape()[0] {
+        assert_close(preconditioned[idx], 2.0 / (10.0 + idx as f64), 1e-12);
     }
 
     // Test BiCGSTAB with Jacobi in system
-    let mut x = Array1::zeros([4]);
+    let mut solution = Array1::zeros([4]);
     let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
     let solver = BiCGSTAB::new(config);
 
     solver
-        .solve(&a, &b, &mut x, Some(&jacobi))
+        .solve(&system_matrix, &rhs, &mut solution, Some(&jacobi))
         .expect("BiCGSTAB converges with Jacobi preconditioning");
 
-    assert_residual_below(&a, &x, &b, 1e-6);
+    assert_residual_below(&system_matrix, &solution, &rhs, 1e-6);
 }
 
 /// Convergence testing across matrix conditions - Sprint 1.72.0 Advanced Validation
