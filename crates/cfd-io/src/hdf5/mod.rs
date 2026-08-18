@@ -281,7 +281,8 @@ mod tests {
             shape: &[2, 2],
             data: &data,
         }];
-        let err = write_hdf5(&path, &datasets, &[]).unwrap_err();
+        let err = write_hdf5(&path, &datasets, &[])
+            .expect_err("invariant: shape and data length mismatch is rejected");
         assert!(matches!(err, Error::InvalidInput(_)));
     }
 }
