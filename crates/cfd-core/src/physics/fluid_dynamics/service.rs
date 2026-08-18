@@ -201,7 +201,7 @@ mod tests {
         let dynamic_pressure = 0.5 * fluid.density.into_base() * velocity * velocity;
         let f_calc = delta_p * diameter / (length * dynamic_pressure);
 
-        println!("Calculated Friction Factor: {f_calc}");
+        tracing::debug!(friction_factor = f_calc, "Calculated friction factor");
 
         // Standard Colebrook-White value for Re=500,000 and eps/D=0.0015 is approx 0.0218
         // Our iterative solution yields ~0.02217, which is within 2% of the chart value.

@@ -19,7 +19,7 @@
 //! let pressure = [101_325.0_f64, 101_300.0, 101_280.0];
 //! let datasets = [DatasetView { name: "pressure", shape: &[3], data: &pressure }];
 //! let metadata = [("solver", "PISO"), ("units", "Pa")];
-//! write_hdf5("field.h5", &datasets, &metadata).unwrap();
+//! write_hdf5("field.h5", &datasets, &metadata).expect("write HDF5 field");
 //! ```
 
 use std::num::NonZeroUsize;
@@ -185,7 +185,12 @@ mod tests {
         file.read_contiguous_dataset_bytes(data_addr, 0, &mut buf)
             .expect("read dataset bytes");
         buf.chunks_exact(8)
-            .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
+            .map(|c| {
+                f64::from_le_bytes(
+                    c.try_into()
+                        .expect("invariant: chunks_exact yields eight-byte chunks"),
+                )
+            })
             .collect()
     }
 
