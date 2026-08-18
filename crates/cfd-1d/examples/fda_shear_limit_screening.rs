@@ -19,6 +19,11 @@ use cfd_1d::{
 use cfd_schematics::domain::model::ChannelSpec;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+
     // Approximate whole-blood Newtonianized properties for this screening demo.
     let blood_like = cfd_core::physics::fluid::ConstantPropertyFluid::<f64>::new(
         "Blood-like (screening)".to_string(),
@@ -70,28 +75,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .flow_analysis
         .flag_fda_shear_limit_violations(&limits);
 
-    println!("FDA-oriented shear screening summary");
-    println!(
+    writeln!(output, "FDA-oriented shear screening summary")?;
+    writeln!(
+        output,
         "Configured max wall shear stress: {:.1} Pa",
         limits.max_wall_shear_stress_pa.into_base()
-    );
-    println!(
+    )?;
+    writeln!(
+        output,
         "Components analyzed: {}",
         result.flow_analysis.component_flows.len()
-    );
+    )?;
 
     if violations.is_empty() {
-        println!("No shear-limit violations flagged.");
+        writeln!(output, "No shear-limit violations flagged.")?;
     } else {
-        println!("Violations flagged: {}", violations.len());
+        writeln!(output, "Violations flagged: {}", violations.len())?;
         for v in violations {
-            println!(
+            writeln!(
+                output,
                 "- {}: tau_w={:.2} Pa (limit {:.2} Pa, x{:.2})",
                 v.component_id,
                 v.wall_shear_stress_pa.into_base(),
                 v.stress_limit_pa.into_base(),
                 v.stress_exceedance_ratio.into_base()
-            );
+            )?;
         }
     }
 
