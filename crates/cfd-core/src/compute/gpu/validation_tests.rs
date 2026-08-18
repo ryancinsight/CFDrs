@@ -1,4 +1,5 @@
 #![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 //! GPU kernel validation tests
 //! Verifies GPU implementations match CPU results within numerical tolerance
 

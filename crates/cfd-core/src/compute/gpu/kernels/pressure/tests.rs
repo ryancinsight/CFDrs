@@ -1,4 +1,5 @@
 #![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 use super::{GpuPressureKernel, PressureConfig};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
