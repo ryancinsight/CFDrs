@@ -438,7 +438,7 @@ mod tests {
             vec![2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0],
             "cycle test matrix",
         )
-        .unwrap();
+        .expect("invariant: cycle test matrix has valid sparse structure");
 
         // Simple Gauss-Seidel smoother
         let smoother = super::super::smoothers::GaussSeidelSmoother::new(1.0);
@@ -456,11 +456,14 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0])
+            .expect("invariant: V-cycle RHS shape matches values");
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4])
+            .expect("invariant: V-cycle initial solution shape matches values");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
-        let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6).unwrap();
+        let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6)
+            .expect("invariant: single-level V-cycle accepts valid data");
 
         // Check that we got a result
         assert_eq!(correction.shape(), [3]);
@@ -474,11 +477,14 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0])
+            .expect("invariant: W-cycle RHS shape matches values");
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4])
+            .expect("invariant: W-cycle initial solution shape matches values");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
-        let (correction, stats) = apply_w_cycle(&levels, &residual, 3, 1e-6).unwrap();
+        let (correction, stats) = apply_w_cycle(&levels, &residual, 3, 1e-6)
+            .expect("invariant: single-level W-cycle accepts valid data");
 
         assert_eq!(correction.shape(), [3]);
         assert_eq!(stats.cycle_type, CycleType::WCycle);
@@ -490,12 +496,15 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0])
+            .expect("invariant: cycle-statistics RHS shape matches values");
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4])
+            .expect("invariant: cycle-statistics initial solution shape matches values");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
         // Use 0.0 tolerance to ensure it runs for all 2 cycles
-        let (_, stats) = apply_v_cycle(&levels, &residual, 2, 0.0).unwrap();
+        let (_, stats) = apply_v_cycle(&levels, &residual, 2, 0.0)
+            .expect("invariant: cycle statistics accept valid data");
 
         assert!(stats.time_per_cycle > 0.0);
         assert!(stats.total_time >= stats.time_per_cycle);
@@ -512,12 +521,14 @@ mod tests {
             vec![1.0, 1.0, 1.0, 1.0, 1.0],
             "cycle coarsest test matrix",
         )
-        .unwrap();
+        .expect("invariant: coarsest test matrix has valid sparse structure");
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0])
+            .expect("invariant: coarsest RHS shape matches values");
         let mut solution = MultigridVector::zeros([3]);
 
-        solve_coarsest_level(&matrix, &rhs, &mut solution).unwrap();
+        solve_coarsest_level(&matrix, &rhs, &mut solution)
+            .expect("invariant: coarsest solve accepts valid data");
 
         assert!((solution[0] - 2.0_f64).abs() < 1e-12_f64);
         assert!((solution[1] + 1.0_f64).abs() < 1e-12_f64);
@@ -527,9 +538,11 @@ mod tests {
     #[test]
     fn test_empty_levels_error() {
         let levels = Vec::new();
-        let residual = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let residual = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0])
+            .expect("invariant: empty-level residual shape matches values");
 
         let result = apply_v_cycle(&levels, &residual, 1, 1e-6);
-        assert!(result.is_err());
+        let error = result.expect_err("empty levels must return a configuration error");
+        assert!(matches!(error, Error::InvalidConfiguration(_)));
     }
 }
