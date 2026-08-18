@@ -12,7 +12,7 @@ fn bench_cg(c: &mut Criterion) {
     let mut group = c.benchmark_group("cg_solver");
 
     for &size in &[100, 500, 1000] {
-        let n = *size;
+        let n = size;
         // Create 1D Laplacian matrix (SPD)
         let mut row_offsets = Vec::with_capacity(n + 1);
         let mut col_indices = Vec::new();
