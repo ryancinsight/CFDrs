@@ -90,7 +90,7 @@ fn arithmetic_rejects_mismatched_lengths() {
 
     let add_operand_error = operations
         .add_fields(&[1.0, 2.0], &[3.0], &mut two_values)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(
         add_operand_error,
         Error::DimensionMismatch {
@@ -101,7 +101,7 @@ fn arithmetic_rejects_mismatched_lengths() {
 
     let add_output_error = operations
         .add_fields(&[1.0, 2.0], &[3.0, 4.0], &mut one_value)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(
         add_output_error,
         Error::DimensionMismatch {
@@ -112,7 +112,7 @@ fn arithmetic_rejects_mismatched_lengths() {
 
     let multiply_output_error = operations
         .multiply_field(&[1.0, 2.0], 3.0, &mut one_value)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(
         multiply_output_error,
         Error::DimensionMismatch {
@@ -131,7 +131,7 @@ fn laplacian_rejects_invalid_contracts() {
     let mut output = [0.0; 4];
     let input_error = operations
         .laplacian_2d(&[1.0; 3], 2, 2, meters(1.0), meters(1.0), &mut output)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(
         input_error,
         Error::DimensionMismatch {
@@ -143,7 +143,7 @@ fn laplacian_rejects_invalid_contracts() {
     let mut short_output = [0.0; 3];
     let output_error = operations
         .laplacian_2d(&[1.0; 4], 2, 2, meters(1.0), meters(1.0), &mut short_output)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(
         output_error,
         Error::DimensionMismatch {
@@ -154,6 +154,6 @@ fn laplacian_rejects_invalid_contracts() {
 
     let spacing_error = operations
         .laplacian_2d(&[1.0; 4], 2, 2, meters(0.0), meters(1.0), &mut output)
-        .unwrap_err();
+        .expect_err("expected error for invalid input");
     assert!(matches!(spacing_error, Error::InvalidConfiguration(_)));
 }
