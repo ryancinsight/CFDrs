@@ -23,8 +23,8 @@ fn test_micropump_characteristics() -> Result<()> {
     let mut pump = Micropump::<f64>::new(1e-9, 10000.0); // 1 μL/s, 10 kPa
 
     // Validate pump parameters
-    assert_eq!(pump.max_flow_rate, 1e-9);
-    assert_eq!(pump.max_pressure, 10000.0);
+    assert_relative_eq!(pump.max_flow_rate, 1e-9, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(pump.max_pressure, 10000.0, epsilon = 64.0 * f64::EPSILON);
     assert!(pump.is_active());
 
     // A pump is a pressure SOURCE and must contribute ZERO passive resistance.
@@ -88,8 +88,8 @@ fn test_microvalve_characteristics() -> Result<()> {
     let mut valve = Microvalve::<f64>::new(1e-3); // CV = 1e-3 (much larger)
 
     // Validate valve parameters
-    assert_eq!(valve.cv, 1e-3);
-    assert_eq!(valve.opening, 1.0); // Fully open by default
+    assert_relative_eq!(valve.cv, 1e-3, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(valve.opening, 1.0, epsilon = 64.0 * f64::EPSILON); // Fully open by default
     assert!(valve.is_active());
 
     let fluid = fluid::database::water_20c::<f64>()?;
@@ -152,7 +152,7 @@ fn test_flow_regime_analysis() -> Result<()> {
 
 /// Test surface tension and wettability effects in microchannels
 #[test]
-fn test_surface_effects() -> Result<()> {
+fn test_surface_effects() {
     // Test basic surface tension calculations for microfluidics
 
     // Test capillary pressure calculation (Young-Laplace equation)
@@ -180,13 +180,11 @@ fn test_surface_effects() -> Result<()> {
         surface_tension > 0.05 && surface_tension < 0.1,
         "Surface tension should be in typical range for water"
     );
-
-    Ok(())
 }
 
 /// Test performance metrics and analysis for microfluidic networks
 #[test]
-fn test_performance_analysis() -> Result<()> {
+fn test_performance_analysis() {
     // Initialize performance metrics
     let mut metrics = PerformanceMetrics::<f64>::new();
 
@@ -227,13 +225,11 @@ fn test_performance_analysis() -> Result<()> {
 
     let min_time = metrics.min_residence_time().expect("test invariant");
     assert_relative_eq!(min_time.into_base(), 0.1, epsilon = 1e-10);
-
-    Ok(())
 }
 
 /// Test numerical parameters and discretization schemes
 #[test]
-fn test_numerical_schemes() -> Result<()> {
+fn test_numerical_schemes() {
     // Test basic numerical scheme validation for microfluidic simulation
 
     // Set typical microfluidic simulation parameters
@@ -268,8 +264,6 @@ fn test_numerical_schemes() -> Result<()> {
     let actual_ratio = coarse_error / fine_error;
 
     assert_relative_eq!(actual_ratio, theoretical_ratio, epsilon = 0.1);
-
-    Ok(())
 }
 
 /// Test component factory for creating standardized microfluidic components
@@ -353,7 +347,7 @@ fn test_advanced_millifluidics() -> Result<()> {
 
 /// Test network solver configuration and basic functionality
 #[test]
-fn test_network_solver_configuration() -> Result<()> {
+fn test_network_solver_configuration() {
     // Test basic solver functionality
     let default_solver = NetworkSolver::<f64>::new();
     assert_eq!(default_solver.name(), "NetworkSolver");
@@ -382,8 +376,6 @@ fn test_network_solver_configuration() -> Result<()> {
 
     assert_relative_eq!(solver.config().tolerance, 1e-10, epsilon = 1e-15);
     assert_eq!(solver.config().max_iterations, 2000);
-
-    Ok(())
 }
 
 /// Test microfluidic component parameter validation
