@@ -78,7 +78,7 @@ cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
 cfd-mesh = { version = "0.4.0", git = "https://github.com/ryancinsight/gaia", package = "gaia-mesh" }
-apollo-fft = { version = "0.26.0", git = "https://github.com/ryancinsight/apollo" }
+apollo-fft = { version = "0.27.0", git = "https://github.com/ryancinsight/apollo" }
 apollo-nufft = { version = "0.7.0", git = "https://github.com/ryancinsight/apollo" }
 leto = { version = "0.42.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
 leto-ops = { version = "0.42.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }

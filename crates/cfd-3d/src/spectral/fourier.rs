@@ -21,7 +21,7 @@
 
 use crate::atlas_array::values;
 use apollo_fft::{
-    fft_1d_array_typed, ifft_1d_array_typed, PlanCacheProvider, PlanScratch, RealFftData,
+    fft_1d_array, ifft_1d_array, PlanCacheProvider, PlanScratch, RealFftData,
 };
 use cfd_core::error::Result;
 use core::ops::Neg;
@@ -102,7 +102,7 @@ where
         ensure_length(u.size(), self.n, "FourierTransform::forward")?;
 
         let scale = scalar_from_usize::<T>(self.n);
-        let spectrum = fft_1d_array_typed::<T>(u);
+        let spectrum = fft_1d_array::<T>(u);
         let normalized = values(&spectrum)
             .into_iter()
             .map(|value| Complex::new(value.re / scale, value.im / scale))
@@ -123,7 +123,7 @@ where
                 invalid_configuration(format!("FourierTransform::inverse input shape: {error}"))
             })?;
 
-        let spatial = ifft_1d_array_typed::<T>(&spectrum);
+        let spatial = ifft_1d_array::<T>(&spectrum);
         let recovered = values(&spatial)
             .into_iter()
             .map(|value| value * scale)

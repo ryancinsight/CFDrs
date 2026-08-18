@@ -4,8 +4,8 @@
 //! Leto transform surfaces directly.
 
 use apollo_fft::{
-    fft_1d_array_typed as apollo_fft_1d_array, fft_3d_array_typed as apollo_fft_3d_array,
-    ifft_3d_array_typed as apollo_ifft_3d_array, Complex64,
+    fft_1d_array as apollo_fft_1d_array, fft_3d_array as apollo_fft_3d_array,
+    ifft_3d_array as apollo_ifft_3d_array, Complex64,
 };
 use apollo_nufft::nufft_type2_3d as apollo_nufft_type2_3d;
 use apollo_nufft::{nufft_type1_3d as apollo_nufft_type1_3d, UniformGrid3D};
