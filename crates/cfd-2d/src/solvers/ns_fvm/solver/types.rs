@@ -56,6 +56,8 @@ pub struct NavierStokesSolver2D<T: CfdScalar + Copy + FloatElement> {
     pub(super) pressure_poisson_a_p: Array2D<T>,
     /// Inlet profile selected by the geometry-specific solve wrapper.
     pub(super) inlet_profile: InletProfile,
+    /// Normalized parabolic inlet values reused across SIMPLE iterations.
+    pub(super) parabolic_inlet: Vec<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
     /// computes turbulent viscosity nu_t each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
@@ -118,6 +120,7 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_a_s,
             pressure_poisson_a_p,
             inlet_profile: InletProfile::Uniform,
+            parabolic_inlet: Vec::new(),
             turbulence: None,
         }
     }

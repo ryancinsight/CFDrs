@@ -68,6 +68,10 @@
   layout work from its production hot loop without changing the update order or
   committed Nextest budget. The preceding exact-head hosted run isolated the
   remaining failure to `test_benchmark_run_integration` at 30.003 s.
+- **cfd-2d**: The backward-facing-step provider now prepares the normalized
+  parabolic inlet profile once per solve and reuses it across SIMPLE iterations,
+  removing repeated coordinate reductions and boundary-path allocations without
+  changing the inlet values or benchmark workload.
 - `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
   zero result; documented negative inputs are handled before the provider call
   and the invariant is checked explicitly.

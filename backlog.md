@@ -84,6 +84,13 @@ hosted provider verification. No duplicated consumer solver, hardcoded
 correlation in the runtime path, reduced workload, or weakened assertion
 closes this item.
 
+The remaining hosted timeout is isolated to the repeated parabolic-inlet
+preparation inside the SIMPLE loop. The provider now prepares the normalized
+fluid-cell profile once per solve and reapplies the cached values without
+per-iteration allocation or coordinate reduction. The benchmark workload and
+the 30-second Nextest budget remain unchanged; the exact-head hosted rerun is
+the acceptance gate.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` adaptive SIMPLEC/PIMPLE
