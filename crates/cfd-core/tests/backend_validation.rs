@@ -191,7 +191,7 @@ fn test_empty_input() {
 #[test]
 fn test_single_element() {
     let backend = Backend::Cpu;
-    let input = vec![42.0];
+    let input = vec![42.0_f64];
 
     let result = compute_squares(backend, &input);
 
@@ -333,7 +333,7 @@ fn test_cfd_application_scenario() {
 
     // Simulate velocity field magnitude calculation (u² + v²)
     // For simplicity, just test u² component
-    let velocity_u = vec![1.0, 2.0, 3.0, 4.0, 5.0]; // m/s
+    let velocity_u = vec![1.0_f64, 2.0, 3.0, 4.0, 5.0]; // m/s
     let u_squared = compute_squares(backend, &velocity_u);
 
     // Verify physical reasonableness
