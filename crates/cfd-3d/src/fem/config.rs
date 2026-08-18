@@ -1,4 +1,9 @@
-#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless)]
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
 //! FEM solver configuration
 
 use eunomia::RealField;

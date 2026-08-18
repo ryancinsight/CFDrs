@@ -1,4 +1,9 @@
-#![allow(missing_docs, clippy::unnecessary_debug_formatting, clippy::uninlined_format_args, clippy::unnecessary_wraps)]
+#![allow(
+    missing_docs,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args,
+    clippy::unnecessary_wraps
+)]
 //! Comprehensive Serpentine Channel Demo
 //!
 //! This example demonstrates all aspects of serpentine channel generation:

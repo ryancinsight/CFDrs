@@ -1,4 +1,8 @@
-#![allow(missing_docs, clippy::explicit_iter_loop, clippy::many_single_char_names)]
+#![allow(
+    missing_docs,
+    clippy::explicit_iter_loop,
+    clippy::many_single_char_names
+)]
 
 use cfd_math::iterative::LinearOperator;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};

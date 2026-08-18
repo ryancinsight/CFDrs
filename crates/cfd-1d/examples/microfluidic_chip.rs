@@ -1,5 +1,9 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout, clippy::uninlined_format_args, clippy::doc_markdown)]
+#![allow(
+    clippy::print_stdout,
+    clippy::uninlined_format_args,
+    clippy::doc_markdown
+)]
 //! Example demonstrating a complete microfluidic chip simulation using cfd-1d.
 //!
 //! This example creates a microfluidic network with:

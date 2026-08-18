@@ -243,7 +243,9 @@ mod tests {
                 assert_eq!(expected, REQUIRED_HYDRAULIC_DIAMETER);
                 assert_eq!(tolerance, HYDRAULIC_DIAMETER_TOLERANCE);
             }
-            DiameterConstraintError::IsolatedNode { .. } => panic!("unexpected constraint error: {error}"),
+            DiameterConstraintError::IsolatedNode { .. } => {
+                panic!("unexpected constraint error: {error}")
+            }
         }
     }
 

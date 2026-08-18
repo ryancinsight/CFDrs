@@ -1,5 +1,9 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout, clippy::unnecessary_debug_formatting, clippy::uninlined_format_args)]
+#![allow(
+    clippy::print_stdout,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args
+)]
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::plot_geometry;
 use std::fs;

@@ -13,7 +13,12 @@
 //! - JSON serialization/deserialization
 //! - Visualization support
 //!
-#![allow(clippy::doc_markdown, clippy::unnecessary_wraps, clippy::uninlined_format_args, clippy::match_wildcard_for_single_variants)]
+#![allow(
+    clippy::doc_markdown,
+    clippy::unnecessary_wraps,
+    clippy::uninlined_format_args,
+    clippy::match_wildcard_for_single_variants
+)]
 //! Run with: cargo run --example frustum_channel_demo
 
 use cfd_schematics::{

@@ -1,5 +1,9 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout, clippy::uninlined_format_args, clippy::doc_markdown)]
+#![allow(
+    clippy::print_stdout,
+    clippy::uninlined_format_args,
+    clippy::doc_markdown
+)]
 //! 1D Blood Flow through a TPMS-Inspired Channel Network
 //!
 //! Demonstrates simulating blood flow through a millifluidic network whose

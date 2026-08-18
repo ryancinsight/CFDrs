@@ -418,7 +418,9 @@ mod tests {
     #[test]
     fn test_runge_kutta_rejects_unsupported_stage_count() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let err = checker.test_runge_kutta_gcl(1.0, 5).expect_err("expected error for unsupported stage count");
+        let err = checker
+            .test_runge_kutta_gcl(1.0, 5)
+            .expect_err("expected error for unsupported stage count");
         assert!(matches!(err, Error::UnsupportedOperation(_)));
     }
 
