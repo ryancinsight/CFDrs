@@ -63,13 +63,15 @@ mod tests {
                 row_ptr.push(col_indices.len());
             }
         }
-        csr_from_parts(size, size, row_ptr, col_indices, values, "grid Laplacian").unwrap()
+        csr_from_parts(size, size, row_ptr, col_indices, values, "grid Laplacian")
+            .expect("invariant: grid Laplacian fixture has valid CSR structure")
     }
 
     #[test]
     fn test_ruge_stueben_coarsening() {
         let matrix = create_test_matrix();
-        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&matrix, 0.25)
+            .expect("invariant: Ruge-Stueben accepts the grid Laplacian");
 
         assert!(!result.coarse_points.is_empty());
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
@@ -83,7 +85,8 @@ mod tests {
     #[test]
     fn test_aggregation_coarsening() {
         let matrix = create_test_matrix();
-        let result = aggregation_coarsening(&matrix, 4).unwrap();
+        let result = aggregation_coarsening(&matrix, 4)
+            .expect("invariant: aggregation accepts the grid Laplacian");
 
         assert!(!result.coarse_points.is_empty());
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
@@ -95,7 +98,8 @@ mod tests {
     #[test]
     fn test_coarsening_quality_analysis() {
         let matrix = create_test_matrix();
-        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&matrix, 0.25)
+            .expect("invariant: quality analysis receives a valid coarsening");
         let quality = analyze_coarsening_quality(&result, &matrix);
 
         assert!(quality.coarsening_ratio > 0.0 && quality.coarsening_ratio <= 1.0);
@@ -106,7 +110,8 @@ mod tests {
     #[test]
     fn strength_matrix_marks_expected_grid_connections() {
         let matrix = create_test_matrix();
-        let strength = compute_strength_matrix(&matrix, 0.5).unwrap();
+        let strength = compute_strength_matrix(&matrix, 0.5)
+            .expect("invariant: strength matrix accepts the grid Laplacian");
 
         assert_eq!(strength.nrows(), matrix.nrows());
         assert_eq!(strength.nnz(), 48);
@@ -123,7 +128,8 @@ mod tests {
     #[test]
     fn test_hybrid_coarsening() {
         let matrix = create_test_matrix();
-        let result = hybrid_coarsening(&matrix, 0.25, 4).unwrap();
+        let result = hybrid_coarsening(&matrix, 0.25, 4)
+            .expect("invariant: hybrid coarsening accepts the grid Laplacian");
 
         assert!(!result.coarse_points.is_empty());
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
@@ -136,11 +142,23 @@ mod tests {
         let results = vec![
             (
                 "Ruge-Stueben",
-                ruge_stueben_coarsening(&matrix, 0.25).unwrap(),
+                ruge_stueben_coarsening(&matrix, 0.25)
+                    .expect("invariant: Ruge-Stueben mapping fixture is valid"),
             ),
-            ("Aggregation", aggregation_coarsening(&matrix, 4).unwrap()),
-            ("Falgout", falgout_coarsening(&matrix, 0.25).unwrap()),
-            ("PMIS", pmis_coarsening(&matrix, 0.25).unwrap()),
+            (
+                "Aggregation",
+                aggregation_coarsening(&matrix, 4)
+                    .expect("invariant: aggregation mapping fixture is valid"),
+            ),
+            (
+                "Falgout",
+                falgout_coarsening(&matrix, 0.25)
+                    .expect("invariant: Falgout mapping fixture is valid"),
+            ),
+            (
+                "PMIS",
+                pmis_coarsening(&matrix, 0.25).expect("invariant: PMIS mapping fixture is valid"),
+            ),
         ];
 
         for (name, result) in results {
@@ -174,7 +192,8 @@ mod tests {
     fn test_coarsening_ratio_bounds() {
         let n = 10;
         let sparse_matrix = create_grid_laplacian_matrix(n);
-        let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&sparse_matrix, 0.25)
+            .expect("invariant: Ruge-Stueben ratio fixture is valid");
 
         let n_total = sparse_matrix.nrows();
         let n_coarse = result.coarse_points.len();
@@ -187,7 +206,8 @@ mod tests {
     #[test]
     fn test_interpolation_operator_shape() {
         let matrix = create_test_matrix();
-        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&matrix, 0.25)
+            .expect("invariant: interpolation fixture is valid");
 
         let n_fine = matrix.nrows();
         let n_coarse = result.coarse_points.len();
@@ -218,7 +238,8 @@ mod tests {
     #[test]
     fn test_algebraic_distances_compute() {
         let matrix = create_test_matrix();
-        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&matrix, 0.25)
+            .expect("invariant: algebraic-distance fixture is valid");
         let distances = AlgebraicDistances::compute(&result, &matrix);
 
         assert_eq!(distances.distances.len(), matrix.nrows());
@@ -237,7 +258,8 @@ mod tests {
     fn test_coarsening_convergence_behavior() {
         let n = 8;
         let sparse_matrix = create_grid_laplacian_matrix(n);
-        let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
+        let result = ruge_stueben_coarsening(&sparse_matrix, 0.25)
+            .expect("invariant: convergence fixture is valid");
         let quality = analyze_coarsening_quality(&result, &sparse_matrix);
         let coarsening_ratio = quality.coarsening_ratio;
         let assignment_ratio = quality.assignment_ratio;
