@@ -1,3 +1,5 @@
+//! Regression tests for transient composition and transport parity.
+
 use aequitas::systems::si::quantities::{
     Area, Dimensionless, HydraulicResistance, Length, Pressure, Time, VolumetricFlowRate,
 };
@@ -8,6 +10,7 @@ use cfd_1d::solver::core::{
     MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
 };
 use cfd_1d::{ChannelGeometry, CrossSection, SurfaceProperties, Wettability};
+use eunomia::assert_relative_eq;
 use std::collections::HashMap;
 
 fn mixture(pairs: &[(i32, f64)]) -> MixtureComposition<f64> {
@@ -25,8 +28,7 @@ fn fraction(value: f64) -> Dimensionless<f64> {
 fn concentration(map: &HashMap<i32, Dimensionless<f64>>, fluid_id: i32) -> f64 {
     map.get(&fluid_id)
         .copied()
-        .map(Dimensionless::into_base)
-        .unwrap_or(0.0)
+        .map_or(0.0, Dimensionless::into_base)
 }
 
 fn time(value: f64) -> Time<f64> {
@@ -172,11 +174,31 @@ fn typed_composition_control_metrics_preserve_values() {
     };
     let transport = BloodEdgeTransportConfig::new(4, fraction(0.8));
 
-    assert_eq!(timing.duration.into_base(), 2.0);
-    assert_eq!(hematocrit_event.hematocrit.into_base(), 0.45);
-    assert_eq!(flow_event.flow_rate.into_base(), 2.5);
-    assert_eq!(pressure_event.pressure.into_base(), 12.0);
-    assert_eq!(transport.max_courant_number.into_base(), 0.8);
+    assert_relative_eq!(
+        timing.duration.into_base(),
+        2.0,
+        epsilon = 64.0 * f64::EPSILON
+    );
+    assert_relative_eq!(
+        hematocrit_event.hematocrit.into_base(),
+        0.45,
+        epsilon = 64.0 * f64::EPSILON
+    );
+    assert_relative_eq!(
+        flow_event.flow_rate.into_base(),
+        2.5,
+        epsilon = 64.0 * f64::EPSILON
+    );
+    assert_relative_eq!(
+        pressure_event.pressure.into_base(),
+        12.0,
+        epsilon = 64.0 * f64::EPSILON
+    );
+    assert_relative_eq!(
+        transport.max_courant_number.into_base(),
+        0.8,
+        epsilon = 64.0 * f64::EPSILON
+    );
 }
 
 #[test]
@@ -516,8 +538,7 @@ fn blood_hematocrit_switches_over_time() {
     assert!(
         (states[1]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.45)
             .abs()
             < 1e-12
@@ -525,8 +546,7 @@ fn blood_hematocrit_switches_over_time() {
     assert!(
         (states[3]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.20)
             .abs()
             < 1e-12
@@ -750,34 +770,32 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
         .edge_flow_rates
         .get(&e1.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("uncoupled branch 1 flow");
     let uncoupled_q2 = uncoupled[0]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("uncoupled branch 2 flow");
     let coupled_q1 = coupled[0]
         .edge_flow_rates
         .get(&e1.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("coupled branch 1 flow");
     let coupled_q2 = coupled[0]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("coupled branch 2 flow");
     let coupled_h1 = coupled[0]
         .edge_hematocrit(e1.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
     let coupled_h2 = coupled[0]
         .edge_hematocrit(e2.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
 
     assert!((uncoupled_q1 - uncoupled_q2).abs() < 1.0e-12);
     assert!(coupled_q1.is_finite() && coupled_q1 > 0.0);
@@ -847,16 +865,14 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     assert!(
         states[0]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(-1.0)
+            .map_or(-1.0, Dimensionless::into_base)
             .abs()
             < 1.0e-12
     );
     assert!(
         (states[1]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t05)
             .abs()
             < 1.0e-12
@@ -864,8 +880,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     assert!(
         (states[2]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t10)
             .abs()
             < 1.0e-12
@@ -873,8 +888,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     assert!(
         (states[3]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t20)
             .abs()
             < 1.0e-12
@@ -953,16 +967,14 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
     assert!(
         states[0]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(-1.0)
+            .map_or(-1.0, Dimensionless::into_base)
             .abs()
             < 1.0e-12
     );
     assert!(
         (states[1]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t05)
             .abs()
             < 1.0e-9
@@ -970,8 +982,7 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
     assert!(
         (states[2]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t10)
             .abs()
             < 1.0e-9
@@ -1076,27 +1087,23 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
 
     let instant_t0 = instant_states[0]
         .edge_hematocrit(e3.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(0.0);
+        .map_or(0.0, Dimensionless::into_base);
     let instant_t1 = instant_states[1]
         .edge_hematocrit(e3.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(0.0);
+        .map_or(0.0, Dimensionless::into_base);
     let tau_t0 = 1.0
         / instant_states[0]
             .edge_flow_rates
             .get(&e3.index())
             .copied()
-            .map(|q| q.into_base())
-            .unwrap_or(1.0)
+            .map_or(1.0, aequitas::Quantity::into_base)
             .abs();
     let tau_t1 = 1.0
         / instant_states[1]
             .edge_flow_rates
             .get(&e3.index())
             .copied()
-            .map(|q| q.into_base())
-            .unwrap_or(1.0)
+            .map_or(1.0, aequitas::Quantity::into_base)
             .abs();
     let expected_t10 = cstr_relaxation(0.0, instant_t0, 1.0, tau_t0);
     let expected_t20 = cstr_relaxation(expected_t10, instant_t1, 1.0, tau_t1);
@@ -1104,16 +1111,14 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
     assert!(
         states[0]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(-1.0)
+            .map_or(-1.0, Dimensionless::into_base)
             .abs()
             < 1.0e-12
     );
     assert!(
         (states[1]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t10)
             .abs()
             < 1.0e-9
@@ -1121,8 +1126,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
     assert!(
         (states[2]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - expected_t20)
             .abs()
             < 1.0e-9
@@ -1184,16 +1188,14 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
     assert!(
         states[0]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(-1.0)
+            .map_or(-1.0, Dimensionless::into_base)
             .abs()
             < 1.0e-12
     );
     assert!(
         (states[1]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.1125)
             .abs()
             < 1.0e-12
@@ -1201,8 +1203,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
     assert!(
         (states[2]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.2250)
             .abs()
             < 1.0e-12
@@ -1210,8 +1211,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
     assert!(
         (states[3]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.3375)
             .abs()
             < 1.0e-12
@@ -1219,8 +1219,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
     assert!(
         (states[4]
             .edge_hematocrit(edge.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.4500)
             .abs()
             < 1.0e-12
@@ -1304,8 +1303,7 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
     assert!(
         (segmented[1]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.09375)
             .abs()
             < 1.0e-12
@@ -1313,8 +1311,7 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
     assert!(
         (segmented[4]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             - 0.37500)
             .abs()
             < 1.0e-12
@@ -1322,12 +1319,10 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
     assert!(
         segmented[1]
             .edge_hematocrit(e3.index())
-            .map(Dimensionless::into_base)
-            .unwrap_or(0.0)
+            .map_or(0.0, Dimensionless::into_base)
             > lumped[1]
                 .edge_hematocrit(e3.index())
-                .map(Dimensionless::into_base)
-                .unwrap_or(0.0)
+                .map_or(0.0, Dimensionless::into_base)
     );
 }
 
@@ -1512,32 +1507,28 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
 
     let t0_hct = states[0]
         .edge_hematocrit(e3.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
     let t1_hct = states[1]
         .edge_hematocrit(e3.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
     let t1_q1 = states[1]
         .edge_flow_rates
         .get(&e1.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("branch 1 flow");
     let t1_q2 = states[1]
         .edge_flow_rates
         .get(&e2.index())
         .copied()
-        .map(|q| q.into_base())
+        .map(aequitas::Quantity::into_base)
         .expect("branch 2 flow");
     let t1_h1 = states[1]
         .edge_hematocrit(e1.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
     let t1_h2 = states[1]
         .edge_hematocrit(e2.index())
-        .map(Dimensionless::into_base)
-        .unwrap_or(-1.0);
+        .map_or(-1.0, Dimensionless::into_base);
     assert!(t0_hct.abs() < 1.0e-12);
     assert!(t1_hct.is_finite());
     assert!(t1_hct.abs() < 1.0e-12);
