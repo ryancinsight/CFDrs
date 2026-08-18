@@ -1,3 +1,5 @@
+//! Integration tests for strided window iteration.
+
 use cfd_math::iterators::StridedWindowIterator;
 
 #[test]

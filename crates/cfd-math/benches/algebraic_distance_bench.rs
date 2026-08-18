@@ -1,3 +1,8 @@
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates public benchmark entry points"
+)]
+
 use cfd_math::linear_solver::preconditioners::multigrid::{falgout_coarsening, AlgebraicDistances};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto_ops::CsrMatrix;

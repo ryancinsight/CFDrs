@@ -442,7 +442,7 @@ mod tests {
             row_ptr.push(col_indices.len());
         }
         csr_from_parts(nrows, ncols, row_ptr, col_indices, values, context)
-            .expect("invariant: dense interpolation fixture converts to CSR");
+            .expect("invariant: dense interpolation fixture converts to CSR")
     }
 
     fn create_test_matrix() -> SparseMatrix<f64> {

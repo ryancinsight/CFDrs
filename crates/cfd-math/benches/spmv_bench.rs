@@ -1,3 +1,8 @@
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates public benchmark entry points"
+)]
+
 use cfd_math::iterative::LinearOperator;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;

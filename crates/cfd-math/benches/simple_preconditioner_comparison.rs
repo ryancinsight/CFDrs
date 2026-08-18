@@ -8,6 +8,10 @@
 //! kept inline as the baseline, and a parity gate pins both layouts to the
 //! same outputs before any measurement is trusted.
 
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates public benchmark entry points"
+)]
 // The jagged baseline below intentionally mirrors the historical
 // implementation loop-for-loop so the comparison measures layout, not
 // algorithm; the indexed loops and slice copies are part of that faithful

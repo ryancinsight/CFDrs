@@ -1,5 +1,10 @@
 //! Benchmarks for Discontinuous Galerkin methods
 
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates public benchmark entry points"
+)]
+
 use cfd_math::error::Result;
 use cfd_math::high_order::dg::*;
 use criterion::{criterion_group, criterion_main, Criterion};

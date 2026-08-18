@@ -1,3 +1,8 @@
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates public benchmark entry points"
+)]
+
 use cfd_math::high_order::dg::{numerical_flux, FluxParams, FluxType};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use leto::Array1;
