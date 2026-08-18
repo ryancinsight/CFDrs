@@ -26,12 +26,25 @@ use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+
     // ── 1. Fluid Properties ──────────────────────────────────────────────────
     let blood = CarreauYasuda::<f64>::blood();
-    println!("Fluid: {}", blood.name());
-    println!("Density: {} kg/m³", blood.density.into_base());
-    println!("Viscosity (inf): {} Pa·s", blood.viscosity_inf.into_base());
-    println!("Viscosity (0): {} Pa·s", blood.viscosity_zero.into_base());
+    writeln!(output, "Fluid: {}", blood.name())?;
+    writeln!(output, "Density: {} kg/m³", blood.density.into_base())?;
+    writeln!(
+        output,
+        "Viscosity (inf): {} Pa·s",
+        blood.viscosity_inf.into_base()
+    )?;
+    writeln!(
+        output,
+        "Viscosity (0): {} Pa·s",
+        blood.viscosity_zero.into_base()
+    )?;
 
     // ── 2. Network Topology via ChannelSpec/NodeSpec ─────────────────────────
     // All physical geometry lives in ChannelSpec — no cfd_1d::domain::channel imports needed.
@@ -129,60 +142,64 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         require_flow_convergence: true,
     };
     let solver = NetworkSolver::<f64, CarreauYasuda<f64>>::with_config(config);
-    println!("Solving network...");
+    writeln!(output, "Solving network...")?;
     let solution = solver.solve(&NetworkProblem::new(network))?;
 
     // ── 7. Print Results ─────────────────────────────────────────────────────
-    println!("\nNode Pressures:");
+    writeln!(output, "\nNode Pressures:")?;
     let mut node_pressures = std::collections::HashMap::<usize, f64>::new();
     for idx in solution.graph.node_indices() {
-        let n = solution.graph.node_weight(idx).unwrap();
+        let n = solution
+            .graph
+            .node_weight(idx)
+            .expect("invariant: graph iteration yields live node indices");
         let p = solution
             .pressures
             .get(idx.index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
-        println!("  {}: {:.2} Pa ({:.2} mmHg)", n.id, p, p / 133.322);
+            .map_or(0.0, Pressure::into_base);
+        writeln!(output, "  {}: {:.2} Pa ({:.2} mmHg)", n.id, p, p / 133.322)?;
         node_pressures.insert(idx.index(), p);
     }
 
-    println!("\nEdge Flow Rates & Shear:");
+    writeln!(output, "\nEdge Flow Rates & Shear:")?;
     let mut edge_flow_rates = std::collections::HashMap::<usize, f64>::new();
     let mut edge_shear = std::collections::HashMap::<usize, f64>::new();
 
     for idx in solution.graph.edge_indices() {
-        let e = solution.graph.edge_weight(idx).unwrap();
+        let e = solution
+            .graph
+            .edge_weight(idx)
+            .expect("invariant: graph iteration yields live edge indices");
         let q = solution
             .flow_rates
             .get(idx.index())
             .copied()
-            .map(VolumetricFlowRate::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, VolumetricFlowRate::into_base);
         let props = solution.properties.get(&idx);
 
         let (v, shear_rate) = if let Some(p) = props {
             let vel = q.abs() / p.area.into_base();
             let sr = p
                 .hydraulic_diameter
-                .map(|d| 8.0 * vel / d.into_base())
-                .unwrap_or(0.0);
+                .map_or(0.0, |d| 8.0 * vel / d.into_base());
             (vel, sr)
         } else {
             (0.0, 0.0)
         };
 
-        let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101325.0)?;
+        let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
         let wall_shear = (viscosity * shear_rate).into_base();
 
-        println!("  {}: {:.4} mL/s", e.id, q * 1e6);
-        println!("     Velocity: {:.2} cm/s", v * 100.0);
-        println!("     Shear Rate: {:.1} 1/s", shear_rate);
-        println!(
+        writeln!(output, "  {}: {:.4} mL/s", e.id, q * 1e6)?;
+        writeln!(output, "     Velocity: {:.2} cm/s", v * 100.0)?;
+        writeln!(output, "     Shear Rate: {shear_rate:.1} 1/s")?;
+        writeln!(
+            output,
             "     Apparent Viscosity: {:.2} mPa·s",
             viscosity.into_base() * 1000.0
-        );
-        println!("     Wall Shear Stress: {:.2} Pa", wall_shear);
+        )?;
+        writeln!(output, "     Wall Shear Stress: {wall_shear:.2} Pa")?;
 
         edge_flow_rates.insert(idx.index(), q.abs());
         edge_shear.insert(idx.index(), wall_shear);
@@ -205,33 +222,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results = serde_json::json!({
         "fluid": "CarreauYasuda Blood",
         "nodes": solution.graph.node_indices().map(|idx| {
-            let n = solution.graph.node_weight(idx).unwrap();
+            let n = solution
+                .graph
+                .node_weight(idx)
+                .expect("invariant: graph iteration yields live node indices");
             serde_json::json!({
                 "id": n.id,
                 "pressure_pa": solution
                     .pressures
                     .get(idx.index())
                     .copied()
-                    .map(Pressure::into_base)
-                    .unwrap_or(0.0),
+                    .map_or(0.0, Pressure::into_base),
                 "pressure_mmhg": solution
                     .pressures
                     .get(idx.index())
                     .copied()
-                    .map(Pressure::into_base)
-                    .unwrap_or(0.0)
+                    .map_or(0.0, Pressure::into_base)
                     / 133.322,
                 "type": format!("{:?}", n.node_type)
             })
         }).collect::<Vec<_>>(),
         "edges": solution.graph.edge_indices().map(|idx| {
-            let e = solution.graph.edge_weight(idx).unwrap();
+            let e = solution
+                .graph
+                .edge_weight(idx)
+                .expect("invariant: graph iteration yields live edge indices");
             let q = solution
                 .flow_rates
                 .get(idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, VolumetricFlowRate::into_base);
             let shear = edge_shear.get(&idx.index()).unwrap_or(&0.0);
             serde_json::json!({
                 "id": e.id,
@@ -245,7 +265,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = output_dir.join("results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
-    println!("\n✅ Exported results to {}", json_path.display());
+    writeln!(output, "\n✅ Exported results to {}", json_path.display())?;
 
     Ok(())
 }
