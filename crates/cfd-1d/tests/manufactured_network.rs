@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };

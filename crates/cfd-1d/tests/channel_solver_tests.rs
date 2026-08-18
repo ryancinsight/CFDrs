@@ -65,7 +65,7 @@ fn test_regime_turbulent_range() {
 // Knudsen Number Priority Tests
 // =========================================================================
 
-/// When `Kn >= KN_SLIP_MIN`, SlipFlow overrides any Reynolds classification.
+/// When `Kn >= KN_SLIP_MIN`, `SlipFlow` overrides any Reynolds classification.
 #[test]
 fn test_knudsen_overrides_re_for_slip_classification() {
     // Re=500 (normally Laminar) + Kn=0.05 → SlipFlow
@@ -169,7 +169,7 @@ fn test_shah_london_monotone_increasing_in_ar() {
 // Beskok-Karniadakis Slip Correction Tests
 // =========================================================================
 
-/// Beskok-Karniadakis formula: R_slip = R_lam / (1 + 4*Kn).
+/// Beskok-Karniadakis formula: `R_slip` = `R_lam` / (1 + 4*Kn).
 ///
 /// We verify this mathematically since the physical channel is not public.
 #[test]

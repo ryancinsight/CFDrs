@@ -102,7 +102,7 @@ fn test_resistance_parallel_less_than_min() {
     );
 }
 
-/// Series/Parallel duality bound: R_parallel ≤ min ≤ max ≤ R_series.
+/// Series/Parallel duality bound: `R_parallel` ≤ min ≤ max ≤ `R_series`.
 #[test]
 fn test_resistance_duality_bound() {
     let mut analysis = ResistanceAnalysis::<f64>::new();

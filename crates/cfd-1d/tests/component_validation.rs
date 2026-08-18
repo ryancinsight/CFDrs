@@ -177,7 +177,7 @@ fn test_component_resistance_diameter_scaling() -> Result<()> {
 /// Validates that micropump enforces physical constraints on parameters.
 ///
 /// **Note**: This test is currently ignored because the implementation does not
-/// clamp parameter values to physical bounds [0, 1]. The set_parameter method
+/// clamp parameter values to physical bounds [0, 1]. The `set_parameter` method
 /// accepts any value without validation. This should be considered for future
 /// enhancement to ensure physical validity.
 #[test]
@@ -297,7 +297,7 @@ fn test_micromixer_inlet_validation() -> Result<()> {
 ///
 /// Validates that factory produces appropriate errors for invalid inputs.
 #[test]
-fn test_component_factory_error_handling() -> Result<()> {
+fn test_component_factory_error_handling() {
     // Test missing required parameters
     let params_empty = HashMap::new();
     let result = ComponentFactory::create::<f64>("CircularChannel", &params_empty);
@@ -315,8 +315,6 @@ fn test_component_factory_error_handling() -> Result<()> {
     params_valid.insert("diameter".to_string(), 1e-3);
     let result = ComponentFactory::create::<f64>("InvalidComponent", &params_valid);
     assert!(result.is_err(), "Should fail with unknown component type");
-
-    Ok(())
 }
 
 /// Test capillary number calculation for microfluidics.
@@ -375,7 +373,7 @@ fn test_bond_number_microfluidics() -> Result<()> {
 /// # Reference
 /// Kirby (2010), Eq. 9.1: Pe = VL/D
 #[test]
-fn test_peclet_number_mass_transport() -> Result<()> {
+fn test_peclet_number_mass_transport() {
     let velocity: f64 = 0.01; // 1 cm/s
     let length_scale: f64 = 100e-6; // 100 μm
     let diffusivity: f64 = 1e-9; // m²/s (small molecule in water)
@@ -388,8 +386,6 @@ fn test_peclet_number_mass_transport() -> Result<()> {
 
     // Expected: 0.01 * 100e-6 / 1e-9 = 1000
     assert_relative_eq!(pe, 1000.0, epsilon = 10.0);
-
-    Ok(())
 }
 
 /// Test component resistance additivity in series.
@@ -397,7 +393,7 @@ fn test_peclet_number_mass_transport() -> Result<()> {
 /// Validates that resistances add linearly in series configuration.
 ///
 /// # Reference
-/// Circuit analogy: R_total = R1 + R2 + ... (series)
+/// Circuit analogy: `R_total` = R1 + R2 + ... (series)
 #[test]
 fn test_series_resistance_additivity() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
@@ -435,8 +431,8 @@ fn test_series_resistance_additivity() -> Result<()> {
 ///
 /// Validates that flow sensor behaves as expected (minimal resistance).
 ///
-/// **Note**: This test is currently ignored because the FlowSensor component
-/// may not be implemented or accessible through the ComponentFactory with
+/// **Note**: This test is currently ignored because the `FlowSensor` component
+/// may not be implemented or accessible through the `ComponentFactory` with
 /// the expected parameters. Requires investigation of actual API.
 #[test]
 #[ignore = "FlowSensor component API differs from expected"]
@@ -471,7 +467,7 @@ fn test_flow_sensor_properties() -> Result<()> {
 ///
 /// Validates that performance metrics are computed correctly.
 #[test]
-fn test_performance_metrics_calculation() -> Result<()> {
+fn test_performance_metrics_calculation() {
     let mut metrics = PerformanceMetrics::<f64>::new();
 
     // Set values
@@ -499,6 +495,4 @@ fn test_performance_metrics_calculation() -> Result<()> {
 
     let max_time = metrics.max_residence_time().expect("test invariant");
     assert_relative_eq!(max_time.into_base(), 1.5, epsilon = 1e-10);
-
-    Ok(())
 }

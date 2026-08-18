@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolveFailureReason, SolverConfig};
@@ -199,9 +201,7 @@ fn representative_primitive_selective_trees_primary_converge() {
         let (found, failure_detail) = representative_case_search_with_failure_detail(&sequence);
         let Some((case, network, diagnostics)) = found else {
             panic!(
-                "failed to find a primary-converged representative case for primitive sequence {:?}; last failure: {}",
-                sequence,
-                failure_detail,
+                "failed to find a primary-converged representative case for primitive sequence {sequence:?}; last failure: {failure_detail}",
             );
         };
 

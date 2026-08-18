@@ -1,5 +1,5 @@
 //! Tests for solver core modules: network construction, Ohm's law, KCL, error paths,
-//! and ConvergenceChecker invariants.
+//! and `ConvergenceChecker` invariants.
 //!
 //! All tests use the correct `NetworkBuilder → Network → NetworkProblem → NetworkSolver` chain.
 
@@ -64,14 +64,12 @@ fn test_solver_ohms_law_single_edge() {
                 .pressures()
                 .get(e.source().index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             let p_to = solved
                 .pressures()
                 .get(e.target().index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             (p_from - p_to) / e.weight().resistance.into_base()
         })
         .collect();
@@ -84,7 +82,7 @@ fn test_solver_ohms_law_single_edge() {
 // KCL: mass conservation at Y-junction
 // ============================================================
 
-/// KCL: Q_in = Q_out1 + Q_out2 at a symmetric T-junction.
+/// KCL: `Q_in` = `Q_out1` + `Q_out2` at a symmetric T-junction.
 #[test]
 fn test_solver_y_junction_kcl() {
     let fluid = water();
@@ -124,14 +122,12 @@ fn test_solver_y_junction_kcl() {
             .pressures()
             .get(e.source().index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, Pressure::into_base);
         let p_to = solved
             .pressures()
             .get(e.target().index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, Pressure::into_base);
         let q = (p_from - p_to) / e.weight().resistance.into_base();
         if e.target() == n_mid {
             q_into_mid += q;
@@ -234,10 +230,8 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     let solver = NetworkSolver::new();
 
     let outcome = std::panic::catch_unwind(|| solver.solve_network(&problem));
-    match outcome {
-        Ok(Ok(_)) => panic!("Solver must not succeed on a singular (unconstrained) system"),
-        Ok(Err(_)) => { /* Graceful error — ideal */ }
-        Err(_) => { /* Panic — acceptable for an unconstrained Laplacian */ }
+    if let Ok(Ok(_)) = outcome {
+        panic!("Solver must not succeed on a singular (unconstrained) system");
     }
 }
 

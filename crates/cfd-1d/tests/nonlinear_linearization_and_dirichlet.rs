@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::{
     HydraulicResistance, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
@@ -5,6 +7,7 @@ use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 
 fn build_simple_network<T: cfd_core::CfdScalar + Copy + SafeFromF64>() -> (
@@ -26,7 +29,7 @@ fn build_simple_network<T: cfd_core::CfdScalar + Copy + SafeFromF64>() -> (
 }
 
 #[test]
-fn linearization_effective_resistance_matches_r_plus_k_abs_q() -> Result<()> {
+fn linearization_effective_resistance_matches_r_plus_k_abs_q() {
     // The 1D network solver uses Picard (secant/chord) linearization:
     //   ΔP ≈ (R + k|Q_k|) · Q
     // so R_eff = R + k|Q_k| and G = 1/R_eff.
@@ -54,11 +57,8 @@ fn linearization_effective_resistance_matches_r_plus_k_abs_q() -> Result<()> {
     let rel_err = ((conductance - g_expected) / g_expected).abs();
     assert!(
         rel_err < 1e-12,
-        "conductance {} vs expected Picard-secant {}",
-        conductance,
-        g_expected
+        "conductance {conductance} vs expected Picard-secant {g_expected}"
     );
-    Ok(())
 }
 
 #[test]
@@ -98,9 +98,7 @@ fn update_from_solution_picard_step_correct_sign_and_magnitude() -> Result<()> {
     let rel_err = ((q - q_picard_step) / q_picard_step).abs();
     assert!(
         rel_err < 1e-12,
-        "single-step Picard Q = {} vs expected dp/R = {}",
-        q,
-        q_picard_step
+        "single-step Picard Q = {q} vs expected dp/R = {q_picard_step}"
     );
     Ok(())
 }
@@ -132,9 +130,9 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
             sum_off_in += val.abs();
         }
     }
-    assert_eq!(diag_in, 1.0);
-    assert_eq!(sum_off_in, 0.0);
-    assert_eq!(b[inlet.index()], 12.0);
+    assert_relative_eq!(diag_in, 1.0, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(sum_off_in, 0.0, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(b[inlet.index()], 12.0, epsilon = 64.0 * f64::EPSILON);
 
     // Outlet diagonal should include conductance contribution, RHS should include Dirichlet value
     let g = 1.0 / 5.0;
@@ -149,7 +147,7 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
         }
     }
     assert!((diag_out - g).abs() < 1e-12);
-    assert_eq!(off_diag_pos, 0.0);
+    assert_relative_eq!(off_diag_pos, 0.0, epsilon = 64.0 * f64::EPSILON);
     assert!((b[outlet.index()] - g * 12.0).abs() < 1e-12);
     Ok(())
 }
@@ -192,9 +190,9 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
             sum_off_split += val.abs();
         }
     }
-    assert_eq!(diag_split, 1.0);
-    assert_eq!(sum_off_split, 0.0);
-    assert_eq!(b[split.index()], 10.0);
+    assert_relative_eq!(diag_split, 1.0, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(sum_off_split, 0.0, epsilon = 64.0 * f64::EPSILON);
+    assert_relative_eq!(b[split.index()], 10.0, epsilon = 64.0 * f64::EPSILON);
 
     let g1 = 1.0 / 4.0;
     let g2 = 1.0 / 6.0;

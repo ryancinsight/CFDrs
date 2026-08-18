@@ -73,11 +73,10 @@ fn solve_dirichlet(
         .collect();
 
     for (id_str, pressure) in boundary_pressures {
-        let idx = node_ids
-            .iter()
-            .find(|(_, id)| id == id_str)
-            .map(|(idx, _)| *idx)
-            .unwrap_or_else(|| panic!("boundary node '{}' not found in network", id_str));
+        let idx = node_ids.iter().find(|(_, id)| id == id_str).map_or_else(
+            || panic!("boundary node '{id_str}' not found in network"),
+            |(idx, _)| *idx,
+        );
         network.set_pressure(idx, Pressure::from_base(*pressure));
     }
 
@@ -98,11 +97,11 @@ fn node_pressure(network: &Network<f64, Water>, id: &str) -> f64 {
         .graph
         .node_indices()
         .find(|&i| network.graph.node_weight(i).is_some_and(|n| n.id == id))
-        .unwrap_or_else(|| panic!("node '{}' not found", id));
+        .unwrap_or_else(|| panic!("node '{id}' not found"));
     network
         .pressures()
         .get(idx.index())
-        .unwrap_or_else(|| panic!("no pressure for node '{}'", id))
+        .unwrap_or_else(|| panic!("no pressure for node '{id}'"))
         .into_base()
 }
 
@@ -112,26 +111,25 @@ fn edge_flow(network: &Network<f64, Water>, id: &str) -> f64 {
         .graph
         .edge_indices()
         .find(|&i| network.graph.edge_weight(i).is_some_and(|e| e.id == id))
-        .unwrap_or_else(|| panic!("edge '{}' not found", id));
+        .unwrap_or_else(|| panic!("edge '{id}' not found"));
     network
         .flow_rates()
         .get(eidx.index())
-        .unwrap_or_else(|| panic!("no flow rate for edge '{}'", id))
+        .unwrap_or_else(|| panic!("no flow rate for edge '{id}'"))
         .into_base()
 }
 
-/// Return the resistance of a named edge as stored in the graph after network_from_blueprint.
+/// Return the resistance of a named edge as stored in the graph after `network_from_blueprint`.
 fn edge_resistance(network: &Network<f64, Water>, id: &str) -> f64 {
     let eidx = network
         .graph
         .edge_indices()
         .find(|&i| network.graph.edge_weight(i).is_some_and(|e| e.id == id))
-        .unwrap_or_else(|| panic!("edge '{}' not found", id));
-    network
-        .graph
-        .edge_weight(eidx)
-        .map(|e| e.resistance.into_base())
-        .unwrap_or_else(|| panic!("no weight for edge '{}'", id))
+        .unwrap_or_else(|| panic!("edge '{id}' not found"));
+    network.graph.edge_weight(eidx).map_or_else(
+        || panic!("no weight for edge '{id}'"),
+        |e| e.resistance.into_base(),
+    )
 }
 
 // ── Test 1: Series circuit ────────────────────────────────────────────────────
@@ -181,15 +179,15 @@ fn series_circuit_pressure_drop_matches_kirchhoff() {
 
 // ── Test 2: Symmetric parallel bifurcation ───────────────────────────────────
 
-/// Inlet → trunk → junction → {branch_L, branch_R} → {outlet_L, outlet_R}
+/// Inlet → trunk → junction → {`branch_L`, `branch_R`} → {`outlet_L`, `outlet_R`}
 /// All channels identical circular pipes.
 ///
-/// Analytical solution (identical R for all channels, P_in=1000 Pa, P_outs=0):
-///   P_junction = P_in / 3
-///   Q_branch   = P_junction / R_branch = P_in / (3·R)
-///   Q_trunk    = 2 · Q_branch           = 2·P_in / (3·R)
+/// Analytical solution (identical R for all channels, `P_in=1000` Pa, `P_outs=0)`:
+///   `P_junction` = `P_in` / 3
+///   `Q_branch`   = `P_junction` / `R_branch` = `P_in` / (3·R)
+///   `Q_trunk`    = 2 · `Q_branch`           = `2·P_in` / (3·R)
 ///
-/// Mass conservation: Q_trunk = Q_branch_L + Q_branch_R.
+/// Mass conservation: `Q_trunk` = `Q_branch_L` + `Q_branch_R`.
 #[test]
 fn symmetric_bifurcation_flow_distribution_and_mass_conservation() {
     const D_M: f64 = 1e-3;
@@ -279,12 +277,12 @@ fn symmetric_bifurcation_flow_distribution_and_mass_conservation() {
 
 // ── Test 3: Asymmetric bifurcation — Kirchhoff ratio ─────────────────────────
 
-/// Inlet → junction → {narrow_branch (D/2), wide_branch (D)} → outlets.
+/// Inlet → junction → {`narrow_branch` (D/2), `wide_branch` (D)} → outlets.
 /// Both outlets at P=0; inlet is a flow source node (Dirichlet at junction).
 ///
-/// With R ∝ 1/D⁴ (Hagen-Poiseuille), R_narrow = 16 · R_wide.
-/// So Q_narrow / Q_wide = R_wide / R_narrow = 1/16.
-/// Both branches see the same ΔP = P_junction − 0.
+/// With R ∝ 1/D⁴ (Hagen-Poiseuille), `R_narrow` = 16 · `R_wide`.
+/// So `Q_narrow` / `Q_wide` = `R_wide` / `R_narrow` = 1/16.
+/// Both branches see the same ΔP = `P_junction` − 0.
 #[test]
 fn asymmetric_bifurcation_flow_ratio_matches_resistance_ratio() {
     const D_WIDE: f64 = 1e-3; // 1 mm
@@ -454,8 +452,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
         let id = network
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(idx))
-            .map(|n| n.id.as_str())
-            .unwrap_or("?");
+            .map_or("?", |n| n.id.as_str());
         assert!(p.is_finite(), "node '{id}' has non-finite pressure {p}");
         // Outlet nodes must be at P_REF; all others above it (flow driven network).
         let is_outlet = network
@@ -483,8 +480,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
         let id = network
             .graph
             .edge_weight(petgraph::graph::EdgeIndex::new(idx))
-            .map(|e| e.id.as_str())
-            .unwrap_or("?");
+            .map_or("?", |e| e.id.as_str());
         assert!(q.is_finite(), "edge '{id}' has non-finite flow {q}");
         assert!(q.abs() > 0.0, "edge '{id}' has zero flow");
     }
@@ -496,9 +492,8 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
     use petgraph::visit::EdgeRef;
     use petgraph::Direction;
     for node_idx in network.graph.node_indices() {
-        let node = match network.graph.node_weight(node_idx) {
-            Some(n) => n,
-            None => continue,
+        let Some(node) = network.graph.node_weight(node_idx) else {
+            continue;
         };
         if node.node_type == NodeType::Inlet || node.node_type == NodeType::Outlet {
             continue; // BCs applied at boundaries; skip

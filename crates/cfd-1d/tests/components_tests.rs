@@ -1,6 +1,6 @@
 //! Comprehensive tests for all microfluidic component types.
 //!
-//! Sprint 8 updates: Micromixer and FlowSensor use first-principles
+//! Sprint 8 updates: Micromixer and `FlowSensor` use first-principles
 //! constructors (validated, returns Result) with Idelchik physics model.
 
 use aequitas::systems::si::quantities::Length;
@@ -199,7 +199,11 @@ fn test_flow_sensor_rejects_zero_range() {
 fn test_flow_sensor_ideal_zero_resistance() {
     let fluid = water();
     let sensor = FlowSensor::<f64>::new(0.0, 1e-3).expect("test invariant");
-    assert_eq!(sensor.resistance(&fluid), 0.0);
+    assert_relative_eq!(
+        sensor.resistance(&fluid),
+        0.0,
+        epsilon = 64.0 * f64::EPSILON
+    );
 }
 
 /// Insertion resistance returned exactly.
@@ -210,7 +214,7 @@ fn test_sensor_resistance_pass_through() {
     assert_relative_eq!(sensor.resistance(&fluid), 1e6, epsilon = 1e-30);
 }
 
-/// set_parameter rejects negative resistance.
+/// `set_parameter` rejects negative resistance.
 #[test]
 fn test_sensor_parameter_update_validates() {
     let mut sensor = FlowSensor::<f64>::new(1e6, 1e-6).expect("test invariant");
@@ -221,7 +225,7 @@ fn test_sensor_parameter_update_validates() {
     assert_relative_eq!(sensor.resistance, 2e6, epsilon = 1e-30);
 }
 
-/// is_overrange detects flow above measurement range.
+/// `is_overrange` detects flow above measurement range.
 #[test]
 fn test_flow_sensor_overrange_detection() {
     let sensor = FlowSensor::<f64>::new(0.0, 1e-6).expect("test invariant");
@@ -234,7 +238,7 @@ fn test_flow_sensor_overrange_detection() {
 
 /// T-junction resistance must be strictly positive.
 ///
-/// **Theorem**: R_mixer = R_straight + R_minor > 0 for μ > 0, L > 0, D > 0.
+/// **Theorem**: `R_mixer` = `R_straight` + `R_minor` > 0 for μ > 0, L > 0, D > 0.
 #[test]
 fn test_mixer_t_junction_resistance_positive() {
     let fluid = water();
@@ -251,7 +255,7 @@ fn test_mixer_t_junction_resistance_positive() {
 
 /// Serpentine mixer: more bends → strictly higher resistance.
 ///
-/// **Invariant**: ∂R/∂n_bends > 0.
+/// **Invariant**: ∂`R/∂n_bends` > 0.
 #[test]
 fn test_mixer_serpentine_increases_with_bends() {
     let fluid = water();
@@ -347,7 +351,7 @@ fn test_mixer_rejects_zero_length() {
     .is_err());
 }
 
-/// T-junction K_loss=1.5 > Y-junction K_loss=0.9 → R_T > R_Y for same geometry.
+/// T-junction `K_loss=1.5` > Y-junction `K_loss=0.9` → `R_T` > `R_Y` for same geometry.
 #[test]
 fn test_mixer_t_junction_higher_than_y_junction() {
     let fluid = water();
@@ -417,8 +421,16 @@ fn test_mixer_geometry_parameter_preserves_typed_lengths() {
         .expect("test invariant");
     mixer.set_parameter("length", 8e-3).expect("test invariant");
 
-    assert_eq!(mixer.hydraulic_diameter.into_base(), 300e-6);
-    assert_eq!(mixer.length.into_base(), 8e-3);
+    assert_relative_eq!(
+        mixer.hydraulic_diameter.into_base(),
+        300e-6,
+        epsilon = 64.0 * f64::EPSILON
+    );
+    assert_relative_eq!(
+        mixer.length.into_base(),
+        8e-3,
+        epsilon = 64.0 * f64::EPSILON
+    );
 }
 
 // ========================  PorousMembrane  ================
@@ -463,7 +475,7 @@ fn test_organ_compartment_volume() {
 // ========================  ConvergenceChecker  ============
 // (G7)
 
-/// max_iterations_reached returns true at and beyond the threshold.
+/// `max_iterations_reached` returns true at and beyond the threshold.
 ///
 /// **Theorem**: `current_iteration >= max_iterations` ⟹ `true`.
 #[test]

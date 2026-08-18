@@ -51,7 +51,7 @@ fn test_dean_number_formula() {
 // Dean drag force scaling
 // ============================================================================
 
-/// F_D ∝ De^1.63 (Gossett & Di Carlo 2009, Eq. 4).
+/// `F_D` ∝ De^1.63 (Gossett & Di Carlo 2009, Eq. 4).
 #[test]
 fn test_dean_drag_force_scaling() {
     let mu = 3.5e-3_f64;
@@ -77,7 +77,7 @@ fn test_mcf7_confinement_ratio_exceeds_threshold() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let dh = Length::from_base(2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6)); // 133 µm
     let kappa = cancer.confinement_ratio(dh);
-    assert!(kappa > 0.07, "MCF-7 must have κ > 0.07, got {}", kappa);
+    assert!(kappa > 0.07, "MCF-7 must have κ > 0.07, got {kappa}");
     assert!(cancer.will_focus(dh), "MCF-7 must focus");
 }
 
@@ -87,7 +87,7 @@ fn test_platelet_below_focusing_threshold() {
     let platelet = CellProperties::platelet();
     let dh = Length::from_base(2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6)); // 133 µm
     let kappa = platelet.confinement_ratio(dh);
-    assert!(kappa < 0.07, "Platelet must have κ < 0.07, got {}", kappa);
+    assert!(kappa < 0.07, "Platelet must have κ < 0.07, got {kappa}");
     assert!(!platelet.will_focus(dh), "Platelet must not focus");
 }
 
@@ -304,8 +304,7 @@ fn test_inertial_lift_at_center_is_negative() {
     // At center (x̃=0), C_wall=0, C_center=0.3 → C_L = -0.3 → F_L < 0
     assert!(
         fl < 0.0,
-        "Lift at center must be negative (toward wall), got {}",
-        fl
+        "Lift at center must be negative (toward wall), got {fl}"
     );
 }
 
@@ -325,7 +324,6 @@ fn test_inertial_lift_near_wall_is_positive() {
     // Near wall C_wall diverges, C_L should be positive
     assert!(
         fl > 0.0,
-        "Lift near wall must be positive (toward center), got {}",
-        fl
+        "Lift near wall must be positive (toward center), got {fl}"
     );
 }

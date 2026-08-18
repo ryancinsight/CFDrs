@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator};

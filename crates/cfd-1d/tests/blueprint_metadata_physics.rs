@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
@@ -91,7 +93,7 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
             bend_radius_m,
             wave_type: _,
         } => (segments, bend_radius_m.into_base()),
-        _ => panic!("channel must carry inferred serpentine metadata"),
+        ChannelShape::Straight => panic!("channel must carry inferred serpentine metadata"),
     };
 
     let cross_section = match channel.cross_section {

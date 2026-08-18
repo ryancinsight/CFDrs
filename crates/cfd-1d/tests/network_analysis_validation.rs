@@ -30,14 +30,12 @@ fn compute_flow_rates(network: &Network<f64>) -> Vec<f64> {
             .pressures()
             .get(from_node.index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, Pressure::into_base);
         let p_to = network
             .pressures()
             .get(to_node.index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, Pressure::into_base);
 
         // Q = (P_from - P_to) / R
         let flow = (p_from - p_to) / edge_data.resistance.into_base();
@@ -72,7 +70,7 @@ fn test_simple_network_topology() -> Result<()> {
 
 /// Test: Series network resistance calculation
 ///
-/// Validates that resistances add in series (R_total = R1 + R2 + R3).
+/// Validates that resistances add in series (`R_total` = R1 + R2 + R3).
 ///
 /// Reference:
 /// - White (2015), Eq. 6-49: Series pipes combine resistances additively
@@ -158,12 +156,12 @@ fn test_series_resistance_addition() -> Result<()> {
 
 /// Test: Parallel network conductance calculation
 ///
-/// Validates that conductances add in parallel (G_total = G1 + G2).
+/// Validates that conductances add in parallel (`G_total` = G1 + G2).
 /// Conductance G = 1/R.
 ///
 /// Reference:
 /// - Jeppson (1976), Section 2.3: "Conductances in parallel are additive"
-/// - White (2015), Eq. 6-50: Q_total = Q₁ + Q₂ for parallel branches
+/// - White (2015), Eq. 6-50: `Q_total` = Q₁ + Q₂ for parallel branches
 #[test]
 fn test_parallel_conductance_addition() -> Result<()> {
     let fluid = database::water_20c::<f64>()?;
@@ -445,15 +443,13 @@ fn test_reynolds_number_laminar_regime() -> Result<()> {
     // Should be in laminar regime
     assert!(
         re < 2300.0,
-        "Reynolds number {} should be laminar (< 2300)",
-        re
+        "Reynolds number {re} should be laminar (< 2300)"
     );
 
     // For microfluidics, typically Re << 100
     assert!(
         re < 500.0,
-        "Reynolds number {} should be low for microfluidic flow",
-        re
+        "Reynolds number {re} should be low for microfluidic flow"
     );
 
     Ok(())

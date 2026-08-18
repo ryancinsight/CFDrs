@@ -1,3 +1,5 @@
+#![expect(missing_docs, reason = "integration test crate exposes no public API")]
+
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };
@@ -48,10 +50,10 @@ fn spd_heuristic_selects_cg() -> Result<()> {
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<F>::new();
     let solved = solver.solve(&problem)?;
-    match solved.last_solver_method.expect("test invariant") {
-        LinearSolverMethod::ConjugateGradient => (),
-        _ => panic!("expected CG method selection"),
-    }
+    assert!(matches!(
+        solved.last_solver_method.expect("test invariant"),
+        LinearSolverMethod::ConjugateGradient
+    ));
     Ok(())
 }
 
@@ -67,7 +69,9 @@ fn negative_coefficients_rejected_in_update() {
     let mut x = Array1::<F>::zeros([net.node_count()]);
     x[inlet.index()] = 5.0;
     x[outlet.index()] = 0.0;
-    let err = net.update_from_solution(&x).unwrap_err();
+    let err = net
+        .update_from_solution(&x)
+        .expect_err("negative resistance must be rejected");
     match err {
         cfd_core::error::Error::InvalidConfiguration(_) => (),
         _ => panic!("unexpected error type"),
