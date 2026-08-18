@@ -54,7 +54,7 @@ impl RegionMap {
 /// Associates face IDs with boundary-patch labels for bulk application to a mesh.
 #[derive(Debug, Default)]
 pub struct BoundaryLabelMap {
-    /// (face_id, label) pairs accumulated for later application.
+    /// (`face_id`, label) pairs accumulated for later application.
     pub entries: Vec<(FaceId, String)>,
 }
 

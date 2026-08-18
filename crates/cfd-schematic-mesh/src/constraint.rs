@@ -77,6 +77,11 @@ pub struct InletOutletConstraint;
 
 impl InletOutletConstraint {
     /// Check all inlet and outlet channels in `bp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DiameterConstraintError`] when an inlet or outlet channel
+    /// violates the configured hydraulic-diameter constraint.
     pub fn check(bp: &NetworkBlueprint) -> Result<(), DiameterConstraintError> {
         for node in &bp.nodes {
             let node_kind = match node.kind {
@@ -165,6 +170,11 @@ pub struct WallClearanceConstraint;
 impl WallClearanceConstraint {
     /// Check that all `(x0, y0) → (x1, y1)` segments stay inside the SBS plate
     /// with the given clearance.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WallClearanceViolation`] when a segment crosses the plate
+    /// boundary after applying `clearance`.
     #[allow(clippy::type_complexity)]
     pub fn check(
         segments: &[((Length<f64>, Length<f64>), (Length<f64>, Length<f64>))],

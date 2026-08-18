@@ -55,7 +55,7 @@ pub struct PipelineConfig {
     ///
     /// Set to `true` for millifluidic designs whose channel cross-sections are
     /// inherently smaller than the 4 mm macro-port specification (e.g. 6 mm × 1 mm
-    /// rectangular channels with D_h ≈ 1.7 mm).  The physical tubing adapter
+    /// rectangular channels with `D_h` ≈ 1.7 mm).  The physical tubing adapter
     /// is handled externally.  Default: `false`.
     pub skip_diameter_constraint: bool,
 }
@@ -192,6 +192,11 @@ impl BlueprintMeshPipeline {
     /// 6. Assemble fluid mesh via iterative CSG union.
     /// 7. Label boundary faces (inlet / outlet / wall).
     /// 8. Optionally build chip body via CSG Difference.
+    ///
+    /// # Errors
+    ///
+    /// Returns a mesh error when blueprint validation, layout construction,
+    /// channel meshing, CSG assembly, or boundary labeling fails.
     pub fn run(bp: &NetworkBlueprint, config: &PipelineConfig) -> MeshResult<PipelineOutput> {
         let is_selective_routing = bp
             .topology_spec()
@@ -759,8 +764,8 @@ fn synthesize_geometry_authored_routed_layout(
 ///
 /// 1. Compute the topological depth of every node via **Kahn's algorithm**
 ///    (topological-sort BFS) for DAG longest-path from the inlet.
-/// 2. Map depth to X-coordinate across the chip width (0 → chip_w), with inlet
-///    at x = 0 and outlet at x = chip_w.
+/// 2. Map depth to X-coordinate across the chip width (0 → `chip_w`), with inlet
+///    at x = 0 and outlet at x = `chip_w`.
 /// 3. For nodes sharing the same depth, spread evenly in Y around `y_center`.
 /// 4. Each blueprint channel maps to one `SegmentLayout` from its `from` node
 ///    position to its `to` node position.
@@ -1193,7 +1198,7 @@ fn repair_pipeline_mesh(mesh: &mut IndexedMesh, require_watertight: bool) -> Mes
 
 // ── Venturi chain concatenated sweep (no CSG) ─────────────────────────────────
 
-/// Build the fluid mesh for a VenturiChain topology — NO CSG union required.
+/// Build the fluid mesh for a `VenturiChain` topology — NO CSG union required.
 ///
 /// ## Algorithm
 ///

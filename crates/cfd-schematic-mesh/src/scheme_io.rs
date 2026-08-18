@@ -67,6 +67,11 @@ pub struct Schematic {
 ///   ]
 /// }
 /// ```
+///
+/// # Errors
+///
+/// Returns a mesh error when the input is not valid JSON or does not satisfy
+/// the schematic structure and numeric constraints.
 pub fn import_schematic<R: Read>(reader: R) -> MeshResult<Schematic> {
     let value: serde_json::Value = serde_json::from_reader(reader).map_err(MeshError::Json)?;
 
@@ -178,6 +183,11 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 /// - `blueprint` — the network blueprint from `cfd_schematics`
 /// - `height` — substrate height in mm (also used as z-centering)
 /// - `channel_segments` — number of cross-section segments per channel
+///
+/// # Errors
+///
+/// Returns a mesh error when a blueprint channel cannot be converted into a
+/// valid schematic path or cross-section.
 pub fn from_blueprint(
     blueprint: &cfd_schematics::domain::model::NetworkBlueprint,
     height: Real,

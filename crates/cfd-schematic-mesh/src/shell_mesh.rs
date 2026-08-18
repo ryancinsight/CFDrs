@@ -55,7 +55,7 @@ impl Default for ShellPipelineConfig {
 pub struct ShellPipelineOutput {
     /// Mathematical boundary of the fluid domain (cavity + ports).
     pub fluid_mesh: IndexedMesh,
-    /// Physical plastic body (substrate - fluid_mesh).
+    /// Physical plastic body (substrate - `fluid_mesh`).
     pub chip_body_mesh: IndexedMesh,
 }
 
@@ -75,6 +75,16 @@ impl ShellMeshPipeline {
     ///    - If no TPMS fill: build a plain rectangular `Cube`.
     /// 4. Create inlet and outlet port cylinders and CSG-union them.
     /// 5. Create physical chip via CSG-difference: `substrate \ fluid`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a mesh error when TPMS generation, port meshing, CSG assembly,
+    /// or watertightness validation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if a non-degenerate generated port cannot form a straight
+    /// channel path, which would violate the port geometry invariant.
     pub fn run(
         shell: &InterchangeShellCuboid,
         config: &ShellPipelineConfig,

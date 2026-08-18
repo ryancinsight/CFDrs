@@ -4,13 +4,13 @@
 //! boundary-surface `IndexedMesh` objects suitable for CFD simulation and
 //! STL/manufacturing output.
 //!
-//! # Why this lives in CFDrs
+//! # Why this lives in `CFDrs`
 //!
 //! This bridge previously sat in gaia behind a `cfdrs-integration` feature,
 //! which made gaia depend back on `cfd-schematics` and produced a
-//! repository-level cycle CFDrs -> gaia -> CFDrs. The integrator owns its
+//! repository-level cycle `CFDrs` -> gaia -> `CFDrs`. The integrator owns its
 //! bridge to a provider, not the reverse, so the pipeline moved here: gaia
-//! keeps general geometry, and millifluidic chip design stays in CFDrs.
+//! keeps general geometry, and millifluidic chip design stays in `CFDrs`.
 
 #![forbid(unsafe_code)]
 
