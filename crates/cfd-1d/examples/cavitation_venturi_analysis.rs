@@ -3,7 +3,7 @@
 //! Demonstrates cavitation assessment for Sonodynamic Therapy (SDT) design:
 //! 1. Generate a bifurcation geometry with frustum (tapered) channels via `cfd-schematics`
 //! 2. Convert to 1D network and solve water flow
-//! 3. Compute cavitation number σ = (p − p_v)/(0.5·ρ·v²) per channel
+//! 3. Compute cavitation number σ = (`p` − `p_v`)/(0.5·ρ·v²) per channel
 //! 4. Classify cavitation regime (no cavitation / inception / developed / supercavitation)
 //! 5. Render colored schematics for cavitation number and pressure distribution
 //! 6. Export comprehensive JSON results
@@ -36,14 +36,27 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("💧 Cavitation Risk Analysis — Venturi Millifluidic Device");
-    println!("=========================================================\n");
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(
+        output,
+        "💧 Cavitation Risk Analysis — Venturi Millifluidic Device"
+    )?;
+    writeln!(
+        output,
+        "=========================================================\n"
+    )?;
 
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
     fs::create_dir_all(out.join("cavitation"))?;
 
     // ── 1. Generate Frustum Bifurcation Geometry ─────────────────────────────
-    println!("1. Generating bifurcation geometry with frustum channels...");
+    writeln!(
+        output,
+        "1. Generating bifurcation geometry with frustum channels..."
+    )?;
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
@@ -53,14 +66,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channel_type = ChannelTypeConfig::AllStraight;
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
-    println!(
+    writeln!(
+        output,
         "   {} nodes, {} channels",
         system.nodes.len(),
         system.channels.len()
-    );
+    )?;
 
     // ── 2. Plain schematic ───────────────────────────────────────────────────
-    println!("2. Rendering plain schematic...");
+    writeln!(output, "2. Rendering plain schematic...")?;
     plot_geometry(&system, out.join("cavitation/channel_schematic.png"))?;
 
     // ── 3. Convert geometry → 1D specs ───────────────────────────────────────
@@ -68,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channel_specs = system.channels.clone();
 
     // ── 4. Build network with water ──────────────────────────────────────────
-    println!("4. Building network (water at 25°C)...");
+    writeln!(output, "4. Building network (water at 25°C)...")?;
     let water = ConstantPropertyFluid::<f64>::new(
         "Water (25°C)".to_string(),
         aequitas::systems::si::quantities::MassDensity::from_base(997.0),
@@ -104,7 +118,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── 5. Boundary Conditions (high pressure for cavitation) ────────────────
-    println!("5. Applying boundary conditions (high ΔP for cavitation study)...");
+    writeln!(
+        output,
+        "5. Applying boundary conditions (high ΔP for cavitation study)..."
+    )?;
     let inlet_pressure = 50_000.0; // 50 kPa — aggressive for millifluidic cavitation
     let outlet_pressure = 0.0;
 
@@ -112,27 +129,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
             cfd_schematics::domain::model::NodeKind::Inlet => {
-                network.set_pressure(idx, Pressure::from_base(inlet_pressure))
+                network.set_pressure(idx, Pressure::from_base(inlet_pressure));
             }
             cfd_schematics::domain::model::NodeKind::Outlet => {
-                network.set_pressure(idx, Pressure::from_base(outlet_pressure))
+                network.set_pressure(idx, Pressure::from_base(outlet_pressure));
             }
             _ => {}
         }
     }
 
     // ── 6. Solve ─────────────────────────────────────────────────────────────
-    println!("6. Solving 1D network...");
+    writeln!(output, "6. Solving 1D network...")?;
     let solver = NetworkSolver::with_config(SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
         require_flow_convergence: true,
     });
     let solution = solver.solve(&NetworkProblem::new(network))?;
-    println!("   Solution converged.");
+    writeln!(output, "   Solution converged.")?;
 
     // ── 7. Compute cavitation metrics ────────────────────────────────────────
-    println!("7. Computing cavitation numbers and regime classification...");
+    writeln!(
+        output,
+        "7. Computing cavitation numbers and regime classification..."
+    )?;
     let vapor_pressure_25c = 3169.0; // Pa — water at 25°C
 
     let mut edge_sigma = HashMap::<usize, f64>::new();
@@ -162,9 +182,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         else {
             continue;
         };
-        let chan_id = match edge.id.trim_start_matches("chan_").parse::<usize>() {
-            Ok(id) => id,
-            Err(_) => continue,
+        let Ok(chan_id) = edge.id.trim_start_matches("chan_").parse::<usize>() else {
+            continue;
         };
 
         if let Some(p) = solution
@@ -178,19 +197,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .graph
                 .edge_endpoints(petgraph::graph::EdgeIndex::new(eidx))
                 .expect("invariant: every solved channel index names a graph edge");
-            let p_src = solution
-                .pressures
-                .get(src.index())
-                .copied()
-                .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(inlet_pressure);
-            let p_dst = solution
-                .pressures
-                .get(dst.index())
-                .copied()
-                .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(outlet_pressure);
-            let local_pressure = (p_src + p_dst) / 2.0;
+            let p_src = solution.pressures.get(src.index()).copied().map_or(
+                inlet_pressure,
+                aequitas::systems::si::quantities::Pressure::into_base,
+            );
+            let p_dst = solution.pressures.get(dst.index()).copied().map_or(
+                outlet_pressure,
+                aequitas::systems::si::quantities::Pressure::into_base,
+            );
+            let local_pressure = f64::midpoint(p_src, p_dst);
 
             let cav_num = CavitationNumber {
                 reference_pressure: Pressure::from_base(local_pressure),
@@ -217,21 +232,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             *regime_counts.entry(regime.to_string()).or_insert(0) += 1;
 
             if sigma < 2.0 {
-                println!(
-                    "   ⚠ Channel {}: σ = {:.3}, v = {:.2} m/s, regime = {}",
-                    chan_id, sigma, velocity, regime
-                );
+                writeln!(
+                    output,
+                    "   ⚠ Channel {chan_id}: σ = {sigma:.3}, v = {velocity:.2} m/s, regime = {regime}"
+                )?;
             }
         }
     }
 
-    println!("\n   Regime distribution:");
+    writeln!(output, "\n   Regime distribution:")?;
     for (regime, count) in &regime_counts {
-        println!("     {regime}: {count} channels");
+        writeln!(output, "     {regime}: {count} channels")?;
     }
 
     // ── 8. Render cavitation number overlay ──────────────────────────────────
-    println!("\n8. Rendering cavitation number overlay...");
+    writeln!(output, "\n8. Rendering cavitation number overlay...")?;
     let renderer = create_plotters_renderer();
 
     // Invert sigma for coloring: low sigma (high risk) → red
@@ -249,10 +264,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_node_data(Cow::Borrowed(&node_pressure_data))?;
 
     let config_cav = RenderConfig {
-        title: format!(
-            "Cavitation Number σ (red = low σ = high risk, max σ = {:.1})",
-            max_sigma
-        ),
+        title: format!("Cavitation Number σ (red = low σ = high risk, max σ = {max_sigma:.1})"),
         show_axes: true,
         show_grid: false,
         ..Default::default()
@@ -266,7 +278,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 9. Render pressure distribution overlay ──────────────────────────────
-    println!("9. Rendering pressure distribution overlay...");
+    writeln!(output, "9. Rendering pressure distribution overlay...")?;
     let pressure_overlay = AnalysisOverlay::new(AnalysisField::Pressure, NamedColorMap::Viridis)
         .with_edge_data(Cow::Borrowed(&edge_pressure))?
         .with_node_data(Cow::Borrowed(&node_pressure_data))?;
@@ -286,7 +298,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 10. Render velocity overlay ──────────────────────────────────────────
-    println!("10. Rendering velocity overlay...");
+    writeln!(output, "10. Rendering velocity overlay...")?;
     let vel_overlay = AnalysisOverlay::new(AnalysisField::Velocity, NamedColorMap::Viridis)
         .with_edge_data(Cow::Borrowed(&edge_velocity))?
         .with_node_data(Cow::Borrowed(&node_pressure_data))?;
@@ -306,7 +318,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 11. JSON Export ──────────────────────────────────────────────────────
-    println!("11. Exporting results...");
+    writeln!(output, "11. Exporting results...")?;
     let results = serde_json::json!({
         "analysis": "cavitation_venturi",
         "geometry": {
@@ -347,8 +359,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = out.join("cavitation/results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
-    println!("   Results exported to {}", json_path.display());
+    writeln!(output, "   Results exported to {}", json_path.display())?;
 
-    println!("\n✅ Cavitation analysis complete — all outputs in cavitation/");
+    writeln!(
+        output,
+        "\n✅ Cavitation analysis complete — all outputs in cavitation/"
+    )?;
     Ok(())
 }
