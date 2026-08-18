@@ -239,8 +239,12 @@ mod tests {
         state.add_scalar_field(FieldVariable::Pressure, 3);
         state.add_vector_field(FieldVariable::Velocity, 2);
 
-        state.scalar_field_mut(FieldVariable::Pressure).expect("pressure field registered")[1] = 5.0;
-        state.vector_field_mut(FieldVariable::Velocity).expect("velocity field registered")[0] = Vector3::new(1.0, 2.0, 3.0);
+        state
+            .scalar_field_mut(FieldVariable::Pressure)
+            .expect("pressure field registered")[1] = 5.0;
+        state
+            .vector_field_mut(FieldVariable::Velocity)
+            .expect("velocity field registered")[0] = Vector3::new(1.0, 2.0, 3.0);
         state.set_time(2.0);
         state.increment_iteration();
 
@@ -257,7 +261,9 @@ mod tests {
             &[0.0, 0.0, 0.0]
         );
         assert_eq!(
-            state.vector_field(FieldVariable::Velocity).expect("velocity field registered"),
+            state
+                .vector_field(FieldVariable::Velocity)
+                .expect("velocity field registered"),
             &[Vector3::zeros(), Vector3::zeros()]
         );
     }
@@ -266,10 +272,14 @@ mod tests {
     fn field_data_scalar_round_trips_as_leto_array() {
         let mut state = FieldState::<f64>::new();
         state.add_scalar_field(FieldVariable::Pressure, 2);
-        state.scalar_field_mut(FieldVariable::Pressure).expect("pressure field registered")[0] = 4.0;
+        state
+            .scalar_field_mut(FieldVariable::Pressure)
+            .expect("pressure field registered")[0] = 4.0;
 
-        let encoded = serde_json::to_string(&state.fields[&FieldVariable::Pressure]).expect("serde_json serialization");
-        let decoded: FieldData<f64> = serde_json::from_str(&encoded).expect("serde_json deserialization");
+        let encoded = serde_json::to_string(&state.fields[&FieldVariable::Pressure])
+            .expect("serde_json serialization");
+        let decoded: FieldData<f64> =
+            serde_json::from_str(&encoded).expect("serde_json deserialization");
 
         match decoded {
             FieldData::Scalar(values) => {
