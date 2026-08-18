@@ -13,9 +13,9 @@
 //! - Cavity length (Nurick correlation)
 //!
 //! Pipeline:
-//!   cfd-schematics `create_geometry` (AllFrustum) → convert to specs →
-//!   cfd-1d NetworkSolver → `VenturiCavitation` analysis →
-//!   AnalysisOverlay renders → JSON export
+//!   cfd-schematics `create_geometry` (`AllFrustum`) → convert to specs →
+//!   cfd-1d `NetworkSolver` → `VenturiCavitation` analysis →
+//!   `AnalysisOverlay` renders → JSON export
 //!
 //! Run with:
 //! `cargo run -p cfd-1d --example venturi_parallel_analysis`
@@ -45,8 +45,18 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 Venturi Throat Analysis — Parallel Millifluidic Sections");
-    println!("============================================================\n");
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(
+        output,
+        "🔬 Venturi Throat Analysis — Parallel Millifluidic Sections"
+    )?;
+    writeln!(
+        output,
+        "============================================================\n"
+    )?;
 
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
     fs::create_dir_all(out.join("venturi_parallel"))?;
@@ -90,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_results = Vec::new();
 
     for (label, frustum_config) in &configs {
-        println!("━━━ Configuration: {} venturi ━━━", label);
+        writeln!(output, "━━━ Configuration: {label} venturi ━━━")?;
 
         // ── 1. Generate Frustum Geometry ─────────────────────────────────────
         let box_dims = (90.0, 42.0); // mm — 96-well plate footprint
@@ -103,16 +113,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let channel_type = ChannelTypeConfig::AllFrustum(*frustum_config);
 
         let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
-        println!(
+        writeln!(
+            output,
             "  Geometry: {} nodes, {} channels",
             system.nodes.len(),
             system.channels.len()
-        );
+        )?;
 
         // Render schematic
         let schematic_path = out.join(format!("venturi_parallel/{label}_schematic.png"));
         plot_geometry(&system, &schematic_path)?;
-        println!("  Rendered schematic → {label}_schematic.png");
+        writeln!(output, "  Rendered schematic → {label}_schematic.png")?;
 
         // ── 2. Convert to Network Specs ──────────────────────────────────────
         let node_specs = system.nodes.clone();
@@ -172,10 +183,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let solver = NetworkSolver::<f64, ConstantPropertyFluid<f64>>::with_config(config);
         let solution = solver.solve(&NetworkProblem::new(network))?;
-        println!("  Solver converged.");
+        writeln!(output, "  Solver converged.")?;
 
         // ── 6. Venturi Cavitation Analysis per Channel ───────────────────────
-        println!("\n  Channel Results:");
+        writeln!(output, "\n  Channel Results:")?;
         let mut edge_cavitation_sigma = HashMap::new();
         let mut edge_throat_velocity = HashMap::new();
         let mut edge_throat_pressure = HashMap::new();
@@ -194,8 +205,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .flow_rates
                 .get(eidx.index())
                 .copied()
-                .map(aequitas::systems::si::quantities::VolumetricFlowRate::into_base)
-                .unwrap_or(0.0)
+                .map_or(
+                    0.0,
+                    aequitas::systems::si::quantities::VolumetricFlowRate::into_base,
+                )
                 .abs();
 
             // Upstream/downstream pressures
@@ -207,18 +220,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .pressures
                 .get(src.index())
                 .copied()
-                .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, aequitas::systems::si::quantities::Pressure::into_base);
             let p_dn = solution
                 .pressures
                 .get(tgt.index())
                 .copied()
-                .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, aequitas::systems::si::quantities::Pressure::into_base);
             let dp = (p_up - p_dn).abs();
 
             let props = solution.properties.get(&eidx);
-            let length = props.map(|p| p.length.into_base()).unwrap_or(0.01);
+            let length = props.map_or(0.01, |p| p.length.into_base());
 
             // Throat geometry from FrustumConfig (SI units)
             let inlet_d = frustum_config.inlet_width / 1000.0; // mm → m
@@ -266,18 +277,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let venturi_r = calc
                 .calculate_venturi_coefficients(&venturi_model, &water, &conditions)
-                .map(|(r, _k)| r)
-                .unwrap_or(0.0);
+                .map_or(0.0, |(r, _k)| r);
 
-            println!("    {} | Q={:.3e} m³/s | ΔP={:.0} Pa", e.id, q, dp);
-            println!(
-                "      Throat: v={:.2} m/s  p={:.0} Pa  σ={:.3}  cavitating={}",
-                v_throat, p_throat, sigma, is_cav
-            );
+            writeln!(output, "    {} | Q={:.3e} m³/s | ΔP={:.0} Pa", e.id, q, dp)?;
+            writeln!(
+                output,
+                "      Throat: v={v_throat:.2} m/s  p={p_throat:.0} Pa  σ={sigma:.3}  cavitating={is_cav}"
+            )?;
             if cavity_len > 0.0 {
-                println!("      Cavity length: {:.3} mm", cavity_len * 1000.0);
+                writeln!(output, "      Cavity length: {:.3} mm", cavity_len * 1000.0)?;
             }
-            println!("      Venturi R = {:.3e} Pa·s/m³", venturi_r);
+            writeln!(output, "      Venturi R = {venturi_r:.3e} Pa·s/m³")?;
 
             edge_cavitation_sigma.insert(eidx.index(), sigma);
             edge_throat_velocity.insert(eidx.index(), v_throat);
@@ -340,7 +350,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path = out.join(format!("venturi_parallel/{label}_{filename}.png"));
             renderer.render_analysis(&system, &path, &rc, &overlay)?;
         }
-        println!("  Rendered 4 overlay maps.");
+        writeln!(output, "  Rendered 4 overlay maps.")?;
 
         // ── 8. Collect JSON ──────────────────────────────────────────────────
         let node_results: Vec<_> = solution
@@ -357,8 +367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .pressures
                         .get(idx.index())
                         .copied()
-                        .map(aequitas::systems::si::quantities::Pressure::into_base)
-                        .unwrap_or(0.0),
+                        .map_or(0.0, aequitas::systems::si::quantities::Pressure::into_base),
                     "type": format!("{:?}", n.node_type)
                 })
             })
@@ -376,7 +385,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "channels": channel_results,
         }));
 
-        println!();
+        writeln!(output)?;
     }
 
     // ── 9. Export Combined JSON ──────────────────────────────────────────────
@@ -390,7 +399,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let json_path = out.join("venturi_parallel/results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&report)?)?;
-    println!("✅ Exported combined results to {}", json_path.display());
+    writeln!(
+        output,
+        "✅ Exported combined results to {}",
+        json_path.display()
+    )?;
 
     Ok(())
 }
