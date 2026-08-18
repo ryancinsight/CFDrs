@@ -1,3 +1,32 @@
+## CI: Atlas provider checkout was a no-op fetching a whole repo — DONE (2026-08-17)
+
+Both `ci.yml` jobs ran `ryancinsight/atlas/.github/actions/checkout-path-dependencies`,
+which downloads a full atlas tarball to materialize sibling provider repos. It
+materialized nothing — CFDrs CI run 32046526277 reports, in both jobs:
+
+    verified 0 provider checkout(s) and 0 dependency manifest(s):
+
+Verified before removing: no sibling path dependencies (every `path = "../"` is
+intra-workspace), no `[patch]` in any committed manifest, none in the committed
+`.cargo/config.toml`, and nothing in sources, scripts, or workflows reads a
+sibling directory. Every Atlas dependency is declared `git + version`, which
+cargo resolves on its own. The action only *reads* path and `[patch]` entries to
+decide what to fetch, so with neither present its work set is empty.
+
+Cost is shared, not local: each invocation pulls the atlas repo from codeload,
+and the same vestigial step ran across Atlas members simultaneously. That
+saturated the org's codeload budget and produced sustained 429/503 failures --
+it blocked Kwavers PRs #395 and #396 for hours, where retrying under the limit
+fed the limit.
+
+Removed both invocations (14 lines, no additions). Same fix landed in Kwavers as
+PR #398, whose CI was fully green without the step -- five workflow runs, which
+is the proof the step did nothing.
+
+Still open elsewhere: helios also invokes this action twice, but from a
+benchmark job that skipped in the run sampled, so whether it materializes
+anything there is unverified -- do not assume it matches.
+
 > ## Vocabulary policy (canonical atlas-migration terms-of-art)
 
 > **2026-07-10 migration increment**: `[major]` closed the behaviorally inert

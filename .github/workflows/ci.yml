@@ -37,13 +37,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
-        with:
-          manifest: Cargo.toml
-          destination: ..
-          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
-
       - name: Install the pinned Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -62,8 +55,19 @@ jobs:
 
       - name: Install native fontconfig headers
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes libfontconfig1-dev
+          # Each apt call is bounded and retried: an unbounded apt-get can stall
+          # on the dpkg lock held by unattended-upgrades early in a runner's
+          # life, and without a deadline that silently consumes the whole
+          # 60-minute job budget instead of failing fast.
+          for attempt in 1 2 3; do
+            if sudo timeout 240 apt-get update               && sudo timeout 240 apt-get install --yes libfontconfig1-dev; then
+              exit 0
+            fi
+            echo "apt attempt ${attempt} failed or timed out; retrying" >&2
+            sleep 20
+          done
+          echo "apt-get did not complete after 3 attempts" >&2
+          exit 1
 
       - name: Cache cargo dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -105,13 +109,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-
-      - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
-        with:
-          manifest: Cargo.toml
-          destination: ..
-          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
