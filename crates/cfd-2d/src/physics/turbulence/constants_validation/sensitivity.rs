@@ -13,9 +13,9 @@ use std::collections::HashMap;
 impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
     /// Validate k-ε model constants against DNS channel flow
     pub fn validate_k_epsilon_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
-            "🔬 Validating k-ε model constants against DNS channel flow (Re_τ = {})",
-            self.dns_database.re_tau
+        tracing::info!(
+            re_tau = self.dns_database.re_tau,
+            "Validating k-epsilon constants against DNS channel flow"
         );
 
         let c_mu_baseline = scalar::<T>(C_MU);
@@ -189,9 +189,9 @@ impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
 
     /// Validate k-ω SST model constants against DNS
     pub fn validate_k_omega_sst_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
-            "🔬 Validating k-ω SST model constants against DNS channel flow (Re_τ = {})",
-            self.dns_database.re_tau
+        tracing::info!(
+            re_tau = self.dns_database.re_tau,
+            "Validating k-omega SST constants against DNS channel flow"
         );
 
         let alpha1_baseline = scalar::<T>(SST_ALPHA_1);
@@ -311,9 +311,9 @@ impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
 
     /// Validate Spalart-Allmaras constants
     pub fn validate_spalart_allmaras_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
-            "🔬 Validating Spalart-Allmaras constants against DNS channel flow (Re_τ = {})",
-            self.dns_database.re_tau
+        tracing::info!(
+            re_tau = self.dns_database.re_tau,
+            "Validating Spalart-Allmaras constants against DNS channel flow"
         );
 
         let cb1_baseline = scalar::<T>(SA_CB1);

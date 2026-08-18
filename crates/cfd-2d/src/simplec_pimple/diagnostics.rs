@@ -131,7 +131,9 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
                     Vector2::zeros(),
                 ));
             }
-            let velocity_field = vfc.as_mut().unwrap();
+            let velocity_field = vfc
+                .as_mut()
+                .expect("invariant: velocity cache is initialized before diagnostic interpolation");
 
             let mut cvc = self._cons_vel_cache.borrow_mut();
             if cvc
@@ -140,7 +142,9 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
             {
                 *cvc = Some(Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros()));
             }
-            let consistent_velocity = cvc.as_mut().unwrap();
+            let consistent_velocity = cvc
+                .as_mut()
+                .expect("invariant: consistent-velocity cache is initialized before diagnostic interpolation");
 
             self.interpolate_consistent_velocity(
                 rhie_chow,

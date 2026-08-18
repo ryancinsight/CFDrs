@@ -97,7 +97,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
             )
-            .unwrap(),
+            .expect("invariant: default U momentum coefficients accept a valid grid"),
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
@@ -108,7 +108,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
             )
-            .unwrap(),
+            .expect("invariant: default V momentum coefficients accept a valid grid"),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -141,7 +141,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,
             )
-            .unwrap(),
+            .expect("invariant: configured U momentum coefficients accept a valid grid"),
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
@@ -152,7 +152,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,
             )
-            .unwrap(),
+            .expect("invariant: configured V momentum coefficients accept a valid grid"),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,

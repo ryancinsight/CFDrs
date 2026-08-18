@@ -16,7 +16,9 @@ pub(super) fn apply_rotating_wall_bc<T: CfdScalar + Copy + FloatElement>(
     let i = idx % nx;
     let j = idx / nx;
 
-    let cell_center = grid.cell_center(i, j).unwrap();
+    let cell_center = grid
+        .cell_center(i, j)
+        .expect("invariant: rotating-wall index is inside the validated grid");
     let x = cell_center[0];
     let y = cell_center[1];
 

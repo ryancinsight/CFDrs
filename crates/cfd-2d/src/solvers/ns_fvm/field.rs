@@ -140,13 +140,16 @@ impl<T: CfdScalar + Copy + FloatElement> FlowField2D<T> {
             .u
             .iter()
             .map(|&v| <T as NumericElement>::abs(v))
-            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
+            // NaN velocities have no ordering; treating them as equal keeps
+            // the reduction panic-free while the solver's finite-value checks
+            // report the invalid field to its caller.
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or_else(scalar::zero::<T>);
         let max_v = self
             .v
             .iter()
             .map(|&v| <T as NumericElement>::abs(v))
-            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or_else(scalar::zero::<T>);
         max_u.max_scalar(max_v)
     }

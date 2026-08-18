@@ -163,7 +163,9 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect(
+                            "invariant: fixed k-epsilon validation state is accepted by the model",
+                        );
                 }
 
                 (k, epsilon, vec![], vec![])
@@ -185,7 +187,9 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect(
+                            "invariant: fixed k-omega validation state is accepted by the model",
+                        );
                 }
 
                 (k, vec![], omega, vec![])
@@ -204,7 +208,7 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                             Self::scalar(0.1),
                             Self::scalar(0.1),
                         )
-                        .unwrap();
+                        .expect("invariant: fixed Spalart-Allmaras validation state is accepted by the model");
                 }
 
                 (vec![], vec![], vec![], nu_tilde)

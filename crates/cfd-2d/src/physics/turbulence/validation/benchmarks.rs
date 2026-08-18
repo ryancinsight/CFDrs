@@ -93,7 +93,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                             0.1,
                             0.1,
                         )
-                        .unwrap();
+                        .expect("invariant: fixed LES benchmark state is accepted by the model");
                 }
             }
             BenchmarkModel::DetachedEddySimulation => {
@@ -122,7 +122,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                             0.1,
                             0.1,
                         )
-                        .unwrap();
+                        .expect("invariant: fixed DES benchmark state is accepted by the model");
                 }
             }
         }

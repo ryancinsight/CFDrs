@@ -78,12 +78,20 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
 
         let (matrix, rhs) = match component {
             MomentumComponent::U => (
-                self.matrix_u.as_ref().unwrap(),
-                self.rhs_u.as_ref().unwrap(),
+                self.matrix_u
+                    .as_ref()
+                    .expect("invariant: U momentum assembly stores a matrix"),
+                self.rhs_u
+                    .as_ref()
+                    .expect("invariant: U momentum assembly stores a right-hand side"),
             ),
             MomentumComponent::V => (
-                self.matrix_v.as_ref().unwrap(),
-                self.rhs_v.as_ref().unwrap(),
+                self.matrix_v
+                    .as_ref()
+                    .expect("invariant: V momentum assembly stores a matrix"),
+                self.rhs_v
+                    .as_ref()
+                    .expect("invariant: V momentum assembly stores a right-hand side"),
             ),
         };
 
@@ -215,8 +223,16 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             }
         } else {
             match component {
-                MomentumComponent::U => self.rhs_u.as_mut().unwrap().fill(scalar::zero::<T>()),
-                MomentumComponent::V => self.rhs_v.as_mut().unwrap().fill(scalar::zero::<T>()),
+                MomentumComponent::U => self
+                    .rhs_u
+                    .as_mut()
+                    .expect("invariant: U right-hand side shape matches the assembled grid")
+                    .fill(scalar::zero::<T>()),
+                MomentumComponent::V => self
+                    .rhs_v
+                    .as_mut()
+                    .expect("invariant: V right-hand side shape matches the assembled grid")
+                    .fill(scalar::zero::<T>()),
             }
         }
 
@@ -321,8 +337,14 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             }
         } else {
             let mut matrix = match component {
-                MomentumComponent::U => self.matrix_u.take().unwrap(),
-                MomentumComponent::V => self.matrix_v.take().unwrap(),
+                MomentumComponent::U => self
+                    .matrix_u
+                    .take()
+                    .expect("invariant: U matrix exists when updating an assembled system"),
+                MomentumComponent::V => self
+                    .matrix_v
+                    .take()
+                    .expect("invariant: V matrix exists when updating an assembled system"),
             };
             matrix.values_mut().fill(T::ZERO);
 

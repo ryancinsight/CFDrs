@@ -44,12 +44,12 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
             0.1,
         );
 
-        if result.is_err() {
+        if let Err(error) = result {
             return ValidationResult {
                 test_name: "Smagorinsky LES SGS Viscosity".to_string(),
                 passed: false,
                 metric: "Update failed".to_string(),
-                details: format!("Error: {:?}", result.err().unwrap()),
+                details: format!("Error: {error:?}"),
             };
         }
 
@@ -117,12 +117,12 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
             0.1,
         );
 
-        if result.is_err() {
+        if let Err(error) = result {
             return ValidationResult {
                 test_name: "DES Length Scale Calculation".to_string(),
                 passed: false,
                 metric: "Update failed".to_string(),
-                details: format!("Error: {:?}", result.err().unwrap()),
+                details: format!("Error: {error:?}"),
             };
         }
 
@@ -202,7 +202,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("invariant: fixed LES benchmark state is accepted by the model");
         }
 
         let wall_shear_stress =
@@ -269,7 +269,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("invariant: fixed LES benchmark state is accepted by the model");
         }
 
         let mut u_plus_calculated = Vec::new();
@@ -365,7 +365,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                     dx,
                     dy,
                 )
-                .unwrap();
+                .expect("invariant: fixed DES benchmark state is accepted by the model");
 
             if step % 5 == 0 {
                 let current_ke = Self::calculate_kinetic_energy(&velocity_u, &velocity_v);
