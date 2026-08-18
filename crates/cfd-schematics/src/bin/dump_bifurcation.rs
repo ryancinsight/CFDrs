@@ -1,13 +1,20 @@
+//! Dumps the nodes and channels of a symmetric bifurcation preset.
+
+use std::io::{self, Write};
+
 use cfd_schematics::interface::presets::symmetric_bifurcation;
 
-fn main() {
+fn main() -> io::Result<()> {
     let bp = symmetric_bifurcation("test", 0.010, 0.010, 0.004, 0.003);
-    println!("Nodes:");
+    let standard_output = io::stdout();
+    let mut terminal = standard_output.lock();
+    writeln!(terminal, "Nodes:")?;
     for n in &bp.nodes {
-        println!("  {:?}: {:?}", n.id, n.kind);
+        writeln!(terminal, "  {:?}: {:?}", n.id, n.kind)?;
     }
-    println!("Channels:");
+    writeln!(terminal, "Channels:")?;
     for c in &bp.channels {
-        println!("  {:?} ({:?} -> {:?})", c.id, c.from, c.to);
+        writeln!(terminal, "  {:?} ({:?} -> {:?})", c.id, c.from, c.to)?;
     }
+    Ok(())
 }

@@ -1,3 +1,5 @@
+//! Verifies schematic annotation rendering and marker semantics.
+
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeId, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnnotationMarker, MarkerRole, RenderConfig, SchematicAnnotations,

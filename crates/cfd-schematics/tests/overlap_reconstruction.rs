@@ -1,3 +1,5 @@
+//! Verifies overlap resolution and its JSON/interchange round trips.
+
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 
 fn crossing_system() -> NetworkBlueprint {
