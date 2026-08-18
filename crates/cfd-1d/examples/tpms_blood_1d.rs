@@ -33,6 +33,7 @@ use cfd_core::compute::solver::Solver;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+use std::io::Write;
 
 /// Hagen-Poiseuille resistance for a circular tube: R = 128·μ·L / (π·D⁴)
 fn hagen_poiseuille_resistance(mu: f64, length_m: f64, diameter_m: f64) -> f64 {
@@ -40,11 +41,25 @@ fn hagen_poiseuille_resistance(mu: f64, length_m: f64, diameter_m: f64) -> f64 {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  1D Blood Flow in TPMS-Inspired Channel Network        ║");
-    println!("║  Gyroid lattice → lumped Hagen-Poiseuille solver        ║");
-    println!("╚══════════════════════════════════════════════════════════╝");
-    println!();
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(
+        output,
+        "╔══════════════════════════════════════════════════════════╗"
+    )?;
+    writeln!(
+        output,
+        "║  1D Blood Flow in TPMS-Inspired Channel Network        ║"
+    )?;
+    writeln!(
+        output,
+        "║  Gyroid lattice → lumped Hagen-Poiseuille solver        ║"
+    )?;
+    writeln!(
+        output,
+        "╚══════════════════════════════════════════════════════════╝"
+    )?;
+    writeln!(output)?;
 
     // ── 1. Fluid: Carreau-Yasuda Blood ───────────────────────────────────────
     //
@@ -54,17 +69,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //   ρ = 1060 kg/m³, μ₀ = 0.056 Pa·s, μ_∞ = 0.0035 Pa·s
     //   λ = 3.313 s, n = 0.3568, a = 2.0
     let blood = CarreauYasuda::<f64>::blood();
-    println!("Fluid Model: {}", blood.name());
-    println!("  Density       : {} kg/m³", blood.density.into_base());
-    println!(
+    writeln!(output, "Fluid Model: {}", blood.name())?;
+    writeln!(
+        output,
+        "  Density       : {} kg/m³",
+        blood.density.into_base()
+    )?;
+    writeln!(
+        output,
         "  μ₀ (zero-shear) : {:.4} Pa·s",
         blood.viscosity_zero.into_base()
-    );
-    println!(
+    )?;
+    writeln!(
+        output,
         "  μ_∞ (high-shear): {:.4} Pa·s",
         blood.viscosity_inf.into_base()
-    );
-    println!();
+    )?;
+    writeln!(output)?;
 
     // ── 2. Network Topology ──────────────────────────────────────────────────
     //
@@ -153,9 +174,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
     ];
 
-    println!("Network Topology (Gyroid-inspired):");
+    writeln!(output, "Network Topology (Gyroid-inspired):")?;
     for ch in &channels {
-        println!(
+        writeln!(
+            output,
             "  {} : {} → {}, D_h = {:.1} mm, L = {:.1} mm, R = {:.2e} Pa·s/m³",
             ch.id.as_str(),
             ch.from.as_str(),
@@ -163,9 +185,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ch.cross_section.hydraulic_diameter().into_base() * 1e3,
             ch.length_m.into_base() * 1e3,
             ch.resistance.into_base(),
-        );
+        )?;
     }
-    println!();
+    writeln!(output)?;
 
     // ── 3. Build Network ─────────────────────────────────────────────────────
     let mut builder = NetworkBuilder::<f64>::new();
@@ -238,10 +260,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     network.update_resistances()?;
 
-    println!("Boundary Conditions:");
-    println!("  Inlet flow  : {:.2} mL/min ({:.2e} m³/s)", 2.0, q_inlet);
-    println!("  Outlet press: 101325 Pa (atmospheric)");
-    println!();
+    writeln!(output, "Boundary Conditions:")?;
+    writeln!(
+        output,
+        "  Inlet flow  : {:.2} mL/min ({:.2e} m³/s)",
+        2.0, q_inlet
+    )?;
+    writeln!(output, "  Outlet press: 101325 Pa (atmospheric)")?;
+    writeln!(output)?;
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
     let config = SolverConfig {
@@ -250,50 +276,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         require_flow_convergence: true,
     };
     let solver = NetworkSolver::<f64, CarreauYasuda<f64>>::with_config(config);
-    println!("Solving (Anderson-accelerated Picard iteration) ...");
+    writeln!(
+        output,
+        "Solving (Anderson-accelerated Picard iteration) ..."
+    )?;
     let solution = solver.solve(&NetworkProblem::new(network))?;
 
     // ── 6. Results ───────────────────────────────────────────────────────────
-    println!();
-    println!("═══════════════════════════════════════════════════════");
-    println!("  NODE PRESSURES");
-    println!("═══════════════════════════════════════════════════════");
+    writeln!(output)?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
+    writeln!(output, "  NODE PRESSURES")?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
     for idx in solution.graph.node_indices() {
-        let n = solution.graph.node_weight(idx).unwrap();
+        let n = solution
+            .graph
+            .node_weight(idx)
+            .expect("invariant: every solved node index names a node");
         let p = solution
             .pressures
             .get(idx.index())
             .copied()
-            .map(Pressure::into_base)
-            .unwrap_or(0.0);
-        println!(
+            .map_or(0.0, Pressure::into_base);
+        writeln!(
+            output,
             "  {:10} : {:>10.2} Pa  ({:>7.2} mmHg)",
             n.id,
             p,
             p / 133.322
-        );
+        )?;
     }
 
-    println!();
-    println!("═══════════════════════════════════════════════════════");
-    println!("  CHANNEL FLOW RATES & HEMODYNAMICS");
-    println!("═══════════════════════════════════════════════════════");
+    writeln!(output)?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
+    writeln!(output, "  CHANNEL FLOW RATES & HEMODYNAMICS")?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
     for idx in solution.graph.edge_indices() {
-        let e = solution.graph.edge_weight(idx).unwrap();
+        let e = solution
+            .graph
+            .edge_weight(idx)
+            .expect("invariant: every solved edge index names an edge");
         let q = solution
             .flow_rates
             .get(idx.index())
             .copied()
-            .map(VolumetricFlowRate::into_base)
-            .unwrap_or(0.0);
+            .map_or(0.0, VolumetricFlowRate::into_base);
         let props = solution.properties.get(&idx);
 
         let (velocity, shear_rate) = if let Some(p) = props {
             let vel = q.abs() / p.area.into_base();
             let sr = p
                 .hydraulic_diameter
-                .map(|d| 8.0 * vel / d.into_base())
-                .unwrap_or(0.0);
+                .map_or(0.0, |d| 8.0 * vel / d.into_base());
             (vel, sr)
         } else {
             (0.0, 0.0)
@@ -302,15 +347,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
         let wall_shear = (viscosity * shear_rate).into_base();
 
-        println!("  {}", e.id);
-        println!("    Flow rate         : {:.4} mL/min", q.abs() * 1e6 * 60.0);
-        println!("    Mean velocity     : {:.2} cm/s", velocity * 100.0);
-        println!("    Wall shear rate   : {:.1} s⁻¹", shear_rate);
-        println!(
+        writeln!(output, "  {}", e.id)?;
+        writeln!(
+            output,
+            "    Flow rate         : {:.4} mL/min",
+            q.abs() * 1e6 * 60.0
+        )?;
+        writeln!(
+            output,
+            "    Mean velocity     : {:.2} cm/s",
+            velocity * 100.0
+        )?;
+        writeln!(output, "    Wall shear rate   : {shear_rate:.1} s⁻¹")?;
+        writeln!(
+            output,
             "    Apparent viscosity: {:.3} mPa·s",
             viscosity.into_base() * 1000.0
-        );
-        println!("    Wall shear stress : {:.3} Pa", wall_shear);
+        )?;
+        writeln!(output, "    Wall shear stress : {wall_shear:.3} Pa")?;
     }
 
     // ── 7. Flow Distribution Analysis ────────────────────────────────────────
@@ -318,35 +372,53 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .flow_rates
         .get(edge_indices["ch_upper_1"].index())
         .copied()
-        .map(VolumetricFlowRate::into_base)
-        .unwrap_or(0.0)
+        .map_or(0.0, VolumetricFlowRate::into_base)
         .abs();
     let q_lower = solution
         .flow_rates
         .get(edge_indices["ch_lower_1"].index())
         .copied()
-        .map(VolumetricFlowRate::into_base)
-        .unwrap_or(0.0)
+        .map_or(0.0, VolumetricFlowRate::into_base)
         .abs();
     let q_total = q_upper + q_lower;
 
-    println!();
-    println!("═══════════════════════════════════════════════════════");
-    println!("  TPMS LATTICE FLOW DISTRIBUTION");
-    println!("═══════════════════════════════════════════════════════");
-    println!(
+    writeln!(output)?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
+    writeln!(output, "  TPMS LATTICE FLOW DISTRIBUTION")?;
+    writeln!(
+        output,
+        "═══════════════════════════════════════════════════════"
+    )?;
+    writeln!(
+        output,
         "  Upper branch (D=2.0mm): {:.1}%",
         q_upper / q_total * 100.0
-    );
-    println!(
+    )?;
+    writeln!(
+        output,
         "  Lower branch (D=2.5mm): {:.1}%",
         q_lower / q_total * 100.0
-    );
-    println!();
-    println!("  The lower branch carries more flow due to its larger");
-    println!("  diameter (lower Hagen-Poiseuille resistance, R ∝ D⁻⁴).");
-    println!("  This is analogous to how different-sized Gyroid pores");
-    println!("  naturally partition flow by their hydraulic resistance.");
+    )?;
+    writeln!(output)?;
+    writeln!(
+        output,
+        "  The lower branch carries more flow due to its larger"
+    )?;
+    writeln!(
+        output,
+        "  diameter (lower Hagen-Poiseuille resistance, R ∝ D⁻⁴)."
+    )?;
+    writeln!(
+        output,
+        "  This is analogous to how different-sized Gyroid pores"
+    )?;
+    writeln!(
+        output,
+        "  naturally partition flow by their hydraulic resistance."
+    )?;
 
     // ── 8. JSON Export ───────────────────────────────────────────────────────
     let output_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -366,7 +438,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = output_dir.join("results.json");
     std::fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
-    println!("  Results exported to: {}", json_path.display());
+    writeln!(output, "  Results exported to: {}", json_path.display())?;
 
     Ok(())
 }
