@@ -355,8 +355,10 @@ mod tests {
             speed_of_sound: Velocity::from_base(340.0),
         };
 
-        assert!(air.properties_at(-10.0, 101325.0).is_err());
-        assert!(air.properties_at(0.0, 101325.0).is_err());
+        air.properties_at(-10.0, 101325.0)
+            .expect_err("invariant: negative temperature is rejected");
+        air.properties_at(0.0, 101325.0)
+            .expect_err("invariant: zero temperature is rejected");
     }
 
     #[test]
@@ -392,12 +394,12 @@ mod tests {
             speed_of_sound: Velocity::from_base(1500.0),
         };
 
-        assert!(fluid
+        fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(0.0))
-            .is_err());
-        assert!(fluid
+            .expect_err("invariant: zero Arrhenius temperature is rejected");
+        fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(-1.0))
-            .is_err());
+            .expect_err("invariant: negative Arrhenius temperature is rejected");
     }
 
     #[test]
@@ -471,11 +473,11 @@ mod tests {
         let expected_viscosity = 0.25 * f64::exp(10.0 / (7.0 - 2.0));
         assert!((viscosity - expected_viscosity).abs() <= 8.0 * f64::EPSILON * expected_viscosity);
 
-        assert!(fluid
+        fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(2.0))
-            .is_err());
-        assert!(fluid
+            .expect_err("invariant: singular Andrade temperature is rejected");
+        fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(1.0))
-            .is_err());
+            .expect_err("invariant: invalid Andrade temperature is rejected");
     }
 }

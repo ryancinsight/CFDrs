@@ -441,7 +441,9 @@ mod tests {
             TemperatureDifference::from_base(110.4),
         );
 
-        assert!(<IdealGas<f64> as FluidTrait<f64>>::properties_at(&gas, 0.0, 101_325.0).is_err());
-        assert!(<IdealGas<f64> as FluidTrait<f64>>::properties_at(&gas, 288.15, 0.0).is_err());
+        <IdealGas<f64> as FluidTrait<f64>>::properties_at(&gas, 0.0, 101_325.0)
+            .expect_err("invariant: zero temperature is rejected");
+        <IdealGas<f64> as FluidTrait<f64>>::properties_at(&gas, 288.15, 0.0)
+            .expect_err("invariant: zero pressure is rejected");
     }
 }

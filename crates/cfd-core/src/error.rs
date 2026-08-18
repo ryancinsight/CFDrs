@@ -1595,7 +1595,6 @@ mod tests {
     fn test_error_context() {
         let result: Result<()> = Err(Error::InvalidInput("test".into()));
         let with_context = result.context("Additional context");
-        assert!(with_context.is_err());
         let error_msg = format!(
             "{}",
             with_context.expect_err("invariant: context preserves the error")
@@ -1612,6 +1611,6 @@ mod tests {
         );
 
         let none_value: Option<i32> = None;
-        assert!(require(none_value, "missing").is_err());
+        require(none_value, "missing").expect_err("invariant: absent value is rejected");
     }
 }

@@ -219,7 +219,8 @@ mod tests {
             SpecificHeatCapacity::from_base(4186.0),
             ThermalConductivity::from_base(0.6),
         );
-        assert!(validate_properties(&valid, &bounds).is_ok());
+        validate_properties(&valid, &bounds)
+            .expect("invariant: water-like fluid properties are valid");
 
         // Invalid density
         let invalid_density = FluidProperties::new(
@@ -228,14 +229,15 @@ mod tests {
             SpecificHeatCapacity::from_base(4186.0),
             ThermalConductivity::from_base(0.6),
         );
-        assert!(validate_properties(&invalid_density, &bounds).is_err());
+        validate_properties(&invalid_density, &bounds)
+            .expect_err("invariant: negative density is rejected");
     }
 
     #[test]
     fn test_reynolds_validation() {
-        assert!(validate_reynolds(1000.0).is_ok());
-        assert!(validate_reynolds(0.0).is_ok());
-        assert!(validate_reynolds(-100.0).is_err());
-        assert!(validate_reynolds(1e9).is_err()); // Too large
+        validate_reynolds(1000.0).expect("invariant: nominal Reynolds number is valid");
+        validate_reynolds(0.0).expect("invariant: zero Reynolds number is valid");
+        validate_reynolds(-100.0).expect_err("invariant: negative Reynolds number is rejected");
+        validate_reynolds(1e9).expect_err("invariant: excessive Reynolds number is rejected");
     }
 }

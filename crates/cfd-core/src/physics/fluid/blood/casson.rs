@@ -443,12 +443,16 @@ mod tests {
     #[test]
     fn test_casson_validation_passes() {
         let blood = CassonBlood::<f64>::normal_blood();
-        assert!(blood.validate().is_ok());
+        blood
+            .validate()
+            .expect("invariant: normal blood parameters are valid");
 
         // Invalid parameters
         let mut invalid = blood;
         invalid.density = MassDensity::from_base(-1.0);
-        assert!(invalid.validate().is_err());
+        invalid
+            .validate()
+            .expect_err("invariant: negative density is rejected");
     }
 
     // ── temperature_viscosity_factor ─────────────────────────────────────────
