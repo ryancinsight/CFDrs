@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicResistance, Length, ReciprocalTime, VolumetricFlowRate,
 };

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Comprehensive 2D FDM Poisson solver validation tests
 //!

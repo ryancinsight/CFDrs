@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;

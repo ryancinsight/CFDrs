@@ -92,16 +92,16 @@ fn rejects_invalid_grid_lengths_constants_and_values() {
     let Some(compute) = compute() else { return };
     let length_error = compute
         .compute_smagorinsky_sgs(&field[..8], &field, grid, 0.1, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient field size");
     assert!(matches!(length_error, Error::DimensionMismatch { .. }));
     let constant_error = compute
         .compute_des_length_scale(grid, -0.1, &mut output)
-        .unwrap_err();
+        .expect_err("should reject negative constant");
     assert!(matches!(constant_error, Error::InvalidConfiguration(_)));
     let mut nonfinite = field.clone();
     nonfinite[4] = f32::NAN;
     let value_error = compute
         .compute_smagorinsky_sgs(&field, &nonfinite, grid, 0.1, &mut output)
-        .unwrap_err();
+        .expect_err("should reject non-finite values");
     assert!(matches!(value_error, Error::PhysicsViolation(_)));
 }

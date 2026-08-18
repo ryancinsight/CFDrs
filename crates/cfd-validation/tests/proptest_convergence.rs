@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Property-based tests for convergence monitoring and criteria
 //!
 //! Uses proptest for generative testing of convergence behavior under various conditions.

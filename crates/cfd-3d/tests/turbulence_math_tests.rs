@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use cfd_3d::turbulence::sigma::SigmaModel;
 use cfd_3d::turbulence::spalart_allmaras::SpalartAllmarasModel;
 use cfd_3d::turbulence::vreman::VremanModel;

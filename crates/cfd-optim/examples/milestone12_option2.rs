@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Option 2: Selective Venturi Hydrodynamic Cavitation.
 //!
 //! This track centres on **Rayleigh–Plesset bubble dynamics** in venturi

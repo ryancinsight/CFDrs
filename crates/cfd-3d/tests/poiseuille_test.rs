@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,

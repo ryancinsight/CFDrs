@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 #[test]
 fn test_schematics2mesh_stl_output() {
     use aequitas::systems::si::quantities::Length;

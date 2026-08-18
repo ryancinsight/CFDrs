@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Adversarial tests for cfd-1d: robustness, boundary conditions, and degenerate inputs.
 //!
 //! Tests verify that:

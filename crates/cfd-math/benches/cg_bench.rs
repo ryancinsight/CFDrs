@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::explicit_iter_loop)]
+
 use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use leto::Array1;

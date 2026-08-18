@@ -28,10 +28,7 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
     let rel_err = (r - expected).abs() / expected.abs();
     assert!(
         rel_err < 1e-12,
-        "Hagen-Poiseuille resistance mismatch: r={} expected={} rel_err={}",
-        r,
-        expected,
-        rel_err
+        "Hagen-Poiseuille resistance mismatch: r={r} expected={expected} rel_err={rel_err}"
     );
 }
 
@@ -60,9 +57,6 @@ fn test_darcy_weisbach_laminar_limit_friction_factor() {
     let rel_err = (r - expected).abs() / expected.abs();
     assert!(
         rel_err < 1e-3,
-        "Darcy-Weisbach laminar limit mismatch: r={} expected={} rel_err={}",
-        r,
-        expected,
-        rel_err
+        "Darcy-Weisbach laminar limit mismatch: r={r} expected={expected} rel_err={rel_err}"
     );
 }

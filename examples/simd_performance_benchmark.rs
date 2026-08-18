@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! SIMD Performance Benchmark for CFD Operations
 //!
 //! This benchmark demonstrates the performance improvement of SIMD-accelerated

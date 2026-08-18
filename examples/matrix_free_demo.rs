@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Matrix-Free Linear Solvers Demo
 //!
 //! This example demonstrates the use of matrix-free linear solvers

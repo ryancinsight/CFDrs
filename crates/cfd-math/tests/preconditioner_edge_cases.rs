@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive preconditioner edge case validation tests
 //!
 //! Validates robustness of ILU and Cholesky preconditioners per:

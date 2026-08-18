@@ -1,4 +1,5 @@
-#![allow(clippy::print_stdout)]
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout, clippy::uninlined_format_args, clippy::doc_markdown)]
 //! Medical-Grade Millifluidic CFD Screening
 //!
 //! Comprehensive example combining all medical-relevant analyses in a single

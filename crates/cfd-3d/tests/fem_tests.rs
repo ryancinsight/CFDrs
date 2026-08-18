@@ -1,3 +1,4 @@
+#![allow(clippy::single_match_else, missing_docs, clippy::unwrap_used)]
 #![allow(clippy::print_stdout)]
 //! # Comprehensive FEM Solver Tests
 //!

@@ -108,7 +108,7 @@ fn rejects_length_and_nonfinite_fields() {
 
     let length_error = kernel
         .divergence_source(&field[..26], &field, &field, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient field size");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -121,7 +121,7 @@ fn rejects_length_and_nonfinite_fields() {
     nonfinite[13] = f32::INFINITY;
     let nonfinite_error = kernel
         .divergence_source(&field, &nonfinite, &field, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject non-finite field values");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 }
 

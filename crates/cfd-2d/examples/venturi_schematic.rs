@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Venturi Schematic + 2D CFD Example
 //!

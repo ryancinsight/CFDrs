@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Automated validation suite combining MMS and performance benchmarking
 //!

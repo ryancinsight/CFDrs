@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stderr)]
 #![allow(clippy::print_stdout)]
 //! JSON schematic → watertight 3-D mesh (STL + OpenFOAM).
 //!

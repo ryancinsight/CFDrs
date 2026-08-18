@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Integration tests for `CascadeSolver3D` — validates multi-channel CIF
 //! network 3D FEM solves with both Newtonian and non-Newtonian fluids.
 

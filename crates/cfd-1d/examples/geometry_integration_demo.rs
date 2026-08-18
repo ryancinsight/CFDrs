@@ -1,4 +1,6 @@
-#![allow(clippy::print_stdout)]
+#![allow(missing_docs)]
+#![allow(clippy::print_stderr)]
+#![allow(clippy::print_stdout, clippy::uninlined_format_args)]
 //! Geometry Integration Demo
 //!
 //! Demonstrates the full pipeline:

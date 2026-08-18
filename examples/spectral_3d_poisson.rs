@@ -1,3 +1,5 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
 //! 3D Spectral Poisson Solver Example
 //!
 //! This example demonstrates advanced patterns including:

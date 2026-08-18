@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Validation tests for momentum solver with different convection schemes
 //!
 //! Tests demonstrate that:

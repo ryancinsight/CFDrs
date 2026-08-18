@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Canonical JSON schematic → STL + OpenFOAM pipeline.
 //!

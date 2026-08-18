@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_2d::grid::array2d::Array2D;
 // Analytical validation tests for energy equation
 //

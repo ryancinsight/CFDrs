@@ -75,7 +75,7 @@ fn rejects_length_and_nonfinite_input() {
 
     let length_error = kernel
         .execute(&input[..26], config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient input size");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -86,7 +86,7 @@ fn rejects_length_and_nonfinite_input() {
 
     let mut nonfinite = input;
     nonfinite[13] = f32::NAN;
-    let nonfinite_error = kernel.execute(&nonfinite, config, &mut output).unwrap_err();
+    let nonfinite_error = kernel.execute(&nonfinite, config, &mut output).expect_err("should reject non-finite values");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 }
 

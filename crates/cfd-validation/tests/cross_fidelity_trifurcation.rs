@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Trifurcation Momentum Advection (Jetting) Cross-Fidelity Validation
 //!
 //! Validates the asymmetric flow splitting behavior in geometrically symmetric

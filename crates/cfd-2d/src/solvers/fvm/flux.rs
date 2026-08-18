@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless, clippy::print_stderr)]
 //! Flux schemes for FVM
 //!
 //! # Theorem
@@ -213,6 +214,7 @@ impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for HybridF
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

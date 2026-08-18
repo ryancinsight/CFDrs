@@ -1,3 +1,5 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless)]
+#![allow(clippy::module_inception)]
 #![allow(clippy::print_stdout)]
 #[cfg(test)]
 mod tests {

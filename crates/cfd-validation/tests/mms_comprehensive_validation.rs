@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive validation tests for Method of Manufactured Solutions (MMS)
 //!
 //! This module implements validation tests for manufactured solutions used in

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Network Analysis Validation Tests
 //!
 //! Literature-validated tests for network topology, flow conservation, and solver convergence.

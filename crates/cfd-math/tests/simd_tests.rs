@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::uninlined_format_args, clippy::float_cmp, clippy::doc_markdown)]
 //! Tests for SIMD-accelerated numerical kernels
 //!
 //! Verifies correctness and performance of SIMD implementations backed by hermes-simd.

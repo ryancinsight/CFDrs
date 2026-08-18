@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive Spalart-Allmaras turbulence model validation tests
 //!
 //! Tests cover one-equation model, wall distance effects, trip terms, and

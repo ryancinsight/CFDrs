@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! # Validation Tests for 3D FEM Projection Solver
 //!

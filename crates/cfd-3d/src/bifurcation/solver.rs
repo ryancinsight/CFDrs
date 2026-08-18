@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! 3D FEM Navier-Stokes solver for bifurcations with blood flow
 //!
 //! Solves the incompressible Navier-Stokes equations on 3D bifurcation domains

@@ -332,7 +332,7 @@ mod tests {
         let coeffs = basis.project(f).expect("expected value");
 
         // For order >= 3, the projection should be exact
-        for &x in basis.quad_points.iter() {
+        for &x in &basis.quad_points {
             let mut approx = 0.0;
 
             for i in 0..=order {

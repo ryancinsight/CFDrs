@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_2d::{
     grid::StructuredGrid2D,
     network::{solve_reference_trace, Network2dBuilderSink},

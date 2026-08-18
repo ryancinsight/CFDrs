@@ -436,7 +436,7 @@ mod tests {
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);
-        cfd_math::linear_solver::krylov::gmres(
+        let _solver_result = cfd_math::linear_solver::krylov::gmres(
             matrix,
             rhs,
             &mut gmres_solution,

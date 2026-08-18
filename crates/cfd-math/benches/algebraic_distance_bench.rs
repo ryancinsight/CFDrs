@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
+
 use cfd_math::linear_solver::preconditioners::multigrid::{falgout_coarsening, AlgebraicDistances};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto_ops::CsrMatrix;

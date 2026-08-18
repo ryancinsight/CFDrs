@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive validation tests for the cell separation physics module.
 //!
 //! These tests validate the Zweifach-Fung effect and inertial lift focusing

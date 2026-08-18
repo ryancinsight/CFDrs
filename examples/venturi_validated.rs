@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Validated Venturi Throat Cavitation Simulation
 //!
 //! This example implements a comprehensive venturi throat cavitation simulation

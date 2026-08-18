@@ -171,14 +171,14 @@ mod tests {
         // Derivative of constant should be zero
         let ones = Array1::from_elem([n + 1], 1.0);
         let deriv = mat_vec_mul(&d, &ones);
-        for &val in deriv.iter() {
+        for &val in &deriv {
             assert_relative_eq!(val, 0.0, epsilon = 1e-10);
         }
 
         // Derivative of x should be 1
         let x = vector_from_vec(nodes.clone());
         let deriv = mat_vec_mul(&d, &x);
-        for &val in deriv.iter() {
+        for &val in &deriv {
             assert_relative_eq!(val, 1.0, epsilon = 1e-10);
         }
     }

@@ -1,3 +1,5 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
 //! Hephaestus turbulence-kernel benchmarks.
 
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};

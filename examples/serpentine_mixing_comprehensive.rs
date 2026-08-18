@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Serpentine-channel mixing analysis.
 //!
 //! The analytical calculation uses the canonical transverse-diffusion model.

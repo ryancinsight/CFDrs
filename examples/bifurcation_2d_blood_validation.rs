@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! 2D bifurcation flow validation with blood rheology.
 //!
 //! This example drives the public [`BifurcationSolver2D`] path for a symmetric

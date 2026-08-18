@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of turbulence models for 2D CFD simulations
 //!
 //! This example shows how to use different turbulence models:

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of MUSCL (Monotonic Upstream-Centered Scheme for Conservation Laws) schemes
 //!
 //! This example shows how to use higher-order MUSCL schemes for improved spatial discretization

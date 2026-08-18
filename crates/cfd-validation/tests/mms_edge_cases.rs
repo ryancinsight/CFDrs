@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Manufactured Solutions Edge Case Tests
 //!
 //! Comprehensive edge case testing for MMS validation framework per Roache (1998)

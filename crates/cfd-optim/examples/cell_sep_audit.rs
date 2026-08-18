@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Cell-separation physics audit using the memory-efficient EvaluatedPool.
 //!

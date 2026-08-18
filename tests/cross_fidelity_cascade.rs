@@ -1,3 +1,5 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
 //! Cross-fidelity cascade validation: 1D → 3D consistency for CIF networks.
 //!
 //! Validates that:

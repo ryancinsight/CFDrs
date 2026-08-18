@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! # Blood Rheology Model Comparison for Millifluidics
 //!
 //! Compares five blood viscosity models across the physiological shear-rate range

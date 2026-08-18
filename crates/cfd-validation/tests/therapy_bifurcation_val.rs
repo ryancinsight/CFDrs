@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_schematics::domain::model::NodeKind;
 use cfd_schematics::interface::presets::symmetric_bifurcation;
 

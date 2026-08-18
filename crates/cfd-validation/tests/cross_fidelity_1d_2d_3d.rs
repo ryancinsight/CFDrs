@@ -1,3 +1,6 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 #![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: 1D vs 2D vs 3D simulation consistency.
 //!

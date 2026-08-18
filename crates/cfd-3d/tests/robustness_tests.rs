@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Robustness and mathematical-property tests for cfd-3d
 //!
 //! These tests verify the formal theorems documented in each module's

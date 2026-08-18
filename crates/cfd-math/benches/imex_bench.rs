@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_math::time_stepping::{IMEXTimeStepper, TimeMatrix, TimeState};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;

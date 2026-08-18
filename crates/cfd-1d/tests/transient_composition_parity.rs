@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::map_unwrap_or)]
+
 use aequitas::systems::si::quantities::{
     Area, Dimensionless, HydraulicResistance, Length, Pressure, Time, VolumetricFlowRate,
 };

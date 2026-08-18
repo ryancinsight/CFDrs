@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive resistance model validation with literature-based benchmarks.
 //!
 //! This test suite validates resistance models against analytical solutions and

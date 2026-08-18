@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 aggregate runner over the shared stage orchestration API.
 
 use cfd_optim::{run_milestone12_report, Milestone12RequestedStage};

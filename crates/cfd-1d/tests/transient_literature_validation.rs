@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Transient literature-validation tests for composition and droplet pipelines.
 //!
 //! References:

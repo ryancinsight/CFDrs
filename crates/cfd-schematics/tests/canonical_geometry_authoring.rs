@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::geometry::generator::{
     create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,

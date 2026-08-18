@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Option 2 integration tests.
 //!
 //! Validates the venturi-cavitation optimisation pipeline end-to-end:

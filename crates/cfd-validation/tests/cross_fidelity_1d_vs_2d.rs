@@ -1,3 +1,6 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 #![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: cfd-1d vs cfd-2d agreement on millifluidic
 //! geometries derived from cfd-schematics presets.

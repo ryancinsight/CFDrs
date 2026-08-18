@@ -1,4 +1,6 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 //! Integration tests for GPU compute functionality
 
 #[cfg(feature = "gpu")]

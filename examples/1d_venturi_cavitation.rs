@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! 1D CFD Cavitation Analysis in Venturi Throat
 //!
 //! This example demonstrates how cavitation in a venturi throat can be modeled

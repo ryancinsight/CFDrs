@@ -1596,7 +1596,7 @@ mod tests {
         let result: Result<()> = Err(Error::InvalidInput("test".into()));
         let with_context = result.context("Additional context");
         assert!(with_context.is_err());
-        let error_msg = format!("{}", with_context.unwrap_err());
+        let error_msg = format!("{}", with_context.expect_err("should have error"));
         assert!(error_msg.contains("Additional context"));
     }
 

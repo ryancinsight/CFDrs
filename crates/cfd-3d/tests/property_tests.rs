@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Phase 7 — Property-based tests for the cfd-3d crate.
 //!
 //! Uses `proptest` to verify invariants across randomised parameter ranges

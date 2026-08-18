@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive 3D Spectral Poisson solver validation tests
 //!
 //! Validates the spectral Poisson solver per Boyd (2001)

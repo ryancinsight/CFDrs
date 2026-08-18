@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn lhs_rejects_zero_samples() {
-        let error = generate_milestone12_lhs_params_seeded(42, 0).unwrap_err();
+        let error = generate_milestone12_lhs_params_seeded(42, 0).expect_err("expected error");
 
         assert_eq!(
             error.to_string(),

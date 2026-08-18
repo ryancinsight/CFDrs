@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Validation tests for SIMPLEC and PIMPLE algorithms
 //! including Ghia cavity benchmark comparisons

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Tests for solver core modules: network construction, Ohm's law, KCL, error paths,
 //! and ConvergenceChecker invariants.
 //!

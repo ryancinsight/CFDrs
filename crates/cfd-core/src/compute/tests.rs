@@ -171,7 +171,7 @@ fn dispatcher_errors_instead_of_cpu_fallback_for_unsupported_backend() {
 
     let err = dispatcher
         .execute(&SimdOnlyKernel, &input, &mut output, params)
-        .unwrap_err();
+        .expect_err("should reject unsupported backend");
 
     match err {
         Error::UnsupportedOperation(message) => {

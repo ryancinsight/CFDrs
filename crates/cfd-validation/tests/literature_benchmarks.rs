@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Literature-based benchmark validations
 //!
 //! This module implements comprehensive validation tests against established

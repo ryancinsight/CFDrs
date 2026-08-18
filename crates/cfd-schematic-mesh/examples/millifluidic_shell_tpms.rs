@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Millifluidic Shell TPMS export — schematic JSON → binary STL.
 //!

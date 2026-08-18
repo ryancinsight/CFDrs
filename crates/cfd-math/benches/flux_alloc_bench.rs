@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
+
 use cfd_math::high_order::dg::{numerical_flux, FluxParams, FluxType};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use leto::Array1;

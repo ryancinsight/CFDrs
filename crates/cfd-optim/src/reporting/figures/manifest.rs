@@ -467,14 +467,17 @@ mod tests {
                 i + 1,
                 pt.total_loss_coefficient
             );
-            eprintln!(
-                "  Bend {}: De={:.1}, sigma={:.4}, v_throat={:.2} m/s, K={:.3}",
-                i + 1,
-                pt.dean_number,
-                pt.cavitation_number,
-                pt.throat_velocity_m_s,
-                pt.total_loss_coefficient
-            );
+            #[allow(clippy::print_stderr)]
+            {
+                eprintln!(
+                    "  Bend {}: De={:.1}, sigma={:.4}, v_throat={:.2} m/s, K={:.3}",
+                    i + 1,
+                    pt.dean_number,
+                    pt.cavitation_number,
+                    pt.throat_velocity_m_s,
+                    pt.total_loss_coefficient
+                );
+            }
         }
     }
 }

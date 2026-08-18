@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cavitation Damage Prediction and Multi-Phase CFD Simulation
 //!
 //! This example demonstrates comprehensive cavitation damage prediction

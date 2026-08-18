@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! `shell_cuboid_demo` — TPMS-filled Shell Millifluidic Cuboid
 //!
 //! Demonstrates building a channelless millifluidic cuboid (shell only)

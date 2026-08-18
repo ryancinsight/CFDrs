@@ -1,3 +1,5 @@
+#![allow(clippy::print_stderr)]
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: 2D bifurcation flow split vs analytical resistance model.
 //!

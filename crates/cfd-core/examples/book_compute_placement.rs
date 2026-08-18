@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Book example: selecting compute backends and carrying placement hints.
 //!
 //! This keeps backend selection and NUMA placement at the compute seam, while

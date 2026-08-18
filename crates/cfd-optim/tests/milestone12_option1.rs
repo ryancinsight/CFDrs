@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Option 1 integration tests.
 //!
 //! Validates the asymmetric-split residence-separation pipeline end-to-end:

@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless, clippy::print_stderr)]
 //! # 3D Computational Fluid Dynamics (CFD) Suite
 //!
 //! This crate provides high-performance, mathematically rigorous implementations
@@ -348,8 +349,7 @@ mod tests {
                 .norm();
             assert!(
                 component_magnitude < 1e-10,
-                "non-DC component {i} magnitude {:.2e} must be ~0 for constant signal",
-                component_magnitude
+                "non-DC component {i} magnitude {component_magnitude:.2e} must be ~0 for constant signal"
             );
         }
         Ok(())
@@ -455,7 +455,7 @@ mod tests {
             .expect("Chebyshev second derivative must accept matching vector shape");
 
         // For f(x) = x², f''(x) should be 2 within machine precision
-        for &val in second_derivative.iter() {
+        for &val in &second_derivative {
             assert!((val - 2.0).abs() < 1e-10); // High accuracy expected
         }
     }

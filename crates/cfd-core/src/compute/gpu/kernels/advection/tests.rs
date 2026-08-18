@@ -78,7 +78,7 @@ fn rejects_length_nonfinite_and_cfl_contract_violations() {
 
     let length_error = kernel
         .execute(&scalar[..8], &velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient scalar field size");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -91,13 +91,13 @@ fn rejects_length_nonfinite_and_cfl_contract_violations() {
     nonfinite_velocity[4] = f32::NAN;
     let nonfinite_error = kernel
         .execute(&scalar, &nonfinite_velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject non-finite velocity values");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 
     let unstable_velocity = vec![5.0; config.element_count()];
     let cfl_error = kernel
         .execute(&scalar, &unstable_velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject CFL-unstable velocity");
     assert!(matches!(cfl_error, Error::PhysicsViolation(_)));
 }
 

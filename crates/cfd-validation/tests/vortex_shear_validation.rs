@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 //! Comprehensive validation tests for Taylor-Green vortex and shear flows
 //!
 //! This module tests analytical solutions for vortex decay and shear-driven flows

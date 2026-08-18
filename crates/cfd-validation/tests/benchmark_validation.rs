@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmark validation tests for CFD benchmark problems
 //!
 //! Tests the validation logic for standard CFD benchmarks:

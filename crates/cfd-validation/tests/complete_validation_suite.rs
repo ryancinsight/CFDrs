@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 #![allow(clippy::print_stdout)]
 //! Complete CFD validation suite integration test
 //!

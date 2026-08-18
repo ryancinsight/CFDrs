@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Serpentine Secondary Flow (Dean Vortex) Cross-Fidelity Validation
 //!
 //! Validates the momentum constraints and resistance inflation caused by

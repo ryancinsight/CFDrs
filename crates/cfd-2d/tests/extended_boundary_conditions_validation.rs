@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use cfd_2d::grid::array2d::Array2D;
 // Analytical validation tests for extended boundary conditions
 //

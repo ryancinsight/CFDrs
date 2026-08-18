@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless)]
 //! # Large Eddy Simulation (LES) Models
 //!
 //! ## Mathematical Foundation

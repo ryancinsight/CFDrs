@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Book example: 2D Venturi flow with a compact solver + Bernoulli comparison.
 
 use cfd_2d::solvers::ns_fvm::BloodModel;

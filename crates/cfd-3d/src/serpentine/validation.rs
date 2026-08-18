@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless)]
 //! Validation tools for 3D Serpentine channel simulations
 //!
 //! Provides validation for Dean flow physics and mass conservation in

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! Richardson Extrapolation for Grid Convergence Study
 //!

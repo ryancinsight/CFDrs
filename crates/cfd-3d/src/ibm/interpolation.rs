@@ -1,3 +1,4 @@
+#![allow(clippy::cast_lossless)]
 //! Interpolation kernels and delta functions for IBM
 
 use crate::scalar;

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — GA: In-Place Dean–Serpentine Refinement.
 //!
 //! This track uses a blueprint-native genetic algorithm to refine Option 2

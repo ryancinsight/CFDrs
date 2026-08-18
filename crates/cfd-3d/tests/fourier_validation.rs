@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive Fourier transform validation tests
 //!
 //! Validates spectral methods per Canuto et al. (2006) and Boyd (2001)

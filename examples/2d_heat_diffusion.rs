@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! 2D Heat Diffusion Example
 //!
 //! This example demonstrates solving the 2D heat equation using finite differences.

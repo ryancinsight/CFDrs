@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive turbulence model validation demonstration
 //!
 //! This example demonstrates the validation of all turbulence models against:

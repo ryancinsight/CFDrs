@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Vector SIMD Operations Benchmark
 //!
 //! Benchmarks comparing SIMD-accelerated vector operations vs scalar implementations.

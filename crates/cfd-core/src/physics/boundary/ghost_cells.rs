@@ -268,7 +268,7 @@ mod tests {
 
         let err = calc
             .apply_robin(0.0, 0.0, 1.0, 0.1, &interior, &mut ghost)
-            .unwrap_err();
+            .expect_err("should reject degenerate coefficients");
 
         match err {
             Error::Boundary(BoundaryErrorKind::RobinSingularity { value }) => {

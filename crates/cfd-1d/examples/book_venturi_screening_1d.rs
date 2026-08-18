@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Book example: compact 1D Venturi selective-screening workflow.
 
 use aequitas::systems::si::quantities::{

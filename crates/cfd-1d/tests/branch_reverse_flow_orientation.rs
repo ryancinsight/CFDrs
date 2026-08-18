@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_1d::domain::channel::{Channel, ChannelGeometry};
 use cfd_1d::domain::junctions::branching::{ThreeWayBranchJunction, TwoWayBranchJunction};
 use cfd_core::physics::fluid::blood::CassonBlood;

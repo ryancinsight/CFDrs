@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_3d::blueprint_integration::{
     process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,

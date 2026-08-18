@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! 2D Poiseuille flow validation with Casson blood rheology
 //!

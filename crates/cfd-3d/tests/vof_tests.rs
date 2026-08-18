@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! # Comprehensive VOF Solver Tests
 //!
 //! ## Test Coverage Matrix

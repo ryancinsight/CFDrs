@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! # Comprehensive Level Set Solver Tests
 //!
 //! ## Test Coverage Matrix

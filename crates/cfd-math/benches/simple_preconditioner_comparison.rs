@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::doc_markdown, clippy::ignored_unit_patterns)]
 //! Criterion comparison: CSR-shaped SIMPLE coupling store vs the historical
 //! jagged `Vec<Vec<(usize, f64)>>` layout (ATLAS-ARCH-008, CFDrs slice).
 //!

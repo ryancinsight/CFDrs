@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use aequitas::systems::si::quantities::Length;
 use cfd_1d::validate_blueprint_for_1d_solve;
 use cfd_schematics::geometry::generator::{

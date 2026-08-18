@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive millifluidics tests for cfd-1d
 //!
 //! Tests based on literature and industry standards for microfluidic network simulation,

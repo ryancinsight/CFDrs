@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
+
 use cfd_math::simd::SimdOps;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 

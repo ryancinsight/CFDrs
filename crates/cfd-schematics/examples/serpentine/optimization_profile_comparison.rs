@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::match_wildcard_for_single_variants)]
+
 use cfd_schematics::{
     config::{presets, ChannelTypeConfig, GeometryConfig, OptimizationProfile, SerpentineConfig},
     geometry::{generator::create_geometry, optimization::calculate_path_length, SplitType},

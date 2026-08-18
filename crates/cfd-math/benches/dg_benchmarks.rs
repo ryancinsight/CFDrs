@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmarks for Discontinuous Galerkin methods
 
 use cfd_math::error::Result;
@@ -12,7 +13,7 @@ fn dg_advection_benchmark(c: &mut Criterion) {
     for &order in &orders {
         for &num_elements in &num_elements_list {
             c.bench_function(
-                &format!("DG Advection order={} elements={}", order, num_elements),
+                &format!("DG Advection order={order} elements={num_elements}"),
                 |b| {
                     let params = DGOperatorParams::new()
                         .with_volume_flux(FluxType::Upwind)
@@ -52,7 +53,7 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
     for &order in &orders {
         for &num_elements in &num_elements_list {
             c.bench_function(
-                &format!("DG Burgers order={} elements={}", order, num_elements),
+                &format!("DG Burgers order={order} elements={num_elements}"),
                 |b| {
                     let params = DGOperatorParams::new()
                         .with_volume_flux(FluxType::LaxFriedrichs)

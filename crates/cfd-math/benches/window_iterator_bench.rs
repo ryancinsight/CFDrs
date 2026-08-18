@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::cast_lossless)]
+
 use cfd_math::iterators::StridedWindowIterator;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -11,7 +13,7 @@ fn bench_strided_window(c: &mut Criterion) {
 
     group.bench_function("strided_window_large", |b| {
         b.iter(|| {
-            let iter = StridedWindowIterator::new(data.iter().cloned(), window_size, stride);
+            let iter = StridedWindowIterator::new(data.iter().copied(), window_size, stride);
             for window in iter {
                 black_box(window);
             }

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
 //! # Serpentine-Venturi 1D vs 2D Cross-Fidelity Comparison
 //!

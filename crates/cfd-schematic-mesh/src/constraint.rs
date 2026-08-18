@@ -239,11 +239,11 @@ mod tests {
                 tolerance,
                 ..
             } => {
-                assert_eq!(actual.in_unit::<Millimeter>(), 2.0);
+                assert!((actual.in_unit::<Millimeter>() - 2.0).abs() < f64::EPSILON);
                 assert_eq!(expected, REQUIRED_HYDRAULIC_DIAMETER);
                 assert_eq!(tolerance, HYDRAULIC_DIAMETER_TOLERANCE);
             }
-            other => panic!("unexpected constraint error: {other}"),
+            DiameterConstraintError::IsolatedNode { .. } => panic!("unexpected constraint error: {error}"),
         }
     }
 

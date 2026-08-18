@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cell separation physics tests — inertial focusing, Dean drag, and separation analysis.
 //!
 //! Tests verify:

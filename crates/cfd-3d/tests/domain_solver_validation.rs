@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 //! Integration tests for all cfd-3d domain solvers.
 //!
 //! Exercises VenturiSolver3D, BifurcationSolver3D, SerpentineSolver3D,

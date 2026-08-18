@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Momentum solver validation tests
 //!
 //! Tests cover momentum equation solving with BiCGSTAB convergence analysis.

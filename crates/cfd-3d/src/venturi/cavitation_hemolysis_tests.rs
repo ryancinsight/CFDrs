@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default, clippy::uninlined_format_args, clippy::explicit_iter_loop, clippy::cast_lossless)]
 #![allow(clippy::print_stdout)]
 //! Comprehensive validation tests for cavitation and hemolysis in venturi systems.
 //!

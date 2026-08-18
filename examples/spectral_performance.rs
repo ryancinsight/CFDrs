@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of the Apollo-backed spectral solver
 //!
 //! This example exercises the CFDrs compatibility wrapper around Apollo's FFT

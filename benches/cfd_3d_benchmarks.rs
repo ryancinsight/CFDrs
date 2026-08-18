@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Performance benchmarks for 3D CFD methods
 //!
 //! This benchmark suite evaluates the performance of key 3D CFD algorithms:

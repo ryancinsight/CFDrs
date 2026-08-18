@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_math::linear_solver::DirectSparseSolver;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;

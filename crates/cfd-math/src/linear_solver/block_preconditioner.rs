@@ -1127,6 +1127,7 @@ mod tests {
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
 where
     T: RealField + FloatElement + Copy + LetoRealScalar,
