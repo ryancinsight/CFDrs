@@ -158,8 +158,7 @@ mod tests {
         if cfg!(not(debug_assertions)) {
             assert!(
                 slowdown_ratio <= 5.0,
-                "SIMD performance regression detected: {:.2}x slower than scalar",
-                slowdown_ratio
+                "SIMD performance regression detected: {slowdown_ratio:.2}x slower than scalar"
             );
         }
 
@@ -202,7 +201,7 @@ mod tests {
 
         ops.add(&a, &b, &mut result)
             .expect("invariant: zero-case vectors have equal length");
-        assert!(result.iter().all(|&v| v == 1.0));
+        assert!(result.iter().all(|&v| (v - 1.0).abs() <= f32::EPSILON));
 
         // Negative values
         let a = vec![-1.0f32, -2.0, -3.0, -4.0];
@@ -222,7 +221,7 @@ mod cfd_integration_tests {
     use leto::Array1;
     use leto_ops::{spmv, CsrMatrix};
 
-    /// Test SIMD in CFD-like momentum update (v_new = v_old + dt * rhs)
+    /// Test `SIMD` in a `CFD`-like momentum update (`v_new = v_old + dt * rhs`).
     #[test]
     fn test_cfd_momentum_update() {
         let ops = SimdOps::new();
