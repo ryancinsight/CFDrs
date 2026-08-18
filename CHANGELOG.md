@@ -25,6 +25,10 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- `cfd-python` now reports the Cargo package version at the Python boundary,
+  carries installed-wheel value-semantic tests for the Casson, Womersley, and
+  Poiseuille contracts, and has a tag-scoped abi3 PyPI Trusted Publishing
+  caller with exact Atlas provider-graph resolution.
 - **cfd-2d/cfd-validation**: Backward-facing-step geometry, SIMPLE execution,
   fluid-cell-only parabolic inlet, boundary masking, and signed lower-wall
   shear extraction now live in the provider. `cfd-validation` maps its

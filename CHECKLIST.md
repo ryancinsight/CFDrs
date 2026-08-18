@@ -1,5 +1,18 @@
 # CFDrs Work Checklist
 
+## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller
+
+- [x] Register the provider release slice and keep its scope to the Python
+      binding caller, installed-wheel tests, and version surface.
+- [x] Make `cfd_python.__version__` derive from the Cargo package version.
+- [x] Add analytical and input-sensitive pytest coverage for wheel metadata,
+      Casson rheology, Womersley alpha, and Poiseuille output values.
+- [x] Add the release-tag caller with abi3-py38, exact Atlas graph revision,
+      provider test path, artifact attestation, and PyPI Trusted Publishing;
+      extend the shared release workflow to validate and attach one sdist.
+- [ ] Run the focused provider checks and hosted release dry-run at the exact
+      source head; do not change registry-side trusted-publisher settings.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
 
 - [x] Replace the fixed-threshold `min_scalar` selection with the caller's

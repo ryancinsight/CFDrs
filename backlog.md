@@ -58,6 +58,17 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch] — in progress
+
+**Owner:** Atlas coordinator; scope is the `cfd-python` binding release
+caller, its installed-wheel pytest contract, the binding version surface, and
+the shared Atlas release-distribution contract. **Acceptance:** release tags
+build abi3 wheels plus one validated source distribution through the shared
+Atlas workflow, install and import `cfd_python`, run the value-semantic binding
+tests, and publish validated artifacts through PyPI Trusted Publishing without
+a long-lived registry token. Registry-side trusted-publisher enforcement and
+local publishing remain outside this item.
+
 ## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
