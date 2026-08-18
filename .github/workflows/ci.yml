@@ -9,6 +9,9 @@ env:
   CARGO_TERM_COLOR: always
   RUST_TOOLCHAIN: 1.97.0
 
+permissions:
+  contents: read
+
 jobs:
   rust-workspace:
     name: Rust workspace gate
@@ -76,6 +79,14 @@ jobs:
 
       - name: Check
         run: cargo check --workspace --all-targets --locked
+
+      # The clippy component is installed above, so without this step the
+      # workspace's denied pedantic floor is declared and never enforced -
+      # which is the state CFDrs was already in when the floor was found to be
+      # inert (ten crates carried in-source `#![warn(clippy::pedantic)]`
+      # overriding the manifest allow-list).
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Tests
         run: cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
