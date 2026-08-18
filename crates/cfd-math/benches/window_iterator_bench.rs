@@ -12,11 +12,11 @@ fn bench_strided_window(c: &mut Criterion) {
     let window_size = 1000;
     let stride = 100;
     let data_len = 100_000;
-    let data: Vec<f64> = (0..data_len).map(|i| i as f64).collect();
+    let data: Vec<f64> = (0..data_len).map(f64::from).collect();
 
     group.bench_function("strided_window_large", |b| {
         b.iter(|| {
-            let iter = StridedWindowIterator::new(data.iter().cloned(), window_size, stride);
+            let iter = StridedWindowIterator::new(data.iter().copied(), window_size, stride);
             for window in iter {
                 black_box(window);
             }
