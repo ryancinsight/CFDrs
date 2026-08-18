@@ -1,3 +1,9 @@
+//! Benchmark the dense and sparse direct-solver cutoff on small systems.
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates an internal registration function"
+)]
+
 use cfd_math::linear_solver::DirectSparseSolver;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;
