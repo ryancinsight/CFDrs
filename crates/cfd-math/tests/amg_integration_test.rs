@@ -1,4 +1,4 @@
-//! Integration tests for the AMG preconditioner with BiCGSTAB and GMRES.
+//! Integration tests for the AMG preconditioner with `BiCGSTAB` and GMRES.
 //!
 //! Oracle: the 2-D five-point Poisson operator with a manufactured solution
 //! `x*` and `b = A·x*`. Krylov solves preconditioned by
