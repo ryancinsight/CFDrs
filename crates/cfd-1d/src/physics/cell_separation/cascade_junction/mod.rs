@@ -871,23 +871,23 @@ mod tests {
         );
 
         // Print for diagnostic review
-        eprintln!("=== TriTri (pcf=0.45, tcf=0.333) kappa-aware + Fåhræus ===");
-        eprintln!(
+        tracing::debug!("=== TriTri (pcf=0.45, tcf=0.333) kappa-aware + Fåhræus ===");
+        tracing::debug!(
             "  Cancer center fraction:  {:.2}%",
             r.cancer_center_fraction * 100.0
         );
-        eprintln!(
+        tracing::debug!(
             "  WBC center fraction:     {:.2}%",
             r.wbc_center_fraction * 100.0
         );
-        eprintln!(
+        tracing::debug!(
             "  RBC peripheral fraction: {:.2}%",
             r.rbc_peripheral_fraction * 100.0
         );
-        eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
-        eprintln!("  Separation efficiency:   {:.4}", r.separation_efficiency);
-        eprintln!("  CTC/RBC enrichment:      {enrichment:.4}×");
-        eprintln!(
+        tracing::debug!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
+        tracing::debug!("  Separation efficiency:   {:.4}", r.separation_efficiency);
+        tracing::debug!("  CTC/RBC enrichment:      {enrichment:.4}×");
+        tracing::debug!(
             "  Center HCT ratio:        {:.4}",
             r.center_hematocrit_ratio
         );
@@ -948,21 +948,21 @@ mod tests {
             "TriTri with tcf=0.55 enrichment should exceed 1.4: got {enrichment:.4}"
         );
 
-        eprintln!("=== TriTri (pcf=0.45, tcf=0.55) kappa-aware + Fåhræus ===");
-        eprintln!(
+        tracing::debug!("=== TriTri (pcf=0.45, tcf=0.55) kappa-aware + Fåhræus ===");
+        tracing::debug!(
             "  Cancer center fraction:  {:.2}%",
             r_high.cancer_center_fraction * 100.0
         );
-        eprintln!(
+        tracing::debug!(
             "  WBC center fraction:     {:.2}%",
             r_high.wbc_center_fraction * 100.0
         );
-        eprintln!(
+        tracing::debug!(
             "  RBC peripheral fraction: {:.2}%",
             r_high.rbc_peripheral_fraction * 100.0
         );
-        eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
-        eprintln!("  CTC/RBC enrichment:      {enrichment:.4}×");
+        tracing::debug!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
+        tracing::debug!("  CTC/RBC enrichment:      {enrichment:.4}×");
     }
 
     #[test]
