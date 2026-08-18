@@ -31,19 +31,19 @@ fn test_backward_facing_step_reference_solution() {
         "Should have one value (reattachment length)"
     );
 
-    // Reference reattachment length should be around 6.0 * step_height
-    // based on Gartling (1990) and Armaly et al. (1983)
+    // The default benchmark configuration uses Re_h = 100, for which the
+    // expansion-ratio-two reference is approximately 3.0 step heights.
     let reattachment = reference.values[0];
     assert!(
         reattachment > 0.0 && reattachment < 20.0,
         "Reattachment length should be physically reasonable"
     );
 
-    // For moderate Re (200-400), expect x_r/h ≈ 6.0
+    // For the default Re_h = 100 case, expect x_r/h ≈ 3.0.
     let normalized_reattachment = reattachment / 1.0; // Divide by step_height
     assert!(
-        (normalized_reattachment - 6.0).abs() < 0.1,
-        "Normalized reattachment should be ~6.0 for moderate Re"
+        (normalized_reattachment - 3.0).abs() < 0.1,
+        "Normalized reattachment should be ~3.0 for Re_h = 100"
     );
 }
 
@@ -52,10 +52,10 @@ fn test_backward_facing_step_validation_success() {
     let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Create a result that should pass validation
-    // Reattachment length within 30% of reference (6.0)
+    // Reattachment length within 30% of reference (3.0)
     let result = BenchmarkResult {
         name: "Test Result".to_string(),
-        values: vec![5.5], // Within 30% of 6.0
+        values: vec![2.75], // Within 30% of 3.0
         errors: vec![],
         convergence: vec![1e-5], // Converged
         execution_time: 0.0,
@@ -75,12 +75,12 @@ fn test_backward_facing_step_validation_tolerance() {
     let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Test boundary of 30% tolerance
-    // Reference is 6.0, so 30% tolerance means [4.2, 7.8]
+    // Reference is 3.0, so 30% tolerance means [2.1, 3.9]
 
     // Just inside lower bound
     let result_low = BenchmarkResult {
         name: "Low Bound".to_string(),
-        values: vec![4.3], // Just above 4.2
+        values: vec![2.2], // Just above 2.1
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
@@ -95,7 +95,7 @@ fn test_backward_facing_step_validation_tolerance() {
     // Just inside upper bound
     let result_high = BenchmarkResult {
         name: "High Bound".to_string(),
-        values: vec![7.7], // Just below 7.8
+        values: vec![3.8], // Just below 3.9
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
@@ -110,7 +110,7 @@ fn test_backward_facing_step_validation_tolerance() {
     // Just outside upper bound
     let result_too_high = BenchmarkResult {
         name: "Too High".to_string(),
-        values: vec![8.0], // Outside tolerance
+        values: vec![4.0], // Outside tolerance
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
@@ -130,7 +130,7 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
     // Result with poor convergence
     let result = BenchmarkResult {
         name: "No Convergence".to_string(),
-        values: vec![6.0], // Good reattachment length
+        values: vec![3.0], // Good reattachment length
         errors: vec![],
         convergence: vec![0.1], // Did not converge
         execution_time: 0.0,

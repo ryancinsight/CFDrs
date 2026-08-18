@@ -97,10 +97,12 @@ impl<T: CfdScalar + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
     }
 
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
-        // Nominal expansion-ratio-two reattachment reference from Gartling
-        // (1990), used only by the validation adapter; runtime results never
-        // substitute this value for a solved wall-shear crossing.
-        let reference_reattachment = <T as FloatElement>::from_f64(6.0) * self.step_height;
+        // The default benchmark configuration uses Re_h = 100. For the
+        // expansion-ratio-two geometry, the published Re_h = 100 reference is
+        // x_r / h ≈ 3.0; runtime results never substitute this value for a
+        // solved wall-shear crossing. See Ziegner (2014), Table 5.1, p. 52:
+        // https://www5.in.tum.de/pub/ziegner_14.pdf
+        let reference_reattachment = <T as FloatElement>::from_f64(3.0) * self.step_height;
         Some(BenchmarkResult {
             name: "Backward Facing Step (Reference)".to_string(),
             values: vec![reference_reattachment],

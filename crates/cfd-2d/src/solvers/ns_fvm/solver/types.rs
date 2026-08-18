@@ -13,6 +13,13 @@ pub(super) enum InletProfile {
     Parabolic,
 }
 
+#[derive(Clone, Copy, Default)]
+pub(super) enum MaskedFaceTreatment {
+    #[default]
+    PressureCorrected,
+    NoPenetration,
+}
+
 /// 2D Navier-Stokes FVM solver with SIMPLE pressure-velocity coupling.
 ///
 /// Used as the numerical engine by geometry-specific pass-through solvers
@@ -56,6 +63,8 @@ pub struct NavierStokesSolver2D<T: CfdScalar + Copy + FloatElement> {
     pub(super) pressure_poisson_a_p: Array2D<T>,
     /// Inlet profile selected by the geometry-specific solve wrapper.
     pub(super) inlet_profile: InletProfile,
+    /// Treatment of pressure correction on faces touching masked cells.
+    pub(super) masked_face_treatment: MaskedFaceTreatment,
     /// Optional k-omega SST turbulence model.  When Some, the solver
     /// computes turbulent viscosity nu_t each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
@@ -118,8 +127,13 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_a_s,
             pressure_poisson_a_p,
             inlet_profile: InletProfile::Uniform,
+            masked_face_treatment: MaskedFaceTreatment::default(),
             turbulence: None,
         }
+    }
+
+    pub(crate) fn enforce_no_penetration_at_masked_faces(&mut self) {
+        self.masked_face_treatment = MaskedFaceTreatment::NoPenetration;
     }
 
     /// Enable k-omega SST turbulence modeling for high-Re flows.
