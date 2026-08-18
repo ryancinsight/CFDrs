@@ -1,5 +1,10 @@
 //! Criterion benchmark for the provider-backed turbulence length-scale kernel.
 
+#![expect(
+    missing_docs,
+    reason = "criterion_group generates the public benchmark-group function"
+)]
+
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -30,9 +35,5 @@ fn bench_compute_des(c: &mut Criterion) {
     });
 }
 
-#[expect(
-    missing_docs,
-    reason = "criterion_group generates the public benchmark-group function"
-)]
 criterion_group!(benches, bench_compute_des);
 criterion_main!(benches);
