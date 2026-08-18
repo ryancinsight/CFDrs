@@ -27,8 +27,7 @@ fn fraction(value: f64) -> Dimensionless<f64> {
 fn concentration(map: &HashMap<i32, Dimensionless<f64>>, fluid_id: i32) -> f64 {
     map.get(&fluid_id)
         .copied()
-        .map(Dimensionless::into_base)
-        .unwrap_or(0.0)
+        .map_or(0.0, Dimensionless::into_base)
 }
 
 fn time(value: f64) -> Time<f64> {
@@ -264,8 +263,8 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
         let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
         let re = fluid.density.into_base() * velocity * diameter / fluid.viscosity.into_base();
-        assert!(re < 2300.0, "Re={} should remain laminar", re);
-        assert!(re < 100.0, "Re={} should remain microfluidic-low", re);
+        assert!(re < 2300.0, "Re={re} should remain laminar");
+        assert!(re < 100.0, "Re={re} should remain microfluidic-low");
     }
 }
 
@@ -314,7 +313,7 @@ fn flow_event_validation_operates_in_laminar_reynolds_range() {
         let q = state.edge_flow_rates[&edge.index()].into_base().abs();
         let velocity = q / area;
         let re = fluid.density.into_base() * velocity * diameter / fluid.viscosity.into_base();
-        assert!(re < 2300.0, "Re={} should remain laminar", re);
-        assert!(re < 100.0, "Re={} should remain microfluidic-low", re);
+        assert!(re < 2300.0, "Re={re} should remain laminar");
+        assert!(re < 100.0, "Re={re} should remain microfluidic-low");
     }
 }
