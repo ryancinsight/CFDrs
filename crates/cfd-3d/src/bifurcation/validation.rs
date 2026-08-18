@@ -323,7 +323,9 @@ mod tests {
         let water = cfd_core::physics::fluid::water_20c::<f64>().expect("expected value");
         let solution = solver.solve(water).expect("expected value");
 
-        let result = validator.validate_blood_flow(&solution).expect("expected value");
+        let result = validator
+            .validate_blood_flow(&solution)
+            .expect("expected value");
 
         // Debug output
         println!(

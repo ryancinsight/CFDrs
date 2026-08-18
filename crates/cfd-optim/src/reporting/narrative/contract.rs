@@ -90,7 +90,11 @@ mod tests {
 
         let schedule = format!("{M12_DESCRIPTION}\n{M12_EXIT}\n{M12_DELIVERABLE}\n");
         std::fs::write(
-            report.join(SCHEDULE_PATH.strip_prefix("report/").expect("expected value")),
+            report.join(
+                SCHEDULE_PATH
+                    .strip_prefix("report/")
+                    .expect("expected value"),
+            ),
             schedule,
         )
         .expect("schedule fixture must be written");

@@ -1267,8 +1267,10 @@ mod tests {
             .expect("bubble dynamics should be configured")
             .number_density = NumberDensity::from_base(2.0e6);
 
-        let mut solver_low = CavitationVofSolver::new(1, 1, 1, low_density).expect("expected value");
-        let mut solver_high = CavitationVofSolver::new(1, 1, 1, high_density).expect("expected value");
+        let mut solver_low =
+            CavitationVofSolver::new(1, 1, 1, low_density).expect("expected value");
+        let mut solver_high =
+            CavitationVofSolver::new(1, 1, 1, high_density).expect("expected value");
 
         if let Some(radius_field) = solver_low.bubble_radius_field.as_mut() {
             radius_field[[0, 0]] = 5.0e-7;

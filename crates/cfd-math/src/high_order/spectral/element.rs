@@ -363,7 +363,8 @@ mod tests {
         let num_elements = 4;
         let element_order = 3;
 
-        let mesh = SpectralMesh1D::new(x_min, x_max, num_elements, element_order).expect("expected value");
+        let mesh =
+            SpectralMesh1D::new(x_min, x_max, num_elements, element_order).expect("expected value");
 
         // Test number of global nodes
         let expected_nodes = num_elements * element_order + 1;

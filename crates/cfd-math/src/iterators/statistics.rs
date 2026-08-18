@@ -86,7 +86,10 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0];
 
         assert_relative_eq!(
-            values.into_iter().variance::<f64>().expect("expected value"),
+            values
+                .into_iter()
+                .variance::<f64>()
+                .expect("expected value"),
             5.0 / 3.0,
             epsilon = 1e-15
         );

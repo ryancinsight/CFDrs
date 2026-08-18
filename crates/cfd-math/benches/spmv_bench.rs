@@ -26,7 +26,8 @@ fn bench_spmv(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).expect("expected value");
+        let a =
+            CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).expect("expected value");
         let x = Array1::from_shape_vec([n], vec![1.0; n]).expect("expected value");
         let mut y = Array1::zeros([n]);
 

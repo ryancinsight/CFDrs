@@ -91,11 +91,15 @@ mod tests {
                 ThermodynamicTemperature::from_base(310.15),
             );
 
-        assert_eq!(metadata.total_volume.expect("expected value").into_base(), 2.5e-6);
+        assert_eq!(
+            metadata.total_volume.expect("expected value").into_base(),
+            2.5e-6
+        );
         let (pressure_min, pressure_max) = metadata.pressure_range.expect("expected value");
         assert_eq!(pressure_min.into_base(), 8.0e3);
         assert_eq!(pressure_max.into_base(), 1.2e4);
-        let (temperature_min, temperature_max) = metadata.temperature_range.expect("expected value");
+        let (temperature_min, temperature_max) =
+            metadata.temperature_range.expect("expected value");
         assert_eq!(temperature_min.into_base(), 293.15);
         assert_eq!(temperature_max.into_base(), 310.15);
     }

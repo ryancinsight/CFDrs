@@ -60,7 +60,9 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
 
                     let dg_op = DGOperator::new(order, 1, Some(params)).expect("expected value");
                     let dg_op_clone = dg_op.clone();
-                    let u0 = |x: f64| Array1::from_shape_vec([1], vec![0.5 + x]).expect("expected value");
+                    let u0 = |x: f64| {
+                        Array1::from_shape_vec([1], vec![0.5 + x]).expect("expected value")
+                    };
 
                     let mut solver = DGSolver::new(
                         dg_op,

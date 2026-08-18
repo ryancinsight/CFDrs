@@ -28,7 +28,9 @@ fn constant_field_is_exact_identity_across_partial_workgroups() {
     let input = vec![7.25; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).expect("expected value");
+    kernel
+        .execute(&input, config, &mut output)
+        .expect("expected value");
 
     assert_eq!(output, input);
 }
@@ -46,7 +48,9 @@ fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
         .collect();
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).expect("expected value");
+    kernel
+        .execute(&input, config, &mut output)
+        .expect("expected value");
 
     let mut expected = input.clone();
     for z in 1..dimensions[2] - 1 {

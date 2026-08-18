@@ -98,9 +98,15 @@ mod tests {
         let cross_blood = CrossBlood::<f64>::normal_blood();
 
         // All should implement FluidTrait
-        let casson_state = casson.properties_at(310.0, 101325.0).expect("expected value");
-        let carreau_state = carreau.properties_at(310.0, 101325.0).expect("expected value");
-        let cross_state = cross_blood.properties_at(310.0, 101325.0).expect("expected value");
+        let casson_state = casson
+            .properties_at(310.0, 101325.0)
+            .expect("expected value");
+        let carreau_state = carreau
+            .properties_at(310.0, 101325.0)
+            .expect("expected value");
+        let cross_state = cross_blood
+            .properties_at(310.0, 101325.0)
+            .expect("expected value");
 
         assert_eq!(casson_state.density.into_base(), constants::BLOOD_DENSITY);
         assert_eq!(carreau_state.density.into_base(), constants::BLOOD_DENSITY);

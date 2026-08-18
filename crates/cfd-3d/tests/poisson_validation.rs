@@ -54,7 +54,9 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Verify solution matches analytical one
     for i in 0..nx {
@@ -111,7 +113,9 @@ fn test_poisson_3d_constant_source() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Solution should be smooth and bounded
     for idx in 0..nx * ny * nz {
@@ -159,7 +163,9 @@ fn test_poisson_3d_neumann_bc() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Solution should be finite and bounded
     for idx in 0..nx * ny * nz {
@@ -197,7 +203,9 @@ fn test_poisson_3d_robin_bc() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Solution should be finite and bounded
     for idx in 0..nx * ny * nz {
@@ -232,7 +240,9 @@ fn test_poisson_3d_laplace_equation() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Solution should be smooth and bounded
     for idx in 0..nx * ny * nz {
@@ -278,7 +288,9 @@ fn test_poisson_3d_all_dirichlet() {
         PoissonBoundaryCondition::Dirichlet(0.5),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Verify solution is finite
     for idx in 0..nx * ny * nz {
@@ -310,7 +322,9 @@ fn test_poisson_3d_minimal_grid() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).expect("expected value");
+    let solution = solver
+        .solve(&f, &bc_x, &bc_y, &bc_z)
+        .expect("expected value");
 
     // Just verify solver doesn't crash and produces finite values
     for idx in 0..nx * ny * nz {

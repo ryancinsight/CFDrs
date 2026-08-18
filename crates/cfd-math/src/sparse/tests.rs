@@ -184,8 +184,8 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
     )
     .is_err());
 
-    let rectangular =
-        CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3).expect("expected value");
+    let rectangular = CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3)
+        .expect("expected value");
     assert!(SparseMatrixExt::condition_estimate(&rectangular).is_err());
 
     Ok(())
@@ -228,8 +228,8 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
     // A =
     // [ 2  0 -1 ]
     // [ 0  3  0 ]
-    let a =
-        CsrMatrix::from_parts(vec![2.0f64, -1.0, 3.0], vec![0, 2, 1], vec![0, 2, 3], 2, 3).expect("expected value");
+    let a = CsrMatrix::from_parts(vec![2.0f64, -1.0, 3.0], vec![0, 2, 1], vec![0, 2, 3], 2, 3)
+        .expect("expected value");
 
     // B =
     // [ 0  4 ]
@@ -254,7 +254,8 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
     assert_relative_eq!(product.values()[1], 1.0, epsilon = 1e-12);
     assert_relative_eq!(product.values()[2], 15.0, epsilon = 1e-12);
 
-    let mismatched = CsrMatrix::from_parts(vec![], vec![], vec![0, 0, 0, 0, 0], 4, 1).expect("expected value");
+    let mismatched =
+        CsrMatrix::from_parts(vec![], vec![], vec![0, 0, 0, 0, 0], 4, 1).expect("expected value");
     assert!(try_sparse_sparse_mul(&a, &mismatched).is_err());
 }
 
@@ -331,18 +332,25 @@ fn test_spmv_entry_points_agree_for_large_matrix() {
 
     // Create a tridiagonal matrix
     for i in 0..n {
-        builder.add_triplets(vec![(i, i, 4.0f64)]).expect("expected value");
+        builder
+            .add_triplets(vec![(i, i, 4.0f64)])
+            .expect("expected value");
         if i > 0 {
-            builder.add_triplets(vec![(i, i - 1, -1.0f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i - 1, -1.0f64)])
+                .expect("expected value");
         }
         if i < n - 1 {
-            builder.add_triplets(vec![(i, i + 1, -1.0f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i + 1, -1.0f64)])
+                .expect("expected value");
         }
     }
     let a = builder.build().expect("expected value");
 
     // Test vector
-    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i + 1) as f64).collect()).expect("expected value");
+    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i + 1) as f64).collect())
+        .expect("expected value");
 
     // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([n]);
@@ -393,10 +401,14 @@ fn test_spmv_entry_points_agree_for_sparse_pattern() {
     // Test with very sparse rows (edge case for parallel overhead)
     let mut builder = SparseMatrixBuilder::new(100, 100);
     for i in 0..100 {
-        builder.add_triplets(vec![(i, i, 1.0f64)]).expect("expected value");
+        builder
+            .add_triplets(vec![(i, i, 1.0f64)])
+            .expect("expected value");
         // Add one off-diagonal entry every 5 rows
         if i % 5 == 0 && i < 95 {
-            builder.add_triplets(vec![(i, i + 5, 0.5f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i + 5, 0.5f64)])
+                .expect("expected value");
         }
     }
     let a = builder.build().expect("expected value");
@@ -423,24 +435,35 @@ fn test_spmv_entry_points_agree_for_dense_block() {
     let mut builder = SparseMatrixBuilder::new(n, n);
     for i in 0..n {
         // Main diagonal
-        builder.add_triplets(vec![(i, i, 4.0f64)]).expect("expected value");
+        builder
+            .add_triplets(vec![(i, i, 4.0f64)])
+            .expect("expected value");
         // Off-diagonals (bandwidth = 2)
         if i > 0 {
-            builder.add_triplets(vec![(i, i - 1, -1.0f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i - 1, -1.0f64)])
+                .expect("expected value");
         }
         if i > 1 {
-            builder.add_triplets(vec![(i, i - 2, -0.5f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i - 2, -0.5f64)])
+                .expect("expected value");
         }
         if i < n - 1 {
-            builder.add_triplets(vec![(i, i + 1, -1.0f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i + 1, -1.0f64)])
+                .expect("expected value");
         }
         if i < n - 2 {
-            builder.add_triplets(vec![(i, i + 2, -0.5f64)]).expect("expected value");
+            builder
+                .add_triplets(vec![(i, i + 2, -0.5f64)])
+                .expect("expected value");
         }
     }
     let a = builder.build().expect("expected value");
 
-    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i as f64).sin()).collect()).expect("expected value");
+    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i as f64).sin()).collect())
+        .expect("expected value");
 
     let mut y_scalar = Array1::zeros([n]);
     spmv(&a, &x, &mut y_scalar);

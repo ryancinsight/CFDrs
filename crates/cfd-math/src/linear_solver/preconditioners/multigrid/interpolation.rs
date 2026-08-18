@@ -503,7 +503,8 @@ mod tests {
         let strength_matrix = csr_from_dense(&strength_dense, "classical strength matrix");
 
         let interpolation =
-            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).expect("expected value");
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2)
+                .expect("expected value");
 
         // Check dimensions
         assert_eq!(interpolation.nrows(), 5);
@@ -562,7 +563,8 @@ mod tests {
 
         let constant_coarse = Array1::from_shape_vec([3], vec![1.0; 3]).expect("expected value");
         let mut interpolated = Array1::zeros([5]);
-        let interpolated_result = leto_spmv(&interpolation, &constant_coarse.view()).expect("expected value");
+        let interpolated_result =
+            leto_spmv(&interpolation, &constant_coarse.view()).expect("expected value");
         for i in 0..interpolated.shape()[0] {
             interpolated[i] = interpolated_result[i];
         }
@@ -621,7 +623,8 @@ mod tests {
         let strength_matrix = csr_from_dense(&strength_dense, "classical weighted strength matrix");
 
         let interpolation =
-            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).expect("expected value");
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2)
+                .expect("expected value");
 
         // Coarse mapping: 0->0, 3->1, 4->2
 

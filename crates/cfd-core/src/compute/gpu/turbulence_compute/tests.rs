@@ -66,7 +66,9 @@ fn wall_distance_matches_rectangular_geometry() {
     let grid = TurbulenceGrid::new(dimensions, [0.5, 0.25]).expect("expected value");
     let mut output = vec![-1.0; grid.element_count()];
 
-    compute.compute_wall_distance(grid, &mut output).expect("expected value");
+    compute
+        .compute_wall_distance(grid, &mut output)
+        .expect("expected value");
 
     let expected = coordinates(dimensions, |x, y| {
         let distance_x = x.min(dimensions[0] - 1 - x) as f32 * 0.5;

@@ -129,7 +129,8 @@ mod tests {
         let start = Instant::now();
         for _ in 0..10 {
             ops.add(&a, &b, &mut temp_simd).expect("expected value");
-            ops.mul(&temp_simd, &b, &mut result_simd).expect("expected value");
+            ops.mul(&temp_simd, &b, &mut result_simd)
+                .expect("expected value");
         }
         let simd_time = start.elapsed();
         std::hint::black_box(&result_simd);
@@ -222,7 +223,8 @@ mod cfd_integration_tests {
         let dt_vec = vec![dt; 4];
 
         let mut scaled_rhs = vec![0.0f32; 4];
-        ops.mul(&dt_vec, &rhs, &mut scaled_rhs).expect("expected value");
+        ops.mul(&dt_vec, &rhs, &mut scaled_rhs)
+            .expect("expected value");
 
         let mut velocity_new = vec![0.0f32; 4];
         ops.add(&velocity_old, &scaled_rhs, &mut velocity_new)
@@ -254,7 +256,8 @@ mod cfd_integration_tests {
         let ax_values = (0..ax.shape()[0]).map(|idx| ax[idx]).collect::<Vec<f32>>();
 
         let mut residual = vec![0.0f32; 4];
-        ops.sub(&rhs, &ax_values, &mut residual).expect("expected value");
+        ops.sub(&rhs, &ax_values, &mut residual)
+            .expect("expected value");
 
         let expected = rhs
             .iter()
@@ -289,7 +292,8 @@ mod cfd_integration_tests {
         }
 
         let mut convection = vec![0.0f32; 4];
-        ops.mul(&u, &slopes, &mut convection).expect("expected value");
+        ops.mul(&u, &slopes, &mut convection)
+            .expect("expected value");
 
         let expected = u
             .iter()

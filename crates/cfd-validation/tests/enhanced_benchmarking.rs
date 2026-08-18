@@ -69,7 +69,9 @@ fn test_performance_trend_analysis() {
         analyzer.add_result("improving_benchmark", metric);
     }
 
-    let trend = analyzer.analyze_trend("improving_benchmark").expect("expected value");
+    let trend = analyzer
+        .analyze_trend("improving_benchmark")
+        .expect("expected value");
 
     assert_eq!(trend.trend_type, TrendType::Improving);
     assert!(
@@ -155,7 +157,9 @@ fn test_regression_detection() {
         analyzer.add_result("degrading_benchmark", metric);
     }
 
-    let regression = analyzer.detect_regression("degrading_benchmark").expect("expected value");
+    let regression = analyzer
+        .detect_regression("degrading_benchmark")
+        .expect("expected value");
 
     assert!(regression.is_some(), "Should detect performance regression");
 
@@ -234,7 +238,9 @@ fn test_stable_performance_analysis() {
         analyzer.add_result("stable_benchmark", metric);
     }
 
-    let trend = analyzer.analyze_trend("stable_benchmark").expect("expected value");
+    let trend = analyzer
+        .analyze_trend("stable_benchmark")
+        .expect("expected value");
 
     assert_eq!(trend.trend_type, TrendType::Stable);
     assert!(
@@ -244,7 +250,9 @@ fn test_stable_performance_analysis() {
     );
 
     // Should not detect regression for stable performance
-    let regression = analyzer.detect_regression("stable_benchmark").expect("expected value");
+    let regression = analyzer
+        .detect_regression("stable_benchmark")
+        .expect("expected value");
     assert!(
         regression.is_none(),
         "Should not detect regression for stable performance"
@@ -356,7 +364,9 @@ fn test_statistical_analysis_robustness() {
         },
     );
 
-    let trend = analyzer.analyze_trend("minimal_test").expect("expected value");
+    let trend = analyzer
+        .analyze_trend("minimal_test")
+        .expect("expected value");
     assert!(
         trend.r_squared >= 0.0 && trend.r_squared <= 1.0,
         "R-squared should be valid"
@@ -526,14 +536,18 @@ fn test_performance_analysis_pipeline() {
     }
 
     // Analyze trend
-    let trend = analyzer.analyze_trend("cfd_solver_benchmark").expect("expected value");
+    let trend = analyzer
+        .analyze_trend("cfd_solver_benchmark")
+        .expect("expected value");
     println!(
         "  📈 Trend Analysis: slope={:.6}, R²={:.3}, p={:.4}, type={:?}",
         trend.slope, trend.r_squared, trend.p_value, trend.trend_type
     );
 
     // Check for regressions
-    let regression = analyzer.detect_regression("cfd_solver_benchmark").expect("expected value");
+    let regression = analyzer
+        .detect_regression("cfd_solver_benchmark")
+        .expect("expected value");
     if let Some(alert) = regression {
         println!(
             "  🚨 Regression Alert: {:.2}% degradation (confidence: {:.1}%)",

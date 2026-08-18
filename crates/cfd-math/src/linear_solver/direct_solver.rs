@@ -168,8 +168,11 @@ mod tests {
         builder.add_entry(1, 0, 1.0_f64).expect("expected value");
         builder.add_entry(1, 1, 2.0_f64).expect("expected value");
 
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).expect("expected value");
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).expect("expected value");
+        let mut assembly_rhs =
+            Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).expect("expected value");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("expected value");
 
         let solver = DirectSparseSolver::default();
         let rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).expect("expected value");
@@ -182,8 +185,11 @@ mod tests {
     #[test]
     fn direct_solver_singular_system_does_not_panic() {
         let builder = SparseMatrixBuilder::new(2, 2);
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).expect("expected value");
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).expect("expected value");
+        let mut assembly_rhs =
+            Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).expect("expected value");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("expected value");
 
         let solver = DirectSparseSolver::default();
         let rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).expect("expected value");
@@ -208,8 +214,11 @@ mod tests {
         let mut builder = SparseMatrixBuilder::new(2, 2);
         builder.add_entry(0, 0, 2.0_f64).expect("expected value");
         builder.add_entry(1, 1, 4.0_f64).expect("expected value");
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).expect("expected value");
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).expect("expected value");
+        let mut assembly_rhs =
+            Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).expect("expected value");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("expected value");
         let rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).expect("expected value");
         // Should succeed via dense fallback.
         let x = solver
@@ -227,8 +236,11 @@ mod tests {
         builder.add_entry(1, 0, 2.0_f64).expect("expected value");
         builder.add_entry(1, 1, 3.0_f64).expect("expected value");
 
-        let mut assembly_rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).expect("expected value");
-        let matrix = builder.build_with_rhs(&mut assembly_rhs).expect("expected value");
+        let mut assembly_rhs =
+            Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).expect("expected value");
+        let matrix = builder
+            .build_with_rhs(&mut assembly_rhs)
+            .expect("expected value");
 
         let rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).expect("expected value");
         let x = solve_leto_csr_with_leto_dense_array(&matrix, &rhs).expect("expected value");

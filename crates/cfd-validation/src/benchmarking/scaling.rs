@@ -593,7 +593,9 @@ mod tests {
             (4, 2.5),  // 2.5 seconds on 4 processors
         ];
 
-        let result = analyzer.analyze_strong_scaling(1000, &timing_data).expect("expected value");
+        let result = analyzer
+            .analyze_strong_scaling(1000, &timing_data)
+            .expect("expected value");
 
         assert_eq!(result.scaling_type, ScalingType::Strong);
         assert_eq!(result.problem_sizes, vec![1000]);
@@ -619,7 +621,9 @@ mod tests {
             (4, 4000, 1.3), // 4 processors, size 4000, 1.3 time
         ];
 
-        let result = analyzer.analyze_weak_scaling(&scaling_data).expect("expected value");
+        let result = analyzer
+            .analyze_weak_scaling(&scaling_data)
+            .expect("expected value");
 
         assert_eq!(result.scaling_type, ScalingType::Weak);
         assert!(result.metrics.avg_parallel_efficiency > 0.8); // Should be reasonably efficient
@@ -643,7 +647,9 @@ mod tests {
         let analyzer = ScalingAnalysis::new();
 
         let timing_data = vec![(1, 10.0), (2, 8.0)]; // Poor scaling
-        let result = analyzer.analyze_strong_scaling(1000, &timing_data).expect("expected value");
+        let result = analyzer
+            .analyze_strong_scaling(1000, &timing_data)
+            .expect("expected value");
 
         let recommendations = analyzer.generate_recommendations(&result);
         assert!(!recommendations.is_empty());

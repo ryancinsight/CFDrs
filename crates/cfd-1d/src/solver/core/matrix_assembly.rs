@@ -213,13 +213,15 @@ impl<T: CfdScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
                 (true, false) => {
                     // i fixed: remove column i and add contribution to RHS of j
                     coo.push(j, j, conductance);
-                    let p_i = dirichlet_values[i].expect("Dirichlet value must be set for fixed node i");
+                    let p_i =
+                        dirichlet_values[i].expect("Dirichlet value must be set for fixed node i");
                     rhs[j] += conductance * p_i;
                 }
                 (false, true) => {
                     // j fixed: remove column j and add contribution to RHS of i
                     coo.push(i, i, conductance);
-                    let p_j = dirichlet_values[j].expect("Dirichlet value must be set for fixed node j");
+                    let p_j =
+                        dirichlet_values[j].expect("Dirichlet value must be set for fixed node j");
                     rhs[i] += conductance * p_j;
                 }
                 (true, true) => {

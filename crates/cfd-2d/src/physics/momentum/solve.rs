@@ -215,8 +215,16 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             }
         } else {
             match component {
-                MomentumComponent::U => self.rhs_u.as_mut().expect("expected value").fill(scalar::zero::<T>()),
-                MomentumComponent::V => self.rhs_v.as_mut().expect("expected value").fill(scalar::zero::<T>()),
+                MomentumComponent::U => self
+                    .rhs_u
+                    .as_mut()
+                    .expect("expected value")
+                    .fill(scalar::zero::<T>()),
+                MomentumComponent::V => self
+                    .rhs_v
+                    .as_mut()
+                    .expect("expected value")
+                    .fill(scalar::zero::<T>()),
             }
         }
 

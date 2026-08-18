@@ -50,7 +50,9 @@ fn test_poisson_2d_sinusoidal_solution() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Verify solution at interior points
     let mut max_error: f64 = 0.0;
@@ -103,7 +105,9 @@ fn test_poisson_debug_5x5() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Check center point (2, 2) at (0.5, 0.5)
     let x = 0.5;
@@ -170,7 +174,9 @@ fn test_poisson_2d_laplace_equation() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Solution should be approximately monotonic in y-direction
     // Note: Near boundaries with large gradients (0→1 over small distance),
@@ -261,7 +267,9 @@ fn test_poisson_2d_solver_stability() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+        let solution = solver
+            .solve(&grid, &source, &boundary_values)
+            .expect("expected value");
 
         // Basic stability validation
         // 1. No catastrophic values (solver doesn't explode)
@@ -363,7 +371,9 @@ fn test_poisson_2d_corner_singularity() {
         boundary_values.insert((nx - 1, j), 1.0); // Right
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Solution should exist and be finite despite singularity
     for i in 0..nx {
@@ -408,7 +418,9 @@ fn test_poisson_2d_grid_convergence() {
             }
         }
 
-        let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+        let solution = solver
+            .solve(&grid, &source, &boundary_values)
+            .expect("expected value");
 
         // Compute L2 error
         let mut error_sum = 0.0;
@@ -457,7 +469,9 @@ fn test_poisson_2d_minimal_grid() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Just verify solver doesn't crash and produces finite result
     assert!(solution[&(1, 1)].is_finite());
@@ -486,7 +500,9 @@ fn test_poisson_2d_rectangular_domain() {
         }
     }
 
-    let solution = solver.solve(&grid, &source, &boundary_values).expect("expected value");
+    let solution = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("expected value");
 
     // Verify solution is finite everywhere
     for i in 0..nx {

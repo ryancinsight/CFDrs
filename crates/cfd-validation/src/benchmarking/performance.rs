@@ -721,16 +721,24 @@ impl CfdPerformanceBenchmarks {
                         for j in 0..64 {
                             let idx = i * 64 + j;
                             if i > 0 {
-                                builder.add_entry(idx, idx - 64, -1.0).expect("expected value");
+                                builder
+                                    .add_entry(idx, idx - 64, -1.0)
+                                    .expect("expected value");
                             }
                             if i < 63 {
-                                builder.add_entry(idx, idx + 64, -1.0).expect("expected value");
+                                builder
+                                    .add_entry(idx, idx + 64, -1.0)
+                                    .expect("expected value");
                             }
                             if j > 0 {
-                                builder.add_entry(idx, idx - 1, -1.0).expect("expected value");
+                                builder
+                                    .add_entry(idx, idx - 1, -1.0)
+                                    .expect("expected value");
                             }
                             if j < 63 {
-                                builder.add_entry(idx, idx + 1, -1.0).expect("expected value");
+                                builder
+                                    .add_entry(idx, idx + 1, -1.0)
+                                    .expect("expected value");
                             }
                             builder.add_entry(idx, idx, 4.0).expect("expected value");
                         }

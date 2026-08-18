@@ -456,11 +456,14 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
+        let rhs =
+            MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
+        let initial_solution =
+            MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
-        let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6).expect("expected value");
+        let (correction, stats) =
+            apply_v_cycle(&levels, &residual, 5, 1e-6).expect("expected value");
 
         // Check that we got a result
         assert_eq!(correction.shape(), [3]);
@@ -474,11 +477,14 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
+        let rhs =
+            MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
+        let initial_solution =
+            MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
-        let (correction, stats) = apply_w_cycle(&levels, &residual, 3, 1e-6).expect("expected value");
+        let (correction, stats) =
+            apply_w_cycle(&levels, &residual, 3, 1e-6).expect("expected value");
 
         assert_eq!(correction.shape(), [3]);
         assert_eq!(stats.cycle_type, CycleType::WCycle);
@@ -490,8 +496,10 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
-        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
+        let rhs =
+            MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
+        let initial_solution =
+            MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).expect("expected value");
         let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
         // Use 0.0 tolerance to ensure it runs for all 2 cycles
@@ -514,7 +522,8 @@ mod tests {
         )
         .expect("expected value");
 
-        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
+        let rhs =
+            MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
         let mut solution = MultigridVector::zeros([3]);
 
         solve_coarsest_level(&matrix, &rhs, &mut solution).expect("expected value");
@@ -527,7 +536,8 @@ mod tests {
     #[test]
     fn test_empty_levels_error() {
         let levels = Vec::new();
-        let residual = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
+        let residual =
+            MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
 
         let result = apply_v_cycle(&levels, &residual, 1, 1e-6);
         assert!(result.is_err());

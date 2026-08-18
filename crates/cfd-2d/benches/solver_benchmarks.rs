@@ -47,7 +47,12 @@ fn benchmark_grid_creation(c: &mut Criterion) {
             BenchmarkId::new("structured_grid", size),
             size,
             |b, &size| {
-                b.iter(|| black_box(StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0).expect("expected value")))
+                b.iter(|| {
+                    black_box(
+                        StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0)
+                            .expect("expected value"),
+                    )
+                })
             },
         );
     }

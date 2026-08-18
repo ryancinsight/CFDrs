@@ -159,7 +159,9 @@ fn test_damage_accumulation() {
     {
         let mut volume_fraction = solver.volume_fraction();
         volume_fraction.fill(0.1);
-        solver.set_volume_fraction(&volume_fraction).expect("expected value");
+        solver
+            .set_volume_fraction(&volume_fraction)
+            .expect("expected value");
     }
 
     // Run multiple steps to accumulate damage
@@ -298,7 +300,9 @@ fn test_mass_conservation() {
                 }
             }
         }
-        solver.set_volume_fraction(&volume_fraction).expect("expected value");
+        solver
+            .set_volume_fraction(&volume_fraction)
+            .expect("expected value");
     }
 
     let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 2000];
@@ -482,7 +486,9 @@ fn test_cavitation_statistics() {
                 }
             }
         }
-        solver.set_volume_fraction(&volume_fraction).expect("expected value");
+        solver
+            .set_volume_fraction(&volume_fraction)
+            .expect("expected value");
     }
 
     solver

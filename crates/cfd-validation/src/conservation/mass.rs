@@ -172,7 +172,9 @@ mod tests {
         let u = Array2::from_elem([nx, ny], 1.0);
         let v = Array2::from_elem([nx, ny], 0.0);
 
-        let report = checker.check_divergence_2d(&u, &v, 0.1, 0.1).expect("expected value");
+        let report = checker
+            .check_divergence_2d(&u, &v, 0.1, 0.1)
+            .expect("expected value");
         assert!(report.error < 1e-10);
         assert!(report.is_conserved);
     }
@@ -204,7 +206,9 @@ mod tests {
             }
         }
 
-        let report = checker.check_divergence_2d(&u, &v, 0.1, 0.1).expect("expected value");
+        let report = checker
+            .check_divergence_2d(&u, &v, 0.1, 0.1)
+            .expect("expected value");
 
         // For radial outflow u = x/r, v = y/r, the analytical divergence is 1/r
         // At the center (r ≈ 0), we expect high divergence
@@ -239,7 +243,9 @@ mod tests {
         let u = Array1::from_elem([n], 2.0);
         let area = Array1::from_elem([n], 1.0);
 
-        let report = checker.check_divergence_1d(&u, &area, 0.1).expect("expected value");
+        let report = checker
+            .check_divergence_1d(&u, &area, 0.1)
+            .expect("expected value");
         assert!(report.error < 1e-10);
         assert!(report.is_conserved);
     }

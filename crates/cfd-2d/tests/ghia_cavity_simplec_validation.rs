@@ -384,7 +384,9 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
     }
 
     let l2_norm = L2Norm;
-    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
+    let l2_error = l2_norm
+        .compute_error(&interpolated_u, &ref_u)
+        .expect("expected value");
 
     println!("✓ PIMPLE + Rhie-Chow validation at Re=100");
     println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
@@ -935,7 +937,9 @@ fn test_simplec_parameter_optimization_re100() {
                 }
 
                 let l2_norm = L2Norm;
-                let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
+                let l2_error = l2_norm
+                    .compute_error(&interpolated_u, &ref_u)
+                    .expect("expected value");
                 println!(
                     "  Result: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
                     l2_error * 100.0,
@@ -1059,7 +1063,9 @@ fn test_simplec_grid_convergence_study() {
                     }
 
                     let l2_norm = L2Norm;
-                    let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
+                    let l2_error = l2_norm
+                        .compute_error(&interpolated_u, &ref_u)
+                        .expect("expected value");
                     let dx = 1.0 / (nx - 1) as f64;
 
                     println!("  Grid: {}×{}, dx={:.4}", nx, ny, dx);
@@ -1194,7 +1200,9 @@ fn test_simplec_higher_reynolds_validation() {
                         }
 
                         let l2_norm = L2Norm;
-                        let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).expect("expected value");
+                        let l2_error = l2_norm
+                            .compute_error(&interpolated_u, &ref_u)
+                            .expect("expected value");
 
                         println!(
                             "✓ Re={} converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
@@ -1477,7 +1485,8 @@ fn test_simplec_channel_flow_validation() {
     for i in 0..nx {
         for j in 0..ny {
             let x_pos = i as f64 * 2.0 / (nx - 1) as f64; // x from 0 to 2
-            *fields.p_prime.at_mut(i, j).expect("expected value") = pressure_gradient * (x_pos - 0.0);
+            *fields.p_prime.at_mut(i, j).expect("expected value") =
+                pressure_gradient * (x_pos - 0.0);
         }
     }
 

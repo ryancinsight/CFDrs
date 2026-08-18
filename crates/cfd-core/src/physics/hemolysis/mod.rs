@@ -81,7 +81,8 @@ mod tests {
     #[test]
     fn test_nih_calculation() {
         let calc: HemolysisCalculator<f64> =
-            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).expect("expected value");
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4)
+                .expect("expected value");
 
         let delta_hb = 0.1;
         let nih = calc.normalized_index(delta_hb);
@@ -93,7 +94,8 @@ mod tests {
     #[test]
     fn test_modified_index_and_exposure_time_are_value_semantic() {
         let calc: HemolysisCalculator<f64> =
-            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).expect("expected value");
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4)
+                .expect("expected value");
 
         let mih = calc.modified_index(0.1, 10.0);
         let expected_mih: f64 = 5e-3 / (1e-4 * 10.0) * 0.1 * (1.0 - 0.45);

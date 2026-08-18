@@ -113,7 +113,9 @@ fn test_cpu_advection_kernel_linear_exactness() {
     };
 
     // Execute one step
-    kernel.execute(&input, &mut output, params).expect("expected value");
+    kernel
+        .execute(&input, &mut output, params)
+        .expect("expected value");
 
     // Analytic update for linear field under constant velocity
     // phi_new = phi_old - dt * (u*a + v*b)
@@ -143,7 +145,8 @@ fn test_dispatcher_creation() {
     );
 
     // Test specific backend selection
-    let cpu_dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).expect("expected value");
+    let cpu_dispatcher =
+        ComputeDispatcher::with_backend(ComputeBackend::Cpu).expect("expected value");
     assert_eq!(cpu_dispatcher.current_backend(), ComputeBackend::Cpu);
 }
 

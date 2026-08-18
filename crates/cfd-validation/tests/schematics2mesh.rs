@@ -29,7 +29,8 @@ fn test_schematics2mesh_stl_output() {
     // 2. Convert to 3D Schematic representation
     let substrate_height = 5.0; // 5mm substrate
     let segments = 32;
-    let schematic3d = scheme_io::from_blueprint(&system, substrate_height, segments).expect("expected value");
+    let schematic3d =
+        scheme_io::from_blueprint(&system, substrate_height, segments).expect("expected value");
 
     // 3. Sweep and collect into an IndexedMesh
     let mesher = SweepMesher::new();

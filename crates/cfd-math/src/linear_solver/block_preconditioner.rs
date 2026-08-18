@@ -1024,7 +1024,9 @@ mod tests {
     fn component_saddle_point_matrix() -> SparseMatrix<f64> {
         let mut builder = SparseMatrixBuilder::new(8, 8);
         for velocity in 0..6 {
-            builder.add_entry(velocity, velocity, 4.0).expect("expected value");
+            builder
+                .add_entry(velocity, velocity, 4.0)
+                .expect("expected value");
         }
         builder.add_entry(0, 6, -1.0).expect("expected value");
         builder.add_entry(1, 7, -1.0).expect("expected value");
@@ -1099,7 +1101,8 @@ mod tests {
     fn component_block_preconditioner_factors_provider_velocity_blocks() {
         let matrix = component_saddle_point_matrix();
         let precond = ComponentBlockPreconditioner::new(&matrix, 6, 2).expect("expected value");
-        let b = Array1::from_shape_vec([8], vec![4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]).expect("expected value");
+        let b = Array1::from_shape_vec([8], vec![4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0])
+            .expect("expected value");
         let x = precond.apply(&b).expect("expected value");
 
         assert!((x[0] + 2.0).abs() < 1e-10);

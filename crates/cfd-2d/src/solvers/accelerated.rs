@@ -358,7 +358,9 @@ mod tests {
         source[(nx / 2, ny / 2)] = 1.0;
 
         let solver = AcceleratedPoissonSolver::new(nx, ny, 0.02, 0.02).expect("expected value");
-        let residual = solver.solve(&mut phi, &source, 100, 1.0).expect("expected value");
+        let residual = solver
+            .solve(&mut phi, &source, 100, 1.0)
+            .expect("expected value");
 
         assert!(residual < 1.0); // Should converge
     }

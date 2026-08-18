@@ -2038,10 +2038,7 @@ impl TransientCompositionSimulator {
                 .properties
                 .get(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S)
                 .copied();
-            let flow_rate = flow_rates
-                .get(edge_index)
-                .copied()
-                .unwrap_or(T::ZERO);
+            let flow_rate = flow_rates.get(edge_index).copied().unwrap_or(T::ZERO);
             let Some(segment_mu) = Self::segment_integrated_blood_apparent_viscosity(
                 props
                     .hydraulic_diameter

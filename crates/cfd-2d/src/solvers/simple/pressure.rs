@@ -462,7 +462,12 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
         let pp = self.p_prime.as_mut().expect("expected value");
         let report = krylov::converged_or_none(
             "SIMPLE pressure correction",
-            krylov::bicgstab(matrix, self.rhs.as_ref().expect("expected value"), pp, &solver_config),
+            krylov::bicgstab(
+                matrix,
+                self.rhs.as_ref().expect("expected value"),
+                pp,
+                &solver_config,
+            ),
         )
         .ok_or_else(|| {
             Error::Solver("SIMPLE pressure-correction BiCGSTAB did not converge".to_string())

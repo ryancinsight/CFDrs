@@ -169,7 +169,10 @@ fn bench_network_from_blueprint(c: &mut Criterion) {
 
     for (label, blueprint) in &blueprints {
         group.bench_with_input(BenchmarkId::from_parameter(label), blueprint, |b, bp| {
-            b.iter(|| black_box(network_from_blueprint(black_box(bp), black_box(blood))).expect("expected value"));
+            b.iter(|| {
+                black_box(network_from_blueprint(black_box(bp), black_box(blood)))
+                    .expect("expected value")
+            });
         });
     }
 

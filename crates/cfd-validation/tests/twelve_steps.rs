@@ -1148,7 +1148,9 @@ fn solve_poisson_2d(
 
             // West neighbour
             if let Some(col) = interior_dof(i - 1, j) {
-                builder.add_entry(row, col, -coeff_x).expect("expected value");
+                builder
+                    .add_entry(row, col, -coeff_x)
+                    .expect("expected value");
             } else {
                 // Dirichlet: move contribution to RHS
                 // (-L) entry would be -coeff_x · p_west; move to RHS: +coeff_x · g_west
@@ -1157,21 +1159,27 @@ fn solve_poisson_2d(
 
             // East neighbour
             if let Some(col) = interior_dof(i + 1, j) {
-                builder.add_entry(row, col, -coeff_x).expect("expected value");
+                builder
+                    .add_entry(row, col, -coeff_x)
+                    .expect("expected value");
             } else {
                 rhs_val += coeff_x * bc_val(i + 1, j);
             }
 
             // South neighbour
             if let Some(col) = interior_dof(i, j - 1) {
-                builder.add_entry(row, col, -coeff_y).expect("expected value");
+                builder
+                    .add_entry(row, col, -coeff_y)
+                    .expect("expected value");
             } else {
                 rhs_val += coeff_y * bc_val(i, j - 1);
             }
 
             // North neighbour
             if let Some(col) = interior_dof(i, j + 1) {
-                builder.add_entry(row, col, -coeff_y).expect("expected value");
+                builder
+                    .add_entry(row, col, -coeff_y)
+                    .expect("expected value");
             } else {
                 rhs_val += coeff_y * bc_val(i, j + 1);
             }

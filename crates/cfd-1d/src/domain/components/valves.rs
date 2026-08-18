@@ -180,7 +180,9 @@ mod tests {
         let cv = 0.01_f64;
         let opening = 0.5_f64;
         let mut valve = Microvalve::new(cv);
-        valve.set_parameter("opening", opening).expect("expected value");
+        valve
+            .set_parameter("opening", opening)
+            .expect("expected value");
         let (_, k) = valve.coefficients(&fluid);
         let expected_k = 1.0 / (cv * opening).powi(2);
         assert_relative_eq!(k, expected_k, epsilon = 1e-15);
@@ -196,7 +198,9 @@ mod tests {
     #[test]
     fn test_valve_opening_clamped_below_zero() {
         let mut valve = Microvalve::<f64>::new(0.01);
-        valve.set_parameter("opening", -0.5).expect("expected value");
+        valve
+            .set_parameter("opening", -0.5)
+            .expect("expected value");
         assert_relative_eq!(valve.opening, 0.0, epsilon = 1e-15);
     }
 

@@ -51,7 +51,9 @@ fn ci_config() -> CascadeConfig3D {
 fn cascade_water_solves_two_channels() {
     let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
-    let result = solver.solve(&cif_two_channel_specs()).expect("expected value");
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {
@@ -75,7 +77,9 @@ fn cascade_channels_produce_distinct_shear() {
     // wall shear stress values reflecting their different geometries.
     let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
-    let result = solver.solve(&cif_two_channel_specs()).expect("expected value");
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     let outer = result
         .channel_results
@@ -123,7 +127,9 @@ fn cascade_blood_nonnewtonian_converges() {
     let mut config = ci_config();
     config.max_picard_iterations = 15;
     let solver = CascadeSolver3D::new(config, blood);
-    let result = solver.solve(&cif_two_channel_specs()).expect("expected value");
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {

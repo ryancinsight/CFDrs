@@ -167,7 +167,8 @@ mod tests {
     #[test]
     fn test_pump_set_parameter_max_pressure() {
         let mut pump = Micropump::new(1e-6_f64, 1000.0);
-        pump.set_parameter("max_pressure", 5000.0).expect("expected value");
+        pump.set_parameter("max_pressure", 5000.0)
+            .expect("expected value");
         assert_relative_eq!(pump.max_pressure, 5000.0, epsilon = 1e-30);
     }
 }

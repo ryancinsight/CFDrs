@@ -81,7 +81,9 @@ mod time_integration_edge_tests {
         // Take 10 small steps
         let mut current_t = t;
         for _ in 0..10 {
-            integrator.step(&mut y, current_t, dt, f).expect("expected value");
+            integrator
+                .step(&mut y, current_t, dt, f)
+                .expect("expected value");
             current_t += dt;
         }
 
@@ -199,7 +201,9 @@ mod time_integration_edge_tests {
         // Take several steps
         let mut current_t = t;
         for _ in 0..10 {
-            integrator.step(&mut y, current_t, dt, f).expect("expected value");
+            integrator
+                .step(&mut y, current_t, dt, f)
+                .expect("expected value");
             current_t += dt;
         }
 

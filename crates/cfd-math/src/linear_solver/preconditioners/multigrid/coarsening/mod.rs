@@ -63,7 +63,8 @@ mod tests {
                 row_ptr.push(col_indices.len());
             }
         }
-        csr_from_parts(size, size, row_ptr, col_indices, values, "grid Laplacian").expect("expected value")
+        csr_from_parts(size, size, row_ptr, col_indices, values, "grid Laplacian")
+            .expect("expected value")
     }
 
     #[test]
@@ -138,9 +139,18 @@ mod tests {
                 "Ruge-Stueben",
                 ruge_stueben_coarsening(&matrix, 0.25).expect("expected value"),
             ),
-            ("Aggregation", aggregation_coarsening(&matrix, 4).expect("expected value")),
-            ("Falgout", falgout_coarsening(&matrix, 0.25).expect("expected value")),
-            ("PMIS", pmis_coarsening(&matrix, 0.25).expect("expected value")),
+            (
+                "Aggregation",
+                aggregation_coarsening(&matrix, 4).expect("expected value"),
+            ),
+            (
+                "Falgout",
+                falgout_coarsening(&matrix, 0.25).expect("expected value"),
+            ),
+            (
+                "PMIS",
+                pmis_coarsening(&matrix, 0.25).expect("expected value"),
+            ),
         ];
 
         for (name, result) in results {

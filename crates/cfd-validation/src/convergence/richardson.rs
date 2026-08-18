@@ -184,7 +184,8 @@ mod tests {
     #[test]
     fn test_richardson_second_order() {
         // Test with exact second-order convergence
-        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
+        let extrapolator =
+            RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
 
         // Solutions: f(h) = 1 + h²
         let f_fine = 1.0 + 0.01; // h = 0.1
@@ -209,7 +210,8 @@ mod tests {
 
     #[test]
     fn test_gci_calculation() {
-        let extrapolator = RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
+        let extrapolator =
+            RichardsonExtrapolation::<f64>::second_order(2.0).expect("expected value");
         let f_fine = 1.01;
         let f_coarse = 1.04;
         let safety_factor = 1.25; // Recommended for 3+ grids

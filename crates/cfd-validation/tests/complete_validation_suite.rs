@@ -632,7 +632,9 @@ fn test_performance_regression_monitoring() {
     }
 
     // Check no false regressions
-    let regression = analyzer.detect_regression("stability_test").expect("expected value");
+    let regression = analyzer
+        .detect_regression("stability_test")
+        .expect("expected value");
     assert!(
         regression.is_none(),
         "Should not detect regression in stable data"
@@ -652,7 +654,9 @@ fn test_performance_regression_monitoring() {
     }
 
     // Should detect regression
-    let regression = analyzer.detect_regression("regression_test").expect("expected value");
+    let regression = analyzer
+        .detect_regression("regression_test")
+        .expect("expected value");
     assert!(regression.is_some(), "Should detect performance regression");
 
     println!("✅ Performance regression monitoring test passed");

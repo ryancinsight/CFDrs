@@ -40,7 +40,8 @@ fn test_simd_scale_f32() {
     let scalar = 2.5;
     let mut result = vec![0.0f32; 4];
 
-    simd.scale(&input, scalar, &mut result).expect("expected value");
+    simd.scale(&input, scalar, &mut result)
+        .expect("expected value");
 
     assert_relative_eq!(result[0], 2.5, epsilon = 1e-6);
     assert_relative_eq!(result[1], 5.0, epsilon = 1e-6);
@@ -169,7 +170,8 @@ fn test_convolution() {
     // Expected result len: 3 + 2 - 1 = 4
     let mut result = vec![0.0; 4];
 
-    ops.convolution(&signal, &kernel, &mut result).expect("expected value");
+    ops.convolution(&signal, &kernel, &mut result)
+        .expect("expected value");
 
     // n=0: signal[0]*kernel[0] = 1*0.5 = 0.5
     // n=1: signal[1]*kernel[0] + signal[0]*kernel[1] = 2*0.5 + 1*1.0 = 2.0

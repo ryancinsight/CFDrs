@@ -111,7 +111,8 @@ mod tests {
     fn restrict_residual_full_weighting_matches_boundary_stencil() {
         let gmg = GeometricMultigrid::<f64>::new(3, 3, 2).expect("expected value");
         let fine_residual =
-            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect()).expect("expected value");
+            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect())
+                .expect("expected value");
 
         let restricted = gmg.restrict_residual(&fine_residual, 3, 3, 2, 2);
 
@@ -144,7 +145,8 @@ mod tests {
             }
         }
 
-        let (solution, iterations, residual_norm) = gmg.solve(&rhs, 1e-6, 10).expect("expected value");
+        let (solution, iterations, residual_norm) =
+            gmg.solve(&rhs, 1e-6, 10).expect("expected value");
 
         assert!(iterations > 0, "Should require at least one iteration");
         assert!(residual_norm < 1.0, "Residual should be reduced");
@@ -246,8 +248,9 @@ mod tests {
         // might be slower than optimized linear MG. Relaxing tolerance for this test.
         let tolerance = 1e-3;
         let max_iter = 50;
-        let (solution, iterations, residual_norm) =
-            gmg.solve_fas(&operator, &rhs, tolerance, max_iter).expect("expected value");
+        let (solution, iterations, residual_norm) = gmg
+            .solve_fas(&operator, &rhs, tolerance, max_iter)
+            .expect("expected value");
 
         assert!(iterations > 0);
         assert!(iterations <= max_iter);
@@ -257,7 +260,9 @@ mod tests {
         );
 
         // Compare with standard linear solve
-        let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).expect("expected value");
+        let (linear_sol, _, _) = gmg
+            .solve(&rhs, tolerance, max_iter)
+            .expect("expected value");
 
         let diff = vector_sub(&solution, &linear_sol);
         // The solutions should be relatively close

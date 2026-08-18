@@ -124,7 +124,9 @@ mod tests {
         let murray = MurraysLaw::<f64>::new();
         let d0 = 10.0_f64;
         let d1 = 9.0_f64;
-        let d2 = murray.asymmetric_daughter_diameter(d0, d1).expect("expected value");
+        let d2 = murray
+            .asymmetric_daughter_diameter(d0, d1)
+            .expect("expected value");
         let lhs = d0.powi(3);
         let rhs = d1.powi(3) + d2.powi(3);
         assert_relative_eq!(lhs, rhs, epsilon = 1e-10);

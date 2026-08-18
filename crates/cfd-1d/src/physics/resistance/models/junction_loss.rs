@@ -321,7 +321,9 @@ mod tests {
         let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let cond = FlowConditions::new(0.01);
-        let r = m.calculate_resistance(&fluid, &cond).expect("expected value");
+        let r = m
+            .calculate_resistance(&fluid, &cond)
+            .expect("expected value");
         assert!(r > 0.0, "resistance must be positive: got {r}");
     }
 
@@ -330,7 +332,9 @@ mod tests {
         let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let cond = FlowConditions::new(0.01);
-        let (r, k) = m.calculate_coefficients(&fluid, &cond).expect("expected value");
+        let (r, k) = m
+            .calculate_coefficients(&fluid, &cond)
+            .expect("expected value");
         assert!(r > 0.0, "linear resistance must be positive");
         assert!(k > 0.0, "quadratic loss coefficient must be positive");
     }

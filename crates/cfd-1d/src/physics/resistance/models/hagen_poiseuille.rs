@@ -218,7 +218,9 @@ mod tests {
         // R = 128 * 0.001 * 0.01 / (pi * 1e-12) = 1.28e-3 / (pi * 1e-12)
         let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
         let conditions = FlowConditions::new(0.0);
-        let (r, _k) = model.calculate_coefficients(&water(), &conditions).expect("expected value");
+        let (r, _k) = model
+            .calculate_coefficients(&water(), &conditions)
+            .expect("expected value");
         let expected = 128.0 * 0.001 * 0.01 / (std::f64::consts::PI * 1e-12);
         assert_relative_eq!(r, expected, max_relative = 1e-10);
         assert_relative_eq!(expected, 4.074e8, max_relative = 1e-3);
@@ -229,7 +231,9 @@ mod tests {
         // Hagen-Poiseuille is purely linear: k = 0
         let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
         let conditions = FlowConditions::new(0.0);
-        let (_r, k) = model.calculate_coefficients(&water(), &conditions).expect("expected value");
+        let (_r, k) = model
+            .calculate_coefficients(&water(), &conditions)
+            .expect("expected value");
         assert_relative_eq!(k, 0.0, epsilon = 1e-15);
     }
 
@@ -238,8 +242,12 @@ mod tests {
         let large = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
         let small = HagenPoiseuilleModel::new(0.0001_f64, 0.01_f64);
         let conditions = FlowConditions::new(0.0);
-        let (r_large, _) = large.calculate_coefficients(&water(), &conditions).expect("expected value");
-        let (r_small, _) = small.calculate_coefficients(&water(), &conditions).expect("expected value");
+        let (r_large, _) = large
+            .calculate_coefficients(&water(), &conditions)
+            .expect("expected value");
+        let (r_small, _) = small
+            .calculate_coefficients(&water(), &conditions)
+            .expect("expected value");
         // D halved by 10x → R increases by 10^4 = 10000x (D^4 in denominator)
         assert!(
             r_small > r_large * 9000.0,
@@ -255,8 +263,12 @@ mod tests {
         let forward = FlowConditions::new(0.04);
         let reverse = FlowConditions::new(-0.04);
 
-        let (r_forward, k_forward) = model.calculate_coefficients(&blood, &forward).expect("expected value");
-        let (r_reverse, k_reverse) = model.calculate_coefficients(&blood, &reverse).expect("expected value");
+        let (r_forward, k_forward) = model
+            .calculate_coefficients(&blood, &forward)
+            .expect("expected value");
+        let (r_reverse, k_reverse) = model
+            .calculate_coefficients(&blood, &reverse)
+            .expect("expected value");
 
         assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
         assert_relative_eq!(k_forward, 0.0, epsilon = 1e-15);

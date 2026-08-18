@@ -407,7 +407,9 @@ mod tests {
     #[test]
     fn test_rk4_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_runge_kutta_gcl(1.0, 4).expect("expected value");
+        let result = checker
+            .test_runge_kutta_gcl(1.0, 4)
+            .expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["stages"], 4.0);
@@ -444,7 +446,9 @@ mod tests {
     #[test]
     fn test_comprehensive_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let results = checker.run_comprehensive_gcl_tests().expect("expected value");
+        let results = checker
+            .run_comprehensive_gcl_tests()
+            .expect("expected value");
         assert_eq!(results.len(), 12);
 
         for result in results {

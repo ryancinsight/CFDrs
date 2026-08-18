@@ -440,7 +440,9 @@ mod tests {
         let rkc = RungeKuttaChebyshev::<f64>::new();
 
         let y0 = state_from_vec(vec![1.0]);
-        let (y_final, _) = rkc.solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1).expect("expected value");
+        let (y_final, _) = rkc
+            .solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1)
+            .expect("expected value");
 
         let analytical = (-lambda).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);

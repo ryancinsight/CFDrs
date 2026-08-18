@@ -260,22 +260,28 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         // Drop the full candidate + evaluation here (end of closure).
         // Only push lightweight data to accumulators.
         if is_venturi {
-            pareto_acc.lock().expect("expected value").push(ParetoPoint {
-                cancer_targeted_cavitation,
-                healthy_cell_protection_index,
-                rbc_venturi_protection,
-                score: option2_score.unwrap_or(0.001),
-                tag: ParetoTag::Option2,
-            });
+            pareto_acc
+                .lock()
+                .expect("expected value")
+                .push(ParetoPoint {
+                    cancer_targeted_cavitation,
+                    healthy_cell_protection_index,
+                    rbc_venturi_protection,
+                    score: option2_score.unwrap_or(0.001),
+                    tag: ParetoTag::Option2,
+                });
         }
 
         if option1_score.is_some() || option2_score.is_some() {
-            deferred_acc.lock().expect("expected value").push(LightweightResult {
-                params: params.clone(),
-                lineage_key,
-                is_venturi,
-                option2_score,
-            });
+            deferred_acc
+                .lock()
+                .expect("expected value")
+                .push(LightweightResult {
+                    params: params.clone(),
+                    lineage_key,
+                    is_venturi,
+                    option2_score,
+                });
         }
         // `candidate` and `evaluation` are dropped here — no accumulation.
     });

@@ -367,7 +367,11 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
 
     if ranked.len() >= 2 {
         let top_selectivity = ranked[0].venturi.cavitation_selectivity_score;
-        let bottom_selectivity = ranked.last().expect("expected value").venturi.cavitation_selectivity_score;
+        let bottom_selectivity = ranked
+            .last()
+            .expect("expected value")
+            .venturi
+            .cavitation_selectivity_score;
         assert!(
             top_selectivity >= bottom_selectivity - 0.01,
             "top selectivity ({top_selectivity:.4}) should be >= bottom ({bottom_selectivity:.4})"
