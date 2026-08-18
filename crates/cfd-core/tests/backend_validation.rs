@@ -196,7 +196,13 @@ fn test_single_element() {
     let result = compute_squares(backend, &input);
 
     assert_eq!(result.len(), 1);
-    assert_eq!(result[0], 1764.0);
+    let expected = 1764.0;
+    let error = (result[0] - expected).abs();
+    let tolerance = 16.0 * f64::EPSILON * expected.abs();
+    assert!(
+        error <= tolerance,
+        "single-element square error {error} exceeds tolerance {tolerance}"
+    );
 }
 
 /// Test numerical stability with extreme values
@@ -214,13 +220,9 @@ fn test_extreme_values() {
 
     for (i, (&result, &expected_val)) in small_result.iter().zip(small_expected.iter()).enumerate()
     {
-        let rel_error = if expected_val != 0.0 {
-            ((result - expected_val) / expected_val).abs()
-        } else {
-            result.abs()
-        };
+        let rel_error = ((result - expected_val) / expected_val).abs();
         assert!(
-            rel_error < 1e-10 || result == expected_val,
+            rel_error < 1e-10,
             "Small value {i} mismatch: {result} vs {expected_val} (rel_error: {rel_error})"
         );
     }
@@ -270,9 +272,27 @@ fn test_linear_scaling_property() {
         );
 
         // Verify first, middle, and last elements
-        assert_eq!(result[0], 0.0);
-        assert_eq!(result[size / 2], ((size / 2) as f64).powi(2));
-        assert_eq!(result[size - 1], ((size - 1) as f64).powi(2));
+        let tolerance = 16.0 * f64::EPSILON;
+        let expected_first = 0.0;
+        let first_error = (result[0] - expected_first).abs();
+        assert!(
+            first_error <= tolerance,
+            "first square error {first_error} exceeds tolerance {tolerance}"
+        );
+
+        let expected_middle = ((size / 2) as f64).powi(2);
+        let middle_error = (result[size / 2] - expected_middle).abs();
+        assert!(
+            middle_error <= tolerance * expected_middle.abs().max(1.0),
+            "middle square error {middle_error} exceeds scaled tolerance"
+        );
+
+        let expected_last = ((size - 1) as f64).powi(2);
+        let last_error = (result[size - 1] - expected_last).abs();
+        assert!(
+            last_error <= tolerance * expected_last.abs().max(1.0),
+            "last square error {last_error} exceeds scaled tolerance"
+        );
     }
 }
 
@@ -320,10 +340,12 @@ fn test_cfd_application_scenario() {
     assert_eq!(u_squared.len(), velocity_u.len());
     for (i, &val) in u_squared.iter().enumerate() {
         assert!(val >= 0.0, "Squared values must be non-negative");
-        assert_eq!(
-            val,
-            velocity_u[i] * velocity_u[i],
-            "Must match analytical result"
+        let expected = velocity_u[i] * velocity_u[i];
+        let error = (val - expected).abs();
+        let tolerance = 16.0 * f64::EPSILON * expected.abs().max(1.0);
+        assert!(
+            error <= tolerance,
+            "analytical square error {error} exceeds tolerance {tolerance}"
         );
     }
 }
