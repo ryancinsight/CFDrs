@@ -1,3 +1,21 @@
+## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (in progress 2026-08-17)
+
+The first implementation placed a new streamfunction–vorticity solver in
+`cfd-validation`, which violated provider-first ownership because `cfd-2d`
+already owns the SIMPLE Navier–Stokes field and mask path. The follow-up moves
+the step geometry mask, explicit inlet/outlet/no-slip contract, signed
+downstream lower-wall shear samples, and interpolated reattachment crossing to
+`crates/cfd-2d/src/solvers/ns_fvm/backward_step.rs`. The validation benchmark is
+now a thin adapter and no longer owns a second field solver or matrix type.
+The provider applies a normalized parabolic profile only on fluid inlet cells;
+solid inlet cells remain zero during every SIMPLE iteration.
+
+Focused local compilation remains blocked before source diagnostics by the
+shared Atlas overlay and the pre-existing dirty lock: the overlay's peer
+`repos/asclepius` requires `aequitas ^0.1.0`, while the current local provider
+is `0.2.0`; `--locked` therefore refuses the required lock update. The exact
+hosted provider gate is required before merge.
+
 ## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (closed 2026-08-17)
 
 The Atlas conformance scan's one `existence_only_assertions` regression from
@@ -44,6 +62,25 @@ slice and is not represented as a successful gate.
 >
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
+
+## ATLAS-CFDRS-BACKWARD-STEP-108 — field-derived reattachment (in progress 2026-08-17)
+
+The provider now owns the backward-facing-step SIMPLE field solve, geometry
+mask, and explicit boundary contract. Its normalized parabolic inlet is
+applied only to fluid cells, and its lower-wall velocity gradient supplies
+signed downstream shear samples. Reattachment is the first downstream
+negative-to-non-negative shear crossing, with linear interpolation between
+grid columns. Fields without such a crossing return a typed invalid-input
+error; the consumer adapter no longer owns a streamfunction field solver or a
+correlation result.
+
+The focused source and integration tests were updated to assert the crossing,
+boundary values, finite physical position, and exact error for a field without
+reattachment. `cargo fmt --all -- --check` and `git diff --check` pass. The
+locked local package gate remains blocked before compilation by the shared Atlas
+overlay's peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the
+current local graph provides `0.2.0`; hosted exact-head verification is required
+before closure.
 
 ## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
 

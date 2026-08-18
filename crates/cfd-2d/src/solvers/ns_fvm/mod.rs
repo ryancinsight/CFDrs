@@ -23,12 +23,17 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+pub mod backward_step;
 pub mod boundary;
 pub mod config;
 pub mod field;
 pub mod grid;
 pub mod solver;
 
+pub use backward_step::{
+    BackwardFacingStepConfig, BackwardFacingStepGeometry, BackwardFacingStepResult,
+    BackwardFacingStepSolver, WallShearSample,
+};
 pub use boundary::{BCType, BloodModel, BoundaryCondition};
 pub use config::{SIMPLEConfig, SolveResult};
 pub use field::FlowField2D;
