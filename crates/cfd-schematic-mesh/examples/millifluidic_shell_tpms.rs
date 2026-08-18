@@ -14,7 +14,7 @@
 //! ```
 
 use std::fs;
-use std::io::BufWriter;
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
 use aequitas::systems::si::quantities::Length;
@@ -27,10 +27,21 @@ use cfd_schematics::geometry::types::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("╔══════════════════════════════════════════════════════╗");
-    println!("║       Millifluidic Shell TPMS Example               ║");
-    println!("╚══════════════════════════════════════════════════════╝");
-    println!();
+    let standard_output = io::stdout();
+    let mut terminal = standard_output.lock();
+    writeln!(
+        terminal,
+        "╔══════════════════════════════════════════════════════╗"
+    )?;
+    writeln!(
+        terminal,
+        "║       Millifluidic Shell TPMS Example               ║"
+    )?;
+    writeln!(
+        terminal,
+        "╚══════════════════════════════════════════════════════╝"
+    )?;
+    writeln!(terminal)?;
 
     let out_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("outputs")
@@ -73,13 +84,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
     };
 
-    println!("Building {} ...", name);
+    writeln!(terminal, "Building {name} ...")?;
 
     let config = ShellPipelineConfig::default();
 
     // Run the pipeline
     let mut output =
-        ShellMeshPipeline::run(&shell, &config).map_err(|e| format!("Pipeline failed: {}", e))?;
+        ShellMeshPipeline::run(&shell, &config).map_err(|e| format!("Pipeline failed: {e}"))?;
 
     assert!(
         output.fluid_mesh.is_watertight(),
@@ -90,35 +101,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Chip body mesh not watertight!"
     );
 
-    println!(
+    writeln!(
+        terminal,
         "  fluid : {:>7} faces, vol = {:>10.3} mm³ [watertight ✓]",
         output.fluid_mesh.face_count(),
         output.fluid_mesh.signed_volume()
-    );
-    println!(
+    )?;
+    writeln!(
+        terminal,
         "  chip  : {:>7} faces, vol = {:>10.3} mm³ [watertight ✓]",
         output.chip_body_mesh.face_count(),
         output.chip_body_mesh.signed_volume()
-    );
+    )?;
 
     // Write STL
-    let fluid_path = out_dir.join(format!("{}_fluid.stl", name));
-    let chip_path = out_dir.join(format!("{}_chip.stl", name));
+    let fluid_path = out_dir.join(format!("{name}_fluid.stl"));
+    let chip_path = out_dir.join(format!("{name}_chip.stl"));
 
     stl::write_binary_stl(
         &mut BufWriter::new(fs::File::create(&fluid_path)?),
         &output.fluid_mesh.vertices,
         &output.fluid_mesh.faces,
     )?;
-    println!("  → {}", fluid_path.display());
+    writeln!(terminal, "  → {}", fluid_path.display())?;
 
     stl::write_binary_stl(
         &mut BufWriter::new(fs::File::create(&chip_path)?),
         &output.chip_body_mesh.vertices,
         &output.chip_body_mesh.faces,
     )?;
-    println!("  → {}", chip_path.display());
+    writeln!(terminal, "  → {}", chip_path.display())?;
 
-    println!("Done.");
+    writeln!(terminal, "Done.")?;
     Ok(())
 }
