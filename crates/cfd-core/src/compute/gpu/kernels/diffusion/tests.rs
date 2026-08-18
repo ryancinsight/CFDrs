@@ -7,14 +7,14 @@ fn kernel() -> Option<GpuDiffusionKernel> {
     let context = match GpuContext::create() {
         Ok(context) => context,
         Err(error) => {
-            eprintln!("Skipping GPU diffusion test: {error:?}");
+            tracing::debug!(error = ?error, "GPU diffusion test unavailable");
             return None;
         }
     };
     match GpuDiffusionKernel::new(Arc::new(context)) {
         Ok(kernel) => Some(kernel),
         Err(error) => {
-            eprintln!("Skipping GPU diffusion test: {error:?}");
+            tracing::debug!(error = ?error, "GPU diffusion test unavailable");
             None
         }
     }
@@ -23,11 +23,14 @@ fn kernel() -> Option<GpuDiffusionKernel> {
 #[test]
 fn constant_field_is_exact_identity_across_partial_workgroups() {
     let Some(kernel) = kernel() else { return };
-    let config = DiffusionConfig::new([9, 5, 3], [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new([9, 5, 3], [1.0; 3], 0.125, 1.0)
+        .expect("invariant: valid diffusion configuration");
     let input = vec![7.25; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).unwrap();
+    kernel
+        .execute(&input, config, &mut output)
+        .expect("invariant: valid diffusion execution");
 
     assert_eq!(output, input);
 }
@@ -36,7 +39,8 @@ fn constant_field_is_exact_identity_across_partial_workgroups() {
 fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [5, 4, 3];
-    let config = DiffusionConfig::new(dimensions, [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new(dimensions, [1.0; 3], 0.125, 1.0)
+        .expect("invariant: valid diffusion configuration");
     let input: Vec<f32> = (0..dimensions[2])
         .flat_map(|z| {
             (0..dimensions[1])
@@ -45,7 +49,9 @@ fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
         .collect();
     let mut output = vec![0.0; config.element_count()];
 
-    kernel.execute(&input, config, &mut output).unwrap();
+    kernel
+        .execute(&input, config, &mut output)
+        .expect("invariant: valid diffusion execution");
 
     let mut expected = input.clone();
     for z in 1..dimensions[2] - 1 {
@@ -61,14 +67,15 @@ fn quadratic_field_has_exact_laplacian_and_copied_boundaries() {
 
 #[test]
 fn rejects_length_and_nonfinite_input() {
-    let config = DiffusionConfig::new([3, 3, 3], [1.0; 3], 0.125, 1.0).unwrap();
+    let config = DiffusionConfig::new([3, 3, 3], [1.0; 3], 0.125, 1.0)
+        .expect("invariant: valid diffusion configuration");
     let input = vec![1.0; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
     let Some(kernel) = kernel() else { return };
 
     let length_error = kernel
         .execute(&input[..26], config, &mut output)
-        .unwrap_err();
+        .expect_err("invariant: short diffusion input is rejected");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -79,7 +86,9 @@ fn rejects_length_and_nonfinite_input() {
 
     let mut nonfinite = input;
     nonfinite[13] = f32::NAN;
-    let nonfinite_error = kernel.execute(&nonfinite, config, &mut output).unwrap_err();
+    let nonfinite_error = kernel
+        .execute(&nonfinite, config, &mut output)
+        .expect_err("invariant: nonfinite diffusion input is rejected");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 }
 
