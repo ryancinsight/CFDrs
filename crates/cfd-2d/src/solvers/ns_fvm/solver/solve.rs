@@ -203,27 +203,29 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     fn apply_parabolic_inlet(&mut self, u_inlet: T) {
         let ny = self.grid.ny;
         let zero: T = scalar::zero();
-        let mut y_coords = Vec::with_capacity(ny);
-        let mut dy_cells = Vec::with_capacity(ny);
+        let mut has_fluid = false;
+        let mut y_min = zero;
+        let mut y_max = zero;
+        let mut lower_dy = zero;
+        let mut upper_dy = zero;
         for j in 0..ny {
             if self.field.mask[(0, j)] {
-                y_coords.push(self.grid.y_center(j));
-                dy_cells.push(self.grid.dy_at(j));
+                let y = self.grid.y_center(j);
+                let dy = self.grid.dy_at(j);
+                if !has_fluid {
+                    y_min = y;
+                    lower_dy = dy;
+                    has_fluid = true;
+                }
+                y_max = y;
+                upper_dy = dy;
             }
         }
-        if y_coords.is_empty() {
+        if !has_fluid {
             return;
         }
-        let y_min = y_coords
-            .iter()
-            .copied()
-            .fold(y_coords[0], NumericElement::min_scalar);
-        let y_max = y_coords
-            .iter()
-            .copied()
-            .fold(y_coords[0], NumericElement::max_scalar);
         let half: T = <T as FloatElement>::from_f64(0.5);
-        let h = y_max - y_min + (dy_cells[0] + dy_cells[dy_cells.len().saturating_sub(1)]) * half;
+        let h = y_max - y_min + (lower_dy + upper_dy) * half;
         let six: T = <T as FloatElement>::from_f64(6.0);
         let one: T = scalar::one();
         let mut discrete_sum: T = zero;
