@@ -166,7 +166,9 @@ mod tests {
     fn adaptive_controller_rejects_zero_order() {
         let controller = AdaptiveTimeStepController::<f64>::default();
 
-        let err = controller.calculate_dt(0.1, 1e-5, 0).unwrap_err();
+        let err = controller
+            .calculate_dt(0.1, 1e-5, 0)
+            .expect_err("invariant: zero-order time integration is rejected");
 
         assert_eq!(
             err.to_string(),

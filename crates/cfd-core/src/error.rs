@@ -1596,14 +1596,20 @@ mod tests {
         let result: Result<()> = Err(Error::InvalidInput("test".into()));
         let with_context = result.context("Additional context");
         assert!(with_context.is_err());
-        let error_msg = format!("{}", with_context.unwrap_err());
+        let error_msg = format!(
+            "{}",
+            with_context.expect_err("invariant: context preserves the error")
+        );
         assert!(error_msg.contains("Additional context"));
     }
 
     #[test]
     fn test_require() {
         let some_value = Some(42);
-        assert_eq!(require(some_value, "missing").unwrap(), 42);
+        assert_eq!(
+            require(some_value, "missing").expect("invariant: present value is required"),
+            42
+        );
 
         let none_value: Option<i32> = None;
         assert!(require(none_value, "missing").is_err());
