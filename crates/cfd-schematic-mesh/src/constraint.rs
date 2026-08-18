@@ -241,11 +241,13 @@ mod tests {
                 tolerance,
                 ..
             } => {
-                assert_eq!(actual.in_unit::<Millimeter>(), 2.0);
+                assert_eq!(actual, Length::from_unit::<Millimeter>(2.0));
                 assert_eq!(expected, REQUIRED_HYDRAULIC_DIAMETER);
                 assert_eq!(tolerance, HYDRAULIC_DIAMETER_TOLERANCE);
             }
-            other => panic!("unexpected constraint error: {other}"),
+            other @ DiameterConstraintError::IsolatedNode { .. } => {
+                panic!("unexpected constraint error: {other}")
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-//! Canonical JSON schematic → STL + OpenFOAM pipeline.
+//! Canonical JSON schematic → STL + `OpenFOAM` pipeline.
 //!
 //! Demonstrates the complete path from `cfd-schematics` designs to watertight
 //! 3-D surface meshes ready for:
@@ -6,7 +6,7 @@
 //! - **Manufacturing**: binary STL files (`*_fluid.stl`, `*_chip.stl`) for 3-D
 //!   printing or CNC machining.
 //!
-//! - **3-D CFD simulation**: OpenFOAM `constant/polyMesh/` directories with
+//! - **3-D CFD simulation**: `OpenFOAM` `constant/polyMesh/` directories with
 //!   named boundary patches (`inlet`, `outlet`, `walls`) accepted directly by
 //!   `simpleFoam`, `icoFoam`, and `snappyHexMesh`.
 //!
@@ -24,11 +24,11 @@
 //!                     └─▶ write_openfoam_polymesh() → constant/polyMesh/
 //! ```
 //!
-//! ## Boundary label → OpenFOAM patch mapping
+//! ## Boundary label → `OpenFOAM` patch mapping
 //!
 //! `BlueprintMeshPipeline` marks faces via `IndexedMesh::mark_boundary()`:
 //!
-//! | Label string | RegionId | PatchType  | OpenFOAM `type` |
+//! | Label string | `RegionId` | `PatchType`  | `OpenFOAM` `type` |
 //! |---|---|---|---|
 //! | `"inlet"`  | 0 | `Inlet`  | `patch` (physicalType inlet) |
 //! | `"outlet"` | 1 | `Outlet` | `patch` (physicalType outlet) |
@@ -42,7 +42,7 @@
 //! ```
 
 use std::fs;
-use std::io::BufWriter;
+use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
 use aequitas::systems::si::quantities::{Dimensionless, Length, Volume};
@@ -78,9 +78,20 @@ const REGION_WALL: u32 = 2;
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("╔══════════════════════════════════════════════════╗");
-    println!("║  Schematic → 3D Mesh → STL + OpenFOAM Pipeline  ║");
-    println!("╚══════════════════════════════════════════════════╝");
+    let standard_output = io::stdout();
+    let mut terminal = standard_output.lock();
+    writeln!(
+        terminal,
+        "╔══════════════════════════════════════════════════╗"
+    )?;
+    writeln!(
+        terminal,
+        "║  Schematic → 3D Mesh → STL + OpenFOAM Pipeline  ║"
+    )?;
+    writeln!(
+        terminal,
+        "╚══════════════════════════════════════════════════╝"
+    )?;
 
     let out_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("outputs")
@@ -114,17 +125,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut stl_count = 0usize;
     let mut of_count = 0usize;
 
-    println!();
-    println!(
+    writeln!(terminal)?;
+    writeln!(
+        terminal,
         "  Running {} designs with chip_height = {} mm",
         n,
         config.chip_height.in_unit::<Millimeter>()
-    );
-    println!("  Output root: {}", out_root.display());
-    println!("{}", "─".repeat(60));
+    )?;
+    writeln!(terminal, "  Output root: {}", out_root.display())?;
+    writeln!(terminal, "{}", "─".repeat(60))?;
 
     for (i, (name, bp)) in designs.iter().enumerate() {
-        print!("  [{}/{}] {:.<40}", i + 1, n, format!("{name} "));
+        write!(terminal, "  [{}/{}] {name:.<40}", i + 1, n)?;
 
         let mut out = BlueprintMeshPipeline::run(bp, &config)
             .map_err(|e| format!("{name}: pipeline failed — {e}"))?;
@@ -146,7 +158,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let topo = format!("{:?}", out.topology_class);
-        println!(" {topo:.<22} {} faces", out.fluid_mesh.face_count());
+        writeln!(
+            terminal,
+            " {topo:.<22} {} faces",
+            out.fluid_mesh.face_count()
+        )?;
 
         let design_dir = out_root.join(name);
         fs::create_dir_all(&design_dir)?;
@@ -156,11 +172,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fluid_path = design_dir.join(format!("{name}_fluid.stl"));
         let mut f = BufWriter::new(fs::File::create(&fluid_path)?);
         write_stl_binary(&mut f, &out.fluid_mesh)?;
-        println!(
+        writeln!(
+            terminal,
             "         fluid STL  → {:>7} faces, vol = {:>10.3} mm³",
             out.fluid_mesh.face_count(),
             fluid_vol
-        );
+        )?;
         stl_count += 1;
 
         // ── STL: chip body ────────────────────────────────────────────────────
@@ -171,11 +188,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let chip_path = design_dir.join(format!("{name}_chip.stl"));
             let mut f = BufWriter::new(fs::File::create(&chip_path)?);
             write_stl_binary(&mut f, chip)?;
-            println!(
+            writeln!(
+                terminal,
                 "         chip  STL  → {:>7} faces, vol = {:>10.3} mm³",
                 chip.face_count(),
                 chip_vol
-            );
+            )?;
             stl_count += 1;
         }
 
@@ -200,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (RegionId::new(REGION_WALL), "walls", PatchType::Wall),
             ],
         )?;
-        println!("         OpenFOAM   → {}/", of_dir.display());
+        writeln!(terminal, "         OpenFOAM   → {}/", of_dir.display())?;
         of_count += 1;
 
         // ── OpenFOAM: chip body (wall-only surface for snappyHexMesh) ─────────
@@ -211,15 +229,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &chip_of_dir,
                 &[(RegionId::new(0), "walls", PatchType::Wall)],
             )?;
-            println!("         chip OF    → {}/", chip_of_dir.display());
+            writeln!(terminal, "         chip OF    → {}/", chip_of_dir.display())?;
             of_count += 1;
         }
     }
 
-    println!("{}", "─".repeat(60));
-    println!("  {stl_count} STL files + {of_count} OpenFOAM polyMesh dirs written");
-    println!("  Output: {}", out_root.display());
-    println!();
+    writeln!(terminal, "{}", "─".repeat(60))?;
+    writeln!(
+        terminal,
+        "  {stl_count} STL files + {of_count} OpenFOAM polyMesh dirs written"
+    )?;
+    writeln!(terminal, "  Output: {}", out_root.display())?;
+    writeln!(terminal)?;
 
     Ok(())
 }
@@ -317,7 +338,10 @@ fn mesh_output_from_blueprint(
     }
 
     let mut fluid_mesh = if channel_meshes.len() == 1 {
-        channel_meshes.into_iter().next().unwrap()
+        channel_meshes
+            .into_iter()
+            .next()
+            .ok_or("one channel mesh was expected")?
     } else {
         csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
     };
@@ -331,7 +355,10 @@ fn mesh_output_from_blueprint(
         let substrate = SubstrateBuilder::well_plate_96(config.chip_height.in_unit::<Millimeter>())
             .build_indexed()?;
         let void_union = if void_meshes.len() == 1 {
-            void_meshes.into_iter().next().unwrap()
+            void_meshes
+                .into_iter()
+                .next()
+                .ok_or("one void mesh was expected")?
         } else {
             csg_boolean_nary(BooleanOp::Union, &void_meshes)?
         };
@@ -457,8 +484,8 @@ fn profile_radius_mm(profile: &cfd_mesh::application::channel::profile::ChannelP
     use cfd_mesh::application::channel::profile::ChannelProfile;
     match profile {
         ChannelProfile::Circular { radius, .. } => *radius,
-        ChannelProfile::Rectangular { width, height } => 0.5 * width.min(*height),
-        ChannelProfile::RoundedRectangular { width, height, .. } => 0.5 * width.min(*height),
+        ChannelProfile::Rectangular { width, height }
+        | ChannelProfile::RoundedRectangular { width, height, .. } => 0.5 * width.min(*height),
     }
 }
 
