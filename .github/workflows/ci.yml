@@ -34,13 +34,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
-        with:
-          manifest: Cargo.toml
-          destination: ..
-          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
-
       - name: Install the pinned Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -94,13 +87,6 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
-
-      - name: Checkout Atlas path dependencies
-        uses: ryancinsight/atlas/.github/actions/checkout-path-dependencies@daa79407267f99cc91765586d97c716fbf616df1
-        with:
-          manifest: Cargo.toml
-          destination: ..
-          atlas_ref: daa79407267f99cc91765586d97c716fbf616df1
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
