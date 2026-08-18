@@ -107,7 +107,9 @@ mod tests {
             Some(frequency(1e6)),
         );
 
-        let mi = classifier.mechanical_index().unwrap();
+        let mi = classifier
+            .mechanical_index()
+            .expect("invariant: mechanical-index inputs are valid");
         assert!(mi > 0.0);
         assert!((mi - 1e6).abs() < 1.0);
     }
@@ -191,7 +193,9 @@ mod tests {
             Some(frequency(20e3)),
         );
 
-        let analysis = classifier.analyze().unwrap();
+        let analysis = classifier
+            .analyze()
+            .expect("invariant: complete cavitation analysis inputs are valid");
 
         assert_eq!(analysis.regime, CavitationRegime::Inertial);
         assert!(analysis.blake_threshold.into_base() > 0.0);
