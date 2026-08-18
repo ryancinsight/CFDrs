@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_spectral_element() {
         let order = 4;
-        let element = SpectralElement::new(order).unwrap();
+        let element = SpectralElement::new(order).expect("invariant: valid spectral order");
 
         // Test that the element has the correct number of nodes
         assert_eq!(element.num_nodes, order + 1);
@@ -363,7 +363,8 @@ mod tests {
         let num_elements = 4;
         let element_order = 3;
 
-        let mesh = SpectralMesh1D::new(x_min, x_max, num_elements, element_order).unwrap();
+        let mesh = SpectralMesh1D::new(x_min, x_max, num_elements, element_order)
+            .expect("invariant: valid spectral mesh dimensions");
 
         // Test number of global nodes
         let expected_nodes = num_elements * element_order + 1;

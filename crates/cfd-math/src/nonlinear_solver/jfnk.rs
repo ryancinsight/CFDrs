@@ -493,7 +493,7 @@ mod tests {
         // F(x) = Ax - b = 0, x* = [1.0, 2.0, 3.0]
         let a_data =
             Array2::from_shape_vec([3, 3], vec![4.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0])
-                .unwrap();
+                .expect("invariant: linear JFNK matrix shape matches values");
         let b = vec(vec![
             4.0 * 1.0 + 1.0 * 2.0,
             1.0 * 1.0 + 3.0 * 2.0 + 1.0 * 3.0,
@@ -573,7 +573,9 @@ mod tests {
         let config = JfnkConfig::<f64>::default();
         let x0 = vec(vec![1.0, 2.0]);
         let solver = JfnkSolver::new(config);
-        let (_, conv) = solver.solve(func, x0).unwrap();
+        let (_, conv) = solver
+            .solve(func, x0)
+            .expect("invariant: root initial guess is accepted");
         assert!(conv.converged);
         assert_eq!(conv.newton_iterations, 0);
     }

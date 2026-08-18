@@ -181,6 +181,11 @@ mod tests {
         let values = vec![1.0, 2.0, 4.0];
         let mut iter = StencilIterator::new(values.into_iter(), StencilPattern::Forward3);
 
-        assert_relative_eq!(iter.first_derivative().unwrap(), 0.5, epsilon = 1e-15);
+        assert_relative_eq!(
+            iter.first_derivative()
+                .expect("invariant: Forward3 has enough stencil samples"),
+            0.5,
+            epsilon = 1e-15
+        );
     }
 }

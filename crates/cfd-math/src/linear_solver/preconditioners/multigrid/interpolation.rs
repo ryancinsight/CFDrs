@@ -441,7 +441,8 @@ mod tests {
             }
             row_ptr.push(col_indices.len());
         }
-        csr_from_parts(nrows, ncols, row_ptr, col_indices, values, context).unwrap()
+        csr_from_parts(nrows, ncols, row_ptr, col_indices, values, context)
+            .expect("invariant: dense interpolation fixture converts to CSR");
     }
 
     fn create_test_matrix() -> SparseMatrix<f64> {
@@ -503,7 +504,8 @@ mod tests {
         let strength_matrix = csr_from_dense(&strength_dense, "classical strength matrix");
 
         let interpolation =
-            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2)
+                .expect("invariant: valid classical interpolation fixture");
 
         // Check dimensions
         assert_eq!(interpolation.nrows(), 5);
@@ -560,9 +562,11 @@ mod tests {
         let (_coarse_points, fine_to_coarse_map) = create_simple_coarsening();
         let interpolation = create_direct_interpolation::<f64>(&fine_to_coarse_map, 5, 3);
 
-        let constant_coarse = Array1::from_shape_vec([3], vec![1.0; 3]).unwrap();
+        let constant_coarse = Array1::from_shape_vec([3], vec![1.0; 3])
+            .expect("invariant: constant coarse vector shape matches coarsening");
         let mut interpolated = Array1::zeros([5]);
-        let interpolated_result = leto_spmv(&interpolation, &constant_coarse.view()).unwrap();
+        let interpolated_result = leto_spmv(&interpolation, &constant_coarse.view())
+            .expect("invariant: interpolation dimensions match coarse vector");
         for i in 0..interpolated.shape()[0] {
             interpolated[i] = interpolated_result[i];
         }
@@ -621,7 +625,8 @@ mod tests {
         let strength_matrix = csr_from_dense(&strength_dense, "classical weighted strength matrix");
 
         let interpolation =
-            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2)
+                .expect("invariant: valid weighted interpolation fixture");
 
         // Coarse mapping: 0->0, 3->1, 4->2
 

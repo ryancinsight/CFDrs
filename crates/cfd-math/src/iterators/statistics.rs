@@ -75,7 +75,10 @@ mod tests {
         let values = vec![1.0, 2.0, 4.0, 5.0];
 
         assert_relative_eq!(
-            values.into_iter().mean::<f64>().unwrap(),
+            values
+                .into_iter()
+                .mean::<f64>()
+                .expect("invariant: non-empty mean input"),
             3.0,
             epsilon = 1e-15
         );
@@ -86,7 +89,10 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0];
 
         assert_relative_eq!(
-            values.into_iter().variance::<f64>().unwrap(),
+            values
+                .into_iter()
+                .variance::<f64>()
+                .expect("invariant: at least two samples for sample variance"),
             5.0 / 3.0,
             epsilon = 1e-15
         );
@@ -97,7 +103,10 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0];
 
         assert_relative_eq!(
-            values.into_iter().std_dev::<f64>().unwrap(),
+            values
+                .into_iter()
+                .std_dev::<f64>()
+                .expect("invariant: at least two samples for standard deviation"),
             (5.0_f64 / 3.0).sqrt(),
             epsilon = 1e-15
         );
