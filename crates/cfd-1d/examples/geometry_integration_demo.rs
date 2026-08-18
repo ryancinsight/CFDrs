@@ -31,11 +31,15 @@ use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧪 Geometry Integration Demo");
-    println!("===========================");
+    use std::io::Write;
+
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "🧪 Geometry Integration Demo")?;
+    writeln!(output, "===========================")?;
 
     // ── 1. Generate Geometry ─────────────────────────────────────────────────
-    println!("DATA: Generating bifurcation geometry...");
+    writeln!(output, "DATA: Generating bifurcation geometry...")?;
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
@@ -45,18 +49,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channel_type_config = ChannelTypeConfig::AllStraight;
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type_config);
-    println!(
+    writeln!(
+        output,
         "DATA: Generated {} nodes and {} channels",
         system.nodes.len(),
         system.channels.len()
-    );
+    )?;
 
     // ── 2. Convert to Simulation Specs ───────────────────────────────────────
     let node_specs = system.nodes.clone();
     let channel_specs = system.channels.clone();
 
     // ── 3. Build Network ─────────────────────────────────────────────────────
-    println!("DATA: Building network...");
+    writeln!(output, "DATA: Building network...")?;
     let mut builder = NetworkBuilder::<f64>::new();
     let mut id_map = HashMap::new();
 
@@ -94,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── 4. Boundary Conditions ───────────────────────────────────────────────
-    println!("DATA: Applying boundary conditions...");
+    writeln!(output, "DATA: Applying boundary conditions...")?;
     let inlet_id = node_specs
         .iter()
         .find(|n| matches!(n.kind, NodeKind::Inlet))
@@ -113,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
-    println!("DATA: Solving...");
+    writeln!(output, "DATA: Solving...")?;
     let config = SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
@@ -121,10 +126,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let solver = NetworkSolver::with_config(config);
     let solution = solver.solve(&NetworkProblem::new(network))?;
-    println!("DATA: Solution converged.");
+    writeln!(output, "DATA: Solution converged.")?;
 
     // ── 6. Build AnalysisOverlay from Flow Rates ─────────────────────────────
-    println!("VISUALIZATION: Building AnalysisOverlay...");
+    writeln!(output, "VISUALIZATION: Building AnalysisOverlay...")?;
 
     // Map edge graph indices → channel schematic IDs
     // Channel IDs in the schematic are integers; edge IDs are "chan_<id>"
@@ -155,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let max_flow = edge_flow_data.values().cloned().fold(0.0_f64, f64::max);
+    let max_flow = edge_flow_data.values().copied().fold(0.0_f64, f64::max);
 
     // FlowRate overlay with Viridis colormap
     let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)
@@ -170,7 +175,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let renderer = create_plotters_renderer();
     let render_config = RenderConfig {
-        title: format!("Flow Distribution (Max Q = {:.2e} m³/s)", max_flow),
+        title: format!("Flow Distribution (Max Q = {max_flow:.2e} m³/s)"),
         show_axes: true,
         show_grid: false,
         ..Default::default()
@@ -182,7 +187,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &render_config,
         &overlay,
     )?;
-    println!("✅ Rendered flow_analysis.png with AnalysisOverlay (Viridis colormap)");
+    writeln!(
+        output,
+        "✅ Rendered flow_analysis.png with AnalysisOverlay (Viridis colormap)"
+    )?;
 
     // ── 8. JSON Export ───────────────────────────────────────────────────────
     let export_data = serde_json::json!({
@@ -198,7 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = output_dir.join("simulation_results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&export_data)?)?;
-    println!("✅ Exported results to {}", json_path.display());
+    writeln!(output, "✅ Exported results to {}", json_path.display())?;
 
     Ok(())
 }
