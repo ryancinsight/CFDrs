@@ -1,3 +1,5 @@
+//! Preset auto-layout regression tests.
+
 use cfd_schematics::interface::presets::{
     asymmetric_trifurcation_venturi_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_rect,
@@ -7,8 +9,10 @@ fn channel_path(bp: &cfd_schematics::NetworkBlueprint, channel_id: &str) -> Vec<
     bp.channels
         .iter()
         .find(|channel| channel.id.as_str() == channel_id)
-        .map(|channel| channel.path.clone())
-        .unwrap_or_else(|| panic!("channel {channel_id} must exist"))
+        .map_or_else(
+            || panic!("channel {channel_id} must exist"),
+            |channel| channel.path.clone(),
+        )
 }
 
 #[test]
