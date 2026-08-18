@@ -135,7 +135,10 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
             .as_f64()
             .ok_or_else(|| MeshError::Other("missing channel diameter".to_string()))?
             as Real;
-        let segments = ch["segments"].as_u64().unwrap_or(16) as usize;
+        let segments = ch["segments"]
+            .as_u64()
+            .map_or(Ok(16), usize::try_from)
+            .map_err(|_| MeshError::Other("channel segments exceed platform limits".to_string()))?;
 
         let path_arr = ch["path"]
             .as_array()
@@ -147,18 +150,25 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
                 let arr = p
                     .as_array()
                     .ok_or_else(|| MeshError::Other("path point must be array".to_string()))?;
-                Ok(Point3r::new(
-                    arr[0].as_f64().unwrap_or(0.0) as Real,
-                    arr[1].as_f64().unwrap_or(0.0) as Real,
-                    arr[2].as_f64().unwrap_or(0.0) as Real,
-                ))
+                let coordinate = |index: usize| {
+                    arr.get(index)
+                        .and_then(serde_json::Value::as_f64)
+                        .map(|value| value as Real)
+                        .ok_or_else(|| {
+                            MeshError::Other(format!(
+                                "path point coordinate {index} must be numeric"
+                            ))
+                        })
+                };
+                Ok(Point3r::new(coordinate(0)?, coordinate(1)?, coordinate(2)?))
             })
             .collect::<MeshResult<Vec<_>>>()?;
 
         defs.push(ChannelDef {
             id,
-            path: ChannelPath::new(points)
-                .expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
+                message: format!("invalid schematic channel path: {error}"),
+            })?,
             profile: ChannelProfile::Circular {
                 radius: diameter / 2.0,
                 segments,
@@ -187,7 +197,8 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 /// # Errors
 ///
 /// Returns a mesh error when a blueprint channel cannot be converted into a
-/// valid schematic path or cross-section.
+/// valid schematic path or cross-section. Invalid or degenerate channel
+/// centerlines are reported as channel errors.
 pub fn from_blueprint(
     blueprint: &cfd_schematics::domain::model::NetworkBlueprint,
     height: Real,
@@ -295,8 +306,9 @@ pub fn from_blueprint(
 
         channels.push(ChannelDef {
             id: ch.id.as_str().to_string(),
-            path: ChannelPath::new(points)
-                .expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
+                message: format!("channel {} has invalid path: {error}", ch.id),
+            })?,
             profile,
             width_scales,
         });

@@ -1067,7 +1067,9 @@ fn build_polyline_mesh_with_policy(
         },
     };
 
-    let path = ChannelPath::new(points).expect("invariant: polyline channel path is valid");
+    let path = ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
+        message: format!("polyline layout has invalid channel path: {error}"),
+    })?;
     let mut pool = VertexPool::default_millifluidic();
     let mesher = SweepMesher {
         cap_start: true,
