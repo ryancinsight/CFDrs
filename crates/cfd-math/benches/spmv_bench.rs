@@ -11,8 +11,7 @@ use leto_ops::CsrMatrix;
 fn bench_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_leto_provider");
 
-    for size in [100, 200, 500].iter() {
-        let n = *size;
+    for &n in &[100, 200, 500] {
         // Create a simple tri-diagonal matrix
         let mut row_offsets = Vec::with_capacity(n + 1);
         let mut col_indices = Vec::new();
@@ -37,12 +36,11 @@ fn bench_spmv(c: &mut Criterion) {
             .expect("invariant: SpMV benchmark vector matches matrix shape");
         let mut y = Array1::zeros([n]);
 
-        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
-                black_box(
-                    a.apply(black_box(&x), black_box(&mut y))
-                        .expect("invariant: SpMV benchmark dimensions match"),
-                );
+                a.apply(black_box(&x), &mut y)
+                    .expect("invariant: SpMV benchmark dimensions match");
+                black_box(&y);
             });
         });
     }
