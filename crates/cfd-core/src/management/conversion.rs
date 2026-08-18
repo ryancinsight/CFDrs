@@ -84,10 +84,22 @@ mod tests {
     fn safe_conversion_uses_eunomia_float_construction() {
         assert_eq!(<f64 as SafeFromF64>::from_f64_or_zero(1.25), 1.25);
         assert_eq!(<f64 as SafeFromF64>::from_f64_or_one(2.5), 2.5);
-        assert_eq!(<f64 as SafeFromF64>::try_from_f64(-3.75).unwrap(), -3.75);
+        assert_eq!(
+            <f64 as SafeFromF64>::try_from_f64(-3.75)
+                .expect("invariant: f64 conversion from f64 is infallible"),
+            -3.75
+        );
         assert_eq!(<f64 as SafeFromI32>::from_i32_or_zero(-7), -7.0);
-        assert_eq!(<f64 as SafeFromI32>::try_from_i32(11).unwrap(), 11.0);
+        assert_eq!(
+            <f64 as SafeFromI32>::try_from_i32(11)
+                .expect("invariant: f64 conversion from i32 is infallible"),
+            11.0
+        );
         assert_eq!(<f64 as SafeFromUsize>::from_usize_or_one(13), 13.0);
-        assert_eq!(<f64 as SafeFromUsize>::try_from_usize(17).unwrap(), 17.0);
+        assert_eq!(
+            <f64 as SafeFromUsize>::try_from_usize(17)
+                .expect("invariant: f64 conversion from usize is infallible"),
+            17.0
+        );
     }
 }

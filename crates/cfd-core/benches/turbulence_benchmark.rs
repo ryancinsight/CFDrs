@@ -7,7 +7,7 @@ fn bench_compute_des(c: &mut Criterion) {
     let compute = match GpuTurbulenceCompute::new() {
         Ok(c) => c,
         Err(e) => {
-            println!("Skipping benchmark: GPU initialization failed: {}", e);
+            tracing::warn!(error = %e, "Skipping turbulence benchmark: GPU initialization failed");
             return;
         }
     };
