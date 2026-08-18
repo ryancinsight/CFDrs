@@ -1,3 +1,4 @@
+#![allow(clippy::print_stderr)]
 use super::{DiffusionConfig, GpuDiffusionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;

@@ -1,3 +1,4 @@
+#![allow(clippy::print_stderr)]
 use super::*;
 use crate::error::Error;
 

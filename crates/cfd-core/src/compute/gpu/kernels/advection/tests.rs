@@ -1,3 +1,4 @@
+#![allow(clippy::print_stderr)]
 use super::{AdvectionConfig, GpuAdvectionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
