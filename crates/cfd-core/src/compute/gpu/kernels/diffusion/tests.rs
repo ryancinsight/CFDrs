@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 #![allow(clippy::print_stderr)]
 use super::{DiffusionConfig, GpuDiffusionKernel};
 use crate::compute::gpu::GpuContext;

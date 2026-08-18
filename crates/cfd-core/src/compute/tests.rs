@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 //! Tests for compute backend
 
 use super::*;
