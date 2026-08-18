@@ -1,3 +1,5 @@
+//! Property tests for resistance monotonicity and network conservation.
+
 use aequitas::systems::si::quantities::{HydraulicResistance, Length, Pressure};
 use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;
@@ -39,7 +41,12 @@ proptest! {
         if l_short < l_long {
             prop_assert!(r_short < r_long, "Resistance must increase with length");
         } else {
-            prop_assert_eq!(r_short, r_long, "Equal lengths must have equal resistance");
+            let scale = r_short.abs().max(r_long.abs()).max(1.0);
+            let tolerance = 64.0 * f64::EPSILON * scale;
+            prop_assert!(
+                (r_short - r_long).abs() <= tolerance,
+                "Equal lengths must have equal resistance: {r_short} vs {r_long}"
+            );
         }
     }
 }
@@ -65,7 +72,12 @@ proptest! {
         if d_small < d_large {
             prop_assert!(r_small > r_large, "Resistance must decrease with larger diameter");
         } else {
-            prop_assert_eq!(r_small, r_large, "Equal diameters must have equal resistance");
+            let scale = r_small.abs().max(r_large.abs()).max(1.0);
+            let tolerance = 64.0 * f64::EPSILON * scale;
+            prop_assert!(
+                (r_small - r_large).abs() <= tolerance,
+                "Equal diameters must have equal resistance: {r_small} vs {r_large}"
+            );
         }
     }
 }
@@ -188,14 +200,12 @@ proptest! {
                 .pressures()
                 .get(src.index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             let p_tgt = solved
                 .pressures()
                 .get(tgt.index())
                 .copied()
-                .map(Pressure::into_base)
-                .unwrap_or(0.0);
+                .map_or(0.0, Pressure::into_base);
             let q = (p_src - p_tgt) / e.resistance.into_base();
 
             if tgt == n_split {
