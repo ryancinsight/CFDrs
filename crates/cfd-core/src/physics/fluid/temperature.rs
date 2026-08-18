@@ -373,9 +373,11 @@ mod tests {
 
         let mu = fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(2.0))
-            .unwrap();
+            .expect("invariant: positive Arrhenius temperature is valid");
         assert!((mu - std::f64::consts::E).abs() < 1e-12);
-        assert!(fluid.properties_at(2.0, 1.0).is_ok());
+        fluid
+            .properties_at(2.0, 1.0)
+            .expect("invariant: positive Arrhenius state is valid");
     }
 
     #[test]
@@ -465,7 +467,7 @@ mod tests {
 
         let viscosity = fluid
             .calculate_viscosity(ThermodynamicTemperature::from_base(7.0))
-            .unwrap();
+            .expect("invariant: positive Andrade temperature is valid");
         let expected_viscosity = 0.25 * f64::exp(10.0 / (7.0 - 2.0));
         assert!((viscosity - expected_viscosity).abs() <= 8.0 * f64::EPSILON * expected_viscosity);
 
