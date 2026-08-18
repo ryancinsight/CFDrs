@@ -1192,8 +1192,12 @@ mod tests {
             .expect("invariant: valid SIMPLE preconditioner fixture");
         let wrong = Array1::zeros([3]);
 
-        assert!(block.apply(&wrong).is_err());
-        assert!(simple.apply(&wrong).is_err());
+        block
+            .apply(&wrong)
+            .expect_err("block preconditioner must reject a vector length mismatch");
+        simple
+            .apply(&wrong)
+            .expect_err("SIMPLE preconditioner must reject a vector length mismatch");
     }
 }
 

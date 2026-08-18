@@ -207,10 +207,6 @@ mod tests {
             .expect("invariant: singular-system solve RHS shape matches values");
         let result = catch_unwind(AssertUnwindSafe(|| solver.solve(&matrix, &rhs)));
 
-        assert!(
-            result.is_ok(),
-            "direct solver must not panic on singular input"
-        );
         let solve_result = result.expect("invariant: singular solve returns without panic");
         let error = solve_result.expect_err("singular system must return a solver error");
         assert!(matches!(error, Error::Solver(_)));

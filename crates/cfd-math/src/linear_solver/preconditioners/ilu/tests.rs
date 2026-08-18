@@ -66,8 +66,7 @@ fn test_ilu0_construction() {
     let matrix = create_tridiagonal_matrix();
     let ilu = IncompleteLU::new(&matrix);
 
-    assert!(ilu.is_ok());
-    let ilu = ilu.unwrap();
+    let ilu = ilu.expect("invariant: valid tridiagonal matrix constructs ILU(0)");
     assert_eq!(ilu.fill_level(), 0);
 }
 
@@ -76,8 +75,7 @@ fn test_iluk_construction() {
     let matrix = create_tridiagonal_matrix();
     let ilu = IncompleteLU::with_fill_level(&matrix, 1);
 
-    assert!(ilu.is_ok());
-    let ilu = ilu.unwrap();
+    let ilu = ilu.expect("invariant: valid tridiagonal matrix constructs ILU(1)");
     assert_eq!(ilu.fill_level(), 1);
 }
 
@@ -202,10 +200,9 @@ fn test_ilu_non_square_matrix() {
         CsrMatrix::from_parts(values, col_indices, row_offsets, 2, 3).expect("valid CSR matrix");
 
     let ilu = IncompleteLU::new(&matrix);
-    assert!(ilu.is_err());
+    let error = ilu.expect_err("ILU must reject a non-square matrix");
 
-    // Verify error is InvalidInput for non-square matrix
-    assert!(matches!(ilu, Err(Error::InvalidInput(_))));
+    assert!(matches!(error, Error::InvalidInput(_)));
 }
 
 #[test]
@@ -225,9 +222,7 @@ fn test_ilu_multiple_fill_levels() {
 
     for k in 0..=3 {
         let ilu = IncompleteLU::with_fill_level(&matrix, k);
-        assert!(ilu.is_ok(), "ILU({k}) construction failed");
-
-        let ilu = ilu.unwrap();
+        let ilu = ilu.expect("invariant: valid sparse matrix constructs each ILU level");
         assert_eq!(ilu.fill_level(), k);
 
         // Test that matrix dimensions are correct

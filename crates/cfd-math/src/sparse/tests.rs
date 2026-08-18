@@ -176,22 +176,38 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
     assert_eq!(matrix.row_ptr(), &[0, 2, 3, 6]);
     assert_eq!(matrix.col_indices(), &[0, 2, 1, 0, 1, 2]);
 
-    assert!(SparseMatrixExt::scale_rows(
+    let row_scaling_error = SparseMatrixExt::scale_rows(
         &mut matrix,
         &Array1::from_shape_vec([2], vec![1.0, 2.0])
             .expect("invariant: invalid row scaling fixture shape is representable"),
     )
-    .is_err());
-    assert!(SparseMatrixExt::scale_columns(
+    .expect_err("row scaling must reject a length mismatch");
+    assert!(matches!(
+        row_scaling_error,
+        cfd_core::error::Error::InvalidConfiguration(message)
+            if message.contains("Leto CSR row scaling failed")
+    ));
+    let column_scaling_error = SparseMatrixExt::scale_columns(
         &mut matrix,
         &Array1::from_shape_vec([2], vec![1.0, 2.0])
             .expect("invariant: invalid column scaling fixture shape is representable"),
     )
-    .is_err());
+    .expect_err("column scaling must reject a length mismatch");
+    assert!(matches!(
+        column_scaling_error,
+        cfd_core::error::Error::InvalidConfiguration(message)
+            if message.contains("Leto CSR column scaling failed")
+    ));
 
     let rectangular = CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3)
         .expect("invariant: rectangular sparse fixture is valid");
-    assert!(SparseMatrixExt::condition_estimate(&rectangular).is_err());
+    let condition_error = SparseMatrixExt::condition_estimate(&rectangular)
+        .expect_err("condition estimation must reject a rectangular matrix");
+    assert!(matches!(
+        condition_error,
+        cfd_core::error::Error::InvalidConfiguration(message)
+            if message.contains("Leto CSR condition estimate failed")
+    ));
 
     Ok(())
 }
@@ -225,7 +241,13 @@ fn test_spmv_basic() {
 
     let bad_x = Array1::from_shape_vec([2], vec![1.0, 2.0])
         .expect("invariant: invalid SpMV input shape is representable");
-    assert!(try_spmv(&a, &bad_x, &mut y).is_err());
+    let spmv_error = try_spmv(&a, &bad_x, &mut y)
+        .expect_err("SpMV must reject an input vector dimension mismatch");
+    assert!(matches!(
+        spmv_error,
+        cfd_core::error::Error::InvalidConfiguration(message)
+            if message.contains("Input vector dimension mismatch")
+    ));
 }
 
 #[test]
@@ -265,7 +287,13 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
 
     let mismatched = CsrMatrix::from_parts(vec![], vec![], vec![0, 0, 0, 0, 0], 4, 1)
         .expect("invariant: mismatched sparse fixture is structurally valid");
-    assert!(try_sparse_sparse_mul(&a, &mismatched).is_err());
+    let multiplication_error = try_sparse_sparse_mul(&a, &mismatched)
+        .expect_err("SpMM must reject incompatible matrix dimensions");
+    assert!(matches!(
+        multiplication_error,
+        cfd_core::error::Error::InvalidConfiguration(message)
+            if message.contains("Matrix dimension mismatch for multiplication")
+    ));
 }
 
 #[test]

@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn lgl_nodes_order2_gives_minus1_0_plus1() {
-        let nodes = lgl_nodes(2).unwrap();
+        let nodes = lgl_nodes(2).expect("invariant: valid LGL order");
         assert_eq!(nodes.len(), 3);
         assert_relative_eq!(nodes[0], -1.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[1], 0.0, epsilon = 1e-10);
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn lgl_nodes_order4_symmetric() {
-        let nodes = lgl_nodes(4).unwrap();
+        let nodes = lgl_nodes(4).expect("invariant: valid LGL order");
         assert_eq!(nodes.len(), 5);
         assert_relative_eq!(nodes[0], -1.0, epsilon = 1e-10);
         assert_relative_eq!(nodes[4], 1.0, epsilon = 1e-10);
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn lgl_weights_order2_sum_to_two() {
-        let nodes = lgl_nodes(2).unwrap();
+        let nodes = lgl_nodes(2).expect("invariant: valid LGL order");
         let weights = lgl_weights(&nodes, 2);
         assert_relative_eq!(weights[0], 1.0 / 3.0, epsilon = 1e-10);
         assert_relative_eq!(weights[1], 4.0 / 3.0, epsilon = 1e-10);
@@ -144,7 +144,8 @@ mod tests {
     fn lgl_quadrature_exact_for_polynomials() {
         // An N-point LGL rule is exact for polynomials of degree ≤ 2N − 3.
         for order in 2usize..=5 {
-            let (nodes, weights) = lgl_nodes_and_weights(order).unwrap();
+            let (nodes, weights) = lgl_nodes_and_weights(order)
+                .expect("invariant: valid LGL order and quadrature weights");
             let n_pts = order + 1;
             // Maximum exact degree = 2*(n_pts) - 3 = 2*(order+1) - 3 = 2*order - 1.
             let max_exact_degree = 2 * order - 1;
