@@ -5,7 +5,7 @@
 //! Each test validates against published experimental or analytical results:
 //!
 //! 1. **Segré-Silberberg equilibrium** — Di Carlo (2009) Fig. 3 shows that
-//!    rigid spheres with κ = a/D_h ≈ 0.2 focus to x̃_eq ≈ 0.6 in square
+//!    rigid spheres with κ = `a/D_h` ≈ 0.2 focus to `x̃_eq` ≈ 0.6 in square
 //!    channels.  Cancer cells (MCF-7, κ ≈ 0.35) should focus closer to center
 //!    (x̃ < 0.5) due to larger size; RBCs (κ ≈ 0.14) focus closer to wall.
 //!
@@ -14,7 +14,7 @@
 //!    Q=1 mL/min: De should be in the range 1–10.
 //!
 //! 3. **Murray's law** — For a symmetric bifurcation minimizing flow resistance
-//!    (Murray 1926), D_parent³ = 2 × D_daughter³.  This is a purely analytical
+//!    (Murray 1926), `D_parent³ = 2 × D_daughter³`. This is a purely analytical
 //!    result validated against the network solver.
 //!
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
@@ -55,14 +55,14 @@ fn length(value: f64) -> Length {
 /// center than RBCs (small, deformable) in a straight rectangular channel.
 ///
 /// # Physical basis
-/// Di Carlo (2009) Fig. 3: rigid spheres with κ ≈ 0.2 focus to x̃_eq ≈ 0.6.
-/// Larger spheres (higher κ) focus closer to center (lower x̃_eq).
-/// More deformable cells shift toward the wall (higher x̃_eq).
+/// Di Carlo (2009) Fig. 3: rigid spheres with κ ≈ 0.2 focus to `x̃_eq` ≈ 0.6.
+/// Larger spheres (higher κ) focus closer to center (lower `x̃_eq`).
+/// More deformable cells shift toward the wall (higher `x̃_eq`).
 ///
 /// # Validation criteria
-/// - MCF-7 (κ ≈ 0.35 in 50 µm channel): x̃_eq < 0.5 (center-biased)
-/// - RBC (κ ≈ 0.14 in 50 µm channel): x̃_eq > MCF-7 x̃_eq (wall-biased)
-/// - Separation efficiency |x̃_cancer − x̃_rbc| > 0.1
+/// - MCF-7 (κ ≈ 0.35 in 50 µm channel): `x̃_eq < 0.5` (center-biased)
+/// - RBC (κ ≈ 0.14 in 50 µm channel): `x̃_eq > MCF-7 x̃_eq` (wall-biased)
+/// - Separation efficiency `|x̃_cancer − x̃_rbc| > 0.1`
 #[test]
 fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
     // 500 µm wide × 100 µm tall rectangular channel (improved focusing)
@@ -112,9 +112,12 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
         None,
     );
 
-    println!("MCF-7 equilibrium x̃ = {:.4}", cancer_eq.x_tilde_eq);
-    println!("RBC focuses? {}", rbc_eq.is_some());
-    println!("Re (cancer) = {:.2}", cancer_eq.reynolds_number);
+    tracing::debug!(
+        x_tilde = cancer_eq.x_tilde_eq,
+        rbc_focus = rbc_eq.is_some(),
+        reynolds = cancer_eq.reynolds_number,
+        "cell equilibrium diagnostics"
+    );
 
     // Cancer cells (large, stiff) must typically focus (x̃ < 1.0)
     // Di Carlo 2009: κ ≈ 0.1 → x_eq ≈ 0.5-0.6
@@ -133,7 +136,7 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
     );
 }
 
-/// Validate that the CellSeparationModel correctly computes center fractions
+/// Validate that the `CellSeparationModel` correctly computes center fractions
 /// and purity for a cancer/RBC pair.
 #[test]
 fn test_cell_separation_model_cancer_rbc_purity() {
@@ -162,27 +165,15 @@ fn test_cell_separation_model_cancer_rbc_purity() {
         )
         .expect("analysis must succeed for these cell types");
 
-    println!(
-        "Cancer x̃_eq = {:.4}",
-        analysis.target_equilibrium.x_tilde_eq
+    tracing::debug!(
+        cancer_x_tilde = analysis.target_equilibrium.x_tilde_eq,
+        rbc_x_tilde = analysis.background_equilibrium.x_tilde_eq,
+        separation_efficiency = analysis.separation_efficiency,
+        cancer_center_fraction = analysis.target_center_fraction,
+        rbc_peripheral_fraction = analysis.background_peripheral_fraction,
+        purity = analysis.purity,
+        "cell separation diagnostics"
     );
-    println!(
-        "RBC x̃_eq   = {:.4}",
-        analysis.background_equilibrium.x_tilde_eq
-    );
-    println!(
-        "Separation efficiency = {:.4}",
-        analysis.separation_efficiency
-    );
-    println!(
-        "Cancer center fraction = {:.4}",
-        analysis.target_center_fraction
-    );
-    println!(
-        "RBC peripheral fraction = {:.4}",
-        analysis.background_peripheral_fraction
-    );
-    println!("Purity = {:.4}", analysis.purity);
 
     // Separation efficiency must be positive
     assert!(
@@ -199,15 +190,15 @@ fn test_cell_separation_model_cancer_rbc_purity() {
 /// Validate Dean number calculation for a curved millifluidic channel.
 ///
 /// # Physical basis
-/// Gossett & Di Carlo (2009): De = Re × √(D_h / 2R).
+/// Gossett & Di Carlo (2009): `De = Re × √(D_h / 2R)`.
 /// For R=5 mm, w=500 µm, h=200 µm, Q=1 mL/min:
-/// - D_h = 285.7 µm
-/// - Re = ρ U D_h / μ
-/// - De = Re × √(285.7e-6 / 10e-3) = Re × 0.169
+/// - `D_h = 285.7 µm`
+/// - `Re = ρ U D_h / μ`
+/// - `De = Re × √(285.7e-6 / 10e-3) = Re × 0.169`
 ///
 /// At Q=1 mL/min, v ≈ 0.167 m/s:
-/// Re = 1060 × 0.167 × 285.7e-6 / 3.5e-3 ≈ 14.4
-/// De = 14.4 × 0.169 ≈ 2.4  (> 1 → measurable secondary flow)
+/// `Re = 1060 × 0.167 × 285.7e-6 / 3.5e-3 ≈ 14.4`
+/// `De = 14.4 × 0.169 ≈ 2.4` (> 1 → measurable secondary flow)
 #[test]
 fn test_dean_number_curved_channel() {
     let w = 500e-6;
@@ -220,9 +211,7 @@ fn test_dean_number_curved_channel() {
     let re = BLOOD_DENSITY * v * dh / BLOOD_VISCOSITY;
     let de = dean_number(re, length(dh), length(bend_r));
 
-    println!("D_h = {:.1} µm", dh * 1e6);
-    println!("Re  = {:.2}", re);
-    println!("De  = {:.3}", de);
+    tracing::debug!(hydraulic_diameter_um = dh * 1e6, reynolds = re, dean = de);
 
     // De must be > 1 for measurable secondary flow (Gossett & Di Carlo 2009)
     assert!(
@@ -282,9 +271,10 @@ fn test_dean_flow_enhances_separation() {
         )
         .expect("curved channel analysis must succeed");
 
-    println!(
-        "Straight sep_eff = {:.4}, Curved sep_eff = {:.4}",
-        straight_analysis.separation_efficiency, curved_analysis.separation_efficiency
+    tracing::debug!(
+        straight_separation_efficiency = straight_analysis.separation_efficiency,
+        curved_separation_efficiency = curved_analysis.separation_efficiency,
+        "straight versus curved separation"
     );
 
     // Dean flow should change the equilibrium positions (not necessarily increase
@@ -295,9 +285,10 @@ fn test_dean_flow_enhances_separation() {
     // Dean drag pushes RBCs (small, deformable) further toward wall
     // (Dean drag is the same for both cell types but has larger relative effect
     // on smaller cells with weaker inertial lift)
-    println!(
-        "RBC x̃ straight={:.4}, curved={:.4}",
-        rbc_straight, rbc_curved
+    tracing::debug!(
+        rbc_straight,
+        rbc_curved,
+        "straight versus curved RBC equilibrium"
     );
     // At minimum, the Dean force must be non-zero in the curved case
     // Check Dean drag on focused cells (Cancer)
@@ -318,7 +309,7 @@ fn test_dean_flow_enhances_separation() {
 // ── Test 3: Murray's law for bifurcation ─────────────────────────────────────
 
 /// Validate Murray's law: for a symmetric bifurcation minimizing flow
-/// resistance, D_parent³ = Σ D_daughter³.
+/// resistance, `D_parent³ = Σ D_daughter³`.
 ///
 /// # Physical basis
 /// Murray (1926) derived that the optimal branching ratio minimizing the
@@ -328,7 +319,7 @@ fn test_dean_flow_enhances_separation() {
 /// D_parent³ = D_daughter1³ + D_daughter2³
 /// ```
 ///
-/// For a symmetric bifurcation (D_d1 = D_d2 = D_d):
+/// For a symmetric bifurcation (`D_d1 = D_d2 = D_d`):
 /// ```text
 /// D_parent³ = 2 × D_d³  →  D_parent / D_d = 2^{1/3} ≈ 1.260
 /// ```
@@ -347,11 +338,14 @@ fn test_murray_law_symmetric_bifurcation() {
     let lhs = d_parent.powi(3);
     let rhs = 2.0 * d_daughter_optimal.powi(3);
 
-    println!("D_parent = {:.3} mm", d_parent * 1e3);
-    println!("D_daughter (Murray) = {:.3} mm", d_daughter_optimal * 1e3);
-    println!("Murray ratio = {:.4}", murray_ratio);
-    println!("D_parent³ = {:.6e}", lhs);
-    println!("2 × D_daughter³ = {:.6e}", rhs);
+    tracing::debug!(
+        d_parent_mm = d_parent * 1e3,
+        d_daughter_mm = d_daughter_optimal * 1e3,
+        murray_ratio,
+        lhs,
+        rhs,
+        "Murray bifurcation diagnostics"
+    );
 
     assert_relative_eq!(lhs, rhs, epsilon = 1e-10);
     assert_relative_eq!(murray_ratio, 1.2599, epsilon = 1e-4);
@@ -370,9 +364,12 @@ fn test_murray_law_symmetric_bifurcation() {
     // Total resistance = R_parent + R_daughters_parallel
     let r_total = r_parent + r_daughters_parallel;
 
-    println!("R_parent = {:.3e} Pa·s/m³", r_parent);
-    println!("R_daughter = {:.3e} Pa·s/m³", r_daughter);
-    println!("R_total = {:.3e} Pa·s/m³", r_total);
+    tracing::debug!(
+        r_parent,
+        r_daughter,
+        r_total,
+        "Murray resistance diagnostics"
+    );
 
     // Murray's law minimizes total resistance for given metabolic cost
     // The ratio R_parent / R_daughters_parallel should equal 2^(4/3) / 2 = 2^(1/3) -> NO!
@@ -387,8 +384,8 @@ fn test_murray_law_symmetric_bifurcation() {
 
 /// Validate Murray's law for a trifurcation (1 → 3 symmetric branches).
 ///
-/// For symmetric trifurcation: D_parent³ = 3 × D_daughter³
-/// → D_parent / D_daughter = 3^(1/3) ≈ 1.4422
+/// For symmetric trifurcation: `D_parent³ = 3 × D_daughter³`
+/// → `D_parent / D_daughter = 3^(1/3) ≈ 1.4422`
 #[test]
 fn test_murray_law_symmetric_trifurcation() {
     let murray_ratio_tri = 3.0_f64.cbrt(); // ≈ 1.4422
@@ -399,7 +396,7 @@ fn test_murray_law_symmetric_trifurcation() {
     let lhs = d_parent.powi(3);
     let rhs = 3.0 * d_daughter.powi(3);
 
-    println!("Trifurcation Murray ratio = {:.4}", murray_ratio_tri);
+    tracing::debug!(murray_ratio_tri, "Murray trifurcation diagnostics");
     assert_relative_eq!(lhs, rhs, epsilon = 1e-10);
     assert_relative_eq!(murray_ratio_tri, 1.4422, epsilon = 1e-4);
 }
@@ -409,27 +406,27 @@ fn test_murray_law_symmetric_trifurcation() {
 /// Validate that a 100 µm throat at Q=5 mL/min produces σ < 1 (cavitation).
 ///
 /// # Physical basis
-/// Cavitation number: σ = (P_inlet − P_vapor) / (½ ρ V_throat²)
+/// Cavitation number: `σ = (P_inlet − P_vapor) / (½ ρ V_throat²)`
 ///
 /// For Q=5 mL/min = 8.333e-8 m³/s through a 100 µm diameter throat:
-/// A_throat = π × (50e-6)² = 7.854e-9 m²
-/// V_throat = Q / A_throat = 8.333e-8 / 7.854e-9 ≈ 10.6 m/s
-/// ½ ρ V² = 0.5 × 1060 × 10.6² ≈ 59,600 Pa
+/// `A_throat = π × (50e-6)² = 7.854e-9 m²`
+/// `V_throat = Q / A_throat = 8.333e-8 / 7.854e-9 ≈ 10.6 m/s`
+/// `½ ρ V² = 0.5 × 1060 × 10.6² ≈ 59,600 Pa`
 ///
-/// With P_inlet = 200 kPa (2 bar gauge + 101.325 kPa atm = 301.325 kPa abs):
-/// σ = (301325 − 6200) / 59600 ≈ 4.95
+/// With `P_inlet = 200 kPa` (2 bar gauge + 101.325 kPa atm = 301.325 kPa abs):
+/// `σ = (301325 − 6200) / 59600 ≈ 4.95`
 ///
-/// Wait — at 2 bar gauge (200 kPa gauge), P_abs = 301.325 kPa:
-/// σ = (301325 − 6200) / 59600 ≈ 4.95 > 1 (no cavitation at 2 bar)
+/// Wait — at 2 bar gauge (200 kPa gauge), `P_abs = 301.325 kPa`:
+/// `σ = (301325 − 6200) / 59600 ≈ 4.95 > 1` (no cavitation at 2 bar)
 ///
 /// For cavitation at 100 µm throat, need higher flow or lower pressure.
-/// At Q=10 mL/min: V_throat ≈ 21.2 m/s, ½ρV² ≈ 238,400 Pa
-/// σ = 295125 / 238400 ≈ 1.24 (approaching cavitation)
+/// At Q=10 mL/min: `V_throat ≈ 21.2 m/s`, `½ρV² ≈ 238,400 Pa`
+/// `σ = 295125 / 238400 ≈ 1.24` (approaching cavitation)
 ///
-/// At Q=20 mL/min: V_throat ≈ 42.4 m/s, ½ρV² ≈ 953,600 Pa
-/// σ = 295125 / 953600 ≈ 0.31 < 1 (CAVITATION)
+/// At Q=20 mL/min: `V_throat ≈ 42.4 m/s`, `½ρV² ≈ 953,600 Pa`
+/// `σ = 295125 / 953600 ≈ 0.31 < 1` (CAVITATION)
 ///
-/// This test validates the VenturiModel produces σ < 1 at these conditions.
+/// This test validates the `VenturiModel` produces σ < 1 at these conditions.
 #[test]
 fn test_venturi_cavitation_onset_100um_throat() {
     use cfd_core::physics::fluid::blood::CassonBlood;
@@ -462,11 +459,14 @@ fn test_venturi_cavitation_onset_100um_throat() {
     let dynamic_pressure = 0.5 * BLOOD_DENSITY * v_throat * v_throat;
     let sigma = (p_inlet_abs - BLOOD_VAPOR_PRESSURE) / dynamic_pressure;
 
-    println!("V_inlet = {:.3} m/s", v_inlet);
-    println!("V_throat = {:.3} m/s", v_throat);
-    println!("Dynamic pressure = {:.0} Pa", dynamic_pressure);
-    println!("σ = {:.4}", sigma);
-    println!("ΔP_total = {:.0} Pa", analysis.dp_total);
+    tracing::debug!(
+        v_inlet,
+        v_throat,
+        dynamic_pressure,
+        sigma,
+        dp_total = analysis.dp_total,
+        "small-throat cavitation diagnostics"
+    );
 
     // At Q=20 mL/min through 100 µm throat, cavitation must occur (σ < 1)
     assert!(
@@ -478,9 +478,9 @@ fn test_venturi_cavitation_onset_100um_throat() {
 /// Validate that a 500 µm throat at Q=5 mL/min does NOT produce cavitation.
 ///
 /// At Q=5 mL/min through 500 µm throat:
-/// V_throat = Q / A_throat = 8.333e-8 / (π×(250e-6)²) ≈ 0.424 m/s
-/// ½ρV² = 0.5 × 1060 × 0.424² ≈ 95 Pa
-/// σ = (401325 − 6200) / 95 ≈ 4160 >> 1 (no cavitation)
+/// `V_throat = Q / A_throat = 8.333e-8 / (π×(250e-6)²) ≈ 0.424 m/s`
+/// `½ρV² = 0.5 × 1060 × 0.424² ≈ 95 Pa`
+/// `σ = (401325 − 6200) / 95 ≈ 4160 >> 1` (no cavitation)
 #[test]
 fn test_no_cavitation_large_throat() {
     use cfd_core::physics::fluid::blood::CassonBlood;
@@ -509,8 +509,7 @@ fn test_no_cavitation_large_throat() {
     let dynamic_pressure = 0.5 * BLOOD_DENSITY * v_throat * v_throat;
     let sigma = (p_inlet_abs - BLOOD_VAPOR_PRESSURE) / dynamic_pressure;
 
-    println!("V_throat = {:.4} m/s", v_throat);
-    println!("σ = {:.1}", sigma);
+    tracing::debug!(v_throat, sigma, "large-throat cavitation diagnostics");
 
     // Large throat → no cavitation
     assert!(
