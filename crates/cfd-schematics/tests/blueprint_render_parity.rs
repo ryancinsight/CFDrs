@@ -1,3 +1,5 @@
+//! Blueprint rendering parity tests.
+
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;
@@ -172,7 +174,9 @@ fn staged_cif_blueprint_uses_native_geometry() {
         cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, .. } => {
             assert!(width_m.into_base() > 0.0);
         }
-        _ => panic!("Expected rectangular"),
+        cfd_schematics::domain::model::CrossSectionSpec::Circular { .. } => {
+            panic!("expected rectangular cross-section")
+        }
     }
     assert_eq!(throat_count_from_blueprint_metadata(&bp), 1);
 }
@@ -238,7 +242,7 @@ fn blueprint_render_adds_wall_port_stubs_for_inlet_and_outlet() {
         .find(|node| node.id.0 == "outlet")
         .expect("outlet node must exist");
 
-    assert_eq!(inlet.point.0, 0.0);
+    assert_eq!(inlet.point.0.to_bits(), 0.0_f64.to_bits());
     assert!(outlet.point.0 > 10.0); // Right edge side
 }
 
