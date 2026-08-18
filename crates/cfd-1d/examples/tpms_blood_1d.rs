@@ -299,7 +299,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (0.0, 0.0)
         };
 
-        let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101325.0)?;
+        let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
         let wall_shear = (viscosity * shear_rate).into_base();
 
         println!("  {}", e.id);
