@@ -43,18 +43,21 @@ use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🏥 Medical-Grade Millifluidic CFD Screening");
-    println!("============================================\n");
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "🏥 Medical-Grade Millifluidic CFD Screening")?;
+    writeln!(output, "============================================\n")?;
 
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
     fs::create_dir_all(out.join("medical_screening"))?;
 
     // ── 1. Geometry: serpentine bifurcation within 96-well plate ──────────────
-    println!("1. Generating serpentine bifurcation geometry...");
+    writeln!(output, "1. Generating serpentine bifurcation geometry...")?;
     let box_dims = (90.0, 42.0); // mm — within ANSI/SLAS 1-2004 constraints
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
@@ -65,22 +68,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channel_type = ChannelTypeConfig::AllSerpentine(serpentine);
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
-    println!(
+    writeln!(
+        output,
         "   Topology: {} nodes, {} channels",
         system.nodes.len(),
         system.channels.len()
-    );
-    println!(
+    )?;
+    writeln!(
+        output,
         "   Footprint: {}×{} mm (96-well plate)",
         box_dims.0, box_dims.1
-    );
+    )?;
 
     // ── 2. Plain schematic ───────────────────────────────────────────────────
-    println!("2. Rendering plain schematic...");
+    writeln!(output, "2. Rendering plain schematic...")?;
     plot_geometry(&system, out.join("medical_screening/schematic.png"))?;
 
     // ── 3. Convert & build network ───────────────────────────────────────────
-    println!("3. Building 1D network with Carreau-Yasuda blood...");
+    writeln!(
+        output,
+        "3. Building 1D network with Carreau-Yasuda blood..."
+    )?;
     let node_specs = system.nodes.clone();
     let channel_specs = system.channels.clone();
     let blood = CarreauYasuda::<f64>::blood();
@@ -111,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── 4. Boundary conditions ───────────────────────────────────────────────
-    println!("4. Applying boundary conditions...");
+    writeln!(output, "4. Applying boundary conditions...")?;
     let inlet_pressure = 5000.0; // 5 kPa
     let outlet_pressure = 0.0;
 
@@ -119,27 +127,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
             cfd_schematics::domain::model::NodeKind::Inlet => {
-                network.set_pressure(idx, Pressure::from_base(inlet_pressure))
+                network.set_pressure(idx, Pressure::from_base(inlet_pressure));
             }
             cfd_schematics::domain::model::NodeKind::Outlet => {
-                network.set_pressure(idx, Pressure::from_base(outlet_pressure))
+                network.set_pressure(idx, Pressure::from_base(outlet_pressure));
             }
             _ => {}
         }
     }
 
     // ── 5. Solve ─────────────────────────────────────────────────────────────
-    println!("5. Solving...");
+    writeln!(output, "5. Solving...")?;
     let solver = NetworkSolver::with_config(SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
         require_flow_convergence: true,
     });
     let solution = solver.solve(&NetworkProblem::new(network))?;
-    println!("   Converged.");
+    writeln!(output, "   Converged.")?;
 
     // ── 6. Compute all analysis fields ───────────────────────────────────────
-    println!("6. Computing medical analysis fields...");
+    writeln!(output, "6. Computing medical analysis fields...")?;
     let hemolysis_model = HemolysisModel::giersiepen_standard();
     let vapor_pressure = 6300.0; // Pa — blood at 37°C
 
@@ -180,9 +188,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         else {
             continue;
         };
-        let chan_id = match edge.id.trim_start_matches("chan_").parse::<usize>() {
-            Ok(id) => id,
-            Err(_) => continue,
+        let Ok(chan_id) = edge.id.trim_start_matches("chan_").parse::<usize>() else {
+            continue;
         };
 
         if let Some(p) = solution
@@ -192,8 +199,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let velocity = q.abs() / p.area.into_base();
             let shear_rate = p
                 .hydraulic_diameter
-                .map(|d| 8.0 * velocity / d.into_base())
-                .unwrap_or(0.0);
+                .map_or(0.0, |d| 8.0 * velocity / d.into_base());
             let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
             let wall_shear = (viscosity * shear_rate).into_base();
 
@@ -217,14 +223,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .get(src.index())
                 .copied()
                 .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(inlet_pressure);
+                .map_or(inlet_pressure, std::convert::identity);
             let p_dst = solution
                 .pressures
                 .get(dst.index())
                 .copied()
                 .map(aequitas::systems::si::quantities::Pressure::into_base)
-                .unwrap_or(outlet_pressure);
-            let local_p = (p_src + p_dst) / 2.0;
+                .map_or(outlet_pressure, std::convert::identity);
+            let local_p = f64::midpoint(p_src, p_dst);
 
             let cav = CavitationNumber {
                 reference_pressure: Pressure::from_base(local_p),
@@ -253,34 +259,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("   Max hemolysis index:      {:.4e}", max_hi);
-    println!("   Cumulative hemolysis:     {:.4e}", total_hi);
-    println!("   Max wall shear stress:    {:.2} Pa", max_wss);
-    println!(
+    writeln!(output, "   Max hemolysis index:      {max_hi:.4e}")?;
+    writeln!(output, "   Cumulative hemolysis:     {total_hi:.4e}")?;
+    writeln!(output, "   Max wall shear stress:    {max_wss:.2} Pa")?;
+    writeln!(
+        output,
         "   FDA violations:           {} of {} channels",
         fda_violations.len(),
         edge_shear.len()
-    );
-    println!(
+    )?;
+    writeln!(
+        output,
         "   FDA limit (τ_w):          {:.1} Pa",
         fda_limits.max_wall_shear_stress_pa.into_base()
-    );
+    )?;
 
     if !fda_violations.is_empty() {
-        println!("\n   ⚠ FDA Shear Limit Violations:");
+        writeln!(output, "\n   ⚠ FDA Shear Limit Violations:")?;
         for (id, wss) in &fda_violations {
-            println!(
+            writeln!(
+                output,
                 "     Channel {}: τ_w = {:.2} Pa (limit: {:.1} Pa, {:.1}× exceedance)",
                 id,
                 wss,
                 fda_limits.max_wall_shear_stress_pa.into_base(),
                 wss / fda_limits.max_wall_shear_stress_pa.into_base()
-            );
+            )?;
         }
     }
 
     // ── 7. Render all overlays ───────────────────────────────────────────────
-    println!("\n7. Rendering analysis overlays...");
+    writeln!(output, "\n7. Rendering analysis overlays...")?;
     let renderer = create_plotters_renderer();
 
     let fda_binary: HashMap<usize, f64> = edge_shear
@@ -300,14 +309,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )
             .with_edge_data(Cow::Borrowed(&edge_hemolysis))?
             .with_node_data(Cow::Borrowed(&node_pressure))?,
-            format!("Hemolysis Index (max HI = {:.2e})", max_hi),
+            format!("Hemolysis Index (max HI = {max_hi:.2e})"),
         ),
         (
             "wall_shear_stress.png",
             AnalysisOverlay::new(AnalysisField::WallShearStress, NamedColorMap::BlueRed)
                 .with_edge_data(Cow::Borrowed(&edge_shear))?
                 .with_node_data(Cow::Borrowed(&node_pressure))?,
-            format!("Wall Shear Stress (max = {:.2} Pa)", max_wss),
+            format!("Wall Shear Stress (max = {max_wss:.2} Pa)"),
         ),
         (
             "fda_shear_screening.png",
@@ -358,11 +367,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..Default::default()
         };
         renderer.render_analysis(&system, &path, &rc, overlay)?;
-        println!("   ✓ {filename}");
+        writeln!(output, "   ✓ {filename}")?;
     }
 
     // ── 8. JSON Export ───────────────────────────────────────────────────────
-    println!("\n8. Exporting comprehensive JSON report...");
+    writeln!(output, "\n8. Exporting comprehensive JSON report...")?;
 
     let channel_report: Vec<serde_json::Value> = edge_hemolysis
         .keys()
@@ -376,8 +385,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "local_pressure_pa": edge_pressure.get(&chan_id),
                 "cavitation_risk": edge_cavitation.get(&chan_id),
                 "fda_violation": edge_shear.get(&chan_id)
-                    .map(|&wss| wss > fda_limits.max_wall_shear_stress_pa.into_base())
-                    .unwrap_or(false)
+                    .is_some_and(|&wss| wss > fda_limits.max_wall_shear_stress_pa.into_base())
             })
         })
         .collect();
@@ -439,8 +447,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = out.join("medical_screening/report.json");
     fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
-    println!("   Report exported to {}", json_path.display());
+    writeln!(output, "   Report exported to {}", json_path.display())?;
 
-    println!("\n✅ Medical millifluidic screening complete — 7 plots + 1 JSON report");
+    writeln!(
+        output,
+        "\n✅ Medical millifluidic screening complete — 7 plots + 1 JSON report"
+    )?;
     Ok(())
 }
