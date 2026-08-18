@@ -15,7 +15,7 @@
 //! a_c = u² / R_bend
 //! ```
 //!
-//! This drives Dean secondary vortices (De = Re·√(D_h / 2R)) that
+//! This drives Dean secondary vortices (`De = Re·√(D_h / 2R)`) that
 //! pre-focus cells toward the centreline before they enter the venturi
 //! throat.  Placing the throat at the Dean apex maximises both cell
 //! concentration and wall shear — ideal for CTC cavitation in SDT.
@@ -36,7 +36,7 @@ struct VenturiGeometry {
     bend_radius_m: f64,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     // ── Configuration matrix ────────────────────────────────────────
     // Millifluidic-scale channels within 96-well-plate footprint
     // (127.76 × 85.47 mm — ANSI/SLAS 1-2004).
@@ -83,8 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     ];
 
-    println!("Serpentine-Venturi Dean-Apex Demonstration");
-    println!("==========================================\n");
+    tracing::info!("Serpentine-Venturi Dean-Apex Demonstration");
+    tracing::info!("==========================================\n");
 
     for configuration in configurations {
         let bp = serpentine_venturi_rect(
@@ -117,26 +117,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let de = re_channel * (d_h / (2.0 * configuration.bend_radius_m)).sqrt();
         let contraction_ratio = configuration.channel_width_m / configuration.throat_width_m;
 
-        println!("─── {} ───", configuration.label);
-        println!("  Segments:           {n_segments}");
-        println!("  Venturi throats:    {n_venturis}");
-        println!("  Total channels:     {total_channels}");
-        println!(
+        tracing::info!("─── {} ───", configuration.label);
+        tracing::info!("  Segments:           {n_segments}");
+        tracing::info!("  Venturi throats:    {n_venturis}");
+        tracing::info!("  Total channels:     {total_channels}");
+        tracing::info!(
             "  Channel width:      {:.1} mm",
             configuration.channel_width_m * 1e3
         );
-        println!(
+        tracing::info!(
             "  Throat width:       {:.2} mm",
             configuration.throat_width_m * 1e3
         );
-        println!("  Contraction ratio:  {contraction_ratio:.2}:1");
-        println!(
+        tracing::info!("  Contraction ratio:  {contraction_ratio:.2}:1");
+        tracing::info!(
             "  Bend radius:        {:.1} mm",
             configuration.bend_radius_m * 1e3
         );
-        println!("  D_h:                {:.3} mm", d_h * 1e3);
-        println!("  Dean number (Re=100): {de:.1}");
-        println!(
+        tracing::info!("  D_h:                {:.3} mm", d_h * 1e3);
+        tracing::info!("  Dean number (Re=100): {de:.1}");
+        tracing::info!(
             "  Centripetal accel:  a_c = u²/R = (ν·Re/D_h)² / R = {:.2} m/s²",
             {
                 let u = re_channel * mu / (rho * d_h);
@@ -149,18 +149,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── Summary comparison table ────────────────────────────────────
-    println!("Summary:");
-    println!(
+    tracing::info!("Summary:");
+    tracing::info!(
         "{:<22} {:>4} {:>5} {:>6} {:>5} {:>5}",
-        "Config", "Segs", "Vents", "De", "CR", "R(mm)"
+        "Config",
+        "Segs",
+        "Vents",
+        "De",
+        "CR",
+        "R(mm)"
     );
-    println!("{}", "─".repeat(52));
+    tracing::info!("{}", "─".repeat(52));
     for configuration in configurations {
         let d_h = 2.0 * configuration.channel_width_m * configuration.channel_height_m
             / (configuration.channel_width_m + configuration.channel_height_m);
         let de = 100.0 * (d_h / (2.0 * configuration.bend_radius_m)).sqrt();
         let cr = configuration.channel_width_m / configuration.throat_width_m;
-        println!(
+        tracing::info!(
             "{:<22} {:>4} {:>5} {:>6.1} {:>5.2} {:>5.1}",
             configuration.label,
             configuration.segments,
@@ -170,6 +175,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             configuration.bend_radius_m * 1e3,
         );
     }
-
-    Ok(())
 }

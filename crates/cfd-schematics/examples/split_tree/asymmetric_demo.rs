@@ -1,3 +1,5 @@
+//! Asymmetric bifurcation demonstration.
+
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{create_geometry, SplitType};
 
@@ -6,15 +8,15 @@ mod shared;
 use shared::output::save_example_output;
 
 fn main() {
-    println!("Asymmetric Bifurcation Demo");
-    println!("---------------------------");
+    tracing::info!("Asymmetric Bifurcation Demo");
+    tracing::info!("---------------------------");
 
     let splits = [SplitType::AsymmetricBifurcation { ratio: 0.7 }];
 
     // Default config has channel_width = 1.0
     let config = GeometryConfig::default();
 
-    println!("Generating geometry with AsymmetricBifurcation (ratio=0.7)...");
+    tracing::info!("Generating geometry with AsymmetricBifurcation (ratio=0.7)...");
     let system = create_geometry(
         (100.0, 50.0),
         &splits,
@@ -22,8 +24,8 @@ fn main() {
         &ChannelTypeConfig::AllStraight,
     );
 
-    println!("Generated {} channels", system.channels.len());
-    println!("Base Channel Width: {:.3} mm", config.channel_width_mm());
+    tracing::info!("Generated {} channels", system.channels.len());
+    tracing::info!("Base Channel Width: {:.3} mm", config.channel_width_mm());
 
     let mut passed = true;
     let mut base_width_found = false;
@@ -33,7 +35,7 @@ fn main() {
     let mut max_width = f64::NEG_INFINITY;
 
     for ch in &system.channels {
-        println!(
+        tracing::info!(
             "Channel ID {}: Width = {:.3} mm, Type = {:?}",
             ch.id.0,
             (ch.effective_width_m().into_base() * 1000.0),
@@ -46,29 +48,32 @@ fn main() {
         if ((ch.effective_width_m().into_base() * 1000.0) - config.channel_width_mm()).abs() < 0.05
         {
             base_width_found = true;
-            println!("  -> Found base-width trunk or merge channel");
+            tracing::info!("  -> Found base-width trunk or merge channel");
         } else if (ch.effective_width_m().into_base() * 1000.0) > config.channel_width_mm() * 1.10 {
             wider_than_base_found = true;
-            println!("  -> Found widened asymmetric branch");
+            tracing::info!("  -> Found widened asymmetric branch");
         } else if (ch.effective_width_m().into_base() * 1000.0) < config.channel_width_mm() * 0.90 {
             narrower_than_base_found = true;
-            println!("  -> Found narrowed asymmetric branch");
+            tracing::info!("  -> Found narrowed asymmetric branch");
         } else {
-            println!("  -> Width falls in transitional range after adaptive shaping");
+            tracing::info!("  -> Width falls in transitional range after adaptive shaping");
         }
     }
 
-    println!(
+    tracing::info!(
         "\nObserved width range: {:.3} mm .. {:.3} mm",
-        min_width, max_width
+        min_width,
+        max_width
     );
 
     save_example_output(&system, "asymmetric_demo");
 
     if base_width_found && wider_than_base_found && narrower_than_base_found {
-        println!("\n✅ Verification SUCCESS: Asymmetric widening and narrowing are both present.");
+        tracing::info!(
+            "\n✅ Verification SUCCESS: Asymmetric widening and narrowing are both present."
+        );
     } else {
-        println!("\n❌ Verification FAILED: Missing base, widened, or narrowed channels.");
+        tracing::info!("\n❌ Verification FAILED: Missing base, widened, or narrowed channels.");
         passed = false;
     }
 

@@ -14,7 +14,7 @@ use cfd_schematics::{
 #[path = "../shared/mod.rs"]
 mod shared;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
     let box_dims = (300.0, 150.0);
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(phase_config),
         );
-        let filename = format!("phase_{}", name);
+        let filename = format!("phase_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_serpentine_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(preset_config),
         );
-        let filename = format!("config_{}", name);
+        let filename = format!("config_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_serpentine_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(opt_config),
         );
-        let filename = format!("opt_{}", name);
+        let filename = format!("opt_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_serpentine_demo", &filename);
 
         let total_length: f64 = system
@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         (dx * dx + dy * dy).sqrt()
                     })
                     .sum::<f64>(),
-                _ => 0.0,
+                cfd_schematics::domain::model::ChannelShape::Straight => 0.0,
             })
             .sum();
 
@@ -198,7 +198,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllSerpentine(single_config),
         );
-        let filename = format!("single_{}", name);
+        let filename = format!("single_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_serpentine_demo", &filename);
         tracing::info!("   ✓ Single channel {}", name);
     }
@@ -219,6 +219,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("\n✅ Comprehensive serpentine demonstration complete!");
     tracing::info!("   All outputs organized in output/examples/comprehensive_serpentine_demo/");
-
-    Ok(())
 }

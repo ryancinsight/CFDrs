@@ -1,6 +1,7 @@
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::plot_geometry;
 use std::fs;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 fn workspace_root() -> PathBuf {
@@ -28,30 +29,40 @@ fn example_output_dir(example_name: &str) -> PathBuf {
 pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
     let output_dir = example_output_dir(example_name);
 
-    fs::create_dir_all(&output_dir)
-        .unwrap_or_else(|e| panic!("Failed to create output directory {:?}: {}", output_dir, e));
+    fs::create_dir_all(&output_dir).unwrap_or_else(|error| {
+        panic!(
+            "failed to create output directory {}: {error}",
+            output_dir.display()
+        )
+    });
 
-    println!("Saving outputs to {:?}", output_dir);
+    writeln!(io::stdout(), "Saving outputs to {}", output_dir.display())
+        .expect("failed to report example output directory");
 
     // 1. Save JSON Blueprint
-    let json_path = output_dir.join(format!("{}.json", example_name));
+    let json_path = output_dir.join(format!("{example_name}.json"));
     let json_data =
         serde_json::to_string_pretty(blueprint).expect("Failed to serialize blueprint to JSON");
-    fs::write(&json_path, json_data)
-        .unwrap_or_else(|e| panic!("Failed to write JSON path {:?}: {}", json_path, e));
-    println!("  - JSON: {:?}", json_path.file_name().unwrap());
+    fs::write(&json_path, json_data).unwrap_or_else(|error| {
+        panic!("failed to write JSON path {}: {error}", json_path.display())
+    });
+    writeln!(io::stdout(), "  - JSON: {}", json_path.display())
+        .expect("failed to report JSON output");
 
     // 2. Save SVG Visualization
-    let svg_path = output_dir.join(format!("{}.svg", example_name));
+    let svg_path = output_dir.join(format!("{example_name}.svg"));
     plot_geometry(blueprint, &svg_path)
-        .map_err(|e| e.to_string())
-        .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
-    println!("  - SVG : {:?}", svg_path.file_name().unwrap());
+        .unwrap_or_else(|error| panic!("failed to plot geometry {}: {error}", svg_path.display()));
+    writeln!(io::stdout(), "  - SVG : {}", svg_path.display())
+        .expect("failed to report SVG output");
 
     // Print statistics
-    println!("\nBlueprint Statistics:");
-    println!("  - Nodes: {}", blueprint.nodes.len());
-    println!("  - Channels: {}", blueprint.channels.len());
+    writeln!(io::stdout(), "\nBlueprint Statistics:")
+        .expect("failed to report blueprint statistics");
+    writeln!(io::stdout(), "  - Nodes: {}", blueprint.nodes.len())
+        .expect("failed to report node statistics");
+    writeln!(io::stdout(), "  - Channels: {}", blueprint.channels.len())
+        .expect("failed to report channel statistics");
 }
 
 /// Standardized output generator that allows specifying a custom filename
@@ -64,21 +75,25 @@ pub fn save_example_output_with_name(
 ) {
     let output_dir = example_output_dir(example_name);
 
-    fs::create_dir_all(&output_dir)
-        .unwrap_or_else(|e| panic!("Failed to create output directory {:?}: {}", output_dir, e));
+    fs::create_dir_all(&output_dir).unwrap_or_else(|error| {
+        panic!(
+            "failed to create output directory {}: {error}",
+            output_dir.display()
+        )
+    });
 
     // 1. Save JSON Blueprint
-    let json_path = output_dir.join(format!("{}.json", file_name));
+    let json_path = output_dir.join(format!("{file_name}.json"));
     let json_data =
         serde_json::to_string_pretty(blueprint).expect("Failed to serialize blueprint to JSON");
-    fs::write(&json_path, json_data)
-        .unwrap_or_else(|e| panic!("Failed to write JSON path {:?}: {}", json_path, e));
+    fs::write(&json_path, json_data).unwrap_or_else(|error| {
+        panic!("failed to write JSON path {}: {error}", json_path.display())
+    });
 
     // 2. Save SVG Visualization
-    let svg_path = output_dir.join(format!("{}.svg", file_name));
+    let svg_path = output_dir.join(format!("{file_name}.svg"));
     plot_geometry(blueprint, &svg_path)
-        .map_err(|e| e.to_string())
-        .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
+        .unwrap_or_else(|error| panic!("failed to plot geometry {}: {error}", svg_path.display()));
 
-    println!("Saved -> {:?}", svg_path.file_name().unwrap());
+    writeln!(io::stdout(), "Saved -> {}", svg_path.display()).expect("failed to report SVG output");
 }

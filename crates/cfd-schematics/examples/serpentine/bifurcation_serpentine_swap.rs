@@ -46,7 +46,7 @@ fn main() {
         &ChannelTypeConfig::default(),
     );
 
-    println!(
+    tracing::info!(
         "Base blueprint: {} nodes, {} channels",
         base.nodes.len(),
         base.channels.len(),
@@ -55,7 +55,7 @@ fn main() {
     // Identify the 8 horizontal leaf channels at the center of the tree.
     // Each leaf has two segments (left half + right half) sharing the same y.
     let leaf_pairs = find_leaf_channel_pairs(&base);
-    println!("Found {} leaf channel pairs to swap", leaf_pairs.len());
+    tracing::info!("Found {} leaf channel pairs to swap", leaf_pairs.len());
 
     // Render the base (all straight).
     shared::save_example_output_with_name(
@@ -79,7 +79,7 @@ fn main() {
         shared::save_example_output_with_name(&mutated, "bifurcation_serpentine_swap", &filename);
     }
 
-    println!(
+    tracing::info!(
         "\nDone — {} schematics in {}",
         leaf_pairs.len() + 1,
         output_dir.display(),
@@ -126,7 +126,10 @@ fn find_leaf_channel_pairs(bp: &NetworkBlueprint) -> Vec<(usize, usize)> {
         .map(|(y_key, indices)| {
             let (a, b) = (indices[0], indices[1]);
             // Left channel has from.x < half_x, right has from.x >= half_x.
-            let fa = node_pos.get(bp.channels[a].from.as_str()).unwrap().0;
+            let fa = node_pos
+                .get(bp.channels[a].from.as_str())
+                .expect("invariant: leaf channel endpoint exists")
+                .0;
             if fa < half_x {
                 (y_key, a, b)
             } else {

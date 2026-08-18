@@ -14,7 +14,7 @@ use cfd_schematics::{
 #[path = "../shared/mod.rs"]
 mod shared;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let config = GeometryConfig::default();
     let splits = vec![SplitType::Bifurcation, SplitType::Trifurcation];
     let box_dims = (300.0, 150.0);
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let filename = format!("curvature_{}", name);
+        let filename = format!("curvature_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {} (factor: {})", name, description, factor);
     }
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let filename = format!("smoothness_{}", name);
+        let filename = format!("smoothness_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(arc_config),
         );
-        let filename = format!("direction_{}", name);
+        let filename = format!("direction_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(preset_config),
         );
-        let filename = format!("preset_{}", name);
+        let filename = format!("preset_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -177,7 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, adaptive_config, description) in adaptive_configs {
         let system = create_geometry(box_dims, &splits, &config, &adaptive_config);
-        let filename = format!("adaptive_{}", name);
+        let filename = format!("adaptive_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -222,7 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(enhanced_config),
         );
-        let filename = format!("symmetry_{}", name);
+        let filename = format!("symmetry_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ {}: {}", name, description);
     }
@@ -254,7 +254,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &config,
             &ChannelTypeConfig::AllArcs(single_config),
         );
-        let filename = format!("single_{}", name);
+        let filename = format!("single_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_arc_demo", &filename);
         tracing::info!("   ✓ Single arc {}", name);
     }
@@ -275,6 +275,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("\n✅ Comprehensive arc demonstration complete!");
     tracing::info!("   All outputs organized in output/examples/comprehensive_arc_demo/");
-
-    Ok(())
 }

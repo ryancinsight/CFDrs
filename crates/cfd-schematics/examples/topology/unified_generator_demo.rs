@@ -1,3 +1,5 @@
+//! Unified generator demonstration.
+
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig},
     geometry::{
@@ -11,7 +13,7 @@ use cfd_schematics::{
 #[path = "../shared/mod.rs"]
 mod shared;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     tracing::info!("Unified Generator Demo");
     tracing::info!("====================");
 
@@ -116,6 +118,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("• Optional metadata support with zero overhead when unused");
     tracing::info!("• Clean, consistent API");
     tracing::info!("• Canonical API consistency");
-
-    Ok(())
 }

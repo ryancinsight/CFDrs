@@ -12,7 +12,7 @@ use cfd_schematics::{
 #[path = "../shared/mod.rs"]
 mod shared;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let config = GeometryConfig::default();
     let channel_config = ChannelTypeConfig::default();
 
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in bifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let filename = format!("bifurcation_{}", name);
+        let filename = format!("bifurcation_{name}");
         shared::output::save_example_output_with_name(
             &system,
             "comprehensive_split_patterns",
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in trifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let filename = format!("trifurcation_{}", name);
+        let filename = format!("trifurcation_{name}");
         shared::output::save_example_output_with_name(
             &system,
             "comprehensive_split_patterns",
@@ -132,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (name, splits, box_dims) in mixed_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let filename = format!("mixed_{}", name);
+        let filename = format!("mixed_{name}");
         shared::output::save_example_output_with_name(
             &system,
             "comprehensive_split_patterns",
@@ -158,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     for (name, splits, box_dims) in quadfurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let filename = format!("quadfurcation_{}", name);
+        let filename = format!("quadfurcation_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
         tracing::info!(
             "   ✓ {}: {} channels, {} nodes",
@@ -179,7 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     for (name, splits, box_dims) in pentafurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
-        let filename = format!("pentafurcation_{}", name);
+        let filename = format!("pentafurcation_{name}");
         shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
         tracing::info!(
             "   ✓ {}: {} channels, {} nodes",
@@ -199,6 +199,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("   • All outputs saved to organized directory structure");
 
     tracing::info!("\n✅ Comprehensive split pattern generation complete!");
-
-    Ok(())
 }

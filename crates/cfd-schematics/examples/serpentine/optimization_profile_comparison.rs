@@ -1,3 +1,5 @@
+//! Serpentine optimization profile comparison.
+
 use cfd_schematics::{
     config::{presets, ChannelTypeConfig, GeometryConfig, OptimizationProfile, SerpentineConfig},
     geometry::{generator::create_geometry, optimization::calculate_path_length, SplitType},
@@ -204,7 +206,7 @@ fn calculate_total_length(system: &cfd_schematics::NetworkBlueprint) -> f64 {
             cfd_schematics::domain::model::ChannelShape::Serpentine { .. } => {
                 calculate_path_length(&channel.path)
             }
-            _ => 0.0,
+            cfd_schematics::domain::model::ChannelShape::Straight => 0.0,
         })
         .sum()
 }

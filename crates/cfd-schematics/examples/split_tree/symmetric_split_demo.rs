@@ -1,3 +1,5 @@
+//! Symmetric trifurcation demonstration.
+
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{generator::create_geometry, SplitType};
 

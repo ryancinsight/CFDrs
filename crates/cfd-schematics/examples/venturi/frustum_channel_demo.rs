@@ -11,7 +11,7 @@
 //! - JSON serialization/deserialization
 //! - Visualization support
 //!
-//! Run with: cargo run --example frustum_channel_demo
+//! Run with: `cargo run --example frustum_channel_demo`
 
 use cfd_schematics::{
     config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile},
@@ -21,26 +21,26 @@ use cfd_schematics::{
 mod shared;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🌊 Frustum Channel Demonstration");
-    println!("================================");
-    println!();
+    tracing::info!("🌊 Frustum Channel Demonstration");
+    tracing::info!("================================");
+    tracing::info!("");
 
-    demonstrate_taper_profiles()?;
-    demonstrate_throat_positions()?;
-    demonstrate_width_configurations()?;
-    demonstrate_mixed_channel_systems()?;
+    demonstrate_taper_profiles();
+    demonstrate_throat_positions();
+    demonstrate_width_configurations();
+    demonstrate_mixed_channel_systems();
     demonstrate_json_serialization()?;
 
-    println!("✅ All demonstrations completed successfully!");
-    println!();
-    println!("   • [Various Output Types] -> output/examples/frustum_channel_demo/");
+    tracing::info!("✅ All demonstrations completed successfully!");
+    tracing::info!("");
+    tracing::info!("   • [Various Output Types] -> output/examples/frustum_channel_demo/");
 
     Ok(())
 }
 
-fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
-    println!("1️⃣  Demonstrating Taper Profiles");
-    println!("   Testing Linear, Exponential, and Smooth taper profiles");
+fn demonstrate_taper_profiles() {
+    tracing::info!("1️⃣  Demonstrating Taper Profiles");
+    tracing::info!("   Testing Linear, Exponential, and Smooth taper profiles");
 
     let base_config = FrustumConfig {
         inlet_width: 3.0,
@@ -66,7 +66,7 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         "frustum_channel_demo",
         "frustum_linear_taper",
     );
-    println!("   ✅ Linear taper: saved to frustum_linear_taper.svg");
+    tracing::info!("   ✅ Linear taper: saved to frustum_linear_taper.svg");
 
     let exponential_config = FrustumConfig {
         taper_profile: TaperProfile::Exponential,
@@ -83,7 +83,7 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         "frustum_channel_demo",
         "frustum_exponential_taper",
     );
-    println!("   ✅ Exponential taper: saved to frustum_exponential_taper.svg");
+    tracing::info!("   ✅ Exponential taper: saved to frustum_exponential_taper.svg");
 
     let smooth_config = FrustumConfig {
         taper_profile: TaperProfile::Smooth,
@@ -100,15 +100,14 @@ fn demonstrate_taper_profiles() -> Result<(), Box<dyn std::error::Error>> {
         "frustum_channel_demo",
         "frustum_smooth_taper",
     );
-    println!("   ✅ Smooth taper: saved to frustum_smooth_taper.svg");
+    tracing::info!("   ✅ Smooth taper: saved to frustum_smooth_taper.svg");
 
-    println!();
-    Ok(())
+    tracing::info!("");
 }
 
-fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {
-    println!("2️⃣  Demonstrating Throat Positions");
-    println!("   Testing throat at 25%, 50%, and 75% positions");
+fn demonstrate_throat_positions() {
+    tracing::info!("2️⃣  Demonstrating Throat Positions");
+    tracing::info!("   Testing throat at 25%, 50%, and 75% positions");
 
     let config_25 = FrustumConfig {
         inlet_width: 2.5,
@@ -130,15 +129,14 @@ fn demonstrate_throat_positions() -> Result<(), Box<dyn std::error::Error>> {
         "frustum_channel_demo",
         "frustum_throat_positions",
     );
-    println!("   ✅ Variable throat positions: saved to frustum_throat_positions.svg");
+    tracing::info!("   ✅ Variable throat positions: saved to frustum_throat_positions.svg");
 
-    println!();
-    Ok(())
+    tracing::info!("");
 }
 
-fn demonstrate_width_configurations() -> Result<(), Box<dyn std::error::Error>> {
-    println!("3️⃣  Demonstrating Width Configurations");
-    println!("   Testing different inlet/throat/outlet width ratios");
+fn demonstrate_width_configurations() {
+    tracing::info!("3️⃣  Demonstrating Width Configurations");
+    tracing::info!("   Testing different inlet/throat/outlet width ratios");
 
     let high_compression = FrustumConfig {
         inlet_width: 4.0,
@@ -156,15 +154,14 @@ fn demonstrate_width_configurations() -> Result<(), Box<dyn std::error::Error>> 
         &ChannelTypeConfig::AllFrustum(high_compression),
     );
     shared::save_example_output_with_name(&system, "frustum_channel_demo", "frustum_width_configs");
-    println!("   ✅ High compression ratio: saved to frustum_width_configs.svg");
+    tracing::info!("   ✅ High compression ratio: saved to frustum_width_configs.svg");
 
-    println!();
-    Ok(())
+    tracing::info!("");
 }
 
-fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>> {
-    println!("4️⃣  Demonstrating Mixed Channel Systems");
-    println!("   Testing adaptive selection with frustum channels included");
+fn demonstrate_mixed_channel_systems() {
+    tracing::info!("4️⃣  Demonstrating Mixed Channel Systems");
+    tracing::info!("   Testing adaptive selection with frustum channels included");
 
     let adaptive_config = ChannelTypeConfig::default();
 
@@ -175,7 +172,7 @@ fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>>
         &adaptive_config,
     );
     shared::save_example_output_with_name(&system, "frustum_channel_demo", "mixed_channel_system");
-    println!("   ✅ Mixed system: saved to mixed_channel_system.svg");
+    tracing::info!("   ✅ Mixed system: saved to mixed_channel_system.svg");
 
     let mut channel_counts = std::collections::HashMap::new();
     for channel in &system.channels {
@@ -190,18 +187,17 @@ fn demonstrate_mixed_channel_systems() -> Result<(), Box<dyn std::error::Error>>
         *channel_counts.entry(channel_type_name).or_insert(0) += 1;
     }
 
-    println!("   📊 Channel type distribution:");
+    tracing::info!("   📊 Channel type distribution:");
     for (channel_type, count) in &channel_counts {
-        println!("      • {}: {} channels", channel_type, count);
+        tracing::info!("      • {}: {} channels", channel_type, count);
     }
 
-    println!();
-    Ok(())
+    tracing::info!("");
 }
 
 fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
-    println!("5️⃣  Demonstrating JSON Serialization");
-    println!("   Testing export/import of frustum channel systems");
+    tracing::info!("5️⃣  Demonstrating JSON Serialization");
+    tracing::info!("   Testing export/import of frustum channel systems");
 
     let frustum_config = FrustumConfig {
         inlet_width: 2.8,
@@ -228,11 +224,11 @@ fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let json = serde_json::to_string_pretty(&original_system)?;
-    println!("   ✅ Exported to: frustum_system_export.json");
+    tracing::info!("   ✅ Exported to: frustum_system_export.json");
 
     let imported_system: cfd_schematics::domain::model::NetworkBlueprint =
         serde_json::from_str(&json)?;
-    println!("   ✅ Successfully imported from JSON");
+    tracing::info!("   ✅ Successfully imported from JSON");
 
     assert_eq!(original_system.nodes.len(), imported_system.nodes.len());
     assert_eq!(
@@ -251,8 +247,8 @@ fn demonstrate_json_serialization() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(orig.venturi_geometry, imp.venturi_geometry);
     }
 
-    println!("   ✅ Data integrity verified - all frustum properties preserved");
+    tracing::info!("   ✅ Data integrity verified - all frustum properties preserved");
 
-    println!();
+    tracing::info!("");
     Ok(())
 }
