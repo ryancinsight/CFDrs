@@ -20,9 +20,7 @@
 //! before transforming to physical space.
 
 use crate::atlas_array::values;
-use apollo_fft::{
-    fft_1d_array, ifft_1d_array, PlanCacheProvider, PlanScratch, RealFftData,
-};
+use apollo_fft::{fft_1d_array, ifft_1d_array, PlanCacheProvider, PlanScratch, RealFftData};
 use cfd_core::error::Result;
 use core::ops::Neg;
 use eunomia::{Complex, FloatElement, NumericElement};
