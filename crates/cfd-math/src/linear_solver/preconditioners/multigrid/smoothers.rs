@@ -410,13 +410,15 @@ mod tests {
             }
             row_ptr.push(col_indices.len());
         }
-        csr_from_parts(n, n, row_ptr, col_indices, values, "smoother test matrix").unwrap()
+        csr_from_parts(n, n, row_ptr, col_indices, values, "smoother test matrix")
+            .expect("invariant: tridiagonal smoother matrix is valid")
     }
 
     #[test]
     fn test_gauss_seidel_smoother() {
         let matrix = create_test_matrix();
-        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("invariant: smoother RHS data matches its shape");
         let mut x = MultigridVector::zeros([5]);
 
         let smoother = GaussSeidelSmoother::new(1.0);
@@ -428,7 +430,8 @@ mod tests {
     #[test]
     fn test_jacobi_smoother() {
         let matrix = create_test_matrix();
-        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("invariant: smoother RHS data matches its shape");
         let mut x = MultigridVector::zeros([5]);
 
         let smoother = JacobiSmoother::new(1.0);
@@ -440,7 +443,8 @@ mod tests {
     #[test]
     fn test_symmetric_gauss_seidel() {
         let matrix = create_test_matrix();
-        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("invariant: smoother RHS data matches its shape");
         let mut x = MultigridVector::zeros([5]);
 
         let smoother = SymmetricGaussSeidelSmoother::new(1.0);
@@ -452,7 +456,8 @@ mod tests {
     #[test]
     fn test_sor_smoother() {
         let matrix = create_test_matrix();
-        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("invariant: smoother RHS data matches its shape");
         let mut x = MultigridVector::zeros([5]);
 
         let smoother = SORSmoother::new(1.0);
@@ -464,7 +469,8 @@ mod tests {
     #[test]
     fn test_chebyshev_smoother() {
         let matrix = create_test_matrix();
-        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let b = MultigridVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("invariant: smoother RHS data matches its shape");
         let mut x = MultigridVector::zeros([5]);
 
         let (eigen_min, eigen_max) = ChebyshevSmoother::estimate_eigenvalues(&matrix);
