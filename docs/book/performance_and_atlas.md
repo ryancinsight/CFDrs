@@ -41,7 +41,6 @@ defect in the solver path rather than a budget to raise.
 | Memory | `mnemosyne::Arena`, `themis::Placement` | every crate |
 | Concurrency | `moirai::Executor`, task graph | `cfd-2d::parallel`, `cfd-3d::parallel` |
 | FFT | `apollo::FftPlan` | `cfd-3d::spectral`, `cfd-2d::spectral` |
-| Tiling | `leto` GAT-based `TileStreaming` | `cfd-3d::stencil`, `cfd-2d::stencil` |
 
 (Tensors, autodiff, GPU backends, and image I/O — included in the full
 Atlas stack — are used by `helios` and `kwavers` but not by CFDrs; see

@@ -14,7 +14,6 @@ and which CFDrs crate consumes it.
 |---|---|---|
 | `eunomia` | `RealField`, `ComplexField`, `FloatElement`, `IntElement` | every CFDrs crate |
 | `leto` | `NdArray<T,D>`, `CowArray`, geometry types | `cfd-math`, `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-schematics` |
-| `leto` GAT | `LendingIterator`, `TileStreaming` | `cfd-2d::stencil`, `cfd-3d::stencil` |
 | `leto-ops` | dense/sparse linear algebra, Krylov solvers, sparse LU | `cfd-math` |
 | `hermes-simd` | `SimdLane`, vectorized kernels | `cfd-2d::stencil`, `cfd-3d::fem`, `cfd-1d::kernel` |
 | `mnemosyne` | `Arena`, `ScratchArena` | every CFDrs crate |

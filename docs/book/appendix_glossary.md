@@ -94,8 +94,9 @@ checking.
 ## G
 
 **GAT — Generic Associated Type** (Rust).  A type-level parameter
-on a trait.  Atlas uses GATs for `LendingIterator::Item<'a>` and
-`TileStreaming::LendingIter`.
+on a trait.  Atlas uses a GAT for
+`leto_ops::StatefulUpdateRule::State<'a>`, whose mutable state-view
+family is re-parameterized per lifetime by each update rule.
 
 **GpuArray / GpuBackend** (`hephaestus`).  The GPU-side counterpart
 of `leto::NdArray` and `eunomia::ComputeBackend`.
