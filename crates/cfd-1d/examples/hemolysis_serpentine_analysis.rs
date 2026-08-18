@@ -34,18 +34,27 @@ use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🩸 Hemolysis Analysis — Serpentine Millifluidic Channel");
-    println!("=======================================================\n");
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(
+        output,
+        "🩸 Hemolysis Analysis — Serpentine Millifluidic Channel"
+    )?;
+    writeln!(
+        output,
+        "=======================================================\n"
+    )?;
 
     let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("outputs");
     fs::create_dir_all(out.join("hemolysis"))?;
 
     // ── 1. Generate Serpentine Geometry ───────────────────────────────────────
-    println!("1. Generating serpentine bifurcation geometry...");
+    writeln!(output, "1. Generating serpentine bifurcation geometry...")?;
     let box_dims = (80.0, 40.0); // mm — fits within 96-well plate footprint
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
     let geo_config = GeometryConfig {
@@ -56,28 +65,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let channel_type = ChannelTypeConfig::AllSerpentine(serpentine_config);
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
-    println!(
+    writeln!(
+        output,
         "   {} nodes, {} channels generated",
         system.nodes.len(),
         system.channels.len()
-    );
+    )?;
 
     // ── 2. Render plain schematic ────────────────────────────────────────────
-    println!("2. Rendering plain channel schematic...");
+    writeln!(output, "2. Rendering plain channel schematic...")?;
     plot_geometry(&system, out.join("hemolysis/channel_schematic.png"))?;
 
     // ── 3. Convert to 1D simulation specs ────────────────────────────────────
     // The system.nodes and system.channels are already the specs needed.
 
     // ── 4. Build Network with Carreau-Yasuda blood ───────────────────────────
-    println!("4. Building 1D network with Carreau-Yasuda blood model...");
+    writeln!(
+        output,
+        "4. Building 1D network with Carreau-Yasuda blood model..."
+    )?;
     let blood = CarreauYasuda::<f64>::blood();
-    println!("   Fluid: {}", blood.name());
-    println!(
+    writeln!(output, "   Fluid: {}", blood.name())?;
+    writeln!(
+        output,
         "   µ∞ = {:.4} mPa·s, µ₀ = {:.1} mPa·s",
         blood.viscosity_inf.into_base() * 1e3,
         blood.viscosity_zero.into_base() * 1e3
-    );
+    )?;
 
     let mut builder = NetworkBuilder::<f64>::new();
     let mut id_map = HashMap::new();
@@ -105,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── 5. Boundary Conditions ───────────────────────────────────────────────
-    println!("5. Applying boundary conditions...");
+    writeln!(output, "5. Applying boundary conditions...")?;
     let inlet_pressure_pa = 2000.0; // 2 kPa — moderate millifluidic pressure
     let outlet_pressure_pa = 0.0;
 
@@ -113,17 +127,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
             cfd_schematics::domain::model::NodeKind::Inlet => {
-                network.set_pressure(idx, Pressure::from_base(inlet_pressure_pa))
+                network.set_pressure(idx, Pressure::from_base(inlet_pressure_pa));
             }
             cfd_schematics::domain::model::NodeKind::Outlet => {
-                network.set_pressure(idx, Pressure::from_base(outlet_pressure_pa))
+                network.set_pressure(idx, Pressure::from_base(outlet_pressure_pa));
             }
             _ => {}
         }
     }
 
     // ── 6. Solve ─────────────────────────────────────────────────────────────
-    println!("6. Solving 1D network...");
+    writeln!(output, "6. Solving 1D network...")?;
     let config = SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
@@ -131,10 +145,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let solver = NetworkSolver::with_config(config);
     let solution = solver.solve(&NetworkProblem::new(network))?;
-    println!("   Solution converged.");
+    writeln!(output, "   Solution converged.")?;
 
     // ── 7. Compute hemolysis index & shear stress per channel ────────────────
-    println!("7. Computing hemolysis indices (Giersiepen–Wurzinger model)...");
+    writeln!(
+        output,
+        "7. Computing hemolysis indices (Giersiepen–Wurzinger model)..."
+    )?;
     let hemolysis_model = HemolysisModel::giersiepen_standard();
 
     let mut edge_hemolysis = HashMap::<usize, f64>::new();
@@ -171,17 +188,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get(&petgraph::graph::EdgeIndex::new(eidx));
 
         // Parse channel ID
-        let chan_id = match edge.id.trim_start_matches("chan_").parse::<usize>() {
-            Ok(id) => id,
-            Err(_) => continue,
+        let Ok(chan_id) = edge.id.trim_start_matches("chan_").parse::<usize>() else {
+            continue;
         };
 
         if let Some(p) = props {
             let velocity = q.abs() / p.area.into_base();
             let shear_rate = p
                 .hydraulic_diameter
-                .map(|d| 8.0 * velocity / d.into_base())
-                .unwrap_or(0.0);
+                .map_or(0.0, |d| 8.0 * velocity / d.into_base());
 
             // Apparent viscosity at this shear rate
             let viscosity = blood.viscosity_at_shear(shear_rate, 310.15, 101_325.0)?;
@@ -219,11 +234,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("   Max hemolysis index: {:.4e}", max_hemolysis);
-    println!("   Max wall shear stress: {:.2} Pa", max_shear);
+    writeln!(output, "   Max hemolysis index: {max_hemolysis:.4e}")?;
+    writeln!(output, "   Max wall shear stress: {max_shear:.2} Pa")?;
 
     // ── 8. Render hemolysis overlay ──────────────────────────────────────────
-    println!("8. Rendering hemolysis index overlay...");
+    writeln!(output, "8. Rendering hemolysis index overlay...")?;
     let renderer = create_plotters_renderer();
 
     let hemolysis_overlay = AnalysisOverlay::new(
@@ -234,10 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_node_data(Cow::Borrowed(&node_pressure))?;
 
     let config_hi = RenderConfig {
-        title: format!(
-            "Hemolysis Index — Giersiepen–Wurzinger (max HI = {:.2e})",
-            max_hemolysis
-        ),
+        title: format!("Hemolysis Index — Giersiepen–Wurzinger (max HI = {max_hemolysis:.2e})"),
         show_axes: true,
         show_grid: false,
         ..Default::default()
@@ -251,14 +263,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 9. Render wall shear stress overlay ──────────────────────────────────
-    println!("9. Rendering wall shear stress overlay...");
+    writeln!(output, "9. Rendering wall shear stress overlay...")?;
     let shear_overlay =
         AnalysisOverlay::new(AnalysisField::WallShearStress, NamedColorMap::BlueRed)
             .with_edge_data(Cow::Borrowed(&edge_shear))?
             .with_node_data(Cow::Borrowed(&node_pressure))?;
 
     let config_wss = RenderConfig {
-        title: format!("Wall Shear Stress (max τ_w = {:.2} Pa)", max_shear),
+        title: format!("Wall Shear Stress (max τ_w = {max_shear:.2} Pa)"),
         show_axes: true,
         show_grid: false,
         ..Default::default()
@@ -272,7 +284,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 10. Render cavitation risk overlay ───────────────────────────────────
-    println!("10. Rendering cavitation risk overlay...");
+    writeln!(output, "10. Rendering cavitation risk overlay...")?;
     let cavitation_overlay = AnalysisOverlay::new(
         AnalysisField::Custom("Cavitation Risk (1/σ)".into()),
         NamedColorMap::BlueRed,
@@ -295,7 +307,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // ── 11. JSON Export ──────────────────────────────────────────────────────
-    println!("11. Exporting results to JSON...");
+    writeln!(output, "11. Exporting results to JSON...")?;
     let results = serde_json::json!({
         "analysis": "hemolysis_serpentine",
         "geometry": {
@@ -341,8 +353,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let json_path = out.join("hemolysis/results.json");
     fs::write(&json_path, serde_json::to_string_pretty(&results)?)?;
-    println!("   Results exported to {}", json_path.display());
+    writeln!(output, "   Results exported to {}", json_path.display())?;
 
-    println!("\n✅ Hemolysis analysis complete — all outputs in hemolysis/");
+    writeln!(
+        output,
+        "\n✅ Hemolysis analysis complete — all outputs in hemolysis/"
+    )?;
     Ok(())
 }
