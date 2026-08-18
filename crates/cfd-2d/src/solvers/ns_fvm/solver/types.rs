@@ -9,7 +9,6 @@ use eunomia::FloatElement;
 
 #[derive(Clone, Copy)]
 pub(super) enum InletProfile {
-    Uniform,
     Parabolic,
 }
 
