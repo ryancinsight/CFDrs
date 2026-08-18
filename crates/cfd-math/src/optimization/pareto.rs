@@ -290,7 +290,7 @@ mod tests {
         // Five evenly spaced points; interior distances should all be equal.
         let front: Vec<[f64; 2]> = (0..5)
             .map(|i| {
-                let t = i as f64 / 4.0;
+                let t = f64::from(i) / 4.0;
                 [t, 1.0 - t]
             })
             .collect();

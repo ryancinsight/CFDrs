@@ -200,9 +200,8 @@ fn test_ilu_non_square_matrix() {
         CsrMatrix::from_parts(values, col_indices, row_offsets, 2, 3).expect("valid CSR matrix");
 
     let ilu = IncompleteLU::new(&matrix);
-    let error = match ilu {
-        Ok(_) => panic!("ILU must reject a non-square matrix"),
-        Err(error) => error,
+    let Err(error) = ilu else {
+        panic!("ILU must reject a non-square matrix");
     };
 
     assert!(matches!(error, Error::InvalidInput(_)));

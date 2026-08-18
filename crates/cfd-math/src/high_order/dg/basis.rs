@@ -336,7 +336,7 @@ mod tests {
             .expect("invariant: projection function returns finite values");
 
         // For order >= 3, the projection should be exact
-        for &x in basis.quad_points.iter() {
+        for &x in &basis.quad_points {
             let mut approx = 0.0;
 
             for i in 0..=order {

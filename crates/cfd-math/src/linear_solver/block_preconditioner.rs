@@ -981,6 +981,10 @@ where
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::items_after_test_module,
+    reason = "Athena provider trait impls stay after the isolated unit-test module"
+)]
 mod tests {
     use super::*;
     use crate::sparse::SparseMatrixBuilder;
