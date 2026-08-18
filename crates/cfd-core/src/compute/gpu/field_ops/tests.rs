@@ -8,14 +8,14 @@ fn operations() -> Option<GpuFieldOps> {
     let context = match GpuContext::create() {
         Ok(context) => context,
         Err(error) => {
-            eprintln!("Skipping GPU field-operations test: {error:?}");
+            tracing::debug!(error = ?error, "GPU field-operations test unavailable");
             return None;
         }
     };
     match GpuFieldOps::new(Arc::new(context)) {
         Ok(operations) => Some(operations),
         Err(error) => {
-            eprintln!("Skipping GPU field-operations test: {error:?}");
+            tracing::debug!(error = ?error, "GPU field-operations test unavailable");
             None
         }
     }

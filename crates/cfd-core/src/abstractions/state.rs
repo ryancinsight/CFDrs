@@ -239,8 +239,12 @@ mod tests {
         state.add_scalar_field(FieldVariable::Pressure, 3);
         state.add_vector_field(FieldVariable::Velocity, 2);
 
-        state.scalar_field_mut(FieldVariable::Pressure).unwrap()[1] = 5.0;
-        state.vector_field_mut(FieldVariable::Velocity).unwrap()[0] = Vector3::new(1.0, 2.0, 3.0);
+        state
+            .scalar_field_mut(FieldVariable::Pressure)
+            .expect("invariant: pressure scalar field was added")[1] = 5.0;
+        state
+            .vector_field_mut(FieldVariable::Velocity)
+            .expect("invariant: velocity vector field was added")[0] = Vector3::new(1.0, 2.0, 3.0);
         state.set_time(2.0);
         state.increment_iteration();
 
@@ -251,13 +255,15 @@ mod tests {
         assert_eq!(
             state
                 .scalar_field(FieldVariable::Pressure)
-                .unwrap()
+                .expect("invariant: reset preserves pressure scalar field")
                 .storage()
                 .as_slice(),
             &[0.0, 0.0, 0.0]
         );
         assert_eq!(
-            state.vector_field(FieldVariable::Velocity).unwrap(),
+            state
+                .vector_field(FieldVariable::Velocity)
+                .expect("invariant: reset preserves velocity vector field"),
             &[Vector3::zeros(), Vector3::zeros()]
         );
     }
@@ -266,10 +272,14 @@ mod tests {
     fn field_data_scalar_round_trips_as_leto_array() {
         let mut state = FieldState::<f64>::new();
         state.add_scalar_field(FieldVariable::Pressure, 2);
-        state.scalar_field_mut(FieldVariable::Pressure).unwrap()[0] = 4.0;
+        state
+            .scalar_field_mut(FieldVariable::Pressure)
+            .expect("invariant: pressure scalar field was added")[0] = 4.0;
 
-        let encoded = serde_json::to_string(&state.fields[&FieldVariable::Pressure]).unwrap();
-        let decoded: FieldData<f64> = serde_json::from_str(&encoded).unwrap();
+        let encoded = serde_json::to_string(&state.fields[&FieldVariable::Pressure])
+            .expect("invariant: field state is serializable");
+        let decoded: FieldData<f64> =
+            serde_json::from_str(&encoded).expect("invariant: encoded field state is valid");
 
         match decoded {
             FieldData::Scalar(values) => {
