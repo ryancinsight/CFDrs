@@ -115,7 +115,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "apollo-fft"
-version = "0.26.0"
+version = "0.27.0"
 source = "git+https://github.com/ryancinsight/apollo#ed6d6905afda394a9e12570543159ab1b262589e"
 dependencies = [
  "apollo-fft-macros",
