@@ -9,6 +9,7 @@ use eunomia::FloatElement;
 
 #[derive(Clone, Copy)]
 pub(super) enum InletProfile {
+    Uniform,
     Parabolic,
 }
 
@@ -116,7 +117,7 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_a_n,
             pressure_poisson_a_s,
             pressure_poisson_a_p,
-            inlet_profile: InletProfile::Parabolic,
+            inlet_profile: InletProfile::Uniform,
             turbulence: None,
         }
     }

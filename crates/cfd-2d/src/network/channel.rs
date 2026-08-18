@@ -51,7 +51,10 @@ where
 
     let shear_rate = entry.cross_section.wall_shear_rate(u_mean);
     let shear_pa = entry.viscosity_pa_s * shear_rate.abs();
-    let solve_result = entry.solver.solve(u_inlet)?;
+    // Network channels use the normalized parabolic profile that defines the
+    // hydraulic reference coupling. Geometry-specific solvers retain the
+    // uniform profile through `solve` unless they select this mode explicitly.
+    let solve_result = entry.solver.solve_parabolic_inlet(u_inlet)?;
 
     let (
         field_wall_shear_max_pa,

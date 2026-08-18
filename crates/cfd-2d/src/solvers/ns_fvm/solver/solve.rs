@@ -11,10 +11,7 @@ use leto::geometry::Vector2;
 impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
-        // Preserve the established channel contract: the generic solve path
-        // starts from the normalized parabolic inlet used by the network
-        // reference coupling.
-        self.inlet_profile = InletProfile::Parabolic;
+        self.inlet_profile = InletProfile::Uniform;
         self.solve_with_inlet_profile(u_inlet)
     }
 
