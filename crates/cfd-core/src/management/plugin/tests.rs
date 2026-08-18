@@ -39,7 +39,9 @@ fn test_plugin_registration() {
         dependencies: vec![],
     });
 
-    assert!(registry.register(plugin).is_ok());
+    registry
+        .register(plugin)
+        .expect("invariant: standalone plugin registration succeeds");
     assert!(registry.get("test").is_some());
     assert_eq!(registry.list(), vec!["test"]);
 }
@@ -65,9 +67,15 @@ fn test_dependency_resolution() {
     });
 
     // Register in any order - should work
-    assert!(registry.register(plugin_a).is_ok());
-    assert!(registry.register(plugin_b).is_ok());
-    assert!(registry.register(plugin_c).is_ok());
+    registry
+        .register(plugin_a)
+        .expect("invariant: root plugin registration succeeds");
+    registry
+        .register(plugin_b)
+        .expect("invariant: dependent plugin registration succeeds");
+    registry
+        .register(plugin_c)
+        .expect("invariant: transitive dependent plugin registration succeeds");
 
     // Check load order
     let load_order = registry.get_load_order();
@@ -95,17 +103,17 @@ fn test_circular_dependency_detection() {
     let mut resolver = DependencyResolver::new();
 
     // Create circular dependency: A -> B -> C -> A
-    assert!(resolver
+    resolver
         .add_plugin("A".to_string(), vec!["B".to_string()])
-        .is_ok());
-    assert!(resolver
+        .expect("invariant: first dependency edge is accepted");
+    resolver
         .add_plugin("B".to_string(), vec!["C".to_string()])
-        .is_ok());
+        .expect("invariant: second dependency edge is accepted");
 
     // This should fail due to circular dependency
-    assert!(resolver
+    resolver
         .add_plugin("C".to_string(), vec!["A".to_string()])
-        .is_err());
+        .expect_err("invariant: circular dependency is rejected");
 }
 
 #[test]
@@ -118,7 +126,9 @@ fn test_missing_dependency() {
     });
 
     // Should fail due to missing dependency
-    assert!(registry.register(plugin).is_err());
+    registry
+        .register(plugin)
+        .expect_err("invariant: missing dependency is rejected");
 }
 
 #[test]
@@ -179,13 +189,19 @@ fn test_plugin_removal() {
         .expect("Failed to register plugin B");
 
     // Cannot remove A because B depends on it
-    assert!(registry.unregister("A").is_err());
+    registry
+        .unregister("A")
+        .expect_err("invariant: dependency prevents plugin removal");
 
     // Can remove B
-    assert!(registry.unregister("B").is_ok());
+    registry
+        .unregister("B")
+        .expect("invariant: leaf plugin removal succeeds");
 
     // Now can remove A
-    assert!(registry.unregister("A").is_ok());
+    registry
+        .unregister("A")
+        .expect("invariant: root plugin removal succeeds");
 
     assert_eq!(registry.list().len(), 0);
 }
