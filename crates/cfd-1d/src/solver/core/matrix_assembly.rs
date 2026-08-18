@@ -213,13 +213,21 @@ impl<T: CfdScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
                 (true, false) => {
                     // i fixed: remove column i and add contribution to RHS of j
                     coo.push(j, j, conductance);
-                    let p_i = dirichlet_values[i].unwrap();
+                    let Some(p_i) = dirichlet_values.get(i).copied().flatten() else {
+                        return Err(Error::InvalidConfiguration(
+                            "Dirichlet node value disappeared during matrix assembly".to_string(),
+                        ));
+                    };
                     rhs[j] += conductance * p_i;
                 }
                 (false, true) => {
                     // j fixed: remove column j and add contribution to RHS of i
                     coo.push(i, i, conductance);
-                    let p_j = dirichlet_values[j].unwrap();
+                    let Some(p_j) = dirichlet_values.get(j).copied().flatten() else {
+                        return Err(Error::InvalidConfiguration(
+                            "Dirichlet node value disappeared during matrix assembly".to_string(),
+                        ));
+                    };
                     rhs[i] += conductance * p_j;
                 }
                 (true, true) => {

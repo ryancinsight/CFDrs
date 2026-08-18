@@ -218,7 +218,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
     /// `R_slip = R_laminar / (1 + 4 · Kn · σ_v)`, `σ_v = 1`.
     fn slip_flow_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let r_laminar = self.laminar_resistance(fluid)?;
-        let kn = self.flow_state.knudsen_number.unwrap_or_else(|| T::ZERO);
+        let kn = self.flow_state.knudsen_number.unwrap_or(T::ZERO);
         let four = T::ONE + T::ONE + T::ONE + T::ONE;
         Ok(r_laminar / (T::ONE + four * kn))
     }

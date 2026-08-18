@@ -95,7 +95,7 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or_else(|| T::ZERO);
+        let q = conditions.flow_rate.unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }

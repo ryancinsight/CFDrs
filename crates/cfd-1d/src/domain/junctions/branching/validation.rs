@@ -90,39 +90,20 @@ impl<T: CfdScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult
         }
     }
 
-    /// Print validation summary
+    /// Emit the validation summary through the crate's tracing subscriber.
     pub fn print_summary(&self) {
-        println!("\n{}", "=".repeat(70));
-        println!("Branching Validation: {}", self.test_name);
-        println!("{}", "=".repeat(70));
-        println!("Expected convergence order: {}", self.expected_order);
-        if let Some(obs_order) = self.observed_order {
-            println!("Observed convergence order: {obs_order}");
-        }
-        if let Some(gci) = self.gci_percent {
-            println!("Grid Convergence Index (GCI): {gci}%");
-        }
-        if let Some(l2) = self.l2_error {
-            println!("L2 Error: {:.2e}", <T as NumericElement>::to_f64(l2));
-        }
-        if let Some(linf) = self.linf_error {
-            println!(
-                "L-infinity Error: {:.2e}",
-                <T as NumericElement>::to_f64(linf)
-            );
-        }
-        println!(
-            "Validation Status: {}",
-            if self.validation_passed {
-                "PASSED"
-            } else {
-                "FAILED"
-            }
+        tracing::info!(
+            target: "cfd_1d::branching_validation",
+            test_name = %self.test_name,
+            expected_order = %self.expected_order,
+            observed_order = ?self.observed_order.map(|value| <T as NumericElement>::to_f64(value)),
+            gci_percent = ?self.gci_percent.map(|value| <T as NumericElement>::to_f64(value)),
+            l2_error = ?self.l2_error.map(|value| <T as NumericElement>::to_f64(value)),
+            linf_error = ?self.linf_error.map(|value| <T as NumericElement>::to_f64(value)),
+            validation_passed = self.validation_passed,
+            error_message = ?self.error_message,
+            "branching validation summary"
         );
-        if let Some(msg) = &self.error_message {
-            println!("Error: {msg}");
-        }
-        println!("{}", "=".repeat(70));
     }
 }
 
