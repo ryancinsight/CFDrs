@@ -28,7 +28,8 @@
 - `cfd-python` now reports the Cargo package version at the Python boundary,
   carries installed-wheel value-semantic tests for the Casson, Womersley, and
   Poiseuille contracts, and has a tag-scoped abi3 PyPI Trusted Publishing
-  caller with exact Atlas provider-graph resolution.
+  caller with exact Atlas provider-graph resolution. The source distribution
+  excludes committed simulation outputs and Python bytecode caches.
 - **cfd-2d/cfd-validation**: Backward-facing-step geometry, SIMPLE execution,
   fluid-cell-only parabolic inlet, boundary masking, and signed lower-wall
   shear extraction now live in the provider. `cfd-validation` maps its

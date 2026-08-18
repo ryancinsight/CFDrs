@@ -11,6 +11,7 @@ readme = "README.md"
 description = "2D CFD solvers including FDM, FVM, and LBM implementations"
 keywords = ["cfd", "navier-stokes", "simple", "piso", "turbulence"]
 categories = ["science", "simulation"]
+exclude = ["outputs/**"]
 
 [dependencies]
 cfd-core.workspace = true

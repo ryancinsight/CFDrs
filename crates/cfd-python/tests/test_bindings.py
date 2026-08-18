@@ -39,7 +39,7 @@ def test_womersley_number_matches_dimensionless_definition() -> None:
     expected = radius * math.sqrt(omega * density / viscosity)
 
     assert math.isclose(womersley.value(), expected, rel_tol=2.0e-15, abs_tol=0.0)
-    assert womersley.flow_regime()
+    assert womersley.flow_regime() == "Inertial"
 
 
 def test_poiseuille_solver_returns_analytical_profile_values() -> None:

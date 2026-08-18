@@ -61,13 +61,15 @@ anything there is unverified -- do not assume it matches.
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch] — in progress
 
 **Owner:** Atlas coordinator; scope is the `cfd-python` binding release
-caller, its installed-wheel pytest contract, the binding version surface, and
-the shared Atlas release-distribution contract. **Acceptance:** release tags
-build abi3 wheels plus one validated source distribution through the shared
-Atlas workflow, install and import `cfd_python`, run the value-semantic binding
-tests, and publish validated artifacts through PyPI Trusted Publishing without
-a long-lived registry token. Registry-side trusted-publisher enforcement and
-local publishing remain outside this item.
+caller, its installed-wheel pytest contract, the binding version surface, the
+shared Atlas release-distribution contract, and source-package exclusion of
+generated outputs. **Acceptance:** release tags build abi3 wheels plus one
+validated source distribution through the shared Atlas workflow, install and
+import `cfd_python`, run the value-semantic binding tests, publish validated
+artifacts through PyPI Trusted Publishing without a long-lived registry token,
+and exclude generated output directories and Python bytecode from the sdist.
+Registry-side trusted-publisher enforcement and local publishing remain
+outside this item.
 
 ## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
 

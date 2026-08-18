@@ -10,6 +10,9 @@
 - [x] Add the release-tag caller with abi3-py38, exact Atlas graph revision,
       provider test path, artifact attestation, and PyPI Trusted Publishing;
       extend the shared release workflow to validate and attach one sdist.
+- [x] Exclude committed simulation-output directories and Python bytecode
+      caches from the source distribution; keep the caches ignored for future
+      binding-test runs.
 - [ ] Run the focused provider checks and hosted release dry-run at the exact
       source head; do not change registry-side trusted-publisher settings.
 
