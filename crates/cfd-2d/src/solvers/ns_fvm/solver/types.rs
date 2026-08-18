@@ -116,7 +116,7 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_a_n,
             pressure_poisson_a_s,
             pressure_poisson_a_p,
-            inlet_profile: InletProfile::Uniform,
+            inlet_profile: InletProfile::Parabolic,
             turbulence: None,
         }
     }
