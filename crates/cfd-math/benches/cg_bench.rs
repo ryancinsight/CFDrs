@@ -11,7 +11,7 @@ use leto_ops::CsrMatrix;
 fn bench_cg(c: &mut Criterion) {
     let mut group = c.benchmark_group("cg_solver");
 
-    for size in [100, 500, 1000].iter() {
+    for &size in &[100, 500, 1000] {
         let n = *size;
         // Create 1D Laplacian matrix (SPD)
         let mut row_offsets = Vec::with_capacity(n + 1);
