@@ -1,4 +1,4 @@
-//! Bit-exact roundtrip tests for CheckpointManager
+//! Bit-exact roundtrip tests for [`CheckpointManager`].
 
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};
 use leto::Array2;
@@ -18,8 +18,9 @@ fn assert_array_eq(left: &Array2<f64>, right: &Array2<f64>) {
 
 #[test]
 fn checkpoint_roundtrip_no_compression() {
-    let dir = tempdir().unwrap();
-    let manager = CheckpointManager::new(dir.path()).unwrap();
+    let dir = tempdir().expect("invariant: temporary checkpoint directory is available");
+    let manager = CheckpointManager::new(dir.path())
+        .expect("invariant: checkpoint manager accepts temporary directory");
 
     let ny = 10;
     let nx = 10;
@@ -31,8 +32,12 @@ fn checkpoint_roundtrip_no_compression() {
 
     let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
-    let path = manager.save(&checkpoint).unwrap();
-    let loaded = manager.load(&path).unwrap();
+    let path = manager
+        .save(&checkpoint)
+        .expect("invariant: valid checkpoint saves without compression");
+    let loaded = manager
+        .load(&path)
+        .expect("invariant: saved checkpoint loads without compression");
 
     assert_eq!(loaded.metadata.iteration, 100);
     assert_eq!(loaded.metadata.time.to_bits(), 1.234f64.to_bits());
@@ -44,8 +49,9 @@ fn checkpoint_roundtrip_no_compression() {
 
 #[test]
 fn checkpoint_roundtrip_zstd() {
-    let dir = tempdir().unwrap();
-    let mut manager = CheckpointManager::new(dir.path()).unwrap();
+    let dir = tempdir().expect("invariant: temporary checkpoint directory is available");
+    let mut manager = CheckpointManager::new(dir.path())
+        .expect("invariant: checkpoint manager accepts temporary directory");
     manager.set_compression(CompressionStrategy::Zstd(3));
 
     let ny = 5;
@@ -58,8 +64,12 @@ fn checkpoint_roundtrip_zstd() {
 
     let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
-    let path = manager.save(&checkpoint).unwrap();
-    let loaded = manager.load(&path).unwrap();
+    let path = manager
+        .save(&checkpoint)
+        .expect("invariant: valid checkpoint saves with zstd compression");
+    let loaded = manager
+        .load(&path)
+        .expect("invariant: saved compressed checkpoint loads");
 
     assert_eq!(loaded.metadata.iteration, 200);
     assert_eq!(loaded.metadata.time.to_bits(), E.to_bits());
@@ -92,17 +102,25 @@ proptest::proptest! {
             (1.0, 1.0),
         );
 
-        let u = Array2::from_shape_vec([ny, nx], u_data.clone()).unwrap();
-        let v = Array2::from_shape_vec([ny, nx], v_data.clone()).unwrap();
-        let p = Array2::from_shape_vec([ny, nx], p_data.clone()).unwrap();
+        let u = Array2::from_shape_vec([ny, nx], u_data.clone())
+            .expect("invariant: square u data has matching shape");
+        let v = Array2::from_shape_vec([ny, nx], v_data.clone())
+            .expect("invariant: square v data has matching shape");
+        let p = Array2::from_shape_vec([ny, nx], p_data.clone())
+            .expect("invariant: square pressure data has matching shape");
 
         let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
-        let dir = tempdir().unwrap();
-        let manager = CheckpointManager::new(dir.path()).unwrap();
+        let dir = tempdir().expect("invariant: temporary checkpoint directory is available");
+        let manager = CheckpointManager::new(dir.path())
+            .expect("invariant: checkpoint manager accepts temporary directory");
 
-        let path = manager.save(&checkpoint).unwrap();
-        let loaded = manager.load(&path).unwrap();
+        let path = manager
+            .save(&checkpoint)
+            .expect("invariant: generated checkpoint saves");
+        let loaded = manager
+            .load(&path)
+            .expect("invariant: generated checkpoint loads");
 
         prop_assert_eq!(loaded.metadata.iteration, iteration);
         prop_assert_eq!(loaded.metadata.time.to_bits(), time.to_bits());
