@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Implicit-Explicit (IMEX) time-stepping methods.
 //!
 //! This module provides IMEX Runge-Kutta schemes that treat stiff terms implicitly
@@ -430,7 +431,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_zero, t, &u0, dt)
-            .unwrap();
+            .expect("expected value");
 
         // Should produce reasonable result for exponential decay
         assert!(u1[0] > 0.0 && u1[0] < 1.0);
@@ -466,7 +467,7 @@ mod tests {
                 let step_size = (t_final - t).min(dt);
                 u = imex
                     .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u, step_size)
-                    .unwrap();
+                    .expect("expected value");
                 t += step_size;
             }
 
@@ -511,7 +512,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
-            .unwrap();
+            .expect("expected value");
 
         let analytical = state_from_vec((0..state_len(&u0)).map(|i| u0[i] * (-dt).exp()).collect());
 
@@ -545,7 +546,7 @@ mod tests {
 
         let u1 = imex
             .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
-            .unwrap();
+            .expect("expected value");
 
         // Analytical solution for dy/dt = λy^3: y(t) = 1 / sqrt(y0^-2 - 2λt)
         let analytical = 1.0 / (u0[0].powi(-2) - 2.0 * lambda * dt).sqrt();

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicResistance, Length, MassDensity, SpecificHeatCapacity,
     ThermalConductivity, Velocity, VolumetricFlowRate,
@@ -106,7 +107,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
             },
         );
         network.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
-        network.update_resistances().unwrap();
+        network.update_resistances().expect("expected value");
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");
         flow_rate * edge_data.resistance.into_base()

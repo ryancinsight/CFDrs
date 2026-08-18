@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::many_single_char_names, clippy::doc_markdown)]
 //! Core solver validation tests - Sprint 1.72.0 Deliverables
 //!
 //! Minimum viable comprehensive test suite demonstrating:

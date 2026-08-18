@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, Time, Volume, VolumetricFlowRate,
 };

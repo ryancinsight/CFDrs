@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_math::linear_solver::preconditioners::multigrid::falgout_coarsening;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto_ops::CsrMatrix;
@@ -34,7 +36,7 @@ fn poisson_matrix(n: usize) -> CsrMatrix<f64> {
         }
     }
 
-    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size).unwrap()
+    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size).expect("expected value")
 }
 
 fn bench_falgout_coarsening(c: &mut Criterion) {
@@ -48,7 +50,7 @@ fn bench_falgout_coarsening(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, &_| {
             b.iter(|| {
-                black_box(falgout_coarsening(&matrix, threshold).unwrap());
+                black_box(falgout_coarsening(&matrix, threshold).expect("expected value"));
             });
         });
     }

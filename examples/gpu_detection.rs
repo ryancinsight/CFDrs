@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! GPU Detection Example
 //!
 //! This example demonstrates automatic GPU detection with support for:

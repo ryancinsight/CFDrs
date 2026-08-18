@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolveFailureReason, SolverConfig};

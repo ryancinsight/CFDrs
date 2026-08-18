@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! # Comprehensive IBM Solver Tests
 //!
 //! ## Test Coverage Matrix

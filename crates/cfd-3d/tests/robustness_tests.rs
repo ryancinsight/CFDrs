@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Robustness and mathematical-property tests for cfd-3d
 //!
 //! These tests verify the formal theorems documented in each module's
@@ -457,7 +458,7 @@ fn test_vof_geometric_vs_algebraic_zero_velocity_conservation() {
             advection_method: method,
             ..base.clone()
         };
-        let mut solver = VofSolver::<f64>::new(8, 8, 8, cfg).unwrap();
+        let mut solver = VofSolver::<f64>::new(8, 8, 8, cfg).expect("expected value");
         // Half-filled domain
         {
             let alpha = solver.alpha_mut();
@@ -487,7 +488,7 @@ fn test_vof_alpha_bounds_after_advection() {
         cfl_number: 0.3,
         enable_compression: false,
     };
-    let mut solver = VofSolver::<f64>::new(10, 10, 10, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(10, 10, 10, cfg).expect("expected value");
 
     // Sphere-like initialization
     let n = 10;
@@ -506,7 +507,7 @@ fn test_vof_alpha_bounds_after_advection() {
 
     // Set uniform velocity
     let vel = vec![leto::geometry::Vector3::new(0.5, 0.0, 0.0); n * n * n];
-    solver.set_velocity_field(vel).unwrap();
+    solver.set_velocity_field(vel).expect("expected value");
 
     let _ = solver.advance(0.001);
 
@@ -531,7 +532,7 @@ fn test_vof_copy_boundaries_no_panic() {
         enable_compression: false,
     };
     // Minimal grid
-    let mut solver = VofSolver::<f64>::new(3, 3, 3, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(3, 3, 3, cfg).expect("expected value");
     solver.alpha_mut()[13] = 1.0; // center cell
     solver.copy_boundaries();
     // Just assert no panic
@@ -552,7 +553,7 @@ fn test_vof_set_volume_fraction_wrong_size() {
         cfl_number: 0.3,
         enable_compression: false,
     };
-    let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).expect("expected value");
     // Wrong size: 10 instead of 125
     let result = solver.set_volume_fraction(vec![0.5; 10]);
     assert!(result.is_err(), "Should reject wrong-size alpha vector");
@@ -573,7 +574,7 @@ fn test_vof_set_velocity_field_wrong_size() {
         cfl_number: 0.3,
         enable_compression: false,
     };
-    let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).expect("expected value");
     let result = solver.set_velocity_field(vec![leto::geometry::Vector3::zeros(); 10]);
     assert!(result.is_err(), "Should reject wrong-size velocity vector");
 }
@@ -593,7 +594,7 @@ fn test_vof_total_volume_consistency() {
         cfl_number: 0.3,
         enable_compression: false,
     };
-    let mut solver = VofSolver::<f64>::new(10, 10, 10, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(10, 10, 10, cfg).expect("expected value");
 
     // Fill a quarter of cells
     for a in solver.alpha_mut().iter_mut().take(250) {
@@ -623,7 +624,7 @@ fn test_vof_reconstructed_normals_unit() {
         enable_compression: false,
     };
     let n = 10;
-    let mut solver = VofSolver::<f64>::new(n, n, n, cfg).unwrap();
+    let mut solver = VofSolver::<f64>::new(n, n, n, cfg).expect("expected value");
 
     // Sharp planar interface at i=5
     for k in 0..n {
@@ -1199,7 +1200,7 @@ fn test_chebyshev_derivative_x_squared() {
     use leto::Array1;
 
     let n = 16;
-    let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+    let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
     let points = cheb.points();
 
     let u = Array1::from_vec([n], points.iter().copied().map(|x| x * x).collect())
@@ -1219,8 +1220,8 @@ fn test_chebyshev_derivative_x_squared() {
 fn test_chebyshev_quadrature_weights_sum() {
     use cfd_3d::spectral::ChebyshevPolynomial;
 
-    let cheb = ChebyshevPolynomial::<f64>::new(16).unwrap();
-    let w = cheb.quadrature_weights().unwrap();
+    let cheb = ChebyshevPolynomial::<f64>::new(16).expect("expected value");
+    let w = cheb.quadrature_weights().expect("expected value");
     let sum: f64 = w.iter().sum();
     assert_relative_eq!(sum, 2.0, epsilon = 1e-12);
 }
@@ -1232,7 +1233,7 @@ fn test_chebyshev_second_derivative() {
     use leto::Array1;
 
     let n = 24;
-    let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+    let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
     let points = cheb.points();
 
     let pi = std::f64::consts::PI;
@@ -1259,7 +1260,7 @@ fn test_poisson_zero_rhs_zero_solution() {
     use leto::Array1;
 
     let n = 5;
-    let solver = PoissonSolver::<f64>::new(n, n, n).unwrap();
+    let solver = PoissonSolver::<f64>::new(n, n, n).expect("expected value");
     let rhs = Array1::zeros([n * n * n]);
 
     let bc = (
@@ -1267,7 +1268,7 @@ fn test_poisson_zero_rhs_zero_solution() {
         PoissonBoundaryCondition::Dirichlet(0.0),
     );
 
-    let u = solver.solve(&rhs, &bc, &bc, &bc).unwrap();
+    let u = solver.solve(&rhs, &bc, &bc, &bc).expect("expected value");
     for i in 0..u.size() {
         assert_relative_eq!(u[[i]], 0.0, epsilon = 1e-8);
     }
@@ -1278,9 +1279,9 @@ fn test_poisson_zero_rhs_zero_solution() {
 fn test_chebyshev_minimal_size() {
     use cfd_3d::spectral::ChebyshevPolynomial;
 
-    let cheb = ChebyshevPolynomial::<f64>::new(2).unwrap();
+    let cheb = ChebyshevPolynomial::<f64>::new(2).expect("expected value");
     assert_eq!(cheb.num_points(), 2);
-    let w = cheb.quadrature_weights().unwrap();
+    let w = cheb.quadrature_weights().expect("expected value");
     assert_eq!(w.len(), 2);
     let sum: f64 = w.iter().sum();
     assert_relative_eq!(sum, 2.0, epsilon = 1e-12);
@@ -1292,7 +1293,7 @@ fn test_chebyshev_interpolation_cubic() {
     use cfd_3d::spectral::ChebyshevPolynomial;
 
     let n = 8; // Should reproduce polynomials up to degree 7 exactly
-    let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+    let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
     let points = cheb.points();
 
     // f(x) = x³ − 2x + 1
@@ -1300,7 +1301,7 @@ fn test_chebyshev_interpolation_cubic() {
 
     // Interpolate at x = 0.37
     let x_test = 0.37;
-    let interp = cheb.interpolate(&values, x_test).unwrap();
+    let interp = cheb.interpolate(&values, x_test).expect("expected value");
     let exact = x_test * x_test * x_test - 2.0 * x_test + 1.0;
     assert_relative_eq!(interp, exact, epsilon = 1e-12);
 }
@@ -1319,7 +1320,7 @@ fn test_ibm_solver_no_points_zero_force() {
         Vector3::new(0.1, 0.1, 0.1),
         (10, 10, 10),
     );
-    let forces = solver.spread_forces().unwrap();
+    let forces = solver.spread_forces().expect("expected value");
     for f in &forces {
         assert_relative_eq!(f.norm(), 0.0, epsilon = 1e-15);
     }

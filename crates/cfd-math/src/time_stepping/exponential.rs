@@ -381,7 +381,7 @@ mod tests {
         let rhs = state_from_vec(vec![0.0]);
         let dt = 0.1;
 
-        let result = etd.etd1(&u0, &matrix, &rhs, dt).unwrap();
+        let result = etd.etd1(&u0, &matrix, &rhs, dt).expect("expected value");
 
         let analytical = (-dt).exp();
         assert_relative_eq!(result[0], analytical, epsilon = 1e-12);
@@ -396,7 +396,7 @@ mod tests {
         let rhs = state_from_vec(vec![3.0]);
         let dt = 0.25;
 
-        let result = etd.etd1(&u0, &matrix, &rhs, dt).unwrap();
+        let result = etd.etd1(&u0, &matrix, &rhs, dt).expect("expected value");
 
         let analytical = 3.0 * (1.0 - (-2.0 * dt).exp()) / 2.0;
         assert_relative_eq!(result[0], analytical, epsilon = 1e-12);
@@ -410,7 +410,7 @@ mod tests {
         let u0 = state_from_vec(vec![1.0]);
         let dt = 0.1;
 
-        let result = erk4.step(&u0, rhs, dt).unwrap();
+        let result = erk4.step(&u0, rhs, dt).expect("expected value");
 
         let analytical = (-dt).exp();
         assert_relative_eq!(result[0], analytical, epsilon = 1e-6);

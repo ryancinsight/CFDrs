@@ -1,3 +1,5 @@
+#![allow(clippy::print_stdout)]
+#![allow(missing_docs)]
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -7,7 +9,7 @@ fn bench_compute_des(c: &mut Criterion) {
     let compute = match GpuTurbulenceCompute::new() {
         Ok(c) => c,
         Err(e) => {
-            println!("Skipping benchmark: GPU initialization failed: {}", e);
+            println!("Skipping benchmark: GPU initialization failed: {e}");
             return;
         }
     };
@@ -23,7 +25,7 @@ fn bench_compute_des(c: &mut Criterion) {
             compute
                 .compute_des_length_scale(grid, 0.65, &mut output)
                 .expect("Computation failed");
-        })
+        });
     });
 }
 

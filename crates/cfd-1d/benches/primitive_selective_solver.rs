@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver};
@@ -169,7 +170,10 @@ fn bench_network_from_blueprint(c: &mut Criterion) {
 
     for (label, blueprint) in &blueprints {
         group.bench_with_input(BenchmarkId::from_parameter(label), blueprint, |b, bp| {
-            b.iter(|| black_box(network_from_blueprint(black_box(bp), black_box(blood))).unwrap());
+            b.iter(|| {
+                black_box(network_from_blueprint(black_box(bp), black_box(blood)))
+                    .expect("expected value")
+            });
         });
     }
 

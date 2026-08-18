@@ -148,9 +148,9 @@ mod tests {
 
     #[test]
     fn test_valve_fully_closed_high_resistance() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let mut valve = Microvalve::new(0.01_f64);
-        valve.set_parameter("opening", 0.0).unwrap();
+        valve.set_parameter("opening", 0.0).expect("expected value");
         assert!(
             valve.resistance(&fluid) > 1e10,
             "Closed valve must have very high resistance"
@@ -159,14 +159,14 @@ mod tests {
 
     #[test]
     fn test_valve_open_zero_linear_resistance() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let valve = Microvalve::new(0.01_f64);
         assert_relative_eq!(valve.resistance(&fluid), 0.0, epsilon = 1e-30);
     }
 
     #[test]
     fn test_valve_coefficients_full_open() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let cv = 0.01_f64;
         let valve = Microvalve::new(cv);
         let (r, k) = valve.coefficients(&fluid);
@@ -176,11 +176,13 @@ mod tests {
 
     #[test]
     fn test_valve_coefficients_partial_open() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let cv = 0.01_f64;
         let opening = 0.5_f64;
         let mut valve = Microvalve::new(cv);
-        valve.set_parameter("opening", opening).unwrap();
+        valve
+            .set_parameter("opening", opening)
+            .expect("expected value");
         let (_, k) = valve.coefficients(&fluid);
         let expected_k = 1.0 / (cv * opening).powi(2);
         assert_relative_eq!(k, expected_k, epsilon = 1e-15);
@@ -189,29 +191,31 @@ mod tests {
     #[test]
     fn test_valve_opening_clamped_above_one() {
         let mut valve = Microvalve::<f64>::new(0.01);
-        valve.set_parameter("opening", 1.5).unwrap();
+        valve.set_parameter("opening", 1.5).expect("expected value");
         assert_relative_eq!(valve.opening, 1.0, epsilon = 1e-15);
     }
 
     #[test]
     fn test_valve_opening_clamped_below_zero() {
         let mut valve = Microvalve::<f64>::new(0.01);
-        valve.set_parameter("opening", -0.5).unwrap();
+        valve
+            .set_parameter("opening", -0.5)
+            .expect("expected value");
         assert_relative_eq!(valve.opening, 0.0, epsilon = 1e-15);
     }
 
     #[test]
     fn test_closed_valve_resistance_approx_1e12() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let mut valve = Microvalve::new(0.01_f64);
-        valve.set_parameter("opening", 0.0).unwrap();
+        valve.set_parameter("opening", 0.0).expect("expected value");
         let r = valve.resistance(&fluid);
         assert_relative_eq!(r, 1e12, epsilon = 1.0);
     }
 
     #[test]
     fn test_open_valve_quadratic_coefficient_from_cv() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let cv = 0.02_f64;
         let valve = Microvalve::new(cv);
         let (r, k) = valve.coefficients(&fluid);
@@ -222,10 +226,10 @@ mod tests {
 
     #[test]
     fn test_partial_opening_intermediate_resistance() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let cv = 0.01_f64;
         let mut valve = Microvalve::new(cv);
-        valve.set_parameter("opening", 0.5).unwrap();
+        valve.set_parameter("opening", 0.5).expect("expected value");
         let (_, k_half) = valve.coefficients(&fluid);
 
         let valve_full = Microvalve::new(cv);

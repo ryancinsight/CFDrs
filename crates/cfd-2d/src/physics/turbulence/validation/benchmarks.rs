@@ -93,7 +93,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                             0.1,
                             0.1,
                         )
-                        .unwrap();
+                        .expect("expected value");
                 }
             }
             BenchmarkModel::DetachedEddySimulation => {
@@ -122,7 +122,7 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
                             0.1,
                             0.1,
                         )
-                        .unwrap();
+                        .expect("expected value");
                 }
             }
         }

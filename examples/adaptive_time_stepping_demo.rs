@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of adaptive time stepping for ODE integration
 //!
 //! This example shows how to use adaptive time step control based on:

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Pipe Flow Validation with a basic mesh
 //!
 //! This example demonstrates:

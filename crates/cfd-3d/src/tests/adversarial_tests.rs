@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Adversarial and conservation-verification tests for cfd-3d modules.
 //!
 //! ## Testing Philosophy

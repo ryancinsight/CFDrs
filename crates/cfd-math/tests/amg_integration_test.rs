@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::doc_markdown)]
 //! Integration tests for the AMG preconditioner with BiCGSTAB and GMRES.
 //!
 //! Oracle: the 2-D five-point Poisson operator with a manufactured solution

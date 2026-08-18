@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! 3D FEM Stokes Flow Example
 //!
 //! This example demonstrates the use of the 3D FEM solver for solving

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Multi-layer junction validation: validates cascade cell separation physics
 //! through 1-layer, 2-layer, and 3-layer bifurcation, trifurcation,
 //! quadfurcation, and pentafurcation trees.

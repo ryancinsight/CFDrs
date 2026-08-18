@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive stability analysis for CFD time-stepping schemes
 //!
 //! This module provides validation of numerical stability including:
@@ -688,7 +689,7 @@ mod tests {
         let report = runner.run_comprehensive_stability_analysis();
 
         assert!(report.is_ok());
-        let report = report.unwrap();
+        let report = report.expect("expected value");
 
         assert!(!report.rk_stability_regions.is_empty());
         assert!(!report.cfl_analyses.is_empty());

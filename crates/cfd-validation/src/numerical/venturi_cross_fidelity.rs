@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Cross-fidelity venturi pressure-drop validation.
 //!
 //! Compares three levels of fidelity for the pressure drop across a

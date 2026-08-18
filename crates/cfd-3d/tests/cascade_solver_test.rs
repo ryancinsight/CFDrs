@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Integration tests for `CascadeSolver3D` — validates multi-channel CIF
 //! network 3D FEM solves with both Newtonian and non-Newtonian fluids.
 
@@ -49,9 +50,11 @@ fn ci_config() -> CascadeConfig3D {
 
 #[test]
 fn cascade_water_solves_two_channels() {
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
-    let result = solver.solve(&cif_two_channel_specs()).unwrap();
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {
@@ -73,20 +76,22 @@ fn cascade_water_solves_two_channels() {
 fn cascade_channels_produce_distinct_shear() {
     // At coarse resolution, both channels should produce distinct non-zero
     // wall shear stress values reflecting their different geometries.
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
-    let result = solver.solve(&cif_two_channel_specs()).unwrap();
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     let outer = result
         .channel_results
         .iter()
         .find(|r| r.channel_id == "outer")
-        .unwrap();
+        .expect("expected value");
     let center = result
         .channel_results
         .iter()
         .find(|r| r.channel_id == "center")
-        .unwrap();
+        .expect("expected value");
 
     // Both channels must produce non-zero wall shear.
     assert!(
@@ -123,7 +128,9 @@ fn cascade_blood_nonnewtonian_converges() {
     let mut config = ci_config();
     config.max_picard_iterations = 15;
     let solver = CascadeSolver3D::new(config, blood);
-    let result = solver.solve(&cif_two_channel_specs()).unwrap();
+    let result = solver
+        .solve(&cif_two_channel_specs())
+        .expect("expected value");
 
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {
@@ -139,14 +146,14 @@ fn cascade_blood_nonnewtonian_converges() {
 
 #[test]
 fn cascade_empty_channels_returns_error() {
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
     assert!(solver.solve(&[]).is_err());
 }
 
 #[test]
 fn cascade_single_straight_channel() {
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
     let specs = vec![CascadeChannelSpec {
         id: "straight".into(),
@@ -158,7 +165,7 @@ fn cascade_single_straight_channel() {
         throat_width: None,
         local_hematocrit: None,
     }];
-    let result = solver.solve(&specs).unwrap();
+    let result = solver.solve(&specs).expect("expected value");
     assert_eq!(result.channel_results.len(), 1);
     assert!(result.channel_results[0].max_velocity.into_base() > 0.0);
 }
@@ -168,7 +175,7 @@ fn cascade_single_straight_channel() {
 #[test]
 fn cascade_hematocrit_sets_local_field() {
     // Verify that `local_hematocrit` is correctly propagated to results.
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let solver = CascadeSolver3D::new(ci_config(), water);
 
     let specs = vec![
@@ -203,23 +210,23 @@ fn cascade_hematocrit_sets_local_field() {
             local_hematocrit: None,
         },
     ];
-    let result = solver.solve(&specs).unwrap();
+    let result = solver.solve(&specs).expect("expected value");
 
     let bypass = result
         .channel_results
         .iter()
         .find(|r| r.channel_id == "bypass")
-        .unwrap();
+        .expect("expected value");
     let center = result
         .channel_results
         .iter()
         .find(|r| r.channel_id == "center")
-        .unwrap();
+        .expect("expected value");
     let default_ch = result
         .channel_results
         .iter()
         .find(|r| r.channel_id == "default")
-        .unwrap();
+        .expect("expected value");
 
     assert_eq!(bypass.local_hematocrit, 0.20);
     assert_eq!(center.local_hematocrit, 0.55);

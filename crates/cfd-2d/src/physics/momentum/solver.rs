@@ -97,7 +97,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
             )
-            .unwrap(),
+            .expect("expected value"),
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
@@ -108,7 +108,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 ConvectionScheme::default(),
             )
-            .unwrap(),
+            .expect("expected value"),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -141,7 +141,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,
             )
-            .unwrap(),
+            .expect("expected value"),
             coeffs_v: MomentumCoefficients::compute(
                 grid.nx,
                 grid.ny,
@@ -152,7 +152,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 &SimulationFields::new(grid.nx, grid.ny),
                 scheme,
             )
-            .unwrap(),
+            .expect("expected value"),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -436,7 +436,7 @@ mod tests {
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);
-        cfd_math::linear_solver::krylov::gmres(
+        let _solver_result = cfd_math::linear_solver::krylov::gmres(
             matrix,
             rhs,
             &mut gmres_solution,

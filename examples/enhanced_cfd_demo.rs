@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Enhanced CFD Demonstration
 //!
 //! This example demonstrates the advanced CFD capabilities implemented in CFDrs,

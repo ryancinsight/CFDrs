@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 //! Integration tests for all cfd-3d domain solvers.
 //!
 //! Exercises VenturiSolver3D, BifurcationSolver3D, SerpentineSolver3D,
@@ -31,8 +33,8 @@ fn bifurcation_symmetric_mass_conservation() {
         ..BifurcationConfig3D::default()
     };
     let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     assert!(
         sol.mass_conservation_error.abs() < 0.10,
@@ -49,8 +51,8 @@ fn bifurcation_symmetric_flow_split() {
         ..BifurcationConfig3D::default()
     };
     let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     if sol.q_daughter1.abs() > 1e-15 && sol.q_daughter2.abs() > 1e-15 {
         let ratio = sol.q_daughter1 / sol.q_daughter2;
@@ -72,8 +74,8 @@ fn bifurcation_positive_wall_shear() {
         ..BifurcationConfig3D::default()
     };
     let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     assert!(
         sol.wall_shear_stress_parent >= 0.0,
@@ -97,7 +99,7 @@ fn bifurcation_blood_casson() {
     };
     let solver = BifurcationSolver3D::new(geom, config);
     let blood = CassonBlood::<f64>::normal_blood();
-    let sol = solver.solve(blood).unwrap();
+    let sol = solver.solve(blood).expect("expected value");
 
     assert!(
         sol.mass_conservation_error.abs() < 0.15,
@@ -127,8 +129,8 @@ fn venturi_nonzero_pressure_difference() {
         ..VenturiConfig3D::default()
     };
     let solver = VenturiSolver3D::new(builder, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     let dp = (sol.p_inlet - sol.p_outlet).abs();
     assert!(dp > 0.0, "Pressure difference must be non-zero, got {}", dp);
@@ -150,8 +152,8 @@ fn venturi_throat_acceleration() {
         ..VenturiConfig3D::default()
     };
     let solver = VenturiSolver3D::new(builder, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     assert!(
         sol.u_throat > sol.u_inlet,
@@ -173,7 +175,7 @@ fn venturi_pressure_coefficients_require_positive_dynamic_pressure() {
         ..VenturiConfig3D::default()
     };
     let solver = VenturiSolver3D::new(builder, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
     let err = solver.solve(water).unwrap_err();
 
     match err {
@@ -204,8 +206,8 @@ fn serpentine_positive_pressure_drop() {
         ..SerpentineConfig3D::default()
     };
     let solver = SerpentineSolver3D::new(builder, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     assert!(
         sol.dp_total > 0.0,
@@ -231,8 +233,8 @@ fn serpentine_dean_number_positive() {
         ..SerpentineConfig3D::default()
     };
     let solver = SerpentineSolver3D::new(builder, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
+    let water = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
+    let sol = solver.solve(water).expect("expected value");
 
     assert!(
         sol.dean_number >= 0.0,
@@ -265,7 +267,7 @@ fn solve_reference_trifurcation_blood_flow() -> cfd_3d::trifurcation::Trifurcati
     };
     let solver = TrifurcationSolver3D::new(geom, config);
     let blood = CassonBlood::<f64>::normal_blood();
-    solver.solve(&blood).unwrap()
+    solver.solve(&blood).expect("expected value")
 }
 
 #[test]
@@ -345,8 +347,8 @@ fn poisson_l2_error(u: &Array1<f64>, n: usize) -> f64 {
 #[test]
 fn spectral_poisson_solves_known_solution() {
     let n = 6;
-    let config = SpectralConfig::<f64>::new(n, n, n).unwrap();
-    let mut solver = SpectralSolver::new(config).unwrap();
+    let config = SpectralConfig::<f64>::new(n, n, n).expect("expected value");
+    let mut solver = SpectralSolver::new(config).expect("expected value");
 
     let source = build_poisson_source(n);
     let problem = PoissonProblem {
@@ -365,7 +367,7 @@ fn spectral_poisson_solves_known_solution() {
         ),
     };
 
-    let solution = solver.solve(&problem).unwrap();
+    let solution = solver.solve(&problem).expect("expected value");
     let l2 = poisson_l2_error(&solution.u, n);
 
     assert!(
@@ -381,8 +383,8 @@ fn spectral_poisson_convergence() {
     let mut errors = Vec::new();
 
     for &n in &[4, 8] {
-        let config = SpectralConfig::<f64>::new(n, n, n).unwrap();
-        let mut solver = SpectralSolver::new(config).unwrap();
+        let config = SpectralConfig::<f64>::new(n, n, n).expect("expected value");
+        let mut solver = SpectralSolver::new(config).expect("expected value");
 
         let source = build_poisson_source(n);
         let problem = PoissonProblem {
@@ -401,7 +403,7 @@ fn spectral_poisson_convergence() {
             ),
         };
 
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve(&problem).expect("expected value");
         let l2 = poisson_l2_error(&solution.u, n);
         errors.push((n, l2));
     }
@@ -422,8 +424,8 @@ fn spectral_poisson_convergence() {
 #[test]
 fn spectral_solution_correct_dimensions() {
     let n = 4;
-    let config = SpectralConfig::<f64>::new(n, n, n).unwrap();
-    let mut solver = SpectralSolver::new(config).unwrap();
+    let config = SpectralConfig::<f64>::new(n, n, n).expect("expected value");
+    let mut solver = SpectralSolver::new(config).expect("expected value");
 
     let source = build_poisson_source(n);
     let problem = PoissonProblem {
@@ -442,7 +444,7 @@ fn spectral_solution_correct_dimensions() {
         ),
     };
 
-    let solution = solver.solve(&problem).unwrap();
+    let solution = solver.solve(&problem).expect("expected value");
     assert_eq!(solution.nx, n);
     assert_eq!(solution.ny, n);
     assert_eq!(solution.nz, n);

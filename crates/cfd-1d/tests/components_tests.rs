@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive tests for all microfluidic component types.
 //!
 //! Sprint 8 updates: Micromixer and FlowSensor use first-principles

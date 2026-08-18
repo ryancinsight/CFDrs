@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
+
 use cfd_math::linear_solver::preconditioners::multigrid::{falgout_coarsening, AlgebraicDistances};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto_ops::CsrMatrix;
@@ -34,7 +36,7 @@ fn poisson_matrix(n: usize) -> CsrMatrix<f64> {
         }
     }
 
-    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size).unwrap()
+    CsrMatrix::from_parts(values, col_indices, row_ptr, size, size).expect("expected value")
 }
 
 fn bench_algebraic_distances(c: &mut Criterion) {
@@ -46,7 +48,7 @@ fn bench_algebraic_distances(c: &mut Criterion) {
 
     let matrix = poisson_matrix(n);
     let threshold = 0.25;
-    let coarsening = falgout_coarsening(&matrix, threshold).unwrap();
+    let coarsening = falgout_coarsening(&matrix, threshold).expect("expected value");
 
     group.bench_function(BenchmarkId::new("compute", size), |b| {
         b.iter(|| {

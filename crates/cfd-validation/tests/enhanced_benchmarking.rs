@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! Enhanced benchmarking and performance analysis tests
 //!
 //! Tests advanced benchmarking features including:
@@ -68,7 +70,9 @@ fn test_performance_trend_analysis() {
         analyzer.add_result("improving_benchmark", metric);
     }
 
-    let trend = analyzer.analyze_trend("improving_benchmark").unwrap();
+    let trend = analyzer
+        .analyze_trend("improving_benchmark")
+        .expect("expected value");
 
     assert_eq!(trend.trend_type, TrendType::Improving);
     assert!(
@@ -154,11 +158,13 @@ fn test_regression_detection() {
         analyzer.add_result("degrading_benchmark", metric);
     }
 
-    let regression = analyzer.detect_regression("degrading_benchmark").unwrap();
+    let regression = analyzer
+        .detect_regression("degrading_benchmark")
+        .expect("expected value");
 
     assert!(regression.is_some(), "Should detect performance regression");
 
-    let alert = regression.unwrap();
+    let alert = regression.expect("expected value");
     assert!(
         alert.degradation_rate > 2.0,
         "Degradation rate should exceed threshold: {:.2}%",
@@ -233,7 +239,9 @@ fn test_stable_performance_analysis() {
         analyzer.add_result("stable_benchmark", metric);
     }
 
-    let trend = analyzer.analyze_trend("stable_benchmark").unwrap();
+    let trend = analyzer
+        .analyze_trend("stable_benchmark")
+        .expect("expected value");
 
     assert_eq!(trend.trend_type, TrendType::Stable);
     assert!(
@@ -243,7 +251,9 @@ fn test_stable_performance_analysis() {
     );
 
     // Should not detect regression for stable performance
-    let regression = analyzer.detect_regression("stable_benchmark").unwrap();
+    let regression = analyzer
+        .detect_regression("stable_benchmark")
+        .expect("expected value");
     assert!(
         regression.is_none(),
         "Should not detect regression for stable performance"
@@ -295,7 +305,7 @@ fn test_benchmark_suite_operations() {
     assert_eq!(stats.total_duration, Duration::from_millis(150));
 
     // Generate report
-    let report = suite.generate_report().unwrap();
+    let report = suite.generate_report().expect("expected value");
     assert!(!report.is_empty(), "Report should not be empty");
     assert!(report.contains("matrix_multiply"));
     assert!(report.contains("fft_operation"));
@@ -355,7 +365,9 @@ fn test_statistical_analysis_robustness() {
         },
     );
 
-    let trend = analyzer.analyze_trend("minimal_test").unwrap();
+    let trend = analyzer
+        .analyze_trend("minimal_test")
+        .expect("expected value");
     assert!(
         trend.r_squared >= 0.0 && trend.r_squared <= 1.0,
         "R-squared should be valid"
@@ -525,14 +537,18 @@ fn test_performance_analysis_pipeline() {
     }
 
     // Analyze trend
-    let trend = analyzer.analyze_trend("cfd_solver_benchmark").unwrap();
+    let trend = analyzer
+        .analyze_trend("cfd_solver_benchmark")
+        .expect("expected value");
     println!(
         "  📈 Trend Analysis: slope={:.6}, R²={:.3}, p={:.4}, type={:?}",
         trend.slope, trend.r_squared, trend.p_value, trend.trend_type
     );
 
     // Check for regressions
-    let regression = analyzer.detect_regression("cfd_solver_benchmark").unwrap();
+    let regression = analyzer
+        .detect_regression("cfd_solver_benchmark")
+        .expect("expected value");
     if let Some(alert) = regression {
         println!(
             "  🚨 Regression Alert: {:.2}% degradation (confidence: {:.1}%)",
@@ -560,7 +576,7 @@ fn test_performance_analysis_pipeline() {
     );
 
     let results = suite.results();
-    let reports = analyzer.generate_report(results).unwrap();
+    let reports = analyzer.generate_report(results).expect("expected value");
 
     println!("  📊 Generated {} performance reports:", reports.len());
     for report in &reports {
@@ -614,7 +630,7 @@ mod property_tests {
 
             // Should either succeed or fail with insufficient data
             if trend_result.is_ok() {
-                let trend = trend_result.unwrap();
+                let trend = trend_result.expect("expected value");
                 prop_assert!(trend.r_squared >= 0.0 && trend.r_squared <= 1.0);
                 prop_assert!(trend.p_value >= 0.0 && trend.p_value <= 1.0);
                 prop_assert!(matches!(trend.trend_type,
@@ -650,7 +666,7 @@ mod property_tests {
                 analyzer.add_result("stable_test", metric);
             }
 
-            let regression = analyzer.detect_regression("stable_test").unwrap();
+            let regression = analyzer.detect_regression("stable_test").expect("expected value");
             prop_assert!(regression.is_none(), "Stable data should not trigger regression");
         }
     }

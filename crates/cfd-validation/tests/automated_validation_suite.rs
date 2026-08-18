@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! Automated validation suite combining MMS and performance benchmarking
 //!
 //! This comprehensive test suite validates CFD implementations through:
@@ -82,7 +84,7 @@ fn test_performance_benchmarking_validation() {
     );
 
     // Generate report
-    let report = suite.generate_report().unwrap();
+    let report = suite.generate_report().expect("expected value");
     println!("Report length: {} characters", report.len());
 
     println!("✓ Performance benchmarking validation completed");

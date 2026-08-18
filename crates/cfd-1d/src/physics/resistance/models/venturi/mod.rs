@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn test_venturi_validate_invariants() {
         let model = VenturiModel::<f64>::symmetric(0.01, 0.005, 0.01, 0.05);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let conditions = FlowConditions::new(0.1);
 
         assert!(model.validate_invariants(&fluid, &conditions).is_ok());

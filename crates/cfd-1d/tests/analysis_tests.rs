@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Analysis module tests — pressure, resistance, flow, and performance metrics.
 //!
 //! Tests verify the correctness of accumulation invariants, series/parallel

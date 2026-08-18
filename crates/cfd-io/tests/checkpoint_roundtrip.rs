@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Bit-exact roundtrip tests for [`CheckpointManager`]
 
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};

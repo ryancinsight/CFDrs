@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::float_cmp)]
+
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;
@@ -172,7 +174,9 @@ fn staged_cif_blueprint_uses_native_geometry() {
         cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, .. } => {
             assert!(width_m.into_base() > 0.0);
         }
-        _ => panic!("Expected rectangular"),
+        cfd_schematics::domain::model::CrossSectionSpec::Circular { .. } => {
+            panic!("Expected rectangular")
+        }
     }
     assert_eq!(throat_count_from_blueprint_metadata(&bp), 1);
 }

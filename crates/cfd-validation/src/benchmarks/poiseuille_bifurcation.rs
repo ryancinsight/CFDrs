@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Complete 2D Bifurcation Validation Using Poiseuille Flow Segments
 //!
 //! This validates a bifurcation by solving each segment as fully-developed
@@ -358,7 +359,7 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
 
         // Solve
-        let solution = solve_bifurcation_2d(&config, &blood).unwrap();
+        let solution = solve_bifurcation_2d(&config, &blood).expect("expected value");
 
         // Validate
         let validation = validate_bifurcation(&solution, &config);

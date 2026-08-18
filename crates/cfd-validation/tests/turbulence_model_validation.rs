@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Turbulence Model Validation Tests
 //!
 //! Comprehensive validation of RANS turbulence models against literature benchmarks

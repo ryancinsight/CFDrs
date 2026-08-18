@@ -213,7 +213,8 @@ mod tests {
         let interior = vec![1.0, 2.0, 3.0];
 
         // Apply Dirichlet BC with value 0
-        calc.apply_dirichlet(0.0, &interior, &mut ghost).unwrap();
+        calc.apply_dirichlet(0.0, &interior, &mut ghost)
+            .expect("expected value");
 
         // Second-order: g₀ = 2*0 - 1 = -1
         assert!((ghost[0] + 1.0).abs() < 1e-10);
@@ -226,7 +227,8 @@ mod tests {
         let interior = vec![1.0, 2.0, 3.0];
 
         // Apply Neumann BC with zero gradient
-        calc.apply_neumann(0.0, 0.1, &interior, &mut ghost).unwrap();
+        calc.apply_neumann(0.0, 0.1, &interior, &mut ghost)
+            .expect("expected value");
 
         // Zero gradient: ghost should equal first interior
         assert!((ghost[0] - 1.0).abs() < 1e-10);
@@ -238,7 +240,8 @@ mod tests {
         let mut ghost = vec![0.0; calc.ghost_cells_required()];
         let interior = vec![1.0, 2.0, 4.0, 8.0];
 
-        calc.apply_dirichlet(0.5, &interior, &mut ghost).unwrap();
+        calc.apply_dirichlet(0.5, &interior, &mut ghost)
+            .expect("expected value");
 
         assert_eq!(ghost.len(), 2);
         assert!((ghost[0] - 0.5).abs() < 1e-12);
@@ -252,7 +255,7 @@ mod tests {
         let interior = vec![2.0, 5.0, 8.0, 13.0];
 
         calc.apply_neumann(3.0, 0.25, &interior, &mut ghost)
-            .unwrap();
+            .expect("expected value");
 
         assert!((ghost[0] - (10.0 / 3.0)).abs() < 1e-12);
     }
@@ -265,7 +268,7 @@ mod tests {
 
         let err = calc
             .apply_robin(0.0, 0.0, 1.0, 0.1, &interior, &mut ghost)
-            .unwrap_err();
+            .expect_err("should reject degenerate coefficients");
 
         match err {
             Error::Boundary(BoundaryErrorKind::RobinSingularity { value }) => {

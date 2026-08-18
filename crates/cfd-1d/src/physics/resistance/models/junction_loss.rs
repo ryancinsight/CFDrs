@@ -319,18 +319,22 @@ mod tests {
     #[test]
     fn resistance_model_trait_works() {
         let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let cond = FlowConditions::new(0.01);
-        let r = m.calculate_resistance(&fluid, &cond).unwrap();
+        let r = m
+            .calculate_resistance(&fluid, &cond)
+            .expect("expected value");
         assert!(r > 0.0, "resistance must be positive: got {r}");
     }
 
     #[test]
     fn coefficients_have_quadratic_term() {
         let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let cond = FlowConditions::new(0.01);
-        let (r, k) = m.calculate_coefficients(&fluid, &cond).unwrap();
+        let (r, k) = m
+            .calculate_coefficients(&fluid, &cond)
+            .expect("expected value");
         assert!(r > 0.0, "linear resistance must be positive");
         assert!(k > 0.0, "quadratic loss coefficient must be positive");
     }
@@ -362,7 +366,7 @@ mod tests {
     #[test]
     fn negative_explicit_shear_rate_rejected() {
         let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let mut cond = FlowConditions::new(0.01);
         cond.shear_rate = Some(-1.0);
 
@@ -430,7 +434,7 @@ mod tests {
 
     #[test]
     fn invalid_geometry_rejected() {
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
         let cond = FlowConditions::new(0.01);
 
         let mut m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);

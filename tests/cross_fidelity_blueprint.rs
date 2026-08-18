@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-fidelity blueprint validation: 1D → 2D → 3D consistency.
 //!
 //! Validates that a complete `NetworkBlueprint` evaluates to consistent

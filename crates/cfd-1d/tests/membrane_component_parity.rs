@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator};

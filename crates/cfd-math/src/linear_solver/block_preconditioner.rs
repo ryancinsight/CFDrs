@@ -991,61 +991,63 @@ mod tests {
         let mut builder = SparseMatrixBuilder::new(4, 4);
 
         // Momentum block (2x2) - viscous terms.
-        builder.add_entry(0, 0, 4.0).unwrap();
-        builder.add_entry(1, 1, 4.0).unwrap();
+        builder.add_entry(0, 0, 4.0).expect("expected value");
+        builder.add_entry(1, 1, 4.0).expect("expected value");
 
         // Gradient block (velocity -> pressure coupling).
-        builder.add_entry(0, 2, 1.0).unwrap();
-        builder.add_entry(1, 3, 1.0).unwrap();
+        builder.add_entry(0, 2, 1.0).expect("expected value");
+        builder.add_entry(1, 3, 1.0).expect("expected value");
 
         // Divergence block (pressure -> velocity coupling).
-        builder.add_entry(2, 0, 1.0).unwrap();
-        builder.add_entry(3, 1, 1.0).unwrap();
+        builder.add_entry(2, 0, 1.0).expect("expected value");
+        builder.add_entry(3, 1, 1.0).expect("expected value");
 
         // Pressure block diagonal stabilization.
-        builder.add_entry(2, 2, 1.0).unwrap();
-        builder.add_entry(3, 3, 1.0).unwrap();
+        builder.add_entry(2, 2, 1.0).expect("expected value");
+        builder.add_entry(3, 3, 1.0).expect("expected value");
 
         let mut rhs = Array1::zeros([4]);
-        builder.build_with_rhs(&mut rhs).unwrap()
+        builder.build_with_rhs(&mut rhs).expect("expected value")
     }
 
     fn normalized_saddle_point_matrix() -> SparseMatrix<f64> {
         let mut builder = SparseMatrixBuilder::new(4, 4);
-        builder.add_entry(0, 0, 4.0).unwrap();
-        builder.add_entry(1, 1, 4.0).unwrap();
-        builder.add_entry(0, 2, -1.0).unwrap();
-        builder.add_entry(1, 3, -1.0).unwrap();
-        builder.add_entry(2, 0, -1.0).unwrap();
-        builder.add_entry(3, 1, -1.0).unwrap();
-        builder.build().unwrap()
+        builder.add_entry(0, 0, 4.0).expect("expected value");
+        builder.add_entry(1, 1, 4.0).expect("expected value");
+        builder.add_entry(0, 2, -1.0).expect("expected value");
+        builder.add_entry(1, 3, -1.0).expect("expected value");
+        builder.add_entry(2, 0, -1.0).expect("expected value");
+        builder.add_entry(3, 1, -1.0).expect("expected value");
+        builder.build().expect("expected value")
     }
 
     fn component_saddle_point_matrix() -> SparseMatrix<f64> {
         let mut builder = SparseMatrixBuilder::new(8, 8);
         for velocity in 0..6 {
-            builder.add_entry(velocity, velocity, 4.0).unwrap();
+            builder
+                .add_entry(velocity, velocity, 4.0)
+                .expect("expected value");
         }
-        builder.add_entry(0, 6, -1.0).unwrap();
-        builder.add_entry(1, 7, -1.0).unwrap();
-        builder.add_entry(6, 0, -1.0).unwrap();
-        builder.add_entry(7, 1, -1.0).unwrap();
-        builder.build().unwrap()
+        builder.add_entry(0, 6, -1.0).expect("expected value");
+        builder.add_entry(1, 7, -1.0).expect("expected value");
+        builder.add_entry(6, 0, -1.0).expect("expected value");
+        builder.add_entry(7, 1, -1.0).expect("expected value");
+        builder.build().expect("expected value")
     }
 
     #[test]
     fn test_diagonal_preconditioner() {
         let mut builder = SparseMatrixBuilder::new(3, 3);
-        builder.add_entry(0, 0, 2.0).unwrap();
-        builder.add_entry(1, 1, 4.0).unwrap();
-        builder.add_entry(2, 2, 8.0).unwrap();
+        builder.add_entry(0, 0, 2.0).expect("expected value");
+        builder.add_entry(1, 1, 4.0).expect("expected value");
+        builder.add_entry(2, 2, 8.0).expect("expected value");
 
         let mut rhs = Array1::zeros([3]);
-        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+        let matrix = builder.build_with_rhs(&mut rhs).expect("expected value");
 
         let precond = DiagonalPreconditioner::new(&matrix);
-        let b = Array1::from_shape_vec([3], vec![2.0, 4.0, 8.0]).unwrap();
-        let x = precond.apply(&b).unwrap();
+        let b = Array1::from_shape_vec([3], vec![2.0, 4.0, 8.0]).expect("expected value");
+        let x = precond.apply(&b).expect("expected value");
 
         assert!((x[0] - 1.0).abs() < 1e-10);
         assert!((x[1] - 1.0).abs() < 1e-10);
@@ -1055,9 +1057,9 @@ mod tests {
     #[test]
     fn test_block_diagonal_preconditioner() {
         let matrix = saddle_point_matrix();
-        let precond = BlockDiagonalPreconditioner::new(&matrix, 2, 2).unwrap();
-        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 1.0, 1.0]).unwrap();
-        let x = precond.apply(&b).unwrap();
+        let precond = BlockDiagonalPreconditioner::new(&matrix, 2, 2).expect("expected value");
+        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 1.0, 1.0]).expect("expected value");
+        let x = precond.apply(&b).expect("expected value");
 
         // Momentum block: u = [4/4, 4/4] = [1, 1]
         assert!((x[0] - 1.0).abs() < 1e-10);
@@ -1071,9 +1073,9 @@ mod tests {
     #[test]
     fn simple_preconditioner_uses_leto_arrays_for_coupled_correction() {
         let matrix = saddle_point_matrix();
-        let precond = SimplePreconditioner::new(&matrix, 2, 2).unwrap();
-        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).unwrap();
-        let x = precond.apply(&b).unwrap();
+        let precond = SimplePreconditioner::new(&matrix, 2, 2).expect("expected value");
+        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).expect("expected value");
+        let x = precond.apply(&b).expect("expected value");
 
         // C - D diag(A)^-1 G = 3/4, yielding the exact solution.
         assert!((x[0] - 2.0 / 3.0).abs() < 1e-10);
@@ -1085,9 +1087,9 @@ mod tests {
     #[test]
     fn simple_preconditioner_preserves_normalized_continuity_sign() {
         let matrix = normalized_saddle_point_matrix();
-        let precond = SimplePreconditioner::new(&matrix, 2, 2).unwrap();
-        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).unwrap();
-        let x = precond.apply(&b).unwrap();
+        let precond = SimplePreconditioner::new(&matrix, 2, 2).expect("expected value");
+        let b = Array1::from_shape_vec([4], vec![4.0, 4.0, 2.0, 2.0]).expect("expected value");
+        let x = precond.apply(&b).expect("expected value");
 
         assert!((x[0] + 2.0).abs() < 1e-10);
         assert!((x[1] + 2.0).abs() < 1e-10);
@@ -1098,9 +1100,10 @@ mod tests {
     #[test]
     fn component_block_preconditioner_factors_provider_velocity_blocks() {
         let matrix = component_saddle_point_matrix();
-        let precond = ComponentBlockPreconditioner::new(&matrix, 6, 2).unwrap();
-        let b = Array1::from_shape_vec([8], vec![4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]).unwrap();
-        let x = precond.apply(&b).unwrap();
+        let precond = ComponentBlockPreconditioner::new(&matrix, 6, 2).expect("expected value");
+        let b = Array1::from_shape_vec([8], vec![4.0, 4.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0])
+            .expect("expected value");
+        let x = precond.apply(&b).expect("expected value");
 
         assert!((x[0] + 2.0).abs() < 1e-10);
         assert!((x[1] + 2.0).abs() < 1e-10);
@@ -1115,8 +1118,8 @@ mod tests {
     #[test]
     fn preconditioners_reject_mismatched_vector_lengths() {
         let matrix = saddle_point_matrix();
-        let block = BlockDiagonalPreconditioner::new(&matrix, 2, 2).unwrap();
-        let simple = SimplePreconditioner::new(&matrix, 2, 2).unwrap();
+        let block = BlockDiagonalPreconditioner::new(&matrix, 2, 2).expect("expected value");
+        let simple = SimplePreconditioner::new(&matrix, 2, 2).expect("expected value");
         let wrong = Array1::zeros([3]);
 
         assert!(block.apply(&wrong).is_err());
@@ -1124,6 +1127,7 @@ mod tests {
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 impl<T> athena_core::Preconditioner<athena_leto::LetoBackend<T>> for BlockDiagonalPreconditioner<T>
 where
     T: RealField + FloatElement + Copy + LetoRealScalar,

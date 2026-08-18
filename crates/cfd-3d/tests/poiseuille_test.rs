@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
@@ -47,7 +49,7 @@ fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D
     };
 
     let solver = VenturiSolver3D::new(builder, config);
-    solver.solve(fluid).unwrap()
+    solver.solve(fluid).expect("expected value")
 }
 
 fn relative_error(measured: f64, analytical: f64) -> f64 {

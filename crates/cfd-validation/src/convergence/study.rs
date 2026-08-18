@@ -205,7 +205,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625]; // O(h²) behavior
 
-        let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).expect("expected value");
 
         assert_relative_eq!(study.convergence_rate, 2.0, epsilon = 0.01);
         assert!(study.r_squared > 0.99);
@@ -217,7 +217,7 @@ mod tests {
         let grid_sizes = vec![0.2, 0.1, 0.05];
         let errors = vec![0.04, 0.01, 0.0025];
 
-        let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).expect("expected value");
 
         // Predict error for h=0.025
         let predicted = study.predict_error(0.025);

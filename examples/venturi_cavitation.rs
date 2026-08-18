@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Selective venturi cavitation screening example.
 
 use cfd_1d::{assess_venturi_screening, evaluate_venturi_screening, VenturiScreeningInput};

@@ -31,8 +31,8 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
         let dy = grid.dy;
         let min_ap = <T as FloatElement>::from_f64(STAGNANT_CELL_AP_THRESHOLD);
 
-        let d_u = self.d_u.as_mut().unwrap();
-        let d_v = self.d_v.as_mut().unwrap();
+        let d_u = self.d_u.as_mut().expect("expected value");
+        let d_v = self.d_v.as_mut().expect("expected value");
 
         for j in 0..grid.ny {
             for i in 0..grid.nx {

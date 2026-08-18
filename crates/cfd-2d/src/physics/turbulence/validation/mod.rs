@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Comprehensive turbulence model validation suite
 //!
 //! This module provides validation against:

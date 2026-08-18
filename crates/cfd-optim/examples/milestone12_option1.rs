@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Option 1: Selective Acoustic Residence/Separation.
 //!
 //! This track exploits the **Zweifach–Fung effect** at asymmetric bifurcations:

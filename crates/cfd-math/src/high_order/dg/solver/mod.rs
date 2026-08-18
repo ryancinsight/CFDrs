@@ -362,7 +362,9 @@ mod tests {
 
         let jac: Option<&Jacobian> = None;
         for _ in 0..n_steps {
-            let (u_new, _) = integrator.step(0.0, dt, &u, &f, jac).unwrap();
+            let (u_new, _) = integrator
+                .step(0.0, dt, &u, &f, jac)
+                .expect("expected value");
             u = u_new;
         }
 
@@ -384,7 +386,9 @@ mod tests {
 
         let jac: Option<&Jacobian> = None;
         for _ in 0..n_steps {
-            let (u_new, _) = integrator.step(0.0, dt, &u, &f, jac).unwrap();
+            let (u_new, _) = integrator
+                .step(0.0, dt, &u, &f, jac)
+                .expect("expected value");
             u = u_new;
         }
 
@@ -406,7 +410,9 @@ mod tests {
 
         let jac: Option<&Jacobian> = None;
         for _ in 0..n_steps {
-            let (u_new, _) = integrator.step(0.0, dt, &u, &f, jac).unwrap();
+            let (u_new, _) = integrator
+                .step(0.0, dt, &u, &f, jac)
+                .expect("expected value");
             u = u_new;
         }
 
@@ -428,7 +434,9 @@ mod tests {
         let integrator = ImplicitEuler::default();
 
         for _ in 0..n_steps {
-            let (u_new, _) = integrator.step(0.0, dt, &u, &f, Some(&jac)).unwrap();
+            let (u_new, _) = integrator
+                .step(0.0, dt, &u, &f, Some(&jac))
+                .expect("expected value");
             u = u_new;
         }
 

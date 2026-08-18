@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_schematics::interface::presets::{
     asymmetric_trifurcation_venturi_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_rect,

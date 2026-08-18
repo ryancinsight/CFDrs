@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::float_cmp)]
 //! Validation tests for backend abstraction pattern
 //!
 //! Validates the backend abstraction implementation against performance and correctness
@@ -6,7 +8,7 @@
 //! References:
 //! - ASME V&V 20-2009: "Standard for Verification and Validation in Computational Fluid Dynamics"
 //! - ISO/IEC 25010:2011: "Systems and software quality models"
-//! - Rust Performance Book: https://nnethercote.github.io/perf-book/
+//! - Rust Performance Book: <https://nnethercote.github.io/perf-book/>
 
 use core::ops::Mul;
 
@@ -42,6 +44,7 @@ fn select_backend() -> Backend {
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn compute_squares<T, S>(backend: &Backend, storage: &S) -> Vec<T>
 where
     S: AsRef<[T]>,
@@ -109,11 +112,7 @@ fn test_compute_squares_floats_correctness() {
         let error = (computed - expected_val).abs();
         assert!(
             error < 1e-10,
-            "Element {} mismatch: {} vs {} (error: {})",
-            i,
-            computed,
-            expected_val,
-            error
+            "Element {i} mismatch: {computed} vs {expected_val} (error: {error})",
         );
     }
 }
@@ -171,9 +170,7 @@ fn test_large_dataset_validation() {
         let error = (result[idx] - expected).abs();
         assert!(
             error < 1e-10,
-            "Element {} error {} exceeds tolerance",
-            idx,
-            error
+            "Element {idx} error {error} exceeds tolerance"
         );
     }
 }
@@ -220,18 +217,14 @@ fn test_extreme_values() {
 
     for (i, (&result, &expected_val)) in small_result.iter().zip(small_expected.iter()).enumerate()
     {
-        let rel_error = if expected_val != 0.0 {
-            ((result - expected_val) / expected_val).abs()
-        } else {
+        let rel_error = if expected_val == 0.0 {
             result.abs()
+        } else {
+            ((result - expected_val) / expected_val).abs()
         };
         assert!(
             rel_error < 1e-10 || result == expected_val,
-            "Small value {} mismatch: {} vs {} (rel_error: {})",
-            i,
-            result,
-            expected_val,
-            rel_error
+            "Small value {i} mismatch: {result} vs {expected_val} (rel_error: {rel_error})",
         );
     }
 
@@ -276,8 +269,7 @@ fn test_linear_scaling_property() {
         assert_eq!(
             result.len(),
             size,
-            "Output size must match input for size {}",
-            size
+            "Output size must match input for size {size}",
         );
 
         // Verify first, middle, and last elements

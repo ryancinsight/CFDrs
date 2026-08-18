@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::print_stdout)]
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_mesh::VenturiMeshBuilder;
@@ -61,7 +64,7 @@ fn validate_venturi_blood_flow() {
 
     // 4. Solve
     let solver = VenturiSolver3D::new(builder, config);
-    let solution = solver.solve(fluid).unwrap();
+    let solution = solver.solve(fluid).expect("expected value");
 
     // 5. Validation
     // 5.1 Mass Conservation

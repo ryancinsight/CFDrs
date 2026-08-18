@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;

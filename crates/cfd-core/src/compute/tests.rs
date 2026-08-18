@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+#![allow(clippy::print_stdout)]
 //! Tests for compute backend
 
 use super::*;
@@ -112,7 +114,9 @@ fn test_cpu_advection_kernel_linear_exactness() {
     };
 
     // Execute one step
-    kernel.execute(&input, &mut output, params).unwrap();
+    kernel
+        .execute(&input, &mut output, params)
+        .expect("expected value");
 
     // Analytic update for linear field under constant velocity
     // phi_new = phi_old - dt * (u*a + v*b)
@@ -135,20 +139,21 @@ fn test_cpu_advection_kernel_linear_exactness() {
 #[test]
 fn test_dispatcher_creation() {
     // Test automatic backend selection
-    let dispatcher = ComputeDispatcher::new().unwrap();
+    let dispatcher = ComputeDispatcher::new().expect("expected value");
     println!(
         "Dispatcher using backend: {:?}",
         dispatcher.current_backend()
     );
 
     // Test specific backend selection
-    let cpu_dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
+    let cpu_dispatcher =
+        ComputeDispatcher::with_backend(ComputeBackend::Cpu).expect("expected value");
     assert_eq!(cpu_dispatcher.current_backend(), ComputeBackend::Cpu);
 }
 
 #[test]
 fn dispatcher_errors_instead_of_cpu_fallback_for_unsupported_backend() {
-    let dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
+    let dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).expect("expected value");
     let input = [1.0_f64, 2.0, 3.0];
     let mut output = [9.0_f64, 9.0, 9.0];
     let params = KernelParams {
@@ -166,7 +171,7 @@ fn dispatcher_errors_instead_of_cpu_fallback_for_unsupported_backend() {
 
     let err = dispatcher
         .execute(&SimdOnlyKernel, &input, &mut output, params)
-        .unwrap_err();
+        .expect_err("should reject unsupported backend");
 
     match err {
         Error::UnsupportedOperation(message) => {
@@ -219,21 +224,21 @@ fn test_gpu_buffer() {
 
     // Test buffer creation
     let size = 1000;
-    let buffer = GpuBuffer::<f32>::new(context.clone(), size).unwrap();
+    let buffer = GpuBuffer::<f32>::new(context.clone(), size).expect("expected value");
     assert_eq!(buffer.size(), size);
 
     // Test buffer with data
     let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-    let mut buffer = GpuBuffer::from_data(context, &data).unwrap();
+    let mut buffer = GpuBuffer::from_data(context, &data).expect("expected value");
     assert_eq!(buffer.size(), data.len());
 
     // Test read
-    let read_data = buffer.read().unwrap();
+    let read_data = buffer.read().expect("expected value");
     assert_eq!(read_data, data);
 
     // Test write
     let updated_data: Vec<f32> = (0..100).map(|i| (i * 2) as f32).collect();
-    buffer.write(&updated_data).unwrap();
-    let read_data = buffer.read().unwrap();
+    buffer.write(&updated_data).expect("expected value");
+    let read_data = buffer.read().expect("expected value");
     assert_eq!(read_data, updated_data);
 }

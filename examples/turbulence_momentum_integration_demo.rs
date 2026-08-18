@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of turbulence model integration with MUSCL discretization and adaptive time stepping
 //!
 //! This example shows how to combine:

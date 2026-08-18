@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Option 1 integration tests.
 //!
 //! Validates the asymmetric-split residence-separation pipeline end-to-end:
@@ -99,7 +100,7 @@ fn option1_candidate_space_contains_acoustic_selective_topologies() {
     );
 
     for candidate in &acoustic {
-        let spec = candidate.topology_spec().unwrap();
+        let spec = candidate.topology_spec().expect("expected value");
         assert!(
             spec.split_stages
                 .iter()

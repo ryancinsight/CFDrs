@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 3D Venturi tube flow benchmark with blood rheology
 //!
 //! Validates 3D Venturi flow against 1D analytical models and
@@ -152,7 +153,7 @@ mod tests {
             ..BenchmarkConfig::default()
         };
 
-        let result = benchmark.run(&config).unwrap();
-        assert!(benchmark.validate(&result).unwrap());
+        let result = benchmark.run(&config).expect("expected value");
+        assert!(benchmark.validate(&result).expect("expected value"));
     }
 }

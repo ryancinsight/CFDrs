@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Canonical schematic preset comparison example.
 //!
 //! The historical name is retained for compatibility. The example now compares

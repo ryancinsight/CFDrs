@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! 1D Blood Flow Validation Against Literature
 //!
 //! This example validates the 1D hemodynamic solver against published literature data

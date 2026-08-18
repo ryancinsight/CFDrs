@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::unnecessary_wraps, clippy::uninlined_format_args)]
 //! Comprehensive Arc Channel Demo
 //!
 //! This example demonstrates all aspects of arc channel generation:

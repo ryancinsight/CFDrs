@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! GPU integration tests
 //!
 //! Tests GPU compute functionality through the Hephaestus provider.

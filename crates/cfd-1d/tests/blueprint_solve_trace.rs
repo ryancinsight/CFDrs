@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Integration tests: cfd-schematics blueprint → cfd-1d solve → per-node/per-channel trace.
 //!
 //! These tests validate that:

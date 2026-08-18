@@ -1,3 +1,6 @@
+#![allow(clippy::float_cmp)]
+#![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 use super::{GpuPressureKernel, PressureConfig};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
@@ -37,14 +40,14 @@ fn index(dimensions: [usize; 3], x: usize, y: usize, z: usize) -> usize {
 fn iteration_preserves_quadratic_solution_and_clamps_neumann_boundaries() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [9, 5, 3];
-    let config = PressureConfig::new(dimensions, [1.0; 3], 0.5).unwrap();
+    let config = PressureConfig::new(dimensions, [1.0; 3], 0.5).expect("expected value");
     let pressure = coordinates(dimensions, |x, y, z| (x * x + y * y + z * z) as f32);
     let source = vec![6.0; config.element_count()];
     let mut output = vec![-1.0; config.element_count()];
 
     kernel
         .iterate(&pressure, &source, config, &mut output)
-        .unwrap();
+        .expect("expected value");
 
     let expected = coordinates(dimensions, |x, y, z| {
         let x = x.clamp(1, dimensions[0] - 2);
@@ -59,14 +62,14 @@ fn iteration_preserves_quadratic_solution_and_clamps_neumann_boundaries() {
 fn iteration_applies_weighted_source_term_exactly() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [3, 3, 3];
-    let config = PressureConfig::new(dimensions, [1.0; 3], 0.5).unwrap();
+    let config = PressureConfig::new(dimensions, [1.0; 3], 0.5).expect("expected value");
     let pressure = vec![0.0; config.element_count()];
     let source = vec![-12.0; config.element_count()];
     let mut output = vec![-1.0; config.element_count()];
 
     kernel
         .iterate(&pressure, &source, config, &mut output)
-        .unwrap();
+        .expect("expected value");
 
     let mut expected = vec![0.0; config.element_count()];
     expected[index(dimensions, 1, 1, 1)] = 1.0;
@@ -77,14 +80,14 @@ fn iteration_applies_weighted_source_term_exactly() {
 fn residual_matches_quadratic_laplacian_and_zeroes_boundaries() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [5, 4, 3];
-    let config = PressureConfig::new(dimensions, [1.0; 3], 1.0).unwrap();
+    let config = PressureConfig::new(dimensions, [1.0; 3], 1.0).expect("expected value");
     let pressure = coordinates(dimensions, |x, y, z| (x * x + y * y + z * z) as f32);
     let source = vec![4.0; config.element_count()];
     let mut output = vec![-1.0; config.element_count()];
 
     kernel
         .residual(&pressure, &source, config, &mut output)
-        .unwrap();
+        .expect("expected value");
 
     let mut expected = vec![0.0; config.element_count()];
     for z in 1..dimensions[2] - 1 {
@@ -99,14 +102,14 @@ fn residual_matches_quadratic_laplacian_and_zeroes_boundaries() {
 
 #[test]
 fn rejects_length_and_nonfinite_fields() {
-    let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).unwrap();
+    let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).expect("expected value");
     let field = vec![1.0; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
     let Some(kernel) = kernel() else { return };
 
     let length_error = kernel
         .residual(&field[..26], &field, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient field size");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -119,7 +122,7 @@ fn rejects_length_and_nonfinite_fields() {
     nonfinite[13] = f32::NAN;
     let nonfinite_error = kernel
         .residual(&field, &nonfinite, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject non-finite field values");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 }
 

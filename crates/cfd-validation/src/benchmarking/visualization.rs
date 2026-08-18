@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Performance visualization and reporting tools
 //!
 //! This module provides comprehensive visualization capabilities for performance

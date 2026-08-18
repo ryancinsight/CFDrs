@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Performance benchmarks for solver implementations
 
 use cfd_1d::domain::network::{Network, NetworkBuilder};

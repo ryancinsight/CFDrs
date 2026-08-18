@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Blueprint-native mesh plus reduced-order venturi screening example.
 //!
 //! The historical example name is retained for compatibility. The executable

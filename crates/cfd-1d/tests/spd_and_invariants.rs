@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::unwrap_used)]
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 — Genetic Algorithm integration tests.
 //!
 //! Validates the in-place GA refinement pipeline:

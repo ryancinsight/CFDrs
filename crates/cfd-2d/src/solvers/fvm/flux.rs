@@ -1,3 +1,10 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless,
+    clippy::print_stderr
+)]
 //! Flux schemes for FVM
 //!
 //! # Theorem
@@ -213,6 +220,7 @@ impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for HybridF
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -226,7 +234,9 @@ mod tests {
     fn test_central_difference_uniform_field() {
         // For uniform φ, flux should be zero regardless of velocity
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::CentralDifference, 1.0);
-        let flux = calc.calculate_flux(1.0, 1.0, 1.0, 5.0, 0.1).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 1.0, 1.0, 5.0, 0.1)
+            .expect("expected value");
         assert!(
             abs(flux) < 1e-14,
             "Uniform field flux should be zero, got {flux}"
@@ -237,7 +247,9 @@ mod tests {
     fn test_central_difference_linear_field() {
         // φ_w=0, φ_p=1, φ_e=2, u=1, dx=1 => u*(φ_e−φ_w)/(2*dx) = 1*2/2 = 1
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::CentralDifference, 1.0);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0)
+            .expect("expected value");
         assert!(abs(flux - 1.0) < 1e-14, "Expected 1.0, got {flux}");
     }
 
@@ -247,7 +259,9 @@ mod tests {
     fn test_upwind_positive_velocity() {
         // u > 0 => uses (φ_p − φ_w)/dx
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
-        let flux = calc.calculate_flux(3.0, 5.0, 1.0, 2.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(3.0, 5.0, 1.0, 2.0, 1.0)
+            .expect("expected value");
         // 2.0 * (3.0 − 1.0) / 1.0 = 4.0
         assert!(abs(flux - 4.0) < 1e-14, "Expected 4.0, got {flux}");
     }
@@ -256,7 +270,9 @@ mod tests {
     fn test_upwind_negative_velocity() {
         // u < 0 => uses (φ_e − φ_p)/dx
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
-        let flux = calc.calculate_flux(3.0, 5.0, 1.0, -2.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(3.0, 5.0, 1.0, -2.0, 1.0)
+            .expect("expected value");
         // -2.0 * (5.0 − 3.0) / 1.0 = -4.0
         assert!(abs(flux - (-4.0)) < 1e-14, "Expected -4.0, got {flux}");
     }
@@ -264,7 +280,9 @@ mod tests {
     #[test]
     fn test_upwind_uniform_field_zero_flux() {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
-        let flux = calc.calculate_flux(7.0, 7.0, 7.0, 3.0, 0.5).unwrap();
+        let flux = calc
+            .calculate_flux(7.0, 7.0, 7.0, 3.0, 0.5)
+            .expect("expected value");
         assert!(abs(flux) < 1e-14, "Uniform field should give zero flux");
     }
 
@@ -276,7 +294,9 @@ mod tests {
         // u > 0: phi_face = 6/8*φ_p + 3/8*φ_e - 1/8*φ_w = 6/8 + 6/8 - 0 = 12/8 = 1.5
         // flux = u * phi_face / dx = 1 * 1.5 / 1 = 1.5
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::QuadraticUpwind, 1.0);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0)
+            .expect("expected value");
         assert!(
             abs(flux - 1.5) < 1e-14,
             "QUICK linear field expected 1.5, got {flux}"
@@ -289,7 +309,9 @@ mod tests {
     fn test_power_law_low_peclet() {
         // At low Pe (diffusion-dominated), scheme should approach central difference
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::PowerLaw, 10.0);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 0.01, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 0.01, 1.0)
+            .expect("expected value");
         assert!(
             flux.is_finite(),
             "Power law flux should be finite at low Pe"
@@ -300,7 +322,9 @@ mod tests {
     fn test_power_law_high_peclet() {
         // At high Pe (convection-dominated), scheme should approach upwind
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::PowerLaw, 0.001);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0)
+            .expect("expected value");
         assert!(
             flux.is_finite(),
             "Power law flux should be finite at high Pe"
@@ -325,7 +349,9 @@ mod tests {
     fn test_hybrid_low_peclet() {
         // |Pe| < 2: central difference behaviour
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Hybrid, 10.0);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0)
+            .expect("expected value");
         assert!(flux.is_finite(), "Hybrid flux at low Pe should be finite");
     }
 
@@ -333,7 +359,9 @@ mod tests {
     fn test_hybrid_high_peclet() {
         // |Pe| > 2: pure upwind behaviour
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Hybrid, 0.001);
-        let flux = calc.calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0).unwrap();
+        let flux = calc
+            .calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0)
+            .expect("expected value");
         assert!(flux.is_finite(), "Hybrid flux at high Pe should be finite");
     }
 

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Lid-Driven Cavity Validation Against Ghia et al. (1982)
 //!
 //! This example validates the vorticity-stream solver against established benchmarks.

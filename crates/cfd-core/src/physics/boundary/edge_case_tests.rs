@@ -27,7 +27,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         assert_eq!(field[0], 0.0, "West boundary should be zero");
         assert_eq!(field[1], 2.0, "Interior should be unchanged");
     }
@@ -48,7 +50,9 @@ mod boundary_edge_cases {
             "east".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         assert_eq!(
             field[9], large_value,
             "Large value should be applied correctly"
@@ -72,7 +76,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         assert!(
             (field[0] - small_value).abs() < 1e-15,
             "Small value precision should be maintained"
@@ -94,7 +100,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         assert_eq!(field[0], -10.0, "Negative values should be applied");
     }
 
@@ -132,7 +140,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         assert_eq!(field[0], 10.0, "Single element should be updated");
     }
 
@@ -148,7 +158,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         // Zero gradient means boundary = interior neighbor
         assert_eq!(
             field[0], field[1],
@@ -168,7 +180,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         // Neumann: u_boundary = u_interior - dx * gradient
         // With dx ~ 1.0, boundary should be significantly different
         assert_ne!(field[0], field[1], "Large gradient should affect boundary");
@@ -186,7 +200,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         // Negative gradient should increase boundary value
         assert!(field[0] >= field[1], "Negative gradient effect");
     }
@@ -208,7 +224,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
         // α*u + β*du/dx = γ with β=0 => u = γ/α = 5.0
         assert!(
             (field[0] - 5.0).abs() < 1e-10,
@@ -252,7 +270,7 @@ mod boundary_edge_cases {
                 "west".to_string(),
             );
 
-            applicator.apply(&mut field, &spec, 0.0).unwrap();
+            applicator.apply(&mut field, &spec, 0.0).expect("expected value");
 
             // Property: Boundary value equals specified value
             assert!((field[0] - value).abs() < 1e-10, "Dirichlet must preserve value exactly");
@@ -278,7 +296,7 @@ mod boundary_edge_cases {
                 "west".to_string(),
             );
 
-            applicator.apply(&mut field, &spec, 0.0).unwrap();
+            applicator.apply(&mut field, &spec, 0.0).expect("expected value");
 
             // Property: Interior points (indices 1..9) should be unchanged
             for &val in field.iter().take(9).skip(1) {
@@ -300,7 +318,7 @@ mod boundary_edge_cases {
                 "west".to_string(),
             );
 
-            applicator.apply(&mut field, &spec, 0.0).unwrap();
+            applicator.apply(&mut field, &spec, 0.0).expect("expected value");
 
             // Property: Zero gradient means field[0] == field[1]
             assert_eq!(field[0], field[1], "Zero gradient should create continuity");
@@ -324,7 +342,7 @@ mod boundary_edge_cases {
                 "west".to_string(),
             );
 
-            applicator.apply(&mut field, &spec, 0.0).unwrap();
+            applicator.apply(&mut field, &spec, 0.0).expect("expected value");
 
             // Property: α*u = γ with α=1 => u = γ
             assert!((field[0] - gamma).abs() < 1e-10, "Robin should reduce to Dirichlet");
@@ -348,11 +366,17 @@ mod boundary_edge_cases {
         );
 
         // Apply once
-        applicator.apply(&mut field1, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field1, &spec, 0.0)
+            .expect("expected value");
 
         // Apply twice
-        applicator.apply(&mut field2, &spec, 0.0).unwrap();
-        applicator.apply(&mut field2, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field2, &spec, 0.0)
+            .expect("expected value");
+        applicator
+            .apply(&mut field2, &spec, 0.0)
+            .expect("expected value");
 
         // Should yield same result
         assert_eq!(field1, field2, "Boundary application should be idempotent");
@@ -397,7 +421,9 @@ mod boundary_edge_cases {
             "west".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
 
         assert_eq!(field[0], 42.0, "Boundary should be applied on large field");
         assert_eq!(field[size - 1], 1.0, "Interior should be unchanged");
@@ -418,7 +444,9 @@ mod boundary_edge_cases {
             "all".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
 
         // All elements should be set to 10.0
         for val in &field {
@@ -441,7 +469,9 @@ mod boundary_edge_cases {
             "east".to_string(),
         );
 
-        applicator.apply(&mut field, &spec, 0.0).unwrap();
+        applicator
+            .apply(&mut field, &spec, 0.0)
+            .expect("expected value");
 
         assert_eq!(field[0], 1.0, "West boundary should be unchanged");
         assert_eq!(field[4], 20.0, "East boundary should be updated");

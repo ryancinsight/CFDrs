@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Sensitivity analysis: validates turbulence constants against DNS channel flow.
 
 use super::{

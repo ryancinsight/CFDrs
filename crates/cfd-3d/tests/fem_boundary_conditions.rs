@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -28,7 +29,7 @@ fn test_robin_bc_assembly() {
     ));
 
     // Setup Fluid
-    let fluid = ConstantPropertyFluid::water_20c().unwrap();
+    let fluid = ConstantPropertyFluid::water_20c().expect("expected value");
 
     // Setup Boundary Conditions (Robin on all nodes)
     // Robin: 1.0 * u + 1.0 * du/dn = 2.0

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive validation tests for MUSCL schemes
 //!
 //! Tests accuracy on smooth solutions, monotonicity preservation for discontinuities,

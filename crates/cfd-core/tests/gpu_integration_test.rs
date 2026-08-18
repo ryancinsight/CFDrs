@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 //! Integration tests for GPU compute functionality
 
 #[cfg(feature = "gpu")]
@@ -38,7 +41,7 @@ mod gpu_tests {
         let buffer = GpuBuffer::<f32>::new(context.clone(), size);
         assert!(buffer.is_ok());
 
-        let buffer = buffer.unwrap();
+        let buffer = buffer.expect("expected value");
         assert_eq!(buffer.size(), size);
     }
 
@@ -52,7 +55,7 @@ mod gpu_tests {
             }
         };
         let kernel = GpuAdvectionKernel::new(context).expect("advection shader must compile");
-        let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.5).unwrap();
+        let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.5).expect("expected value");
         let scalar: Vec<f32> = (0..config.element_count())
             .map(|index| index as f32)
             .collect();
@@ -61,7 +64,7 @@ mod gpu_tests {
 
         kernel
             .execute(&scalar, &velocity, &velocity, config, &mut output)
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(output, scalar);
     }
@@ -76,14 +79,14 @@ mod gpu_tests {
             }
         };
         let kernel = GpuPressureKernel::new(context).expect("pressure shaders must compile");
-        let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).unwrap();
+        let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).expect("expected value");
         let pressure = vec![0.0; config.element_count()];
         let source = vec![0.0; config.element_count()];
         let mut residual = vec![1.0; config.element_count()];
 
         kernel
             .residual(&pressure, &source, config, &mut residual)
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(residual, pressure);
     }
@@ -98,13 +101,13 @@ mod gpu_tests {
             }
         };
         let kernel = GpuVelocityKernel::new(context).expect("velocity shaders must compile");
-        let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).unwrap();
+        let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).expect("expected value");
         let velocity = vec![0.0; config.element_count()];
         let mut source = vec![1.0; config.element_count()];
 
         kernel
             .divergence_source(&velocity, &velocity, &velocity, config, &mut source)
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(source, velocity);
     }

@@ -289,7 +289,7 @@ mod tests {
     fn identical_vectors_converged() {
         let checker = ConvergenceChecker::new(1e-6);
         let v = vector(vec![10.0, 20.0, 30.0]);
-        assert!(checker.has_converged(&v, &v).unwrap());
+        assert!(checker.has_converged(&v, &v).expect("expected value"));
     }
 
     #[test]
@@ -297,7 +297,7 @@ mod tests {
         let checker = ConvergenceChecker::new(1e-6);
         let a = vector(vec![0.0, 0.0]);
         let b = vector(vec![100.0, 100.0]);
-        assert!(!checker.has_converged(&a, &b).unwrap());
+        assert!(!checker.has_converged(&a, &b).expect("expected value"));
     }
 
     #[test]
@@ -309,18 +309,18 @@ mod tests {
         // Both change=0 and residual tiny => converged
         assert!(checker
             .has_converged_dual(&current, &previous, 1e-8, 1.0)
-            .unwrap());
+            .expect("expected value"));
 
         // Change converged but residual large => not converged
         assert!(!checker
             .has_converged_dual(&current, &previous, 10.0, 1.0)
-            .unwrap());
+            .expect("expected value"));
 
         // Residual converged but change large => not converged
         let far_previous = vector(vec![0.0, 0.0]);
         assert!(!checker
             .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
-            .unwrap());
+            .expect("expected value"));
     }
 
     #[test]

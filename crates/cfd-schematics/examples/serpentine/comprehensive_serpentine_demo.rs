@@ -1,3 +1,9 @@
+#![allow(
+    missing_docs,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args,
+    clippy::unnecessary_wraps
+)]
 //! Comprehensive Serpentine Channel Demo
 //!
 //! This example demonstrates all aspects of serpentine channel generation:
@@ -161,7 +167,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         (dx * dx + dy * dy).sqrt()
                     })
                     .sum::<f64>(),
-                _ => 0.0,
+                cfd_schematics::domain::model::ChannelShape::Straight => 0.0,
             })
             .sum();
 

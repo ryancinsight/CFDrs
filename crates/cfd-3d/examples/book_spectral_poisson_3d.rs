@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Book example: 3D spectral Poisson solve with Apollo-backed FFT operators.
 
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;

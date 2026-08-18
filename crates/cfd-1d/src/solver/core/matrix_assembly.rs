@@ -213,13 +213,15 @@ impl<T: CfdScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
                 (true, false) => {
                     // i fixed: remove column i and add contribution to RHS of j
                     coo.push(j, j, conductance);
-                    let p_i = dirichlet_values[i].unwrap();
+                    let p_i =
+                        dirichlet_values[i].expect("Dirichlet value must be set for fixed node i");
                     rhs[j] += conductance * p_i;
                 }
                 (false, true) => {
                     // j fixed: remove column j and add contribution to RHS of i
                     coo.push(i, i, conductance);
-                    let p_j = dirichlet_values[j].unwrap();
+                    let p_j =
+                        dirichlet_values[j].expect("Dirichlet value must be set for fixed node j");
                     rhs[i] += conductance * p_j;
                 }
                 (true, true) => {
@@ -333,19 +335,19 @@ mod tests {
     fn dirichlet_nodes_produce_identity_rows() {
         let net = abc_network(1.0, 2.0, 100.0, 0.0, None);
         let assembler = MatrixAssembler::<f64>::new();
-        let (mat, rhs) = assembler.assemble(&net).unwrap();
+        let (mat, rhs) = assembler.assemble(&net).expect("expected value");
 
         // Node A (index 0): identity row, RHS = 100
-        assert!((mat.get(0, 0).unwrap() - 1.0).abs() < 1e-12);
+        assert!((mat.get(0, 0).expect("expected value") - 1.0).abs() < 1e-12);
         assert!((rhs[0] - 100.0).abs() < 1e-12);
 
         // Node C (index 2): identity row, RHS = 0
-        assert!((mat.get(2, 2).unwrap() - 1.0).abs() < 1e-12);
+        assert!((mat.get(2, 2).expect("expected value") - 1.0).abs() < 1e-12);
         assert!((rhs[2] - 0.0).abs() < 1e-12);
 
         // Off-diagonals in Dirichlet rows should be zero
-        assert!(mat.get(0, 1).is_none() || mat.get(0, 1).unwrap().abs() < 1e-12);
-        assert!(mat.get(2, 1).is_none() || mat.get(2, 1).unwrap().abs() < 1e-12);
+        assert!(mat.get(0, 1).is_none() || mat.get(0, 1).expect("expected value").abs() < 1e-12);
+        assert!(mat.get(2, 1).is_none() || mat.get(2, 1).expect("expected value").abs() < 1e-12);
     }
 
     #[test]
@@ -355,11 +357,11 @@ mod tests {
         // RHS_B = g1*p_A + g2*p_C = 1*100 + 2*0 = 100
         let net = abc_network(1.0, 2.0, 100.0, 0.0, None);
         let assembler = MatrixAssembler::<f64>::new();
-        let (mat, rhs) = assembler.assemble(&net).unwrap();
+        let (mat, rhs) = assembler.assemble(&net).expect("expected value");
 
         // Row B (index 1): after Dirichlet column elimination, only diagonal remains
         // A(1,1) = g1 + g2 = 3.0
-        let diag_b = mat.get(1, 1).unwrap();
+        let diag_b = mat.get(1, 1).expect("expected value");
         assert!(
             (diag_b - 3.0).abs() < 1e-12,
             "B diagonal should be 3.0, got {diag_b}"
@@ -390,7 +392,7 @@ mod tests {
         let q_ext = 5.0;
         let net = abc_network(1.0, 2.0, 100.0, 0.0, Some(q_ext));
         let assembler = MatrixAssembler::<f64>::new();
-        let (_mat, rhs) = assembler.assemble(&net).unwrap();
+        let (_mat, rhs) = assembler.assemble(&net).expect("expected value");
 
         // RHS[B] = g1*p_A + g2*p_C + q_ext = 100 + 0 + 5 = 105
         assert!(
@@ -435,7 +437,7 @@ mod tests {
         net.set_pressure(d, Pressure::from_base(0.0));
 
         let assembler = MatrixAssembler::<f64>::new();
-        let (mat, _rhs) = assembler.assemble(&net).unwrap();
+        let (mat, _rhs) = assembler.assemble(&net).expect("expected value");
 
         // Active nodes: B=1, C=2 (non-Dirichlet)
         let active = [1usize, 2];

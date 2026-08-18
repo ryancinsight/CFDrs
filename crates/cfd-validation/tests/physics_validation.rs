@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Physics validation tests against analytical solutions
 //!
 //! These tests verify that our numerical implementations

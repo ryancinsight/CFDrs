@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Phase 7 — End-to-end blueprint-native pipeline integration tests.
 //!
 //! These tests exercise the full path from `BlueprintTopologySpec` to

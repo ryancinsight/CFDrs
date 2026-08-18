@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Critical physics validation tests
 //!
 //! These tests verify the correctness of core algorithms against known solutions

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Additional microfluidic component validation tests with literature references.
 //!
 //! Extends test coverage for microfluidic components with analytical validation

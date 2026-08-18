@@ -1,3 +1,9 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
 //! Validation tools for 3D Serpentine channel simulations
 //!
 //! Provides validation for Dean flow physics and mass conservation in
@@ -192,7 +198,7 @@ mod tests {
 
         let solution = solver.solve(fluid).expect("Solver failed"); // Pass by value
 
-        let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
+        let fluid_props = fluid.properties_at(310.0, 100.0).expect("expected value");
         let validator = SerpentineValidator3D::new(builder);
         let result = validator
             .validate_flow(

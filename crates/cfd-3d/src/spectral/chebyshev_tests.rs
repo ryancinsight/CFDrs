@@ -27,7 +27,7 @@ mod tests {
     /// Reference: Trefethen (2000), Chapter 6
     #[test]
     fn test_gauss_lobatto_points_endpoints() {
-        let cheb = ChebyshevPolynomial::<f64>::new(5).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(5).expect("expected value");
         let points = cheb.points();
 
         // Endpoints should be exactly ±1
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_gauss_lobatto_symmetry() {
         let n = 9;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Points should be symmetric: x_j = -x_{n-1-j}
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_gauss_lobatto_analytical() {
         let n = 8;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         for (j, &point) in points.iter().enumerate() {
@@ -68,7 +68,7 @@ mod tests {
     #[test]
     fn test_differentiation_matrix_size() {
         let n = 10;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let d_matrix = cheb.diff_matrix();
 
         assert_eq!(d_matrix.shape()[0], n);
@@ -84,11 +84,11 @@ mod tests {
     #[test]
     fn test_differentiation_constant_function() {
         let n = 8;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
 
         // Constant function u = 1 at all points
         let u = Array1::from_elem([n], 1.0);
-        let du_dx = cheb.differentiate(&u).unwrap();
+        let du_dx = cheb.differentiate(&u).expect("expected value");
 
         // Derivative should be zero everywhere
         for i in 0..n {
@@ -101,13 +101,13 @@ mod tests {
     #[test]
     fn test_differentiation_linear_function() {
         let n = 10;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Linear function u = x
         let u = Array1::from_vec([n], points.to_vec())
             .expect("invariant: Chebyshev points match vector shape");
-        let du_dx = cheb.differentiate(&u).unwrap();
+        let du_dx = cheb.differentiate(&u).expect("expected value");
 
         // Derivative should be 1 everywhere
         for i in 0..n {
@@ -120,12 +120,12 @@ mod tests {
     #[test]
     fn test_differentiation_quadratic_function() {
         let n = 12;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Quadratic function u = x²
         let u = array_from_points(points, |x| x * x);
-        let du_dx = cheb.differentiate(&u).unwrap();
+        let du_dx = cheb.differentiate(&u).expect("expected value");
 
         // Derivative should be 2x
         for i in 0..n {
@@ -140,12 +140,12 @@ mod tests {
     #[test]
     fn test_differentiation_sin_function() {
         let n = 20;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Function u = sin(πx)
         let u = array_from_points(points, |x| (PI * x).sin());
-        let du_dx = cheb.differentiate(&u).unwrap();
+        let du_dx = cheb.differentiate(&u).expect("expected value");
 
         // Analytical derivative: π*cos(πx)
         for i in 1..n - 1 {
@@ -160,12 +160,12 @@ mod tests {
     #[test]
     fn test_second_derivative_sin_function() {
         let n = 20;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Function u = sin(πx)
         let u = array_from_points(points, |x| (PI * x).sin());
-        let d2u_dx2 = cheb.second_derivative(&u).unwrap();
+        let d2u_dx2 = cheb.second_derivative(&u).expect("expected value");
 
         // Analytical second derivative: -π²*sin(πx)
         for i in 2..n - 2 {
@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn test_interpolation_polynomial() {
         let n = 10;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Polynomial p(x) = x³ - 2x² + x - 1 (degree 3 < n-1)
@@ -192,7 +192,7 @@ mod tests {
 
         // Interpolate to arbitrary point
         let x_test = 0.5;
-        let interpolated = cheb.interpolate(&values, x_test).unwrap();
+        let interpolated = cheb.interpolate(&values, x_test).expect("expected value");
         let expected = poly(x_test);
 
         // Should be exact for polynomial of degree < n-1
@@ -211,11 +211,11 @@ mod tests {
         let mut errors = Vec::new();
 
         for &n in &n_values {
-            let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+            let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
             let points = cheb.points();
 
             let u = array_from_points(points, f);
-            let du_dx = cheb.differentiate(&u).unwrap();
+            let du_dx = cheb.differentiate(&u).expect("expected value");
 
             // Compute error at interior points
             let mut max_error = 0.0_f64;
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn test_boundary_values_preserved() {
         let n = 8;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
 
         // Function with specific boundary values
@@ -268,9 +268,9 @@ mod tests {
     #[test]
     fn test_gauss_lobatto_quadrature() {
         let n = 16;
-        let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
+        let cheb = ChebyshevPolynomial::<f64>::new(n).expect("expected value");
         let points = cheb.points();
-        let weights = cheb.quadrature_weights().unwrap();
+        let weights = cheb.quadrature_weights().expect("expected value");
 
         // Integrate a polynomial of degree < N (where N=n-1)
         // Clenshaw-Curtis is exact for polynomials of degree <= N

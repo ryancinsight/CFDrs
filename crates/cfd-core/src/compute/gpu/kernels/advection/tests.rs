@@ -1,3 +1,6 @@
+#![allow(clippy::float_cmp)]
+#![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 use super::{AdvectionConfig, GpuAdvectionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
@@ -24,7 +27,7 @@ fn kernel() -> Option<GpuAdvectionKernel> {
 fn zero_velocity_is_exact_identity_across_partial_workgroups_and_planes() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [9, 5, 2];
-    let config = AdvectionConfig::new(dimensions, [1.0; 3], 1.0).unwrap();
+    let config = AdvectionConfig::new(dimensions, [1.0; 3], 1.0).expect("expected value");
     let scalar: Vec<f32> = (0..config.element_count())
         .map(|index| index as f32)
         .collect();
@@ -33,7 +36,7 @@ fn zero_velocity_is_exact_identity_across_partial_workgroups_and_planes() {
 
     kernel
         .execute(&scalar, &velocity, &velocity, config, &mut output)
-        .unwrap();
+        .expect("expected value");
 
     assert_eq!(output, scalar);
 }
@@ -42,7 +45,7 @@ fn zero_velocity_is_exact_identity_across_partial_workgroups_and_planes() {
 fn directional_upwind_selection_is_exact_and_boundaries_are_copied() {
     let Some(kernel) = kernel() else { return };
     let dimensions = [5, 4, 1];
-    let config = AdvectionConfig::new(dimensions, [1.0; 3], 0.25).unwrap();
+    let config = AdvectionConfig::new(dimensions, [1.0; 3], 0.25).expect("expected value");
     let scalar: Vec<f32> = (0..dimensions[1])
         .flat_map(|_| (0..dimensions[0]).map(|x| x as f32))
         .collect();
@@ -53,7 +56,7 @@ fn directional_upwind_selection_is_exact_and_boundaries_are_copied() {
         let mut output = vec![0.0; config.element_count()];
         kernel
             .execute(&scalar, &velocity_x, &velocity_y, config, &mut output)
-            .unwrap();
+            .expect("expected value");
 
         let mut expected = scalar.clone();
         for y in 1..dimensions[1] - 1 {
@@ -67,7 +70,7 @@ fn directional_upwind_selection_is_exact_and_boundaries_are_copied() {
 
 #[test]
 fn rejects_length_nonfinite_and_cfl_contract_violations() {
-    let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.25).unwrap();
+    let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.25).expect("expected value");
     let scalar = vec![1.0; config.element_count()];
     let velocity = vec![0.0; config.element_count()];
     let mut output = vec![0.0; config.element_count()];
@@ -75,7 +78,7 @@ fn rejects_length_nonfinite_and_cfl_contract_violations() {
 
     let length_error = kernel
         .execute(&scalar[..8], &velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject insufficient scalar field size");
     assert!(matches!(
         length_error,
         Error::DimensionMismatch {
@@ -88,13 +91,13 @@ fn rejects_length_nonfinite_and_cfl_contract_violations() {
     nonfinite_velocity[4] = f32::NAN;
     let nonfinite_error = kernel
         .execute(&scalar, &nonfinite_velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject non-finite velocity values");
     assert!(matches!(nonfinite_error, Error::PhysicsViolation(_)));
 
     let unstable_velocity = vec![5.0; config.element_count()];
     let cfl_error = kernel
         .execute(&scalar, &unstable_velocity, &velocity, config, &mut output)
-        .unwrap_err();
+        .expect_err("should reject CFL-unstable velocity");
     assert!(matches!(cfl_error, Error::PhysicsViolation(_)));
 }
 

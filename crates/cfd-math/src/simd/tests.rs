@@ -11,7 +11,7 @@ fn test_simd_add_f32() {
     let b = vec![8.0f32, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
     let mut result = vec![0.0f32; 8];
 
-    simd.add(&a, &b, &mut result).unwrap();
+    simd.add(&a, &b, &mut result).expect("expected value");
 
     for i in 0..8 {
         assert_relative_eq!(result[i], 9.0, epsilon = 1e-6);
@@ -25,7 +25,7 @@ fn test_simd_mul_f32() {
     let b = vec![2.0f32, 3.0, 4.0, 5.0];
     let mut result = vec![0.0f32; 4];
 
-    simd.mul(&a, &b, &mut result).unwrap();
+    simd.mul(&a, &b, &mut result).expect("expected value");
 
     assert_relative_eq!(result[0], 2.0, epsilon = 1e-6);
     assert_relative_eq!(result[1], 6.0, epsilon = 1e-6);
@@ -40,7 +40,8 @@ fn test_simd_scale_f32() {
     let scalar = 2.5;
     let mut result = vec![0.0f32; 4];
 
-    simd.scale(&input, scalar, &mut result).unwrap();
+    simd.scale(&input, scalar, &mut result)
+        .expect("expected value");
 
     assert_relative_eq!(result[0], 2.5, epsilon = 1e-6);
     assert_relative_eq!(result[1], 5.0, epsilon = 1e-6);
@@ -54,7 +55,7 @@ fn test_simd_dot_f32() {
     let a = vec![1.0f32, 2.0, 3.0, 4.0];
     let b = vec![4.0f32, 3.0, 2.0, 1.0];
 
-    let dot = simd.dot(&a, &b).unwrap();
+    let dot = simd.dot(&a, &b).expect("expected value");
 
     // 1*4 + 2*3 + 3*2 + 4*1 = 4 + 6 + 6 + 4 = 20
     assert_relative_eq!(dot, 20.0, epsilon = 1e-6);
@@ -69,7 +70,7 @@ fn test_simd_unaligned_lengths() {
     let b = vec![2.0f32; 13];
     let mut result = vec![0.0f32; 13];
 
-    simd.add(&a, &b, &mut result).unwrap();
+    simd.add(&a, &b, &mut result).expect("expected value");
 
     for i in 0..13 {
         assert_relative_eq!(result[i], 3.0, epsilon = 1e-6);
@@ -82,7 +83,7 @@ fn test_simd_dot_f64() {
     let a = vec![1.0f64, 2.0, 3.0, 4.0];
     let b = vec![4.0f64, 3.0, 2.0, 1.0];
 
-    let dot = simd.dot_f64(&a, &b).unwrap();
+    let dot = simd.dot_f64(&a, &b).expect("expected value");
 
     assert_relative_eq!(dot, 20.0, epsilon = 1e-12);
 }
@@ -92,7 +93,7 @@ fn test_simd_sum_f32() {
     let simd = SimdOps::new();
     let input = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
 
-    let sum = simd.sum_f32(&input).unwrap();
+    let sum = simd.sum_f32(&input).expect("expected value");
 
     assert_relative_eq!(sum, 45.0, epsilon = 1e-6);
 }
@@ -102,7 +103,7 @@ fn test_simd_max_f32() {
     let simd = SimdOps::new();
     let input = vec![3.0f32, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
 
-    let max = simd.max_f32(&input).unwrap();
+    let max = simd.max_f32(&input).expect("expected value");
 
     assert_relative_eq!(max, 9.0, epsilon = 1e-6);
 }
@@ -114,7 +115,7 @@ fn test_simd_add_u32() {
     let b = vec![5u32, 4, 3, 2, 1];
     let mut result = vec![0u32; 5];
 
-    simd.add_u32(&a, &b, &mut result).unwrap();
+    simd.add_u32(&a, &b, &mut result).expect("expected value");
 
     for i in 0..5 {
         assert_eq!(result[i], 6);
@@ -152,7 +153,7 @@ fn test_simd_performance_characteristics() {
     let mut result = vec![0.0f32; size];
 
     // Should complete without error
-    simd.add(&a, &b, &mut result).unwrap();
+    simd.add(&a, &b, &mut result).expect("expected value");
 
     // Verify correctness
     for i in 0..size {
@@ -169,7 +170,8 @@ fn test_convolution() {
     // Expected result len: 3 + 2 - 1 = 4
     let mut result = vec![0.0; 4];
 
-    ops.convolution(&signal, &kernel, &mut result).unwrap();
+    ops.convolution(&signal, &kernel, &mut result)
+        .expect("expected value");
 
     // n=0: signal[0]*kernel[0] = 1*0.5 = 0.5
     // n=1: signal[1]*kernel[0] + signal[0]*kernel[1] = 2*0.5 + 1*1.0 = 2.0

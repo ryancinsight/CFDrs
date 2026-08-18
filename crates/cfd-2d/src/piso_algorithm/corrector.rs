@@ -352,7 +352,7 @@ mod tests {
     use crate::grid::StructuredGrid2D;
 
     fn make_grid(n: usize) -> StructuredGrid2D<f64> {
-        StructuredGrid2D::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap()
+        StructuredGrid2D::new(n, n, 0.0, 1.0, 0.0, 1.0).expect("expected value")
     }
 
     #[test]

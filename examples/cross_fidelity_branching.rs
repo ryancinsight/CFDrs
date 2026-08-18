@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-Fidelity Branching Validation Example
 //!
 //! Uses `cfd-schematics` to compare solutions between `cfd-1d` (Hagen-Poiseuille)

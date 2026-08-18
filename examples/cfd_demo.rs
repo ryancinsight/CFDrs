@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! CFD demonstration example
 //!
 //! This example shows usage of the CFD library components.

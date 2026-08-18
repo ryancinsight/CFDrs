@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_3d::vof::{
     AdvectionMethod, CavitationVofConfig, CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };

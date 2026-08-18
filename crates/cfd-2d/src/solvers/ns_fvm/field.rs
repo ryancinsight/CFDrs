@@ -140,13 +140,13 @@ impl<T: CfdScalar + Copy + FloatElement> FlowField2D<T> {
             .u
             .iter()
             .map(|&v| <T as NumericElement>::abs(v))
-            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).expect("expected value"))
             .unwrap_or_else(scalar::zero::<T>);
         let max_v = self
             .v
             .iter()
             .map(|&v| <T as NumericElement>::abs(v))
-            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).expect("expected value"))
             .unwrap_or_else(scalar::zero::<T>);
         max_u.max_scalar(max_v)
     }

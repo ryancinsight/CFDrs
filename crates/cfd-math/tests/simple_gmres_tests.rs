@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Basic GMRES solver tests to validate core functionality
 
 use cfd_math::iterative::preconditioners::IdentityPreconditioner;

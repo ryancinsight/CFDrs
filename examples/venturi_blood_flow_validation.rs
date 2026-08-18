@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Venturi analytical-model validation with blood rheology.
 //!
 //! The Venturi calculations use the public cfd-2d Bernoulli and viscous-loss

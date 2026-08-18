@@ -1,3 +1,10 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless,
+    clippy::print_stderr
+)]
 //! Bubble Dynamics Solver — Rayleigh-Plesset Integration
 //!
 //! This module implements the single-bubble Rayleigh-Plesset ordinary
@@ -335,7 +342,7 @@ mod tests {
                 MassDensity::from_base(0.0),
                 Time::from_base(1.0e-7),
             )
-            .unwrap_err();
+            .expect_err("update_bubble should reject zero density");
         match err {
             Error::InvalidConfiguration(message) => {
                 assert!(message.contains("density"));
@@ -403,7 +410,7 @@ mod tests {
                 MassDensity::from_base(1000.0),
                 Time::from_base(1.0e-7),
             )
-            .unwrap();
+            .expect("expected value");
 
         assert_eq!(radius.into_base(), 0.0);
         assert_eq!(solver.radii[0], 0.0);

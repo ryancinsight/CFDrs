@@ -1,3 +1,5 @@
+#![allow(clippy::print_stdout)]
+#![allow(clippy::print_stderr)]
 //! Tests for the 2D Laplacian GPU kernel.
 
 use super::kernel::Laplacian2DKernel;

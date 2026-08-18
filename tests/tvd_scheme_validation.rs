@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! TVD/MUSCL Scheme Validation Tests
 //!
 //! This module validates the Total Variation Diminishing (TVD) schemes and

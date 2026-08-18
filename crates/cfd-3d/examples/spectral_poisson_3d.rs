@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! 3D Spectral Poisson Solver
 //!
 //! Demonstrates the spectral solver on a 3D Poisson problem with a known

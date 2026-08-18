@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmarks for preconditioner performance comparison
 
 use cfd_math::iterative::{IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, Preconditioner, SORPreconditioner, }};

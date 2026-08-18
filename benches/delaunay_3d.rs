@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Criterion benchmarks for 3D Delaunay tetrahedralization.
 //!
 //! Measures the Bowyer-Watson insertion throughput at increasing point counts

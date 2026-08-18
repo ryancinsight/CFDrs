@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_math::time_stepping::{IMEXTimeStepper, TimeMatrix, TimeState};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;
@@ -40,7 +42,7 @@ fn bench_imex_step(c: &mut Criterion) {
             b.iter(|| {
                 black_box(
                     imex.imex_step(f_explicit, f_implicit, jacobian_zero, t, &u0, dt)
-                        .unwrap(),
+                        .expect("expected value"),
                 )
             });
         });

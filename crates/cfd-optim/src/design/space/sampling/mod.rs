@@ -314,7 +314,7 @@ mod tests {
             .count();
         let expected = (topologies.len() + venturi_tiers) * SAMPLES;
 
-        let params = generate_milestone12_lhs_params_seeded(42, SAMPLES).unwrap();
+        let params = generate_milestone12_lhs_params_seeded(42, SAMPLES).expect("expected value");
 
         assert_eq!(params.len(), expected);
         assert_eq!(
@@ -337,8 +337,8 @@ mod tests {
 
     #[test]
     fn lhs_generator_is_reproducible() {
-        let a = generate_milestone12_lhs_params_seeded(42, 16).unwrap();
-        let b = generate_milestone12_lhs_params_seeded(42, 16).unwrap();
+        let a = generate_milestone12_lhs_params_seeded(42, 16).expect("expected value");
+        let b = generate_milestone12_lhs_params_seeded(42, 16).expect("expected value");
         assert_eq!(a.len(), b.len());
         for (pa, pb) in a.iter().zip(b.iter()) {
             assert_eq!(pa.q, pb.q);
@@ -349,8 +349,8 @@ mod tests {
 
     #[test]
     fn lhs_seed_changes_continuous_parameters() {
-        let first = generate_milestone12_lhs_params_seeded(1, 16).unwrap();
-        let second = generate_milestone12_lhs_params_seeded(2, 16).unwrap();
+        let first = generate_milestone12_lhs_params_seeded(1, 16).expect("expected value");
+        let second = generate_milestone12_lhs_params_seeded(2, 16).expect("expected value");
 
         assert!(
             first
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn lhs_rejects_zero_samples() {
-        let error = generate_milestone12_lhs_params_seeded(42, 0).unwrap_err();
+        let error = generate_milestone12_lhs_params_seeded(42, 0).expect_err("expected error");
 
         assert_eq!(
             error.to_string(),

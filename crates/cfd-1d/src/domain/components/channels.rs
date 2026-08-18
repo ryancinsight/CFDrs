@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_rectangular_channel_resistance_matches_formula() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let width = 1e-3;
         let height = 1e-3;
         let length = 0.1;
@@ -289,7 +289,7 @@ mod tests {
         );
         let expected = 0.05 * 1e-3 * 5e-4;
         assert_relative_eq!(
-            chan.volume().unwrap().into_base(),
+            chan.volume().expect("expected value").into_base(),
             expected,
             epsilon = 1e-20
         );
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_circular_channel_resistance_matches_hagen_poiseuille() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let d = 1e-3;
         let l = 0.1;
         let chan = CircularChannel::new(
@@ -333,7 +333,7 @@ mod tests {
         );
         let expected = l * std::f64::consts::PI * d * d / 4.0;
         assert_relative_eq!(
-            chan.volume().unwrap().into_base(),
+            chan.volume().expect("expected value").into_base(),
             expected,
             epsilon = 1e-15
         );

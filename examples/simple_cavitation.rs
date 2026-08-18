@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Simple Hydrodynamic Cavitation Analysis
 //!
 //! This example demonstrates basic hydrodynamic cavitation analysis

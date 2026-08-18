@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Memory usage profiling for CFD operations
 //!
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
@@ -162,7 +163,7 @@ impl MemoryProfiler {
 
     /// Start memory profiling session
     pub fn start_profiling(&self) {
-        let mut start_snapshot = self.start_snapshot.lock().unwrap();
+        let mut start_snapshot = self.start_snapshot.lock().expect("expected value");
         *start_snapshot = Some(self.get_stats());
     }
 
@@ -171,7 +172,7 @@ impl MemoryProfiler {
         let start_stats = self
             .start_snapshot
             .lock()
-            .unwrap()
+            .expect("expected value")
             .take()
             .unwrap_or_default();
 
@@ -373,10 +374,10 @@ impl CfdMemoryProfiler {
                 // Create and manipulate CFD-style matrices
                 let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(100, 100);
                 for i in 0..100 {
-                    builder.add_entry(i, i, 1.0).unwrap();
+                    builder.add_entry(i, i, 1.0).expect("expected value");
                 }
 
-                let matrix = builder.build().unwrap();
+                let matrix = builder.build().expect("expected value");
                 let vector = leto::Array1::from_elem([100], 1.0_f64);
                 let mut result = leto::Array1::from_elem([100], 0.0_f64);
 
@@ -397,8 +398,8 @@ impl CfdMemoryProfiler {
             .profile_closure(|| {
                 // Create multiple grids of different sizes
                 let grids = vec![
-                    StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).unwrap(),
-                    StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).unwrap(),
+                    StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
+                    StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
                 ];
 
                 // Perform grid operations
@@ -509,7 +510,7 @@ mod tests {
     #[test]
     fn test_cfd_memory_profiling() {
         let cfd_profiler = CfdMemoryProfiler::new();
-        let results = cfd_profiler.run_memory_suite().unwrap();
+        let results = cfd_profiler.run_memory_suite().expect("expected value");
 
         assert!(!results.is_empty());
         for (name, stats) in results {

@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::error::VisualizationError;
 use cfd_schematics::visualizations::plotters_backend::{

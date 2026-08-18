@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use aequitas::systems::si::quantities::{HydraulicResistance, Length, Pressure};
 use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;

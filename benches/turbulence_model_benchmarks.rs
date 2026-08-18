@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive turbulence model performance benchmarks
 //!
 //! Benchmarks CPU vs GPU performance across turbulence model hierarchy:

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_mesh::application::csg::boolean::{csg_boolean, BooleanOp};
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Disk, PrimitiveMesh};

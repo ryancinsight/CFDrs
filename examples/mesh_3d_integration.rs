@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Canonical blueprint-to-mesh integration example.
 
 use std::fs;

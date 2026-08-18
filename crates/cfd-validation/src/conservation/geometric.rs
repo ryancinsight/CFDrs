@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Geometric Conservation Law (GCL) tests for CFD schemes
 //!
 //! The Geometric Conservation Law requires that numerical schemes preserve
@@ -388,7 +389,7 @@ mod tests {
     #[test]
     fn test_euler_gcl_zero() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_euler_gcl(0.0).unwrap();
+        let result = checker.test_euler_gcl(0.0).expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["dt"], 0.01);
@@ -397,7 +398,7 @@ mod tests {
     #[test]
     fn test_euler_gcl_nonzero() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_euler_gcl(2.5).unwrap();
+        let result = checker.test_euler_gcl(2.5).expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["constant_value"], 2.5);
@@ -406,7 +407,9 @@ mod tests {
     #[test]
     fn test_rk4_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_runge_kutta_gcl(1.0, 4).unwrap();
+        let result = checker
+            .test_runge_kutta_gcl(1.0, 4)
+            .expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["stages"], 4.0);
@@ -415,14 +418,16 @@ mod tests {
     #[test]
     fn test_runge_kutta_rejects_unsupported_stage_count() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let err = checker.test_runge_kutta_gcl(1.0, 5).unwrap_err();
+        let err = checker
+            .test_runge_kutta_gcl(1.0, 5)
+            .expect_err("expected error for unsupported stage count");
         assert!(matches!(err, Error::UnsupportedOperation(_)));
     }
 
     #[test]
     fn test_spatial_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_spatial_gcl(3.14).unwrap();
+        let result = checker.test_spatial_gcl(3.14).expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["dx"], 0.1);
@@ -443,7 +448,9 @@ mod tests {
     #[test]
     fn test_comprehensive_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let results = checker.run_comprehensive_gcl_tests().unwrap();
+        let results = checker
+            .run_comprehensive_gcl_tests()
+            .expect("expected value");
         assert_eq!(results.len(), 12);
 
         for result in results {

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Performance benchmarks for critical CFD operations
 
 use cfd_2d::grid::StructuredGrid2D;

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_1d::domain::network::{Edge, EdgeType, NetworkBuilder, Node, NodeType};
 
 #[test]

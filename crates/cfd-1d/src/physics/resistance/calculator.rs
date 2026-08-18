@@ -421,7 +421,7 @@ mod tests {
         let dh = 2.0 * model.width * model.height / (model.width + model.height);
         let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
-        let velocity = conditions.velocity.unwrap();
+        let velocity = conditions.velocity.expect("expected value");
         let re = density * velocity * dh / viscosity;
         conditions.reynolds_number = Some(re);
 
@@ -524,7 +524,7 @@ mod tests {
         let dh = 2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6);
         let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
-        let velocity = conditions.velocity.unwrap();
+        let velocity = conditions.velocity.expect("expected value");
         let re = density * velocity * dh / viscosity;
         conditions.reynolds_number = Some(re);
 

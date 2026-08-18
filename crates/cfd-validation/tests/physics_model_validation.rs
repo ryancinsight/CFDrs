@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-model physics validation tests.
 //!
 //! These tests compare physics models from cfd-1d and cfd-2d against

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Demonstration of SIMPLEC and PIMPLE algorithms for pressure-velocity coupling
 //!
 //! This example shows how to use the advanced SIMPLEC and PIMPLE algorithms

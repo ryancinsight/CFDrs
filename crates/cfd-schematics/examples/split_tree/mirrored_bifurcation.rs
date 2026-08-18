@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::unnecessary_wraps)]
+
 use cfd_schematics::interface::presets::symmetric_bifurcation;
 
 #[path = "../shared/mod.rs"]

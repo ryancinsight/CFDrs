@@ -77,6 +77,10 @@ pub struct InletOutletConstraint;
 
 impl InletOutletConstraint {
     /// Check all inlet and outlet channels in `bp`.
+    ///
+    /// # Errors
+    /// Returns `Err` if any inlet or outlet channel has a hydraulic diameter
+    /// outside the required `4.0 mm ± 0.1 mm` range.
     pub fn check(bp: &NetworkBlueprint) -> Result<(), DiameterConstraintError> {
         for node in &bp.nodes {
             let node_kind = match node.kind {
@@ -165,6 +169,10 @@ pub struct WallClearanceConstraint;
 impl WallClearanceConstraint {
     /// Check that all `(x0, y0) → (x1, y1)` segments stay inside the SBS plate
     /// with the given clearance.
+    ///
+    /// # Errors
+    /// Returns `Err` if any segment falls outside the SBS plate boundary
+    /// minus the required clearance margin.
     #[allow(clippy::type_complexity)]
     pub fn check(
         segments: &[((Length<f64>, Length<f64>), (Length<f64>, Length<f64>))],
@@ -231,11 +239,13 @@ mod tests {
                 tolerance,
                 ..
             } => {
-                assert_eq!(actual.in_unit::<Millimeter>(), 2.0);
+                assert!((actual.in_unit::<Millimeter>() - 2.0).abs() < f64::EPSILON);
                 assert_eq!(expected, REQUIRED_HYDRAULIC_DIAMETER);
                 assert_eq!(tolerance, HYDRAULIC_DIAMETER_TOLERANCE);
             }
-            other => panic!("unexpected constraint error: {other}"),
+            DiameterConstraintError::IsolatedNode { .. } => {
+                panic!("unexpected constraint error: {error}")
+            }
         }
     }
 

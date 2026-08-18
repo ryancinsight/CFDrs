@@ -218,7 +218,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
     /// `R_slip = R_laminar / (1 + 4 · Kn · σ_v)`, `σ_v = 1`.
     fn slip_flow_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let r_laminar = self.laminar_resistance(fluid)?;
-        let kn = self.flow_state.knudsen_number.unwrap_or_else(|| T::ZERO);
+        let kn = self.flow_state.knudsen_number.unwrap_or(T::ZERO);
         let four = T::ONE + T::ONE + T::ONE + T::ONE;
         Ok(r_laminar / (T::ONE + four * kn))
     }
@@ -258,7 +258,7 @@ mod tests {
         let l: f64 = 0.01;
         let mu: f64 = 0.001;
         let chan = circular_channel(d, l);
-        let r = chan.laminar_resistance(&water()).unwrap();
+        let r = chan.laminar_resistance(&water()).expect("expected value");
         let r_hp = 128.0 * mu * l / (std::f64::consts::PI * d.powi(4));
         assert_relative_eq!(r, r_hp, max_relative = 1e-10);
     }
@@ -282,8 +282,8 @@ mod tests {
 
         let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length.into_base(), 1e-6)
             .calculate_resistance(&fluid, &conditions)
-            .unwrap();
-        let actual = chan.turbulent_resistance(&fluid).unwrap();
+            .expect("expected value");
+        let actual = chan.turbulent_resistance(&fluid).expect("expected value");
 
         assert_relative_eq!(actual, expected, max_relative = 1e-12, epsilon = 1e-12);
     }
@@ -292,8 +292,8 @@ mod tests {
     #[test]
     fn stokes_delegates_to_laminar() {
         let chan = circular_channel(1e-3, 0.01);
-        let r_stokes = chan.stokes_resistance(&water()).unwrap();
-        let r_laminar = chan.laminar_resistance(&water()).unwrap();
+        let r_stokes = chan.stokes_resistance(&water()).expect("expected value");
+        let r_laminar = chan.laminar_resistance(&water()).expect("expected value");
         assert_relative_eq!(r_stokes, r_laminar, max_relative = 1e-15);
     }
 
@@ -303,8 +303,8 @@ mod tests {
     fn slip_flow_reduces_resistance() {
         let mut chan = circular_channel(1e-3, 0.01);
         chan.flow_state.knudsen_number = Some(0.01);
-        let r_slip = chan.slip_flow_resistance(&water()).unwrap();
-        let r_laminar = chan.laminar_resistance(&water()).unwrap();
+        let r_slip = chan.slip_flow_resistance(&water()).expect("expected value");
+        let r_laminar = chan.laminar_resistance(&water()).expect("expected value");
         let expected = r_laminar / (1.0 + 4.0 * 0.01);
         assert_relative_eq!(r_slip, expected, max_relative = 1e-12);
     }
@@ -329,8 +329,8 @@ mod tests {
             aequitas::systems::si::quantities::ThermalConductivity::from_base(0.598),
             aequitas::systems::si::quantities::Velocity::from_base(1480.0),
         );
-        let r1 = chan.laminar_resistance(&water1).unwrap();
-        let r2 = chan.laminar_resistance(&water2).unwrap();
+        let r1 = chan.laminar_resistance(&water1).expect("expected value");
+        let r2 = chan.laminar_resistance(&water2).expect("expected value");
         assert_relative_eq!(r2 / r1, 3.0, max_relative = 1e-12);
     }
 }

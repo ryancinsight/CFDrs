@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Tests for analytical formula calculations
 //!
 //! These tests verify that the analytical solutions compute the expected values

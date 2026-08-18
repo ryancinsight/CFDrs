@@ -136,7 +136,7 @@ mod tests {
 
         let res = params
             .compute_steady_impedance(Length::from_base(root_r), DynamicViscosity::from_base(mu))
-            .unwrap()
+            .expect("expected value")
             .into_base();
 
         // Ensure result is > 0 and bounded
@@ -165,7 +165,7 @@ mod tests {
 
         let z_total = params
             .compute_steady_impedance(Length::from_base(root), DynamicViscosity::from_base(mu))
-            .unwrap()
+            .expect("expected value")
             .into_base();
 
         // Analytical construction:

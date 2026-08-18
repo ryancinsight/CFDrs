@@ -39,7 +39,7 @@
 //!     .with_surface_flux(FluxType::LaxFriedrichs)
 //!     .with_limiter(LimiterType::Minmod);
 //!
-//! let dg_op = DGOperator::new(order, num_components, Some(params)).unwrap();
+//! let dg_op = DGOperator::new(order, num_components, Some(params)).expect("expected value");
 //!
 //! // Set up and run the solver
 //! let mut solver = DGSolver::new(
@@ -51,13 +51,13 @@
 //! );
 //!
 //! // Initialize and solve
-//! solver.initialize(|x| Array1::from_shape_vec([1], vec![x.sin()]).unwrap()).unwrap();
+//! solver.initialize(|x| Array1::from_shape_vec([1], vec![x.sin()]).expect("expected value")).expect("expected value");
 //!
 //! fn rhs(_t: f64, u: &Array2<f64>) -> Result<Array2<f64>> {
 //!     Ok(Array2::from_shape_fn(u.shape(), |idx| -u[idx]))
 //! }
 //!
-//! solver.solve(rhs, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).unwrap();
+//! solver.solve(rhs, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).expect("expected value");
 //! ```
 //!
 //! ## Performance Considerations

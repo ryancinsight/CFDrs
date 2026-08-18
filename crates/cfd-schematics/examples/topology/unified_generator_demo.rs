@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::unnecessary_wraps)]
+
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig},
     geometry::{

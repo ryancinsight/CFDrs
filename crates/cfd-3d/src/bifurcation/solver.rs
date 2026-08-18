@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! 3D FEM Navier-Stokes solver for bifurcations with blood flow
 //!
 //! Solves the incompressible Navier-Stokes equations on 3D bifurcation domains
@@ -597,7 +598,7 @@ mod tests {
         config.mesh_resolution = 1;
         let solver = BifurcationSolver3D::new(geom, config);
 
-        let water = cfd_core::physics::fluid::water_20c::<f64>().unwrap();
+        let water = cfd_core::physics::fluid::water_20c::<f64>().expect("expected value");
         let result = solver.solve(water);
         assert!(result.is_err());
     }

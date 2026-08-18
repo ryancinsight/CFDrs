@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stderr)]
+#![allow(clippy::print_stdout)]
 //! JSON schematic → watertight 3-D mesh (STL + OpenFOAM).
 //!
 //! Reads any `InterchangeChannelSystem` JSON produced by `cfd-schematics`,
@@ -122,8 +125,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|ch| {
             let pts = ch.path.points();
-            let first = *pts.first().unwrap();
-            let last = *pts.last().unwrap();
+            let first = *pts.first().expect("expected value");
+            let last = *pts.last().expect("expected value");
             (first, last)
         })
         .collect();
@@ -145,8 +148,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  → sweeping channel {} …", channel_def.id);
 
         let pts = channel_def.path.points();
-        let first = *pts.first().unwrap();
-        let last = *pts.last().unwrap();
+        let first = *pts.first().expect("expected value");
+        let last = *pts.last().expect("expected value");
 
         // Only cap ends that are open ports (not shared with another channel).
         let cap_start = !is_junction(&first);
@@ -184,7 +187,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // N-ary union of all channel meshes in a single pass.
     let all_channels = if channel_meshes.len() == 1 {
-        channel_meshes.into_iter().next().unwrap()
+        channel_meshes.into_iter().next().expect("expected value")
     } else {
         csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
     };

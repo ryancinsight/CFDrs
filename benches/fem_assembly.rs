@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Criterion benchmarks for FEM stiffness matrix assembly.
 //!
 //! Exercises real `cfd-3d::fem` code paths: mesh construction via

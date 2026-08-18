@@ -191,7 +191,7 @@ pub(super) fn solve_pressure_correction_with_caches<
                 Vector2::zeros(),
             ));
         }
-        let velocity_field = vfc.as_mut().unwrap();
+        let velocity_field = vfc.as_mut().expect("expected value");
 
         let mut cvc = cons_vel_cache.borrow_mut();
         if cvc
@@ -200,7 +200,7 @@ pub(super) fn solve_pressure_correction_with_caches<
         {
             *cvc = Some(Array2D::new(grid.nx, grid.ny, Vector2::zeros()));
         }
-        let consistent_velocity = cvc.as_mut().unwrap();
+        let consistent_velocity = cvc.as_mut().expect("expected value");
 
         let mut ufc = u_face_cache.borrow_mut();
         if ufc
@@ -209,7 +209,7 @@ pub(super) fn solve_pressure_correction_with_caches<
         {
             *ufc = Some(Array2D::new(grid.nx - 1, grid.ny, scalar::zero()));
         }
-        let u_face = ufc.as_mut().unwrap();
+        let u_face = ufc.as_mut().expect("expected value");
 
         let mut vfc_out = v_face_cache.borrow_mut();
         if vfc_out
@@ -218,7 +218,7 @@ pub(super) fn solve_pressure_correction_with_caches<
         {
             *vfc_out = Some(Array2D::new(grid.nx, grid.ny - 1, scalar::zero()));
         }
-        let v_face = vfc_out.as_mut().unwrap();
+        let v_face = vfc_out.as_mut().expect("expected value");
 
         let mut dxc = d_x_cache.borrow_mut();
         if dxc
@@ -227,7 +227,7 @@ pub(super) fn solve_pressure_correction_with_caches<
         {
             *dxc = Some(Array2D::new(grid.nx - 1, grid.ny, scalar::zero()));
         }
-        let d_x = dxc.as_mut().unwrap();
+        let d_x = dxc.as_mut().expect("expected value");
 
         let mut dyc = d_y_cache.borrow_mut();
         if dyc
@@ -236,7 +236,7 @@ pub(super) fn solve_pressure_correction_with_caches<
         {
             *dyc = Some(Array2D::new(grid.nx, grid.ny - 1, scalar::zero()));
         }
-        let d_y = dyc.as_mut().unwrap();
+        let d_y = dyc.as_mut().expect("expected value");
 
         SimplecPimpleSolver::<T>::interpolate_consistent_velocity_impl(
             grid,

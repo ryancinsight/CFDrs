@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
+
 use cfd_math::time_stepping::runge_kutta::RungeKutta4;
 use cfd_math::time_stepping::traits::{TimeState, TimeStepper};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -29,7 +31,7 @@ fn rk4_benchmark(c: &mut Criterion) {
     c.bench_function("rk4_step_10k", |b| {
         b.iter(|| {
             rk4.step(black_box(f), black_box(t), black_box(&u0), black_box(dt))
-                .unwrap()
+                .expect("expected value")
         })
     });
 }

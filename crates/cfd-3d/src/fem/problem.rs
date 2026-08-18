@@ -262,7 +262,7 @@ mod tests {
     fn test_boundary_detection_single_tet() {
         // Single tetrahedron - all 4 vertices should be on boundary
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let boundary_conditions = HashMap::new();
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
@@ -278,7 +278,7 @@ mod tests {
         // Two tetrahedra sharing a face - shared vertices should still be boundary
         // because they are on external faces
         let mesh = create_two_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let boundary_conditions = HashMap::new();
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
@@ -302,7 +302,7 @@ mod tests {
         use cfd_mesh::domain::core::index::FaceId;
         mesh.mark_boundary(FaceId::from_usize(0), "inlet".to_string());
 
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let boundary_conditions = HashMap::new();
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
@@ -317,7 +317,7 @@ mod tests {
     fn test_validate_with_missing_boundary_conditions() {
         // Test validation catches missing boundary conditions
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let boundary_conditions = HashMap::new(); // Empty - no BCs defined
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
@@ -336,7 +336,7 @@ mod tests {
     fn test_validate_with_complete_boundary_conditions() {
         // Test validation passes when all boundary nodes have BCs
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
 
         // Add BCs for all 4 boundary nodes (simple Dirichlet)
         let mut boundary_conditions = HashMap::new();
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_invalid_pressure_space() {
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let mut boundary_conditions = HashMap::new();
         for i in 0..4 {
             boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
@@ -407,7 +407,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_nonfinite_boundary_data() {
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let mut boundary_conditions = HashMap::new();
         for i in 0..4 {
             boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn test_validate_rejects_invalid_element_viscosity_field() {
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let mut boundary_conditions = HashMap::new();
         for i in 0..4 {
             boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
@@ -456,7 +456,7 @@ mod tests {
     fn test_boundary_nodes_sorted() {
         // Test that boundary nodes are returned in sorted order
         let mesh = create_test_tet_mesh();
-        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("expected value");
         let boundary_conditions = HashMap::new();
 
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);

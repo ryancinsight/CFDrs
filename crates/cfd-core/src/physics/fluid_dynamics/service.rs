@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Fluid dynamics service following Domain Service pattern
 //!
 //! This service coordinates complex fluid mechanics operations and

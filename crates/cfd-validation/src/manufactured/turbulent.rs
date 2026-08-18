@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Manufactured solutions for turbulent flow validation
 //!
 //! Implements manufactured solutions for turbulent Navier-Stokes equations

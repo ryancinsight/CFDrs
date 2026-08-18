@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Turbulent Channel Flow Simulation with k-ω SST Model
 //!
 //! This example demonstrates the k-ω SST turbulence model for turbulent channel flow,

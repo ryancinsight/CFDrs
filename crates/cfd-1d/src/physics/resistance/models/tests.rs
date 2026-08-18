@@ -19,17 +19,16 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
     let model = HagenPoiseuilleModel::new(0.01f64, 1.0f64);
     let cond = FlowConditions::new(0.0f64);
 
-    let r = model.calculate_resistance(&fluid, &cond).unwrap();
+    let r = model
+        .calculate_resistance(&fluid, &cond)
+        .expect("expected value");
     // R = 128 μ L / (π D^4)
     let expected =
         128.0f64 * fluid.viscosity.into_base() * 1.0f64 / (std::f64::consts::PI * 0.01f64.powi(4));
     let rel_err = (r - expected).abs() / expected.abs();
     assert!(
         rel_err < 1e-12,
-        "Hagen-Poiseuille resistance mismatch: r={} expected={} rel_err={}",
-        r,
-        expected,
-        rel_err
+        "Hagen-Poiseuille resistance mismatch: r={r} expected={expected} rel_err={rel_err}"
     );
 }
 
@@ -48,7 +47,9 @@ fn test_darcy_weisbach_laminar_limit_friction_factor() {
     let mut cond = FlowConditions::new(0.0f64);
     cond.reynolds_number = Some(1000.0f64);
 
-    let r = model.calculate_resistance(&fluid, &cond).unwrap();
+    let r = model
+        .calculate_resistance(&fluid, &cond)
+        .expect("expected value");
     let area = std::f64::consts::PI * (0.01f64.powi(2)) / 4.0f64;
     // Darcy-Weisbach with f=64/Re and Re=rho*V*D/mu reduces to
     // R = 32*mu*L/(A*D^2), the linear laminar resistance.
@@ -56,9 +57,6 @@ fn test_darcy_weisbach_laminar_limit_friction_factor() {
     let rel_err = (r - expected).abs() / expected.abs();
     assert!(
         rel_err < 1e-3,
-        "Darcy-Weisbach laminar limit mismatch: r={} expected={} rel_err={}",
-        r,
-        expected,
-        rel_err
+        "Darcy-Weisbach laminar limit mismatch: r={r} expected={expected} rel_err={rel_err}"
     );
 }

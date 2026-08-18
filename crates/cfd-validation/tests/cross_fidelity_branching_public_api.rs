@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-fidelity validation: public cfd-1d branching API vs 2D junction solvers.
 //!
 //! These tests close a remaining phase-1 gap: existing branching validations

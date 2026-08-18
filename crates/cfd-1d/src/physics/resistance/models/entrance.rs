@@ -384,7 +384,7 @@ mod tests {
     use eunomia::assert_relative_eq;
 
     fn water() -> impl FluidTrait<f64> {
-        cfd_core::physics::fluid::database::water_20c::<f64>().unwrap()
+        cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value")
     }
 
     // ─── Dimensional correctness ─────────────────────────────────────────

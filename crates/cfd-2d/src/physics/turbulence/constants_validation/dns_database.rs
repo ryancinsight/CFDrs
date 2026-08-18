@@ -138,8 +138,8 @@ impl DnsChannelFlowDatabase {
         if y_plus <= profile[0].0 {
             return profile[0].1;
         }
-        if y_plus >= profile.last().unwrap().0 {
-            return profile.last().unwrap().1;
+        if y_plus >= profile.last().expect("expected value").0 {
+            return profile.last().expect("expected value").1;
         }
 
         for i in 0..profile.len() - 1 {
@@ -149,6 +149,6 @@ impl DnsChannelFlowDatabase {
                 return v1 + (v2 - v1) * (y_plus - y1) / (y2 - y1);
             }
         }
-        profile.last().unwrap().1
+        profile.last().expect("expected value").1
     }
 }

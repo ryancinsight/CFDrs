@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Canonical schematic export example.
 //!
 //! The historical example name is retained for compatibility, but the

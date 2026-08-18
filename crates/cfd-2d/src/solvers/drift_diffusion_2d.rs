@@ -220,7 +220,7 @@ mod tests {
 
         let iters = drift_solver
             .solve(&grid, &flow, &drift, &config, &inlet_c)
-            .unwrap();
+            .expect("expected value");
         assert!(iters > 0);
 
         // Verify concentration is strictly bound between 0 and a maximum pile-up.

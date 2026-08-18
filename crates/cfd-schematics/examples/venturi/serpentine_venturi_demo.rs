@@ -1,3 +1,11 @@
+#![allow(
+    clippy::print_stdout,
+    missing_docs,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args,
+    clippy::doc_markdown,
+    clippy::unnecessary_wraps
+)]
 //! Serpentine-with-Venturi Demonstration
 //!
 //! Demonstrates the `serpentine_venturi_rect` preset which places venturi

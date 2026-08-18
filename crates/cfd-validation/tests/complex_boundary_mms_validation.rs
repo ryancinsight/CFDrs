@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! MMS validation for complex boundary conditions
 //!
 //! Tests manufactured solutions with mixed boundary condition types
@@ -24,7 +26,7 @@ fn y_at<T: RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, j: usize
 fn test_mixed_boundary_condition_set() {
     let nx = 32;
     let ny = 32;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
     assert_eq!(grid.nx, nx);
 
     // Set up mixed boundary conditions
@@ -67,7 +69,7 @@ fn test_mixed_boundary_condition_set() {
 fn test_robin_boundary_conditions() {
     let nx = 32;
     let ny = 32;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
     assert_eq!(grid.nx, nx);
 
     // Set up Robin boundary conditions
@@ -105,7 +107,7 @@ fn test_robin_boundary_conditions() {
 fn test_periodic_boundary_conditions() {
     let nx = 32;
     let ny = 32;
-    let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     // Set up periodic boundary conditions
     let mut bc_set = BoundaryConditionSet::<f64>::new();
@@ -149,7 +151,7 @@ fn test_periodic_boundary_conditions() {
 fn test_pressure_driven_flow_boundaries() {
     let nx = 32;
     let ny = 32;
-    let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     // Set up pressure-driven flow boundaries
     let mut bc_set = BoundaryConditionSet::<f64>::new();
@@ -202,7 +204,7 @@ fn test_taylor_green_evaluation() {
     let tg = TaylorGreenManufactured::new(0.01);
     let nx = 16;
     let ny = 16;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     // Verify Taylor-Green can evaluate at all grid points
     for i in 0..nx {
@@ -252,7 +254,7 @@ fn test_manufactured_diffusion_evaluation() {
     let mms = ManufacturedDiffusion::<f64>::new(1.0);
     let nx = 16;
     let ny = 16;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("expected value");
 
     // Verify MMS can evaluate at all grid points
     for i in 0..nx {

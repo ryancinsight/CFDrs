@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Milestone 12 multi-fidelity venturi validation.
 
 use cfd_optim::{

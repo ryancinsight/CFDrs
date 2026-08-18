@@ -1,3 +1,9 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
 //! Tetrahedral mesh utility functions for FEM element assembly.
 //!
 //! Provides vertex-index extraction (P1 and P2 variants), corner ordering

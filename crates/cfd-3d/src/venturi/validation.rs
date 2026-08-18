@@ -1,3 +1,10 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
+#![allow(clippy::map_unwrap_or)]
 //! Validation tools for 3D Venturi meter simulations
 //!
 //! Provides mesh convergence studies, error metrics, and validation against
@@ -234,7 +241,7 @@ mod tests {
 
         let solution = solver.solve(fluid).expect("Solver failed");
 
-        let fluid_props = fluid.properties_at(310.0, 100.0).unwrap();
+        let fluid_props = fluid.properties_at(310.0, 100.0).expect("expected value");
         let validator = VenturiValidator3D::new(builder);
         let result = validator
             .validate_flow(&solution, &config, fluid_props.density.into_base())

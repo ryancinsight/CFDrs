@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Comprehensive Fourier transform validation tests
 //!
 //! Validates spectral methods per Canuto et al. (2006) and Boyd (2001)
@@ -41,7 +42,7 @@ fn set_value<T>(array: &mut Array1<T>, index: usize, value: T) {
 #[test]
 fn test_fourier_transform_identity() {
     let n = 16;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
 
     let test_signals = vec![
         Array1::from_elem([n], 1.0),
@@ -57,8 +58,8 @@ fn test_fourier_transform_identity() {
     ];
 
     for u in test_signals {
-        let u_hat = transform.forward(&u).unwrap();
-        let u_reconstructed = transform.inverse(&u_hat).unwrap();
+        let u_hat = transform.forward(&u).expect("expected value");
+        let u_reconstructed = transform.inverse(&u_hat).expect("expected value");
 
         for i in 0..n {
             assert_relative_eq!(value(&u, i), value(&u_reconstructed, i), epsilon = 1e-12);
@@ -71,7 +72,7 @@ fn test_fourier_transform_identity() {
 #[test]
 fn test_fourier_transform_f32_instantiation() {
     let n = 16;
-    let transform = FourierTransform::<f32>::new(n).unwrap();
+    let transform = FourierTransform::<f32>::new(n).expect("expected value");
     let pi = std::f32::consts::PI;
     let u = array_from_iter(
         n,
@@ -81,8 +82,8 @@ fn test_fourier_transform_f32_instantiation() {
         }),
     );
 
-    let u_hat = transform.forward(&u).unwrap();
-    let u_reconstructed = transform.inverse(&u_hat).unwrap();
+    let u_hat = transform.forward(&u).expect("expected value");
+    let u_reconstructed = transform.inverse(&u_hat).expect("expected value");
 
     for i in 0..n {
         assert_relative_eq!(value(&u, i), value(&u_reconstructed, i), epsilon = 2e-5);
@@ -94,7 +95,7 @@ fn test_fourier_transform_f32_instantiation() {
 #[test]
 fn test_parsevals_theorem() {
     let n = 32;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -104,7 +105,7 @@ fn test_parsevals_theorem() {
         }),
     );
 
-    let u_hat = transform.forward(&u).unwrap();
+    let u_hat = transform.forward(&u).expect("expected value");
 
     let energy_physical: f64 = u.iter().map(|&x| x * x).sum();
     let energy_spectral: f64 = u_hat.iter().map(|c| c.norm_sqr()).sum();
@@ -116,7 +117,7 @@ fn test_parsevals_theorem() {
 #[test]
 fn test_wavenumber_ordering() {
     let n = 8;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
     let wavenumbers = transform.wavenumbers();
     let expected = [0.0, 1.0, 2.0, 3.0, 4.0, -3.0, -2.0, -1.0];
 
@@ -130,11 +131,11 @@ fn test_wavenumber_ordering() {
 #[test]
 fn test_fourier_transform_minimal_size() {
     let n = 2;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
 
     let u = array_from_vec(vec![1.0, -1.0]);
-    let u_hat = transform.forward(&u).unwrap();
-    let u_reconstructed = transform.inverse(&u_hat).unwrap();
+    let u_hat = transform.forward(&u).expect("expected value");
+    let u_reconstructed = transform.inverse(&u_hat).expect("expected value");
 
     for i in 0..n {
         assert_relative_eq!(value(&u, i), value(&u_reconstructed, i), epsilon = 1e-14);
@@ -150,11 +151,11 @@ fn test_fourier_transform_minimal_size() {
 #[test]
 fn test_fourier_transform_odd_size() {
     let n = 3;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
 
     let u = array_from_vec(vec![1.0, 2.0, 3.0]);
-    let u_hat = transform.forward(&u).unwrap();
-    let u_reconstructed = transform.inverse(&u_hat).unwrap();
+    let u_hat = transform.forward(&u).expect("expected value");
+    let u_reconstructed = transform.inverse(&u_hat).expect("expected value");
 
     for i in 0..n {
         assert_relative_eq!(value(&u, i), value(&u_reconstructed, i), epsilon = 1e-13);
@@ -166,7 +167,7 @@ fn test_fourier_transform_odd_size() {
 fn test_spectral_derivative_cosine() {
     let n = 32;
     let k = 2.0;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -176,7 +177,7 @@ fn test_spectral_derivative_cosine() {
         }),
     );
 
-    let du_dx = derivative.derivative(&u, 1).unwrap();
+    let du_dx = derivative.derivative(&u, 1).expect("expected value");
 
     for i in 0..n {
         let x = 2.0 * PI * i as f64 / n as f64;
@@ -190,7 +191,7 @@ fn test_spectral_derivative_cosine() {
 fn test_spectral_derivative_trigonometric() {
     let n = 64;
     let k = 3.0;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -200,7 +201,7 @@ fn test_spectral_derivative_trigonometric() {
         }),
     );
 
-    let d2u_dx2 = derivative.derivative(&u, 2).unwrap();
+    let d2u_dx2 = derivative.derivative(&u, 2).expect("expected value");
 
     for i in 0..n {
         let x = 2.0 * PI * i as f64 / n as f64;
@@ -213,10 +214,10 @@ fn test_spectral_derivative_trigonometric() {
 #[test]
 fn test_spectral_derivative_constant() {
     let n = 16;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = Array1::from_elem([n], 5.0);
-    let du_dx = derivative.derivative(&u, 1).unwrap();
+    let du_dx = derivative.derivative(&u, 1).expect("expected value");
 
     for i in 0..n {
         assert_relative_eq!(value(&du_dx, i), 0.0, epsilon = 1e-13);
@@ -227,10 +228,10 @@ fn test_spectral_derivative_constant() {
 #[test]
 fn test_spectral_derivative_linear() {
     let n = 32;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(n, (0..n).map(|i| i as f64));
-    let du_dx = derivative.derivative(&u, 1).unwrap();
+    let du_dx = derivative.derivative(&u, 1).expect("expected value");
     let mean_derivative: f64 = du_dx.iter().sum::<f64>() / n as f64;
 
     assert!(mean_derivative.is_finite());
@@ -240,7 +241,7 @@ fn test_spectral_derivative_linear() {
 #[test]
 fn test_high_order_derivative_stability() {
     let n = 64;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -251,7 +252,7 @@ fn test_high_order_derivative_stability() {
     );
 
     for order in 1..=4 {
-        let du = derivative.derivative(&u, order).unwrap();
+        let du = derivative.derivative(&u, order).expect("expected value");
 
         for i in 0..n {
             let derivative_value = value(&du, i);
@@ -274,7 +275,7 @@ fn test_high_order_derivative_stability() {
 #[test]
 fn test_fourier_symmetry_real_signal() {
     let n = 16;
-    let transform = FourierTransform::<f64>::new(n).unwrap();
+    let transform = FourierTransform::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -284,7 +285,7 @@ fn test_fourier_symmetry_real_signal() {
         }),
     );
 
-    let u_hat = transform.forward(&u).unwrap();
+    let u_hat = transform.forward(&u).expect("expected value");
 
     for k in 1..n / 2 {
         let uk = value(&u_hat, k);
@@ -301,7 +302,7 @@ fn test_spectral_vs_finite_difference() {
     let n = 32;
     let l = 2.0 * PI;
     let dx = l / n as f64;
-    let derivative = SpectralDerivative::<f64>::new(n).unwrap();
+    let derivative = SpectralDerivative::<f64>::new(n).expect("expected value");
 
     let u = array_from_iter(
         n,
@@ -311,7 +312,7 @@ fn test_spectral_vs_finite_difference() {
         }),
     );
 
-    let du_spectral = derivative.derivative(&u, 1).unwrap();
+    let du_spectral = derivative.derivative(&u, 1).expect("expected value");
 
     let mut du_fd = Array1::zeros([n]);
     for i in 0..n {

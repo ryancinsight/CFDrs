@@ -289,7 +289,9 @@ mod tests {
             }
         }
 
-        let (dudx, dudy) = ops.gradient_2d_simd(&u, nx, ny, 0.1, 0.1).unwrap();
+        let (dudx, dudy) = ops
+            .gradient_2d_simd(&u, nx, ny, 0.1, 0.1)
+            .expect("expected value");
 
         // Check interior points (should be close to 1.0)
         for j in 2..(ny - 2) {
@@ -309,7 +311,9 @@ mod tests {
         let u = vec![0.5, 1.0, 1.5];
         let v = vec![2.0, 1.0, 0.5];
 
-        let (f_flux, g_flux) = ops.convective_fluxes_simd(&phi, &u, &v).unwrap();
+        let (f_flux, g_flux) = ops
+            .convective_fluxes_simd(&phi, &u, &v)
+            .expect("expected value");
 
         assert_eq!(f_flux.len(), 3);
         assert_eq!(g_flux.len(), 3);

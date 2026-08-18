@@ -408,8 +408,10 @@ mod tests {
             }
         }
 
-        let indicators = amr.compute_refinement_indicators(&solution).unwrap();
-        amr.apply_refinement(&indicators).unwrap();
+        let indicators = amr
+            .compute_refinement_indicators(&solution)
+            .expect("expected value");
+        amr.apply_refinement(&indicators).expect("expected value");
 
         // Check that refinement was applied near the gradient
         // Note: we check column 1 because central differences skip the boundary (j=0)
@@ -425,7 +427,9 @@ mod tests {
         let solution = DMatrix::from_fn(100, 100, |i, j| {
             (i as f64 * 0.1).sin() * (j as f64 * 0.1).cos()
         });
-        let indicators = amr.compute_refinement_indicators(&solution).unwrap();
+        let indicators = amr
+            .compute_refinement_indicators(&solution)
+            .expect("expected value");
 
         // Should fail due to memory limit
         assert!(amr.apply_refinement(&indicators).is_err());

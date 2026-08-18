@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmark validation tests for CFD benchmark problems
 //!
 //! Tests the validation logic for standard CFD benchmarks:
@@ -22,7 +23,7 @@ fn test_backward_facing_step_reference_solution() {
     let reference = step.reference_solution();
     assert!(reference.is_some(), "Reference solution should exist");
 
-    let reference = reference.unwrap();
+    let reference = reference.expect("expected value");
     assert_eq!(reference.name, "Backward Facing Step (Reference)");
     assert_eq!(
         reference.values.len(),
@@ -87,7 +88,7 @@ fn test_backward_facing_step_validation_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        step.validate(&result_low).unwrap(),
+        step.validate(&result_low).expect("expected value"),
         "Value just inside lower tolerance should pass"
     );
 
@@ -102,7 +103,7 @@ fn test_backward_facing_step_validation_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        step.validate(&result_high).unwrap(),
+        step.validate(&result_high).expect("expected value"),
         "Value just inside upper tolerance should pass"
     );
 
@@ -117,7 +118,7 @@ fn test_backward_facing_step_validation_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        !step.validate(&result_too_high).unwrap(),
+        !step.validate(&result_too_high).expect("expected value"),
         "Value outside tolerance should fail"
     );
 }
@@ -137,7 +138,7 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = step.validate(&result).unwrap();
+    let is_valid = step.validate(&result).expect("expected value");
     assert!(
         !is_valid,
         "Result without convergence should fail validation"
@@ -159,7 +160,7 @@ fn test_backward_facing_step_validation_failure_unphysical() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = step.validate(&result).unwrap();
+    let is_valid = step.validate(&result).expect("expected value");
     assert!(!is_valid, "Unphysical result should fail validation");
 }
 
@@ -176,7 +177,7 @@ fn test_flow_over_cylinder_reference_solution() {
     let reference = cylinder.reference_solution();
     assert!(reference.is_some(), "Reference solution should exist");
 
-    let reference = reference.unwrap();
+    let reference = reference.expect("expected value");
     assert_eq!(
         reference.name,
         "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)"
@@ -246,7 +247,7 @@ fn test_flow_over_cylinder_validation_cd_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        cylinder.validate(&result_low).unwrap(),
+        cylinder.validate(&result_low).expect("expected value"),
         "Cd just inside lower tolerance should pass"
     );
 
@@ -261,7 +262,7 @@ fn test_flow_over_cylinder_validation_cd_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        !cylinder.validate(&result_too_low).unwrap(),
+        !cylinder.validate(&result_too_low).expect("expected value"),
         "Cd outside lower tolerance should fail"
     );
 }
@@ -281,7 +282,7 @@ fn test_flow_over_cylinder_validation_cl_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        cylinder.validate(&result_good_cl).unwrap(),
+        cylinder.validate(&result_good_cl).expect("expected value"),
         "Small Cl should pass validation"
     );
 
@@ -296,7 +297,7 @@ fn test_flow_over_cylinder_validation_cl_tolerance() {
         metadata: std::collections::HashMap::new(),
     };
     assert!(
-        !cylinder.validate(&result_bad_cl).unwrap(),
+        !cylinder.validate(&result_bad_cl).expect("expected value"),
         "Large Cl should fail validation"
     );
 }
@@ -316,7 +317,7 @@ fn test_flow_over_cylinder_validation_failure_no_convergence() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = cylinder.validate(&result).unwrap();
+    let is_valid = cylinder.validate(&result).expect("expected value");
     assert!(
         !is_valid,
         "Result without convergence should fail validation"
@@ -338,7 +339,7 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cd() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = cylinder.validate(&result).unwrap();
+    let is_valid = cylinder.validate(&result).expect("expected value");
     assert!(
         !is_valid,
         "Unphysical drag coefficient should fail validation"
@@ -360,7 +361,7 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cl() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = cylinder.validate(&result).unwrap();
+    let is_valid = cylinder.validate(&result).expect("expected value");
     assert!(
         !is_valid,
         "Unphysical lift coefficient should fail validation"
@@ -390,7 +391,7 @@ fn test_benchmark_run_integration() {
     let result = step.run(&config);
     assert!(result.is_ok(), "Benchmark should run without error");
 
-    let result = result.unwrap();
+    let result = result.expect("expected value");
 
     // Check that result has expected structure
     assert!(!result.values.is_empty(), "Should have reattachment length");

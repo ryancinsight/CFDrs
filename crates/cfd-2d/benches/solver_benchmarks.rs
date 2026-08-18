@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use cfd_2d::{
     grid::StructuredGrid2D,
     network::{solve_reference_trace, Network2dBuilderSink},
@@ -15,7 +16,7 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
     let mut group = c.benchmark_group("lbm_solver");
 
     for size in [32, 64, 128].iter() {
-        let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let config = LbmConfig::default();
         let mut solver = LbmSolver::new(config, &grid);
 
@@ -25,12 +26,12 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
                 |_x: f64, _y: f64| 1.0,
                 |_x: f64, _y: f64| Vector2::new(0.0, 0.0),
             )
-            .unwrap();
+            .expect("expected value");
 
         group.bench_with_input(BenchmarkId::new("step", size), size, |b, _| {
             b.iter(|| {
                 let boundaries = HashMap::new();
-                let _: () = solver.step(&boundaries).unwrap();
+                let _: () = solver.step(&boundaries).expect("expected value");
                 black_box(())
             })
         });
@@ -47,7 +48,12 @@ fn benchmark_grid_creation(c: &mut Criterion) {
             BenchmarkId::new("structured_grid", size),
             size,
             |b, &size| {
-                b.iter(|| black_box(StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap()))
+                b.iter(|| {
+                    black_box(
+                        StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0)
+                            .expect("expected value"),
+                    )
+                })
             },
         );
     }

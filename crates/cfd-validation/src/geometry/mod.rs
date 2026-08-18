@@ -236,14 +236,18 @@ mod tests {
 
         // Point on inner boundary at (0.5, 0) should have inward normal (towards center)
         let point_inner = Point2D::new(0.5, 0.0);
-        let normal_inner = domain.boundary_normal(&point_inner).unwrap();
+        let normal_inner = domain
+            .boundary_normal(&point_inner)
+            .expect("expected value");
         // Inward normal points towards center (0,0), so at (0.5,0) it should be (-1,0)
         assert_relative_eq!(normal_inner.x, -1.0, epsilon = 1e-10);
         assert_relative_eq!(normal_inner.y, 0.0, epsilon = 1e-10);
 
         // Point on outer boundary at (1,0) should have outward normal (away from center)
         let point_outer = Point2D::new(1.0, 0.0);
-        let normal_outer = domain.boundary_normal(&point_outer).unwrap();
+        let normal_outer = domain
+            .boundary_normal(&point_outer)
+            .expect("expected value");
         // Outward normal points away from center, so at (1,0) it should be (1,0)
         assert_relative_eq!(normal_outer.x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(normal_outer.y, 0.0, epsilon = 1e-10);

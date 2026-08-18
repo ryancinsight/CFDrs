@@ -1,3 +1,10 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
+#![allow(clippy::comparison_chain)]
 //! Interface reconstruction methods for VOF
 //!
 //! # Theorem — PLIC Volume Conservation (Youngs 1982, Scardovelli & Zaleski 2000)

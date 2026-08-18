@@ -52,7 +52,7 @@ fn matrix_builder_dirichlet_column_elimination_updates_leto_rhs() -> Result<()> 
     ])?;
     builder.set_dirichlet_row(1, 10.0, 7.0);
 
-    let mut rhs = Array1::from_shape_vec([3], vec![1.0, 70.0, 3.0]).unwrap();
+    let mut rhs = Array1::from_shape_vec([3], vec![1.0, 70.0, 3.0]).expect("expected value");
     let matrix = builder.build_with_rhs(&mut rhs)?;
 
     assert_eq!(rhs[0], -13.0);
@@ -148,7 +148,7 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
         3,
         3,
     )
-    .unwrap();
+    .expect("expected value");
 
     assert_relative_eq!(
         SparseMatrixExt::condition_estimate(&matrix)?,
@@ -161,13 +161,13 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
 
     SparseMatrixExt::scale_rows(
         &mut matrix,
-        &Array1::from_shape_vec([3], vec![2.0, 3.0, 4.0]).unwrap(),
+        &Array1::from_shape_vec([3], vec![2.0, 3.0, 4.0]).expect("expected value"),
     )?;
     assert_eq!(matrix.values(), &[4.0, -1.0, 7.5, 3.0, -4.0, 12.0]);
 
     SparseMatrixExt::scale_columns(
         &mut matrix,
-        &Array1::from_shape_vec([3], vec![10.0, 20.0, 30.0]).unwrap(),
+        &Array1::from_shape_vec([3], vec![10.0, 20.0, 30.0]).expect("expected value"),
     )?;
     assert_eq!(matrix.values(), &[40.0, -30.0, 150.0, 30.0, -80.0, 360.0]);
     assert_eq!(matrix.row_ptr(), &[0, 2, 3, 6]);
@@ -175,17 +175,17 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
 
     assert!(SparseMatrixExt::scale_rows(
         &mut matrix,
-        &Array1::from_shape_vec([2], vec![1.0, 2.0]).unwrap(),
+        &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
     )
     .is_err());
     assert!(SparseMatrixExt::scale_columns(
         &mut matrix,
-        &Array1::from_shape_vec([2], vec![1.0, 2.0]).unwrap(),
+        &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
     )
     .is_err());
 
-    let rectangular =
-        CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3).unwrap();
+    let rectangular = CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3)
+        .expect("expected value");
     assert!(SparseMatrixExt::condition_estimate(&rectangular).is_err());
 
     Ok(())
@@ -203,10 +203,10 @@ fn test_spmv_basic() {
     let row_offsets = vec![0, 2, 3, 5];
     let col_indices = vec![0, 2, 1, 0, 2];
     let values = vec![2.0f64, 1.0, 3.0, 1.0, 2.0];
-    let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).unwrap();
+    let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).expect("expected value");
 
     // Test with x = [1, 2, 3]
-    let x = Array1::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+    let x = Array1::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
     let mut y = Array1::zeros([3]);
 
     spmv(&a, &x, &mut y);
@@ -216,7 +216,7 @@ fn test_spmv_basic() {
     assert_relative_eq!(y[1], 6.0, epsilon = 1e-10);
     assert_relative_eq!(y[2], 7.0, epsilon = 1e-10);
 
-    let bad_x = Array1::from_shape_vec([2], vec![1.0, 2.0]).unwrap();
+    let bad_x = Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value");
     assert!(try_spmv(&a, &bad_x, &mut y).is_err());
 }
 
@@ -228,8 +228,8 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
     // A =
     // [ 2  0 -1 ]
     // [ 0  3  0 ]
-    let a =
-        CsrMatrix::from_parts(vec![2.0f64, -1.0, 3.0], vec![0, 2, 1], vec![0, 2, 3], 2, 3).unwrap();
+    let a = CsrMatrix::from_parts(vec![2.0f64, -1.0, 3.0], vec![0, 2, 1], vec![0, 2, 3], 2, 3)
+        .expect("expected value");
 
     // B =
     // [ 0  4 ]
@@ -242,9 +242,9 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
         3,
         2,
     )
-    .unwrap();
+    .expect("expected value");
 
-    let product = try_sparse_sparse_mul(&a, &b).unwrap();
+    let product = try_sparse_sparse_mul(&a, &b).expect("expected value");
 
     assert_eq!(product.nrows(), 2);
     assert_eq!(product.ncols(), 2);
@@ -254,7 +254,8 @@ fn test_sparse_sparse_mul_uses_leto_provider() {
     assert_relative_eq!(product.values()[1], 1.0, epsilon = 1e-12);
     assert_relative_eq!(product.values()[2], 15.0, epsilon = 1e-12);
 
-    let mismatched = CsrMatrix::from_parts(vec![], vec![], vec![0, 0, 0, 0, 0], 4, 1).unwrap();
+    let mismatched =
+        CsrMatrix::from_parts(vec![], vec![], vec![0, 0, 0, 0, 0], 4, 1).expect("expected value");
     assert!(try_sparse_sparse_mul(&a, &mismatched).is_err());
 }
 
@@ -270,9 +271,9 @@ fn test_sparse_transpose_uses_leto_provider() {
         3,
         4,
     )
-    .unwrap();
+    .expect("expected value");
 
-    let transposed = try_sparse_transpose(&matrix).unwrap();
+    let transposed = try_sparse_transpose(&matrix).expect("expected value");
 
     assert_eq!(transposed.nrows(), 4);
     assert_eq!(transposed.ncols(), 3);
@@ -284,7 +285,7 @@ fn test_sparse_transpose_uses_leto_provider() {
     assert_relative_eq!(transposed.values()[3], 5.0, epsilon = 1e-12);
     assert_relative_eq!(transposed.values()[4], 2.0, epsilon = 1e-12);
 
-    let round_trip = try_sparse_transpose(&transposed).unwrap();
+    let round_trip = try_sparse_transpose(&transposed).expect("expected value");
     assert_eq!(round_trip.row_ptr(), matrix.row_ptr());
     assert_eq!(round_trip.col_indices(), matrix.col_indices());
     assert_eq!(round_trip.values(), matrix.values());
@@ -302,10 +303,10 @@ fn test_spmv_infallible_and_fallible_entry_points_agree() {
     let row_offsets = vec![0, 2, 3, 5];
     let col_indices = vec![0, 2, 1, 0, 2];
     let values = vec![2.0f64, 1.0, 3.0, 1.0, 2.0];
-    let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).unwrap();
+    let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).expect("expected value");
 
     // Test with x = [1, 2, 3]
-    let x = Array1::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+    let x = Array1::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
 
     // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([3]);
@@ -313,7 +314,7 @@ fn test_spmv_infallible_and_fallible_entry_points_agree() {
 
     // Compute through the fallible entry point.
     let mut y_fallible = Array1::zeros([3]);
-    try_spmv(&a, &x, &mut y_fallible).unwrap();
+    try_spmv(&a, &x, &mut y_fallible).expect("expected value");
 
     // Expected: [2*1 + 1*3, 3*2, 1*1 + 2*3] = [5, 6, 7]
     for i in 0..3 {
@@ -331,18 +332,25 @@ fn test_spmv_entry_points_agree_for_large_matrix() {
 
     // Create a tridiagonal matrix
     for i in 0..n {
-        builder.add_triplets(vec![(i, i, 4.0f64)]).unwrap();
+        builder
+            .add_triplets(vec![(i, i, 4.0f64)])
+            .expect("expected value");
         if i > 0 {
-            builder.add_triplets(vec![(i, i - 1, -1.0f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i - 1, -1.0f64)])
+                .expect("expected value");
         }
         if i < n - 1 {
-            builder.add_triplets(vec![(i, i + 1, -1.0f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i + 1, -1.0f64)])
+                .expect("expected value");
         }
     }
-    let a = builder.build().unwrap();
+    let a = builder.build().expect("expected value");
 
     // Test vector
-    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i + 1) as f64).collect()).unwrap();
+    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i + 1) as f64).collect())
+        .expect("expected value");
 
     // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([n]);
@@ -350,7 +358,7 @@ fn test_spmv_entry_points_agree_for_large_matrix() {
 
     // Compute through the fallible entry point.
     let mut y_fallible = Array1::zeros([n]);
-    try_spmv(&a, &x, &mut y_fallible).unwrap();
+    try_spmv(&a, &x, &mut y_fallible).expect("expected value");
 
     // Compare results
     for i in 0..n {
@@ -365,12 +373,12 @@ fn test_spmv_entry_points_agree_for_five_point_stencil() {
     // Create a 50x50 five-point stencil (2500x2500 matrix, ~12k non-zeros)
     let nx = 50;
     let ny = 50;
-    let matrix = SparsePatterns::five_point_stencil(nx, ny, 1.0, 1.0).unwrap();
+    let matrix = SparsePatterns::five_point_stencil(nx, ny, 1.0, 1.0).expect("expected value");
 
     // Test vector with varying values
     let n = nx * ny;
     let x = Array1::from_shape_vec([n], (0..n).map(|i| ((i % 10) as f64) * 0.1 + 1.0).collect())
-        .unwrap();
+        .expect("expected value");
 
     // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([n]);
@@ -378,7 +386,7 @@ fn test_spmv_entry_points_agree_for_five_point_stencil() {
 
     // Compute through the fallible entry point.
     let mut y_fallible = Array1::zeros([n]);
-    try_spmv(&matrix, &x, &mut y_fallible).unwrap();
+    try_spmv(&matrix, &x, &mut y_fallible).expect("expected value");
 
     // Compare results
     for i in 0..n {
@@ -393,21 +401,25 @@ fn test_spmv_entry_points_agree_for_sparse_pattern() {
     // Test with very sparse rows (edge case for parallel overhead)
     let mut builder = SparseMatrixBuilder::new(100, 100);
     for i in 0..100 {
-        builder.add_triplets(vec![(i, i, 1.0f64)]).unwrap();
+        builder
+            .add_triplets(vec![(i, i, 1.0f64)])
+            .expect("expected value");
         // Add one off-diagonal entry every 5 rows
         if i % 5 == 0 && i < 95 {
-            builder.add_triplets(vec![(i, i + 5, 0.5f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i + 5, 0.5f64)])
+                .expect("expected value");
         }
     }
-    let a = builder.build().unwrap();
+    let a = builder.build().expect("expected value");
 
-    let x = Array1::from_shape_vec([100], vec![2.0f64; 100]).unwrap();
+    let x = Array1::from_shape_vec([100], vec![2.0f64; 100]).expect("expected value");
 
     let mut y_scalar = Array1::zeros([100]);
     spmv(&a, &x, &mut y_scalar);
 
     let mut y_fallible = Array1::zeros([100]);
-    try_spmv(&a, &x, &mut y_fallible).unwrap();
+    try_spmv(&a, &x, &mut y_fallible).expect("expected value");
 
     for i in 0..100 {
         assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
@@ -423,30 +435,41 @@ fn test_spmv_entry_points_agree_for_dense_block() {
     let mut builder = SparseMatrixBuilder::new(n, n);
     for i in 0..n {
         // Main diagonal
-        builder.add_triplets(vec![(i, i, 4.0f64)]).unwrap();
+        builder
+            .add_triplets(vec![(i, i, 4.0f64)])
+            .expect("expected value");
         // Off-diagonals (bandwidth = 2)
         if i > 0 {
-            builder.add_triplets(vec![(i, i - 1, -1.0f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i - 1, -1.0f64)])
+                .expect("expected value");
         }
         if i > 1 {
-            builder.add_triplets(vec![(i, i - 2, -0.5f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i - 2, -0.5f64)])
+                .expect("expected value");
         }
         if i < n - 1 {
-            builder.add_triplets(vec![(i, i + 1, -1.0f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i + 1, -1.0f64)])
+                .expect("expected value");
         }
         if i < n - 2 {
-            builder.add_triplets(vec![(i, i + 2, -0.5f64)]).unwrap();
+            builder
+                .add_triplets(vec![(i, i + 2, -0.5f64)])
+                .expect("expected value");
         }
     }
-    let a = builder.build().unwrap();
+    let a = builder.build().expect("expected value");
 
-    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i as f64).sin()).collect()).unwrap();
+    let x = Array1::from_shape_vec([n], (0..n).map(|i| (i as f64).sin()).collect())
+        .expect("expected value");
 
     let mut y_scalar = Array1::zeros([n]);
     spmv(&a, &x, &mut y_scalar);
 
     let mut y_fallible = Array1::zeros([n]);
-    try_spmv(&a, &x, &mut y_fallible).unwrap();
+    try_spmv(&a, &x, &mut y_fallible).expect("expected value");
 
     for i in 0..n {
         assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);

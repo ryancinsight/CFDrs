@@ -229,13 +229,13 @@ mod tests {
     fn create_test_interpolation() -> RestrictionMatrix {
         // Create a simple interpolation matrix
         let mut interpolation = RestrictionMatrix::zeros([5, 3]);
-        *interpolation.get_mut([0, 0]).unwrap() = 1.0; // C-point
-        *interpolation.get_mut([1, 0]).unwrap() = 0.5; // F-point interpolated from C0
-        *interpolation.get_mut([1, 1]).unwrap() = 0.5; // F-point interpolated from C1
-        *interpolation.get_mut([2, 1]).unwrap() = 1.0; // C-point
-        *interpolation.get_mut([3, 1]).unwrap() = 0.3; // F-point
-        *interpolation.get_mut([3, 2]).unwrap() = 0.7; // F-point
-        *interpolation.get_mut([4, 2]).unwrap() = 1.0; // C-point
+        *interpolation.get_mut([0, 0]).expect("expected value") = 1.0; // C-point
+        *interpolation.get_mut([1, 0]).expect("expected value") = 0.5; // F-point interpolated from C0
+        *interpolation.get_mut([1, 1]).expect("expected value") = 0.5; // F-point interpolated from C1
+        *interpolation.get_mut([2, 1]).expect("expected value") = 1.0; // C-point
+        *interpolation.get_mut([3, 1]).expect("expected value") = 0.3; // F-point
+        *interpolation.get_mut([3, 2]).expect("expected value") = 0.7; // F-point
+        *interpolation.get_mut([4, 2]).expect("expected value") = 1.0; // C-point
 
         interpolation
     }

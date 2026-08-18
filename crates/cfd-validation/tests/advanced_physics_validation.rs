@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! Validation tests for advanced physics manufactured solutions
 //!
 //! Tests compressible flows, shock capturing, hypersonic flows,

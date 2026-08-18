@@ -258,7 +258,7 @@ mod tests {
         // Test orthogonality
         let n = 4;
         // Use more points for better accuracy of P_n^2 (degree 2n)
-        let quad = gauss_lobatto_quadrature(2 * n + 1).unwrap();
+        let quad = gauss_lobatto_quadrature(2 * n + 1).expect("expected value");
 
         for i in 0..=n {
             for j in 0..=n {
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_dg_basis() {
         let order = 3;
-        let basis = DGBasis::new(order, BasisType::Orthogonal).unwrap();
+        let basis = DGBasis::new(order, BasisType::Orthogonal).expect("expected value");
 
         // Test mass matrix properties
         assert_eq!(matrix_rows(&basis.mass_matrix), order + 1);
@@ -329,10 +329,10 @@ mod tests {
 
         // Test projection
         let f = |x: f64| x.powi(3) - 2.0 * x + 1.0;
-        let coeffs = basis.project(f).unwrap();
+        let coeffs = basis.project(f).expect("expected value");
 
         // For order >= 3, the projection should be exact
-        for &x in basis.quad_points.iter() {
+        for &x in &basis.quad_points {
             let mut approx = 0.0;
 
             for i in 0..=order {
@@ -347,7 +347,7 @@ mod tests {
     fn test_gauss_lobatto_quadrature() {
         // Test exactness of quadrature rule
         for n in 2..=5 {
-            let (points, weights) = gauss_lobatto_quadrature(n).unwrap();
+            let (points, weights) = gauss_lobatto_quadrature(n).expect("expected value");
 
             // Test exactness for polynomials up to degree 2n-3
             for d in 0..=(2 * n - 3) {

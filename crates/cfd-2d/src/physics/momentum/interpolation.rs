@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn coefficient_aware_interpolation_matches_exact_reference() {
-        let grid = StructuredGrid2D::new(4, 4, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let grid = StructuredGrid2D::new(4, 4, 0.0, 1.0, 0.0, 1.0).expect("expected value");
         let mut fields = SimulationFields::new(4, 4);
         let mut u_vec = Field2D::new(4, 4, Vector2::new(0.0, 0.0));
         let ap_u = Field2D::new(4, 4, 3.0_f64);

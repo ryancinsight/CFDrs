@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Validation framework for CFD simulations
 //!
 //! This module provides tools for validating CFD implementations against:

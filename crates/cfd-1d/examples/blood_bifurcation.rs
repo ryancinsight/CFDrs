@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout, clippy::uninlined_format_args)]
 //! 1D Blood Flow in a Bifurcation (Carreau-Yasuda Model)
 //!
 //! This example demonstrates simulating blood flow in a bifurcating artery
@@ -136,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nNode Pressures:");
     let mut node_pressures = std::collections::HashMap::<usize, f64>::new();
     for idx in solution.graph.node_indices() {
-        let n = solution.graph.node_weight(idx).unwrap();
+        let n = solution.graph.node_weight(idx).expect("expected value");
         let p = solution
             .pressures
             .get(idx.index())
@@ -152,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut edge_shear = std::collections::HashMap::<usize, f64>::new();
 
     for idx in solution.graph.edge_indices() {
-        let e = solution.graph.edge_weight(idx).unwrap();
+        let e = solution.graph.edge_weight(idx).expect("expected value");
         let q = solution
             .flow_rates
             .get(idx.index())
@@ -205,7 +207,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let results = serde_json::json!({
         "fluid": "CarreauYasuda Blood",
         "nodes": solution.graph.node_indices().map(|idx| {
-            let n = solution.graph.node_weight(idx).unwrap();
+            let n = solution.graph.node_weight(idx).expect("expected value");
             serde_json::json!({
                 "id": n.id,
                 "pressure_pa": solution
@@ -225,7 +227,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         }).collect::<Vec<_>>(),
         "edges": solution.graph.edge_indices().map(|idx| {
-            let e = solution.graph.edge_weight(idx).unwrap();
+            let e = solution.graph.edge_weight(idx).expect("expected value");
             let q = solution
                 .flow_rates
                 .get(idx.index())

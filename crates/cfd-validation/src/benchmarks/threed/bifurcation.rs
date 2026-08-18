@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! 3D Y-Bifurcation Flow benchmark with blood rheology
 //!
 //! Validates 3D bifurcation flow against Murray's law (Murray 1926) and conservation

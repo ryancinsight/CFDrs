@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_pump_resistance_is_zero() {
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let pump = Micropump::new(1e-6_f64, 1000.0);
         assert_relative_eq!(pump.resistance(&fluid), 0.0, epsilon = 1e-30);
     }
@@ -147,7 +147,7 @@ mod tests {
     fn test_pump_zero_resistance_is_pressure_source() {
         // Pumps are Neumann sources; they must never contribute negative or
         // positive passive resistance to the conductance matrix.
-        let fluid = water_20c::<f64>().unwrap();
+        let fluid = water_20c::<f64>().expect("expected value");
         let pump = Micropump::new(5e-7_f64, 2000.0);
         assert_eq!(pump.resistance(&fluid), 0.0);
     }
@@ -167,7 +167,8 @@ mod tests {
     #[test]
     fn test_pump_set_parameter_max_pressure() {
         let mut pump = Micropump::new(1e-6_f64, 1000.0);
-        pump.set_parameter("max_pressure", 5000.0).unwrap();
+        pump.set_parameter("max_pressure", 5000.0)
+            .expect("expected value");
         assert_relative_eq!(pump.max_pressure, 5000.0, epsilon = 1e-30);
     }
 }

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Performance benchmarks for CFD Suite
 //!
 //! These benchmarks measure actual performance of core operations

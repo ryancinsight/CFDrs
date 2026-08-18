@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Momentum conservation checker for CFD simulations
 //!
 //! Validates that momentum is conserved: ∂(ρu)/∂t + ∇·(ρuu) = -∇p + ∇·τ + ρg
@@ -209,7 +210,7 @@ mod tests {
                 0.1,
                 Vector2::zeros(),
             )
-            .unwrap();
+            .expect("expected value");
 
         // For uniform flow, all derivatives are zero, so residual should be near zero
         assert!(report.error < 1e-10);
@@ -256,7 +257,7 @@ mod tests {
                 0.1,
                 Vector2::zeros(),
             )
-            .unwrap();
+            .expect("expected value");
 
         // For Poiseuille flow, momentum should be approximately conserved
         // The residual won't be exactly zero due to discretization

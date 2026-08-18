@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Channel flow solver tests
 //!
 //! Verifies correctness of the channel solver's flow regime classification

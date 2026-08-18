@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! Venturi Schematic + 2D CFD Example
 //!
 //! Demonstrates the two-phase schematic-driven pattern for cfd-2d:

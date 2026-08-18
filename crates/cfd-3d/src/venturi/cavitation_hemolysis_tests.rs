@@ -1,3 +1,10 @@
+#![allow(
+    clippy::field_reassign_with_default,
+    clippy::uninlined_format_args,
+    clippy::explicit_iter_loop,
+    clippy::cast_lossless
+)]
+#![allow(clippy::print_stdout)]
 //! Comprehensive validation tests for cavitation and hemolysis in venturi systems.
 //!
 //! This test suite validates the integration of:
@@ -50,7 +57,7 @@ mod tests {
             None,
         );
 
-        let analysis = classifier.analyze().unwrap();
+        let analysis = classifier.analyze().expect("expected value");
 
         // In venturi throat with P << P_v, expect inertial cavitation
         assert_eq!(
@@ -131,7 +138,7 @@ mod tests {
             blood_volume,
             flow_rate,
         )
-        .unwrap();
+        .expect("expected value");
 
         // Venturi throat conditions
         // Typical microfluidic venturi: D_throat ~ 50 μm, velocity ~ 10 m/s
@@ -151,7 +158,7 @@ mod tests {
         let damage = calc
             .model()
             .damage_index(shear_stress, exposure_time)
-            .unwrap();
+            .expect("expected value");
 
         println!("\nVenturi Hemolysis Analysis:");
         println!("  Throat diameter: {} μm", d_throat * 1e6);
@@ -187,7 +194,7 @@ mod tests {
         // due to microjet impact and shock waves
 
         let model = HemolysisModel::giersiepen_standard();
-        let calc = HemolysisCalculator::new(model, 0.45, 15.0, 1e-3, 1e-6).unwrap();
+        let calc = HemolysisCalculator::new(model, 0.45, 15.0, 1e-3, 1e-6).expect("expected value");
 
         // Baseline: high shear without cavitation
         let baseline_stress = 200.0; // Pa, high but subcavitation
@@ -195,7 +202,7 @@ mod tests {
         let baseline_damage = calc
             .model()
             .damage_index(baseline_stress, baseline_time)
-            .unwrap();
+            .expect("expected value");
 
         // Estimate collapse impact pressure
         let collapse_radius = 1e-6; // Collapse to 1 μm
@@ -212,7 +219,7 @@ mod tests {
         let cavitation_damage = calc
             .model()
             .damage_index(effective_stress, baseline_time)
-            .unwrap();
+            .expect("expected value");
 
         println!("\nCavitation-Enhanced Hemolysis:");
         println!("  Baseline damage: {:.2e}", baseline_damage);
@@ -253,7 +260,7 @@ mod tests {
                 emissivity,
                 flash_duration,
             )
-            .unwrap();
+            .expect("expected value");
 
         println!("\nSonoluminescence Estimation:");
         println!(
@@ -324,7 +331,7 @@ mod tests {
                 None,
                 None,
             );
-            let analysis = classifier.analyze().unwrap();
+            let analysis = classifier.analyze().expect("expected value");
 
             println!("  U = {} m/s:", velocity);
             println!("    P_throat = {:.1} kPa", throat_pressure / 1e3);
@@ -399,13 +406,13 @@ mod tests {
             None,
             None,
         );
-        let cav_analysis = classifier.analyze().unwrap();
+        let cav_analysis = classifier.analyze().expect("expected value");
 
         println!("\n{}", cav_analysis);
 
         // Hemolysis analysis
         let model = HemolysisModel::giersiepen_standard();
-        let calc = HemolysisCalculator::new(model, 0.45, 15.0, 1e-3, 1e-6).unwrap();
+        let calc = HemolysisCalculator::new(model, 0.45, 15.0, 1e-3, 1e-6).expect("expected value");
 
         // Shear stress in throat
         let mu = 0.0035;
@@ -416,7 +423,7 @@ mod tests {
         let damage = calc
             .model()
             .damage_index(shear_stress, exposure_time)
-            .unwrap();
+            .expect("expected value");
         let delta_hb = calc.hemoglobin_release(damage);
 
         let trauma = BloodTrauma {

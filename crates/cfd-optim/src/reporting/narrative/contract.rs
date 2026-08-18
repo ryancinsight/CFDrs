@@ -90,12 +90,16 @@ mod tests {
 
         let schedule = format!("{M12_DESCRIPTION}\n{M12_EXIT}\n{M12_DELIVERABLE}\n");
         std::fs::write(
-            report.join(SCHEDULE_PATH.strip_prefix("report/").unwrap()),
+            report.join(
+                SCHEDULE_PATH
+                    .strip_prefix("report/")
+                    .expect("expected value"),
+            ),
             schedule,
         )
         .expect("schedule fixture must be written");
         std::fs::write(
-            report.join(TDD_PATH.strip_prefix("report/").unwrap()),
+            report.join(TDD_PATH.strip_prefix("report/").expect("expected value")),
             format!("{M12_DESCRIPTION}\n{TDD_LIMITS_USAGE}\n"),
         )
         .expect("TDD fixture must be written");

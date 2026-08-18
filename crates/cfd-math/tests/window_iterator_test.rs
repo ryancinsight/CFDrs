@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cfd_math::iterators::StridedWindowIterator;
 
 #[test]

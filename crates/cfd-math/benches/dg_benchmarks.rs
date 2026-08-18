@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmarks for Discontinuous Galerkin methods
 
 use cfd_math::error::Result;
@@ -12,14 +13,14 @@ fn dg_advection_benchmark(c: &mut Criterion) {
     for &order in &orders {
         for &num_elements in &num_elements_list {
             c.bench_function(
-                &format!("DG Advection order={} elements={}", order, num_elements),
+                &format!("DG Advection order={order} elements={num_elements}"),
                 |b| {
                     let params = DGOperatorParams::new()
                         .with_volume_flux(FluxType::Upwind)
                         .with_surface_flux(FluxType::Upwind);
 
-                    let dg_op = DGOperator::new(order, 1, Some(params)).unwrap();
-                    let u0 = |x: f64| Array1::from_shape_vec([1], vec![x]).unwrap();
+                    let dg_op = DGOperator::new(order, 1, Some(params)).expect("expected value");
+                    let u0 = |x: f64| Array1::from_shape_vec([1], vec![x]).expect("expected value");
 
                     let mut solver = DGSolver::new(
                         dg_op,
@@ -29,7 +30,7 @@ fn dg_advection_benchmark(c: &mut Criterion) {
                             .with_cfl(0.1),
                     );
 
-                    solver.initialize(u0).unwrap();
+                    solver.initialize(u0).expect("expected value");
 
                     b.iter(|| {
                         let f = |_: f64, u: &Array2<f64>| -> Result<Array2<f64>> {
@@ -37,7 +38,7 @@ fn dg_advection_benchmark(c: &mut Criterion) {
                         };
                         solver
                             .step(&f, None::<&fn(f64, &Array2<f64>) -> Result<Array2<f64>>>)
-                            .unwrap();
+                            .expect("expected value");
                     });
                 },
             );
@@ -52,15 +53,17 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
     for &order in &orders {
         for &num_elements in &num_elements_list {
             c.bench_function(
-                &format!("DG Burgers order={} elements={}", order, num_elements),
+                &format!("DG Burgers order={order} elements={num_elements}"),
                 |b| {
                     let params = DGOperatorParams::new()
                         .with_volume_flux(FluxType::LaxFriedrichs)
                         .with_surface_flux(FluxType::LaxFriedrichs);
 
-                    let dg_op = DGOperator::new(order, 1, Some(params)).unwrap();
+                    let dg_op = DGOperator::new(order, 1, Some(params)).expect("expected value");
                     let dg_op_clone = dg_op.clone();
-                    let u0 = |x: f64| Array1::from_shape_vec([1], vec![0.5 + x]).unwrap();
+                    let u0 = |x: f64| {
+                        Array1::from_shape_vec([1], vec![0.5 + x]).expect("expected value")
+                    };
 
                     let mut solver = DGSolver::new(
                         dg_op,
@@ -70,7 +73,7 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
                             .with_cfl(0.1),
                     );
 
-                    solver.initialize(u0).unwrap();
+                    solver.initialize(u0).expect("expected value");
 
                     b.iter(|| {
                         let f = |_: f64, u: &Array2<f64>| -> Result<Array2<f64>> {
@@ -79,7 +82,7 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
                         };
                         solver
                             .step(&f, None::<&fn(f64, &Array2<f64>) -> Result<Array2<f64>>>)
-                            .unwrap();
+                            .expect("expected value");
                     });
                 },
             );

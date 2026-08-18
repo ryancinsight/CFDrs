@@ -1,3 +1,10 @@
+#![allow(missing_docs)]
+#![allow(
+    clippy::print_stdout,
+    clippy::uninlined_format_args,
+    clippy::doc_markdown,
+    clippy::match_wildcard_for_single_variants
+)]
 //! Example demonstrating cfd-1d simulation using cfd-schematics specifications.
 //!
 //! This example shows how to:

@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-fidelity validation: canonical circular Poiseuille duct.
 //!
 //! This test closes a coverage gap in the existing cross-fidelity suite:

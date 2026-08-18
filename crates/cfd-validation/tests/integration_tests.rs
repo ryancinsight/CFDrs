@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Integration tests for the CFD Validation Suite
 //!
 //! Verifies that the complete validation chain (Geometry -> Solver -> Benchmark -> Result)

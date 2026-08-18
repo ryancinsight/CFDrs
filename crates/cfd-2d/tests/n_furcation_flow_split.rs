@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Cross-fidelity validation: 2D N-furcation flow split vs fundamental continuity.
 //!
 //! Evaluates the generalized NFurcationSolver2D to ensure it accurately resolves

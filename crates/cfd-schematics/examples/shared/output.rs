@@ -1,3 +1,9 @@
+#![allow(missing_docs)]
+#![allow(
+    clippy::print_stdout,
+    clippy::unnecessary_debug_formatting,
+    clippy::uninlined_format_args
+)]
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::plot_geometry;
 use std::fs;
@@ -39,14 +45,20 @@ pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
         serde_json::to_string_pretty(blueprint).expect("Failed to serialize blueprint to JSON");
     fs::write(&json_path, json_data)
         .unwrap_or_else(|e| panic!("Failed to write JSON path {:?}: {}", json_path, e));
-    println!("  - JSON: {:?}", json_path.file_name().unwrap());
+    println!(
+        "  - JSON: {:?}",
+        json_path.file_name().expect("expected value")
+    );
 
     // 2. Save SVG Visualization
     let svg_path = output_dir.join(format!("{}.svg", example_name));
     plot_geometry(blueprint, &svg_path)
         .map_err(|e| e.to_string())
         .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
-    println!("  - SVG : {:?}", svg_path.file_name().unwrap());
+    println!(
+        "  - SVG : {:?}",
+        svg_path.file_name().expect("expected value")
+    );
 
     // Print statistics
     println!("\nBlueprint Statistics:");
@@ -80,5 +92,8 @@ pub fn save_example_output_with_name(
         .map_err(|e| e.to_string())
         .unwrap_or_else(|e| panic!("Failed to plot geometry {:?}: {}", svg_path, e));
 
-    println!("Saved -> {:?}", svg_path.file_name().unwrap());
+    println!(
+        "Saved -> {:?}",
+        svg_path.file_name().expect("expected value")
+    );
 }

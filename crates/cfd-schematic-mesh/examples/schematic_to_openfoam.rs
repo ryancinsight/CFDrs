@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+#![allow(clippy::print_stdout)]
 //! Canonical JSON schematic → STL + OpenFOAM pipeline.
 //!
 //! Demonstrates the complete path from `cfd-schematics` designs to watertight
@@ -317,7 +319,7 @@ fn mesh_output_from_blueprint(
     }
 
     let mut fluid_mesh = if channel_meshes.len() == 1 {
-        channel_meshes.into_iter().next().unwrap()
+        channel_meshes.into_iter().next().expect("expected value")
     } else {
         csg_boolean_nary(BooleanOp::Union, &channel_meshes)?
     };
@@ -331,7 +333,7 @@ fn mesh_output_from_blueprint(
         let substrate = SubstrateBuilder::well_plate_96(config.chip_height.in_unit::<Millimeter>())
             .build_indexed()?;
         let void_union = if void_meshes.len() == 1 {
-            void_meshes.into_iter().next().unwrap()
+            void_meshes.into_iter().next().expect("expected value")
         } else {
             csg_boolean_nary(BooleanOp::Union, &void_meshes)?
         };
