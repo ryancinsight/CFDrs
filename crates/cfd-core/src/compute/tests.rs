@@ -41,9 +41,12 @@ fn test_backend_detection() {
         assert!(backend.is_available());
     }
 
-    println!("Detected backends: {:?}", capability.backends);
-    println!("Preferred backend: {:?}", capability.preferred_backend);
-    println!("Compute units: {}", capability.compute_units);
+    tracing::debug!(
+        backends = ?capability.backends,
+        preferred_backend = ?capability.preferred_backend,
+        compute_units = capability.compute_units,
+        "Detected compute capability"
+    );
 }
 
 #[test]
@@ -112,7 +115,9 @@ fn test_cpu_advection_kernel_linear_exactness() {
     };
 
     // Execute one step
-    kernel.execute(&input, &mut output, params).unwrap();
+    kernel
+        .execute(&input, &mut output, params)
+        .expect("invariant: CPU advection accepts a valid linear field");
 
     // Analytic update for linear field under constant velocity
     // phi_new = phi_old - dt * (u*a + v*b)
@@ -135,20 +140,23 @@ fn test_cpu_advection_kernel_linear_exactness() {
 #[test]
 fn test_dispatcher_creation() {
     // Test automatic backend selection
-    let dispatcher = ComputeDispatcher::new().unwrap();
-    println!(
-        "Dispatcher using backend: {:?}",
-        dispatcher.current_backend()
+    let dispatcher =
+        ComputeDispatcher::new().expect("invariant: automatic backend selection succeeds");
+    tracing::debug!(
+        backend = ?dispatcher.current_backend(),
+        "Dispatcher selected backend"
     );
 
     // Test specific backend selection
-    let cpu_dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
+    let cpu_dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu)
+        .expect("invariant: CPU backend is available");
     assert_eq!(cpu_dispatcher.current_backend(), ComputeBackend::Cpu);
 }
 
 #[test]
 fn dispatcher_errors_instead_of_cpu_fallback_for_unsupported_backend() {
-    let dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
+    let dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu)
+        .expect("invariant: CPU backend is available");
     let input = [1.0_f64, 2.0, 3.0];
     let mut output = [9.0_f64, 9.0, 9.0];
     let params = KernelParams {
@@ -188,18 +196,18 @@ fn test_gpu_context_creation() {
     // Try to create GPU context
     match GpuContext::create() {
         Ok(context) => {
-            println!("GPU Backend: {}", context.backend_name());
-            println!("Max work group size: {}", context.max_work_group_size());
-            println!(
-                "Max buffer size: {} MB",
-                context.max_buffer_size() / (1024 * 1024)
+            tracing::debug!(
+                backend = context.backend_name(),
+                max_work_group_size = context.max_work_group_size(),
+                max_buffer_size_mb = context.max_buffer_size() / (1024 * 1024),
+                "GPU context created"
             );
             context
                 .synchronize()
                 .expect("Hephaestus provider must observe an idle context");
         }
         Err(e) => {
-            println!("GPU not available: {e}");
+            tracing::debug!(error = %e, "GPU unavailable for context test");
         }
     }
 }
@@ -214,26 +222,37 @@ fn test_gpu_buffer() {
     // Skip if GPU not available
     let context = match GpuContext::create() {
         Ok(ctx) => Arc::new(ctx),
-        Err(_) => return,
+        Err(error) => {
+            tracing::debug!(error = %error, "GPU unavailable for buffer test");
+            return;
+        }
     };
 
     // Test buffer creation
     let size = 1000;
-    let buffer = GpuBuffer::<f32>::new(context.clone(), size).unwrap();
+    let buffer = GpuBuffer::<f32>::new(context.clone(), size)
+        .expect("invariant: GPU buffer allocates on a valid context");
     assert_eq!(buffer.size(), size);
 
     // Test buffer with data
     let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-    let mut buffer = GpuBuffer::from_data(context, &data).unwrap();
+    let mut buffer = GpuBuffer::from_data(context, &data)
+        .expect("invariant: GPU buffer accepts matching input data");
     assert_eq!(buffer.size(), data.len());
 
     // Test read
-    let read_data = buffer.read().unwrap();
+    let read_data = buffer
+        .read()
+        .expect("invariant: GPU buffer read succeeds after initialization");
     assert_eq!(read_data, data);
 
     // Test write
     let updated_data: Vec<f32> = (0..100).map(|i| (i * 2) as f32).collect();
-    buffer.write(&updated_data).unwrap();
-    let read_data = buffer.read().unwrap();
+    buffer
+        .write(&updated_data)
+        .expect("invariant: GPU buffer accepts matching updated data");
+    let read_data = buffer
+        .read()
+        .expect("invariant: GPU buffer read succeeds after update");
     assert_eq!(read_data, updated_data);
 }

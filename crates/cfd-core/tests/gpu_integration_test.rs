@@ -17,7 +17,7 @@ mod gpu_tests {
         let context = if let Ok(ctx) = GpuContext::create() {
             Arc::new(ctx)
         } else {
-            println!("Skipping GPU test - no GPU available");
+            tracing::debug!("GPU unavailable for context integration test");
             return;
         };
 
@@ -31,14 +31,15 @@ mod gpu_tests {
     fn test_gpu_buffer_operations() {
         let context = match GpuContext::create() {
             Ok(ctx) => Arc::new(ctx),
-            Err(_) => return, // Skip if no GPU
+            Err(error) => {
+                tracing::debug!(error = %error, "GPU unavailable for buffer integration test");
+                return;
+            }
         };
 
         let size = 1000;
-        let buffer = GpuBuffer::<f32>::new(context.clone(), size);
-        assert!(buffer.is_ok());
-
-        let buffer = buffer.unwrap();
+        let buffer = GpuBuffer::<f32>::new(context.clone(), size)
+            .expect("invariant: GPU integration buffer allocates on a valid context");
         assert_eq!(buffer.size(), size);
     }
 
@@ -47,12 +48,13 @@ mod gpu_tests {
         let context = match GpuContext::create() {
             Ok(context) => Arc::new(context),
             Err(error) => {
-                eprintln!("Skipping GPU advection integration test: {error:?}");
+                tracing::debug!(error = %error, "GPU unavailable for advection integration test");
                 return;
             }
         };
         let kernel = GpuAdvectionKernel::new(context).expect("advection shader must compile");
-        let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.5).unwrap();
+        let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.5)
+            .expect("invariant: valid advection integration grid is accepted");
         let scalar: Vec<f32> = (0..config.element_count())
             .map(|index| index as f32)
             .collect();
@@ -61,7 +63,7 @@ mod gpu_tests {
 
         kernel
             .execute(&scalar, &velocity, &velocity, config, &mut output)
-            .unwrap();
+            .expect("invariant: advection kernel executes on valid inputs");
 
         assert_eq!(output, scalar);
     }
@@ -71,19 +73,20 @@ mod gpu_tests {
         let context = match GpuContext::create() {
             Ok(context) => Arc::new(context),
             Err(error) => {
-                eprintln!("Skipping GPU pressure integration test: {error:?}");
+                tracing::debug!(error = %error, "GPU unavailable for pressure integration test");
                 return;
             }
         };
         let kernel = GpuPressureKernel::new(context).expect("pressure shaders must compile");
-        let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).unwrap();
+        let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0)
+            .expect("invariant: valid pressure integration grid is accepted");
         let pressure = vec![0.0; config.element_count()];
         let source = vec![0.0; config.element_count()];
         let mut residual = vec![1.0; config.element_count()];
 
         kernel
             .residual(&pressure, &source, config, &mut residual)
-            .unwrap();
+            .expect("invariant: pressure kernel executes on valid inputs");
 
         assert_eq!(residual, pressure);
     }
@@ -93,18 +96,19 @@ mod gpu_tests {
         let context = match GpuContext::create() {
             Ok(context) => Arc::new(context),
             Err(error) => {
-                eprintln!("Skipping GPU velocity integration test: {error:?}");
+                tracing::debug!(error = %error, "GPU unavailable for velocity integration test");
                 return;
             }
         };
         let kernel = GpuVelocityKernel::new(context).expect("velocity shaders must compile");
-        let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).unwrap();
+        let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0)
+            .expect("invariant: valid velocity integration grid is accepted");
         let velocity = vec![0.0; config.element_count()];
         let mut source = vec![1.0; config.element_count()];
 
         kernel
             .divergence_source(&velocity, &velocity, &velocity, config, &mut source)
-            .unwrap();
+            .expect("invariant: velocity kernel executes on valid inputs");
 
         assert_eq!(source, velocity);
     }
