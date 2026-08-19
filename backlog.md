@@ -84,12 +84,15 @@ hosted provider verification. No duplicated consumer solver, hardcoded
 correlation in the runtime path, reduced workload, or weakened assertion
 closes this item.
 
-The remaining hosted timeout is isolated to the repeated parabolic-inlet
-preparation inside the SIMPLE loop. The provider now prepares the normalized
-fluid-cell profile once per solve and reapplies the cached values without
-per-iteration allocation or coordinate reduction. The benchmark workload and
-the 30-second Nextest budget remain unchanged; the exact-head hosted rerun is
-the acceptance gate.
+The cached inlet profile is complete, but the exact test still has two
+independent residuals. At `b0b7c310`, debug Nextest reproduces the hosted
+termination at 30.032 s; an optimized probe completes in 4.8 s but returns
+`x_r/h = 2.0439` at the default `Re_h = 100` against the nominal `6.0`-
+height reference. A measured 32-sweep pressure cap reaches 25.4 s in debug
+but still returns an invalid reference result, so neither the cap nor the
+test budget is an accepted fix. The next increment must parameterize the
+literature reference by the configured Reynolds/geometry contract and then
+optimize the real SIMPLE path while preserving value-semantic validation.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 

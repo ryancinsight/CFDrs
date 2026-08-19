@@ -10,11 +10,17 @@ now a thin adapter and no longer owns a second field solver or matrix type.
 The provider applies a normalized parabolic profile only on fluid inlet cells;
 solid inlet cells remain zero during every SIMPLE iteration.
 
-Focused local compilation remains blocked before source diagnostics by the
-shared Atlas overlay and the pre-existing dirty lock: the overlay's peer
-`repos/asclepius` requires `aequitas ^0.1.0`, while the current local provider
-is `0.2.0`; `--locked` therefore refuses the required lock update. The exact
-hosted provider gate is required before merge.
+The exact source-head audit found two independent residuals after the inlet
+profile cache landed. Debug Nextest reproduces the hosted 30.032 s
+termination, while an optimized run completes in 4.8 s but computes
+`x_r/h = 2.0439` for the default `Re_h = 100` against the fixed `6.0`-
+height reference. A 32-sweep pressure-cap probe fits the debug budget at
+25.4 s but remains numerically invalid, so changing the cap or budget would
+mask the defect. The acceptance path now requires a Reynolds/geometry-aware
+reference contract and a production SIMPLE optimization validated against an
+independent oracle. Full Atlas-locked compilation remains separately blocked
+by the shared overlay's peer-dirty Asclepius checkout requiring `aequitas
+^0.1.0` while the current local graph provides `0.2.0`.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (closed 2026-08-17)
 
