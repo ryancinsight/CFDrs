@@ -124,6 +124,18 @@
       local compilation is currently blocked by the shared overlay/lock
       mismatch, not by a source diagnostic.
 
+## ATLAS-CFDRS-JFNK-OPEN-033 [fix] — Integrate bounded Newton-Krylov recovery
+
+- [x] Declare `newton_fallback.rs` in the `cfd-1d` solver graph and invoke it
+      once after the existing bounded-amplitude stagnation detector.
+- [x] Derive the Newton/Krylov recovery limits from `SolverConfig.max_iterations`
+      and route residual callback failures through a fallible JFNK API.
+- [x] Add value-semantic coverage for checked JFNK error propagation and the
+      finite recovery-budget invariant.
+- [ ] Run the locked `cfd-1d`/`cfd-math` Nextest filters and the hosted exact-head
+      Rust and book-figure gates; the local Atlas overlay currently blocks Cargo
+      resolution before compilation.
+
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 
 - [x] Wire `cfd-1d` resistance-model tests into the module graph and correct

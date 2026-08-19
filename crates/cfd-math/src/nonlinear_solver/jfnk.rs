@@ -118,7 +118,7 @@ pub struct JfnkConvergence<T: Copy> {
 struct JvpOperator<'a, T, F>
 where
     T: RealField + Copy + FloatElement,
-    F: Fn(&Array1<T>) -> Array1<T>,
+    F: Fn(&Array1<T>) -> Result<Array1<T>>,
 {
     /// Current Newton point $x_k$ (pivot)
     x_pivot: &'a Array1<T>,
@@ -133,7 +133,7 @@ where
 impl<T, F> JvpOperator<'_, T, F>
 where
     T: RealField + Copy + FloatElement + Scalar,
-    F: Fn(&Array1<T>) -> Array1<T>,
+    F: Fn(&Array1<T>) -> Result<Array1<T>>,
 {
     /// Compute $J(x) v \approx [F(x + \varepsilon v) - F(x)] / \varepsilon$.
     ///
@@ -141,12 +141,12 @@ where
     ///
     /// Uses the caller-pre-computed `eps` which already encodes
     /// $\varepsilon = \sqrt{\varepsilon_{\rm mach}} (1 + \|x\|) / \|v\|$.
-    fn apply_jvp(&self, v: &Array1<T>) -> Array1<T> {
+    fn apply_jvp(&self, v: &Array1<T>) -> Result<Array1<T>> {
         // Perturbed point: x + ε v
         let x_pert = add_scaled(self.x_pivot, v, self.eps);
         // Finite difference: [F(x + ε v) - F(x)] / ε
-        let f_pert = (self.func)(&x_pert);
-        scale(&sub(&f_pert, self.f_pivot), T::ONE / self.eps)
+        let f_pert = (self.func)(&x_pert)?;
+        Ok(scale(&sub(&f_pert, self.f_pivot), T::ONE / self.eps))
     }
 }
 
@@ -181,15 +181,37 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
         }
     }
 
-    /// Solve $F(x) = 0$ with initial guess $x_0$ using JFNK.
+    /// Solve an infallible $F(x) = 0$ problem with initial guess $x_0$ using JFNK.
     ///
     /// Returns the solution and convergence diagnostics.
-    pub fn solve<F>(&self, func: F, mut x: Array1<T>) -> Result<(Array1<T>, JfnkConvergence<T>)>
+    pub fn solve<F>(&self, func: F, x: Array1<T>) -> Result<(Array1<T>, JfnkConvergence<T>)>
     where
         F: Fn(&Array1<T>) -> Array1<T>,
     {
+        self.solve_checked(|value| Ok(func(value)), x)
+    }
+
+    /// Solve a fallible $F(x) = 0$ problem with initial guess $x_0$ using JFNK.
+    ///
+    /// The callback's error is propagated from the initial residual, every
+    /// finite-difference Jacobian-vector product, and every model-residual
+    /// evaluation. This keeps domain and linear-solver failures typed instead
+    /// of converting them into a panic inside a recovery path.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error produced by `func` or by the inner Krylov
+    /// solve.
+    pub fn solve_checked<F>(
+        &self,
+        func: F,
+        mut x: Array1<T>,
+    ) -> Result<(Array1<T>, JfnkConvergence<T>)>
+    where
+        F: Fn(&Array1<T>) -> Result<Array1<T>>,
+    {
         let n = x.shape()[0];
-        let mut f = func(&x);
+        let mut f = func(&x)?;
         let norm0 = norm(&f);
 
         if norm0 < self.config.atol {
@@ -251,13 +273,13 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                 func: &func,
                 eps,
             };
-            let j_delta = jop.apply_jvp(&delta_x);
+            let j_delta = jop.apply_jvp(&delta_x)?;
             prev_model_residual = norm(&add(&f, &j_delta));
             prev_norm = norm_f;
 
             // Update: x ← x + δx
             x = add(&x, &delta_x);
-            f = func(&x);
+            f = func(&x)?;
 
             history.push(norm(&f));
         }
@@ -294,7 +316,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
         n: usize,
     ) -> Result<Array1<T>>
     where
-        F: Fn(&Array1<T>) -> Array1<T>,
+        F: Fn(&Array1<T>) -> Result<Array1<T>>,
     {
         let restart = self.config.krylov_restart.min(n);
         let max_iter = self.config.max_krylov_iterations;
@@ -343,7 +365,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                     func,
                     eps,
                 };
-                let mut w = jop.apply_jvp(vj);
+                let mut w = jop.apply_jvp(vj)?;
 
                 // Modified Gram-Schmidt orthogonalization
                 for i in 0..=j {
@@ -391,7 +413,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                             func,
                             eps,
                         };
-                        jop.apply_jvp(&delta)
+                        jop.apply_jvp(&delta)?
                     };
                     r = sub(b, &fwd);
                     inner_converged = true;
@@ -416,7 +438,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                             func,
                             eps,
                         };
-                        jop.apply_jvp(&delta)
+                        jop.apply_jvp(&delta)?
                     };
                     r = sub(b, &fwd);
                 }
@@ -467,6 +489,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::error::Error;
     use eunomia::assert_relative_eq;
     use leto::Array2;
 
@@ -576,6 +599,29 @@ mod tests {
         let (_, conv) = solver.solve(func, x0).expect("expected value");
         assert!(conv.converged);
         assert_eq!(conv.newton_iterations, 0);
+    }
+
+    /// A fallible residual callback must preserve its typed failure at the
+    /// initial evaluation instead of converting it into a panic or a fake
+    /// residual vector.
+    #[test]
+    fn test_checked_residual_propagates_domain_error() {
+        let solver = JfnkSolver::new(JfnkConfig::<f64>::default());
+        let result = solver.solve_checked(
+            |_| {
+                Err(Error::InvalidConfiguration(
+                    "synthetic residual failure".to_string(),
+                ))
+            },
+            vec(vec![0.0]),
+        );
+
+        match result {
+            Err(Error::InvalidConfiguration(message)) => {
+                assert_eq!(message, "synthetic residual failure");
+            }
+            other => panic!("unexpected JFNK checked result: {other:?}"),
+        }
     }
 
     /// Verify EW forcing term stays in [eta_min, eta_max].

@@ -56,15 +56,15 @@
 
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use cfd_math::nonlinear_solver::{JfnkConfig, JfnkSolver};
-use eunomia::{FloatElement, NumericElement};
+use eunomia::FloatElement;
 use leto::Array1;
 
 use super::linear_system::{LinearSolverMethod, LinearSystemSolver};
 use super::matrix_assembly::MatrixAssembler;
 use super::workspace::SolverWorkspace;
-use super::Network;
-use cfd_core::CfdScalar;
+use crate::domain::network::Network;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::CfdScalar;
 
 /// Configuration for the JFNK fallback.
 ///
@@ -96,10 +96,8 @@ pub(super) struct FallbackBudget {
 
 impl Default for FallbackBudget {
     fn default() -> Self {
-        // With the canonical `SolverConfig { max_iterations = 10000 }`,
-        // warmup 200 + newton 30 × krylov 50 = 200 + 1500 = 1700 ≪ 10000.
-        // The active test budget roughly halves because each JvP does one
-        // extra F-eval, but the production Picard budget is not raised.
+        // These values are the recovery defaults. `for_max_iterations` derives
+        // the active Newton/Krylov limits from the caller's outer budget.
         Self {
             warmup_iterations: 200,
             stall_window: 64,
@@ -111,6 +109,29 @@ impl Default for FallbackBudget {
 }
 
 impl FallbackBudget {
+    /// Derive a recovery budget that fits inside the configured outer budget.
+    ///
+    /// The warm-up and the bounded Newton/Krylov work are counted as one
+    /// recovery trajectory. This prevents the fallback from silently turning
+    /// a finite solver budget into an unbounded second attempt.
+    pub(super) fn for_max_iterations(max_iterations: usize) -> Self {
+        let defaults = Self::default();
+        let warmup_iterations = defaults
+            .warmup_iterations
+            .min(max_iterations.saturating_sub(1));
+        let remaining = max_iterations.saturating_sub(warmup_iterations).max(1);
+        let max_krylov_iterations = defaults.max_krylov_iterations.min(remaining);
+        let max_newton_iterations = (remaining / max_krylov_iterations)
+            .max(1)
+            .min(defaults.max_newton_iterations);
+        Self {
+            warmup_iterations,
+            max_krylov_iterations,
+            max_newton_iterations,
+            ..defaults
+        }
+    }
+
     /// Stagnation detector: bounded fixed-amplitude cycle on
     /// `solution_change_norm`.
     ///
@@ -171,11 +192,12 @@ where
     F: FluidTrait<T> + Clone,
 {
     let n = network_snapshot.node_count();
-    debug_assert_eq!(
-        warm_solution.shape()[0],
-        n,
-        "JFNK warm-start vector length must match network node count"
-    );
+    if warm_solution.shape()[0] != n {
+        return Err(Error::InvalidConfiguration(format!(
+            "JFNK warm-start length {} does not match network node count {n}",
+            warm_solution.shape()[0]
+        )));
+    }
 
     // Pre-allocated workspace and solver reused across all F-evaluations.
     // The boundary-condition classification is constant once the outer
@@ -194,22 +216,17 @@ where
     // loop: (1) refresh edge flow rates from `x`, (2) assemble the conductance
     // Laplacian, (3) solve `A x = b` for `x_next = G(x)`. Returning
     // `x_next − x` gives the Newton residual of the fixed-point map.
-    let picard_residual = |x: &Array1<T>| -> Array1<T> {
+    let picard_residual = |x: &Array1<T>| -> Result<Array1<T>> {
         let mut net = network_snapshot.clone();
-        net.update_from_solution(x)
-            .expect("invariant: network update_from_solution must succeed on JFNK F-eval");
-        let matrix = assembler
-            .assemble_into(&net, &mut workspace)
-            .expect("invariant: assemble_into must succeed on JFNK F-eval");
+        net.update_from_solution(x)?;
+        let matrix = assembler.assemble_into(&net, &mut workspace)?;
         let mut x_init = x.clone();
-        let g_x = inner_solver
-            .solve_with_initial_guess(&matrix, &workspace.rhs, &mut x_init)
-            .expect("invariant: linear solve must succeed on JFNK F-eval");
+        let g_x = inner_solver.solve_with_initial_guess(&matrix, &workspace.rhs, &mut x_init)?;
         let mut f = g_x.clone();
         for i in 0..n {
             f[[i]] = g_x[[i]] - x[[i]];
         }
-        f
+        Ok(f)
     };
 
     // atol := tolerance. Newton's `‖F‖ < atol` is structurally equivalent
@@ -227,7 +244,7 @@ where
         eta_max: <T as FloatElement>::from_f64(0.9),
     };
     let jfnk = JfnkSolver::new(jfnk_config);
-    let (solution, convergence) = jfnk.solve(picard_residual, warm_solution.clone())?;
+    let (solution, convergence) = jfnk.solve_checked(picard_residual, warm_solution.clone())?;
     if !convergence.converged {
         return Err(Error::Convergence(
             ConvergenceErrorKind::MaxIterationsExceeded {
@@ -241,6 +258,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
+    use cfd_core::physics::fluid::database::water_20c;
+    use crate::domain::network::{Network, NetworkBuilder};
 
     /// Empty-history slice is not stalled — fallback should not start.
     #[test]
@@ -255,6 +275,21 @@ mod tests {
         let budget = FallbackBudget::default();
         let shorter: Vec<f64> = (0..budget.stall_window - 1).map(|_| 1.0).collect();
         assert!(!budget.is_stalling(&shorter));
+    }
+
+    /// The derived recovery work stays within the caller's finite iteration
+    /// budget, including the bounded Krylov work per Newton step.
+    #[test]
+    fn derived_budget_is_bounded() {
+        for max_iterations in [1, 64, 200, 1_000, 10_000] {
+            let budget = FallbackBudget::for_max_iterations(max_iterations);
+            assert!(budget.warmup_iterations < max_iterations || max_iterations == 0);
+            assert!(
+                budget.warmup_iterations
+                    + budget.max_newton_iterations * budget.max_krylov_iterations
+                    <= max_iterations.max(1)
+            );
+        }
     }
 
     /// Bounded fixed-amplitude cycle is the canonical stalled trajectory.
@@ -311,5 +346,68 @@ mod tests {
         cycle[1] = 0.0;
         // All NaN/0 sample → no usable history, not stalled.
         assert!(!budget.is_stalling(&cycle));
+    }
+
+    /// A real two-node linear network exercises the full residual callback,
+    /// matrix assembly, linear solve, and JFNK convergence contract.
+    #[test]
+    fn linear_network_fallback_recovers_pressure_solution() {
+        let fluid = water_20c::<f64>().expect("water properties are valid");
+        let mut builder = NetworkBuilder::new();
+        let inlet = builder.add_inlet("inlet".into());
+        let outlet = builder.add_outlet("outlet".into());
+        builder.connect_with_pipe(inlet, outlet, "pipe".into());
+        let mut graph = builder.build().expect("network graph is valid");
+        let edge = graph
+            .edge_indices()
+            .next()
+            .expect("network contains the pipe edge");
+        graph[edge].resistance = HydraulicResistance::from_base(2.0);
+
+        let mut network = Network::new(graph, fluid);
+        network.set_pressure(inlet, Pressure::from_base(10.0));
+        network.set_pressure(outlet, Pressure::from_base(0.0));
+
+        let n = network.node_count();
+        let mut workspace = SolverWorkspace::new(n);
+        MatrixAssembler::classify_boundary_conditions_into(
+            &network,
+            &mut workspace.dirichlet_values,
+            &mut workspace.neumann_sources,
+        )
+        .expect("boundary conditions are valid");
+        let assembler = MatrixAssembler::new();
+        let matrix = assembler
+            .assemble_into(&network, &mut workspace)
+            .expect("network matrix is valid");
+        let mut warm_solution = Array1::from_elem([n], 0.0);
+        let initial_solution = LinearSystemSolver::new()
+            .with_method(LinearSolverMethod::ConjugateGradient)
+            .with_tolerance(1.0e-10)
+            .with_max_iterations(20)
+            .solve_with_initial_guess(&matrix, &workspace.rhs, &mut warm_solution)
+            .expect("linear warm start is valid");
+        let budget = FallbackBudget {
+            warmup_iterations: 1,
+            stall_window: 1,
+            stall_ratio: 10.0,
+            max_newton_iterations: 10,
+            max_krylov_iterations: 10,
+        };
+
+        let solution = jfnk_fallback(
+            &assembler,
+            &network,
+            workspace.dirichlet_values,
+            workspace.neumann_sources,
+            LinearSolverMethod::ConjugateGradient,
+            1.0e-10,
+            &budget,
+            &initial_solution,
+        )
+        .expect("JFNK recovers the linear network root");
+
+        assert!((solution[inlet.index()] - 10.0).abs() < 1.0e-8);
+        assert!(solution[outlet.index()].abs() < 1.0e-8);
     }
 }

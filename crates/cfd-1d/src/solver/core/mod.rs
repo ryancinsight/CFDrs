@@ -10,6 +10,7 @@ mod geometry;
 mod linear_system;
 mod matrix_assembly;
 mod network_solver;
+mod newton_fallback;
 mod problem;
 mod solver_detection;
 mod state;
