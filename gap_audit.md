@@ -1,5 +1,15 @@
 ## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
 
+## Finding 2026-08-19: exact default-head Rust and figure gates pass
+
+CFDrs default `931ee3a0130a5238461a1ee9547e12aef11e90bf` passes hosted run
+`32222487306`. The Rust workspace job completes format, check, Clippy, tests,
+the numerical-fidelity suite, doctests, and native fontconfig setup. The figure
+SSOT job also passes. This is behavioral and figure evidence for the exact
+provider head, not proof of Pages deployment or PyPI publication; those remain
+separate gates. The local standalone locked package path remains blocked by the
+Atlas development overlay, so no local package result is claimed.
+
 The first implementation placed a new streamfunction–vorticity solver in
 `cfd-validation`, which violated provider-first ownership because `cfd-2d`
 already owns the SIMPLE Navier–Stokes field and mask path. The follow-up moves

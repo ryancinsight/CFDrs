@@ -1,5 +1,15 @@
 ## CI: Atlas provider checkout was a no-op fetching a whole repo — DONE (2026-08-17)
 
+## Hosted evidence checkpoint — 2026-08-19
+
+Default `931ee3a0130a5238461a1ee9547e12aef11e90bf` passes hosted run
+`32222487306`: the Rust workspace gate completes format, check, Clippy, tests,
+numerical-fidelity tests, doctests, and fontconfig setup, and the figure SSOT
+gate passes. This closes the provider Rust/figure evidence gap for the current
+source head. It does not close the separate Pages deployment or PyPI release
+dry-run gates, and the Atlas development overlay still prevents a standalone
+locked package claim locally.
+
 Both `ci.yml` jobs ran `ryancinsight/atlas/.github/actions/checkout-path-dependencies`,
 which downloads a full atlas tarball to materialize sibling provider repos. It
 materialized nothing — CFDrs CI run 32046526277 reports, in both jobs:

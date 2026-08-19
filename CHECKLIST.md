@@ -1,5 +1,16 @@
 # CFDrs Work Checklist
 
+## Hosted evidence checkpoint — 2026-08-19
+
+- [x] Collect exact default-head run `32222487306` at source
+      `931ee3a0130a5238461a1ee9547e12aef11e90bf`. The Rust workspace gate
+      passes format, check, Clippy, tests, numerical-fidelity tests, doctests,
+      and native fontconfig setup; the figure SSOT gate also passes.
+- [ ] Collect the separate Pages deployment and PyPI release dry-run gates.
+      The passing Rust/figure run does not establish either publication path,
+      and the local Atlas overlay still prevents standalone locked package
+      evidence.
+
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller
 
 - [x] Register the provider release slice and keep its scope to the Python
