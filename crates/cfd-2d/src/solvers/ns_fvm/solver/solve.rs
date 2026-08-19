@@ -215,14 +215,14 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             if self.field.mask[(0, j)] {
                 let y = self.grid.y_center(j);
                 let dy = self.grid.dy_at(j);
-                if !has_fluid {
+                if has_fluid {
+                    y_min = y_min.min_scalar(y);
+                    y_max = y_max.max_scalar(y);
+                } else {
                     y_min = y;
                     y_max = y;
                     first_dy = dy;
                     has_fluid = true;
-                } else {
-                    y_min = y_min.min_scalar(y);
-                    y_max = y_max.max_scalar(y);
                 }
                 last_dy = dy;
             }
