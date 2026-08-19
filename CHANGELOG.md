@@ -25,10 +25,17 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **cfd-2d**: The Newtonian pressure-correction default remains its existing
+  calibrated SOR split; `SIMPLEConfig` now permits a validated consumer-owned
+  override. The backward-facing-step benchmark selects `1.7` together with
+  its measured sweep cap, while venturi cross-fidelity retains its prior
+  value contract. Hosted numerical-fidelity rerun is pending.
+
 - **cfd-2d/cfd-validation**: The backward-facing-step validation now uses the
   provider's reusable GMRES workspace and direct mutable Leto CSR structure
-  access, while Newtonian pressure correction retains one fixed SOR relaxation
-  factor. The benchmark declares its measured pressure-sweep cap of 33; the
+  access, with a measured consumer-owned SOR override for the benchmark. The
+  default Newtonian pressure split remains unchanged elsewhere. The benchmark
+  declares its measured pressure-sweep cap of 33; the
   exact 14-test validation filter passes locally in 11.652 s, including the
   formerly timing-out integration case, without changing the 30-second budget
   or workload. Hosted exact-head confirmation remains pending.

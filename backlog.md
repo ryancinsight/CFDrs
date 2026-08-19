@@ -164,12 +164,12 @@ format, check, ordinary tests, and 13/14 numerical-fidelity tests, but
 `cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the
 committed 30-second Nextest timeout at 30.003 s. The subsequent provider-owned
 fix reuses the cached GMRES workspace, accesses Leto CSR structure through its
-mutable parts, keeps one fixed Newtonian pressure-SOR relaxation factor, and
-declares the measured backward-step pressure sweep cap of 33. It preserves the
-value contract and benchmark workload. Locked local Nextest now passes the
-exact 14-test filter in 11.652 s; the former integration case passes in 12.505
-s. The hosted Rust and Pages gates at the new source head remain the closure
-requirement.
+mutable parts, exposes a validated consumer-owned SOR override, and declares
+the measured backward-step values `omega = 1.7` and pressure sweep cap 33. The
+default Newtonian split remains unchanged for other geometries, preserving the
+venturi cross-fidelity contract. The affected validation binaries pass 16/16
+locally; the former integration case passes in 11.407 s. The hosted Rust and
+Pages gates at the new source head remain the closure requirement.
 
 At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas

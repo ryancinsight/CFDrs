@@ -2,6 +2,7 @@
 
 use crate::scalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
+use crate::solvers::ns_fvm::BloodModel;
 use cfd_core::error::Error;
 use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
@@ -157,12 +158,25 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
                 }
             }
 
-            // The pressure-correction operator does not depend on rheology.
-            // One fixed over-relaxation factor keeps the inner solve on the
-            // same numerical contract for Newtonian and non-Newtonian paths;
-            // the consumer-owned sweep cap controls the inner/outer work
-            // balance without changing the correction equation.
-            let relaxation = <T as FloatElement>::from_f64(PRESSURE_SOR_RELAXATION);
+            // The pressure-correction operator does not depend on rheology,
+            // but the default Newtonian split is calibrated separately from
+            // the non-Newtonian over-relaxed path. A measured consumer may
+            // override that default without changing unrelated geometries.
+            let relaxation =
+                self.config
+                    .pressure_sor_relaxation
+                    .unwrap_or_else(|| match &self.blood {
+                        BloodModel::Newtonian(_) => scalar::one(),
+                        BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
+                            <T as FloatElement>::from_f64(PRESSURE_SOR_RELAXATION)
+                        }
+                    });
+            let two = <T as FloatElement>::from_f64(2.0);
+            if !(relaxation > zero && relaxation < two && relaxation.is_finite()) {
+                return Err(Error::InvalidConfiguration(
+                    "pressure SOR relaxation must be finite and in (0, 2)".to_string(),
+                ));
+            }
             // SIMPLE repeats this correction and uses the field continuity
             // residual below as the convergence oracle. The cap limits inner
             // work without treating a partially converged pressure correction

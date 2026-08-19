@@ -42,6 +42,14 @@ pub struct SIMPLEConfig<T: RealField + Copy> {
     /// so consumers with a measured inner/outer balance declare it here.
     #[serde(default)]
     pub pressure_sweep_cap: Option<usize>,
+    /// Optional pressure-correction SOR relaxation factor.
+    ///
+    /// `None` preserves the solver's rheology-specific default. A supplied
+    /// value must lie in `(0, 2)`, the convergent SOR range for the pressure
+    /// correction operator; consumers may set it when a measured geometry
+    /// requires a different inner/outer balance.
+    #[serde(default)]
+    pub pressure_sor_relaxation: Option<T>,
 }
 
 impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
@@ -56,6 +64,7 @@ impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
             viscosity_update_interval: 1,
             n_correctors: 1, // Default to traditional SIMPLE
             pressure_sweep_cap: None,
+            pressure_sor_relaxation: None,
         }
     }
 }
@@ -96,6 +105,7 @@ impl<T: RealField + Copy> SIMPLEConfig<T> {
             viscosity_update_interval,
             n_correctors,
             pressure_sweep_cap: None,
+            pressure_sor_relaxation: None,
         }
     }
 }
@@ -153,5 +163,6 @@ mod tests {
         assert_eq!(cfg.alpha_mu, 0.8);
         assert_eq!(cfg.viscosity_update_interval, 2);
         assert_eq!(cfg.n_correctors, 3);
+        assert_eq!(cfg.pressure_sor_relaxation, None);
     }
 }

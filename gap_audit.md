@@ -89,12 +89,13 @@ reattachment. The remaining runtime defect was in the provider execution path:
 each momentum solve rebuilt GMRES workspace and copied CSR structure, while the
 backward-step pressure correction needed a measured inner sweep cap. The
 provider now reuses `KrylovWorkspace`, consumes Leto's mutable CSR parts
-directly, retains one Newtonian pressure-SOR relaxation factor, and the
-benchmark declares `pressure_sweep_cap = 33`. The exact locked
-`cfd-validation` filter passes 14/14 in 11.652 s; the formerly timing-out
-integration case passes in 12.505 s. The cfd-math library passes 202/202,
-cfd-2d's focused SIMPLE suite passes 5/5, and warning-denied cfd-validation
-Clippy passes. Hosted exact-head Rust and Pages verification remains open.
+directly, exposes a validated consumer-owned SOR override, and the benchmark
+declares `pressure_sor_relaxation = 1.7` with `pressure_sweep_cap = 33`. The
+default Newtonian split remains unchanged for other geometries; the affected
+validation binaries pass 16/16 locally, including the formerly timing-out
+integration case in 11.407 s. The cfd-math library passes 202/202, cfd-2d's
+focused SIMPLE suite passes 5/5, and warning-denied Clippy passes. Hosted
+exact-head Rust and Pages verification remains open.
 
 ## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
 

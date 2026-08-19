@@ -45,10 +45,10 @@
       Reynolds/geometry metadata; unsupported cases remain explicitly
       unreferenced.
 - [x] Reuse the provider-owned GMRES workspace and direct Leto CSR structure
-      views, retain one fixed Newtonian pressure-SOR factor, and declare the
-      measured backward-step pressure sweep cap of 33. The exact locked
-      `cfd-validation` filter passes 14/14 in 11.652 s; the former integration
-      timeout passes in 12.505 s under the unchanged 30-second budget.
+      views, expose a validated consumer-owned SOR override, and declare the
+      measured backward-step values `omega = 1.7` and pressure sweep cap 33.
+      The affected validation binaries pass 16/16 locally; the former
+      integration timeout passes in 11.407 s under the unchanged budget.
 - [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and
       close the item only when the unchanged numerical-fidelity filter passes.
 
