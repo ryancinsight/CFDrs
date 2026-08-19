@@ -118,14 +118,14 @@ pub struct JfnkConvergence<T: Copy> {
 struct JvpOperator<'a, T, F>
 where
     T: RealField + Copy + FloatElement,
-    F: Fn(&Array1<T>) -> Result<Array1<T>>,
+    F: FnMut(&Array1<T>) -> Result<Array1<T>>,
 {
     /// Current Newton point $x_k$ (pivot)
     x_pivot: &'a Array1<T>,
     /// $F(x_k)$ — pre-computed residual at pivot
     f_pivot: &'a Array1<T>,
     /// The nonlinear function $F$
-    func: &'a F,
+    func: &'a mut F,
     /// Finite-difference perturbation size $\varepsilon$
     eps: T,
 }
@@ -133,7 +133,7 @@ where
 impl<T, F> JvpOperator<'_, T, F>
 where
     T: RealField + Copy + FloatElement + Scalar,
-    F: Fn(&Array1<T>) -> Result<Array1<T>>,
+    F: FnMut(&Array1<T>) -> Result<Array1<T>>,
 {
     /// Compute $J(x) v \approx [F(x + \varepsilon v) - F(x)] / \varepsilon$.
     ///
@@ -141,7 +141,7 @@ where
     ///
     /// Uses the caller-pre-computed `eps` which already encodes
     /// $\varepsilon = \sqrt{\varepsilon_{\rm mach}} (1 + \|x\|) / \|v\|$.
-    fn apply_jvp(&self, v: &Array1<T>) -> Result<Array1<T>> {
+    fn apply_jvp(&mut self, v: &Array1<T>) -> Result<Array1<T>> {
         // Perturbed point: x + ε v
         let x_pert = add_scaled(self.x_pivot, v, self.eps);
         // Finite difference: [F(x + ε v) - F(x)] / ε
@@ -197,6 +197,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
     /// finite-difference Jacobian-vector product, and every model-residual
     /// evaluation. This keeps domain and linear-solver failures typed instead
     /// of converting them into a panic inside a recovery path.
+    /// The callback may mutate reusable workspace state between evaluations.
     ///
     /// # Errors
     ///
@@ -204,11 +205,11 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
     /// solve.
     pub fn solve_checked<F>(
         &self,
-        func: F,
+        mut func: F,
         mut x: Array1<T>,
     ) -> Result<(Array1<T>, JfnkConvergence<T>)>
     where
-        F: Fn(&Array1<T>) -> Result<Array1<T>>,
+        F: FnMut(&Array1<T>) -> Result<Array1<T>>,
     {
         let n = x.shape()[0];
         let mut f = func(&x)?;
@@ -263,14 +264,14 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
 
             // Solve J(x) δx = -F(x) via matrix-free GMRES
             let rhs = neg(&f);
-            let delta_x = self.gmres_matrix_free(&func, &x, &f, &rhs, inner_tol, n)?;
+            let delta_x = self.gmres_matrix_free(&mut func, &x, &f, &rhs, inner_tol, n)?;
 
             // Model residual estimate: ‖F(xₖ) + J(xₖ)δxₖ‖ (via JvP)
             let eps = Self::compute_eps(&x, &delta_x);
-            let jop = JvpOperator {
+            let mut jop = JvpOperator {
                 x_pivot: &x,
                 f_pivot: &f,
-                func: &func,
+                func: &mut func,
                 eps,
             };
             let j_delta = jop.apply_jvp(&delta_x)?;
@@ -308,7 +309,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
     /// The residual sequence is non-increasing: ‖r_{k+1}‖ ≤ ‖r_k‖.
     fn gmres_matrix_free<F>(
         &self,
-        func: &F,
+        func: &mut F,
         x: &Array1<T>,
         f_x: &Array1<T>,
         b: &Array1<T>,
@@ -316,7 +317,7 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
         n: usize,
     ) -> Result<Array1<T>>
     where
-        F: Fn(&Array1<T>) -> Result<Array1<T>>,
+        F: FnMut(&Array1<T>) -> Result<Array1<T>>,
     {
         let restart = self.config.krylov_restart.min(n);
         let max_iter = self.config.max_krylov_iterations;
@@ -359,10 +360,10 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                 // Arnoldi: compute w = J(x) · vⱼ
                 let vj = &v_basis[j];
                 let eps = Self::compute_eps(x, vj);
-                let jop = JvpOperator {
+                let mut jop = JvpOperator {
                     x_pivot: x,
                     f_pivot: f_x,
-                    func,
+                    func: &mut *func,
                     eps,
                 };
                 let mut w = jop.apply_jvp(vj)?;
@@ -407,10 +408,10 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
-                        let jop = JvpOperator {
+                        let mut jop = JvpOperator {
                             x_pivot: x,
                             f_pivot: f_x,
-                            func,
+                            func: &mut *func,
                             eps,
                         };
                         jop.apply_jvp(&delta)?
@@ -432,10 +433,10 @@ impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
-                        let jop = JvpOperator {
+                        let mut jop = JvpOperator {
                             x_pivot: x,
                             f_pivot: f_x,
-                            func,
+                            func: &mut *func,
                             eps,
                         };
                         jop.apply_jvp(&delta)?
@@ -622,6 +623,26 @@ mod tests {
             }
             other => panic!("unexpected JFNK checked result: {other:?}"),
         }
+    }
+
+    /// A checked residual may mutate reusable state between evaluations.
+    #[test]
+    fn test_checked_residual_accepts_mutable_callback() {
+        let solver = JfnkSolver::new(JfnkConfig::<f64>::default());
+        let mut calls = 0;
+        let (solution, convergence) = solver
+            .solve_checked(
+                |x| {
+                    calls += 1;
+                    Ok(vec(vec![x[0] - 1.0]))
+                },
+                vec(vec![1.0]),
+            )
+            .expect("initial root should converge");
+
+        assert_eq!(solution, vec(vec![1.0]));
+        assert!(convergence.converged);
+        assert_eq!(calls, 1);
     }
 
     /// Verify EW forcing term stays in [eta_min, eta_max].
