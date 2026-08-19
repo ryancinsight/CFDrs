@@ -131,6 +131,7 @@ impl<T: CfdScalar + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
         let mut simple = cfd_2d::solvers::ns_fvm::SIMPLEConfig::default();
         simple.max_iterations = config.max_iterations;
         simple.tolerance = config.tolerance;
+        simple.pressure_sweep_cap = Some(33);
         let provider_config = cfd_2d::solvers::ns_fvm::BackwardFacingStepConfig {
             resolution: config.resolution,
             reynolds_number: config.reynolds_number,

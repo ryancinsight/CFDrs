@@ -25,6 +25,14 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **cfd-2d/cfd-validation**: The backward-facing-step validation now uses the
+  provider's reusable GMRES workspace and direct mutable Leto CSR structure
+  access, while Newtonian pressure correction retains one fixed SOR relaxation
+  factor. The benchmark declares its measured pressure-sweep cap of 33; the
+  exact 14-test validation filter passes locally in 11.652 s, including the
+  formerly timing-out integration case, without changing the 30-second budget
+  or workload. Hosted exact-head confirmation remains pending.
+
 - `cfd-python` now reports the Cargo package version at the Python boundary,
   carries installed-wheel value-semantic tests for the Casson, Womersley, and
   Poiseuille contracts, and has a tag-scoped abi3 PyPI Trusted Publishing

@@ -27,5 +27,6 @@ pub use block_preconditioner::{
 };
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use direct_solver::DirectSparseSolver;
+pub use krylov::KrylovWorkspace;
 pub use preconditioners::multigrid::AMGConfig;
 pub use preconditioners::{AlgebraicMultigrid, IncompleteLU};

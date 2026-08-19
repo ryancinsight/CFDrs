@@ -71,7 +71,7 @@ and exclude generated output directories and Python bytecode from the sdist.
 Registry-side trusted-publisher enforcement and local publishing remain
 outside this item.
 
-## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
+## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (hosted closure pending 2026-08-19)
 
 **Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
 step geometry, SIMPLE solve, signed wall-shear measurement, and the thin
@@ -162,10 +162,14 @@ closure below.
 At exact pre-runtime-fix head `02c2ae80`, hosted CI run `32044765872` completed
 format, check, ordinary tests, and 13/14 numerical-fidelity tests, but
 `cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the
-committed 30-second Nextest timeout at 30.003 s. The source fix at `c86dc33f`
-borrows contiguous Leto matrix storage once and hoists invariant stencil terms;
-it preserves the finite-difference update order and the test budget. New exact
-head CI run `32046463302` and Pages run `32046464094` are queued.
+committed 30-second Nextest timeout at 30.003 s. The subsequent provider-owned
+fix reuses the cached GMRES workspace, accesses Leto CSR structure through its
+mutable parts, keeps one fixed Newtonian pressure-SOR relaxation factor, and
+declares the measured backward-step pressure sweep cap of 33. It preserves the
+value contract and benchmark workload. Locked local Nextest now passes the
+exact 14-test filter in 11.652 s; the former integration case passes in 12.505
+s. The hosted Rust and Pages gates at the new source head remain the closure
+requirement.
 
 At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas

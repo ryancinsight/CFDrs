@@ -1,4 +1,4 @@
-## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (in progress 2026-08-17)
+## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
 
 The first implementation placed a new streamfunction–vorticity solver in
 `cfd-validation`, which violated provider-first ownership because `cfd-2d`
@@ -85,11 +85,16 @@ correlation result.
 
 The focused source and integration tests were updated to assert the crossing,
 boundary values, finite physical position, and exact error for a field without
-reattachment. `cargo fmt --all -- --check` and `git diff --check` pass. The
-locked local package gate remains blocked before compilation by the shared Atlas
-overlay's peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the
-current local graph provides `0.2.0`; hosted exact-head verification is required
-before closure.
+reattachment. The remaining runtime defect was in the provider execution path:
+each momentum solve rebuilt GMRES workspace and copied CSR structure, while the
+backward-step pressure correction needed a measured inner sweep cap. The
+provider now reuses `KrylovWorkspace`, consumes Leto's mutable CSR parts
+directly, retains one Newtonian pressure-SOR relaxation factor, and the
+benchmark declares `pressure_sweep_cap = 33`. The exact locked
+`cfd-validation` filter passes 14/14 in 11.652 s; the formerly timing-out
+integration case passes in 12.505 s. The cfd-math library passes 202/202,
+cfd-2d's focused SIMPLE suite passes 5/5, and warning-denied cfd-validation
+Clippy passes. Hosted exact-head Rust and Pages verification remains open.
 
 ## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
 
