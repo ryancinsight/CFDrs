@@ -25,6 +25,11 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- `cfd-python` now reports the Cargo package version at the Python boundary,
+  carries installed-wheel value-semantic tests for the Casson, Womersley, and
+  Poiseuille contracts, and has a tag-scoped abi3 PyPI Trusted Publishing
+  caller with exact Atlas provider-graph resolution. The source distribution
+  excludes committed simulation outputs and Python bytecode caches.
 - **cfd-2d/cfd-validation**: Backward-facing-step geometry, SIMPLE execution,
   fluid-cell-only parabolic inlet, boundary masking, and signed lower-wall
   shear extraction now live in the provider. `cfd-validation` maps its
@@ -63,6 +68,10 @@
   layout work from its production hot loop without changing the update order or
   committed Nextest budget. The preceding exact-head hosted run isolated the
   remaining failure to `test_benchmark_run_integration` at 30.003 s.
+- **cfd-2d**: The backward-facing-step provider now prepares the normalized
+  parabolic inlet profile once per solve and reuses it across SIMPLE iterations,
+  removing repeated coordinate reductions and boundary-path allocations without
+  changing the inlet values or benchmark workload.
 - `cfd-1d::giersiepen_hi` no longer hides a cfd-core validation error behind a
   zero result; documented negative inputs are handled before the provider call
   and the invariant is checked explicitly.

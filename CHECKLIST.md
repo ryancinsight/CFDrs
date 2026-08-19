@@ -1,5 +1,21 @@
 # CFDrs Work Checklist
 
+## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller
+
+- [x] Register the provider release slice and keep its scope to the Python
+      binding caller, installed-wheel tests, and version surface.
+- [x] Make `cfd_python.__version__` derive from the Cargo package version.
+- [x] Add analytical and input-sensitive pytest coverage for wheel metadata,
+      Casson rheology, Womersley alpha, and Poiseuille output values.
+- [x] Add the release-tag caller with abi3-py38, exact Atlas graph revision,
+      provider test path, artifact attestation, and PyPI Trusted Publishing;
+      extend the shared release workflow to validate and attach one sdist.
+- [x] Exclude committed simulation-output directories and Python bytecode
+      caches from the source distribution; keep the caches ignored for future
+      binding-test runs.
+- [ ] Run the focused provider checks and hosted release dry-run at the exact
+      source head; do not change registry-side trusted-publisher settings.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
 
 - [x] Replace the fixed-threshold `min_scalar` selection with the caller's
@@ -12,6 +28,20 @@
       provider solver reports in the touched validation paths.
 - [ ] Push the final source head and pass the exact hosted Rust and Pages
       gates without changing the committed budget or workloads.
+
+## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear
+
+- [x] Move backward-facing-step geometry, SIMPLE execution, fluid-cell inlet
+      masking, and signed wall-shear crossing into the provider while keeping
+      the validation adapter thin and value-semantic.
+- [x] Cache the normalized parabolic inlet profile once per solve; reapply the
+      cached values each iteration without rebuilding coordinate vectors or
+      allocating in the boundary path.
+- [x] Preserve the benchmark workload, assertions, and committed 30-second
+      Nextest budget; the previous exact-head hosted run timed out only in
+      `test_benchmark_run_integration` at 30.003 s.
+- [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and
+      close the item only when the unchanged numerical-fidelity filter passes.
 
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces
 

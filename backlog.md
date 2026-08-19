@@ -58,6 +58,19 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch] — in progress
+
+**Owner:** Atlas coordinator; scope is the `cfd-python` binding release
+caller, its installed-wheel pytest contract, the binding version surface, the
+shared Atlas release-distribution contract, and source-package exclusion of
+generated outputs. **Acceptance:** release tags build abi3 wheels plus one
+validated source distribution through the shared Atlas workflow, install and
+import `cfd_python`, run the value-semantic binding tests, publish validated
+artifacts through PyPI Trusted Publishing without a long-lived registry token,
+and exclude generated output directories and Python bytecode from the sdist.
+Registry-side trusted-publisher enforcement and local publishing remain
+outside this item.
+
 ## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
@@ -70,6 +83,13 @@ downstream sign change, and pass the unchanged focused validation gate plus
 hosted provider verification. No duplicated consumer solver, hardcoded
 correlation in the runtime path, reduced workload, or weakened assertion
 closes this item.
+
+The remaining hosted timeout is isolated to the repeated parabolic-inlet
+preparation inside the SIMPLE loop. The provider now prepares the normalized
+fluid-cell profile once per solve and reapplies the cached values without
+per-iteration allocation or coordinate reduction. The benchmark workload and
+the 30-second Nextest budget remain unchanged; the exact-head hosted rerun is
+the acceptance gate.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 

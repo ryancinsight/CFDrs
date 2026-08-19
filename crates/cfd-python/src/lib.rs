@@ -90,7 +90,7 @@ pub use womersley::*;
 /// `PyO3` module for CFD-rs Python bindings
 #[pymodule]
 fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add("__version__", "0.1.0")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
     // 1D solvers
     m.add_class::<PyBifurcationSolver>()?;

@@ -11,6 +11,7 @@ readme = "README.md"
 description = "Python bindings for CFD-rs solvers using PyO3"
 keywords = ["cfd", "python", "pyo3", "bindings", "simulation"]
 categories = ["science", "simulation", "api-bindings"]
+exclude = ["tests/__pycache__/**"]
 
 [lib]
 name = "cfd_python"

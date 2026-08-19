@@ -11,6 +11,7 @@ readme = "README.md"
 description = "Schematic network design, geometry generation, and metadata export for microfluidic/millifluidic devices"
 keywords = ["microfluidics", "millifluidics", "schematic", "geometry", "cfd"]
 categories = ["science", "simulation"]
+exclude = ["output/**"]
 
 [features]
 default = []

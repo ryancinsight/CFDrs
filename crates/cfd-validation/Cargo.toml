@@ -11,6 +11,7 @@ readme = "README.md"
 description = "Validation framework and benchmark problems for CFD simulations"
 keywords = ["cfd", "validation", "benchmark", "convergence", "mms"]
 categories = ["science", "development-tools::testing"]
+exclude = ["outputs/**"]
 
 [dependencies]
 cfd-core.workspace = true

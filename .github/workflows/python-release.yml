@@ -1,0 +1,56 @@
+name: Python Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  wheels:
+    if: startsWith(github.event.release.tag_name, 'cfd-python-v')
+    name: Build and attach release distributions
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+    uses: ryancinsight/atlas/.github/workflows/python-wheels.yml@5936303396fd5a8a0aa0d432fd2c81a8cb203146
+    with:
+      distribution: cfd-python
+      import-name: cfd_python
+      manifest-path: crates/cfd-python/Cargo.toml
+      atlas-ref: 5936303396fd5a8a0aa0d432fd2c81a8cb203146
+      tag-prefix: cfd-python-v
+      abi3: true
+      abi3-python: "3.8"
+      python-test-path: crates/cfd-python/tests
+
+  publish:
+    if: startsWith(github.event.release.tag_name, 'cfd-python-v')
+    name: Publish release distributions to PyPI
+    needs: wheels
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: pypi
+      url: https://pypi.org/p/cfd-python
+    permissions:
+      id-token: write
+    steps:
+      - name: Download validated release distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-wheels
+          path: dist
+
+      - name: Publish through PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
+        with:
+          packages-dir: dist/
+          print-hash: true

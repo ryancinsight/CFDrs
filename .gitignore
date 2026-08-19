@@ -42,6 +42,10 @@ validation/references/
 outputs/
 report/
 
+# Python test caches
+**/__pycache__/
+*.pyc
+
 # Large root-level generated and binary files
 *.out
 *.dll
