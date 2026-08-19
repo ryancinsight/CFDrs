@@ -9,6 +9,7 @@ use eunomia::{FloatElement, NumericElement};
 
 use super::vector_bridge::{array_l2_norm, copy_array};
 use super::{
+    newton_fallback::{jfnk_fallback, FallbackBudget},
     workspace, ConvergenceChecker, LinearSolverMethod, LinearSystemSolver, MatrixAssembler,
     NetworkProblem, PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason, SolverConfig,
 };
@@ -281,6 +282,9 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
 
         let mut selected_method: Option<LinearSolverMethod> = None;
         let mut adaptive_solver: Option<LinearSystemSolver<T>> = None;
+        let fallback_budget = FallbackBudget::for_max_iterations(self.config.max_iterations);
+        let mut solution_change_history = Vec::with_capacity(fallback_budget.stall_window);
+        let mut fallback_attempted = false;
 
         for iter in 0..self.config.max_iterations {
             diagnostics.picard_iterations = iter + 1;
@@ -384,6 +388,9 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                     }),
                 ));
             }
+            if let Some(change) = Self::diagnostic_f64(solution_change_norm) {
+                solution_change_history.push(change);
+            }
             network.residuals.push(residual_norm);
 
             let converged = self
@@ -445,6 +452,67 @@ impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                     .iter()
                     .map(|flow_rate| flow_rate.into_base()),
             );
+
+            if !fallback_attempted
+                && iter + 1 < self.config.max_iterations
+                && iter + 1 >= fallback_budget.warmup_iterations
+                && fallback_budget.is_stalling(&solution_change_history)
+            {
+                fallback_attempted = true;
+                diagnostics.fallback_used = true;
+                let Some(linear_method) = selected_method else {
+                    return Err(PrimarySolveError::new(
+                        SolveFailureReason::LinearSolverFailure,
+                        diagnostics,
+                        Error::InvalidConfiguration(
+                            "JFNK fallback requires a selected linear solver method".to_string(),
+                        ),
+                    ));
+                };
+                let fallback_solution = jfnk_fallback(
+                    &self.assembler,
+                    &network,
+                    workspace.dirichlet_values.clone(),
+                    workspace.neumann_sources.clone(),
+                    linear_method,
+                    self.config.tolerance,
+                    &fallback_budget,
+                    &workspace.last_solution,
+                )
+                .map_err(|source| {
+                    let reason = match &source {
+                        Error::Convergence(_) => SolveFailureReason::MaxIterationsExceeded,
+                        Error::Numerical(_) => SolveFailureReason::NonFiniteResidual,
+                        _ => SolveFailureReason::LinearSolverFailure,
+                    };
+                    PrimarySolveError::new(reason, diagnostics.clone(), source)
+                })?;
+                if !Self::vector_is_finite(&fallback_solution) {
+                    return Err(PrimarySolveError::new(
+                        SolveFailureReason::NonFiniteResidual,
+                        diagnostics,
+                        Error::Numerical(NumericalErrorKind::InvalidValue {
+                            value: "non-finite JFNK fallback solution".to_string(),
+                        }),
+                    ));
+                }
+                self.update_network_solution(&mut network, &fallback_solution)
+                    .map_err(|source| {
+                        PrimarySolveError::new(
+                            SolveFailureReason::MatrixAssemblyInvalid,
+                            diagnostics.clone(),
+                            source,
+                        )
+                    })?;
+                workspace.last_solution = fallback_solution;
+                last_flow_rates.clear();
+                last_flow_rates.extend(
+                    network
+                        .flow_rates
+                        .iter()
+                        .map(|flow_rate| flow_rate.into_base()),
+                );
+            }
         }
 
         Err(PrimarySolveError::new(

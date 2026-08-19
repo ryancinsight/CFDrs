@@ -166,6 +166,20 @@ Apollo head `c87a1abe` does not expose it. Apollo remote head
 re-export and public module change. CFDrs remains unadvanced until that
 upstream head is merged; no compatibility shim is permitted.
 
+## Bounded Newton-Krylov recovery integration — CFDrs (2026-08-19)
+
+- `crates/cfd-1d/src/solver/core/newton_fallback.rs` is now declared in the
+  solver module graph and is called once when the existing bounded-amplitude
+  stagnation detector classifies the Picard trajectory as stalled.
+- The recovery budget derives its warm-up and Newton/Krylov limits from
+  `SolverConfig.max_iterations`, so the fallback does not create a second
+  unbounded solver attempt. `cfd-math::JfnkSolver::solve_checked` propagates
+  residual callback failures as typed errors instead of panicking.
+- Static source reachability, package formatting, and diff checks are clean.
+  Locked local Cargo verification is blocked before compilation by the shared
+  Atlas overlay/lock mismatch; provider hosted exact-head Rust and book-figure
+  gates remain open until the source branch is checked.
+
 ## Unreachable source-module closure — CFDrs (2026-08-17)
 
 - Closed at merged provider default `54dcea3c`, source head `b455a416`.

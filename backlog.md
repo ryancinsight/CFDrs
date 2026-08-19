@@ -231,6 +231,21 @@ CI run `32033808279` passes its Rust workspace and book-figure gates at source
 head `b455a416`; the pushed PM head `5b95fe3a` passes the same gates in run
 `32036370369`. External `recurseml/analysis` remains report-only.
 
+## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix] — in progress
+
+**Owner:** Atlas session; scope is `cfd-1d` nonlinear network recovery and the
+provider-owned `cfd-math` JFNK callback seam. **Acceptance:** the retained
+`newton_fallback.rs` source is reachable from `NetworkSolver`; bounded-amplitude
+stagnation invokes one finite-budget JFNK trajectory; assembly and linear-solver
+failures remain typed; and the exact provider hosted gates pass at the final
+source head. No tolerance relaxation, compatibility shim, or test-workload
+change is permitted.
+
+The source integration and value-semantic unit coverage are implemented. Local
+format and diff checks pass. Locked Cargo verification is currently blocked
+before compilation by the shared Atlas overlay/lock mismatch; hosted exact-head
+verification is the remaining closure gate.
+
 ## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch] — done 2026-08-17
 
 **Owner:** Atlas session; closed at provider source head `e9c84bf6`.
