@@ -36,6 +36,11 @@
   benchmark configuration to that provider and reports the interpolated
   negative-to-nonnegative shear crossing; the consumer-owned streamfunction
   solver and constant result are removed.
+- **cfd-2d/cfd-validation**: Backward-facing-step Reynolds number now uses the
+  inlet hydraulic diameter, and validation results retain the configured
+  Reynolds/geometry metadata. The Armaly reference adapter exposes explicit
+  two-dimensional anchor cases and rejects unsupported combinations instead
+  of interpolating the nonlinear literature curve.
 - SIMPLEC adaptive stepping now preserves the caller's problem-scaled
   convergence target instead of replacing it with an unreachable fixed
   tolerance. The exact 35 µm and 3D trifurcation validation cases pass under

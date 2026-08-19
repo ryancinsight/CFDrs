@@ -40,6 +40,10 @@
 - [x] Preserve the benchmark workload, assertions, and committed 30-second
       Nextest budget; the previous exact-head hosted run timed out only in
       `test_benchmark_run_integration` at 30.003 s.
+- [x] Correct the provider Reynolds definition to use the inlet hydraulic
+      diameter and make the validation reference depend on recorded
+      Reynolds/geometry metadata; unsupported cases remain explicitly
+      unreferenced.
 - [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and
       close the item only when the unchanged numerical-fidelity filter passes.
 

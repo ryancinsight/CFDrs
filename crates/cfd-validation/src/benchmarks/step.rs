@@ -43,6 +43,71 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStep<T> {
             inlet_velocity,
         }
     }
+
+    /// Return the published Armaly reference for a supported benchmark case.
+    ///
+    /// The reference is keyed by the configured Reynolds number and the
+    /// expansion geometry. Armaly et al. show that the laminar reattachment
+    /// curve is nonlinear and depends on more than Reynolds number, so this
+    /// adapter exposes only the committed anchor cases instead of inventing an
+    /// interpolation between them. The source is Armaly et al., *Experimental
+    /// and theoretical investigation of backward-facing step flow*, Journal of
+    /// Fluid Mechanics 127 (1983), Fig. 4 and the corresponding two-dimensional
+    /// comparison data: <https://courses.washington.edu/me431/handouts/armaly-jfm-83.pdf>.
+    #[must_use]
+    pub fn reference_solution_for(
+        &self,
+        config: &BenchmarkConfig<T>,
+    ) -> Option<BenchmarkResult<T>> {
+        self.reference_solution_for_reynolds(config.reynolds_number)
+    }
+
+    fn reference_solution_for_reynolds(&self, reynolds_number: T) -> Option<BenchmarkResult<T>> {
+        let two = <T as FloatElement>::from_f64(2.0);
+        if self.channel_height != two * self.step_height {
+            return None;
+        }
+
+        let (reference_ratio, experimental_spread, source_case) =
+            if reynolds_number == <T as FloatElement>::from_f64(100.0) {
+                (
+                    <T as FloatElement>::from_f64(2.84),
+                    <T as FloatElement>::from_f64(0.13),
+                    "Armaly 2D Re=100",
+                )
+            } else if reynolds_number == <T as FloatElement>::from_f64(389.0) {
+                (
+                    <T as FloatElement>::from_f64(7.83),
+                    <T as FloatElement>::from_f64(0.42),
+                    "Armaly 2D Re=389",
+                )
+            } else {
+                return None;
+            };
+
+        let reference_reattachment = reference_ratio * self.step_height;
+        let reference_error = experimental_spread * self.step_height;
+        let mut metrics = std::collections::HashMap::new();
+        metrics.insert("reynolds_number".to_string(), reynolds_number);
+        metrics.insert("step_height".to_string(), self.step_height);
+        metrics.insert("channel_height".to_string(), self.channel_height);
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("reference_case".to_string(), source_case.to_string());
+        metadata.insert(
+            "reference_source".to_string(),
+            "Armaly et al. (1983), JFM 127, Fig. 4".to_string(),
+        );
+
+        Some(BenchmarkResult {
+            name: "Backward Facing Step (Armaly Reference)".to_string(),
+            values: vec![reference_reattachment],
+            errors: vec![reference_error],
+            convergence: vec![],
+            execution_time: 0.0,
+            metrics,
+            metadata,
+        })
+    }
 }
 
 impl<T: CfdScalar + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> {
@@ -91,25 +156,19 @@ impl<T: CfdScalar + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
             errors: vec![],
             convergence: vec![solved.solve.residual],
             execution_time: start.elapsed().as_secs_f64(),
-            metrics: std::collections::HashMap::new(),
+            metrics: {
+                let mut metrics = std::collections::HashMap::new();
+                metrics.insert("reynolds_number".to_string(), config.reynolds_number);
+                metrics.insert("step_height".to_string(), self.step_height);
+                metrics.insert("channel_height".to_string(), self.channel_height);
+                metrics
+            },
             metadata,
         })
     }
 
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
-        // Nominal expansion-ratio-two reattachment reference from Gartling
-        // (1990), used only by the validation adapter; runtime results never
-        // substitute this value for a solved wall-shear crossing.
-        let reference_reattachment = <T as FloatElement>::from_f64(6.0) * self.step_height;
-        Some(BenchmarkResult {
-            name: "Backward Facing Step (Reference)".to_string(),
-            values: vec![reference_reattachment],
-            errors: vec![],
-            convergence: vec![],
-            execution_time: 0.0,
-            metrics: std::collections::HashMap::new(),
-            metadata: std::collections::HashMap::new(),
-        })
+        self.reference_solution_for(&BenchmarkConfig::default())
     }
 
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
@@ -123,10 +182,21 @@ impl<T: CfdScalar + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> 
             return Ok(false);
         }
 
-        let reference = self.reference_solution().ok_or_else(|| {
-            Error::InvalidInput("backward-facing-step reference is unavailable".to_string())
-        })?;
-        let reference_reattachment = reference.values[0];
+        let Some(&reynolds_number) = result.metrics.get("reynolds_number") else {
+            return Err(Error::InvalidInput(
+                "backward-facing-step result is missing reynolds_number metadata".to_string(),
+            ));
+        };
+        let reference = self
+            .reference_solution_for_reynolds(reynolds_number)
+            .ok_or_else(|| {
+                Error::InvalidInput("backward-facing-step reference is unavailable".to_string())
+            })?;
+        let Some(&reference_reattachment) = reference.values.first() else {
+            return Err(Error::InvalidInput(
+                "backward-facing-step reference has no reattachment value".to_string(),
+            ));
+        };
         let tolerance = <T as FloatElement>::from_f64(0.30);
         let relative_error =
             (computed_reattachment - reference_reattachment).abs() / reference_reattachment;

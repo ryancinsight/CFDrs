@@ -84,15 +84,20 @@ hosted provider verification. No duplicated consumer solver, hardcoded
 correlation in the runtime path, reduced workload, or weakened assertion
 closes this item.
 
-The cached inlet profile is complete, but the exact test still has two
-independent residuals. At `b0b7c310`, debug Nextest reproduces the hosted
-termination at 30.032 s; an optimized probe completes in 4.8 s but returns
-`x_r/h = 2.0439` at the default `Re_h = 100` against the nominal `6.0`-
-height reference. A measured 32-sweep pressure cap reaches 25.4 s in debug
-but still returns an invalid reference result, so neither the cap nor the
-test budget is an accepted fix. The next increment must parameterize the
-literature reference by the configured Reynolds/geometry contract and then
-optimize the real SIMPLE path while preserving value-semantic validation.
+The provider now computes viscosity from the inlet hydraulic diameter
+`D = 2 * (channel_height - step_height)`, matching the Armaly Reynolds
+definition, and the adapter records the configured Reynolds number and
+geometry in the result. The reference is configuration-aware: the supported
+Armaly two-dimensional anchors are `Re=100, x_r/h=2.84` and
+`Re=389, x_r/h=7.83`; unsupported Reynolds/geometry combinations return no
+reference instead of receiving a fabricated interpolation. The release
+locked value-semantic filter passes 14/14 at run
+`314957f4-817b-44bb-bea6-0f1138f7b6c7`, with the default solve completing in
+5.79 s and producing `x_r/h = 2.0016`. The result remains near the edge of
+the existing 30% acceptance band, so the production SIMPLE/grid-fidelity
+gap and the debug 30-second termination remain open. A 96-cell probe exceeded
+the slow budget and did not close the reference gap; neither the mesh nor the
+budget is changed here.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 

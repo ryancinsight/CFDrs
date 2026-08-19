@@ -70,7 +70,12 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStepGeometry<T> {
 pub struct BackwardFacingStepConfig<T: RealField + Copy> {
     /// Number of cells across the downstream channel height.
     pub resolution: usize,
-    /// Reynolds number based on step height and inlet velocity.
+    /// Reynolds number based on inlet hydraulic diameter and mean velocity.
+    ///
+    /// For the two-dimensional parallel-plate inlet used by the Armaly
+    /// backward-step benchmark, the hydraulic diameter is twice the inlet
+    /// opening. The viscosity calculation therefore uses
+    /// `nu = U * D / Re` with `D = 2 * (channel_height - step_height)`.
     pub reynolds_number: T,
     /// SIMPLE pressure-velocity coupling configuration.
     pub simple: SIMPLEConfig<T>,
@@ -132,9 +137,10 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStepSolver<T> {
             self.geometry.channel_length(),
             self.geometry.channel_height,
         );
-        let viscosity = config.reynolds_number.recip()
-            * self.geometry.inlet_velocity
-            * self.geometry.step_height;
+        let two = <T as FloatElement>::from_f64(2.0);
+        let inlet_height = self.geometry.channel_height - self.geometry.step_height;
+        let viscosity =
+            config.reynolds_number.recip() * self.geometry.inlet_velocity * (two * inlet_height);
         let mut solver = NavierStokesSolver2D::new(
             grid,
             BloodModel::Newtonian(viscosity),

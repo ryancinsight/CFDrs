@@ -10,17 +10,20 @@ now a thin adapter and no longer owns a second field solver or matrix type.
 The provider applies a normalized parabolic profile only on fluid inlet cells;
 solid inlet cells remain zero during every SIMPLE iteration.
 
-The exact source-head audit found two independent residuals after the inlet
-profile cache landed. Debug Nextest reproduces the hosted 30.032 s
-termination, while an optimized run completes in 4.8 s but computes
-`x_r/h = 2.0439` for the default `Re_h = 100` against the fixed `6.0`-
-height reference. A 32-sweep pressure-cap probe fits the debug budget at
-25.4 s but remains numerically invalid, so changing the cap or budget would
-mask the defect. The acceptance path now requires a Reynolds/geometry-aware
-reference contract and a production SIMPLE optimization validated against an
-independent oracle. Full Atlas-locked compilation remains separately blocked
-by the shared overlay's peer-dirty Asclepius checkout requiring `aequitas
-^0.1.0` while the current local graph provides `0.2.0`.
+The provider now uses the Armaly inlet hydraulic diameter
+`D = 2 * (channel_height - step_height)` in its viscosity calculation, and the
+validation result carries the configured Reynolds number and geometry. The
+adapter exposes only the published two-dimensional anchors `Re=100,
+x_r/h=2.84` and `Re=389, x_r/h=7.83`; it does not interpolate the nonlinear
+literature curve. The exact release filter passes 14/14 at run
+`314957f4-817b-44bb-bea6-0f1138f7b6c7`; the default solve takes 5.79 s and
+returns `x_r/h = 2.0016`, which remains at the edge of the existing 30%
+acceptance band. The debug termination and the remaining SIMPLE/grid-fidelity
+error are still open. A 96-cell probe exceeded the committed slow budget and
+did not close the fidelity gap, so its workload was not retained. Full
+Atlas-locked compilation remains separately blocked by the shared overlay's
+peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the current
+local graph provides `0.2.0`.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (closed 2026-08-17)
 

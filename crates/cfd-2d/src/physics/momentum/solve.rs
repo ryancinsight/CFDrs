@@ -5,7 +5,9 @@ use athena_leto::SuccessiveOverRelaxation;
 use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov;
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, NumericElement};
+use eunomia::FloatElement;
+#[cfg(debug_assertions)]
+use eunomia::NumericElement;
 use leto::Array1;
 
 fn velocity_solution_guess<T: CfdScalar + Copy>(
