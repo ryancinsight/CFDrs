@@ -126,8 +126,8 @@ impl FallbackBudget {
             .min(defaults.max_newton_iterations);
         Self {
             warmup_iterations,
-            max_krylov_iterations,
             max_newton_iterations,
+            max_krylov_iterations,
             ..defaults
         }
     }
