@@ -258,9 +258,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::network::{Network, NetworkBuilder};
     use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
     use cfd_core::physics::fluid::database::water_20c;
-    use crate::domain::network::{Network, NetworkBuilder};
 
     /// Empty-history slice is not stalled — fallback should not start.
     #[test]
