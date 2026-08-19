@@ -12,8 +12,9 @@
 //! ladder is safe, and only trades memory for a slightly deeper subspace.
 
 use athena_core::{
-    BiCgStab, BiCgStabWorkspace, Cg, CgWorkspace, ConvergencePolicy, Gmres, GmresWorkspace,
-    Identity, LinearOperator, Preconditioner, SolveError, SolveReport, Termination,
+    BiCgStab, BiCgStabWorkspace, Cg, CgWorkspace, ConvergencePolicy, Gmres,
+    GmresWorkspace as AthenaGmresWorkspace, Identity, LinearOperator, Preconditioner, SolveError,
+    SolveReport, Termination,
 };
 use athena_leto::{BorrowedCsrOperator, LetoBackend, LetoBackendError};
 use eunomia::{FloatElement, RealField};
@@ -24,6 +25,55 @@ use super::IterativeSolverConfig;
 
 /// Result of a CFD Krylov solve.
 pub type KrylovResult<T> = Result<SolveReport<T>, SolveError<LetoBackendError>>;
+
+/// Reusable restarted-GMRES workspace for a fixed vector dimension.
+///
+/// The workspace owns the backend vectors and prepared reductions required by
+/// Athena. Reusing it across solves keeps repeated nonlinear iterations from
+/// reallocating the Krylov basis. The requested restart is rounded through the
+/// same compile-time ladder as [`gmres_preconditioned`].
+pub struct KrylovWorkspace<T: RealScalar + RealField> {
+    inner: KrylovWorkspaceInner<T>,
+}
+
+enum KrylovWorkspaceInner<T: RealScalar + RealField> {
+    W8(AthenaGmresWorkspace<LetoBackend<T>, 8>),
+    W16(AthenaGmresWorkspace<LetoBackend<T>, 16>),
+    W32(AthenaGmresWorkspace<LetoBackend<T>, 32>),
+    W64(AthenaGmresWorkspace<LetoBackend<T>, 64>),
+    W128(AthenaGmresWorkspace<LetoBackend<T>, 128>),
+    W256(AthenaGmresWorkspace<LetoBackend<T>, 256>),
+}
+
+impl<T> KrylovWorkspace<T>
+where
+    T: RealScalar + RealField + FloatElement,
+{
+    /// Allocate a workspace for `dimension` unknowns and a requested restart.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first backend allocation or reduction-preparation failure.
+    pub fn new(restart: usize, dimension: usize) -> Result<Self, LetoBackendError> {
+        let backend = LetoBackend::<T>::default();
+        macro_rules! allocate {
+            ($width:literal, $variant:ident) => {
+                AthenaGmresWorkspace::<LetoBackend<T>, $width>::new(&backend, dimension)
+                    .map(KrylovWorkspaceInner::$variant)
+            };
+        }
+
+        let inner = match RestartWidth::covering(restart) {
+            RestartWidth::W8 => allocate!(8, W8)?,
+            RestartWidth::W16 => allocate!(16, W16)?,
+            RestartWidth::W32 => allocate!(32, W32)?,
+            RestartWidth::W64 => allocate!(64, W64)?,
+            RestartWidth::W128 => allocate!(128, W128)?,
+            RestartWidth::W256 => allocate!(256, W256)?,
+        };
+        Ok(Self { inner })
+    }
+}
 
 /// Restart widths Athena is instantiated at.
 ///
@@ -109,34 +159,64 @@ where
     T: RealScalar + RealField + FloatElement,
     P: Preconditioner<LetoBackend<T>>,
 {
+    let dimension = matrix.shape().0;
+    let mut workspace = KrylovWorkspace::new(restart, dimension).map_err(SolveError::Backend)?;
+    gmres_preconditioned_with_workspace(
+        matrix,
+        right_hand_side,
+        preconditioner,
+        solution,
+        config,
+        &mut workspace,
+    )
+}
+
+/// Solve `A·x = b` with restarted GMRES and a caller-owned workspace.
+///
+/// The workspace dimension must match the matrix dimension. A mismatch is
+/// reported by Athena's value-semantic dimension validation.
+///
+/// # Errors
+///
+/// Returns a dimension, configuration, or backend failure. Numerical
+/// termination is reported value-semantically in the [`SolveReport`].
+pub fn gmres_preconditioned_with_workspace<T, P>(
+    matrix: &CsrMatrix<T>,
+    right_hand_side: &Array1<T>,
+    preconditioner: &P,
+    solution: &mut Array1<T>,
+    config: &IterativeSolverConfig<T>,
+    workspace: &mut KrylovWorkspace<T>,
+) -> KrylovResult<T>
+where
+    T: RealScalar + RealField + FloatElement,
+    P: Preconditioner<LetoBackend<T>>,
+{
     let backend = LetoBackend::<T>::default();
     let operator = BorrowedCsrOperator::new(matrix).map_err(SolveError::Backend)?;
     let policy = convergence_policy(config)?;
-    let dimension = LinearOperator::dimension(&operator);
 
     macro_rules! run {
-        ($width:literal) => {{
-            let mut workspace = GmresWorkspace::<LetoBackend<T>, $width>::new(&backend, dimension)
-                .map_err(SolveError::Backend)?;
+        ($width:literal, $workspace:expr) => {{
             Gmres::<LetoBackend<T>, $width>::solve_into(
                 &backend,
                 &operator,
                 preconditioner,
                 right_hand_side,
                 solution,
-                &mut workspace,
+                $workspace,
                 policy,
             )
         }};
     }
 
-    match RestartWidth::covering(restart) {
-        RestartWidth::W8 => run!(8),
-        RestartWidth::W16 => run!(16),
-        RestartWidth::W32 => run!(32),
-        RestartWidth::W64 => run!(64),
-        RestartWidth::W128 => run!(128),
-        RestartWidth::W256 => run!(256),
+    match &mut workspace.inner {
+        KrylovWorkspaceInner::W8(workspace) => run!(8, workspace),
+        KrylovWorkspaceInner::W16(workspace) => run!(16, workspace),
+        KrylovWorkspaceInner::W32(workspace) => run!(32, workspace),
+        KrylovWorkspaceInner::W64(workspace) => run!(64, workspace),
+        KrylovWorkspaceInner::W128(workspace) => run!(128, workspace),
+        KrylovWorkspaceInner::W256(workspace) => run!(256, workspace),
     }
 }
 
@@ -349,7 +429,12 @@ impl<T> SolveOutcome<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::RestartWidth;
+    use super::{
+        gmres_preconditioned_with_workspace, IterativeSolverConfig, KrylovWorkspace, RestartWidth,
+    };
+    use athena_core::Identity;
+    use leto::{Array1, Storage};
+    use leto_ops::CsrMatrix;
 
     #[test]
     fn the_ladder_covers_every_request() {
@@ -375,6 +460,34 @@ mod tests {
     #[test]
     fn a_request_above_the_ceiling_saturates() {
         assert_eq!(RestartWidth::covering(10_000), RestartWidth::W256);
+    }
+
+    #[test]
+    fn reusable_workspace_preserves_diagonal_solve_values() {
+        let matrix = CsrMatrix::from_parts(vec![2.0_f64, 3.0], vec![0, 1], vec![0, 1, 2], 2, 2)
+            .expect("invariant: diagonal CSR structure is valid");
+        let right_hand_side = Array1::from_shape_vec([2], vec![2.0, 6.0])
+            .expect("invariant: RHS shape matches diagonal system");
+        let config = IterativeSolverConfig::new(1e-12).with_max_iterations(20);
+        let mut workspace =
+            KrylovWorkspace::new(30, 2).expect("invariant: small workspace allocates");
+
+        for _ in 0..2 {
+            let mut solution = Array1::from_elem([2], 0.0);
+            let report = gmres_preconditioned_with_workspace(
+                &matrix,
+                &right_hand_side,
+                &Identity,
+                &mut solution,
+                &config,
+                &mut workspace,
+            )
+            .expect("invariant: diagonal system is solvable");
+            assert!(report.final_residual_norm <= report.threshold);
+            let values = solution.storage().as_slice();
+            assert!((values[0] - 1.0).abs() <= 1e-10);
+            assert!((values[1] - 2.0).abs() <= 1e-10);
+        }
     }
 }
 

@@ -40,6 +40,15 @@
 - [x] Preserve the benchmark workload, assertions, and committed 30-second
       Nextest budget; the previous exact-head hosted run timed out only in
       `test_benchmark_run_integration` at 30.003 s.
+- [x] Correct the provider Reynolds definition to use the inlet hydraulic
+      diameter and make the validation reference depend on recorded
+      Reynolds/geometry metadata; unsupported cases remain explicitly
+      unreferenced.
+- [x] Reuse the provider-owned GMRES workspace and direct Leto CSR structure
+      views, expose a validated consumer-owned SOR override, and declare the
+      measured backward-step values `omega = 1.7` and pressure sweep cap 33.
+      The affected validation binaries pass 16/16 locally; the former
+      integration timeout passes in 11.407 s under the unchanged budget.
 - [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and
       close the item only when the unchanged numerical-fidelity filter passes.
 

@@ -16,7 +16,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::IterativeSolverConfig;
+use cfd_math::linear_solver::{IterativeSolverConfig, KrylovWorkspace};
 
 use cfd_core::CfdScalar;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
@@ -47,10 +47,12 @@ pub struct MomentumSolver<T: CfdScalar + Copy> {
     pub(crate) boundary_conditions: HashMap<String, BoundaryCondition<T>>,
     /// Linear solver configuration.
     ///
-    /// Athena solvers are stateless markers with caller-owned workspaces, so
-    /// the solver is no longer an object to hold: the configuration is the
-    /// state, and each solve constructs its own workspace.
+    /// Athena solvers are stateless markers with caller-owned workspaces; the
+    /// workspace is retained separately so repeated SIMPLE iterations reuse
+    /// the allocated Krylov basis.
     pub(crate) linear_solver_config: IterativeSolverConfig<T>,
+    /// Reusable GMRES storage for the two momentum components.
+    pub(crate) krylov_workspace: Option<KrylovWorkspace<T>>,
 
     /// Convection discretization scheme
     pub(crate) convection_scheme: ConvectionScheme,
@@ -84,6 +86,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             grid: grid.clone(),
             boundary_conditions: HashMap::new(),
             linear_solver_config,
+            krylov_workspace: None,
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: <T as FloatElement>::from_f64(0.7),
             turbulence_model: None,
@@ -128,6 +131,7 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
             grid: grid.clone(),
             boundary_conditions: HashMap::new(),
             linear_solver_config,
+            krylov_workspace: None,
             convection_scheme: scheme,
             velocity_relaxation: <T as FloatElement>::from_f64(0.7),
             turbulence_model: None,

@@ -158,21 +158,25 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
                 }
             }
 
-            // The pressure-correction operator itself does not depend on the
-            // rheology model, but the ω split is load-bearing as implicit
-            // outer under-relaxation: the Newtonian channel profiles
-            // (alpha_p ≤ 0.12, 32-sweep cap) are calibrated against the
-            // weaker ω = 1 inner solve, and unifying to ω = 1.7 makes their
-            // per-step correction strong enough to slow the outer loop into
-            // the test budget (measured on the selective-split-tree
-            // cross-fidelity case). Re-unify only together with an outer
-            // recalibration of those profiles.
-            let relaxation = match &self.blood {
-                BloodModel::Newtonian(_) => scalar::one(),
-                BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
-                    <T as FloatElement>::from_f64(PRESSURE_SOR_RELAXATION)
-                }
-            };
+            // The pressure-correction operator does not depend on rheology,
+            // but the default Newtonian split is calibrated separately from
+            // the non-Newtonian over-relaxed path. A measured consumer may
+            // override that default without changing unrelated geometries.
+            let relaxation =
+                self.config
+                    .pressure_sor_relaxation
+                    .unwrap_or_else(|| match &self.blood {
+                        BloodModel::Newtonian(_) => scalar::one(),
+                        BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
+                            <T as FloatElement>::from_f64(PRESSURE_SOR_RELAXATION)
+                        }
+                    });
+            let two = <T as FloatElement>::from_f64(2.0);
+            if !(relaxation > zero && relaxation < two && relaxation.is_finite()) {
+                return Err(Error::InvalidConfiguration(
+                    "pressure SOR relaxation must be finite and in (0, 2)".to_string(),
+                ));
+            }
             // SIMPLE repeats this correction and uses the field continuity
             // residual below as the convergence oracle. The cap limits inner
             // work without treating a partially converged pressure correction

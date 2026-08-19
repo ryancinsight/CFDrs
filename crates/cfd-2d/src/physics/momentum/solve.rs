@@ -3,9 +3,11 @@ use crate::fields::SimulationFields;
 use crate::scalar;
 use athena_leto::SuccessiveOverRelaxation;
 use cfd_core::CfdScalar;
-use cfd_math::linear_solver::krylov;
+use cfd_math::linear_solver::{krylov, KrylovWorkspace};
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, NumericElement};
+use eunomia::FloatElement;
+#[cfg(debug_assertions)]
+use eunomia::NumericElement;
 use leto::Array1;
 
 fn velocity_solution_guess<T: CfdScalar + Copy>(
@@ -144,17 +146,26 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                     ))
                 },
             )?;
-        let outcome = krylov::interpret(
-            "momentum",
-            krylov::gmres_preconditioned(
-                matrix,
-                rhs,
-                &preconditioner,
-                &mut solution,
-                &self.linear_solver_config,
-                super::solver::MOMENTUM_RESTART,
-            ),
-        )?;
+        let mut workspace = match self.krylov_workspace.take() {
+            Some(workspace) => workspace,
+            None => KrylovWorkspace::new(super::solver::MOMENTUM_RESTART, matrix.nrows()).map_err(
+                |error| {
+                    cfd_core::error::Error::Solver(format!(
+                        "Momentum GMRES workspace construction failed: {error}"
+                    ))
+                },
+            )?,
+        };
+        let solve_result = krylov::gmres_preconditioned_with_workspace(
+            matrix,
+            rhs,
+            &preconditioner,
+            &mut solution,
+            &self.linear_solver_config,
+            &mut workspace,
+        );
+        self.krylov_workspace = Some(workspace);
+        let outcome = krylov::interpret("momentum", solve_result)?;
         match outcome {
             krylov::SolveOutcome::Converged(_) => {}
             krylov::SolveOutcome::Stalled(report) => {
@@ -332,13 +343,11 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
                 MomentumComponent::U => self.matrix_u.take().expect("expected value"),
                 MomentumComponent::V => self.matrix_v.take().expect("expected value"),
             };
-            matrix.values_mut().fill(T::ZERO);
+            let (values, col_indices, row_ptr) = matrix.as_parts_mut();
+            values.fill(T::ZERO);
 
             let mut rhs = Array1::from_elem([n], scalar::zero::<T>());
 
-            let row_ptr = matrix.row_ptr().to_vec();
-            let col_indices = matrix.col_indices().to_vec();
-            let values = matrix.values_mut();
             let mut update_entry = |r: usize, c: usize, v: T| {
                 let start = row_ptr[r];
                 let end = row_ptr[r + 1];

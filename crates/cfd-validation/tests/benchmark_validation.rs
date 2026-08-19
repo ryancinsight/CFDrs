@@ -9,6 +9,10 @@ use cfd_validation::benchmarks::{
     BackwardFacingStep, Benchmark, BenchmarkConfig, BenchmarkResult, FlowOverCylinder,
 };
 
+fn step_metrics() -> std::collections::HashMap<String, f64> {
+    std::collections::HashMap::from([("reynolds_number".to_string(), 100.0)])
+}
+
 #[test]
 fn test_backward_facing_step_reference_solution() {
     // Create benchmark with standard expansion ratio (ER=2.0)
@@ -25,27 +29,27 @@ fn test_backward_facing_step_reference_solution() {
     assert!(reference.is_some(), "Reference solution should exist");
 
     let reference = reference.expect("expected value");
-    assert_eq!(reference.name, "Backward Facing Step (Reference)");
+    assert_eq!(reference.name, "Backward Facing Step (Armaly Reference)");
     assert_eq!(
         reference.values.len(),
         1,
         "Should have one value (reattachment length)"
     );
 
-    // Reference reattachment length should be around 6.0 * step_height
-    // based on Gartling (1990) and Armaly et al. (1983)
+    // Armaly's two-dimensional Re=100 reference is 2.84 step heights.
     let reattachment = reference.values[0];
     assert!(
         reattachment > 0.0 && reattachment < 20.0,
         "Reattachment length should be physically reasonable"
     );
 
-    // For moderate Re (200-400), expect x_r/h ≈ 6.0
+    // The configured default case is Re=100.
     let normalized_reattachment = reattachment / 1.0; // Divide by step_height
     assert!(
-        (normalized_reattachment - 6.0).abs() < 0.1,
-        "Normalized reattachment should be ~6.0 for moderate Re"
+        (normalized_reattachment - 2.84).abs() < 0.1,
+        "Normalized reattachment should match the Armaly Re=100 reference"
     );
+    assert_eq!(reference.errors, vec![0.13]);
 }
 
 #[test]
@@ -53,14 +57,15 @@ fn test_backward_facing_step_validation_success() {
     let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Create a result that should pass validation
-    // Reattachment length within 30% of reference (6.0)
+    // Reattachment length within the existing 30% finite-volume acceptance
+    // band around the configured Armaly Re=100 reference.
     let result = BenchmarkResult {
         name: "Test Result".to_string(),
-        values: vec![5.5], // Within 30% of 6.0
+        values: vec![2.8], // Within 30% of 2.84
         errors: vec![],
         convergence: vec![1e-5], // Converged
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -76,16 +81,16 @@ fn test_backward_facing_step_validation_tolerance() {
     let step = BackwardFacingStep::<f64>::new(1.0, 2.0, 3.0, 7.0, 1.0);
 
     // Test boundary of 30% tolerance
-    // Reference is 6.0, so 30% tolerance means [4.2, 7.8]
+    // Reference is 2.84, so 30% tolerance means [1.988, 3.692]
 
     // Just inside lower bound
     let result_low = BenchmarkResult {
         name: "Low Bound".to_string(),
-        values: vec![4.3], // Just above 4.2
+        values: vec![2.0], // Just above 1.988
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -96,11 +101,11 @@ fn test_backward_facing_step_validation_tolerance() {
     // Just inside upper bound
     let result_high = BenchmarkResult {
         name: "High Bound".to_string(),
-        values: vec![7.7], // Just below 7.8
+        values: vec![3.6], // Just below 3.692
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -111,11 +116,11 @@ fn test_backward_facing_step_validation_tolerance() {
     // Just outside upper bound
     let result_too_high = BenchmarkResult {
         name: "Too High".to_string(),
-        values: vec![8.0], // Outside tolerance
+        values: vec![3.8], // Outside tolerance
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
     assert!(
@@ -131,11 +136,11 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
     // Result with poor convergence
     let result = BenchmarkResult {
         name: "No Convergence".to_string(),
-        values: vec![6.0], // Good reattachment length
+        values: vec![2.84], // Good reattachment length
         errors: vec![],
         convergence: vec![0.1], // Did not converge
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -157,7 +162,7 @@ fn test_backward_facing_step_validation_failure_unphysical() {
         errors: vec![],
         convergence: vec![1e-5],
         execution_time: 0.0,
-        metrics: std::collections::HashMap::new(),
+        metrics: step_metrics(),
         metadata: std::collections::HashMap::new(),
     };
 
@@ -418,6 +423,6 @@ fn test_benchmark_run_integration() {
         .expect("backward-facing-step result validation should not error");
     assert!(
         is_valid,
-        "computed reattachment should satisfy the benchmark contract"
+        "computed reattachment should satisfy the benchmark contract: x_r={reattachment}, residual={last_residual}"
     );
 }

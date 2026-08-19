@@ -18,26 +18,11 @@
 //! - Yee, H.C. (1987). "Upwind and Symmetric Shock-Capturing Schemes"
 //! - Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
 
-// use eunomia::assert_relative_eq;  // Temporarily disabled due to missing eunomia dependency
 use cfd_2d::schemes::grid::Grid2D as Grid2DT;
 use cfd_2d::schemes::tvd::{FluxLimiter, MUSCLOrder, MUSCLScheme};
 use cfd_2d::schemes::{FaceReconstruction, Grid2D};
+use eunomia::assert_relative_eq;
 use std::f64;
-
-// Simple assertion macro for relative equality testing
-macro_rules! assert_relative_eq {
-    ($left:expr, $right:expr, epsilon = $eps:expr) => {
-        let left = $left;
-        let right = $right;
-        let abs_diff = (left - right).abs();
-        let tolerance = $eps * right.abs().max(1.0);
-        assert!(
-            abs_diff <= tolerance,
-            "assertion failed: left={}, right={}, diff={}, tolerance={}",
-            left, right, abs_diff, tolerance
-        );
-    };
-}
 
 /// Test grid parameters
 const NX: usize = 100;
@@ -60,7 +45,10 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
     let start = start_idx.clamp(0, NX as isize) as usize;
     let end = end_idx.clamp(0, NX as isize) as usize;
 
-    let slice = phi.data.as_slice_mut().expect("Grid data must be contiguous");
+    let slice = phi
+        .data
+        .as_slice_mut()
+        .expect("Grid data must be contiguous");
 
     // Fill regions
     if start > 0 {
@@ -80,7 +68,10 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
 /// unchanging initial-condition `phi`.
 fn reset_grid_from(src: &Grid2DT<f64>, dst: &mut Grid2DT<f64>) {
     let src_slice = src.data.as_slice().expect("src grid must be contiguous");
-    let dst_slice = dst.data.as_slice_mut().expect("dst grid must be contiguous");
+    let dst_slice = dst
+        .data
+        .as_slice_mut()
+        .expect("dst grid must be contiguous");
     dst_slice.copy_from_slice(src_slice);
 }
 

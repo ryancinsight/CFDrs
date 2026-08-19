@@ -71,7 +71,7 @@ and exclude generated output directories and Python bytecode from the sdist.
 Registry-side trusted-publisher enforcement and local publishing remain
 outside this item.
 
-## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (in progress 2026-08-17)
+## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (hosted closure pending 2026-08-19)
 
 **Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
 step geometry, SIMPLE solve, signed wall-shear measurement, and the thin
@@ -84,12 +84,20 @@ hosted provider verification. No duplicated consumer solver, hardcoded
 correlation in the runtime path, reduced workload, or weakened assertion
 closes this item.
 
-The remaining hosted timeout is isolated to the repeated parabolic-inlet
-preparation inside the SIMPLE loop. The provider now prepares the normalized
-fluid-cell profile once per solve and reapplies the cached values without
-per-iteration allocation or coordinate reduction. The benchmark workload and
-the 30-second Nextest budget remain unchanged; the exact-head hosted rerun is
-the acceptance gate.
+The provider now computes viscosity from the inlet hydraulic diameter
+`D = 2 * (channel_height - step_height)`, matching the Armaly Reynolds
+definition, and the adapter records the configured Reynolds number and
+geometry in the result. The reference is configuration-aware: the supported
+Armaly two-dimensional anchors are `Re=100, x_r/h=2.84` and
+`Re=389, x_r/h=7.83`; unsupported Reynolds/geometry combinations return no
+reference instead of receiving a fabricated interpolation. The release
+locked value-semantic filter passes 14/14 at run
+`314957f4-817b-44bb-bea6-0f1138f7b6c7`, with the default solve completing in
+5.79 s and producing `x_r/h = 2.0016`. The result remains near the edge of
+the existing 30% acceptance band, so the production SIMPLE/grid-fidelity
+gap and the debug 30-second termination remain open. A 96-cell probe exceeded
+the slow budget and did not close the reference gap; neither the mesh nor the
+budget is changed here.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 
@@ -154,10 +162,14 @@ closure below.
 At exact pre-runtime-fix head `02c2ae80`, hosted CI run `32044765872` completed
 format, check, ordinary tests, and 13/14 numerical-fidelity tests, but
 `cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the
-committed 30-second Nextest timeout at 30.003 s. The source fix at `c86dc33f`
-borrows contiguous Leto matrix storage once and hoists invariant stencil terms;
-it preserves the finite-difference update order and the test budget. New exact
-head CI run `32046463302` and Pages run `32046464094` are queued.
+committed 30-second Nextest timeout at 30.003 s. The subsequent provider-owned
+fix reuses the cached GMRES workspace, accesses Leto CSR structure through its
+mutable parts, exposes a validated consumer-owned SOR override, and declares
+the measured backward-step values `omega = 1.7` and pressure sweep cap 33. The
+default Newtonian split remains unchanged for other geometries, preserving the
+venturi cross-fidelity contract. The affected validation binaries pass 16/16
+locally; the former integration case passes in 11.407 s. The hosted Rust and
+Pages gates at the new source head remain the closure requirement.
 
 At exact head `6ede137a`, the preceding hosted Rust job `95426903063` in run
 `32043533301` failed before checkout while downloading the pinned Atlas

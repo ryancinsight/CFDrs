@@ -1,4 +1,4 @@
-## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (in progress 2026-08-17)
+## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
 
 The first implementation placed a new streamfunction–vorticity solver in
 `cfd-validation`, which violated provider-first ownership because `cfd-2d`
@@ -10,11 +10,20 @@ now a thin adapter and no longer owns a second field solver or matrix type.
 The provider applies a normalized parabolic profile only on fluid inlet cells;
 solid inlet cells remain zero during every SIMPLE iteration.
 
-Focused local compilation remains blocked before source diagnostics by the
-shared Atlas overlay and the pre-existing dirty lock: the overlay's peer
-`repos/asclepius` requires `aequitas ^0.1.0`, while the current local provider
-is `0.2.0`; `--locked` therefore refuses the required lock update. The exact
-hosted provider gate is required before merge.
+The provider now uses the Armaly inlet hydraulic diameter
+`D = 2 * (channel_height - step_height)` in its viscosity calculation, and the
+validation result carries the configured Reynolds number and geometry. The
+adapter exposes only the published two-dimensional anchors `Re=100,
+x_r/h=2.84` and `Re=389, x_r/h=7.83`; it does not interpolate the nonlinear
+literature curve. The exact release filter passes 14/14 at run
+`314957f4-817b-44bb-bea6-0f1138f7b6c7`; the default solve takes 5.79 s and
+returns `x_r/h = 2.0016`, which remains at the edge of the existing 30%
+acceptance band. The debug termination and the remaining SIMPLE/grid-fidelity
+error are still open. A 96-cell probe exceeded the committed slow budget and
+did not close the fidelity gap, so its workload was not retained. Full
+Atlas-locked compilation remains separately blocked by the shared overlay's
+peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the current
+local graph provides `0.2.0`.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 — Current ratchet regressions (closed 2026-08-17)
 
@@ -76,11 +85,17 @@ correlation result.
 
 The focused source and integration tests were updated to assert the crossing,
 boundary values, finite physical position, and exact error for a field without
-reattachment. `cargo fmt --all -- --check` and `git diff --check` pass. The
-locked local package gate remains blocked before compilation by the shared Atlas
-overlay's peer-dirty Asclepius checkout requiring `aequitas ^0.1.0` while the
-current local graph provides `0.2.0`; hosted exact-head verification is required
-before closure.
+reattachment. The remaining runtime defect was in the provider execution path:
+each momentum solve rebuilt GMRES workspace and copied CSR structure, while the
+backward-step pressure correction needed a measured inner sweep cap. The
+provider now reuses `KrylovWorkspace`, consumes Leto's mutable CSR parts
+directly, exposes a validated consumer-owned SOR override, and the benchmark
+declares `pressure_sor_relaxation = 1.7` with `pressure_sweep_cap = 33`. The
+default Newtonian split remains unchanged for other geometries; the affected
+validation binaries pass 16/16 locally, including the formerly timing-out
+integration case in 11.407 s. The cfd-math library passes 202/202, cfd-2d's
+focused SIMPLE suite passes 5/5, and warning-denied Clippy passes. Hosted
+exact-head Rust and Pages verification remains open.
 
 ## SIMPLEC adaptive target replacement — CFDRS-RUNTIME-109 (local implementation closed 2026-08-17)
 

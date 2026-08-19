@@ -25,6 +25,21 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **cfd-2d**: The Newtonian pressure-correction default remains its existing
+  calibrated SOR split; `SIMPLEConfig` now permits a validated consumer-owned
+  override. The backward-facing-step benchmark selects `1.7` together with
+  its measured sweep cap, while venturi cross-fidelity retains its prior
+  value contract. Hosted numerical-fidelity rerun is pending.
+
+- **cfd-2d/cfd-validation**: The backward-facing-step validation now uses the
+  provider's reusable GMRES workspace and direct mutable Leto CSR structure
+  access, with a measured consumer-owned SOR override for the benchmark. The
+  default Newtonian pressure split remains unchanged elsewhere. The benchmark
+  declares its measured pressure-sweep cap of 33; the
+  exact 14-test validation filter passes locally in 11.652 s, including the
+  formerly timing-out integration case, without changing the 30-second budget
+  or workload. Hosted exact-head confirmation remains pending.
+
 - `cfd-python` now reports the Cargo package version at the Python boundary,
   carries installed-wheel value-semantic tests for the Casson, Womersley, and
   Poiseuille contracts, and has a tag-scoped abi3 PyPI Trusted Publishing
@@ -36,6 +51,11 @@
   benchmark configuration to that provider and reports the interpolated
   negative-to-nonnegative shear crossing; the consumer-owned streamfunction
   solver and constant result are removed.
+- **cfd-2d/cfd-validation**: Backward-facing-step Reynolds number now uses the
+  inlet hydraulic diameter, and validation results retain the configured
+  Reynolds/geometry metadata. The Armaly reference adapter exposes explicit
+  two-dimensional anchor cases and rejects unsupported combinations instead
+  of interpolating the nonlinear literature curve.
 - SIMPLEC adaptive stepping now preserves the caller's problem-scaled
   convergence target instead of replacing it with an unreachable fixed
   tolerance. The exact 35 µm and 3D trifurcation validation cases pass under
