@@ -177,7 +177,7 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
                 * ((-dist_bot / wall_len).exp() - (-dist_top / wall_len).exp());
 
             // --- Buoyancy (negligible for blood cells, but included for correctness) ---
-            let ay_buoy = -(rho_cell - rho_f) / rho_cell * 9.81;
+            let ay_buoy = -(rho_cell - rho_f) / rho_cell * cfd_core::physics::constants::physics::universal::GRAVITY;
 
             // --- Total acceleration ---
             let ax = ax_drag;

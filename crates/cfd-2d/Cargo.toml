@@ -20,6 +20,7 @@ cfd-math.workspace = true
 cfd-mesh.workspace = true
 cfd-io.workspace = true
 cfd-1d.workspace = true
+harmonia.workspace = true
 cfd-schematics = { path = "../cfd-schematics" }
 petgraph.workspace = true
 thiserror.workspace = true

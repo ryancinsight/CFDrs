@@ -46,6 +46,10 @@ pub const BLOOD_THERMAL_CONDUCTIVITY: f64 = 0.52;
 /// Reference: Fung (1993)
 pub const BLOOD_SPEED_OF_SOUND: f64 = 1570.0;
 
+/// Speed of sound in blood — medical ultrasound approximation \[m/s]
+/// Commonly used value in therapeutic ultrasound literature (Duck 1990).
+pub const BLOOD_SPEED_OF_SOUND_APPROX: f64 = 1540.0;
+
 /// Normal hematocrit (volume fraction of RBCs)
 pub const NORMAL_HEMATOCRIT: f64 = 0.45;
 

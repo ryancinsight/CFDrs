@@ -498,7 +498,7 @@ mod tests {
             RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Scale all values by constant factor
-        let scale = 3.14159;
+        let scale = std::f64::consts::PI;
         let (extrapolated2, order2) =
             RichardsonExtrapolation::extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r)
                 .expect("expected value");
