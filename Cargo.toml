@@ -108,6 +108,9 @@ hephaestus-wgpu = { version = "0.19.0", git = "https://github.com/ryancinsight/h
 # athena-leto = Leto CPU backend). Used by cfd-math/linear_solver/krylov.rs.
 athena-core = { version = "0.1.0", git = "https://github.com/ryancinsight/athena" }
 athena-leto = { version = "0.1.0", git = "https://github.com/ryancinsight/athena" }
+# harmonia: provider-owned transactional relaxation policies used by the
+# coupled resistance iteration in cfd-2d.
+harmonia = { version = "0.1.0", git = "https://github.com/ryancinsight/harmonia", default-features = false, features = ["std"] }
 # coeus: Atlas tensor/autodiff/NN/optimizer stack. coeus-optim's least-squares
 # (Levenberg-Marquardt) solver calibrates turbulence model constants against
 # DNS reference profiles in cfd-2d/physics/turbulence/constants_validation.

@@ -427,6 +427,7 @@ dependencies = [
  "criterion",
  "eunomia",
  "gaia-mesh",
+ "harmonia",
  "iris-viz",
  "leto",
  "leto-ops",
@@ -1536,6 +1537,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "harmonia"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/harmonia#3d6682fc1b43d283d5f97fd5d16ec5ce1fcdb7cb"
+dependencies = [
+ "athena-core",
+ "eunomia",
+ "horae",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1664,6 +1675,15 @@ name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
+
+[[package]]
+name = "horae"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/horae#0df563a69693418b267f337fa4bc9dfb7c1aeb1b"
+dependencies = [
+ "aequitas",
+ "eunomia",
+]
 
 [[package]]
 name = "hyperion"

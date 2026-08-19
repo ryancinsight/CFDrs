@@ -15,6 +15,7 @@ use cfd_schematics::geometry::metadata::{
     BranchBoundaryMetadata, BranchBoundarySpecification, JunctionFamily, JunctionGeometryMetadata,
 };
 use eunomia::{FloatElement, NumericElement};
+use harmonia::{AitkenRelaxation, Relaxation};
 use leto::{Array1, Storage, StorageMut};
 use moirai::{map_collect_mut_with, Adaptive};
 use petgraph::graph::{EdgeIndex, NodeIndex};
@@ -65,99 +66,82 @@ where
     T: CfdScalar + Copy + FloatElement + eunomia::RealField,
 {
     anderson: AndersonAccelerator<T>,
-    previous_residual: Option<Array1<T>>,
-    previous_relaxation: Option<Array1<T>>,
-    relaxation_floor: T,
-    relaxation_ceiling: T,
-    residual_drop_tolerance: T,
+    relaxation: AitkenRelaxation<T>,
 }
 
 impl<T> CoupledResistanceMixer<T>
 where
     T: CfdScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
-    fn new(history_depth: usize) -> Self {
-        Self {
+    fn new(history_depth: usize) -> CfdResult<Self> {
+        let relaxation = AitkenRelaxation::new(
+            <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MIN),
+            <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MAX),
+            <T as FloatElement>::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
+        )
+        .map_err(|error| {
+            Error::InvalidInput(format!(
+                "Network2DSolver coupled solve rejected Aitken configuration: {error}"
+            ))
+        })?;
+
+        Ok(Self {
             anderson: AndersonAccelerator::new(AndersonConfig::<T> {
                 history_depth,
                 relaxation: scalar::one(),
                 drop_tolerance: <T as FloatElement>::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
                 method: AndersonMethod::QR,
             }),
-            previous_residual: None,
-            previous_relaxation: None,
-            relaxation_floor: <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MIN),
-            relaxation_ceiling: <T as FloatElement>::from_f64(COUPLING_AITKEN_RELAXATION_MAX),
-            residual_drop_tolerance: <T as FloatElement>::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
-        }
+            relaxation,
+        })
     }
 
-    fn mix(&mut self, current: &Array1<T>, target: &Array1<T>) -> Array1<T> {
-        if vector_len(current) != vector_len(target)
-            || !vector_is_finite(current)
-            || !vector_is_finite(target)
-        {
-            self.reset();
-            return target.clone();
+    fn mix(&mut self, current: &Array1<T>, target: &Array1<T>) -> CfdResult<Array1<T>> {
+        if vector_len(current) != vector_len(target) {
+            return Err(Error::InvalidInput(format!(
+                "Network2DSolver coupled solve resistance dimensions differ: current {}, target {}",
+                vector_len(current),
+                vector_len(target)
+            )));
         }
 
-        let aitken_candidate = self.vector_aitken_candidate(current, target);
-        if !vector_is_finite(&aitken_candidate) {
-            self.reset();
-            return target.clone();
-        }
-
+        let aitken_candidate = self.aitken_candidate(current, target)?;
         let anderson_candidate = self.anderson.compute_next(current, &aitken_candidate);
         if vector_is_finite(&anderson_candidate) {
-            anderson_candidate
+            Ok(anderson_candidate)
         } else {
-            self.anderson.reset();
-            aitken_candidate
+            Err(Error::InvalidInput(
+                "Network2DSolver coupled solve Anderson mixing produced a non-finite resistance state"
+                    .to_string(),
+            ))
         }
     }
 
-    fn reset(&mut self) {
-        self.previous_residual = None;
-        self.previous_relaxation = None;
-        self.anderson.reset();
-    }
-
-    fn vector_aitken_candidate(&mut self, current: &Array1<T>, target: &Array1<T>) -> Array1<T> {
-        let residual = vector_sub(target, current);
-        let mut relaxation = Array1::from_elem([vector_len(&residual)], scalar::one());
-
-        if let (Some(previous_residual), Some(previous_relaxation)) =
-            (&self.previous_residual, &self.previous_relaxation)
-        {
-            if vector_len(previous_residual) == vector_len(&residual)
-                && vector_len(previous_relaxation) == vector_len(&residual)
-            {
-                let residual_delta = vector_sub(&residual, previous_residual);
-                for i in 0..vector_len(&residual) {
-                    let previous_factor = previous_relaxation[[i]];
-                    let delta = residual_delta[[i]];
-                    relaxation[[i]] = if <T as NumericElement>::is_finite(delta)
-                        && <T as NumericElement>::abs(delta) > self.residual_drop_tolerance
-                        && <T as NumericElement>::is_finite(previous_factor)
-                    {
-                        let raw = -previous_factor * previous_residual[[i]] / delta;
-                        clamp_relaxation(raw, self.relaxation_floor, self.relaxation_ceiling)
-                    } else {
-                        clamp_relaxation(
-                            previous_factor,
-                            self.relaxation_floor,
-                            self.relaxation_ceiling,
-                        )
-                    };
-                }
-            } else {
-                self.reset();
-            }
+    fn aitken_candidate(
+        &mut self,
+        current: &Array1<T>,
+        target: &Array1<T>,
+    ) -> CfdResult<Array1<T>> {
+        let mut aitken_candidate = current.clone();
+        self.relaxation
+            .update_pair(
+                vector_slice_mut(&mut aitken_candidate),
+                vector_slice(target),
+                &mut [],
+                &[],
+            )
+            .map_err(|error| {
+                Error::InvalidInput(format!(
+                    "Network2DSolver coupled solve relaxation failed: {error}"
+                ))
+            })?;
+        if !vector_is_finite(&aitken_candidate) {
+            return Err(Error::InvalidInput(
+                "Network2DSolver coupled solve relaxation produced a non-finite resistance state"
+                    .to_string(),
+            ));
         }
-
-        self.previous_residual = Some(residual.clone());
-        self.previous_relaxation = Some(relaxation.clone());
-        vector_add_component_scaled(current, &residual, &relaxation)
+        Ok(aitken_candidate)
     }
 }
 
@@ -265,7 +249,7 @@ where
             max_iterations: 500,
             require_flow_convergence: true,
         });
-        let mut coupling_mixer = CoupledResistanceMixer::<T>::new(COUPLING_ANDERSON_DEPTH);
+        let mut coupling_mixer = CoupledResistanceMixer::<T>::new(COUPLING_ANDERSON_DEPTH)?;
         let channel_coupling_weights = build_channel_coupling_weights::<T>(&self.blueprint);
         let convergence_threshold_pct = <T as FloatElement>::from_f64(
             tolerance.max(COUPLING_CONVERGENCE_FLOOR_RELATIVE) * 100.0,
@@ -494,12 +478,13 @@ where
         ));
     }
 
-    let mut next_linear = coupling_mixer.mix(&current_linear, &weighted_target);
+    let mut next_linear = coupling_mixer.mix(&current_linear, &weighted_target)?;
     clamp_vector_to_floor(&mut next_linear, min_linear_resistance);
     if !vector_is_finite(&next_linear) {
-        coupling_mixer.reset();
-        next_linear = weighted_target.clone();
-        clamp_vector_to_floor(&mut next_linear, min_linear_resistance);
+        return Err(Error::InvalidInput(
+            "Network2DSolver coupled solve produced a non-finite mixed resistance state"
+                .to_string(),
+        ));
     }
 
     for ((candidate, channel_trace), next_linear_value) in update_candidates
@@ -763,39 +748,6 @@ fn vector_slice_mut<T>(vector: &mut Array1<T>) -> &mut [T] {
     vector.storage_mut().as_mut_slice()
 }
 
-fn vector_sub<T>(lhs: &Array1<T>, rhs: &Array1<T>) -> Array1<T>
-where
-    T: FloatElement + Copy,
-{
-    vector_from_vec(
-        vector_slice(lhs)
-            .iter()
-            .zip(vector_slice(rhs))
-            .map(|(&left, &right)| left - right)
-            .collect(),
-    )
-}
-
-fn vector_add_component_scaled<T>(
-    base: &Array1<T>,
-    residual: &Array1<T>,
-    relaxation: &Array1<T>,
-) -> Array1<T>
-where
-    T: FloatElement + Copy,
-{
-    vector_from_vec(
-        vector_slice(base)
-            .iter()
-            .zip(vector_slice(residual))
-            .zip(vector_slice(relaxation))
-            .map(|((&base_value, &residual_value), &relaxation_value)| {
-                base_value + residual_value * relaxation_value
-            })
-            .collect(),
-    )
-}
-
 fn vector_is_finite<T>(vector: &Array1<T>) -> bool
 where
     T: NumericElement,
@@ -803,16 +755,6 @@ where
     vector_slice(vector)
         .iter()
         .all(|&value| <T as NumericElement>::is_finite(value))
-}
-
-fn clamp_relaxation<T>(value: T, floor: T, ceiling: T) -> T
-where
-    T: FloatElement + Copy,
-{
-    if !<T as NumericElement>::is_finite(value) {
-        return floor;
-    }
-    value.min_scalar(ceiling).max_scalar(floor)
 }
 
 fn clamp_vector_to_floor<T>(vector: &mut Array1<T>, floor: T)
@@ -837,4 +779,28 @@ where
         .edge_references()
         .map(|edge_ref| (edge_ref.weight().id.clone(), edge_ref.id()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provider_relaxation_matches_componentwise_secant_reference() {
+        let mut mixer = CoupledResistanceMixer::<f64>::new(COUPLING_ANDERSON_DEPTH)
+            .expect("invariant: configured relaxation bounds are valid");
+        let current = vector_from_vec(vec![0.0]);
+        let first_target = vector_from_vec(vec![1.0]);
+        let first = mixer
+            .aitken_candidate(&current, &first_target)
+            .expect("first provider relaxation update is finite");
+        assert_eq!(vector_slice(&first)[0].to_bits(), 1.0_f64.to_bits());
+
+        let second_target = vector_from_vec(vec![0.5]);
+        let second = mixer
+            .aitken_candidate(&first, &second_target)
+            .expect("second provider relaxation update is finite");
+        let expected = 2.0 / 3.0;
+        assert!((vector_slice(&second)[0] - expected).abs() <= 4.0 * f64::EPSILON);
+    }
 }
