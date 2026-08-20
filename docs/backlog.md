@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.181: cfd-3d VOF BubbleDynamicsSolver input validation (try_new + update_bubble dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `BubbleDynamicsSolver::new` and `update_bubble` for missing
+  physical invariant checks.
+- The Rayleigh-Plesset ODE divides by `R` (initial_radius), `ρ_l`
+  (liquid_density), `γ` (polytropic_exponent); the cell population
+  weighting divides by `dx*dy*dz`; `update_bubble` runs semi-implicit
+  Euler with `dt` and uses `pressure` as the driving far-field pressure.
+  Zero or non-finite values silently produce inf/NaN bubbles; negative
+  `dt` inverts the time integration; out-of-bounds cell indices silently
+  index out of the internal `vec` storage.
+- Add `try_new` returning `Result`; the existing infallible `new` becomes
+  a thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects non-finite or non-positive `initial_radius`,
+  `polytropic_exponent`, `liquid_density`, `dx/dy/dz`; rejects
+  non-finite or negative `surface_tension`, `number_density`,
+  `vapor_pressure`; rejects zero `nx/ny/nz`.
+- `update_bubble` rejects non-finite `pressure`, non-finite or
+  non-positive `dt`, and out-of-bounds `(i, j)` cell indices (the `k`
+  index is bounded implicitly by the internal `vec` length).
+- Nine new value-semantic regression tests cover all rejection paths and
+  the accept-path; pre-existing 4 tests still pass.
+- `cargo nextest run -p cfd-3d --no-default-features vof::bubble_dynamics`
+  passes 13/13; full cfd-3d lib Nextest passes 239/239; `cargo clippy
+  -p cfd-3d --no-default-features --lib --tests -- -D warnings` is
+  clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/vof/bubble_dynamics.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.180: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
 **Status**: Completed
 **Owner**: current session

@@ -32,6 +32,37 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.181 Checklist: cfd-3d VOF BubbleDynamicsSolver input validation
+**Goal**: Reject non-physical inputs in `BubbleDynamicsSolver::new` and
+`update_bubble` before the Rayleigh-Plesset ODE and semi-implicit Euler
+step run.
+
+**Success Criteria**:
+- [x] `BubbleDynamicsSolver::try_new` returns
+      `Result<Self, Error::InvalidConfiguration>`.
+- [x] `try_new` rejects non-finite or non-positive `initial_radius`,
+      `polytropic_exponent`, `liquid_density`, `dx/dy/dz`; rejects
+      non-finite or negative `surface_tension`, `number_density`,
+      `vapor_pressure`; rejects zero `nx/ny/nz`.
+- [x] `update_bubble` rejects non-finite `pressure`, non-finite or
+      non-positive `dt`, and out-of-bounds cell indices.
+- [x] Pre-existing infallible callers (`cavitation_solver.rs`, all
+      tests) compile unchanged via the thin wrapper pattern.
+- [x] Nine new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-3d --no-default-features
+      vof::bubble_dynamics` passes 13/13.
+- [x] Full cfd-3d lib Nextest passes 239/239.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a
+single-file physics-defect correction. The infallible `new` is retained
+for backwards compatibility; `try_new` is the new recommended
+constructor.
+
+---
+
 # Sprint 1.96.180 Checklist: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
 **Goal**: Consolidate the local `EPSILON_MIN` constant in
 `reynolds_stress::transport` to the canonical

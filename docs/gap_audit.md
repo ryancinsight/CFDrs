@@ -2,6 +2,33 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.181 resolution: cfd-3d VOF BubbleDynamicsSolver input validation
+
+### RESOLVED-211: `BubbleDynamicsSolver` silently accepts non-physical inputs
+- **Location**: `crates/cfd-3d/src/vof/bubble_dynamics.rs:96-130`
+  (pre-fix).
+- **Issue**: the Rayleigh-Plesset ODE divides by `R` (initial_radius,
+  line 19), `ρ_l` (liquid_density), `γ` (polytropic_exponent); the
+  cell population weighting divides by `dx*dy*dz` (line 119);
+  `update_bubble` runs semi-implicit Euler with `dt` (line 183) and
+  uses `pressure` as the driving far-field pressure. Zero or non-finite
+  values silently produce inf/NaN bubbles; negative `dt` inverts the
+  time integration; out-of-bounds cell indices silently index out of
+  the internal `vec` storage. The existing infallible `update_bubble`
+  did validate `density` (lines 155-159) but missed every other
+  invariant.
+- **Remediation**: new `try_new` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects every
+  invariant violation; `update_bubble` additionally validates
+  `pressure`, `dt`, and `(i, j)` cell-index bounds. The existing
+  infallible `new` becomes a thin panic wrapper.
+- **Evidence**: nine new value-semantic regression tests cover all
+  rejection paths and the accept-path. `cargo nextest run -p cfd-3d
+  --no-default-features vof::bubble_dynamics` passes 13/13; full
+  cfd-3d lib Nextest passes 239/239; `cargo clippy -p cfd-3d
+  --no-default-features --lib --tests -- -D warnings` clean;
+  `rustfmt --edition 2024 --check` clean on the touched file.
+
 ## Sprint 1.96.180 resolution: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
 
 ### RESOLVED-209: `reynolds_stress::transport::EPSILON_MIN` duplicates the canonical SSOT
