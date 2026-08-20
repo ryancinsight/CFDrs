@@ -2,6 +2,32 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.186 resolution: cfd-2d DriftDiffusionSolver2D grid-dimension validation
+
+### RESOLVED-218: `DriftDiffusionSolver2D::new` silently accepts zero grid dimensions
+- **Location**: `crates/cfd-2d/src/solvers/drift_diffusion_2d.rs:45`
+  (pre-fix).
+- **Issue**: the solver allocates `c: Array2D::new(nx, ny, zero())` and
+  the downstream upwind-M-matrix assembly (Scarborough boundedness
+  criterion — `cfd-2d/AGENTS.md § Key Mathematical Theorems`) assumes a
+  non-degenerate grid. Zero `nx` or `ny` produces an empty solution
+  field; subsequent `solve` calls index empty arrays and silently produce
+  trivial concentrations that violate the boundedness theorem.
+- **Remediation**: new `DriftDiffusionSolver2D::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` (fully
+  qualified because a local `Result<usize, String>` shadow exists in
+  the same module) and rejects `nx == 0` and `ny == 0`. The existing
+  infallible `new` becomes a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path (asserting `rows() == 8` and
+  `cols() == 12`), and the panic-wrapper contract. `cargo nextest run
+  -p cfd-2d --no-default-features drift_diffusion` passes 5/5; full
+  cfd-2d lib Nextest passes 572/573 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched file.
+
 ## Sprint 1.96.185 resolution: cfd-2d SpalartAllmaras grid-dimension validation
 
 ### RESOLVED-217: `SpalartAllmaras::new` silently accepts zero grid dimensions

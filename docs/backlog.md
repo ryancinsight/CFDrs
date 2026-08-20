@@ -1,5 +1,38 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.186: cfd-2d DriftDiffusionSolver2D grid-dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::drift_diffusion_2d::DriftDiffusionSolver2D::new`
+  for missing physical invariant checks. The solver allocates
+  `c: Array2D::new(nx, ny, zero())` and the downstream upwind-M-matrix
+  assembly (Scarborough boundedness criterion) assumes a non-degenerate
+  grid.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (`drift_diffusion_boundedness` test +
+  any external solver wiring) compile unchanged via the thin wrapper.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `rows() == 8` and `cols() == 12`),
+  and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features drift_diffusion`
+  passes 5/5; full cfd-2d lib Nextest passes 572/573 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/drift_diffusion_2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.185: cfd-2d SpalartAllmaras grid-dimension validation
 **Status**: Completed
 **Owner**: current session

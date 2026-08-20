@@ -32,6 +32,7 @@ use crate::scalar::{max, one, zero};
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::ScalarTransportConfig;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 /// 2D Drift-Diffusion Transport Solver
@@ -41,11 +42,38 @@ pub struct DriftDiffusionSolver2D<T: CfdScalar + Copy + FloatElement> {
 }
 
 impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
-    /// Create new drift-diffusion transport solver
+    /// Create new drift-diffusion transport solver.
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new`]).
     pub fn new(nx: usize, ny: usize) -> Self {
-        Self {
-            c: Array2D::new(nx, ny, zero()),
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("DriftDiffusionSolver2D::new called with invalid inputs: {error}");
+        })
+    }
+
+    /// Create a new drift-diffusion solver with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0` —
+    /// the solver allocates `c: Array2D<T>::new(nx, ny, zero())` and the
+    /// downstream M-matrix assembly assumes a non-degenerate grid.
+    pub fn try_new(nx: usize, ny: usize) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "DriftDiffusionSolver2D::try_new: nx (number of x cells) must be at least 1"
+                    .to_string(),
+            ));
         }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "DriftDiffusionSolver2D::try_new: ny (number of y cells) must be at least 1"
+                    .to_string(),
+            ));
+        }
+        Ok(Self {
+            c: Array2D::new(nx, ny, zero()),
+        })
     }
 
     /// Solve the steady-state drift-advection-diffusion equation.
@@ -243,5 +271,39 @@ mod tests {
                 drift_solver.c[(i, ny - 1)]
             );
         }
+    }
+
+    /// **Positive**: `try_new` accepts valid grid dimensions.
+    #[test]
+    fn drift_diffusion_try_new_accepts_valid_grid() {
+        let solver =
+            DriftDiffusionSolver2D::<f64>::try_new(8, 12).expect("valid grid must succeed");
+        assert_eq!(solver.c.rows(), 8);
+        assert_eq!(solver.c.cols(), 12);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn drift_diffusion_try_new_rejects_zero_nx() {
+        match DriftDiffusionSolver2D::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn drift_diffusion_try_new_rejects_zero_ny() {
+        match DriftDiffusionSolver2D::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero grid dimensions (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn drift_diffusion_new_panics_on_zero_nx() {
+        let _ = DriftDiffusionSolver2D::<f64>::new(0, 10);
     }
 }

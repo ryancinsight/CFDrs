@@ -32,6 +32,31 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.186 Checklist: cfd-2d DriftDiffusionSolver2D grid-dimension validation
+**Goal**: Reject zero grid dimensions in `DriftDiffusionSolver2D::new` so
+the upwind M-matrix assembly never operates on a degenerate grid.
+
+**Success Criteria**:
+- [x] `DriftDiffusionSolver2D::try_new` returns `cfd_core::error::Result<Self>`
+      (fully qualified because the local `Result<usize, String>` shadow
+      must not be broken for downstream call sites).
+- [x] `try_new` rejects `nx == 0` and `ny == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; the existing
+      `drift_diffusion_boundedness` test (which uses `nx = 10, ny = 10`)
+      compiles unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features drift_diffusion`
+      passes 5/5.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The drift-diffusion
+upwind M-matrix assembly is now contractually forbidden from running on a
+degenerate grid.
+
+---
+
 # Sprint 1.96.185 Checklist: cfd-2d SpalartAllmaras grid-dimension validation
 **Goal**: Reject zero grid dimensions in `SpalartAllmaras::new` so the SA
 transport equation never indexes a degenerate `nu_tilde` field.
