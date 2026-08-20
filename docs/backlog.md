@@ -1,5 +1,37 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.188: cfd-3d spectral::SpectralSolution dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::spectral::SpectralSolution::new(nx, ny, nz)` for missing
+  physical invariant checks. The accessor `at(i, j, k)` indexes by
+  `i * ny * nz + j * nz + k`. Zero `nx`, `ny`, or `nz` silently underflows
+  the corner cell and produces wrong indices for every other cell. The
+  internal solver call site is safe because `SpectralConfig::new` already
+  validates dims, but the public constructor is reachable from any
+  external consumer.
+- Add `try_new` returning `Result`; existing infallible `new` becomes thin
+  panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0`, `ny == 0`, `nz == 0`.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `u.len() == nx * ny * nz`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-3d --no-default-features spectral::solver`
+  passes 5/5; full cfd-3d test Nextest passes 461/461;
+  `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/spectral/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.187: cfd-2d fdm::DiffusionSolver input validation
 **Status**: Completed
 **Owner**: current session

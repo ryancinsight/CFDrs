@@ -32,6 +32,30 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.188 Checklist: cfd-3d spectral::SpectralSolution dimension validation
+**Goal**: Reject zero dimensions in `SpectralSolution::new` so the
+`at(i, j, k)` accessor never underflows the corner cell on a degenerate
+spectral grid.
+
+**Success Criteria**:
+- [x] `SpectralSolution::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects `nx == 0`, `ny == 0`, `nz == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper.
+- [x] Five new value-semantic regression tests cover all rejection paths,
+      the accept-path (asserting `u.len() == nx * ny * nz`), and the
+      panic-wrapper contract.
+- [x] `cargo nextest run -p cfd-3d --no-default-features spectral::solver`
+      passes 5/5.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The spectral
+solution buffer is now contractually forbidden from running on a
+degenerate grid.
+
+---
+
 # Sprint 1.96.187 Checklist: cfd-2d fdm::DiffusionSolver input validation
 **Goal**: Reject unphysical inputs in `DiffusionSolver::new` so the explicit
 Euler heat-diffusion solver never produces `inf`/`NaN` `dt` from a

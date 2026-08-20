@@ -2,6 +2,30 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.188 resolution: cfd-3d spectral::SpectralSolution dimension validation
+
+### RESOLVED-220: `SpectralSolution::new` silently accepts zero dimensions
+- **Location**: `crates/cfd-3d/src/spectral/solver.rs:228` (pre-fix).
+- **Issue**: `SpectralSolution::new(nx, ny, nz)` allocates
+  `Array1::zeros([nx * ny * nz])` and the `at(i, j, k)` accessor indexes
+  by `i * self.ny * self.nz + j * self.nz + k` (line 240). Zero `nx`,
+  `ny`, or `nz` silently underflows the corner cell and produces wrong
+  indices for every other cell. The internal solver call site
+  (`SpectralSolver::solve`, line 189) is safe because `SpectralConfig::
+  new` already validates dims, but the public constructor is reachable
+  from any external consumer.
+- **Remediation**: new `SpectralSolution::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and rejects
+  every invariant violation. The existing infallible `new` becomes a
+  thin panic wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths, the accept-path (asserting `u.len() == nx * ny * nz`),
+  and the panic-wrapper contract. `cargo nextest run -p cfd-3d
+  --no-default-features spectral::solver` passes 5/5; full cfd-3d test
+  Nextest passes 461/461; `cargo clippy -p cfd-3d --no-default-features
+  --lib --tests -- -D warnings` clean; `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.187 resolution: cfd-2d fdm::DiffusionSolver input validation
 
 ### RESOLVED-219: `DiffusionSolver::new` silently accepts unphysical inputs
