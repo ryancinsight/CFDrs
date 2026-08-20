@@ -1,3 +1,37 @@
+# Sprint 1.96.174 Checklist: cfd-3d multiphase volume-fraction conservation invariants
+**Goal**: Reject non-physical inputs in `multiphase::exchange` before the
+mixture density/viscosity is computed, preserving the volume-fraction
+conservation identity `alpha + (1 - alpha) = 1` and the mass/momentum
+conservation identities of the underlying VOF-coupled 3D multiphase solve.
+
+**Success Criteria**:
+- [x] `multiphase::exchange` returns
+      `Result<(MassDensity<T>, DynamicViscosity<T>)>`.
+- [x] `exchange` rejects non-finite `alpha`, `alpha ∉ [0, 1]`, and
+      non-finite or negative `rho_l`/`rho_g`/`mu_l`/`mu_g` via
+      `Error::InvalidConfiguration`.
+- [x] Pure-liquid (`alpha = 0`) and pure-gas (`alpha = 1`) limits are
+      asserted value-semantically.
+- [x] Volume-fraction conservation monotonicity is asserted across a sweep
+      of `alpha ∈ {0, 0.125, 0.25, 0.5, 0.75, 0.875, 1}`.
+- [x] `cargo nextest run -p cfd-3d --no-default-features multiphase::`
+      passes 10/10.
+- [x] `cargo nextest run -p cfd-3d --no-default-features --lib` passes
+      219/219.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check crates/cfd-3d/src/multiphase.rs` is
+      clean.
+- [x] `cargo run -p xtask -- legacy-migration-audit` reports a clean
+      allowlist.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a single-file
+physics-defect correction. The signature change to `Result` has no
+downstream callers in the workspace; the existing two value tests and
+eight new value-semantic regressions all pass.
+
+---
+
 # Sprint 1.96.173 Checklist: cfd-1d Venturi screening book example
 **Goal**: Add a `book_*.rs` example that demonstrates a compact 1D Venturi
 selective-screening workflow in `cfd-1d`.

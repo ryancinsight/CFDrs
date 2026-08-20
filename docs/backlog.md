@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.174: cfd-3d multiphase volume-fraction conservation invariants
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + [minor] signature returning `Result`
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d/src/multiphase.rs::exchange()` against the volume-fraction
+  conservation identity `alpha + (1 - alpha) = 1` and the mass/momentum
+  conservation identities of the underlying VOF-coupled 3D multiphase solve.
+- Reject non-finite and out-of-range gas volume fraction `alpha`, and
+  non-finite or negative phase densities/viscosities, before any mixture
+  computation runs.
+- Add value-semantic regression coverage for alpha limits, single-phase limits,
+  pure-liquid/pure-gas boundaries, monotonicity, and the documented
+  conservation identity.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and `cfd-2d`/`cfd-3d` files outside `multiphase.rs`.
+
+### Acceptance and Verification
+- `multiphase::exchange` returns
+  `Result<(MassDensity<T>, DynamicViscosity<T>)>` and rejects non-finite
+  `alpha`, `alpha ∉ [0, 1]`, and non-finite or negative `rho_l`/`rho_g`/
+  `mu_l`/`mu_g` via `Error::InvalidConfiguration`.
+- Two pre-existing value tests plus eight new regression tests pass; `cargo
+  nextest run -p cfd-3d --no-default-features --lib` passes 219/219.
+- `cargo clippy -p cfd-3d --no-default-features --lib --tests -- -D warnings`
+  and `rustfmt --edition 2024 --check` on the touched file are warning-clean.
+- `cargo run -p xtask -- legacy-migration-audit` reports a clean allowlist.
+- No caller of `exchange` exists in the workspace; the signature change has
+  zero downstream compile impact.
+
+### Claimed Files
+- `crates/cfd-3d/src/multiphase.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.173: cfd-1d Venturi screening book example
 **Status**: Completed
 **Owner**: current session

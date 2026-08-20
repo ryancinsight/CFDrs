@@ -2,6 +2,36 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.174 resolution: cfd-3d multiphase volume-fraction conservation invariants
+
+### RESOLVED-201: `multiphase::exchange` silently accepts non-physical inputs
+- **Location**: `crates/cfd-3d/src/multiphase.rs:39-54` (pre-fix).
+- **Issue**: `exchange()` is the volume-fraction conservation entry point for
+  every VOF-coupled 3D multiphase simulation. The pre-fix signature accepted
+  non-finite `alpha`, `alpha ∉ [0, 1]`, non-finite `rho_l`/`rho_g`/`mu_l`/`mu_g`,
+  and negative phase densities/viscosities without any diagnostic. A negative
+  `alpha` silently produced `liquid_fraction = 1 - alpha > 1`, violating the
+  VOF mass-conservation identity `alpha + (1 - alpha) = 1`, and the resulting
+  `rho_mix`/`mu_mix` propagated into the momentum equation as wrong values
+  with no caller-side signal. Negative or non-finite phase properties likewise
+  produced plausible-looking but mass/momentum-non-conserving mixture
+  properties.
+- **Remediation**: `exchange()` now returns
+  `Result<(MassDensity<T>, DynamicViscosity<T>)>` and rejects non-finite `alpha`,
+  `alpha ∉ [0, 1]`, and non-finite or negative `rho_l`/`rho_g`/`mu_l`/`mu_g`
+  via `Error::InvalidConfiguration`. Eight new value-semantic regression
+  tests cover NaN `alpha`, negative `alpha`, `alpha > 1`, infinite density,
+  negative density, negative viscosity, pure-liquid/`alpha = 0`, and a
+  monotonicity sweep across `alpha ∈ {0, 0.125, 0.25, 0.5, 0.75, 0.875, 1}`.
+- **Evidence**: `cargo nextest run -p cfd-3d --no-default-features multiphase::`
+  passes 10/10 (2 pre-existing + 8 new value tests); full `cfd-3d` lib
+  Nextest passes 219/219; `cargo clippy -p cfd-3d --no-default-features
+  --lib --tests -- -D warnings` and `rustfmt --edition 2024 --check` on the
+  touched file are clean; `cargo run -p xtask -- legacy-migration-audit`
+  remains clean. The signature change to `Result` has zero downstream callers
+  in the workspace (a workspace `rg` of `multiphase::exchange` confirms only
+  the touched file references the function).
+
 ## Sprint 1.96.173 resolution: cfd-1d example-stream coverage for Venturi screening
 
 ### RESOLVED-200: No `book_` example covering compact 1D Venturi screening workflow
