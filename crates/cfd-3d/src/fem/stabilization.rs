@@ -42,6 +42,7 @@
 //!   for convection dominated flows with particular emphasis on the incompressible Navier-Stokes equations"
 //! - Tezduyar, T.E. (1991). "Stabilized finite element formulations for incompressible flow computations"
 
+use cfd_core::error::{Error, Result};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
@@ -68,9 +69,60 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
     StabilizationParameters<T>
 {
     /// Create new stabilization parameters
+    ///
+    /// Prefer [`StabilizationParameters::try_new`] for fallible construction;
+    /// this constructor is retained for callers that already validated their
+    /// inputs.
     pub fn new(h: T, nu: T, velocity: Vector3<T>, dt: Option<T>) -> Self {
+        match Self::try_new(h, nu, velocity, dt) {
+            Ok(params) => params,
+            Err(error) => {
+                panic!("StabilizationParameters::new called with invalid inputs: {error}")
+            }
+        }
+    }
+
+    /// Fallible constructor that validates the physical inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `h` is non-finite or non-positive (the SUPG formula `τ = [(2U/h)² +
+    ///   (4ν/h²)²]^{-1/2}` divides by `h` and `h²`),
+    /// - `nu` is non-finite or negative (the kinematic viscosity must be
+    ///   non-negative for a viscous fluid; negative `nu` is unphysical),
+    /// - `velocity` has any non-finite component,
+    /// - `dt = Some(v)` where `v` is non-finite or non-positive (the time
+    ///   term `(2/Δt)²` must remain finite and well-signed).
+    pub fn try_new(h: T, nu: T, velocity: Vector3<T>, dt: Option<T>) -> Result<Self> {
+        if !<T as NumericElement>::is_finite(h) || h <= scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "StabilizationParameters::try_new: h (element length scale) must be finite and positive, got {h:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(nu) || nu < scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "StabilizationParameters::try_new: nu (kinematic viscosity) must be finite and non-negative, got {nu:?}"
+            )));
+        }
+        for axis in 0..3 {
+            let v = velocity[axis];
+            if !<T as NumericElement>::is_finite(v) {
+                return Err(Error::InvalidConfiguration(format!(
+                    "StabilizationParameters::try_new: velocity component {axis} must be finite, got {v:?}"
+                )));
+            }
+        }
+        if let Some(dt_value) = dt {
+            if !<T as NumericElement>::is_finite(dt_value) || dt_value <= scalar::zero::<T>() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "StabilizationParameters::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+                )));
+            }
+        }
         let u_mag = velocity.norm();
-        Self { h, nu, u_mag, dt }
+        Ok(Self { h, nu, u_mag, dt })
     }
 
     /// Calculate SUPG stabilization parameter tau
@@ -371,6 +423,115 @@ mod tests {
                     "τ_SUPG must be positive for |u|={u_mag}, ν={nu}, got {tau}"
                 );
             }
+        }
+    }
+
+    /// **Positive**: `try_new` accepts a valid parameter set.
+    #[test]
+    fn try_new_accepts_valid_parameters() {
+        let vel = Vector3::new(1.0, 0.0, 0.0);
+        let params = StabilizationParameters::try_new(0.1, 1e-3, vel, Some(1e-2))
+            .expect("valid inputs must succeed");
+        assert!(params.tau_supg() > 0.0);
+        // `dt = None` is also valid (steady-state stabilization).
+        let params_steady =
+            StabilizationParameters::try_new(0.1, 1e-3, vel, None).expect("None dt must succeed");
+        assert!(params_steady.tau_supg() > 0.0);
+        // `nu = 0.0` is allowed for inviscid/Stokes-limit formulations.
+        let params_inviscid =
+            StabilizationParameters::try_new(0.1, 0.0, vel, None).expect("zero nu must succeed");
+        assert!(params_inviscid.tau_supg() > 0.0);
+    }
+
+    /// **Adversarial**: zero / negative / non-finite `h` is rejected.
+    #[test]
+    fn try_new_rejects_invalid_h() {
+        let vel = Vector3::new(1.0, 0.0, 0.0);
+        match StabilizationParameters::try_new(0.0, 1e-3, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("element length scale"),
+                "error must mention element length scale: {e}"
+            ),
+            Ok(_) => panic!("zero h must be rejected"),
+        }
+        match StabilizationParameters::try_new(-1.0, 1e-3, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("element length scale"),
+                "error must mention element length scale: {e}"
+            ),
+            Ok(_) => panic!("negative h must be rejected"),
+        }
+        match StabilizationParameters::try_new(f64::NAN, 1e-3, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("element length scale"),
+                "error must mention element length scale: {e}"
+            ),
+            Ok(_) => panic!("NaN h must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: non-finite / negative `nu` is rejected.
+    #[test]
+    fn try_new_rejects_invalid_nu() {
+        let vel = Vector3::new(1.0, 0.0, 0.0);
+        match StabilizationParameters::try_new(0.1, -1.0, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("kinematic viscosity"),
+                "error must mention kinematic viscosity: {e}"
+            ),
+            Ok(_) => panic!("negative nu must be rejected"),
+        }
+        match StabilizationParameters::try_new(0.1, f64::NAN, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("kinematic viscosity"),
+                "error must mention kinematic viscosity: {e}"
+            ),
+            Ok(_) => panic!("NaN nu must be rejected"),
+        }
+        match StabilizationParameters::try_new(0.1, f64::INFINITY, vel, None) {
+            Err(e) => assert!(
+                e.to_string().contains("kinematic viscosity"),
+                "error must mention kinematic viscosity: {e}"
+            ),
+            Ok(_) => panic!("infinite nu must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: any non-finite velocity component is rejected.
+    #[test]
+    fn try_new_rejects_non_finite_velocity() {
+        let cases = [
+            Vector3::new(f64::NAN, 1.0, 1.0),
+            Vector3::new(1.0, f64::NAN, 1.0),
+            Vector3::new(1.0, 1.0, f64::NAN),
+            Vector3::new(f64::INFINITY, 1.0, 1.0),
+        ];
+        for vel in &cases {
+            match StabilizationParameters::try_new(0.1, 1e-3, *vel, None) {
+                Err(e) => assert!(
+                    e.to_string().contains("velocity"),
+                    "error must mention velocity: {e}"
+                ),
+                Ok(_) => panic!("non-finite velocity must be rejected"),
+            }
+        }
+    }
+
+    /// **Adversarial**: non-positive or non-finite `dt` (when supplied) is rejected.
+    #[test]
+    fn try_new_rejects_invalid_dt() {
+        let vel = Vector3::new(1.0, 0.0, 0.0);
+        match StabilizationParameters::try_new(0.1, 1e-3, vel, Some(0.0)) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("zero dt must be rejected"),
+        }
+        match StabilizationParameters::try_new(0.1, 1e-3, vel, Some(-1e-3)) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("negative dt must be rejected"),
+        }
+        match StabilizationParameters::try_new(0.1, 1e-3, vel, Some(f64::NAN)) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("NaN dt must be rejected"),
         }
     }
 }

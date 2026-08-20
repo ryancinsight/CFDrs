@@ -32,6 +32,43 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.183 Checklist: cfd-3d fem::StabilizationParameters validation + cavitation_solver SSOT redirect
+**Goal**: Reject non-physical inputs in `StabilizationParameters::new` so the
+SUPG/PSPG τ formulation never divides by zero or operates on NaN; consolidate
+the duplicate `POLYTROPIC_INDEX_AIR = 1.4` constant in `vof::cavitation_solver`
+to the canonical SSOT in `cfd_core::physics::constants::physics::thermo::GAMMA_AIR`.
+
+**Success Criteria**:
+- [x] `StabilizationParameters::try_new` returns `Result<Self>`.
+- [x] `try_new` rejects: `h = 0`, `h < 0`, `h = NaN`; `nu < 0`, `nu = NaN`,
+      `nu = ±∞`; any non-finite velocity component (NaN/Inf); `dt = 0`,
+      `dt < 0`, `dt = NaN` (when `Some`).
+- [x] `try_new` accepts `nu = 0.0` (inviscid/Stokes limit) and `dt = None`
+      (steady-state).
+- [x] Pre-existing infallible `new` is a thin panic wrapper; all callers
+      (including `tests/robustness_tests.rs` with `nu = 0.0`) compile unchanged.
+- [x] Five new value-semantic regression tests in `fem::stabilization::tests`.
+- [x] `cavitation_solver.rs` no longer carries the duplicate
+      `POLYTROPIC_INDEX_AIR` constant; SSOT redirect comment at the top of
+      the file references `cfd_core::physics::constants::physics::thermo::GAMMA_AIR`.
+- [x] `tests/ibm_tests.rs` — `test_lagrangian_point_at_max_corner_no_panic`
+      renamed to `test_lagrangian_point_at_max_corner_rejected` and now
+      asserts `try_add_lagrangian_point` returns `Err`; same for
+      `test_lagrangian_point_outside_domain_rejected` (Sprint 1.96.177 contract).
+- [x] `cargo nextest run -p cfd-3d --no-default-features --tests --no-fail-fast`
+      passes 443/443.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched files is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a multi-file
+physics-defect correction. SUPG/PSPG is now contractually forbidden from
+running on unphysical inputs; the duplicate air polytropic-index constant is
+redirected to the canonical SSOT; out-of-grid Lagrangian points are
+contractually rejected at insertion time.
+
+---
+
 # Sprint 1.96.182 Checklist: cfd-3d level_set::LevelSetSolver input validation
 **Goal**: Reject non-physical inputs in `LevelSetSolver::new` and
 `LevelSetSolver::advance` before the WENO5-Z reconstruction, Sussman

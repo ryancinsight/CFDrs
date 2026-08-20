@@ -282,7 +282,7 @@ impl<T: CfdScalar + FloatElement> LevelSetSolver<T> {
     pub fn advance(&mut self, dt: T) -> Result<()> {
         if !<T as NumericElement>::is_finite(dt) || dt <= scalar::zero::<T>() {
             return Err(Error::InvalidConfiguration(format!(
-                "LevelSetSolver::advance: dt must be finite and positive, got {dt:?}"
+                "LevelSetSolver::advance: time step dt must be finite and positive, got {dt:?}"
             )));
         }
         if self.velocity.len() != self.phi.len() {

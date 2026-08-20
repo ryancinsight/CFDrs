@@ -2,6 +2,67 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.183 resolution: cfd-3d fem stabilization validation + cavitation_solver SSOT redirect
+
+### RESOLVED-213: `StabilizationParameters::new` silently accepts non-physical inputs
+- **Location**: `crates/cfd-3d/src/fem/stabilization.rs:76` (pre-fix).
+- **Issue**: the SUPG/PSPG stabilization parameter τ formulation
+  `τ = h/(2‖u‖) · (4ν/h² + 2‖u‖/h)⁻¹` (Brooks–Hughes 1982) divides by
+  `h²` and `h`, and uses `‖u‖` (which is undefined for non-finite velocity
+  components). The time-derivative contribution `(2/Δt)²` term is
+  undefined for `dt ≤ 0`. Zero or non-finite values silently produced
+  `inf`/`NaN` τ, destabilizing the entire FEM Galerkin weak form.
+- **Remediation**: new `try_new` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects: `h ≤ 0` or
+  non-finite, `nu < 0` or non-finite (allowing `nu = 0` for inviscid /
+  Stokes formulations), any non-finite velocity component, and `dt ≤ 0`
+  or non-finite when supplied. The existing infallible `new` becomes a
+  thin panic wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths and the accept-path (including `nu = 0`, `dt = None`).
+  `cargo nextest run -p cfd-3d --no-default-features fem::stabilization`
+  passes 12/12; full cfd-3d test Nextest passes 443/443; `cargo clippy
+  -p cfd-3d --no-default-features --lib --tests -- -D warnings` clean;
+  `rustfmt --edition 2024 --check` clean on the touched files.
+
+### RESOLVED-214: `cavitation_solver.rs` declares duplicate `POLYTROPIC_INDEX_AIR = 1.4` constant
+- **Location**: `crates/cfd-3d/src/vof/cavitation_solver.rs` (pre-fix).
+- **Issue**: a local `const POLYTROPIC_INDEX_AIR: f64 = 1.4;` duplicated
+  the canonical SSOT in
+  `cfd_core::physics::constants::physics::thermo::GAMMA_AIR = 1.4`.
+  Two definitions of the air polytropic index in the same workspace
+  can drift independently — a textbook SSOT violation.
+- **Remediation**: deleted the local constant; replaced with a
+  documentation comment at the top of the file redirecting callers to
+  the canonical SSOT. `BubbleConfig::default()` literals stay at `1.4`
+  because `Default::default()` is the correct local-default pattern in
+  a config struct without an upstream SSOT constructor; the value
+  mirrors the SSOT and is checked into the file as part of the explicit
+  default, not a duplicate constant.
+- **Evidence**: `POLYTROPIC_INDEX_AIR` no longer appears as a `const`
+  declaration in `cavitation_solver.rs`; the SSOT redirect comment is
+  present at the top of the file. Full cfd-3d test Nextest passes
+  443/443 (no regression).
+
+### RESOLVED-215: ibm_tests integration tests asserted pre-Sprint-1.96.177 buggy silent-drop behavior
+- **Location**: `crates/cfd-3d/tests/ibm_tests.rs:152-196` (pre-fix).
+- **Issue**: `test_lagrangian_point_at_max_corner_no_panic` and
+  `test_lagrangian_point_outside_domain_no_panic` documented the old
+  buggy behavior — out-of-grid Lagrangian points were silently dropped
+  with no caller diagnostic. After Sprint 1.96.177 introduced
+  `try_add_lagrangian_point`, the infallible `add_lagrangian_point` now
+  panics on out-of-grid points (the correct contract); the tests
+  panicked at `crates/cfd-3d/src/ibm/solver.rs:263` instead of passing.
+- **Remediation**: renamed both tests to
+  `test_lagrangian_point_at_max_corner_rejected` and
+  `test_lagrangian_point_outside_domain_rejected`; updated each to
+  call `try_add_lagrangian_point` and assert `is_err()`. The new
+  contract — out-of-grid points are rejected at insertion time — is
+  documented in the test name and doc-comment.
+- **Evidence**: `cargo nextest run -p cfd-3d --no-default-features --tests
+  --no-fail-fast` passes 443/443; no test calls the obsolete
+  infallible behavior with out-of-grid points.
+
 ## Sprint 1.96.182 resolution: cfd-3d level_set::LevelSetSolver input validation
 
 ### RESOLVED-212: `LevelSetSolver` silently accepts non-physical inputs

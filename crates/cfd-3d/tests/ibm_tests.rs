@@ -11,7 +11,7 @@
 //! | Property     | Eulerian forces always finite after spreading                    |
 
 use cfd_3d::ibm::{
-    config::IbmConfig, DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint,
+    DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint, config::IbmConfig,
 };
 use leto::Vector3;
 
@@ -149,15 +149,19 @@ fn test_lagrangian_point_on_x_boundary_no_panic() {
     let _ = solver.spread_forces();
 }
 
-/// **Boundary**: Lagrangian point at maximum corner → no out-of-bounds panic.
+/// **Boundary**: Lagrangian point at maximum corner is rejected (out-of-grid
+/// points are no longer silently dropped — see Sprint 1.96.177).
 #[test]
-fn test_lagrangian_point_at_max_corner_no_panic() {
+fn test_lagrangian_point_at_max_corner_rejected() {
     let mut solver = make_solver(10, 10, 10);
-    solver.add_lagrangian_point(make_lagrangian(
+    let result = solver.try_add_lagrangian_point(make_lagrangian(
         Vector3::new(1.0, 1.0, 1.0),
         Vector3::new(0.0, 1.0, 0.0),
     ));
-    let _ = solver.spread_forces();
+    assert!(
+        result.is_err(),
+        "out-of-grid position must be rejected, got Ok"
+    );
 }
 
 /// **Boundary**: Multiple points all land in bounds.
@@ -178,21 +182,20 @@ fn test_multiple_boundary_points_no_panic() {
 // Adversarial Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// **Adversarial**: Lagrangian point far outside domain → no panic, forces finite.
+/// **Adversarial**: Lagrangian point far outside domain is rejected at
+/// insertion time (out-of-grid points are no longer silently dropped —
+/// see Sprint 1.96.177).
 #[test]
-fn test_lagrangian_point_outside_domain_no_panic() {
+fn test_lagrangian_point_outside_domain_rejected() {
     let mut solver = make_solver(10, 10, 10);
-    solver.add_lagrangian_point(make_lagrangian(
+    let result = solver.try_add_lagrangian_point(make_lagrangian(
         Vector3::new(5.0, 5.0, 5.0),
         Vector3::new(1.0, 1.0, 1.0),
     ));
-    let forces = solver.spread_forces().unwrap_or_default();
-    for f in &forces {
-        assert!(
-            f.x.is_finite() && f.y.is_finite() && f.z.is_finite(),
-            "Forces must be finite even for out-of-domain point"
-        );
-    }
+    assert!(
+        result.is_err(),
+        "out-of-domain position must be rejected, got Ok"
+    );
 }
 
 /// **Adversarial**: NaN force on Lagrangian point → no panic.

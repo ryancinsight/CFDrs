@@ -1,5 +1,61 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.183: cfd-3d fem::StabilizationParameters validation + cavitation_solver POLYTROPIC_INDEX_AIR SSOT redirect
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + SSOT consolidation + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::StabilizationParameters::new` for missing physical
+  invariant checks. SUPG/PSPG stabilization parameter τ requires:
+  - `h` (element length scale) finite and strictly positive — formula divides
+    by `h²` and `h`,
+  - `nu` (kinematic viscosity) finite and non-negative — `nu = 0` is allowed
+    for inviscid/Stokes-limit formulations,
+  - `velocity` vector with all components finite — every component enters
+    `‖u‖` and the bilinear convection term,
+  - `dt = Some(v)` finite and strictly positive when supplied — `(2/Δt)²`
+    term in the time-derivative contribution is undefined for `dt ≤ 0`.
+- Add `StabilizationParameters::try_new` returning `Result`; existing
+  infallible `new` becomes thin panic wrapper.
+- Remove dead `POLYTROPIC_INDEX_AIR = 1.4` constant in
+  `crates/cfd-3d/src/vof/cavitation_solver.rs`; the canonical SSOT lives in
+  `cfd_core::physics::constants::physics::thermo::GAMMA_AIR = 1.4`.
+  Replace with documentation comment that redirects callers to the SSOT.
+  `BubbleConfig::default()` keeps the literal `1.4` because `Default::default()`
+  is not allowed to return a SSOT constant in a `non_exhaustive`-disallowed
+  struct without an upstream SSOT constructor; this is the explicit local
+  default that mirrors the SSOT.
+
+### Acceptance and Verification
+- `try_new` rejects: `h = 0`, `h < 0`, `h = NaN`, `nu < 0`, `nu = NaN`,
+  `nu = ±∞`, any non-finite velocity component (NaN/Inf), `dt = 0`,
+  `dt < 0`, `dt = NaN`.
+- `try_new` accepts `nu = 0.0` (inviscid formulation), `dt = None`
+  (steady-state stabilization), and the canonical parameter triple.
+- All pre-existing tests (including `tests/robustness_tests.rs` callers using
+  `nu = 0.0`) compile and pass via the thin wrapper.
+- Five new value-semantic regression tests in `fem::stabilization::tests`.
+- `cavitation_solver.rs` no longer carries the duplicate `POLYTROPIC_INDEX_AIR`
+  constant; the SSOT reference is documented at the top of the file.
+- Integration tests `test_lagrangian_point_at_max_corner_no_panic` and
+  `test_lagrangian_point_outside_domain_no_panic` in `tests/ibm_tests.rs`
+  are renamed to `..._rejected` and assert the new (correct) contract from
+  Sprint 1.96.177: out-of-grid Lagrangian points are now rejected at
+  insertion time, not silently dropped.
+- `cargo nextest run -p cfd-3d --no-default-features --tests --no-fail-fast`
+  passes 443/443; `cargo clippy -p cfd-3d --no-default-features --lib --tests
+  -- -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/stabilization.rs`
+- `crates/cfd-3d/src/vof/cavitation_solver.rs`
+- `crates/cfd-3d/src/level_set/solver.rs`
+- `crates/cfd-3d/tests/ibm_tests.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.182: cfd-3d level_set::LevelSetSolver input validation (try_new + advance dt)
 **Status**: Completed
 **Owner**: current session
