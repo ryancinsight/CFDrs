@@ -223,15 +223,45 @@ impl<T> SpectralSolution<T>
 where
     T: cfd_mesh::domain::core::Scalar + RealField + Copy,
 {
-    /// Create new solution
+    /// Create new solution.
+    ///
+    /// # Panics
+    /// Panics if `nx`, `ny`, or `nz` is zero (see [`Self::try_new`]).
     #[must_use]
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
-        Self {
+        Self::try_new(nx, ny, nz).unwrap_or_else(|error| {
+            panic!("SpectralSolution::new called with invalid inputs: {error}");
+        })
+    }
+
+    /// Create a new spectral solution buffer with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx`, `ny`, or `nz` is
+    /// zero — `at(i, j, k)` indexes by `i * ny * nz + j * nz + k`, so
+    /// any zero dimension silently underflows on the corner cell.
+    pub fn try_new(nx: usize, ny: usize, nz: usize) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "SpectralSolution::try_new: nx (number of x modes) must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "SpectralSolution::try_new: ny (number of y modes) must be at least 1".to_string(),
+            ));
+        }
+        if nz == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "SpectralSolution::try_new: nz (number of z modes) must be at least 1".to_string(),
+            ));
+        }
+        Ok(Self {
             u: Array1::zeros([nx * ny * nz]),
             nx,
             ny,
             nz,
-        }
+        })
     }
 
     /// Get solution at a point
@@ -239,5 +269,54 @@ where
     pub fn at(&self, i: usize, j: usize, k: usize) -> T {
         let idx = i * self.ny * self.nz + j * self.nz + k;
         self.u[[idx]]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid dimensions.
+    #[test]
+    fn spectral_solution_try_new_accepts_valid_dims() {
+        let sol = SpectralSolution::<f64>::try_new(4, 6, 8).expect("valid dimensions must succeed");
+        assert_eq!(sol.nx, 4);
+        assert_eq!(sol.ny, 6);
+        assert_eq!(sol.nz, 8);
+        assert_eq!(sol.u.len(), 4 * 6 * 8);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn spectral_solution_try_new_rejects_zero_nx() {
+        match SpectralSolution::<f64>::try_new(0, 6, 8) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn spectral_solution_try_new_rejects_zero_ny() {
+        match SpectralSolution::<f64>::try_new(4, 0, 8) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `nz` is rejected.
+    #[test]
+    fn spectral_solution_try_new_rejects_zero_nz() {
+        match SpectralSolution::<f64>::try_new(4, 6, 0) {
+            Err(e) => assert!(e.to_string().contains("nz"), "error must mention nz: {e}"),
+            Ok(_) => panic!("zero nz must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn spectral_solution_new_panics_on_zero_nx() {
+        let _ = SpectralSolution::<f64>::new(0, 6, 8);
     }
 }
