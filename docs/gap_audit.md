@@ -2,6 +2,36 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.179 resolution: cfd-2d immersed_boundary constructor + boundary-point invariants
+
+### RESOLVED-208: `ImmersedBoundaryMethod` silently accepts non-physical inputs
+- **Location**: `crates/cfd-2d/src/physics/immersed_boundary.rs:158-231`
+  (pre-fix).
+- **Issue**: `new` computed `dx = domain.x / grid.x` without validating
+  zero `grid_size` or non-finite / non-positive `domain_size` (the
+  discrete-delta interpolation divides by `dx`/`dy`); `with_config`
+  accepted non-finite or non-positive `regularization` even though
+  `update_forces` divides by it; `add_boundary_point` silently inserted
+  out-of-grid markers (the stencil iteration's `if i >= grid_size.0 || ...`
+  guard at lines 270, 338 skipped the body, producing zero contribution
+  with no caller diagnostic); `add_circle` accepted zero/negative
+  `radius`, zero `num_points` (the segment-length calculation divides by
+  `num_points`), and non-finite `center`/`velocity`.
+- **Remediation**: `try_new`, `try_add_boundary_point`, `try_add_circle`
+  return `Result<_, Error::InvalidConfiguration>` and reject every
+  invariant violation. `with_config` now returns `Result`. The existing
+  infallible `new`, `add_boundary_point`, `add_circle` become thin panic
+  wrappers that preserve the fail-fast behaviour callers implicitly relied
+  on.
+- **Evidence**: eleven new value-semantic regression tests cover all
+  rejection paths and the accept-path. `cargo nextest run -p cfd-2d
+  --no-default-features physics::immersed_boundary` passes 17/17; full
+  cfd-2d lib Nextest passes 556/556 (the pre-existing
+  `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched file.
+
 ## Sprint 1.96.178 resolution: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
 
 ### RESOLVED-205: `energy::constants::STEFAN_BOLTZMANN` duplicates the cfd-core SSOT

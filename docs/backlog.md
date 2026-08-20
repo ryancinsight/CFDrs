@@ -1,5 +1,48 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.179: cfd-2d immersed_boundary constructor + boundary-point invariants
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `ImmersedBoundaryMethod::new`, `ImmersedBoundaryMethod::with_config`,
+  `ImmersedBoundaryMethod::add_boundary_point`, and
+  `ImmersedBoundaryMethod::add_circle` for missing physical invariant checks.
+- The discrete-delta interpolation divides by `dx`/`dy` (computed from
+  `domain_size / grid_size`); `update_forces` divides by `regularization`;
+  the discrete-delta iteration silently skips out-of-grid boundary points
+  (line 270, 338), producing zero contribution with no caller diagnostic.
+- Add `try_new`, `try_add_boundary_point`, `try_add_circle`, and convert
+  `with_config` to return `Result`. Existing infallible callers
+  (`examples/enhanced_cfd_demo.rs`, `examples/blood_venturi.rs`, all
+  tests) continue to compile unchanged via the thin wrapper pattern.
+- Keep the sprint scope disjoint from peer-dirty files outside
+  `immersed_boundary.rs`.
+
+### Acceptance and Verification
+- `try_new` rejects zero `grid_size` and non-finite or non-positive
+  `domain_size`.
+- `with_config` additionally rejects non-finite or non-positive
+  `delta_support` and `regularization`.
+- `try_add_boundary_point` rejects non-finite positions, non-positive
+  `segment_length`, and out-of-grid positions.
+- `try_add_circle` rejects non-finite `center`/`velocity`, non-positive
+  `radius`, and zero `num_points`.
+- Eleven new value-semantic regression tests cover all rejection paths and
+  the accept-path; pre-existing 6 tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features
+  physics::immersed_boundary` passes 17/17; full cfd-2d lib Nextest
+  passes 556/556 (the pre-existing `gorkov::f1_f2_analytical_values`
+  failure is peer-dirty and unrelated); `cargo clippy -p cfd-2d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/immersed_boundary.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.178: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
 **Status**: Completed
 **Owner**: current session

@@ -91,8 +91,8 @@
 //! the fluid–structure system, guaranteeing stability of the coupled solver.
 
 use cfd_core::error::{Error, Result};
-use leto::geometry::Vector2;
 use leto::Array2;
+use leto::geometry::Vector2;
 
 /// Immersed boundary configuration
 #[derive(Debug, Clone, Copy)]
@@ -155,40 +155,140 @@ impl ImmersedBoundaryMethod {
     /// # Returns
     ///
     /// Immersed boundary method instance
+    ///
+    /// Prefer [`ImmersedBoundaryMethod::try_new`] for fallible construction;
+    /// this constructor is retained for callers that already validated their
+    /// inputs and need the infallible signature.
     pub fn new(grid_size: (usize, usize), domain_size: (f64, f64)) -> Self {
-        let dx = domain_size.0 / grid_size.0 as f64;
-        let dy = domain_size.1 / grid_size.1 as f64;
-
-        Self {
-            config: ImmersedBoundaryConfig::default(),
-            boundary_points: Vec::new(),
-            grid_size,
-            dx,
-            dy,
+        match Self::try_new(grid_size, domain_size) {
+            Ok(ibm) => ibm,
+            Err(error) => panic!("ImmersedBoundaryMethod::new called with invalid inputs: {error}"),
         }
     }
 
-    /// Create with custom configuration
+    /// Fallible constructor that validates `grid_size` and `domain_size`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `grid_size.0` or `grid_size.1` is zero (the `dx = domain.x / grid.x`
+    ///   calculation divides by `grid.x`),
+    /// - `domain_size.0` or `domain_size.1` is non-finite or non-positive
+    ///   (the resulting `dx`/`dy` would be non-finite or negative, and the
+    ///   discrete-delta interpolation divides by `dx`/`dy`).
+    pub fn try_new(grid_size: (usize, usize), domain_size: (f64, f64)) -> Result<Self> {
+        Self::with_config(ImmersedBoundaryConfig::default(), grid_size, domain_size)
+    }
+
+    /// Create with custom configuration, validating every invariant.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `config.delta_support` is non-finite or non-positive (the discrete
+    ///   delta function support radius is the count of cells the kernel
+    ///   touches),
+    /// - `config.regularization` is non-finite or non-positive (`update_forces`
+    ///   divides by `regularization`),
+    /// - `grid_size.0` or `grid_size.1` is zero,
+    /// - `domain_size.0` or `domain_size.1` is non-finite or non-positive.
     pub fn with_config(
         config: ImmersedBoundaryConfig,
         grid_size: (usize, usize),
         domain_size: (f64, f64),
-    ) -> Self {
+    ) -> Result<Self> {
+        if !config.delta_support.is_finite() || config.delta_support <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::with_config: config.delta_support must be finite and positive, got {}",
+                config.delta_support
+            )));
+        }
+        if !config.regularization.is_finite() || config.regularization <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::with_config: config.regularization must be finite and positive (the force update divides by it), got {}",
+                config.regularization
+            )));
+        }
+        if grid_size.0 == 0 || grid_size.1 == 0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::with_config: grid_size must have a positive extent in each dimension, got {grid_size:?}"
+            )));
+        }
+        if !domain_size.0.is_finite() || domain_size.0 <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::with_config: domain_size.0 must be finite and positive, got {}",
+                domain_size.0
+            )));
+        }
+        if !domain_size.1.is_finite() || domain_size.1 <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::with_config: domain_size.1 must be finite and positive, got {}",
+                domain_size.1
+            )));
+        }
         let dx = domain_size.0 / grid_size.0 as f64;
         let dy = domain_size.1 / grid_size.1 as f64;
 
-        Self {
+        Ok(Self {
             config,
             boundary_points: Vec::new(),
             grid_size,
             dx,
             dy,
+        })
+    }
+
+    /// Add boundary point to immersed boundary.
+    ///
+    /// Prefer [`ImmersedBoundaryMethod::try_add_boundary_point`] for fallible
+    /// insertion; this method is retained for callers that already validated
+    /// their inputs.
+    pub fn add_boundary_point(&mut self, point: BoundaryPoint) {
+        match self.try_add_boundary_point(point) {
+            Ok(()) => {}
+            Err(error) => {
+                panic!("ImmersedBoundaryMethod::add_boundary_point rejected the point: {error}")
+            }
         }
     }
 
-    /// Add boundary point to immersed boundary
-    pub fn add_boundary_point(&mut self, point: BoundaryPoint) {
+    /// Add a boundary point, validating that the position is inside the grid
+    /// extent and finite.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when the point's position is
+    /// non-finite or outside the grid extent (the discrete-delta iteration
+    /// silently produces zero contribution for out-of-grid points).
+    pub fn try_add_boundary_point(&mut self, point: BoundaryPoint) -> Result<()> {
+        if !point.position[0].is_finite() || !point.position[1].is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_boundary_point: position must be finite, got {:?}",
+                point.position
+            )));
+        }
+        if point.segment_length <= 0.0 || !point.segment_length.is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_boundary_point: segment_length must be finite and positive, got {}",
+                point.segment_length
+            )));
+        }
+        let max_x = self.grid_size.0 as f64 * self.dx;
+        let max_y = self.grid_size.1 as f64 * self.dy;
+        if point.position[0] < 0.0
+            || point.position[0] >= max_x
+            || point.position[1] < 0.0
+            || point.position[1] >= max_y
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_boundary_point: position {:?} must lie inside the grid extent [0, {max_x}) x [0, {max_y})",
+                point.position
+            )));
+        }
         self.boundary_points.push(point);
+        Ok(())
     }
 
     /// Add circular boundary
@@ -199,6 +299,9 @@ impl ImmersedBoundaryMethod {
     /// * `radius` - Circle radius
     /// * `num_points` - Number of boundary points
     /// * `velocity` - Desired boundary velocity
+    ///
+    /// Prefer [`ImmersedBoundaryMethod::try_add_circle`] for fallible
+    /// insertion; this method is retained for backwards compatibility.
     pub fn add_circle(
         &mut self,
         center: Vector2<f64>,
@@ -206,6 +309,48 @@ impl ImmersedBoundaryMethod {
         num_points: usize,
         velocity: Vector2<f64>,
     ) {
+        match self.try_add_circle(center, radius, num_points, velocity) {
+            Ok(()) => {}
+            Err(error) => panic!("ImmersedBoundaryMethod::add_circle rejected the inputs: {error}"),
+        }
+    }
+
+    /// Add a circular boundary, validating the inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `center` is non-finite,
+    /// `radius` is non-finite or non-positive (zero radius is a degenerate
+    /// circle), `num_points` is zero (segment length divides by it), or
+    /// `velocity` is non-finite.
+    pub fn try_add_circle(
+        &mut self,
+        center: Vector2<f64>,
+        radius: f64,
+        num_points: usize,
+        velocity: Vector2<f64>,
+    ) -> Result<()> {
+        if !center[0].is_finite() || !center[1].is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_circle: center must be finite, got {center:?}"
+            )));
+        }
+        if !radius.is_finite() || radius <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_circle: radius must be finite and positive, got {radius}"
+            )));
+        }
+        if num_points == 0 {
+            return Err(Error::InvalidConfiguration(
+                "ImmersedBoundaryMethod::try_add_circle: num_points must be positive".to_string(),
+            ));
+        }
+        if !velocity[0].is_finite() || !velocity[1].is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "ImmersedBoundaryMethod::try_add_circle: velocity must be finite, got {velocity:?}"
+            )));
+        }
+
         let segment_length = 2.0 * std::f64::consts::PI * radius / num_points as f64;
 
         for i in 0..num_points {
@@ -228,6 +373,7 @@ impl ImmersedBoundaryMethod {
 
             self.boundary_points.push(point);
         }
+        Ok(())
     }
 
     /// Spread forces from boundary to fluid grid
@@ -557,5 +703,114 @@ mod tests {
             epsilon = 1e-10
         );
         assert_eq!(ibm.boundary_points[0].force[1], 0.0);
+    }
+
+    #[test]
+    fn try_new_rejects_zero_grid_size() {
+        let result = ImmersedBoundaryMethod::try_new((0, 64), (1.0, 1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("grid_size")),
+            "expected InvalidConfiguration error for zero grid_size.0"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_zero_domain_size() {
+        let result = ImmersedBoundaryMethod::try_new((64, 64), (0.0, 1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("domain_size.0")),
+            "expected InvalidConfiguration error for zero domain_size.0"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_negative_domain_size() {
+        let result = ImmersedBoundaryMethod::try_new((64, 64), (1.0, -1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("domain_size.1")),
+            "expected InvalidConfiguration error for negative domain_size.1"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_finite_domain_size() {
+        let result = ImmersedBoundaryMethod::try_new((64, 64), (f64::NAN, 1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("domain_size.0")),
+            "expected InvalidConfiguration error for NaN domain_size.0"
+        );
+    }
+
+    #[test]
+    fn try_new_accepts_physically_valid_inputs() {
+        let result = ImmersedBoundaryMethod::try_new((64, 64), (1.0, 1.0));
+        assert!(
+            result.is_ok(),
+            "valid grid_size and domain_size must succeed"
+        );
+    }
+
+    #[test]
+    fn with_config_rejects_zero_regularization() {
+        let config = ImmersedBoundaryConfig {
+            regularization: 0.0,
+            ..ImmersedBoundaryConfig::default()
+        };
+        let result = ImmersedBoundaryMethod::with_config(config, (64, 64), (1.0, 1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("regularization")),
+            "expected InvalidConfiguration error for zero regularization"
+        );
+    }
+
+    #[test]
+    fn with_config_rejects_zero_delta_support() {
+        let config = ImmersedBoundaryConfig {
+            delta_support: 0.0,
+            ..ImmersedBoundaryConfig::default()
+        };
+        let result = ImmersedBoundaryMethod::with_config(config, (64, 64), (1.0, 1.0));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("delta_support")),
+            "expected InvalidConfiguration error for zero delta_support"
+        );
+    }
+
+    #[test]
+    fn try_add_circle_rejects_zero_radius() {
+        let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
+        let result = ibm.try_add_circle(Vector2::new(0.5, 0.5), 0.0, 32, Vector2::zeros());
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("radius")),
+            "expected InvalidConfiguration error for zero radius"
+        );
+    }
+
+    #[test]
+    fn try_add_circle_rejects_zero_num_points() {
+        let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
+        let result = ibm.try_add_circle(Vector2::new(0.5, 0.5), 0.1, 0, Vector2::zeros());
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("num_points")),
+            "expected InvalidConfiguration error for zero num_points"
+        );
+    }
+
+    #[test]
+    fn try_add_circle_rejects_non_finite_center() {
+        let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
+        let result = ibm.try_add_circle(Vector2::new(f64::NAN, 0.5), 0.1, 32, Vector2::zeros());
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("center")),
+            "expected InvalidConfiguration error for NaN center"
+        );
+    }
+
+    #[test]
+    fn try_add_circle_accepts_physically_valid_inputs() {
+        let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
+        let result = ibm.try_add_circle(Vector2::new(0.5, 0.5), 0.2, 32, Vector2::zeros());
+        assert!(result.is_ok(), "valid circle must be accepted");
+        assert_eq!(ibm.boundary_points.len(), 32);
     }
 }

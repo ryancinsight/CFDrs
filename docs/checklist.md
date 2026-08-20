@@ -32,6 +32,41 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.179 Checklist: cfd-2d immersed_boundary constructor + boundary-point invariants
+**Goal**: Reject non-physical inputs in `ImmersedBoundaryMethod::new`,
+`with_config`, `add_boundary_point`, and `add_circle` before the
+discrete-delta interpolation, force update, and stencil iteration run.
+
+**Success Criteria**:
+- [x] `ImmersedBoundaryMethod::try_new` returns `Result<Self,
+      Error::InvalidConfiguration>`.
+- [x] `try_new` rejects zero `grid_size` and non-finite or non-positive
+      `domain_size`.
+- [x] `with_config` returns `Result` and additionally rejects
+      non-finite or non-positive `delta_support` and `regularization`.
+- [x] `try_add_boundary_point` returns `Result` and rejects non-finite
+      positions, non-positive `segment_length`, and out-of-grid positions.
+- [x] `try_add_circle` returns `Result` and rejects non-finite
+      `center`/`velocity`, non-positive `radius`, and zero `num_points`.
+- [x] Pre-existing infallible callers (`examples/enhanced_cfd_demo.rs`,
+      `examples/blood_venturi.rs`, all tests) compile unchanged.
+- [x] Eleven new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      physics::immersed_boundary` passes 17/17.
+- [x] Full cfd-2d lib Nextest passes 556/556 (the pre-existing
+      `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated).
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a
+single-file physics-defect correction. The infallible `new`,
+`add_boundary_point`, and `add_circle` are retained for backwards
+compatibility; the new `try_*` constructors are the recommended fallible
+entry points.
+
+---
+
 # Sprint 1.96.178 Checklist: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
 **Goal**: Consolidate the `STEFAN_BOLTZMANN` constant onto the cfd-core
 canonical SSOT and replace the silent `delta_t.max(1e-30)` clamp in
