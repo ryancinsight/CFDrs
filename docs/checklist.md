@@ -32,6 +32,34 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.184 Checklist: cfd-3d fem::FemSolver + FemConfig input validation
+**Goal**: Reject non-physical inputs in `FemConfig` and `FemSolver::new` so
+the Galerkin weak form never assembles with NaN or unphysical parameters.
+
+**Success Criteria**:
+- [x] `FemConfig::try_new` returns `Result<Self>`.
+- [x] `FemSolver::try_new` returns `Result<Self>`.
+- [x] `try_new` rejects: `tau` non-finite or negative, `dt = Some(v)`
+      non-finite or non-positive, `reynolds = Some(v)` non-finite or
+      non-positive, `quadrature_order == 0`, `grad_div_penalty` or
+      `grad_div_gamma` non-finite or negative.
+- [x] Pre-existing infallible `FemSolver::new` is a thin panic wrapper;
+      all callers (`bifurcation::solver`, `cascade::solver`,
+      `tests/fem_boundary_conditions.rs`) compile unchanged.
+- [x] Six new value-semantic regression tests for `FemConfig::try_new`
+      plus seven for `FemSolver::try_new` / panic wrapper.
+- [x] `cargo nextest run -p cfd-3d --no-default-features --tests
+      --no-fail-fast` passes 456/456.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched files is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a multi-file
+physics-defect correction. The Galerkin weak form assembly is now
+contractually forbidden from running on unphysical FEM configurations.
+
+---
+
 # Sprint 1.96.183 Checklist: cfd-3d fem::StabilizationParameters validation + cavitation_solver SSOT redirect
 **Goal**: Reject non-physical inputs in `StabilizationParameters::new` so the
 SUPG/PSPG τ formulation never divides by zero or operates on NaN; consolidate

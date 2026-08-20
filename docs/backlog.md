@@ -1,5 +1,49 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.184: cfd-3d fem::FemSolver + FemConfig input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::FemSolver::new` and `FemConfig` for missing physical
+  invariant checks. The solver assembles the Galerkin weak form using:
+  - `tau` (stabilization parameter) — used as a multiplier on the SUPG/PSPG
+    residual terms; negative or NaN `tau` destabilizes the entire weak form,
+  - `dt` (time step, optional) — divides the time-derivative contribution;
+    zero or negative `dt` invalidates the implicit-Euler step,
+  - `reynolds` (Reynolds number, optional) — scales the inertial/viscous
+    balance; non-positive Reynolds is dimensionally invalid,
+  - `quadrature_order` — controls Gauss-Legendre rule precision; zero
+    quadrature produces no integration points and a degenerate mass matrix,
+  - `grad_div_penalty` and `grad_div_gamma` — Olshanskii–Reusken grad-div
+    stabilization penalties; negative values produce non-physical mass
+    damping.
+- Add `FemConfig::try_new` and `FemSolver::try_new` returning `Result`;
+  existing infallible `FemSolver::new` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `FemConfig::try_new` and `FemSolver::try_new` reject: `tau` non-finite or
+  negative, `dt = Some(v)` non-finite or non-positive, `reynolds = Some(v)`
+  non-finite or non-positive, `quadrature_order == 0`,
+  `grad_div_penalty` non-finite or negative, `grad_div_gamma` non-finite or
+  negative.
+- Eight new value-semantic regression tests cover all rejection paths and
+  the accept-path (defaults round-trip via `FemConfig::default()`).
+- Pre-existing infallible `FemSolver::new` callers (`bifurcation::solver`,
+  `cascade::solver`, `tests/fem_boundary_conditions.rs`) compile unchanged
+  via the thin wrapper pattern.
+- `cargo nextest run -p cfd-3d --no-default-features --tests --no-fail-fast`
+  passes 456/456; `cargo clippy -p cfd-3d --no-default-features --lib --tests
+  -- -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/solver.rs`
+- `crates/cfd-3d/src/fem/config.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.183: cfd-3d fem::StabilizationParameters validation + cavitation_solver POLYTROPIC_INDEX_AIR SSOT redirect
 **Status**: Completed
 **Owner**: current session

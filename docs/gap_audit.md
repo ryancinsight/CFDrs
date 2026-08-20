@@ -2,6 +2,32 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.184 resolution: cfd-3d fem::FemSolver + FemConfig input validation
+
+### RESOLVED-216: `FemSolver::new` silently accepts non-physical `FemConfig`
+- **Location**: `crates/cfd-3d/src/fem/solver.rs:96` (pre-fix),
+  `crates/cfd-3d/src/fem/config.rs:21`.
+- **Issue**: `FemSolver::new(config: FemConfig<T>) -> Self` and
+  `FemConfig::default()` populate `tau`, `dt`, `reynolds`,
+  `grad_div_penalty`, and `grad_div_gamma` without validating any
+  physical invariant. The Galerkin assembly loop uses `tau` as a
+  multiplier on the SUPG/PSPG residual terms (line 1050 in solver.rs),
+  and `grad_div_penalty` directly (line 858). Zero or non-finite `tau`
+  silently destabilizes the weak form; non-positive `dt` or `reynolds`
+  invalidates the implicit-Euler step and the inertial/viscous scaling.
+- **Remediation**: new `FemConfig::try_new` and `FemSolver::try_new`
+  return `Result<Self, Error::InvalidConfiguration>` and reject every
+  invariant violation. The existing infallible `FemSolver::new` becomes
+  a thin panic wrapper.
+- **Evidence**: six `FemConfig::try_new` regression tests + seven
+  `FemSolver::try_new` regression tests cover all rejection paths and
+  the accept-path (including a panic-wrapper test that confirms
+  `FemSolver::new` propagates validation errors). `cargo nextest run
+  -p cfd-3d --no-default-features --tests --no-fail-fast` passes
+  456/456; `cargo clippy -p cfd-3d --no-default-features --lib --tests
+  -- -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched files.
+
 ## Sprint 1.96.183 resolution: cfd-3d fem stabilization validation + cavitation_solver SSOT redirect
 
 ### RESOLVED-213: `StabilizationParameters::new` silently accepts non-physical inputs
