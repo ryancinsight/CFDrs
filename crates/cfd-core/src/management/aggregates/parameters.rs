@@ -40,7 +40,9 @@ impl<T: FloatElement + Copy + RealField> Default for PhysicalParameters<T> {
                 .expect("invariant: positive default reference pressure is valid"),
             gravity: Vector3::new(
                 <T as NumericElement>::ZERO,
-                <T as FloatElement>::from_f64(-crate::physics::constants::physics::universal::GRAVITY),
+                <T as FloatElement>::from_f64(
+                    -crate::physics::constants::physics::universal::GRAVITY,
+                ),
                 <T as NumericElement>::ZERO,
             ),
             time_step: <T as FloatElement>::from_f64(0.001),
