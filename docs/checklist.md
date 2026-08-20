@@ -32,6 +32,32 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.175 Checklist: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
+**Goal**: Reject non-physical inputs in `ZweifachFung2D::separating_streamline_y`
+before trapezoidal integration runs, preserving the module's stated theorem that
+the dividing-streamline integral requires a strictly positive unidirectional
+profile `u(y) > 0` and a monotonically increasing y-grid.
+
+**Success Criteria**:
+- [x] `separating_streamline_y` returns `None` for negative velocity samples
+      (partial reverse flow).
+- [x] `separating_streamline_y` returns `None` for non-finite velocity samples.
+- [x] `separating_streamline_y` returns `None` for non-monotonic y-coordinates.
+- [x] Pre-existing Poiseuille and linear-profile tests still pass (wall
+      stagnation `u = 0` is not reverse flow).
+- [x] Four new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-2d --no-default-features physics::streamtube`
+      passes 6/6.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a single-file
+physics-defect correction. The signature stays `Option<T>`; the validation is
+advisory and matches the pre-existing `None`-on-invalid behavior.
+
+---
+
 # Sprint 1.96.173 Checklist: cfd-1d Venturi screening book example
 **Goal**: Add a `book_*.rs` example that demonstrates a compact 1D Venturi
 selective-screening workflow in `cfd-1d`.

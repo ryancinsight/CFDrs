@@ -2,6 +2,31 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.175 resolution: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
+
+### RESOLVED-202: `ZweifachFung2D::separating_streamline_y` silently accepts partial reverse flow
+- **Location**: `crates/cfd-2d/src/physics/streamtube/partitioning.rs:47-133`
+  (pre-fix).
+- **Issue**: the module's stated theorem requires a strictly positive
+  unidirectional profile `u(y) > 0` and a monotonically increasing y-grid
+  (lines 14-18), but `separating_streamline_y` accepted negative or non-finite
+  samples and non-monotonic y-coordinates, silently producing a non-monotonic
+  cumulative-flow CDF. The pre-fix comment at lines 75-77 even acknowledged
+  the defect ("we proceed anyway for robustness"). Partial reverse flow at the
+  split cross-section silently routed cells to the wrong daughter branch in
+  downstream bifurcations.
+- **Remediation**: pre-loop validation rejects non-finite samples, negative
+  samples, and non-monotonic y-coordinates with `None`. Wall-stagnation samples
+  (`u = 0`) are accepted because the parabolic Poiseuille test profile reaches
+  `u = 0` at the channel walls and that is not reverse flow; the strict
+  monotonic-CDF assumption is preserved as long as no sample reverses.
+- **Evidence**: four new value-semantic regression tests cover partial reverse
+  flow, negative sample, non-monotonic y-grid, and non-finite sample.
+  `cargo nextest run -p cfd-2d --no-default-features physics::streamtube`
+  passes 6/6; `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the touched
+  file.
+
 ## Sprint 1.96.174 resolution: cfd-3d multiphase volume-fraction conservation invariants
 
 ### RESOLVED-201: `multiphase::exchange` silently accepts non-physical inputs

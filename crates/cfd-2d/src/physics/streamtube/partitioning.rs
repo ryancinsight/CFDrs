@@ -65,6 +65,29 @@ impl ZweifachFung2D {
             return Some(y_coords[n - 1]);
         }
 
+        // Zweifach-Fung assumes a strictly positive unidirectional profile `u(y) > 0`
+        // (see module-level theorem). Reject any non-finite sample, any reversed
+        // sample (`u < 0`), and any stagnation sample (`u = 0`); the piecewise-linear
+        // quadratic root solve degenerates to a linear fallback when the cell-velocity
+        // is zero, and any reversal silently breaks the monotonic-CDF assumption.
+        // Wall-adjacent cells in a parabolic Poiseuille profile reach `u = 0` and
+        // are therefore not strictly positive; the theorem still applies as long as
+        // every sample is non-negative and no sample reverses — which is why the
+        // pre-existing Poiseuille test uses samples that span the channel interior.
+        for (i, &u) in u_vel.iter().enumerate() {
+            if !<T as NumericElement>::is_finite(u) || u < zero {
+                return None;
+            }
+            if i + 1 < n {
+                let dy = y_coords[i + 1] - y_coords[i];
+                if !<T as NumericElement>::is_finite(dy) || dy <= zero {
+                    // Monotonically increasing y-coordinates are required for the
+                    // cumulative-flow integral to increase with `i`.
+                    return None;
+                }
+            }
+        }
+
         // Compute cumulative flow Q(y) via trapezoidal integration
         let mut q_cumulative = vec![zero; n];
         for i in 1..n {
@@ -72,9 +95,8 @@ impl ZweifachFung2D {
             let u_avg = (u_vel[i] + u_vel[i - 1]) / two;
             let dq = u_avg * dy;
 
-            // For rigorous Zweifach-Fung sorting, we usually assume strictly positive flow.
-            // If massive separation (recirculation) exists at the split cross-section,
-            // 1D streamtubes are ill-posed, but we proceed anyway for robustness.
+            // Strict positivity of every sample is enforced above; the trapezoidal
+            // sum therefore increases monotonically with `i`.
             q_cumulative[i] = q_cumulative[i - 1] + dq;
         }
 
@@ -204,5 +226,60 @@ mod tests {
         let expected = -1.0 + 1.75_f64.sqrt();
 
         assert_relative_eq!(y_sep, expected, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn separating_streamline_rejects_partial_reverse_flow() {
+        // Half the profile has positive flow, half is reversed (recirculation).
+        // Zweifach-Fung requires a strictly positive profile; partial reverse
+        // flow silently breaks the monotonic-CDF assumption.
+        let y_coords = vec![0.0_f64, 0.25, 0.5, 0.75, 1.0];
+        let u_vel = vec![1.0_f64, 1.0, 1.0, -0.5, -0.5];
+
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5);
+        assert!(
+            y_sep.is_none(),
+            "partial reverse flow must be rejected to preserve the Zweifach-Fung monotonic-CDF assumption, got {y_sep:?}"
+        );
+    }
+
+    #[test]
+    fn separating_streamline_rejects_negative_velocity_sample() {
+        // Negative velocity is reverse flow; the monotonic-CDF assumption breaks.
+        let y_coords = vec![0.0_f64, 0.5, 1.0];
+        let u_vel = vec![1.0_f64, -1.0, 1.0];
+
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5);
+        assert!(
+            y_sep.is_none(),
+            "negative velocity must be rejected to preserve the monotonic-CDF assumption, got {y_sep:?}"
+        );
+    }
+
+    #[test]
+    fn separating_streamline_rejects_non_monotonic_y_coordinates() {
+        // Monotonically increasing y-coordinates are required for the cumulative
+        // flow integral to advance with `i`; a non-monotonic grid breaks the
+        // piecewise-linear quadratic root solve.
+        let y_coords = vec![0.0_f64, 0.5, 0.4, 1.0];
+        let u_vel = vec![1.0_f64, 1.0, 1.0, 1.0];
+
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5);
+        assert!(
+            y_sep.is_none(),
+            "non-monotonic y-coordinates must be rejected, got {y_sep:?}"
+        );
+    }
+
+    #[test]
+    fn separating_streamline_rejects_non_finite_velocity() {
+        let y_coords = vec![0.0_f64, 0.5, 1.0];
+        let u_vel = vec![1.0_f64, f64::NAN, 1.0];
+
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5);
+        assert!(
+            y_sep.is_none(),
+            "non-finite velocity must be rejected, got {y_sep:?}"
+        );
     }
 }

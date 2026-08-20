@@ -1,5 +1,38 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.175: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d/src/physics/streamtube/partitioning.rs::ZweifachFung2D::separating_streamline_y`
+  against the module's stated theorem: the dividing-streamline integral assumes a
+  strictly positive unidirectional profile `u(y) > 0` and a monotonically
+  increasing y-grid.
+- Reject non-finite, negative, or non-monotonic inputs before trapezoidal
+  integration; partial reverse flow silently produced a non-monotonic cumulative
+  flow and a plausible-looking but physically wrong `y_sep`.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and the existing peer-dirty `cfd-2d` files outside
+  `partitioning.rs`.
+
+### Acceptance and Verification
+- Negative or non-finite velocity samples are rejected with `None`; non-monotonic
+  y-coordinates are rejected with `None`; pre-existing Poiseuille and linear-
+  profile tests still pass (parabolic profiles that touch `u = 0` at the walls
+  remain valid because wall stagnation is not reverse flow).
+- Four new value-semantic regression tests cover partial reverse flow, negative
+  sample, non-monotonic y-grid, and non-finite sample.
+- `cargo nextest run -p cfd-2d --no-default-features physics::streamtube` passes
+  6/6; `cargo clippy -p cfd-2d --no-default-features --lib --tests -- -D warnings`
+  is clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/streamtube/partitioning.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.174: cfd-3d multiphase volume-fraction conservation invariants
 **Status**: Completed
 **Owner**: current session
