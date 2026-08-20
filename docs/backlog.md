@@ -1,5 +1,48 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.177: cfd-3d IBM solver input validation (try_new + try_add_lagrangian_point + calculate_forcing dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `IbmSolver::new`, `IbmSolver::add_lagrangian_point`, and
+  `IbmSolver::calculate_forcing` for missing physical invariant checks.
+- The discrete-delta interpolation divides by `dx.x/dx.y/dx.z`; the kernel
+  normalization is `1/h^d`; `add_lagrangian_point` silently inserted markers
+  outside the grid extent (the stencil iteration's `if ii < grid_size.0 && ...`
+  guard produces zero contribution for out-of-grid points); `calculate_forcing`
+  uses `dt` in direct forcing's `(u_desired − u*) / Δt` and in feedback forcing's
+  derivative term.
+- The cfd-3d AGENTS.md already documents the invariant "IBM Lagrangian markers
+  must be placed at least 1.5Δx from grid boundaries"; this sprint enforces it
+  at the insertion boundary.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, `crates/cfd-3d/src/blueprint_integration/mod.rs`,
+  `crates/cfd-3d/src/cavitation.rs`, and other existing peer-dirty files.
+
+### Acceptance and Verification
+- `IbmSolver::try_new` rejects non-finite or non-positive `dx.x/dx.y/dx.z`,
+  zero `grid_size` in any dimension, and non-finite or non-positive
+  `config.smoothing_width`.
+- `IbmSolver::try_add_lagrangian_point` rejects non-finite positions and
+  positions outside the grid extent.
+- `IbmSolver::calculate_forcing` rejects non-finite or non-positive `dt`.
+- Pre-existing infallible callers (`examples/`, validation) compile unchanged
+  via the thin wrapper pattern.
+- Eleven new value-semantic regression tests cover zero/NaN `dx`, zero
+  `grid_size`, negative `smoothing_width`, in-grid/out-of-grid/NaN
+  `LagrangianPoint` insertion, zero/negative/NaN `dt`, and the accept-path.
+- `cargo nextest run -p cfd-3d --no-default-features ibm::solver` passes 14/14;
+  full cfd-3d lib Nextest passes 230/230; `cargo clippy -p cfd-3d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/ibm/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.176: cfd-2d vorticity_stream solver input validation
 **Status**: Completed
 **Owner**: current session

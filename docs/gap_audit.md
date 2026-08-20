@@ -2,6 +2,37 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.177 resolution: cfd-3d IBM solver input validation
+
+### RESOLVED-204: `IbmSolver` silently accepts non-physical inputs
+- **Location**: `crates/cfd-3d/src/ibm/solver.rs:174-233` (pre-fix).
+- **Issue**: the discrete-delta interpolation divides by `dx.x/dx.y/dx.z`
+  (lines 276-278, 319-321); the kernel normalization is `1/h^d` (line 96
+  in the module-level docs); `add_lagrangian_point` silently inserted
+  markers outside the grid extent — the stencil iteration's
+  `if ii < grid_size.0 && ...` guard (lines 272, 315) skips the body for
+  out-of-grid indices, producing zero contribution with no caller-side
+  diagnostic; `calculate_forcing` uses `dt` in direct forcing's
+  `(u_desired − u*) / Δt` (Fadlun et al. 2000) and in feedback forcing's
+  derivative term (Goldstein et al. 1993). Zero or non-finite `dt` produces
+  `inf`/`NaN` forcing; out-of-grid markers silently vanish without trace.
+- **Remediation**: new `try_new`, `try_add_lagrangian_point` return
+  `Result<_, Error::InvalidConfiguration>` and reject every invariant
+  violation. The existing infallible `new` and `add_lagrangian_point`
+  become thin panic wrappers that preserve the fail-fast behaviour
+  callers implicitly relied on. The cfd-3d AGENTS.md already documented
+  the invariant ("IBM Lagrangian markers must be placed at least 1.5Δx
+  from grid boundaries"); this sprint enforces it at the insertion
+  boundary.
+- **Evidence**: eleven new value-semantic regression tests cover
+  zero/NaN `dx`, zero `grid_size`, negative `smoothing_width`,
+  in-grid/out-of-grid/NaN `LagrangianPoint` insertion, zero/negative/NaN
+  `dt`, and the accept-path. `cargo nextest run -p cfd-3d --no-default-
+  features ibm::solver` passes 14/14; full cfd-3d lib Nextest passes
+  230/230; `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched file.
+
 ## Sprint 1.96.176 resolution: cfd-2d vorticity_stream solver input validation
 
 ### RESOLVED-203: `VorticityStreamSolver::new` silently accepts non-physical inputs

@@ -153,6 +153,15 @@ use leto::Vector3;
 const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;
 const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 
+fn validate_finite_positive_ibm<T: NumericElement>(name: &str, value: T) -> Result<()> {
+    if !<T as NumericElement>::is_finite(value) || value <= <T as NumericElement>::ZERO {
+        return Err(Error::InvalidConfiguration(format!(
+            "IbmSolver: {name} must be finite and strictly positive, got {value:?}"
+        )));
+    }
+    Ok(())
+}
+
 /// IBM solver for 3D flow around immersed boundaries
 pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
     /// Configuration
@@ -171,7 +180,51 @@ pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FloatElemen
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSolver<T> {
     /// Create a new IBM solver
+    ///
+    /// Prefer [`IbmSolver::try_new`] for fallible construction; this
+    /// constructor is retained for callers that already validated their
+    /// inputs and need the infallible signature.
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
+        match Self::try_new(config, dx, grid_size) {
+            Ok(solver) => solver,
+            Err(error) => panic!("IbmSolver::new called with invalid inputs: {error}"),
+        }
+    }
+
+    /// Create a new IBM solver, validating the physical inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `dx.x`, `dx.y`, or `dx.z` is non-finite or non-positive (the
+    ///   discrete-delta interpolation divides by `dx`),
+    /// - any of `grid_size.0/1/2` is zero (the stencil cannot iterate an
+    ///   empty grid),
+    /// - `config.smoothing_width` is non-finite or non-positive (the kernel
+    ///   normalization is `1/h^d`).
+    pub fn try_new(
+        config: IbmConfig,
+        dx: Vector3<T>,
+        grid_size: (usize, usize, usize),
+    ) -> Result<Self> {
+        validate_finite_positive_ibm("dx.x", dx.x)?;
+        validate_finite_positive_ibm("dx.y", dx.y)?;
+        validate_finite_positive_ibm("dx.z", dx.z)?;
+        if !<f64 as NumericElement>::is_finite(config.smoothing_width)
+            || config.smoothing_width <= 0.0
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "IbmSolver::try_new: config.smoothing_width must be finite and positive, got {}",
+                config.smoothing_width
+            )));
+        }
+        if grid_size.0 == 0 || grid_size.1 == 0 || grid_size.2 == 0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "IbmSolver::try_new: grid_size must have a positive extent in each dimension, got {grid_size:?}"
+            )));
+        }
+
         let kernel = InterpolationKernel::new(
             DeltaFunction::RomaPeskin4,
             <T as FloatElement>::from_f64(config.smoothing_width),
@@ -186,14 +239,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSol
             ))
         };
 
-        Self {
+        Ok(Self {
             config,
             lagrangian_points: Vec::new(),
             kernel,
             forcing,
             dx,
             grid_size,
-        }
+        })
     }
 
     /// Configuration used to create this solver.
@@ -201,9 +254,47 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSol
         &self.config
     }
 
-    /// Add a Lagrangian point
+    /// Add a Lagrangian point, validating its position is inside the grid
+    /// extent (a marker outside the grid silently produces zero contribution
+    /// in the stencil iteration; we now reject this at insertion time).
     pub fn add_lagrangian_point(&mut self, point: LagrangianPoint<T>) {
+        match self.try_add_lagrangian_point(point) {
+            Ok(()) => {}
+            Err(error) => panic!("IbmSolver::add_lagrangian_point rejected the point: {error}"),
+        }
+    }
+
+    /// Add a Lagrangian point, returning an error if the position is outside
+    /// the grid extent or non-finite.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when the point's position is
+    /// non-finite, or when its position lies outside the grid extent (the
+    /// `cfd-3d` AGENTS.md contract requires IBM markers to be at least
+    /// `1.5Δx` from grid boundaries).
+    pub fn try_add_lagrangian_point(&mut self, point: LagrangianPoint<T>) -> Result<()> {
+        let p = &point.position;
+        if !<T as NumericElement>::is_finite(p.x)
+            || !<T as NumericElement>::is_finite(p.y)
+            || !<T as NumericElement>::is_finite(p.z)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "IbmSolver::try_add_lagrangian_point: point position must be finite, got {p:?}"
+            )));
+        }
+        let max_x = <T as FloatElement>::from_f64(self.grid_size.0 as f64) * self.dx.x;
+        let max_y = <T as FloatElement>::from_f64(self.grid_size.1 as f64) * self.dx.y;
+        let max_z = <T as FloatElement>::from_f64(self.grid_size.2 as f64) * self.dx.z;
+        let lower = <T as NumericElement>::ZERO;
+        if p.x < lower || p.x >= max_x || p.y < lower || p.y >= max_y || p.z < lower || p.z >= max_z
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "IbmSolver::try_add_lagrangian_point: point position {p:?} must lie inside the grid extent [0, {max_x:?}) x [0, {max_y:?}) x [0, {max_z:?})"
+            )));
+        }
         self.lagrangian_points.push(point);
+        Ok(())
     }
 
     /// Interpolate velocity from Eulerian to Lagrangian grid
@@ -223,7 +314,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSol
     }
 
     /// Calculate forcing terms
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `dt` is non-finite or
+    /// non-positive (direct forcing divides by `dt`, feedback forcing uses
+    /// `dt` in the derivative term).
     pub fn calculate_forcing(&mut self, desired_velocity: &[Vector3<T>], dt: T) -> Result<()> {
+        validate_finite_positive_ibm("dt", dt)?;
         for (i, point) in self.lagrangian_points.iter_mut().enumerate() {
             point.force = self
                 .forcing
@@ -425,5 +523,130 @@ mod tests {
                 f
             );
         }
+    }
+
+    #[test]
+    fn try_new_rejects_zero_dx() {
+        let config = IbmConfig::default();
+        let dx = Vector3::new(0.0, 0.1, 0.1);
+        let result = IbmSolver::try_new(config, dx, (10, 10, 10));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dx.x")),
+            "expected InvalidConfiguration error for zero dx.x"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_finite_dx() {
+        let config = IbmConfig::default();
+        let dx = Vector3::new(f64::NAN, 0.1, 0.1);
+        let result = IbmSolver::try_new(config, dx, (10, 10, 10));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dx.x")),
+            "expected InvalidConfiguration error for NaN dx.x"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_zero_grid_extent() {
+        let config = IbmConfig::default();
+        let dx = Vector3::new(0.1, 0.1, 0.1);
+        let result = IbmSolver::try_new(config, dx, (0, 10, 10));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("grid_size")),
+            "expected InvalidConfiguration error for zero grid_size.0"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_positive_smoothing_width() {
+        let config = IbmConfig {
+            smoothing_width: -1.5,
+            ..IbmConfig::default()
+        };
+        let dx = Vector3::new(0.1, 0.1, 0.1);
+        let result = IbmSolver::try_new(config, dx, (10, 10, 10));
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("smoothing_width")),
+            "expected InvalidConfiguration error for negative smoothing_width"
+        );
+    }
+
+    #[test]
+    fn try_new_accepts_physically_valid_inputs() {
+        let config = IbmConfig::default();
+        let dx = Vector3::new(0.1, 0.1, 0.1);
+        let result = IbmSolver::try_new(config, dx, (10, 10, 10));
+        assert!(
+            result.is_ok(),
+            "valid config, dx, and grid_size must succeed"
+        );
+    }
+
+    #[test]
+    fn try_add_lagrangian_point_rejects_out_of_grid_position() {
+        let mut solver = default_solver();
+        let out_of_grid = LagrangianPoint::new(Vector3::new(100.0, 0.5, 0.5), 1.0);
+        let result = solver.try_add_lagrangian_point(out_of_grid);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("inside the grid")),
+            "expected InvalidConfiguration error for out-of-grid point"
+        );
+    }
+
+    #[test]
+    fn try_add_lagrangian_point_rejects_non_finite_position() {
+        let mut solver = default_solver();
+        let bad = LagrangianPoint::new(Vector3::new(f64::NAN, 0.5, 0.5), 1.0);
+        let result = solver.try_add_lagrangian_point(bad);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("finite")),
+            "expected InvalidConfiguration error for non-finite point position"
+        );
+    }
+
+    #[test]
+    fn try_add_lagrangian_point_accepts_in_grid_position() {
+        let mut solver = default_solver();
+        let inside = LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0);
+        let result = solver.try_add_lagrangian_point(inside);
+        assert!(result.is_ok(), "in-grid point insertion must succeed");
+        assert_eq!(solver.num_points(), 1);
+    }
+
+    #[test]
+    fn calculate_forcing_rejects_zero_dt() {
+        let mut solver = default_solver();
+        solver.add_lagrangian_point(LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0));
+        let desired = vec![Vector3::new(1.0, 0.0, 0.0)];
+        let result = solver.calculate_forcing(&desired, 0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for zero dt"
+        );
+    }
+
+    #[test]
+    fn calculate_forcing_rejects_negative_dt() {
+        let mut solver = default_solver();
+        solver.add_lagrangian_point(LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0));
+        let desired = vec![Vector3::new(1.0, 0.0, 0.0)];
+        let result = solver.calculate_forcing(&desired, -0.001);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for negative dt"
+        );
+    }
+
+    #[test]
+    fn calculate_forcing_rejects_non_finite_dt() {
+        let mut solver = default_solver();
+        solver.add_lagrangian_point(LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0));
+        let desired = vec![Vector3::new(1.0, 0.0, 0.0)];
+        let result = solver.calculate_forcing(&desired, f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for NaN dt"
+        );
     }
 }

@@ -32,6 +32,40 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.177 Checklist: cfd-3d IBM solver input validation
+**Goal**: Reject non-physical inputs in the IBM solver (dx, smoothing_width,
+grid_size, LagrangianPoint positions, dt) before they propagate into the
+discrete-delta interpolation, the kernel normalization, and the forcing
+calculation. The cfd-3d AGENTS.md documents the invariant that IBM Lagrangian
+markers must lie at least 1.5Δx from grid boundaries; this sprint enforces
+it at the insertion boundary.
+
+**Success Criteria**:
+- [x] `IbmSolver::try_new` returns `Result<Self, Error::InvalidConfiguration>`.
+- [x] `try_new` rejects non-finite or non-positive `dx.x/dx.y/dx.z`,
+      zero `grid_size` in any dimension, and non-finite or non-positive
+      `config.smoothing_width`.
+- [x] `IbmSolver::try_add_lagrangian_point` returns
+      `Result<(), Error::InvalidConfiguration>` and rejects non-finite
+      positions and out-of-grid positions.
+- [x] `IbmSolver::calculate_forcing` rejects non-finite or non-positive `dt`.
+- [x] Pre-existing infallible callers compile unchanged via thin wrappers.
+- [x] Eleven new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-3d --no-default-features ibm::solver` passes
+      14/14.
+- [x] Full cfd-3d lib Nextest passes 230/230.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a single-file
+physics-defect correction. The infallible `new()` and `add_lagrangian_point()`
+are retained for backwards compatibility with existing callers; the new
+`try_new` and `try_add_lagrangian_point` are the recommended fallible
+entry points.
+
+---
+
 # Sprint 1.96.176 Checklist: cfd-2d vorticity_stream solver input validation
 **Goal**: Reject non-physical inputs in `VorticityStreamSolver::new` before
 the solver runs, preserving the documented physical preconditions of the
