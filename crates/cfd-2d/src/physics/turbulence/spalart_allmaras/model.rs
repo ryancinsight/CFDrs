@@ -5,6 +5,7 @@ use super::{
     },
     wall_distance::{self, cbrt},
 };
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::constants::mathematical::numeric::{ONE, ONE_HALF, TWO};
 use eunomia::{FloatElement, NumericElement, RealField};
 use tracing::instrument;
@@ -42,7 +43,30 @@ pub struct SpalartAllmaras<T: RealField> {
 impl<T: RealField> SpalartAllmaras<T> {
     /// Create new Spalart-Allmaras model
     pub fn new(nx: usize, ny: usize) -> Self {
-        Self {
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("SpalartAllmaras::new called with invalid inputs: {error}");
+        })
+    }
+
+    /// Create a new Spalart-Allmaras model with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0` —
+    /// the wall-distance field and boundary-condition application index by
+    /// `(ny - 1) * nx + i`, so zero dimensions silently underflow on the
+    /// corner cell and break every downstream solve.
+    pub fn try_new(nx: usize, ny: usize) -> Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "SpalartAllmaras::try_new: nx (number of x cells) must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "SpalartAllmaras::try_new: ny (number of y cells) must be at least 1".to_string(),
+            ));
+        }
+        Ok(Self {
             nx,
             ny,
             cb1: T::from_f64(SA_CB1),
@@ -58,7 +82,7 @@ impl<T: RealField> SpalartAllmaras<T> {
             ct4: T::from_f64(SA_CT4),
             sigma: T::from_f64(SA_SIGMA),
             kappa_sq: T::from_f64(SA_KAPPA_SQ),
-        }
+        })
     }
 
     /// Calculate eddy viscosity from modified viscosity
@@ -233,5 +257,45 @@ impl<T: RealField> SpalartAllmaras<T> {
             nu_tilde[j * self.nx] = T::ZERO; // Left wall
             nu_tilde[j * self.nx + (self.nx - 1)] = T::ZERO; // Right wall
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `new` and `try_new` accept valid grid dimensions.
+    #[test]
+    fn spalart_allmaras_new_accepts_valid_grid() {
+        let _model = SpalartAllmaras::<f64>::new(10, 20);
+        let model =
+            SpalartAllmaras::<f64>::try_new(10, 20).expect("valid grid dimensions must succeed");
+        assert_eq!(model.nx, 10);
+        assert_eq!(model.ny, 20);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn spalart_allmaras_try_new_rejects_zero_nx() {
+        match SpalartAllmaras::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn spalart_allmaras_try_new_rejects_zero_ny() {
+        match SpalartAllmaras::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero grid dimensions (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn spalart_allmaras_new_panics_on_zero_nx() {
+        let _ = SpalartAllmaras::<f64>::new(0, 10);
     }
 }

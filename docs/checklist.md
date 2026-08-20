@@ -32,6 +32,28 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.185 Checklist: cfd-2d SpalartAllmaras grid-dimension validation
+**Goal**: Reject zero grid dimensions in `SpalartAllmaras::new` so the SA
+transport equation never indexes a degenerate `nu_tilde` field.
+
+**Success Criteria**:
+- [x] `SpalartAllmaras::try_new` returns `Result<Self>`.
+- [x] `try_new` rejects `nx == 0` and `ny == 0`.
+- [x] Pre-existing infallible `SpalartAllmaras::new` is a thin panic wrapper;
+      all callers (21 existing tests) compile unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features spalart_allmaras`
+      passes 25/25.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The SA
+transport solve is now contractually forbidden from running on a
+degenerate grid.
+
+---
+
 # Sprint 1.96.184 Checklist: cfd-3d fem::FemSolver + FemConfig input validation
 **Goal**: Reject non-physical inputs in `FemConfig` and `FemSolver::new` so
 the Galerkin weak form never assembles with NaN or unphysical parameters.

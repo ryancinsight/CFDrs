@@ -2,6 +2,31 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.185 resolution: cfd-2d SpalartAllmaras grid-dimension validation
+
+### RESOLVED-217: `SpalartAllmaras::new` silently accepts zero grid dimensions
+- **Location**: `crates/cfd-2d/src/physics/turbulence/spalart_allmaras/
+  model.rs:44` (pre-fix).
+- **Issue**: `apply_boundary_conditions` indexes the `nu_tilde` field by
+  `(self.ny - 1) * self.nx + i` (top wall) and `j * self.nx + (self.nx - 1)`
+  (right wall). Zero `nx` or `ny` silently underflows `self.ny - 1` in
+  release builds and produces a degenerate transport solve. The
+  `wall_distance_field` delegate divides by `nx * ny` in the
+  wall-distance grid construction, producing `inf`/`NaN` distances on
+  empty grids.
+- **Remediation**: new `SpalartAllmaras::try_new` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects `nx == 0` and
+  `ny == 0`. The existing infallible `new` becomes a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path, and the panic-wrapper contract
+  (asserting the panic message contains `nx`). `cargo nextest run -p
+  cfd-2d --no-default-features spalart_allmaras` passes 25/25; full
+  cfd-2d lib Nextest passes 568/569 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched file.
+
 ## Sprint 1.96.184 resolution: cfd-3d fem::FemSolver + FemConfig input validation
 
 ### RESOLVED-216: `FemSolver::new` silently accepts non-physical `FemConfig`

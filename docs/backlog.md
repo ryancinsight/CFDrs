@@ -1,5 +1,40 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.185: cfd-2d SpalartAllmaras grid-dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::spalart_allmaras::SpalartAllmaras::new`
+  for missing physical invariant checks.
+- The SA model's `apply_boundary_conditions` indexes by
+  `(self.ny - 1) * self.nx + i` (top wall) and `j * self.nx` (left wall).
+  Zero `nx` or `ny` silently underflows `self.ny - 1` and produces a
+  degenerate transport solve. The `wall_distance_field` delegate divides
+  by `nx * ny` in the wall-distance grid construction.
+- Add `SpalartAllmaras::try_new` returning `Result`; existing infallible
+  `new` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (21 tests in `physics::turbulence::
+  spalart_allmaras::*` and `literature_validation_tests`) compile
+  unchanged via the thin wrapper.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path, and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features spalart_allmaras`
+  passes 25/25; full cfd-2d lib Nextest passes 568/569 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/spalart_allmaras/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.184: cfd-3d fem::FemSolver + FemConfig input validation
 **Status**: Completed
 **Owner**: current session
