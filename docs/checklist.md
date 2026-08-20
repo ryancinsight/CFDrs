@@ -32,6 +32,30 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.187 Checklist: cfd-2d fdm::DiffusionSolver input validation
+**Goal**: Reject unphysical inputs in `DiffusionSolver::new` so the explicit
+Euler heat-diffusion solver never produces `inf`/`NaN` `dt` from a
+degenerate grid spacing or diffusivity.
+
+**Success Criteria**:
+- [x] `DiffusionSolver::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `nx < 3`, `ny < 3`, `dx` non-finite or non-positive,
+      `dy` non-finite or non-positive, `alpha` non-finite or non-positive.
+- [x] Pre-existing infallible `new` is a thin panic wrapper.
+- [x] Seven new value-semantic regression tests cover all rejection paths,
+      the accept-path, and the panic-wrapper contract.
+- [x] `cargo nextest run -p cfd-2d --no-default-features fdm::diffusion`
+      passes 7/7.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The explicit
+Euler heat-diffusion solve is now contractually forbidden from running
+on a degenerate grid or zero diffusivity.
+
+---
+
 # Sprint 1.96.186 Checklist: cfd-2d DriftDiffusionSolver2D grid-dimension validation
 **Goal**: Reject zero grid dimensions in `DriftDiffusionSolver2D::new` so
 the upwind M-matrix assembly never operates on a degenerate grid.

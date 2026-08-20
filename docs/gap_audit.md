@@ -2,6 +2,31 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.187 resolution: cfd-2d fdm::DiffusionSolver input validation
+
+### RESOLVED-219: `DiffusionSolver::new` silently accepts unphysical inputs
+- **Location**: `crates/cfd-2d/src/solvers/fdm/diffusion.rs:48` (pre-fix).
+- **Issue**: the explicit-Euler 2D heat-diffusion solver computes the
+  stable time step
+  `dt = 0.25 * 0.9 * min(dx², dy²) / alpha` (line 79) and divides the
+  Laplacian by `dx²` and `dy²` (lines 113-114). Zero or non-finite
+  `dx`/`dy`/`alpha` silently produce `inf`/`NaN` `dt` and a divergent
+  solve; `nx < 3` or `ny < 3` produces an empty interior stencil
+  because the central-difference loop is `for i in 1..self.nx - 1` (line
+  85), which silently skips for `nx < 3`.
+- **Remediation**: new `DiffusionSolver::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects every invariant violation. The existing infallible `new`
+  becomes a thin panic wrapper.
+- **Evidence**: seven new value-semantic regression tests cover all
+  rejection paths, the accept-path, and the panic-wrapper contract.
+  `cargo nextest run -p cfd-2d --no-default-features fdm::diffusion`
+  passes 7/7; full cfd-2d lib Nextest passes 579/580 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to
+  this change); `cargo clippy -p cfd-2d --no-default-features --lib
+  --tests -- -D warnings` clean; `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.186 resolution: cfd-2d DriftDiffusionSolver2D grid-dimension validation
 
 ### RESOLVED-218: `DriftDiffusionSolver2D::new` silently accepts zero grid dimensions
