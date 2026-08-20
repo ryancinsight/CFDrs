@@ -33,8 +33,12 @@ pub use viscous_dissipation::*;
 pub mod constants {
     /// Default Prandtl number for air
     pub const DEFAULT_PRANDTL: f64 = 0.71;
-    /// Stefan-Boltzmann constant [W/(m²·K⁴)]
-    pub const STEFAN_BOLTZMANN: f64 = 5.67e-8;
     /// Denominator coefficient for central difference: (u_{i+1} - u_{i-1}) / (CENTRAL_DIFF_COEFF · Δx)
     pub const CENTRAL_DIFF_COEFF: f64 = 2.0;
 }
+
+// Stefan-Boltzmann constant is the canonical SSOT in
+// `cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN`
+// (= 5.670_374_419e-8). The previous local duplicate here (= 5.67e-8) was
+// less precise and diverged from the canonical CODATA value; refer to the
+// cfd-core SSOT for the unified constant.

@@ -2,6 +2,63 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.178 resolution: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
+
+### RESOLVED-205: `energy::constants::STEFAN_BOLTZMANN` duplicates the cfd-core SSOT
+- **Location**: `crates/cfd-2d/src/physics/energy/mod.rs:37` (pre-fix).
+- **Issue**: the local `STEFAN_BOLTZMANN = 5.67e-8` duplicated the canonical
+  `cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN =
+  5.670_374_419e-8` (CODATA 2018). The local copy was less precise and
+  diverged from the canonical value by ~0.06% — a magnitude that matters
+  for high-temperature radiation calculations.
+- **Remediation**: deleted the local duplicate; the one in-tree caller
+  (`tests::test_constants_validity`) now references the cfd-core SSOT.
+  This is consistent with the peer-dirty
+  `crates/cfd-2d/src/physics/energy/solver.rs` change to
+  `cfd_core::physics::constants::physics::fluid::*` for `WATER_DENSITY` and
+  `WATER_SPECIFIC_HEAT`.
+
+### RESOLVED-206: `brinkman_number` silently clamps `delta_t` to `max(1e-30)`
+- **Location**: `crates/cfd-2d/src/physics/energy/viscous_dissipation.rs:31`
+  (pre-fix).
+- **Issue**: `delta_t.max(1e-30)` masked zero or negative `delta_t` by
+  silently inflating Br by 30 orders of magnitude. A user passing
+  `delta_t = 0` (heat-source operating point, no temperature difference)
+  silently produced a Br of `mu * U^2 / (k * 1e-30)`, a meaningless number
+  that propagated into the viscous dissipation field with no caller
+  diagnostic.
+- **Remediation**: new `brinkman_number_validated` returns
+  `Result<f64, Error::InvalidConfiguration>` and rejects every invariant
+  violation (non-finite `mu`/`u_ref`/`k_thermal`/`delta_t`, non-positive
+  `mu`/`k_thermal`/`delta_t`). The existing infallible `brinkman_number`
+  becomes a thin panic wrapper.
+
+### RESOLVED-207: `viscous_dissipation_2d` silently accepts negative `mu` and non-finite gradients
+- **Location**: `crates/cfd-2d/src/physics/energy/viscous_dissipation.rs:20-22`
+  (pre-fix).
+- **Issue**: `Phi = 2*mu*[(du/dx)^2 + (dv/dy)^2] + mu*(du/dy + dv/dx)^2`
+  is the irreversible-conversion-of-kinetic-energy-to-heat term
+  (Bejan 2013, §2.5); negative `mu` makes it a source of kinetic energy
+  instead of dissipation (unphysical); non-finite gradients make Φ
+  non-finite and break the energy-conservation invariant the module
+  documents at lines 7-19.
+- **Remediation**: new `viscous_dissipation_2d_validated` returns
+  `Result<f64, Error::InvalidConfiguration>` and rejects every invariant
+  violation (non-finite gradients, non-finite or negative `mu`; zero `mu`
+  is accepted because Φ = 0 is mathematically valid). The existing
+  infallible `viscous_dissipation_2d` becomes a thin panic wrapper.
+
+**Evidence**: nine new value-semantic regression tests cover the
+consolidated constant and the new validated APIs (zero/NaN gradient,
+negative/zero `mu`, zero/negative/NaN `delta_t`, zero `k_thermal`,
+NaN `u_ref`, accept-path, infallible/validated API agreement).
+`cargo nextest run -p cfd-2d --no-default-features physics::energy`
+passes 46/46; full cfd-2d lib Nextest passes 545/545 (the pre-existing
+`gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated);
+`cargo clippy -p cfd-2d --no-default-features --lib --tests --
+-D warnings` clean; `rustfmt --edition 2024 --check` clean on the touched
+files.
+
 ## Sprint 1.96.177 resolution: cfd-3d IBM solver input validation
 
 ### RESOLVED-204: `IbmSolver` silently accepts non-physical inputs

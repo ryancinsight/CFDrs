@@ -32,6 +32,37 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.178 Checklist: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
+**Goal**: Consolidate the `STEFAN_BOLTZMANN` constant onto the cfd-core
+canonical SSOT and replace the silent `delta_t.max(1e-30)` clamp in
+`brinkman_number` with a fallible API that surfaces invalid input. Also
+validate `mu` and gradient finiteness in `viscous_dissipation_2d`.
+
+**Success Criteria**:
+- [x] `energy::constants::STEFAN_BOLTZMANN` is removed.
+- [x] `tests::test_constants_validity` now references the cfd-core SSOT.
+- [x] `brinkman_number_validated` rejects non-finite inputs and
+      non-positive `mu`/`k_thermal`/`delta_t`.
+- [x] `viscous_dissipation_2d_validated` rejects non-finite gradients and
+      non-finite or negative `mu`; accepts zero `mu`.
+- [x] Pre-existing infallible callers (`brinkman_number`, `viscous_dissipation_2d`)
+      continue to compile and run unchanged.
+- [x] Nine new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-2d --no-default-features physics::energy`
+      passes 46/46.
+- [x] Full cfd-2d lib Nextest passes 545/545 (the pre-existing
+      `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated).
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched files is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The duplicate
+constant is consolidated to the cfd-core SSOT; the silent clamp is
+replaced with a fallible API; the infailable APIs are retained as thin
+panic wrappers for backwards compatibility.
+
+---
+
 # Sprint 1.96.177 Checklist: cfd-3d IBM solver input validation
 **Goal**: Reject non-physical inputs in the IBM solver (dx, smoothing_width,
 grid_size, LagrangianPoint positions, dt) before they propagate into the

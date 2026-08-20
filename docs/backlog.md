@@ -1,5 +1,52 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.178: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] SSOT consolidation + new fallible APIs + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `crates/cfd-2d/src/physics/energy/{mod.rs,viscous_dissipation.rs,tests.rs}`.
+- `energy::constants::STEFAN_BOLTZMANN = 5.67e-8` duplicates the canonical
+  `cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN =
+  5.670_374_419e-8` (CODATA 2018); the cfd-2d copy is less precise and
+  diverges from the canonical value.
+- `brinkman_number` silently clamps `delta_t` to `max(1e-30)`, masking
+  invalid input by silently inflating Br by 30 orders of magnitude.
+- `viscous_dissipation_2d` accepts negative `mu` and non-finite gradients
+  without validation.
+- Add `brinkman_number_validated` and `viscous_dissipation_2d_validated`
+  returning `Result`; the existing infallible APIs become thin panic
+  wrappers that preserve the fail-fast behaviour.
+- Keep the sprint scope disjoint from peer-dirty
+  `crates/cfd-2d/src/physics/energy/solver.rs` (the peer is also
+  consolidating on `cfd_core::physics::constants::physics::fluid::*`).
+
+### Acceptance and Verification
+- `energy::constants::STEFAN_BOLTZMANN` is removed; the one in-tree caller
+  (`tests::test_constants_validity`) now references the cfd-core SSOT.
+- `brinkman_number_validated` rejects non-finite `mu`/`u_ref`/`k_thermal`/
+  `delta_t`, non-positive `mu`/`k_thermal`/`delta_t`.
+- `viscous_dissipation_2d_validated` rejects non-finite gradients, non-finite
+  `mu`, and negative `mu`; accepts zero `mu` (mathematically valid: no
+  dissipation, Φ = 0).
+- Nine new value-semantic regression tests cover the new APIs and the
+  consolidated constant; pre-existing `brinkman_number` and
+  `viscous_dissipation_2d` tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features physics::energy` passes
+  46/46; full cfd-2d lib Nextest passes 545/545 (the pre-existing
+  `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/energy/mod.rs`
+- `crates/cfd-2d/src/physics/energy/viscous_dissipation.rs`
+- `crates/cfd-2d/src/physics/energy/tests.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.177: cfd-3d IBM solver input validation (try_new + try_add_lagrangian_point + calculate_forcing dt)
 **Status**: Completed
 **Owner**: current session
