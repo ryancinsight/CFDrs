@@ -98,8 +98,12 @@ pub struct ProjectionSolver<T: CfdScalar + cfd_mesh::domain::core::Scalar> {
     pressure_rhs: Option<Array1<T>>,
 }
 
-impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> ProjectionSolver<T> {
-    /// Create new projection solver with default time step
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> ProjectionSolver<T> {
+    /// Create new projection solver with default time step.
+    ///
+    /// The default `dt = 1e-3` is finite and positive, so no validation
+    /// error is possible at construction time.
+    #[must_use]
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
             _config: config,
@@ -111,16 +115,39 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> ProjectionSolver<T> {
         }
     }
 
-    /// Create projection solver with specified time step
+    /// Create projection solver with the specified time step.
+    ///
+    /// # Panics
+    /// Panics if `dt` is non-finite or non-positive (see [`Self::try_with_timestep`]).
+    #[must_use]
     pub fn with_timestep(config: FemConfig<T>, dt: T) -> Self {
-        Self {
+        Self::try_with_timestep(config, dt).unwrap_or_else(|error| {
+            panic!("ProjectionSolver::with_timestep called with invalid dt: {error}");
+        })
+    }
+
+    /// Create projection solver with the specified time step, validating
+    /// `dt`.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `dt` is non-finite or
+    /// non-positive — Chorin's projection divides by `dt` (lines 399, 473,
+    /// 567 in this file), so a degenerate time step silently produces
+    /// `inf`/`NaN` mass coefficients and a divergent projection.
+    pub fn try_with_timestep(config: FemConfig<T>, dt: T) -> Result<Self> {
+        if !<T as NumericElement>::is_finite(dt) || dt <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "ProjectionSolver::try_with_timestep: dt must be finite and positive, got {dt:?}"
+            )));
+        }
+        Ok(Self {
             _config: config,
             dt,
             momentum_builder: None,
             momentum_rhs: None,
             pressure_builder: None,
             pressure_rhs: None,
-        }
+        })
     }
 
     /// Solve using projection method
@@ -862,5 +889,52 @@ mod tests {
         let config = FemConfig::default();
         let solver = ProjectionSolver::with_timestep(config, 0.01);
         assert!(solver.dt > 0.0);
+    }
+
+    /// **Positive**: `try_with_timestep` accepts valid `dt`.
+    #[test]
+    fn projection_solver_try_with_timestep_accepts_valid_dt() {
+        let config = FemConfig::default();
+        let solver =
+            ProjectionSolver::try_with_timestep(config, 0.01).expect("positive dt must succeed");
+        assert!(solver.dt > 0.0);
+    }
+
+    /// **Adversarial**: zero `dt` is rejected.
+    #[test]
+    fn projection_solver_try_with_timestep_rejects_zero_dt() {
+        let config = FemConfig::default();
+        match ProjectionSolver::try_with_timestep(config, 0.0) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("zero dt must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: negative `dt` is rejected.
+    #[test]
+    fn projection_solver_try_with_timestep_rejects_negative_dt() {
+        let config = FemConfig::default();
+        match ProjectionSolver::try_with_timestep(config, -1e-3) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("negative dt must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `dt` is rejected.
+    #[test]
+    fn projection_solver_try_with_timestep_rejects_nan_dt() {
+        let config = FemConfig::default();
+        match ProjectionSolver::try_with_timestep(config, f64::NAN) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("NaN dt must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `with_timestep` panics on invalid `dt` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "dt")]
+    fn projection_solver_with_timestep_panics_on_invalid_dt() {
+        let config = FemConfig::default();
+        let _ = ProjectionSolver::with_timestep(config, 0.0);
     }
 }
