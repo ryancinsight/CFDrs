@@ -32,6 +32,31 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.189 Checklist: cfd-3d fem::ProjectionSolver timestep validation
+**Goal**: Reject non-positive or non-finite `dt` in
+`ProjectionSolver::with_timestep` so Chorin's projection method never
+divides by a degenerate time step.
+
+**Success Criteria**:
+- [x] `ProjectionSolver::try_with_timestep` returns `Result<Self>`.
+- [x] `try_with_timestep` rejects `dt = 0`, `dt < 0`, `dt = NaN`.
+- [x] Pre-existing infallible `with_timestep` is a thin panic wrapper;
+      all callers (`fem_tests.rs` lines 84, 126, 173, 250 plus the
+      self-test at projection_solver.rs:863) compile unchanged.
+- [x] Five new value-semantic regression tests cover all rejection
+      paths, the accept-path, and the panic-wrapper contract.
+- [x] `cargo nextest run -p cfd-3d --no-default-features
+      fem::projection_solver` passes 7/7.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. Chorin's
+projection method is now contractually forbidden from running on a
+degenerate time step.
+
+---
+
 # Sprint 1.96.188 Checklist: cfd-3d spectral::SpectralSolution dimension validation
 **Goal**: Reject zero dimensions in `SpectralSolution::new` so the
 `at(i, j, k)` accessor never underflows the corner cell on a degenerate

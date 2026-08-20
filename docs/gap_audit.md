@@ -2,6 +2,30 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.189 resolution: cfd-3d fem::ProjectionSolver timestep validation
+
+### RESOLVED-221: `ProjectionSolver::with_timestep` silently accepts degenerate `dt`
+- **Location**: `crates/cfd-3d/src/fem/projection_solver.rs:115`
+  (pre-fix).
+- **Issue**: Chorin's projection method (Chorin 1968) divides by `dt`
+  at three sites in the assembly loop:
+  - `dt_over_rho = self.dt / problem.fluid.density.into_base()` (line 399),
+  - `mass_coeff = density / self.dt` (line 473),
+  - `rho_over_dt = density / self.dt` (line 567).
+  Zero or non-finite `dt` silently produces `inf`/`NaN` mass
+  coefficients and a divergent projection solve.
+- **Remediation**: new `ProjectionSolver::try_with_timestep` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects `dt = 0`,
+  `dt < 0`, `dt = NaN`. The existing infallible `with_timestep` becomes
+  a thin panic wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths, the accept-path (asserting `dt > 0.0`), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-3d
+  --no-default-features fem::projection_solver` passes 7/7; full cfd-3d
+  test Nextest passes 466/466; `cargo clippy -p cfd-3d --no-default-features
+  --lib --tests -- -D warnings` clean; `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.188 resolution: cfd-3d spectral::SpectralSolution dimension validation
 
 ### RESOLVED-220: `SpectralSolution::new` silently accepts zero dimensions

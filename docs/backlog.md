@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.189: cfd-3d fem::ProjectionSolver timestep validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::ProjectionSolver::with_timestep(config, dt)` for
+  missing physical invariant checks. Chorin's projection method
+  (Chorin 1968) divides by `dt` at multiple sites:
+  - `dt_over_rho = self.dt / problem.fluid.density.into_base()`
+    (projection_solver.rs:399),
+  - `mass_coeff = density / self.dt` (line 473),
+  - `rho_over_dt = density / self.dt` (line 567).
+  Zero or non-finite `dt` silently produces `inf`/`NaN` mass
+  coefficients and a divergent projection solve.
+- Add `try_with_timestep` returning `Result`; existing infallible
+  `with_timestep` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `try_with_timestep` rejects `dt = 0`, `dt < 0`, `dt = NaN`.
+- Pre-existing infallible callers (`fem_tests.rs` lines 84, 126, 173,
+  250 + `projection_solver.rs:863` self-test) compile unchanged via the
+  thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path, and the panic-wrapper contract.
+- `cargo nextest run -p cfd-3d --no-default-features fem::projection_solver`
+  passes 7/7; full cfd-3d test Nextest passes 466/466;
+  `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/projection_solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.188: cfd-3d spectral::SpectralSolution dimension validation
 **Status**: Completed
 **Owner**: current session
