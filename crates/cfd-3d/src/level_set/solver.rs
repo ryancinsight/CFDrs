@@ -86,9 +86,9 @@
 
 use super::{advection, config::LevelSetConfig};
 use crate::scalar;
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
-use eunomia::FloatElement;
+use cfd_core::error::{Error, Result};
+use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector3;
 
 /// Level Set solver for interface tracking
@@ -116,8 +116,12 @@ pub struct LevelSetSolver<T: CfdScalar> {
     time_step: usize,
 }
 
-impl<T: CfdScalar> LevelSetSolver<T> {
+impl<T: CfdScalar + FloatElement> LevelSetSolver<T> {
     /// Create a new Level Set solver
+    ///
+    /// Prefer [`LevelSetSolver::try_new`] for fallible construction; this
+    /// constructor is retained for callers that already validated their
+    /// inputs and need the infallible signature.
     pub fn new(
         config: LevelSetConfig,
         nx: usize,
@@ -127,8 +131,79 @@ impl<T: CfdScalar> LevelSetSolver<T> {
         dy: T,
         dz: T,
     ) -> Self {
+        match Self::try_new(config, nx, ny, nz, dx, dy, dz) {
+            Ok(solver) => solver,
+            Err(error) => panic!("LevelSetSolver::new called with invalid inputs: {error}"),
+        }
+    }
+
+    /// Fallible constructor that validates the physical inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - any of `nx`/`ny`/`nz` is zero (the WENO5-Z stencil and narrow-band
+    ///   indexing assume at least one cell in each direction),
+    /// - `dx`/`dy`/`dz` is non-finite or non-positive (the WENO5-Z
+    ///   reconstruction divides by Δx³, the Sussman reinitialization uses
+    ///   `Δx²` in the smoothed sign function, and the CFL bound at line 48
+    ///   uses `Δx`/`Δy`/`Δz`),
+    /// - `config.cfl_number` is non-finite or non-positive (the reinitialization
+    ///   pseudo-time step is `Δτ = cfl * min(Δx,Δy,Δz)`),
+    /// - `config.tolerance` is non-finite or non-positive,
+    /// - `config.band_width` is non-finite or non-positive when
+    ///   `config.use_narrow_band` is enabled.
+    pub fn try_new(
+        config: LevelSetConfig,
+        nx: usize,
+        ny: usize,
+        nz: usize,
+        dx: T,
+        dy: T,
+        dz: T,
+    ) -> Result<Self> {
+        if nx == 0 || ny == 0 || nz == 0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: grid dimensions must all be positive, got ({nx}, {ny}, {nz})"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dx) || dx <= scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: dx must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dy) || dy <= scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: dy must be finite and positive, got {dy:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dz) || dz <= scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: dz must be finite and positive, got {dz:?}"
+            )));
+        }
+        if !config.cfl_number.is_finite() || config.cfl_number <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: config.cfl_number must be finite and positive, got {}",
+                config.cfl_number
+            )));
+        }
+        if !config.tolerance.is_finite() || config.tolerance <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: config.tolerance must be finite and positive, got {}",
+                config.tolerance
+            )));
+        }
+        if config.use_narrow_band && (!config.band_width.is_finite() || config.band_width <= 0.0) {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::try_new: config.band_width must be finite and positive when use_narrow_band is enabled, got {}",
+                config.band_width
+            )));
+        }
+
         let grid_size = nx * ny * nz;
-        Self {
+        Ok(Self {
             config,
             nx,
             ny,
@@ -142,7 +217,7 @@ impl<T: CfdScalar> LevelSetSolver<T> {
             velocity: vec![Vector3::zeros(); grid_size],
             narrow_band: Vec::new(),
             time_step: 0,
-        }
+        })
     }
 
     /// Get grid index from (i, j, k) coordinates
@@ -198,7 +273,18 @@ impl<T: CfdScalar> LevelSetSolver<T> {
     }
 
     /// Advance level set by one time step using WENO5-Z + SSPRK3 advection.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `dt` is non-finite or
+    /// non-positive (the SSPRK3 time integrator would stagnate for `dt = 0`
+    /// and invert sign for negative `dt`, masking the level-set evolution).
     pub fn advance(&mut self, dt: T) -> Result<()> {
+        if !<T as NumericElement>::is_finite(dt) || dt <= scalar::zero::<T>() {
+            return Err(Error::InvalidConfiguration(format!(
+                "LevelSetSolver::advance: dt must be finite and positive, got {dt:?}"
+            )));
+        }
         if self.velocity.len() != self.phi.len() {
             return Err(Error::DimensionMismatch {
                 expected: self.phi.len(),
@@ -393,5 +479,108 @@ impl<T: CfdScalar> LevelSetSolver<T> {
         }
 
         scalar::sqrt::<T>(grad_sq)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn default_config() -> LevelSetConfig {
+        LevelSetConfig::default()
+    }
+
+    #[test]
+    fn try_new_rejects_zero_grid_extent() {
+        let result = LevelSetSolver::try_new(default_config(), 0, 4, 4, 0.25, 0.25, 0.25);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("grid dimensions")),
+            "expected InvalidConfiguration error for zero nx"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_zero_dx() {
+        let result = LevelSetSolver::try_new(default_config(), 4, 4, 4, 0.0, 0.25, 0.25);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dx")),
+            "expected InvalidConfiguration error for zero dx"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_negative_dy() {
+        let result = LevelSetSolver::try_new(default_config(), 4, 4, 4, 0.25, -0.25, 0.25);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dy")),
+            "expected InvalidConfiguration error for negative dy"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_finite_dz() {
+        let result = LevelSetSolver::try_new(default_config(), 4, 4, 4, 0.25, 0.25, f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dz")),
+            "expected InvalidConfiguration error for NaN dz"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_positive_cfl() {
+        let mut config = default_config();
+        config.cfl_number = 0.0;
+        let result = LevelSetSolver::try_new(config, 4, 4, 4, 0.25, 0.25, 0.25);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("cfl_number")),
+            "expected InvalidConfiguration error for zero cfl_number"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_positive_tolerance() {
+        let mut config = default_config();
+        config.tolerance = -1.0;
+        let result = LevelSetSolver::try_new(config, 4, 4, 4, 0.25, 0.25, 0.25);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("tolerance")),
+            "expected InvalidConfiguration error for negative tolerance"
+        );
+    }
+
+    #[test]
+    fn try_new_accepts_physically_valid_inputs() {
+        let result = LevelSetSolver::try_new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
+        assert!(result.is_ok(), "valid grid and config must succeed");
+    }
+
+    #[test]
+    fn advance_rejects_zero_dt() {
+        let mut solver = LevelSetSolver::new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
+        let result = solver.advance(0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for zero dt"
+        );
+    }
+
+    #[test]
+    fn advance_rejects_negative_dt() {
+        let mut solver = LevelSetSolver::new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
+        let result = solver.advance(-0.001);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for negative dt"
+        );
+    }
+
+    #[test]
+    fn advance_rejects_non_finite_dt() {
+        let mut solver = LevelSetSolver::new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
+        let result = solver.advance(f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for NaN dt"
+        );
     }
 }

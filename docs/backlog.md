@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.182: cfd-3d level_set::LevelSetSolver input validation (try_new + advance dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `LevelSetSolver::new` and `LevelSetSolver::advance` for missing
+  physical invariant checks.
+- The WENO5-Z reconstruction divides by `Δx³`, the Sussman
+  reinitialization uses `Δx²` in the smoothed sign function `S(φ₀) =
+  φ₀ / √(φ₀² + Δx²)`, and the CFL bound at line 48 uses `Δx`/`Δy`/`Δz`.
+  The SSPRK3 time integrator at line 78 stagnates for `dt = 0` and
+  inverts sign for negative `dt`, masking the level-set evolution.
+- Add `try_new` returning `Result`; the existing infallible `new`
+  becomes a thin panic wrapper; `advance` validates `dt`.
+
+### Acceptance and Verification
+- `try_new` rejects zero `nx/ny/nz`, non-finite or non-positive
+  `dx/dy/dz`, non-finite or non-positive `config.cfl_number` and
+  `config.tolerance`, and non-finite or non-positive
+  `config.band_width` when `config.use_narrow_band` is enabled.
+- `advance` rejects non-finite or non-positive `dt`.
+- Pre-existing infallible callers (10 in `tests/level_set_tests.rs`)
+  compile unchanged via the thin wrapper pattern.
+- Ten new value-semantic regression tests cover all rejection paths and
+  the accept-path.
+- `cargo nextest run -p cfd-3d --no-default-features level_set::solver`
+  passes 10/10; full cfd-3d lib Nextest passes 249/249; `cargo clippy
+  -p cfd-3d --no-default-features --lib --tests -- -D warnings` is
+  clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/level_set/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.181: cfd-3d VOF BubbleDynamicsSolver input validation (try_new + update_bubble dt)
 **Status**: Completed
 **Owner**: current session

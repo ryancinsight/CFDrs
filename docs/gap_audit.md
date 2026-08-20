@@ -2,6 +2,28 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.182 resolution: cfd-3d level_set::LevelSetSolver input validation
+
+### RESOLVED-212: `LevelSetSolver` silently accepts non-physical inputs
+- **Location**: `crates/cfd-3d/src/level_set/solver.rs:121-146` (pre-fix).
+- **Issue**: the WENO5-Z reconstruction (Borges et al. 2008) divides by
+  `Δx³`; the Sussman reinitialization (Sussman et al. 1994) uses `Δx²`
+  in the smoothed sign function `S(φ₀) = φ₀ / √(φ₀² + Δx²)`; the CFL
+  bound at line 48 uses `Δx`/`Δy`/`Δz`. Zero or non-finite values
+  silently produced `inf`/`NaN` reinitialization; the SSPRK3 time
+  integrator at line 78 stagnates for `dt = 0` and inverts sign for
+  negative `dt`, masking the level-set evolution.
+- **Remediation**: new `try_new` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects every
+  invariant violation; `advance` additionally validates `dt`. The
+  existing infallible `new` becomes a thin panic wrapper.
+- **Evidence**: ten new value-semantic regression tests cover all
+  rejection paths and the accept-path. `cargo nextest run -p cfd-3d
+  --no-default-features level_set::solver` passes 10/10; full cfd-3d
+  lib Nextest passes 249/249; `cargo clippy -p cfd-3d
+  --no-default-features --lib --tests -- -D warnings` clean;
+  `rustfmt --edition 2024 --check` clean on the touched file.
+
 ## Sprint 1.96.181 resolution: cfd-3d VOF BubbleDynamicsSolver input validation
 
 ### RESOLVED-211: `BubbleDynamicsSolver` silently accepts non-physical inputs

@@ -32,6 +32,35 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.182 Checklist: cfd-3d level_set::LevelSetSolver input validation
+**Goal**: Reject non-physical inputs in `LevelSetSolver::new` and
+`LevelSetSolver::advance` before the WENO5-Z reconstruction, Sussman
+reinitialization, and SSPRK3 time integrator run.
+
+**Success Criteria**:
+- [x] `LevelSetSolver::try_new` returns
+      `Result<Self, Error::InvalidConfiguration>`.
+- [x] `try_new` rejects zero `nx/ny/nz`, non-finite or non-positive
+      `dx/dy/dz`, non-finite or non-positive `config.cfl_number` and
+      `config.tolerance`, and non-finite or non-positive
+      `config.band_width` when `config.use_narrow_band` is enabled.
+- [x] `advance` rejects non-finite or non-positive `dt`.
+- [x] Pre-existing infallible callers compile unchanged.
+- [x] Ten new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-3d --no-default-features
+      level_set::solver` passes 10/10.
+- [x] Full cfd-3d lib Nextest passes 249/249.
+- [x] `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a
+single-file physics-defect correction. The infallible `new` is retained
+for backwards compatibility; `try_new` is the new recommended
+constructor.
+
+---
+
 # Sprint 1.96.181 Checklist: cfd-3d VOF BubbleDynamicsSolver input validation
 **Goal**: Reject non-physical inputs in `BubbleDynamicsSolver::new` and
 `update_bubble` before the Rayleigh-Plesset ODE and semi-implicit Euler
