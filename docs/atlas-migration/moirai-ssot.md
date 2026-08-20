@@ -46,7 +46,7 @@ layered at `docs:` follow-up — both anchored under the
 | `eunomia` | Typed scalar SSOT (replaces `num-traits`) |
 | `leto` + `leto-ops` | CPU tensors + SVD/QR via Leto |
 | `apollo-fft` | FFT (replaces `rustfft`) |
-| `mnemosyne` | High-perf global allocator via `cfd-core/mnemosyne` feature |
+| `mnemosyne` | Atlas allocation SSOT (arenas, heaps, staging), consumed transitively through moirai's `mnemosyne-memory` feature — there is no `cfd-core/mnemosyne` feature |
 | `hermes-simd` | SIMD abstraction |
 
 ## Validation
@@ -60,9 +60,17 @@ production crates in the cfdrs workspace.
 
 ## Why moirai (cfdrs-specific rationale)
 
-`cfd-core::mnemosyne` is the workspace's process `#[global_allocator]`.
-mirroring `moirai`'s `no-global-alloc` feature avoids installing a
-second allocator. moirai's `parallel` surface provides work-stealing
+`mnemosyne` is the Atlas allocation SSOT: it owns allocation, arenas,
+heaps, and staging memory for the whole stack, and cfdrs consumes it
+through moirai's `mnemosyne-memory` feature rather than by depending on
+it directly. There is no `cfd-core::mnemosyne` module and no allocator
+in `cfd-core`; an earlier revision of this section claimed both.
+
+cfdrs installs no process-wide `#[global_allocator]` from library code.
+The one that existed — `cfd-validation`'s allocation tracker — now sits
+behind that crate's non-default `memory-profiling` feature, because the
+allocator is a whole-program choice that belongs to a binary, not to a
+library in the link graph. moirai's `parallel` surface provides work-stealing
 across workers and the `Adaptive` runtime-adaptive scheduler drives
 most CFD fan-out sites. `ParallelSlice` / `ParallelSliceMut` extension
 traits provide ndarray-class parallel iterators over `&[T]` and

@@ -22,6 +22,9 @@ pub use analysis::{
     RegressionConfig, TrendType,
 };
 pub use config::BenchmarkConfig;
+// Live allocation tracking requires the process-wide global allocator that
+// the `memory-profiling` feature installs; see `memory` for why it is opt-in.
+#[cfg(feature = "memory-profiling")]
 pub use memory::{MemoryProfiler, MemoryStats};
 pub use performance::{
     AlgorithmComplexity, CfdPerformanceBenchmarks, PerformanceBenchmark, PerformanceProfile,

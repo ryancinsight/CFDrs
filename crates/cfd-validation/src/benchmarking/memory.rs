@@ -1,15 +1,44 @@
-#![allow(clippy::print_stdout)]
 //! Memory usage profiling for CFD operations
 //!
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
 //! of CFD algorithms and data structures.
+//!
+//! # The `memory-profiling` feature
+//!
+//! Observing real allocation traffic requires a process-wide
+//! `#[global_allocator]`. Installing one is a whole-program decision: it
+//! routes every allocation in the final binary through this crate, and it
+//! collides (`E0152`) with any other allocator anywhere in the link graph.
+//! A library must therefore never install one unconditionally, so the
+//! tracking allocator and every API that reads it live behind the
+//! non-default `memory-profiling` feature.
+//!
+//! Enable it only from a top-level binary, bench, or test target that owns
+//! the allocator choice for its whole process:
+//!
+//! ```toml
+//! [dependencies]
+//! cfd-validation = { version = "0.1", features = ["memory-profiling"] }
+//! ```
+//!
+//! With the feature off no allocator is installed and the profiling APIs do
+//! not exist: an API that cannot measure must not report a number, so
+//! `BenchmarkResult::memory` simply stays `None` ("not measured") rather
+//! than carrying zeroed statistics. The plain data types
+//! [`MemoryStatsSnapshot`] and [`MemoryEfficiency`] remain available in both
+//! configurations.
 
+#[cfg(feature = "memory-profiling")]
 use cfd_core::error::Result;
+#[cfg(feature = "memory-profiling")]
 use std::alloc::{GlobalAlloc, Layout, System};
+#[cfg(feature = "memory-profiling")]
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+#[cfg(feature = "memory-profiling")]
 use std::sync::Mutex;
 
 /// Thread-safe memory statistics using atomics
+#[cfg(feature = "memory-profiling")]
 pub struct MemoryStats {
     /// Total bytes currently allocated
     pub current_allocated: AtomicUsize,
@@ -48,6 +77,7 @@ pub struct MemoryStatsSnapshot {
     pub max_allocation_size: usize,
 }
 
+#[cfg(feature = "memory-profiling")]
 impl MemoryStats {
     const fn new() -> Self {
         Self {
@@ -90,6 +120,7 @@ impl MemoryStats {
 }
 
 /// Global memory allocator wrapper for tracking allocations
+#[cfg(feature = "memory-profiling")]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
     allocator: System,
@@ -149,10 +180,12 @@ pub struct MemoryEfficiency {
 }
 
 /// Thread-safe memory profiler
+#[cfg(feature = "memory-profiling")]
 pub struct MemoryProfiler {
     start_snapshot: Mutex<Option<MemoryStatsSnapshot>>,
 }
 
+#[cfg(feature = "memory-profiling")]
 impl MemoryProfiler {
     /// Create a new memory profiler
     pub fn new() -> Self {
@@ -241,6 +274,7 @@ impl MemoryProfiler {
     }
 }
 
+#[cfg(feature = "memory-profiling")]
 impl Default for MemoryProfiler {
     fn default() -> Self {
         Self::new()
@@ -248,11 +282,13 @@ impl Default for MemoryProfiler {
 }
 
 /// Custom allocator that tracks memory usage
+#[cfg(feature = "memory-profiling")]
 struct TrackingAllocator {
     allocator: System,
     stats: MemoryStats,
 }
 
+#[cfg(feature = "memory-profiling")]
 impl TrackingAllocator {
     fn get_stats(&self) -> MemoryStatsSnapshot {
         self.stats.snapshot()
@@ -312,6 +348,7 @@ impl TrackingAllocator {
     }
 }
 
+#[cfg(feature = "memory-profiling")]
 unsafe impl GlobalAlloc for TrackingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let ptr = self.allocator.alloc(layout);
@@ -349,10 +386,12 @@ unsafe impl GlobalAlloc for TrackingAllocator {
 }
 
 /// CFD-specific memory profiling
+#[cfg(feature = "memory-profiling")]
 pub struct CfdMemoryProfiler {
     profiler: MemoryProfiler,
 }
 
+#[cfg(feature = "memory-profiling")]
 impl CfdMemoryProfiler {
     /// Create a new CFD memory profiler with default configuration
     ///
@@ -446,6 +485,7 @@ impl CfdMemoryProfiler {
     }
 }
 
+#[cfg(feature = "memory-profiling")]
 impl Default for CfdMemoryProfiler {
     fn default() -> Self {
         Self::new()
@@ -465,6 +505,7 @@ impl std::fmt::Display for MemoryStatsSnapshot {
     }
 }
 
+#[cfg(feature = "memory-profiling")]
 impl std::fmt::Display for MemoryStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.snapshot())
@@ -473,8 +514,11 @@ impl std::fmt::Display for MemoryStats {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::print_stdout)] // profiling suite reports per-scenario stats
+
     use super::*;
 
+    #[cfg(feature = "memory-profiling")]
     #[test]
     fn test_memory_profiler() {
         let profiler = MemoryProfiler::new();
@@ -507,6 +551,7 @@ mod tests {
         assert!(efficiency.allocation_efficiency >= 0.0 && efficiency.allocation_efficiency <= 1.0);
     }
 
+    #[cfg(feature = "memory-profiling")]
     #[test]
     fn test_cfd_memory_profiling() {
         let cfd_profiler = CfdMemoryProfiler::new();
