@@ -32,6 +32,35 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.180 Checklist: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
+**Goal**: Consolidate the local `EPSILON_MIN` constant in
+`reynolds_stress::transport` to the canonical
+`crate::physics::turbulence::constants::EPSILON_MIN` SSOT, and validate
+`set_filter_width` / `set_c_v` / `set_c_sigma` inputs on the LES SGS models.
+
+**Success Criteria**:
+- [x] `reynolds_stress::transport::mod.rs` imports `EPSILON_MIN` from the
+      canonical SSOT.
+- [x] `VremanModel::try_set_filter_width` and
+      `SigmaModel::try_set_filter_width` reject non-finite or non-positive
+      `filter_width`.
+- [x] `VremanModel::try_set_c_v` and `SigmaModel::try_set_c_sigma` reject
+      non-finite inputs.
+- [x] Pre-existing infallible setters compile unchanged.
+- [x] Eight new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      physics::turbulence::les_smagorinsky::vreman
+      physics::turbulence::les_smagorinsky::sigma
+      physics::turbulence::reynolds_stress` passes 30/30.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched files is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The local
+duplicate constant is removed; the LES setters now validate their inputs.
+
+---
+
 # Sprint 1.96.179 Checklist: cfd-2d immersed_boundary constructor + boundary-point invariants
 **Goal**: Reject non-physical inputs in `ImmersedBoundaryMethod::new`,
 `with_config`, `add_boundary_point`, and `add_circle` before the

@@ -1,5 +1,45 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.180: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] SSOT consolidation + new fallible setters + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- `crates/cfd-2d/src/physics/turbulence/reynolds_stress/transport/mod.rs:33`
+  declared a local `EPSILON_MIN = 1e-12` that duplicated the canonical
+  `crate::physics::turbulence::constants::EPSILON_MIN = 1e-12` SSOT.
+  Consolidate to the canonical constant.
+- `VremanModel::set_filter_width` and `SigmaModel::set_filter_width`
+  silently accepted zero/negative/NaN filter width even though the
+  Vreman formula divides by `filter_width^3` and the Sigma formula divides
+  by `filter_width^2`.
+- Add `try_set_filter_width` and `try_set_c_v`/`try_set_c_sigma` that
+  return `Result`; the existing infallible setters become thin panic
+  wrappers.
+
+### Acceptance and Verification
+- `reynolds_stress::transport::mod.rs` imports `EPSILON_MIN` from the
+  canonical `crate::physics::turbulence::constants::EPSILON_MIN` SSOT.
+- `try_set_filter_width` rejects non-finite or non-positive inputs.
+- `try_set_c_v` and `try_set_c_sigma` reject non-finite inputs.
+- Eight new value-semantic regression tests cover the rejection paths and
+  the accept-path for both models; pre-existing tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features
+  physics::turbulence::les_smagorinsky::vreman
+  physics::turbulence::les_smagorinsky::sigma
+  physics::turbulence::reynolds_stress` passes 30/30;
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/reynolds_stress/transport/mod.rs`
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/vreman.rs`
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/sigma.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.179: cfd-2d immersed_boundary constructor + boundary-point invariants
 **Status**: Completed
 **Owner**: current session

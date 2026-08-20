@@ -2,6 +2,45 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.180 resolution: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
+
+### RESOLVED-209: `reynolds_stress::transport::EPSILON_MIN` duplicates the canonical SSOT
+- **Location**: `crates/cfd-2d/src/physics/turbulence/reynolds_stress/transport/mod.rs:33`
+  (pre-fix).
+- **Issue**: a local `const EPSILON_MIN: f64 = 1e-12` duplicated the
+  canonical `crate::physics::turbulence::constants::EPSILON_MIN = 1e-12`
+  SSOT. Identical values today, but a divergence trap: any future
+  realizability-floor adjustment to the canonical constant would not
+  propagate to the local copy, and the discrepancy would silently
+  change the realizability enforcement between the two code paths.
+- **Remediation**: import `EPSILON_MIN` from the canonical SSOT.
+
+### RESOLVED-210: `VremanModel::set_filter_width` and `SigmaModel::set_filter_width` silently accept invalid inputs
+- **Location**:
+  `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/vreman.rs:217-218`
+  and
+  `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/sigma.rs:180-181`
+  (pre-fix).
+- **Issue**: the Vreman SGS viscosity formula divides by `filter_width^3`;
+  the Sigma formula divides by `filter_width^2`. Zero or negative
+  `filter_width` silently produces `inf`/`NaN` or sign-flips the
+  effective viscosity to a source term; non-finite inputs propagate
+  non-finite SGS viscosity into the momentum equation with no
+  caller-side diagnostic.
+- **Remediation**: new `try_set_filter_width` and `try_set_c_v`/
+  `try_set_c_sigma` setters return `Result<_, Error::InvalidConfiguration>`
+  and reject every invariant violation. The existing infallible setters
+  become thin panic wrappers.
+
+**Evidence**: eight new value-semantic regression tests cover the
+rejection paths and the accept-path. `cargo nextest run -p cfd-2d
+--no-default-features physics::turbulence::les_smagorinsky::vreman
+physics::turbulence::les_smagorinsky::sigma
+physics::turbulence::reynolds_stress` passes 30/30;
+`cargo clippy -p cfd-2d --no-default-features --lib --tests --
+-D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+touched files.
+
 ## Sprint 1.96.179 resolution: cfd-2d immersed_boundary constructor + boundary-point invariants
 
 ### RESOLVED-208: `ImmersedBoundaryMethod` silently accepts non-physical inputs
