@@ -13,6 +13,18 @@ keywords = ["cfd", "validation", "benchmark", "convergence", "mms"]
 categories = ["science", "development-tools::testing"]
 exclude = ["outputs/**"]
 
+[features]
+default = []
+# Installs a process-wide `#[global_allocator]` (`TrackingAllocator`) so
+# `benchmarking::memory` can observe real allocation traffic, and enables the
+# profiling APIs that read it. Enable ONLY from a top-level binary, bench, or
+# test target that owns the allocator choice for its whole process: a library
+# that installs an allocator routes every allocation of every binary in its
+# link graph through this crate and collides (`E0152`) with any other
+# allocator a downstream consumer sets. Off by default; with it off nothing
+# measures and nothing reports fabricated statistics.
+memory-profiling = []
+
 [dependencies]
 cfd-core.workspace = true
 cfd-math.workspace = true
