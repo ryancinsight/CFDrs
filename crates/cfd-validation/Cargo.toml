@@ -40,6 +40,7 @@ aequitas.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
+athena-leto.workspace = true
 
 [[bench]]
 name = "convergence_benchmarks"

@@ -627,6 +627,7 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "anyhow",
+ "athena-leto",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",

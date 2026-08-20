@@ -8,9 +8,8 @@ use cfd_2d::simplec_pimple::{
 };
 use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::iterative::{
-    preconditioners::ILUPreconditioner, ConjugateGradient, IterativeSolverConfig,
-};
+use athena_leto::IncompleteLu;
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
 use eunomia::assert_relative_eq;
@@ -1191,16 +1190,22 @@ fn solve_poisson_2d(
 
     // Solve the SPD interior system with CG + ILU(0).
     let matrix = builder.build().expect("expected value");
-    let solver = ConjugateGradient::new(IterativeSolverConfig {
+    let config = IterativeSolverConfig {
         tolerance: 1e-10,
         max_iterations: 10_000,
         ..Default::default()
-    });
-    let preconditioner = ILUPreconditioner::factor(&matrix).expect("expected value");
+    };
+    let preconditioner = IncompleteLu::from_csr(&matrix).expect("expected value");
     let mut x_interior = Array1::<f64>::zeros([n_interior]);
-    solver
-        .solve_preconditioned(&matrix, &rhs, &preconditioner, &mut x_interior)
-        .expect("expected value");
+    let outcome = krylov::interpret(
+        "Poisson CG + ILU(0)",
+        krylov::cg_preconditioned(&matrix, &rhs, &preconditioner, &mut x_interior, &config),
+    )
+    .expect("expected value");
+    assert!(
+        outcome.converged(),
+        "interior Poisson solve did not converge: {outcome:?}"
+    );
 
     // Scatter interior solution + Dirichlet BCs into the full field.
     let mut p = Field2D::new(nx, ny, 0.0);

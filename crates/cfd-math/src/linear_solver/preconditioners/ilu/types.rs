@@ -1,6 +1,5 @@
 //! Core types for Incomplete LU factorization
 
-use crate::linear_solver::Preconditioner;
 use cfd_core::error::Result;
 use eunomia::{NumericElement, RealField};
 use leto::{Array1, LetoError};
@@ -94,8 +93,14 @@ impl<T: RealField + Copy + LetoScalar> IncompleteLU<T> {
     }
 }
 
-impl<T: RealField + Copy + NumericElement + LetoScalar> Preconditioner<T> for IncompleteLU<T> {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
+impl<T: RealField + Copy + NumericElement + LetoScalar> IncompleteLU<T> {
+    /// Apply the factorization as a preconditioner: `z = (L*U)^-1 r`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LetoError::InvalidInput`] when `r` or `z` does not match the
+    /// factored operator's order.
+    pub fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
         let n = self.lu_factor.nrows();
         validate_vector_len("ILU residual", r, n)?;
         validate_vector_len("ILU output", z, n)?;

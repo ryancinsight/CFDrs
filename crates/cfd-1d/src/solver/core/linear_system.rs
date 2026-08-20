@@ -28,7 +28,6 @@
 use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov::{self, SolverKind};
-use cfd_math::linear_solver::Preconditioner;
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
 use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
@@ -133,9 +132,8 @@ impl<T: CfdScalar> LinearSystemSolver<T> {
             LinearSolverMethod::ConjugateGradient => SolverKind::ConjugateGradient,
             LinearSolverMethod::BiCGSTAB => SolverKind::BiCgStab,
         };
-        let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
-            .with_max_iterations(self.max_iterations)
-            .with_preconditioner();
+        let config = cfd_math::linear_solver::IterativeSolverConfig::new(self.tolerance)
+            .with_max_iterations(self.max_iterations);
         let precond = DiagJacobi::new(&scaled_a)?;
         let converged = krylov::converged_or_none(
             kind.name(),
@@ -295,15 +293,6 @@ impl<T: CfdScalar + Copy + NumericElement + LetoScalar> DiagJacobi<T> {
             };
         }
         Ok(Self { inv_diag: inv })
-    }
-}
-
-impl<T: CfdScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> leto::Result<()> {
-        for idx in 0..r.shape()[0] {
-            z[idx] = r[idx] * self.inv_diag[idx];
-        }
-        Ok(())
     }
 }
 

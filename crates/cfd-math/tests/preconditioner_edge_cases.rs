@@ -6,8 +6,8 @@
 //! - Benzi (2002): "Preconditioning Techniques for Large Sparse Matrix Problems"
 //! - Greenbaum (1997): "Iterative Methods for Solving Linear Systems"
 
-use cfd_math::iterative::preconditioners::ILUPreconditioner;
-use cfd_math::iterative::Preconditioner;
+use athena_core::Preconditioner;
+use athena_leto::{IncompleteLu, LetoBackend, LetoBackendError};
 use leto::Array1;
 use leto_ops::CsrMatrix as LetoCsrMatrix;
 
@@ -40,12 +40,13 @@ fn filled_array(len: usize, value: f64) -> Array1<f64> {
     Array1::from_shape_vec([len], vec![value; len]).expect("invariant: array shape matches values")
 }
 
-fn apply_preconditioner<P: Preconditioner<f64>>(
+fn apply_preconditioner<P: Preconditioner<LetoBackend<f64>>>(
     preconditioner: &P,
     rhs: &Array1<f64>,
     out: &mut Array1<f64>,
-) -> leto::Result<()> {
-    preconditioner.apply_to(rhs, out)
+) -> Result<(), LetoBackendError> {
+    let backend = LetoBackend::<f64>::default();
+    preconditioner.apply(&backend, rhs.view(), out.view_mut())
 }
 
 /// Test ILU(0) with ill-conditioned matrix
@@ -53,7 +54,7 @@ fn apply_preconditioner<P: Preconditioner<f64>>(
 #[test]
 fn test_ilu0_ill_conditioned_matrix() {
     let a = create_ill_conditioned_matrix();
-    let ilu = ILUPreconditioner::factor(&a).expect("ILU(0) factorization should succeed");
+    let ilu = IncompleteLu::from_csr(&a).expect("ILU(0) factorization should succeed");
 
     let b = filled_array(a.nrows(), 1.0);
     let mut x = Array1::zeros([a.nrows()]);
@@ -72,8 +73,8 @@ fn test_ilu0_ill_conditioned_matrix() {
 fn test_iluk_improves_conditioning() {
     let a = create_ill_conditioned_matrix();
 
-    let ilu0 = ILUPreconditioner::factor(&a).expect("ILU(0) factorization");
-    let ilu1 = ILUPreconditioner::factor(&a).expect("ILU(1) factorization");
+    let ilu0 = IncompleteLu::from_csr(&a).expect("ILU(0) factorization");
+    let ilu1 = IncompleteLu::from_csr(&a).expect("ILU(1) factorization");
 
     let b = filled_array(a.nrows(), 1.0);
     let mut x0 = Array1::zeros([a.nrows()]);
@@ -113,7 +114,7 @@ fn test_cholesky_non_positive_definite() {
         .expect("valid CSR matrix");
 
     // ILU factorization succeeds on this ill-conditioned matrix
-    let ilu = ILUPreconditioner::factor(&a).expect("ILU(0) factorization succeeds");
+    let ilu = IncompleteLu::from_csr(&a).expect("ILU(0) factorization succeeds");
     let b = filled_array(n, 1.0);
     let mut x = Array1::zeros([n]);
 
@@ -150,7 +151,7 @@ fn test_ilu0_convergence_with_conditioning() {
     let a = LetoCsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
         .expect("valid CSR matrix");
 
-    let ilu = ILUPreconditioner::factor(&a).expect("ILU(0) factorization");
+    let ilu = IncompleteLu::from_csr(&a).expect("ILU(0) factorization");
     let b = filled_array(n, 1.0);
     let mut x = Array1::zeros([n]);
 
@@ -187,7 +188,7 @@ fn test_ilu0_extreme_values() {
     let a = LetoCsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
         .expect("valid CSR matrix");
 
-    let result = ILUPreconditioner::factor(&a);
+    let result = IncompleteLu::from_csr(&a);
 
     if let Ok(ilu) = result {
         let b = filled_array(n, 1.0);
@@ -230,7 +231,7 @@ fn test_ilu0_sparsity_preservation() {
     let a = LetoCsrMatrix::from_parts(values, col_indices, row_offsets, n, n)
         .expect("valid CSR matrix");
 
-    let ilu = ILUPreconditioner::factor(&a).expect("ILU(0) factorization");
+    let ilu = IncompleteLu::from_csr(&a).expect("ILU(0) factorization");
     let b = filled_array(n, 1.0);
     let mut x = Array1::zeros([n]);
 

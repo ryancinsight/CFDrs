@@ -17,7 +17,6 @@
 //! 2. Benzi, Golub & Liesen (2005): "Numerical solution of saddle point problems"
 //! 3. Murphy, Golub & Wathen (2000): "A Note on Preconditioning for Indefinite Linear Systems"
 
-use crate::linear_solver::Preconditioner;
 use crate::sparse::SparseMatrix;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -567,44 +566,6 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
     }
 }
 
-impl<T> Preconditioner<T> for BlockDiagonalPreconditioner<T>
-where
-    T: RealField + FloatElement + Copy + LetoScalar,
-{
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
-        validate_vector_len(
-            "block diagonal preconditioner input",
-            r,
-            self.n_velocity + self.n_pressure,
-        )?;
-        validate_vector_len("block diagonal preconditioner output", z, vector_len(r))?;
-        for idx in 0..self.n_velocity {
-            z[idx] = r[idx] * self.momentum_preconditioner.diag_inv[idx];
-        }
-        for idx in 0..self.n_pressure {
-            let pressure_idx = self.n_velocity + idx;
-            z[pressure_idx] = r[pressure_idx] * self.pressure_preconditioner.diag_inv[idx];
-        }
-        Ok(())
-    }
-}
-
-impl<T> Preconditioner<T> for SimplePreconditioner<T>
-where
-    T: RealField + FloatElement + Copy + LetoScalar,
-{
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
-        validate_vector_len("SIMPLE preconditioner output", z, vector_len(r))?;
-        let result = self
-            .apply(r)
-            .map_err(|e| LetoError::InvalidInput(e.to_string()))?;
-        for idx in 0..vector_len(z) {
-            z[idx] = result[idx];
-        }
-        Ok(())
-    }
-}
-
 /// Number of velocity components in the three-dimensional Taylor–Hood system.
 const VELOCITY_COMPONENTS: usize = 3;
 
@@ -878,27 +839,6 @@ where
             result[self.n_velocity + pressure_index] = pressure[pressure_index];
         }
         Ok(result)
-    }
-}
-
-impl<T> Preconditioner<T> for ComponentBlockPreconditioner<T>
-where
-    T: RealField + FloatElement + Copy + LetoRealScalar,
-{
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> std::result::Result<(), LetoError> {
-        validate_vector_len(
-            "component-block preconditioner input",
-            r,
-            self.n_velocity + self.n_pressure,
-        )?;
-        validate_vector_len("component-block preconditioner output", z, vector_len(r))?;
-        let result = self
-            .apply(r)
-            .map_err(|error| LetoError::InvalidInput(error.to_string()))?;
-        for index in 0..vector_len(z) {
-            z[index] = result[index];
-        }
-        Ok(())
     }
 }
 

@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 //! Basic GMRES solver tests to validate core functionality
 
-use cfd_math::iterative::preconditioners::IdentityPreconditioner;
-use cfd_math::iterative::{IterativeLinearSolver, LinearOperator, GMRES};
+use athena_core::Identity;
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use leto::Array1;
-use leto_ops::CsrMatrix;
+use leto_ops::{spmv_into, CsrMatrix};
 
 fn array(values: Vec<f64>) -> Array1<f64> {
     Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
@@ -39,7 +39,8 @@ fn csr_from_entries(nrows: usize, ncols: usize, entries: &[(usize, usize, f64)])
 
 fn residual_norm(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>) -> f64 {
     let mut ax = Array1::zeros([b.shape()[0]]);
-    a.apply(x, &mut ax).expect("Leto CSR operator application");
+    spmv_into(a, &x.view(), ax.as_slice_mut().expect("contiguous product"))
+        .expect("SpMV over matching shapes");
     let mut sum = 0.0;
     for idx in 0..b.shape()[0] {
         let diff = ax[idx] - b[idx];
@@ -82,11 +83,11 @@ fn test_gmres_basic() {
 
     let b = array(vec![1.0, 2.0, 3.0, 2.0, 1.0]);
     let mut x = Array1::zeros([n]);
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
-    let solver = GMRES::new(config, 4); // Restart after 4 iterations
-
-    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
-    assert!(result.is_ok(), "GMRES should converge");
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(100);
+    // Restart after 4 iterations.
+    let outcome = krylov::interpret("GMRES basic", krylov::gmres(&a, &b, &mut x, &config, 4))
+        .expect("GMRES runs on a well-posed tridiagonal system");
+    assert!(outcome.converged(), "GMRES should converge: {outcome:?}");
 
     assert_residual_below(&a, &x, &b, 1.5);
 }
@@ -111,11 +112,14 @@ fn test_gmres_restart() {
     let mut x = Array1::zeros([n]);
 
     // Use small restart dimension to force restart testing
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(200);
-    let solver = GMRES::new(config, 3); // Small restart dimension
-
-    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
-    assert!(result.is_ok(), "GMRES with restart should converge");
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(200);
+    // Small restart dimension.
+    let outcome = krylov::interpret("GMRES restart", krylov::gmres(&a, &b, &mut x, &config, 3))
+        .expect("GMRES runs on a well-posed tridiagonal system");
+    assert!(
+        outcome.converged(),
+        "GMRES with restart should converge: {outcome:?}"
+    );
     assert_residual_below(&a, &x, &b, 1e-6);
 }
 
@@ -131,12 +135,16 @@ fn test_gmres_with_preconditioner() {
 
     let b = filled_array(n, 1.0);
     let mut x = Array1::zeros([n]);
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-10).with_max_iterations(50);
-    let solver = GMRES::new(config, n);
-    let precond = IdentityPreconditioner;
-
-    let result = solver.solve(&a, &b, &mut x, Some(&precond));
-    assert!(result.is_ok(), "GMRES with preconditioner should work");
+    let config = IterativeSolverConfig::new(1e-10).with_max_iterations(50);
+    let outcome = krylov::interpret(
+        "GMRES preconditioned",
+        krylov::gmres_preconditioned(&a, &b, &Identity, &mut x, &config, n),
+    )
+    .expect("GMRES runs on a well-posed diagonal system");
+    assert!(
+        outcome.converged(),
+        "GMRES with preconditioner should converge: {outcome:?}"
+    );
 
     assert_residual_below(&a, &x, &b, 1e-8);
 }
