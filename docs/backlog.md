@@ -1,5 +1,48 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.176: cfd-2d vorticity_stream solver input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new `try_new` constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `VorticityStreamSolver::new` for missing physical invariant checks on
+  `reynolds`, `grid.dx`, `grid.dy`, `time_step`, `stream_tolerance`,
+  `vorticity_tolerance`, `sor_omega`, and grid extent.
+- The five-point Laplacian stencil divides by `dx²`/`dy²`; the vorticity
+  transport divides by `dx`/`dy` and the Reynolds number; the SOR Poisson
+  iteration consumes `sor_omega`. Zero or non-finite values silently produce
+  `inf` or `NaN` fields; negative `reynolds` flips the diffusion term to
+  anti-diffusion, producing a numerical blow-up that masquerades as physics.
+- Add a fallible `try_new` constructor that returns
+  `Result<Self, Error::InvalidConfiguration>`; the existing infallible
+  `new()` becomes a thin wrapper that panics on invalid inputs (the same
+  fail-fast behaviour callers implicitly relied on).
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and the existing peer-dirty `cfd-2d` files outside
+  `vorticity_stream.rs`.
+
+### Acceptance and Verification
+- `VorticityStreamSolver::try_new` rejects non-finite or non-positive
+  `reynolds`, `grid.dx`, `grid.dy`, `config.time_step`, and
+  `config.sor_omega`; rejects non-finite or negative tolerance values; rejects
+  grids with fewer than three cells in either direction.
+- Pre-existing infallible callers (`examples/cavity_validation.rs`,
+  `cfd-validation/src/benchmarks/vorticity_stream.rs`) continue to compile
+  and run unchanged.
+- Six new value-semantic regression tests cover zero/negative/non-finite
+  Reynolds, negative `time_step`, undersized grid, and the accept-path.
+- `cargo nextest run -p cfd-2d --no-default-features physics::vorticity_stream`
+  passes 9/9; full cfd-2d lib Nextest passes 535/535 (one pre-existing
+  peer-dirty `gorkov` failure is unrelated); `cargo clippy -p cfd-2d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/vorticity_stream.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.175: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
 **Status**: Completed
 **Owner**: current session

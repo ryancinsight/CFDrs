@@ -2,6 +2,37 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.176 resolution: cfd-2d vorticity_stream solver input validation
+
+### RESOLVED-203: `VorticityStreamSolver::new` silently accepts non-physical inputs
+- **Location**: `crates/cfd-2d/src/physics/vorticity_stream.rs:111-127` (pre-fix).
+- **Issue**: the five-point Laplacian stencil divides by `dx²` and `dy²` (line
+  153-154); the vorticity transport divides by `dx`, `dy`, and `reynolds`
+  (lines 199-225); the SOR Poisson iteration consumes `sor_omega` (line 150).
+  Zero `reynolds` silently produces infinite diffusion; negative `reynolds`
+  silently flips the diffusion term to anti-diffusion (numerical blow-up that
+  masquerades as physics); zero `dx`/`dy` produces infinite spatial gradients;
+  negative `time_step` inverts the explicit Euler time integration; non-finite
+  `sor_omega` or tolerances break the convergence and divergence tests.
+  None of these inputs were validated; the solver silently produced
+  `inf`/`NaN`/`anti-diffusion` fields with no caller-side diagnostic.
+- **Remediation**: new `VorticityStreamSolver::try_new` returns
+  `Result<Self, Error::InvalidConfiguration>` and rejects every invariant
+  violation. The existing infallible `new()` becomes a thin wrapper that
+  panics on invalid inputs, preserving the fail-fast behaviour callers
+  implicitly relied on. Six new value-semantic regression tests cover
+  zero/negative/non-finite `reynolds`, negative `time_step`, undersized grid,
+  and the accept-path.
+- **Evidence**: `cargo nextest run -p cfd-2d --no-default-features
+  physics::vorticity_stream` passes 9/9; full cfd-2d lib Nextest passes
+  535/535 (the pre-existing `gorkov::f1_f2_analytical_values` failure is
+  peer-dirty and unrelated to this fix); `cargo clippy -p cfd-2d
+  --no-default-features --lib --tests -- -D warnings` clean;
+  `rustfmt --edition 2024 --check` clean on the touched file.
+  Pre-existing infallible callers (`examples/cavity_validation.rs`,
+  `cfd-validation/src/benchmarks/vorticity_stream.rs`) compile and run
+  unchanged.
+
 ## Sprint 1.96.175 resolution: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
 
 ### RESOLVED-202: `ZweifachFung2D::separating_streamline_y` silently accepts partial reverse flow

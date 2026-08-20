@@ -32,6 +32,38 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.176 Checklist: cfd-2d vorticity_stream solver input validation
+**Goal**: Reject non-physical inputs in `VorticityStreamSolver::new` before
+the solver runs, preserving the documented physical preconditions of the
+five-point Laplacian stencil, the vorticity transport diffusion term, the
+SOR Poisson iteration, and the explicit Euler time integration.
+
+**Success Criteria**:
+- [x] `VorticityStreamSolver::try_new` returns
+      `Result<Self, Error::InvalidConfiguration>`.
+- [x] `try_new` rejects non-finite or non-positive `reynolds`, `grid.dx`,
+      `grid.dy`, `config.time_step`, and `config.sor_omega`.
+- [x] `try_new` rejects non-finite or negative tolerance values
+      (`stream_tolerance`, `vorticity_tolerance`).
+- [x] `try_new` rejects grids with fewer than three cells in either direction.
+- [x] Pre-existing infallible `new()` callers (`examples/cavity_validation.rs`,
+      `cfd-validation/src/benchmarks/vorticity_stream.rs`) compile unchanged.
+- [x] Six new value-semantic regression tests pass.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      physics::vorticity_stream` passes 9/9.
+- [x] Full cfd-2d lib Nextest passes 535/535 (the pre-existing
+      `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated).
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20 as a single-file
+physics-defect correction. The infallible `new()` is retained for backwards
+compatibility with existing callers; `try_new` is the new recommended
+constructor.
+
+---
+
 # Sprint 1.96.175 Checklist: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
 **Goal**: Reject non-physical inputs in `ZweifachFung2D::separating_streamline_y`
 before trapezoidal integration runs, preserving the module's stated theorem that
