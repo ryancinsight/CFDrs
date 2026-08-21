@@ -32,6 +32,36 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.199 Checklist: cfd-2d physics::EnergyEquationSolver diffusivity validation
+**Goal**: Reject non-finite or negative `thermal_diffusivity` in the
+energy-equation solver so the diffusive fluxes in `solve_explicit`
+never produce a non-physical temperature field.
+
+**Success Criteria**:
+- [x] `EnergyEquationSolver::try_new` returns
+      `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `nx < 1`, `ny < 1` (via `Array2D::try_new`),
+      `initial_temperature` non-finite, and `thermal_diffusivity`
+      non-finite or negative. Zero `thermal_diffusivity` is accepted
+      for pure-convection.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers (including `test_reverse_convection` at
+      `physics/energy/tests.rs:701` which passes zero diffusivity)
+      compile unchanged.
+- [x] Six new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features physics::energy`
+      passes 51/51 (including `test_reverse_convection`).
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The
+energy-equation solver is now contractually forbidden from running
+on a non-physical diffusivity, while pure-convection (`α = 0`) is
+preserved as a legitimate use case.
+
+---
+
 # Sprint 1.96.198 Checklist: cfd-2d grid::Array2D dimension validation
 **Goal**: Reject zero dimensions in the most widely-shared primitive
 of `cfd-2d` so the SIMPLE/SIMPLEC/PISO inner loops never index into

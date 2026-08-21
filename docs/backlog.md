@@ -1,5 +1,44 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.199: cfd-2d physics::EnergyEquationSolver diffusivity validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::energy::EnergyEquationSolver::new(nx, ny,
+  initial_temperature, thermal_diffusivity)` for missing physical
+  invariant checks. The diffusive fluxes in `solve_explicit`
+  (lines 220–223) divide `alpha` by `dx`/`dy`; non-finite or negative
+  `thermal_diffusivity` produces a non-physical temperature field.
+  Zero is a legitimate input for pure-convection (see
+  `test_reverse_convection` in `physics/energy/tests.rs:701`).
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx < 1`, `ny < 1` (via `Array2D::try_new` from
+  Sprint 1.96.198), `initial_temperature` non-finite, and
+  `thermal_diffusivity` non-finite or negative. Zero `thermal_diffusivity`
+  is accepted (pure-convection).
+- Pre-existing infallible callers (in `physics/energy/tests.rs` for the
+  `EnergyEquationSolver` tests) compile unchanged via the thin wrapper
+  pattern.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (with positive `thermal_diffusivity`), the pure-convection
+  accept-path (zero `thermal_diffusivity`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features physics::energy`
+  passes 51/51 (including `test_reverse_convection`); full cfd-2d lib
+  Nextest passes 639/639; `cargo clippy -p cfd-2d --no-default-features
+  --tests` produces no new warnings on the touched file (only
+  pre-existing peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/energy/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.198: cfd-2d grid::Array2D dimension validation
 **Status**: Completed
 **Owner**: current session

@@ -2,6 +2,33 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.199 resolution: cfd-2d physics::EnergyEquationSolver diffusivity validation
+
+### RESOLVED-231: `EnergyEquationSolver::new` silently accepts non-finite or negative `thermal_diffusivity`
+- **Location**: `crates/cfd-2d/src/physics/energy/solver.rs:42` (pre-fix).
+- **Issue**: the diffusive fluxes in `solve_explicit`
+  (lines 220–223: `f_diff_east = alpha * (t_east - t) / dx`,
+  `f_diff_west = alpha * (t - t_west) / dx`, etc.) divide `alpha` by
+  `dx`/`dy`. Non-finite or negative `thermal_diffusivity` produces a
+  non-physical temperature field. The `Array2D` dimension contract
+  from Sprint 1.96.198 covers `nx`/`ny` automatically through
+  delegation.
+- **Remediation**: new `EnergyEquationSolver::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx < 1`, `ny < 1` (via `Array2D::try_new`), `initial_temperature`
+  non-finite, and `thermal_diffusivity` non-finite or negative. Zero
+  `thermal_diffusivity` is accepted (pure-convection). The existing
+  infallible `new` becomes a thin panic wrapper.
+- **Evidence**: six new value-semantic regression tests cover all
+  rejection paths, the accept-path (with positive `thermal_diffusivity`),
+  the pure-convection accept-path (zero `thermal_diffusivity`), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d --no-default-features
+  physics::energy` passes 51/51 (including `test_reverse_convection`
+  at `physics/energy/tests.rs:701`); full cfd-2d lib Nextest passes
+  639/639; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file; `rustfmt --edition 2024
+  --check` clean on the touched file.
+
 ## Sprint 1.96.198 resolution: cfd-2d grid::Array2D dimension validation
 
 ### RESOLVED-230: `Array2D::new` silently accepts zero dimensions
