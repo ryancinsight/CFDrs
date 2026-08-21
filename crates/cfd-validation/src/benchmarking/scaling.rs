@@ -449,7 +449,7 @@ impl CfdScalingAnalysis {
             timing_data.push((num_threads, exec_time));
 
             // Store timing metadata for analysis
-            println!(
+            tracing::info!(
                 "Thread count: {}, Time: {:.4}s, Iterations: {}",
                 num_threads,
                 exec_time,
@@ -507,7 +507,7 @@ impl CfdScalingAnalysis {
 
             scaling_data.push((num_threads, problem_size, exec_time));
 
-            println!(
+            tracing::info!(
                 "Threads: {num_threads}, Grid: {resolution}x{resolution}, Cells: {problem_size}, Time: {exec_time:.4}s, Comm overhead: {comm_overhead:.4}s"
             );
         }
@@ -517,20 +517,20 @@ impl CfdScalingAnalysis {
 
     /// Run comprehensive CFD scaling analysis
     pub fn run_scaling_suite(&self) -> Result<Vec<(String, ScalingResult)>> {
-        println!("Running CFD Scaling Analysis Suite...");
+        tracing::info!("Running CFD Scaling Analysis Suite...");
 
         let mut results = Vec::new();
 
         // Solver scaling
         match self.analyze_cfd_solver_scaling() {
             Ok(result) => results.push(("CFD_Solver_Scaling".to_string(), result)),
-            Err(e) => println!("Warning: CFD solver scaling analysis failed: {e}"),
+            Err(e) => tracing::warn!("Warning: CFD solver scaling analysis failed: {e}"),
         }
 
         // Grid scaling
         match self.analyze_grid_scaling() {
             Ok(result) => results.push(("CFD_Grid_Scaling".to_string(), result)),
-            Err(e) => println!("Warning: CFD grid scaling analysis failed: {e}"),
+            Err(e) => tracing::warn!("Warning: CFD grid scaling analysis failed: {e}"),
         }
 
         Ok(results)

@@ -1232,8 +1232,8 @@ impl PerformanceDashboard {
 
         std::fs::write(output_path, html_content)?;
 
-        println!("Performance dashboard generated: {output_path}");
-        println!("Open in browser to view interactive charts and detailed analysis");
+        tracing::info!("Performance dashboard generated: {output_path}");
+        tracing::info!("Open in browser to view interactive charts and detailed analysis");
 
         Ok(())
     }
