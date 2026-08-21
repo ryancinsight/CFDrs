@@ -317,11 +317,11 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
 
     /// Comprehensive GCL test suite.
     pub fn run_comprehensive_gcl_tests(&self) -> Result<Vec<ConservationReport<T>>> {
-        println!("Testing Geometric Conservation Law (GCL)");
-        println!("========================================");
-        println!("GCL ensures schemes preserve constants on moving grids");
-        println!("Reference: Thomas & Lombard (1979)");
-        println!();
+        tracing::info!("Testing Geometric Conservation Law (GCL)");
+        tracing::info!("========================================");
+        tracing::info!("GCL ensures schemes preserve constants on moving grids");
+        tracing::info!("Reference: Thomas & Lombard (1979)");
+        tracing::info!("");
 
         let mut results = Vec::new();
         let test_values = vec![
@@ -340,18 +340,18 @@ impl<T: RealField + Copy + FloatElement> GeometricConservationChecker<T> {
         let passed_tests = results.iter().filter(|r| r.is_conserved).count();
         let total_tests = results.len();
 
-        println!("\nGCL Test Summary:");
-        println!("  Tests Passed: {passed_tests}/{total_tests}");
-        println!(
+        tracing::info!("\nGCL Test Summary:");
+        tracing::info!("  Tests Passed: {passed_tests}/{total_tests}");
+        tracing::info!(
             "  Success Rate: {:.1}%",
             100.0 * passed_tests as f32 / total_tests as f32
         );
 
         if passed_tests == total_tests {
-            println!("All GCL tests passed; schemes preserve constants correctly.");
+            tracing::info!("All GCL tests passed; schemes preserve constants correctly.");
         } else {
-            println!("Some GCL tests failed; schemes may not preserve constants.");
-            println!("This can cause accuracy issues in long-time simulations.");
+            tracing::info!("Some GCL tests failed; schemes may not preserve constants.");
+            tracing::info!("This can cause accuracy issues in long-time simulations.");
         }
 
         Ok(results)

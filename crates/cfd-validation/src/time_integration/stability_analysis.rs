@@ -124,13 +124,13 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Run comprehensive stability analysis suite
     pub fn run_comprehensive_stability_analysis(&self) -> Result<StabilityAnalysisReport<T>> {
-        println!("🔬 Comprehensive Stability Analysis Suite");
-        println!("=========================================");
-        println!("Literature References:");
-        println!("- Hairer & Nørsett (1993): Solving ODEs I");
-        println!("- Trefthen (1996): Finite Difference Methods");
-        println!("- LeVeque (2002): Finite Volume Methods");
-        println!();
+        tracing::info!("🔬 Comprehensive Stability Analysis Suite");
+        tracing::info!("=========================================");
+        tracing::info!("Literature References:");
+        tracing::info!("- Hairer & Nørsett (1993): Solving ODEs I");
+        tracing::info!("- Trefthen (1996): Finite Difference Methods");
+        tracing::info!("- LeVeque (2002): Finite Volume Methods");
+        tracing::info!("");
 
         let mut report = StabilityAnalysisReport {
             rk_stability_regions: Vec::new(),
@@ -165,7 +165,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Analyze stability regions for common RK methods
     fn analyze_rk_stability_regions(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
-        println!("\n📐 Runge-Kutta Stability Region Analysis");
+        tracing::info!("\n📐 Runge-Kutta Stability Region Analysis");
 
         // Forward Euler (RK1)
         let rk1_result = self.analyze_forward_euler_stability()?;
@@ -179,7 +179,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         let rk4_result = self.analyze_rk4_stability()?;
         report.rk_stability_regions.push(rk4_result);
 
-        println!("  ✅ Analyzed stability regions for 3 RK methods");
+        tracing::info!("  ✅ Analyzed stability regions for 3 RK methods");
         Ok(())
     }
 
@@ -291,7 +291,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Validate CFL conditions for various test cases
     fn validate_cfl_conditions(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
-        println!("\n🌊 CFL Condition Validation");
+        tracing::info!("\n🌊 CFL Condition Validation");
 
         // Test case 1: Low-speed laminar flow
         let vel_laminar = <T as FloatElement>::from_f64(0.1); // velocity
@@ -332,7 +332,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         );
         report.cfl_analyses.push(turbulent_result);
 
-        println!("  ✅ Validated CFL conditions for 3 test cases");
+        tracing::info!("  ✅ Validated CFL conditions for 3 test cases");
         Ok(())
     }
 
@@ -368,7 +368,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Perform von Neumann stability analysis
     fn perform_von_neumann_analysis(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
-        println!("\n📊 Von Neumann Stability Analysis");
+        tracing::info!("\n📊 Von Neumann Stability Analysis");
 
         let schemes = [
             NumericalScheme::ForwardEuler,
@@ -394,7 +394,7 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
             report.von_neumann_analyses.push(burgers_result);
         }
 
-        println!("  ✅ Performed von Neumann analysis for 3 PDE types × 3 schemes");
+        tracing::info!("  ✅ Performed von Neumann analysis for 3 PDE types × 3 schemes");
         Ok(())
     }
 
@@ -626,9 +626,9 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
 
     /// Display comprehensive stability report
     fn display_stability_report(&self, report: &StabilityAnalysisReport<T>) {
-        println!("\n📋 Stability Analysis Summary");
-        println!("============================");
-        println!(
+        tracing::info!("\n📋 Stability Analysis Summary");
+        tracing::info!("============================");
+        tracing::info!(
             "Overall Stability Score: {:.1}% ({}/{})",
             report.overall_assessment.overall_score * 100.0,
             report.overall_assessment.tests_passed,
@@ -636,15 +636,15 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         );
 
         if !report.overall_assessment.critical_issues.is_empty() {
-            println!("\n⚠️  Critical Issues:");
+            tracing::info!("\n⚠️  Critical Issues:");
             for issue in &report.overall_assessment.critical_issues {
-                println!("  • {issue}");
+                tracing::info!("  • {issue}");
             }
         }
 
-        println!("\n🔢 CFL Condition Results:");
+        tracing::info!("\n🔢 CFL Condition Results:");
         for cfl in &report.cfl_analyses {
-            println!(
+            tracing::info!(
                 "  {}: CFL = {:.3}, Status: {}",
                 cfl.test_case,
                 <T as NumericElement>::to_f64(cfl.cfl_number),
@@ -652,9 +652,9 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
             );
         }
 
-        println!("\n📊 Von Neumann Analysis:");
+        tracing::info!("\n📊 Von Neumann Analysis:");
         for vn in &report.von_neumann_analyses {
-            println!(
+            tracing::info!(
                 "  {}: Max Amp = {:.3}, Stable: {}",
                 vn.pde_type,
                 <T as NumericElement>::to_f64(vn.max_amplification),
@@ -663,13 +663,13 @@ impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
         }
 
         if !report.recommendations.is_empty() {
-            println!("\n💡 Recommendations:");
+            tracing::info!("\n💡 Recommendations:");
             for rec in &report.recommendations {
-                println!("  • {rec}");
+                tracing::info!("  • {rec}");
             }
         }
 
-        println!("\n✅ Stability analysis completed successfully!");
+        tracing::info!("\n✅ Stability analysis completed successfully!");
     }
 }
 

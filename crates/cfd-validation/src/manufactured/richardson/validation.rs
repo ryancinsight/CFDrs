@@ -84,7 +84,7 @@ where
         // Compute L2 errors for each grid size
         for &h in grid_sizes {
             let error = self.compute_l2_error(h)?;
-            println!(
+            tracing::info!(
                 "      h={:.4}, L2 error={:e}",
                 <T as NumericElement>::to_f64(h),
                 <T as NumericElement>::to_f64(error)
@@ -207,7 +207,7 @@ where
             } else {
                 // Fallback: use simple average when r^p ≈ 1 (unreliable convergence)
                 // This indicates numerical instability or poor grid refinement
-                println!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
+                tracing::warn!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
                 (phi_coarse + phi_fine) / <T as FloatElement>::from_f64(2.0)
             };
 

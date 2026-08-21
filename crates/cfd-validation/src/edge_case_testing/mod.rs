@@ -114,10 +114,10 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
     /// Run comprehensive edge case validation suite
     pub fn run_comprehensive_edge_case_tests(&self) -> Result<EdgeCaseReport> {
-        println!("🔍 Comprehensive CFD Edge Case Validation Suite");
-        println!("==============================================");
-        println!("Testing boundary conditions, numerical stability, and algorithm limits");
-        println!();
+        tracing::info!("🔍 Comprehensive CFD Edge Case Validation Suite");
+        tracing::info!("==============================================");
+        tracing::info!("Testing boundary conditions, numerical stability, and algorithm limits");
+        tracing::info!("");
 
         let mut report = EdgeCaseReport {
             boundary_condition_tests: Vec::new(),
@@ -141,7 +141,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
     /// Test boundary condition edge cases
     fn test_boundary_condition_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
-        println!("\n🔲 Boundary Condition Edge Case Tests");
+        tracing::info!("\n🔲 Boundary Condition Edge Case Tests");
 
         report
             .boundary_condition_tests
@@ -159,13 +159,13 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             .boundary_condition_tests
             .push(Self::test_time_dependent_boundary_conditions()?);
 
-        println!("  ✅ Completed 5 boundary condition edge case tests");
+        tracing::info!("  ✅ Completed 5 boundary condition edge case tests");
         Ok(())
     }
 
     /// Test numerical stability limits
     fn test_numerical_stability_limits(report: &mut EdgeCaseReport) -> Result<()> {
-        println!("\n🧮 Numerical Stability Edge Case Tests");
+        tracing::info!("\n🧮 Numerical Stability Edge Case Tests");
 
         report
             .stability_tests
@@ -183,13 +183,13 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             .stability_tests
             .push(Self::test_long_time_integration_stability()?);
 
-        println!("  ✅ Completed 5 numerical stability edge case tests");
+        tracing::info!("  ✅ Completed 5 numerical stability edge case tests");
         Ok(())
     }
 
     /// Test convergence algorithm failures
     fn test_convergence_algorithm_failures(report: &mut EdgeCaseReport) -> Result<()> {
-        println!("\n🔄 Convergence Algorithm Edge Case Tests");
+        tracing::info!("\n🔄 Convergence Algorithm Edge Case Tests");
 
         report
             .convergence_tests
@@ -204,13 +204,13 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             .convergence_tests
             .push(Self::test_restarted_method_failures()?);
 
-        println!("  ✅ Completed 4 convergence algorithm edge case tests");
+        tracing::info!("  ✅ Completed 4 convergence algorithm edge case tests");
         Ok(())
     }
 
     /// Test physical constraint violations
     fn test_physical_constraint_violations(report: &mut EdgeCaseReport) -> Result<()> {
-        println!("\n⚛️ Physical Constraint Edge Case Tests");
+        tracing::info!("\n⚛️ Physical Constraint Edge Case Tests");
 
         report
             .physical_constraint_tests
@@ -225,13 +225,13 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             .physical_constraint_tests
             .push(Self::test_boundary_layer_separation()?);
 
-        println!("  ✅ Completed 4 physical constraint edge case tests");
+        tracing::info!("  ✅ Completed 4 physical constraint edge case tests");
         Ok(())
     }
 
     /// Test implementation edge cases
     fn test_implementation_edge_cases(report: &mut EdgeCaseReport) -> Result<()> {
-        println!("\n💻 Implementation Edge Case Tests");
+        tracing::info!("\n💻 Implementation Edge Case Tests");
 
         report
             .implementation_tests
@@ -246,7 +246,7 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             .implementation_tests
             .push(Self::test_input_validation_boundaries()?);
 
-        println!("  ✅ Completed 4 implementation edge case tests");
+        tracing::info!("  ✅ Completed 4 implementation edge case tests");
         Ok(())
     }
 
@@ -313,9 +313,9 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
     /// Display comprehensive edge case report
     fn display_edge_case_report(report: &EdgeCaseReport) {
-        println!("\n📋 Comprehensive Edge Case Test Report");
-        println!("=====================================");
-        println!(
+        tracing::info!("\n📋 Comprehensive Edge Case Test Report");
+        tracing::info!("=====================================");
+        tracing::info!(
             "Overall Assessment: {} ({:.1}%)",
             match report.overall_assessment.overall_status {
                 OverallStatus::Excellent => "Excellent",
@@ -325,17 +325,18 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             },
             report.overall_assessment.pass_rate * 100.0
         );
-        println!(
+        tracing::info!(
             "Total Tests: {}/{}",
-            report.overall_assessment.passed_tests, report.overall_assessment.total_tests
+            report.overall_assessment.passed_tests,
+            report.overall_assessment.total_tests
         );
-        println!(
+        tracing::info!(
             "Critical Failures: {}",
             report.overall_assessment.critical_failures
         );
 
-        println!("\n✅ Edge case validation completed successfully!");
-        println!("   Comprehensive testing ensures CFD code robustness and reliability.");
+        tracing::info!("\n✅ Edge case validation completed successfully!");
+        tracing::info!("   Comprehensive testing ensures CFD code robustness and reliability.");
     }
 }
 

@@ -538,15 +538,15 @@ impl CfdPerformanceBenchmarks {
 
     /// Benchmark CFD algorithms with comprehensive profiling
     pub fn benchmark_cfd_algorithms(&self) -> Result<Vec<PerformanceProfile>> {
-        println!("🧪 Comprehensive CFD Algorithm Performance Profiling");
-        println!("==================================================");
+        tracing::info!("🧪 Comprehensive CFD Algorithm Performance Profiling");
+        tracing::info!("==================================================");
 
         let mut profiles = Vec::new();
         let registry = Self::create_algorithm_registry();
 
         // Benchmark SPMV operation
         if let Some(spmv_complexity) = registry.iter().find(|c| c.name == "SPMV") {
-            println!("\nBenchmarking Sparse Matrix-Vector Multiplication...");
+            tracing::info!("\nBenchmarking Sparse Matrix-Vector Multiplication...");
 
             // Create test matrix (64x64 Poisson system)
             let n = 64;
@@ -600,13 +600,14 @@ impl CfdPerformanceBenchmarks {
                 32768, // 32MB L3 cache
             )?;
 
-            println!(
+            tracing::info!(
                 "  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
-                profile.gflops, profile.memory_bandwidth
+                profile.gflops,
+                profile.memory_bandwidth
             );
-            println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
+            tracing::info!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
             for rec in &profile.recommendations {
-                println!("  💡 {rec}");
+                tracing::info!("  💡 {rec}");
             }
 
             profiles.push(profile);
@@ -614,7 +615,7 @@ impl CfdPerformanceBenchmarks {
 
         // Benchmark manufactured solutions evaluation
         if let Some(ms_complexity) = registry.iter().find(|c| c.name == "ManufacturedSolutions") {
-            println!("\nBenchmarking Manufactured Solutions Evaluation...");
+            tracing::info!("\nBenchmarking Manufactured Solutions Evaluation...");
 
             use crate::manufactured::PolynomialNavierStokesMMS;
             let mms = PolynomialNavierStokesMMS::default(1.0, 1.0);
@@ -643,17 +644,18 @@ impl CfdPerformanceBenchmarks {
                 32768,
             )?;
 
-            println!(
+            tracing::info!(
                 "  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
-                profile.gflops, profile.memory_bandwidth
+                profile.gflops,
+                profile.memory_bandwidth
             );
-            println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
+            tracing::info!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
 
             profiles.push(profile);
         }
 
-        println!("\n✅ Algorithm performance profiling completed!");
-        println!(
+        tracing::info!("\n✅ Algorithm performance profiling completed!");
+        tracing::info!(
             "   Analyzed {} algorithms with complexity and performance metrics",
             profiles.len()
         );
@@ -710,7 +712,7 @@ impl CfdPerformanceBenchmarks {
 
     /// Run comprehensive CFD benchmark suite
     pub fn run_cfd_suite(&self) -> Result<Vec<TimingResult>> {
-        println!("Running CFD Performance Benchmark Suite...");
+        tracing::info!("Running CFD Performance Benchmark Suite...");
 
         let benchmarks: Vec<BenchmarkOperation<'static>> = vec![
             (
