@@ -32,6 +32,29 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.192 Checklist: cfd-2d lbm::LbmConfig validation
+**Goal**: Reject unphysical LBM configurations at construction time so
+the LBM solve never receives `tau < 0.5` or `max_steps == 0`.
+
+**Success Criteria**:
+- [x] `LbmConfig::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `tau < 0.5`, `tau = 0`, `tau < 0`, `tau = NaN`,
+      `tau = ±∞`, `max_steps == 0`, `tolerance == 0`, `tolerance < 0`,
+      `tolerance = NaN`, `tolerance = ±∞`.
+- [x] Pre-existing `Default` impl is preserved (canonical `tau = 1.0`).
+- [x] Six new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features lbm` passes
+      47/47.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The LBM
+configuration is now contractually forbidden from carrying a relaxation
+time below the stability floor.
+
+---
+
 # Sprint 1.96.191 Checklist: cfd-2d lbm BGK + MRT relaxation-time validation
 **Goal**: Reject degenerate `tau` in the BGK and MRT collision operators
 so the LBM solve never runs with `ω = ∞` from `tau = 0`.

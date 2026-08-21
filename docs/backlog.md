@@ -1,5 +1,46 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.192: cfd-2d lbm::LbmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::LbmConfig` for missing physical invariant
+  checks. The struct's `tau` field is documented as `τ ∈ (0.5, ∞)`
+  with the comment "Stability requires τ > 0.5", but no caller
+  invariant was ever enforced. `LbmSolver::new` (solver.rs:128)
+  delegates the `tau` value directly to `BgkCollision::new(config.tau)`
+  — which, post-Sprint 1.96.191, is now a thin panic wrapper that
+  panics on degenerate `tau`. So a caller passing `tau < 0.5` would
+  now panic instead of silently producing a divergent LBM solve, but
+  catching it at construction time is better.
+- Add `LbmConfig::try_new` returning `Result`. The pre-existing
+  `Default` impl is preserved for backward compatibility — it produces
+  the canonical `tau = 1.0` configuration.
+
+### Acceptance and Verification
+- `try_new` rejects: `tau < 0.5`, `tau == 0`, `tau < 0`, `tau = NaN`,
+  `tau = ±∞`, `max_steps == 0`, `tolerance == 0`, `tolerance < 0`,
+  `tolerance = NaN`, `tolerance = ±∞`.
+- Pre-existing infallible callers (`lbm::solver::tests::test_*` and
+  any external solver wiring) compile unchanged because `Default` is
+  preserved and the constructor call sites use `LbmConfig::default()`
+  or constructed struct-literal patterns.
+- Six new value-semantic regression tests cover all rejection paths
+  and the accept-path.
+- `cargo nextest run -p cfd-2d --no-default-features lbm` passes 47/47;
+  full cfd-2d lib Nextest passes 601/602 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.191: cfd-2d lbm BGK + MRT relaxation-time validation
 **Status**: Completed
 **Owner**: current session

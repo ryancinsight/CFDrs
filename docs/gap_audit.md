@@ -2,6 +2,33 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.192 resolution: cfd-2d lbm::LbmConfig validation
+
+### RESOLVED-224: `LbmConfig` documents `tau ∈ (0.5, ∞)` but accepts any `tau`
+- **Location**: `crates/cfd-2d/src/solvers/lbm/solver.rs:51` (pre-fix).
+- **Issue**: the `LbmConfig` struct's `tau` field is documented as
+  `τ ∈ (0.5, ∞)` with the comment "Stability requires τ > 0.5", but no
+  caller invariant was ever enforced. `LbmSolver::new` (solver.rs:128)
+  delegates the `tau` value directly to `BgkCollision::new(config.tau)`,
+  which (post-Sprint 1.96.191) is now a thin panic wrapper that panics
+  on degenerate `tau`. So a caller passing `tau < 0.5` would now panic
+  instead of silently producing a divergent LBM solve, but catching it
+  at construction time is better and matches the documented contract.
+- **Remediation**: new `LbmConfig::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `tau < 0.5` (LBM stability floor from the BGK ↔ viscosity
+  correspondence `τ = ½ + ν·Δt/(c_s²·Δx²)`), `max_steps == 0`, and
+  non-finite or non-positive `tolerance`. The pre-existing `Default`
+  impl is preserved for backward compatibility — it produces the
+  canonical `tau = 1.0` configuration.
+- **Evidence**: six new value-semantic regression tests cover all
+  rejection paths and the accept-path. `cargo nextest run -p cfd-2d
+  --no-default-features lbm` passes 47/47; full cfd-2d lib Nextest
+  passes 601/602 (one pre-existing peer-dirty `gorkov::
+  f1_f2_analytical_values` failure unrelated to this change); `cargo
+  clippy -p cfd-2d --no-default-features --lib --tests -- -D warnings`
+  clean; `rustfmt --edition 2024 --check` clean on the touched file.
+
 ## Sprint 1.96.191 resolution: cfd-2d lbm BGK + MRT relaxation-time validation
 
 ### RESOLVED-223: `BgkCollision::new(tau)` and `MrtCollision::new(tau)` silently accept degenerate `tau`
