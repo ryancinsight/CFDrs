@@ -18,13 +18,18 @@
 
 ## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch]
 
-- [ ] Release the GIL around Rust-only binding computations without moving
+- [x] Release the GIL around Rust-only binding computations without moving
       Python conversion or error mapping across the boundary.
-- [ ] Ship typed stubs and PEP 561 metadata for the exported module.
-- [ ] Build and install the wheel; run the existing value-semantic Python
-      tests and the focused Rust gates.
-- [ ] Remove the committed generated validation image and synchronize the
+- [x] Ship typed stubs and PEP 561 metadata for the exported module.
+- [x] Build and install the wheel; run the existing value-semantic Python
+      tests and the focused Rust gates. The installed wheel passes pytest 4/4,
+      strict mypy consumer validation, runtime export coverage, locked Rust
+      compilation, and nextest's 0-test cdylib target. Clippy remains blocked
+      by the peer-dirty `cfd-2d/src/solvers/ns_fvm/field.rs:25` unused import.
+- [x] Remove the committed generated validation image and synchronize the
       package README and changelog.
+- [ ] Re-run the provider PR's hosted exact-head gates after this slice lands;
+      do not close the item from local evidence alone.
 
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
 

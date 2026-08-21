@@ -25,6 +25,12 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- `cfd-python` now packages a typed `cfd_python.pyi` surface and PEP 561
+  marker in its wheel. The 1D bifurcation and legacy 2D Poiseuille solver
+  methods detach Rust-only computation from the Python GIL after converting
+  Python inputs at the boundary; the generated validation image is removed
+  from the crate.
+
 - **cfd-2d**: The Newtonian pressure-correction default remains its existing
   calibrated SOR split; `SIMPLEConfig` now permits a validated consumer-owned
   override. The backward-facing-step benchmark selects `1.7` together with

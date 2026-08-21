@@ -48,7 +48,9 @@ def test_poiseuille_solver_returns_analytical_profile_values() -> None:
     width = 1.0e-2
     length = 5.0e-2
     pressure_drop = 100.0
-    viscosity = 3.5e-3
+    # The Newtonian branch uses cfd_core's canonical infinite-shear blood
+    # viscosity (0.00345 Pa·s; Cho & Kensey, 1991).
+    viscosity = 3.45e-3
     solver = cfd_python.Poiseuille2DSolver(height, width, length, 9, 5)
     result = solver.solve(pressure_drop, "newtonian")
     expected_max = height**2 * (pressure_drop / length) / (8.0 * viscosity)
