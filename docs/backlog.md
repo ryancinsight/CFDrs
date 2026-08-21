@@ -1,5 +1,40 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.197: cfd-2d ScalarTransportSolver2D dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::ScalarTransportSolver2D::new(nx, ny)` for
+  missing physical invariant checks. The FVM scalar transport solver
+  iterates `j ∈ [0, ny), i ∈ [0, nx)` and indexes the concentration
+  field `c` and previous-iteration `_c_old` (each `Array2D` of length
+  `nx * ny`) by `linear_index = j * nx + i`. Zero `nx` or `ny` silently
+  underflows every iteration index.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (in `cfd-2d::solvers::bifurcation_flow`,
+  `cfd-2d::solvers::n_furcation_flow`, and `cfd-python` wrappers)
+  compile unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `c.rows() == 8 && c.cols() == 12`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  solvers::scalar_transport_2d` passes 4/4; full cfd-2d lib Nextest
+  passes 629/629; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/scalar_transport_2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.196: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
 **Status**: Completed
 **Owner**: current session

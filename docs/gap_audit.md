@@ -2,6 +2,29 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.197 resolution: cfd-2d ScalarTransportSolver2D dimension validation
+
+### RESOLVED-229: `ScalarTransportSolver2D::new` silently accepts zero grid dimensions
+- **Location**: `crates/cfd-2d/src/solvers/scalar_transport_2d.rs:69`
+  (pre-fix).
+- **Issue**: the FVM scalar transport solver iterates
+  `j ∈ [0, ny), i ∈ [0, nx)` and indexes the concentration field `c`
+  and previous-iteration `_c_old` (each `Array2D` of length `nx * ny`)
+  by `linear_index = j * nx + i`. Zero `nx` or `ny` silently underflows
+  every iteration index and produces a degenerate field.
+- **Remediation**: new `ScalarTransportSolver2D::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx == 0` and `ny == 0`. The existing infallible `new` becomes
+  a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path (asserting `c.rows() == 8 &&
+  c.cols() == 12`), and the panic-wrapper contract.
+  `cargo nextest run -p cfd-2d --no-default-features
+  solvers::scalar_transport_2d` passes 4/4; full cfd-2d lib Nextest
+  passes 629/629; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file; `rustfmt --edition 2024
+  --check` clean on the touched file.
+
 ## Sprint 1.96.196 resolution: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
 
 ### RESOLVED-228: `AdvectionDiffusionSolver::new` silently accepts degenerate `FdmConfig`

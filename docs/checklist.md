@@ -32,6 +32,29 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.197 Checklist: cfd-2d ScalarTransportSolver2D dimension validation
+**Goal**: Reject zero grid dimensions in `ScalarTransportSolver2D::new`
+so the FVM scalar-transport iteration never indexes empty fields.
+
+**Success Criteria**:
+- [x] `ScalarTransportSolver2D::try_new` returns
+      `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects `nx == 0` and `ny == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      solvers::scalar_transport_2d` passes 4/4.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The FVM
+scalar-transport solver is now contractually forbidden from running on
+a degenerate grid.
+
+---
+
 # Sprint 1.96.196 Checklist: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
 **Goal**: Reject invalid `SolverConfig` wrapped in `FdmConfig` for
 `AdvectionDiffusionSolver::new` so the FDM scalar-transport solver
