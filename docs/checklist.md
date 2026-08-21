@@ -32,6 +32,29 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.198 Checklist: cfd-2d grid::Array2D dimension validation
+**Goal**: Reject zero dimensions in the most widely-shared primitive
+of `cfd-2d` so the SIMPLE/SIMPLEC/PISO inner loops never index into
+empty flat buffers.
+
+**Success Criteria**:
+- [x] `Array2D::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects `rows == 0` and `cols == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; all 146
+      existing callers compile unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features grid::array2d`
+      passes 11/11.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The
+foundation field-storage primitive is now contractually forbidden
+from holding an empty buffer.
+
+---
+
 # Sprint 1.96.197 Checklist: cfd-2d ScalarTransportSolver2D dimension validation
 **Goal**: Reject zero grid dimensions in `ScalarTransportSolver2D::new`
 so the FVM scalar-transport iteration never indexes empty fields.

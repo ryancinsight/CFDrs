@@ -2,6 +2,28 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.198 resolution: cfd-2d grid::Array2D dimension validation
+
+### RESOLVED-230: `Array2D::new` silently accepts zero dimensions
+- **Location**: `crates/cfd-2d/src/grid/array2d.rs:47` (pre-fix).
+- **Issue**: the row-major flat buffer (length `rows * cols`) silently
+  underflows every indexing call `a[i, j] = a.data[i * cols + j]` when
+  dimensions are zero. There are 146 `Array2D::new(...)` call sites
+  across `cfd-2d`; this is the most widely-shared primitive in the
+  crate and the widest blast-radius defect if left unfixed.
+- **Remediation**: new `Array2D::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `rows == 0` and `cols == 0`. The existing infallible `new`
+  becomes a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path (asserting `data.len() == rows *
+  cols`), and the panic-wrapper contract. `cargo nextest run -p cfd-2d
+  --no-default-features grid::array2d` passes 11/11; full cfd-2d lib
+  Nextest passes 633/633; `cargo clippy -p cfd-2d --no-default-features
+  --tests` produces no new warnings on the touched file (only
+  pre-existing peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` clean on the touched file.
+
 ## Sprint 1.96.197 resolution: cfd-2d ScalarTransportSolver2D dimension validation
 
 ### RESOLVED-229: `ScalarTransportSolver2D::new` silently accepts zero grid dimensions

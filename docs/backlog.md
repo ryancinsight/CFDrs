@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.198: cfd-2d grid::Array2D dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] foundation invariant + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::grid::Array2D::new(rows, cols, val)` for missing
+  physical invariant checks. The row-major flat buffer (length
+  `rows * cols`) silently underflows every indexing call
+  `a[i, j] = a.data[i * cols + j]` when dimensions are zero. There are
+  146 `Array2D::new(...)` call sites across `cfd-2d`; this is the most
+  widely-shared primitive in the crate and the widest blast-radius
+  defect if left unfixed.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `rows == 0` and `cols == 0`.
+- Pre-existing 146 infallible callers compile unchanged via the thin
+  wrapper pattern (verified by `cargo nextest run -p cfd-2d
+  --no-default-features --lib` passing 633/633).
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `data.len() == rows * cols`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features grid::array2d`
+  passes 11/11; full cfd-2d lib Nextest passes 633/633; `cargo clippy
+  -p cfd-2d --no-default-features --tests` produces no new warnings on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/grid/array2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.197: cfd-2d ScalarTransportSolver2D dimension validation
 **Status**: Completed
 **Owner**: current session
