@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.200: cfd-2d turbulence::KEpsilonModel dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::k_epsilon::KEpsilonModel::new(nx, ny)`
+  and `new_realizable(nx, ny)` for missing physical invariant checks.
+  Both constructors allocate `k_scratch: Vec<T>` and `eps_scratch: Vec<T>`
+  of length `nx * ny`. The k-ε update loops index into these scratch
+  buffers; zero `nx` or `ny` silently underflows every iteration.
+- Add `try_new` and `try_new_realizable` returning `Result`; existing
+  infallible constructors become thin panic wrappers.
+
+### Acceptance and Verification
+- `try_new` and `try_new_realizable` reject `nx == 0` and `ny == 0`.
+- `try_new_realizable` enables the `use_realizable` flag (verified by
+  the `k_epsilon_try_new_realizable_accepts_valid_grid` test).
+- Pre-existing infallible callers (in `physics/turbulence/k_epsilon/tests.rs`
+  and benchmarks) compile unchanged via the thin wrapper pattern.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (with `use_realizable == false`), the realizable
+  accept-path, and the panic-wrapper contract for both infallible
+  constructors.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::k_epsilon::model` passes 6/6; full cfd-2d lib Nextest
+  passes 645/645; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/k_epsilon/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.199: cfd-2d physics::EnergyEquationSolver diffusivity validation
 **Status**: Completed
 **Owner**: current session

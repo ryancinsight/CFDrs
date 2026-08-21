@@ -2,6 +2,32 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.200 resolution: cfd-2d turbulence::KEpsilonModel dimension validation
+
+### RESOLVED-232: `KEpsilonModel::new` and `new_realizable` silently accept zero grid dimensions
+- **Location**: `crates/cfd-2d/src/physics/turbulence/k_epsilon/model.rs:65,87`
+  (pre-fix).
+- **Issue**: both constructors allocate `k_scratch: Vec<T>` and
+  `eps_scratch: Vec<T>` of length `nx * ny`. The k-ε update loops
+  index into these scratch buffers; zero `nx` or `ny` silently
+  underflows every iteration and produces a degenerate field.
+- **Remediation**: new `KEpsilonModel::try_new` and
+  `try_new_realizable` return
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  reject `nx == 0` and `ny == 0`. `try_new_realizable` sets
+  `use_realizable = true`. The existing infallible `new` and
+  `new_realizable` become thin panic wrappers.
+- **Evidence**: six new value-semantic regression tests cover all
+  rejection paths, the accept-path (with `use_realizable == false`),
+  the realizable accept-path, and the panic-wrapper contract for both
+  infallible constructors. `cargo nextest run -p cfd-2d
+  --no-default-features turbulence::k_epsilon::model` passes 6/6;
+  full cfd-2d lib Nextest passes 645/645; `cargo clippy -p cfd-2d
+  --no-default-features --tests` produces no new warnings on the
+  touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.199 resolution: cfd-2d physics::EnergyEquationSolver diffusivity validation
 
 ### RESOLVED-231: `EnergyEquationSolver::new` silently accepts non-finite or negative `thermal_diffusivity`

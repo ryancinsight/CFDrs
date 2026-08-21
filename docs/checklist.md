@@ -32,6 +32,30 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.200 Checklist: cfd-2d turbulence::KEpsilonModel dimension validation
+**Goal**: Reject zero grid dimensions in the k-ε turbulence model so
+the k-ε update loops never index empty scratch buffers.
+
+**Success Criteria**:
+- [x] `KEpsilonModel::try_new` and `try_new_realizable` return
+      `cfd_core::error::Result<Self>`.
+- [x] Both reject `nx == 0` and `ny == 0`.
+- [x] `try_new_realizable` sets `use_realizable = true`.
+- [x] Pre-existing infallible `new` and `new_realizable` are thin panic
+      wrappers; existing callers compile unchanged.
+- [x] Six new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      turbulence::k_epsilon::model` passes 6/6.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The k-ε
+turbulence model is now contractually forbidden from running on a
+degenerate grid.
+
+---
+
 # Sprint 1.96.199 Checklist: cfd-2d physics::EnergyEquationSolver diffusivity validation
 **Goal**: Reject non-finite or negative `thermal_diffusivity` in the
 energy-equation solver so the diffusive fluxes in `solve_explicit`
