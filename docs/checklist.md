@@ -32,6 +32,28 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.194 Checklist: cfd-2d lbm::MacroscopicQuantities dimension validation
+**Goal**: Reject zero grid dimensions in `MacroscopicQuantities::new` so
+the LBM moment-extraction loop never indexes an empty field.
+
+**Success Criteria**:
+- [x] `MacroscopicQuantities::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects `nx == 0` and `ny == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; the
+      `lbm::solver.rs:183` caller compiles unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features lbm::macroscopic`
+      passes 8/8.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests --
+      -D warnings` is clean on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The LBM
+macroscopic field buffer is now contractually forbidden from running on
+a degenerate grid.
+
+---
+
 # Sprint 1.96.193 Checklist: cfd-2d lbm CarreauYasudaBgk dx/dt validation
 **Goal**: Reject degenerate `dx`/`dt` in `CarreauYasudaBgk::new` so the
 fixed-point iteration in `compute_local_tau` never divides by zero-magnitude

@@ -1,5 +1,39 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.194: cfd-2d lbm::MacroscopicQuantities dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::MacroscopicQuantities::new(nx, ny)` for
+  missing physical invariant checks. The constructor allocates
+  `density: Vec<T>` of length `nx * ny` and `velocity: Vec<T>` of length
+  `nx * ny * 2` (D2Q9 has 2 velocity components). The moment-extraction
+  loops index by `j * self.nx + i` and `(j * self.nx + i) * 2 + d`.
+  Zero `nx` or `ny` silently underflows every index.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible caller (`lbm::solver.rs:183`) compiles
+  unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `density.len() == nx * ny` and
+  `velocity.len() == nx * ny * 2`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features lbm::macroscopic`
+  passes 8/8; full cfd-2d lib Nextest passes 615/615; `cargo clippy
+  -p cfd-2d --no-default-features --tests -- -D warnings` is clean on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/macroscopic.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.193: cfd-2d lbm CarreauYasudaBgk dx/dt validation
 **Status**: Completed
 **Owner**: current session

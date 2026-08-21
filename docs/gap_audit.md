@@ -2,6 +2,32 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.194 resolution: cfd-2d lbm::MacroscopicQuantities dimension validation
+
+### RESOLVED-226: `MacroscopicQuantities::new` silently accepts zero grid dimensions
+- **Location**: `crates/cfd-2d/src/solvers/lbm/macroscopic.rs:62`
+  (pre-fix).
+- **Issue**: the constructor allocates `density: Vec<T>` of length
+  `nx * ny` and `velocity: Vec<T>` of length `nx * ny * 2` (D2Q9 has 2
+  velocity components). The moment-extraction loops index by
+  `j * self.nx + i` and `(j * self.nx + i) * 2 + d` (lines in the
+  density/velocity/pressure extractors). Zero `nx` or `ny` silently
+  underflows every index in release builds and produces a degenerate
+  field with no caller diagnostic.
+- **Remediation**: new `MacroscopicQuantities::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx == 0` and `ny == 0`. The existing infallible `new` becomes
+  a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path (asserting `density.len() == nx * ny`
+  and `velocity.len() == nx * ny * 2`), and the panic-wrapper contract.
+  `cargo nextest run -p cfd-2d --no-default-features lbm::macroscopic`
+  passes 8/8; full cfd-2d lib Nextest passes 615/615; `cargo clippy
+  -p cfd-2d --no-default-features --tests -- -D warnings` clean on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` clean
+  on the touched file.
+
 ## Sprint 1.96.193 resolution: cfd-2d lbm CarreauYasudaBgk dx/dt validation
 
 ### RESOLVED-225: `CarreauYasudaBgk::new` silently accepts degenerate `dx`/`dt`
