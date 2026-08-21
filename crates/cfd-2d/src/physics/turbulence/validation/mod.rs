@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Comprehensive turbulence model validation suite
 //!
 //! This module provides validation against:
@@ -97,22 +96,22 @@ impl ValidationResult {
     /// Display the result in a formatted way
     pub fn display(&self) {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
-        println!("{}: {}", status, self.test_name);
-        println!("  Metric: {}", self.metric);
+        tracing::info!("{}: {}", status, self.test_name);
+        tracing::info!("  Metric: {}", self.metric);
         if !self.details.is_empty() {
-            println!("  Details: {}", self.details);
+            tracing::info!("  Details: {}", self.details);
         }
-        println!();
+        tracing::info!("");
     }
 }
 
 /// Run and display comprehensive turbulence validation against experimental benchmarks
 pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
-    println!("🧪 Comprehensive Turbulence Model Validation Suite");
-    println!("=================================================");
-    println!("Validating against experimental benchmarks per ASME V&V 20-2009");
-    println!("References: White (2006), Moser et al. (1999), Comte-Bellot & Corrsin (1971)");
-    println!();
+    tracing::info!("🧪 Comprehensive Turbulence Model Validation Suite");
+    tracing::info!("=================================================");
+    tracing::info!("Validating against experimental benchmarks per ASME V&V 20-2009");
+    tracing::info!("References: White (2006), Moser et al. (1999), Comte-Bellot & Corrsin (1971)");
+    tracing::info!("");
 
     let validator = TurbulenceValidator::<T>::new(<T as FloatElement>::from_f64(0.01));
     let results = validator.run_full_validation_suite();
@@ -138,8 +137,8 @@ pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("🏭 RANS Model Validations:");
-    println!("-------------------------");
+    tracing::info!("🏭 RANS Model Validations:");
+    tracing::info!("-------------------------");
     for result in &rans_results {
         result.display();
         if result.passed {
@@ -149,8 +148,8 @@ pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("\n🌪️  LES/DES Model Validations:");
-    println!("----------------------------");
+    tracing::info!("\n🌪️  LES/DES Model Validations:");
+    tracing::info!("----------------------------");
     for result in &les_results {
         result.display();
         if result.passed {
@@ -160,8 +159,8 @@ pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("\n⚡ Performance Benchmarks:");
-    println!("------------------------");
+    tracing::info!("\n⚡ Performance Benchmarks:");
+    tracing::info!("------------------------");
     for result in &results {
         if result.test_name.contains("Performance") {
             result.display();
@@ -173,38 +172,38 @@ pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("\n📊 Validation Summary:");
-    println!(
+    tracing::info!("\n📊 Validation Summary:");
+    tracing::info!(
         "  RANS Tests: {} passed, {} total",
         rans_results.iter().filter(|r| r.passed).count(),
         rans_results.len(),
     );
-    println!(
+    tracing::info!(
         "  LES/DES Tests: {} passed, {} total",
         les_results.iter().filter(|r| r.passed).count(),
         les_results.len()
     );
-    println!("  Total: {passed} passed, {failed} failed, {total_tests} total");
-    println!(
+    tracing::info!("  Total: {passed} passed, {failed} failed, {total_tests} total");
+    tracing::info!(
         "  Success Rate: {:.1}%",
         100.0 * passed as f32 / total_tests as f32
     );
 
     if failed == 0 {
-        println!("🎉 All turbulence validation tests passed!");
-        println!("   CFD models validated against experimental benchmarks.");
+        tracing::info!("🎉 All turbulence validation tests passed!");
+        tracing::info!("   CFD models validated against experimental benchmarks.");
     } else {
-        println!("⚠️  {failed} validation tests failed - review implementation");
-        println!("   Models may require calibration or bug fixes.");
+        tracing::warn!("⚠️  {failed} validation tests failed - review implementation");
+        tracing::info!("   Models may require calibration or bug fixes.");
     }
 }
 
 /// Run RANS model benchmark suite
 pub fn run_rans_benchmark_suite<T: EunomiaRealField + Copy>() {
-    println!("🏭 RANS Turbulence Model Benchmark Suite");
-    println!("=======================================");
-    println!("Validating k-ε, k-ω SST, and SA models against experimental data");
-    println!();
+    tracing::info!("🏭 RANS Turbulence Model Benchmark Suite");
+    tracing::info!("=======================================");
+    tracing::info!("Validating k-ε, k-ω SST, and SA models against experimental data");
+    tracing::info!("");
 
     let validator = TurbulenceValidator::<T>::new(<T as FloatElement>::from_f64(0.01));
     let results = validator.run_rans_benchmark_suite();
@@ -221,9 +220,9 @@ pub fn run_rans_benchmark_suite<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("\n📊 RANS Benchmark Summary:");
-    println!("  Passed: {passed}/{}", results.len());
-    println!(
+    tracing::info!("\n📊 RANS Benchmark Summary:");
+    tracing::info!("  Passed: {passed}/{}", results.len());
+    tracing::info!(
         "  Success Rate: {:.1}%",
         100.0 * passed as f32 / results.len() as f32
     );
@@ -231,10 +230,10 @@ pub fn run_rans_benchmark_suite<T: EunomiaRealField + Copy>() {
 
 /// Run LES/DES benchmark suite
 pub fn run_les_benchmark_suite<T: EunomiaRealField + Copy>() {
-    println!("🌪️  LES/DES Turbulence Model Benchmark Suite");
-    println!("===========================================");
-    println!("Validating Smagorinsky LES and DES models");
-    println!();
+    tracing::info!("🌪️  LES/DES Turbulence Model Benchmark Suite");
+    tracing::info!("===========================================");
+    tracing::info!("Validating Smagorinsky LES and DES models");
+    tracing::info!("");
 
     let validator = TurbulenceValidator::<T>::new(<T as FloatElement>::from_f64(0.01));
     let results = validator.run_les_benchmark_suite();
@@ -251,9 +250,9 @@ pub fn run_les_benchmark_suite<T: EunomiaRealField + Copy>() {
         }
     }
 
-    println!("\n📊 LES/DES Benchmark Summary:");
-    println!("  Passed: {passed}/{}", results.len());
-    println!(
+    tracing::info!("\n📊 LES/DES Benchmark Summary:");
+    tracing::info!("  Passed: {passed}/{}", results.len());
+    tracing::info!(
         "  Success Rate: {:.1}%",
         100.0 * passed as f32 / results.len() as f32
     );
