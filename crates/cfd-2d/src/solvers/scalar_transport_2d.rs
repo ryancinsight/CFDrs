@@ -28,6 +28,7 @@ use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -65,12 +66,44 @@ pub struct ScalarTransportSolver2D<T: CfdScalar + Copy + FloatElement> {
 }
 
 impl<T: CfdScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
-    /// Create new scalar transport solver
+    /// Create new scalar transport solver.
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
-        Self {
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("ScalarTransportSolver2D::new called with invalid grid: {error}");
+        })
+    }
+
+    /// Create new scalar transport solver with grid-dimension validation.
+    ///
+    /// Allocates the concentration field `c` and previous-iteration
+    /// `_c_old`, both of length `nx * ny`. The solver iterates over
+    /// `j ∈ [0, ny), i ∈ [0, nx)` with FVM face indexing
+    /// `linear_index = j * nx + i`; zero dimensions silently underflow
+    /// every iteration index and produce a degenerate field.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0`.
+    pub fn try_new(nx: usize, ny: usize) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "ScalarTransportSolver2D::try_new: nx (number of x cells) must be at least 1"
+                    .to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "ScalarTransportSolver2D::try_new: ny (number of y cells) must be at least 1"
+                    .to_string(),
+            ));
+        }
+        Ok(Self {
             c: Array2D::new(nx, ny, scalar::zero()),
             _c_old: Array2D::new(nx, ny, scalar::zero()),
-        }
+        })
     }
 
     /// Solve the steady-state advection-diffusion equation
@@ -197,5 +230,44 @@ impl<T: CfdScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
             "Scalar transport failed to converge after {} iterations",
             config.max_iterations
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid grid dimensions.
+    #[test]
+    fn scalar_transport_try_new_accepts_valid_grid() {
+        let solver =
+            ScalarTransportSolver2D::<f64>::try_new(8, 12).expect("valid grid must succeed");
+        assert_eq!(solver.c.rows(), 8);
+        assert_eq!(solver.c.cols(), 12);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn scalar_transport_try_new_rejects_zero_nx() {
+        match ScalarTransportSolver2D::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn scalar_transport_try_new_rejects_zero_ny() {
+        match ScalarTransportSolver2D::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn scalar_transport_new_panics_on_zero_nx() {
+        let _ = ScalarTransportSolver2D::<f64>::new(0, 10);
     }
 }
