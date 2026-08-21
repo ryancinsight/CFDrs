@@ -2,6 +2,30 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.204 resolution: cfd-2d turbulence::TurbulenceBoundaryManager input validation
+
+### RESOLVED-236: `TurbulenceBoundaryManager::new` silently accepts degenerate inputs
+- **Location**: `crates/cfd-2d/src/physics/turbulence/boundary_conditions/manager.rs:39`
+  (pre-fix).
+- **Issue**: `calculate_wall_distances` (lines 58–61) multiplies cell
+  indices by `dx`/`dy` to compute wall distances; zero or non-finite
+  spacing collapses every wall distance to NaN/zero, leaving the
+  subsequent `y+` computation meaningless for wall-function
+  application.
+- **Remediation**: new `TurbulenceBoundaryManager::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx == 0`, `ny == 0`, `dx` non-finite or non-positive, and
+  `dy` non-finite or non-positive. The existing infallible `new`
+  becomes a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover all
+  rejection paths, the accept-path (with default `dx`/`dy`), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::boundary_conditions::manager` passes 4/4; full cfd-2d
+  lib Nextest passes 663/663; `cargo clippy -p cfd-2d --no-default-features
+  --tests` produces no new warnings on the touched file (only
+  pre-existing peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` clean on the touched file.
+
 ## Sprint 1.96.203 resolution: cfd-2d turbulence::DetachedEddySimulation input validation
 
 ### RESOLVED-235: `DetachedEddySimulation::new` silently accepts degenerate inputs

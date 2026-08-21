@@ -32,6 +32,31 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.204 Checklist: cfd-2d turbulence::TurbulenceBoundaryManager input validation
+**Goal**: Reject degenerate inputs in the turbulence boundary
+manager so the wall-distance computation never produces NaN/zero
+distances that propagate into the y+ wall-function application.
+
+**Success Criteria**:
+- [x] `TurbulenceBoundaryManager::try_new` returns
+      `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+      non-positive, `dy` non-finite or non-positive.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      turbulence::boundary_conditions::manager` passes 4/4.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The
+turbulence boundary manager is now contractually forbidden from
+running on degenerate inputs.
+
+---
+
 # Sprint 1.96.203 Checklist: cfd-2d turbulence::DetachedEddySimulation input validation
 **Goal**: Reject degenerate inputs in the DES turbulence model so
 the length scale `Δ = max(dx, dy)`, the shielding constant `C_DES`,

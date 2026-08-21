@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.204: cfd-2d turbulence::TurbulenceBoundaryManager input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager::new(
+  nx, ny, dx, dy)` for missing physical invariant checks. The
+  `calculate_wall_distances` method (lines 58–61) multiplies cell
+  indices by `dx`/`dy` to compute wall distances; zero or non-finite
+  spacing collapses every wall distance to NaN/zero, leaving the
+  subsequent `y+` computation meaningless for wall-function
+  application.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive.
+- Pre-existing infallible callers (in `k_epsilon/model.rs:149`,
+  `k_epsilon/tests.rs`, and `turbulence::wall_functions`) compile
+  unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default `dx`/`dy`), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::boundary_conditions::manager` passes 4/4; full cfd-2d
+  lib Nextest passes 663/663; `cargo clippy -p cfd-2d
+  --no-default-features --tests` produces no new warnings on the
+  touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/boundary_conditions/manager.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.203: cfd-2d turbulence::DetachedEddySimulation input validation
 **Status**: Completed
 **Owner**: current session
