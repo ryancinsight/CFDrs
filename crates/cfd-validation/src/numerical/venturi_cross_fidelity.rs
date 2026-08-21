@@ -385,7 +385,7 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     let sol = match solver.solve(u_inlet) {
         Ok(sol) => sol,
         Err(e) => {
-            println!("Staggered solver failed: {e:?}");
+            tracing::info!("Staggered solver failed: {e:?}");
             return run_2d_simplec(input);
         }
     };

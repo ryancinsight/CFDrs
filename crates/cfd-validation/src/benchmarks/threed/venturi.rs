@@ -87,11 +87,11 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> Benchmark<T> for VenturiFlow
             .metrics
             .insert("u_inlet".to_string(), solution.u_inlet);
 
-        println!("Venturi 3D Validation:");
-        println!("  u_inlet (FEM): {:?}", solution.u_inlet);
-        println!("  u_throat (FEM): {:?}", solution.u_throat);
-        println!("  Cp_throat (FEM): {:?}", solution.cp_throat);
-        println!("  Mass error: {:?}", solution.mass_error);
+        tracing::info!("Venturi 3D Validation:");
+        tracing::info!("  u_inlet (FEM): {:?}", solution.u_inlet);
+        tracing::info!("  u_throat (FEM): {:?}", solution.u_throat);
+        tracing::info!("  Cp_throat (FEM): {:?}", solution.cp_throat);
+        tracing::info!("  Mass error: {:?}", solution.mass_error);
 
         Ok(result)
     }
