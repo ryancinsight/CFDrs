@@ -2,6 +2,34 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.196 resolution: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
+
+### RESOLVED-228: `AdvectionDiffusionSolver::new` silently accepts degenerate `FdmConfig`
+- **Location**: `crates/cfd-2d/src/solvers/fdm/advection_diffusion.rs:37`
+  (pre-fix).
+- **Issue**: `AdvectionDiffusionSolver::new(config)` wraps a `FdmConfig`
+  (a thin SSOT alias around
+  `cfd_core::compute::solver::SolverConfig`) and forwards it directly
+  to Gauss–Seidel iteration in `solve_steady`. The inner stencil
+  (line 125: `center_coeff = two * diffusivity / dx2 + two * diffusivity
+  / dy2`) inherits the Gauss–Seidel convergence guarantee on the
+  relaxation factor. Invalid `tolerance`/`max_iterations`/`relaxation`
+  values diverge silently.
+- **Remediation**: new `AdvectionDiffusionSolver::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `tolerance` non-finite or non-positive, `max_iterations == 0`,
+  and `relaxation_factor` non-finite or outside `(0, 2]`. The existing
+  infallible `new` becomes a thin panic wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths, the accept-path (default config), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d
+  --no-default-features fdm::advection_diffusion` passes 5/5; full
+  cfd-2d lib Nextest passes 625/625; `cargo clippy -p cfd-2d
+  --no-default-features --tests` produces no new warnings on the
+  touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` clean
+  on the touched file.
+
 ## Sprint 1.96.195 resolution: cfd-2d fdm::PoissonSolver FdmConfig validation
 
 ### RESOLVED-227: `PoissonSolver::new` silently accepts degenerate `FdmConfig`

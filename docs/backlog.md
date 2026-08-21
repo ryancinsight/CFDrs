@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.196: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fdm::AdvectionDiffusionSolver::new(config)` for
+  missing invariant checks. The constructor wraps a `FdmConfig`
+  (a thin SSOT alias around
+  `cfd_core::compute::solver::SolverConfig`) and forwards it directly
+  to Gauss–Seidel iteration in `solve_steady`. The inner stencil
+  (line 125: `center_coeff = two * diffusivity / dx2 + two * diffusivity
+  / dy2`) inherits the Gauss–Seidel convergence guarantee on the
+  relaxation factor.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `tolerance` non-finite or non-positive,
+  `max_iterations == 0`, `relaxation_factor` non-finite or outside
+  `(0, 2]`.
+- Pre-existing infallible callers (in `tests_advection_diffusion_mms.rs`
+  and the `solve_steady` field of the `AdvectionDiffusionSolver`
+  itself) compile unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (default config), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  fdm::advection_diffusion` passes 5/5; full cfd-2d lib Nextest passes
+  625/625; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fdm/advection_diffusion.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.195: cfd-2d fdm::PoissonSolver FdmConfig validation
 **Status**: Completed
 **Owner**: current session

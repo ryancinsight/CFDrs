@@ -32,6 +32,33 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.196 Checklist: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
+**Goal**: Reject invalid `SolverConfig` wrapped in `FdmConfig` for
+`AdvectionDiffusionSolver::new` so the FDM scalar-transport solver
+cannot run on a divergent Gauss–Seidel configuration.
+
+**Success Criteria**:
+- [x] `AdvectionDiffusionSolver::try_new` returns
+      `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `tolerance` non-finite or non-positive,
+      `max_iterations == 0`, `relaxation_factor` non-finite or outside
+      `(0, 2]`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Five new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      fdm::advection_diffusion` passes 5/5.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file (only pre-existing peer-dirty
+      warnings in `piso_algorithm/predictor.rs`).
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The FDM
+advection-diffusion solver is now contractually forbidden from running
+on a degenerate Gauss–Seidel configuration.
+
+---
+
 # Sprint 1.96.195 Checklist: cfd-2d fdm::PoissonSolver FdmConfig validation
 **Goal**: Reject invalid `SolverConfig` wrapped in `FdmConfig` for
 `PoissonSolver::new` so the Gauss–Seidel inner iteration cannot diverge
