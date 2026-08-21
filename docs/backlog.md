@@ -1,5 +1,41 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.201: cfd-2d turbulence::KOmegaSSTModel dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::k_omega_sst::KOmegaSSTModel::new(nx, ny)`
+  for missing physical invariant checks. The constructor allocates
+  `f1: Vec<T>` and `f2: Vec<T>` of length `nx * ny` for the SST
+  blending functions. The Bradshaw-assumption viscosity limiter
+  (`a₁ k / max(a₁ ω, S F₂)`) and wall-treatment path rely on these
+  buffers; zero `nx` or `ny` silently underflows every blending
+  computation.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (in `cfd-2d::physics::turbulence::k_omega_sst::tests`
+  and the broader turbulence pipeline) compile unchanged via the thin
+  wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `f1.len() == nx * ny` and
+  `f2.len() == nx * ny`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::k_omega_sst::model` passes 4/4; full cfd-2d lib Nextest
+  passes 649/649; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/k_omega_sst/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.200: cfd-2d turbulence::KEpsilonModel dimension validation
 **Status**: Completed
 **Owner**: current session

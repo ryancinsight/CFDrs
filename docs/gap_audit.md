@@ -2,6 +2,29 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.201 resolution: cfd-2d turbulence::KOmegaSSTModel dimension validation
+
+### RESOLVED-233: `KOmegaSSTModel::new` silently accepts zero grid dimensions
+- **Location**: `crates/cfd-2d/src/physics/turbulence/k_omega_sst/model.rs:48`
+  (pre-fix).
+- **Issue**: the constructor allocates `f1: Vec<T>` and `f2: Vec<T>` of
+  length `nx * ny` for the SST blending functions. The
+  Bradshaw-assumption viscosity limiter (`a₁ k / max(a₁ ω, S F₂)`) and
+  wall-treatment path rely on these buffers; zero `nx` or `ny`
+  silently underflows every blending computation.
+- **Remediation**: new `KOmegaSSTModel::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx == 0` and `ny == 0`. The existing infallible `new` becomes
+  a thin panic wrapper.
+- **Evidence**: four new value-semantic regression tests cover both
+  rejection paths, the accept-path (asserting `f1.len() == nx * ny`
+  and `f2.len() == nx * ny`), and the panic-wrapper contract.
+  `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::k_omega_sst::model` passes 4/4; full cfd-2d lib Nextest
+  passes 649/649; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file; `rustfmt --edition 2024
+  --check` clean on the touched file.
+
 ## Sprint 1.96.200 resolution: cfd-2d turbulence::KEpsilonModel dimension validation
 
 ### RESOLVED-232: `KEpsilonModel::new` and `new_realizable` silently accept zero grid dimensions

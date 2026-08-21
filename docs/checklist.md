@@ -32,6 +32,28 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.201 Checklist: cfd-2d turbulence::KOmegaSSTModel dimension validation
+**Goal**: Reject zero grid dimensions in the k-ω SST turbulence model
+so the SST blending function loops never index empty buffers.
+
+**Success Criteria**:
+- [x] `KOmegaSSTModel::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects `nx == 0` and `ny == 0`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Four new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      turbulence::k_omega_sst::model` passes 4/4.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The k-ω SST
+turbulence model is now contractually forbidden from running on a
+degenerate grid.
+
+---
+
 # Sprint 1.96.200 Checklist: cfd-2d turbulence::KEpsilonModel dimension validation
 **Goal**: Reject zero grid dimensions in the k-ε turbulence model so
 the k-ε update loops never index empty scratch buffers.
