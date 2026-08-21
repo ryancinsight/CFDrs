@@ -93,6 +93,10 @@ pub struct BubbleDynamicsSolver {
 
 impl BubbleDynamicsSolver {
     /// Create new bubble dynamics solver
+    ///
+    /// Prefer [`BubbleDynamicsSolver::try_new`] for fallible construction;
+    /// this constructor is retained for callers that already validated their
+    /// inputs and need the infallible signature.
     pub fn new(
         config: &BubbleDynamicsConfig,
         nx: usize,
@@ -105,6 +109,118 @@ impl BubbleDynamicsSolver {
         blood_model: BloodModel<f64>,
         vapor_pressure: Pressure<f64>,
     ) -> Self {
+        match Self::try_new(
+            config,
+            nx,
+            ny,
+            nz,
+            dx,
+            dy,
+            dz,
+            liquid_density,
+            blood_model,
+            vapor_pressure,
+        ) {
+            Ok(solver) => solver,
+            Err(error) => panic!("BubbleDynamicsSolver::new called with invalid inputs: {error}"),
+        }
+    }
+
+    /// Fallible constructor that validates every physical input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `config.initial_radius` is non-finite or non-positive (the
+    ///   Rayleigh-Plesset ODE divides by `R`),
+    /// - `config.polytropic_exponent` is non-finite or non-positive
+    ///   (the polytropic pressure relation `p ∝ ρ^γ` requires γ > 0),
+    /// - `config.surface_tension` is non-finite or negative (negative
+    ///   surface tension is unphysical),
+    /// - `config.number_density` is non-finite or negative,
+    /// - any of `nx`/`ny`/`nz`/`dx`/`dy`/`dz` is zero (the bubble
+    ///   population weighting and total cell count would degenerate),
+    /// - `liquid_density` is non-finite or non-positive (the RP ODE
+    ///   divides by ρ_l),
+    /// - `vapor_pressure` is non-finite or negative.
+    pub fn try_new(
+        config: &BubbleDynamicsConfig,
+        nx: usize,
+        ny: usize,
+        nz: usize,
+        dx: Length<f64>,
+        dy: Length<f64>,
+        dz: Length<f64>,
+        liquid_density: MassDensity<f64>,
+        blood_model: BloodModel<f64>,
+        vapor_pressure: Pressure<f64>,
+    ) -> Result<Self> {
+        if !config.initial_radius.into_base().is_finite()
+            || config.initial_radius.into_base() <= 0.0
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: config.initial_radius must be finite and positive, got {:?}",
+                config.initial_radius
+            )));
+        }
+        if !config.polytropic_exponent.is_finite() || config.polytropic_exponent <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: config.polytropic_exponent must be finite and positive, got {}",
+                config.polytropic_exponent
+            )));
+        }
+        if !config.surface_tension.into_base().is_finite()
+            || config.surface_tension.into_base() < 0.0
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: config.surface_tension must be finite and non-negative, got {:?}",
+                config.surface_tension
+            )));
+        }
+        if !config.number_density.into_base().is_finite() || config.number_density.into_base() < 0.0
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: config.number_density must be finite and non-negative, got {:?}",
+                config.number_density
+            )));
+        }
+        if nx == 0 || ny == 0 || nz == 0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: grid dimensions must all be positive, got ({nx}, {ny}, {nz})"
+            )));
+        }
+        if !dx.into_base().is_finite() || dx.into_base() <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: dx must be finite and positive, got {:?}",
+                dx
+            )));
+        }
+        if !dy.into_base().is_finite() || dy.into_base() <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: dy must be finite and positive, got {:?}",
+                dy
+            )));
+        }
+        if !dz.into_base().is_finite() || dz.into_base() <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: dz must be finite and positive, got {:?}",
+                dz
+            )));
+        }
+        if !liquid_density.into_base().is_finite() || liquid_density.into_base() <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: liquid_density must be finite and positive, got {:?}",
+                liquid_density
+            )));
+        }
+        if !vapor_pressure.into_base().is_finite() || vapor_pressure.into_base() < 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::try_new: vapor_pressure must be finite and non-negative, got {:?}",
+                vapor_pressure
+            )));
+        }
+
         let initial_viscosity = blood_model.viscosity(0.0);
         let rp = RayleighPlesset {
             initial_radius: config.initial_radius,
@@ -118,7 +234,7 @@ impl BubbleDynamicsSolver {
         let bubble_population_weight =
             config.number_density.into_base() * dx.into_base() * dy.into_base() * dz.into_base();
 
-        Self {
+        Ok(Self {
             nx,
             ny,
             configs: vec![rp; len],
@@ -126,7 +242,7 @@ impl BubbleDynamicsSolver {
             velocities: vec![0.0; len],
             bubble_population_weight,
             blood_model,
-        }
+        })
     }
 
     #[inline]
@@ -141,6 +257,16 @@ impl BubbleDynamicsSolver {
     }
 
     /// Update bubble dynamics for a specific cell
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    /// - `pressure` is non-finite (the Rayleigh-Plesset ODE uses it as the
+    ///   driving far-field pressure),
+    /// - `density` is non-finite or non-positive (the ODE divides by ρ_l),
+    /// - `dt` is non-finite or non-positive (the semi-implicit Euler step
+    ///   inverts sign for negative `dt` and stagnates for `dt = 0`),
+    /// - the cell index `(i, j, k)` is out of grid bounds.
     pub fn update_bubble(
         &mut self,
         i: usize,
@@ -151,11 +277,29 @@ impl BubbleDynamicsSolver {
         density: MassDensity<f64>,
         dt: Time<f64>,
     ) -> Result<Length<f64>> {
+        if i >= self.nx || j >= self.ny {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::update_bubble: cell index ({i}, {j}, {k}) is out of grid bounds (nx={}, ny={})",
+                self.nx, self.ny
+            )));
+        }
+        if !pressure.into_base().is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::update_bubble: pressure must be finite, got {:?}",
+                pressure
+            )));
+        }
         let density = density.into_base();
         if !density.is_finite() || density <= 0.0 {
             return Err(Error::InvalidConfiguration(
                 "local liquid density must be finite and positive".to_string(),
             ));
+        }
+        if !dt.into_base().is_finite() || dt.into_base() <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "BubbleDynamicsSolver::update_bubble: dt must be finite and positive, got {:?}",
+                dt
+            )));
         }
 
         let idx = self.index(i, j, k);
@@ -415,5 +559,229 @@ mod tests {
         assert_eq!(radius.into_base(), 0.0);
         assert_eq!(solver.radii[0], 0.0);
         assert_eq!(solver.velocities[0], 0.0);
+    }
+
+    fn default_config() -> BubbleDynamicsConfig {
+        BubbleDynamicsConfig {
+            initial_radius: Length::from_base(2.0e-6),
+            number_density: NumberDensity::from_base(1.0e12),
+            polytropic_exponent: 1.4,
+            surface_tension: SurfaceTension::from_base(0.072),
+        }
+    }
+
+    #[test]
+    fn try_new_rejects_zero_initial_radius() {
+        let mut config = default_config();
+        config.initial_radius = Length::from_base(0.0);
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("initial_radius")),
+            "expected InvalidConfiguration error for zero initial_radius"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_positive_polytropic_exponent() {
+        let mut config = default_config();
+        config.polytropic_exponent = 0.0;
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("polytropic_exponent")),
+            "expected InvalidConfiguration error for zero polytropic_exponent"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_zero_grid_extent() {
+        let config = default_config();
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            0,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("grid dimensions")),
+            "expected InvalidConfiguration error for zero grid extent"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_zero_dx() {
+        let config = default_config();
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(0.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dx")),
+            "expected InvalidConfiguration error for zero dx"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_positive_liquid_density() {
+        let config = default_config();
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(-1.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("liquid_density")),
+            "expected InvalidConfiguration error for negative liquid_density"
+        );
+    }
+
+    #[test]
+    fn try_new_accepts_physically_valid_inputs() {
+        let config = default_config();
+        let result = BubbleDynamicsSolver::try_new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        assert!(result.is_ok(), "valid config and grid must succeed");
+    }
+
+    #[test]
+    fn update_bubble_rejects_zero_dt() {
+        let config = default_config();
+        let mut solver = BubbleDynamicsSolver::new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        let result = solver.update_bubble(
+            0,
+            0,
+            0,
+            Pressure::from_base(1.0e5),
+            Vector3::zeros(),
+            MassDensity::from_base(1000.0),
+            Time::from_base(0.0),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for zero dt"
+        );
+    }
+
+    #[test]
+    fn update_bubble_rejects_negative_dt() {
+        let config = default_config();
+        let mut solver = BubbleDynamicsSolver::new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        let result = solver.update_bubble(
+            0,
+            0,
+            0,
+            Pressure::from_base(1.0e5),
+            Vector3::zeros(),
+            MassDensity::from_base(1000.0),
+            Time::from_base(-1.0e-7),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("dt")),
+            "expected InvalidConfiguration error for negative dt"
+        );
+    }
+
+    #[test]
+    fn update_bubble_rejects_out_of_bounds_index() {
+        let config = default_config();
+        let mut solver = BubbleDynamicsSolver::new(
+            &config,
+            1,
+            1,
+            1,
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            Length::from_base(1.0),
+            MassDensity::from_base(1000.0),
+            BloodModel::Newtonian(1.0e-3),
+            Pressure::from_base(2300.0),
+        );
+        let result = solver.update_bubble(
+            5,
+            0,
+            0,
+            Pressure::from_base(1.0e5),
+            Vector3::zeros(),
+            MassDensity::from_base(1000.0),
+            Time::from_base(1.0e-7),
+        );
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("out of grid bounds")),
+            "expected InvalidConfiguration error for out-of-bounds index"
+        );
     }
 }

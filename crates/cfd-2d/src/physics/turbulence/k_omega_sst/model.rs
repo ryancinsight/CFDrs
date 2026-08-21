@@ -23,7 +23,7 @@ use crate::physics::turbulence::constants::{
     SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2, SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use eunomia::RealField;
 use leto::geometry::Vector2;
 
@@ -44,15 +44,38 @@ pub struct KOmegaSSTModel<T: RealField> {
 
 impl<T: RealField> KOmegaSSTModel<T> {
     /// Create a new k-ω SST model for a grid of dimension `nx × ny`.
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new`]).
     #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("KOmegaSSTModel::new called with invalid grid: {error}");
+        })
+    }
+
+    /// Create a new k-ω SST model with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0`.
+    pub fn try_new(nx: usize, ny: usize) -> Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "KOmegaSSTModel::try_new: nx (number of x cells) must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "KOmegaSSTModel::try_new: ny (number of y cells) must be at least 1".to_string(),
+            ));
+        }
         let size = nx * ny;
-        Self {
+        Ok(Self {
             nx,
             ny,
             f1: vec![T::ZERO; size],
             f2: vec![T::ZERO; size],
-        }
+        })
     }
 
     /// Apply wall and positivity boundary conditions.
@@ -253,5 +276,45 @@ impl<T: RealField> TurbulenceModel<T> for KOmegaSSTModel<T> {
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         reynolds > T::ZERO
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid grid dimensions.
+    #[test]
+    fn k_omega_sst_try_new_accepts_valid_grid() {
+        let model = KOmegaSSTModel::<f64>::try_new(8, 12).expect("valid grid must succeed");
+        assert_eq!(model.nx, 8);
+        assert_eq!(model.ny, 12);
+        assert_eq!(model.f1.len(), 96);
+        assert_eq!(model.f2.len(), 96);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn k_omega_sst_try_new_rejects_zero_nx() {
+        match KOmegaSSTModel::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn k_omega_sst_try_new_rejects_zero_ny() {
+        match KOmegaSSTModel::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn k_omega_sst_new_panics_on_zero_nx() {
+        let _ = KOmegaSSTModel::<f64>::new(0, 10);
     }
 }

@@ -6,11 +6,11 @@
 use super::kato_launder;
 use super::realizable;
 use crate::physics::turbulence::constants::{
-    C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K,
+    C_MU, C1_EPSILON, C2_EPSILON, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use cfd_core::{
-    error::Result,
+    error::{Error, Result},
     physics::constants::mathematical::numeric::{ONE_HALF, TWO},
 };
 use eunomia::{NumericElement, RealField};
@@ -62,9 +62,32 @@ pub struct KEpsilonModel<T: RealField> {
 
 impl<T: RealField> KEpsilonModel<T> {
     /// Create a new standard k-ε model (C_mu = 0.09 fixed).
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new`]).
     pub fn new(nx: usize, ny: usize) -> Self {
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("KEpsilonModel::new called with invalid grid: {error}");
+        })
+    }
+
+    /// Create a new standard k-ε model with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0`.
+    pub fn try_new(nx: usize, ny: usize) -> Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "KEpsilonModel::try_new: nx (number of x cells) must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "KEpsilonModel::try_new: ny (number of y cells) must be at least 1".to_string(),
+            ));
+        }
         let n = nx * ny;
-        Self {
+        Ok(Self {
             nx,
             ny,
             c_mu: T::from_f64(C_MU),
@@ -76,7 +99,7 @@ impl<T: RealField> KEpsilonModel<T> {
             use_kato_launder: false,
             k_scratch: vec![T::ZERO; n],
             eps_scratch: vec![T::ZERO; n],
-        }
+        })
     }
 
     /// Create a new Realizable k-ε model (Shih et al. 1995).
@@ -84,10 +107,23 @@ impl<T: RealField> KEpsilonModel<T> {
     /// The realizable variant computes C_mu from the local strain rate,
     /// bounding it above by `1/A_0 ≈ 0.247` and reducing it in regions of
     /// strong strain to prevent unphysical turbulent viscosity.
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new_realizable`]).
     pub fn new_realizable(nx: usize, ny: usize) -> Self {
-        let mut model = Self::new(nx, ny);
+        Self::try_new_realizable(nx, ny).unwrap_or_else(|error| {
+            panic!("KEpsilonModel::new_realizable called with invalid grid: {error}");
+        })
+    }
+
+    /// Create a new Realizable k-ε model with grid-dimension validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0`.
+    pub fn try_new_realizable(nx: usize, ny: usize) -> Result<Self> {
+        let mut model = Self::try_new(nx, ny)?;
         model.use_realizable = true;
-        model
+        Ok(model)
     }
 
     /// Enable or disable the Realizable k-ε formulation.
@@ -319,5 +355,62 @@ impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         reynolds > T::from_f64(1e4)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid grid dimensions.
+    #[test]
+    fn k_epsilon_try_new_accepts_valid_grid() {
+        let model = KEpsilonModel::<f64>::try_new(8, 12).expect("valid grid must succeed");
+        assert_eq!(model.nx, 8);
+        assert_eq!(model.ny, 12);
+        assert_eq!(model.k_scratch.len(), 96);
+        assert_eq!(model.eps_scratch.len(), 96);
+        assert!(!model.use_realizable);
+    }
+
+    /// **Positive**: `try_new_realizable` accepts valid grid dimensions
+    /// and enables the realizable flag.
+    #[test]
+    fn k_epsilon_try_new_realizable_accepts_valid_grid() {
+        let model =
+            KEpsilonModel::<f64>::try_new_realizable(8, 12).expect("valid grid must succeed");
+        assert!(model.use_realizable);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn k_epsilon_try_new_rejects_zero_nx() {
+        match KEpsilonModel::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn k_epsilon_try_new_rejects_zero_ny() {
+        match KEpsilonModel::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn k_epsilon_new_panics_on_zero_nx() {
+        let _ = KEpsilonModel::<f64>::new(0, 10);
+    }
+
+    /// **Boundary**: `new_realizable` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "ny")]
+    fn k_epsilon_new_realizable_panics_on_zero_ny() {
+        let _ = KEpsilonModel::<f64>::new_realizable(10, 0);
     }
 }

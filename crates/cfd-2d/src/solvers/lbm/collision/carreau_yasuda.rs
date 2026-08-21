@@ -38,8 +38,9 @@
 use super::traits::CollisionOperator;
 use crate::physics::non_newtonian::CarreauYasudaModel;
 use crate::scalar::{max, one, zero};
-use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
 use crate::solvers::lbm::streaming::f_idx;
+use cfd_core::error::Error;
 use eunomia::{CastFrom, FloatElement, NumericElement};
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$
@@ -56,9 +57,42 @@ pub struct CarreauYasudaBgk<T: FloatElement> {
 }
 
 impl<T: FloatElement> CarreauYasudaBgk<T> {
-    /// Construct a new non-Newtonian BGK operator
+    /// Construct a new non-Newtonian BGK operator.
+    ///
+    /// # Panics
+    /// Panics if `dx` or `dt` is non-finite or non-positive (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(model: CarreauYasudaModel<T>, dx: T, dt: T) -> Self {
-        Self { model, dx, dt }
+        Self::try_new(model, dx, dt).unwrap_or_else(|error| {
+            panic!("CarreauYasudaBgk::new called with invalid dx/dt: {error}");
+        })
+    }
+
+    /// Construct a new non-Newtonian BGK operator with validation.
+    ///
+    /// The fixed-point iteration in `compute_local_tau` (line 76) divides
+    /// by `dx²` to convert physical viscosity to lattice units:
+    /// `dt_dx2 = self.dt / (self.dx * self.dx)`. Zero or non-finite
+    /// `dx`/`dt` silently produces `inf`/`NaN` `dt_dx2` and a divergent
+    /// fixed-point iteration. The LBM stability floor
+    /// `τ = 0.5 + ν·dt_dx2/c_s²` implies `dx > 0` and `dt > 0` are
+    /// required for any meaningful result.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `dx` or `dt` is
+    /// non-finite or non-positive.
+    pub fn try_new(model: CarreauYasudaModel<T>, dx: T, dt: T) -> cfd_core::error::Result<Self> {
+        if !<T as NumericElement>::is_finite(dx) || dx <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "CarreauYasudaBgk::try_new: dx (grid spacing) must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dt) || dt <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "CarreauYasudaBgk::try_new: dt (time step) must be finite and positive, got {dt:?}"
+            )));
+        }
+        Ok(Self { model, dx, dt })
     }
 
     /// Fixed-point iteration to determine the local relaxation time ($\tau$)
@@ -111,11 +145,7 @@ impl<T: FloatElement> CarreauYasudaBgk<T> {
             tau = tau_next;
         }
 
-        if tau < lower_bound {
-            lower_bound
-        } else {
-            tau
-        }
+        if tau < lower_bound { lower_bound } else { tau }
     }
 }
 
@@ -247,5 +277,51 @@ mod tests {
 
         assert_relative_eq!(tau, rhs, epsilon = 1e-11);
         assert!(tau > 0.5);
+    }
+
+    /// **Positive**: `try_new` accepts valid `dx` and `dt`.
+    #[test]
+    fn carreau_yasuda_bgk_try_new_accepts_valid_dx_dt() {
+        let cy = CarreauYasudaModel::typical_blood();
+        let bgk = CarreauYasudaBgk::try_new(cy, 1e-4, 1e-6).expect("valid dx/dt must succeed");
+        assert!((bgk.dx - 1e-4).abs() < 1e-14);
+    }
+
+    /// **Adversarial**: zero `dx` is rejected.
+    #[test]
+    fn carreau_yasuda_bgk_try_new_rejects_zero_dx() {
+        let cy = CarreauYasudaModel::typical_blood();
+        match CarreauYasudaBgk::try_new(cy, 0.0, 1e-6) {
+            Err(e) => assert!(e.to_string().contains("dx"), "error must mention dx: {e}"),
+            Ok(_) => panic!("zero dx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `dt` is rejected.
+    #[test]
+    fn carreau_yasuda_bgk_try_new_rejects_nan_dt() {
+        let cy = CarreauYasudaModel::typical_blood();
+        match CarreauYasudaBgk::try_new(cy, 1e-4, f64::NAN) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("NaN dt must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: negative `dt` is rejected.
+    #[test]
+    fn carreau_yasuda_bgk_try_new_rejects_negative_dt() {
+        let cy = CarreauYasudaModel::typical_blood();
+        match CarreauYasudaBgk::try_new(cy, 1e-4, -1e-6) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("negative dt must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `dx` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "dx")]
+    fn carreau_yasuda_bgk_new_panics_on_invalid_dx() {
+        let cy = CarreauYasudaModel::typical_blood();
+        let _ = CarreauYasudaBgk::new(cy, 0.0, 1e-6);
     }
 }

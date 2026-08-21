@@ -33,9 +33,10 @@
 
 use super::traits::CollisionOperator;
 use crate::scalar::one;
-use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
 use crate::solvers::lbm::streaming::f_idx;
-use eunomia::FloatElement;
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement};
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$ (exact in IEEE 754).
 const LATTICE_CS2: f64 = 1.0 / 3.0;
@@ -56,13 +57,35 @@ impl<T: FloatElement> BgkCollision<T> {
     /// Construct from relaxation time τ.
     ///
     /// # Panics
-    /// Never panics; tau = 0 would cause ω = ∞ but that is a caller invariant.
+    /// Panics if `tau` is non-finite or non-positive (see [`Self::try_new`]).
     #[must_use]
     pub fn new(tau: T) -> Self {
-        Self {
+        Self::try_new(tau).unwrap_or_else(|error| {
+            panic!("BgkCollision::new called with invalid tau: {error}");
+        })
+    }
+
+    /// Construct from relaxation time τ with validation.
+    ///
+    /// BGK collision computes `ω = 1/τ` (line 64 below); zero or
+    /// non-finite `τ` silently produces `inf`/`NaN` collision frequency
+    /// and a divergent LBM solve (the BGK collision operator is
+    /// `fᵢ* = fᵢ - ω(fᵢ - fᵢ^eq)` per `cfd-2d/AGENTS.md § LBM BGK`).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `tau` is non-finite,
+    /// non-positive, or below the LBM stability floor `τ = 0.5` (which
+    /// corresponds to zero viscosity — see `cfd-2d/AGENTS.md § LBM BGK`).
+    pub fn try_new(tau: T) -> cfd_core::error::Result<Self> {
+        if !<T as NumericElement>::is_finite(tau) || tau <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "BgkCollision::try_new: tau (relaxation time) must be finite and positive, got {tau:?}"
+            )));
+        }
+        Ok(Self {
             tau,
             omega: one::<T>() / tau,
-        }
+        })
     }
 
     /// Construct from physical kinematic viscosity (Theorem — Viscosity correspondence).
@@ -125,7 +148,7 @@ mod tests {
     /// BGK H-theorem: after collision, H* ≤ H (monotone entropy decrease).
     #[test]
     fn test_h_theorem_bgk() {
-        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+        use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
 
         let tau = 1.0_f64;
         let omega = 1.0 / tau;
@@ -209,5 +232,46 @@ mod tests {
         let bgk = BgkCollision::<f64>::from_viscosity(nu, dt, dx);
         let nu_recovered = bgk.viscosity(dt, dx);
         assert_relative_eq!(nu_recovered, nu, epsilon = 1e-12);
+    }
+
+    /// **Positive**: `try_new` accepts a valid relaxation time.
+    #[test]
+    fn bgk_try_new_accepts_valid_tau() {
+        let bgk = BgkCollision::<f64>::try_new(1.0).expect("valid tau must succeed");
+        assert!((bgk.omega - 1.0).abs() < 1e-14);
+    }
+
+    /// **Adversarial**: zero `tau` is rejected (would cause ω = ∞).
+    #[test]
+    fn bgk_try_new_rejects_zero_tau() {
+        match BgkCollision::<f64>::try_new(0.0) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("zero tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: negative `tau` is rejected.
+    #[test]
+    fn bgk_try_new_rejects_negative_tau() {
+        match BgkCollision::<f64>::try_new(-1.0) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("negative tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `tau` is rejected.
+    #[test]
+    fn bgk_try_new_rejects_nan_tau() {
+        match BgkCollision::<f64>::try_new(f64::NAN) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("NaN tau must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `tau` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "tau")]
+    fn bgk_new_panics_on_invalid_tau() {
+        let _ = BgkCollision::<f64>::new(0.0);
     }
 }

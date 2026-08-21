@@ -67,6 +67,7 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
+use cfd_core::error::{Error, Result};
 use eunomia::RealField;
 use leto::Array2;
 
@@ -177,13 +178,57 @@ impl<T: RealField + Copy> SigmaModel<T> {
     }
 
     /// Update filter width (useful for adaptive grids)
+    ///
+    /// Prefer [`SigmaModel::try_set_filter_width`] for fallible input;
+    /// this method is retained for backwards compatibility with callers
+    /// that already validated their inputs.
     pub fn set_filter_width(&mut self, filter_width: T) {
+        match self.try_set_filter_width(filter_width) {
+            Ok(()) => {}
+            Err(error) => panic!("SigmaModel::set_filter_width rejected the input: {error}"),
+        }
+    }
+
+    /// Update filter width, validating the input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `filter_width` is
+    /// non-finite or non-positive (the Sigma model divides by
+    /// `filter_width^2`).
+    pub fn try_set_filter_width(&mut self, filter_width: T) -> Result<()> {
+        if !filter_width.is_finite() || filter_width <= T::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "SigmaModel::try_set_filter_width: filter_width must be finite and positive, got {filter_width:?}"
+            )));
+        }
         self.config.filter_width = filter_width;
+        Ok(())
     }
 
     /// Update Sigma constant
+    ///
+    /// Prefer [`SigmaModel::try_set_c_sigma`] for fallible input.
     pub fn set_c_sigma(&mut self, c_sigma: T) {
+        match self.try_set_c_sigma(c_sigma) {
+            Ok(()) => {}
+            Err(error) => panic!("SigmaModel::set_c_sigma rejected the input: {error}"),
+        }
+    }
+
+    /// Update Sigma constant, validating the input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `c_sigma` is non-finite.
+    pub fn try_set_c_sigma(&mut self, c_sigma: T) -> Result<()> {
+        if !c_sigma.is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "SigmaModel::try_set_c_sigma: c_sigma must be finite, got {c_sigma:?}"
+            )));
+        }
         self.config.c_sigma = c_sigma;
+        Ok(())
     }
 
     /// Compute the Sigma invariant (for analysis and validation)
@@ -332,5 +377,42 @@ mod tests {
 
         // ν_SGS should scale with (gradient)²
         assert_relative_eq!(nu3 / nu1, 4.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn try_set_filter_width_rejects_zero() {
+        let mut model = SigmaModel::<f64>::default();
+        let result = model.try_set_filter_width(0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("filter_width")),
+            "expected InvalidConfiguration error for zero filter_width"
+        );
+    }
+
+    #[test]
+    fn try_set_filter_width_rejects_non_finite() {
+        let mut model = SigmaModel::<f64>::default();
+        let result = model.try_set_filter_width(f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("filter_width")),
+            "expected InvalidConfiguration error for NaN filter_width"
+        );
+    }
+
+    #[test]
+    fn try_set_filter_width_accepts_positive_value() {
+        let mut model = SigmaModel::<f64>::default();
+        let result = model.try_set_filter_width(0.05);
+        assert!(result.is_ok(), "valid filter_width must succeed");
+    }
+
+    #[test]
+    fn try_set_c_sigma_rejects_non_finite() {
+        let mut model = SigmaModel::<f64>::default();
+        let result = model.try_set_c_sigma(f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("c_sigma")),
+            "expected InvalidConfiguration error for NaN c_sigma"
+        );
     }
 }

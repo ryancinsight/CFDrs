@@ -6,8 +6,8 @@
 
 use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 /// Thread-safe memory statistics using atomics
 pub struct MemoryStats {
@@ -49,7 +49,8 @@ pub struct MemoryStatsSnapshot {
 }
 
 impl MemoryStats {
-    const fn new() -> Self {
+    /// Creates an empty allocation counter.
+    pub const fn new() -> Self {
         Self {
             current_allocated: AtomicUsize::new(0),
             peak_allocated: AtomicUsize::new(0),
@@ -88,13 +89,6 @@ impl MemoryStats {
         }
     }
 }
-
-/// Global memory allocator wrapper for tracking allocations
-#[global_allocator]
-static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
-    allocator: System,
-    stats: MemoryStats::new(),
-};
 
 impl MemoryStatsSnapshot {
     /// Calculate memory efficiency metrics
@@ -148,33 +142,43 @@ pub struct MemoryEfficiency {
     pub fragmentation_ratio: f64,
 }
 
-/// Thread-safe memory profiler
-pub struct MemoryProfiler {
+/// Thread-safe memory profiler backed by an explicitly installed counter.
+pub struct MemoryProfiler<'stats> {
+    stats: &'stats MemoryStats,
     start_snapshot: Mutex<Option<MemoryStatsSnapshot>>,
 }
 
-impl MemoryProfiler {
-    /// Create a new memory profiler
-    pub fn new() -> Self {
+impl<'stats> MemoryProfiler<'stats> {
+    /// Creates a profiler that reads from an explicitly selected counter.
+    pub fn new(stats: &'stats MemoryStats) -> Self {
         Self {
+            stats,
             start_snapshot: Mutex::new(None),
         }
     }
 
     /// Start memory profiling session
-    pub fn start_profiling(&self) {
-        let mut start_snapshot = self.start_snapshot.lock().expect("expected value");
+    pub fn start_profiling(&self) -> Result<()> {
+        let mut start_snapshot = self
+            .start_snapshot
+            .lock()
+            .map_err(|_| cfd_core::error::Error::InvalidInput("profiling mutex poisoned".into()))?;
         *start_snapshot = Some(self.get_stats());
+        Ok(())
     }
 
     /// Stop profiling and return statistics for the session
-    pub fn stop_profiling(&self) -> MemoryStatsSnapshot {
+    pub fn stop_profiling(&self) -> Result<MemoryStatsSnapshot> {
         let start_stats = self
             .start_snapshot
             .lock()
-            .expect("expected value")
+            .map_err(|_| cfd_core::error::Error::InvalidInput("profiling mutex poisoned".into()))?
             .take()
-            .unwrap_or_default();
+            .ok_or_else(|| {
+                cfd_core::error::Error::InvalidInput(
+                    "stop_profiling called without start_profiling".into(),
+                )
+            })?;
 
         let current_stats = self.get_stats();
 
@@ -192,7 +196,7 @@ impl MemoryProfiler {
             .peak_allocated
             .saturating_sub(start_stats.peak_allocated);
 
-        MemoryStatsSnapshot {
+        Ok(MemoryStatsSnapshot {
             current_allocated,
             peak_allocated: peak_delta.max(current_allocated),
             allocation_count,
@@ -209,23 +213,23 @@ impl MemoryProfiler {
                 0.0
             },
             max_allocation_size: current_stats.max_allocation_size,
-        }
+        })
     }
 
     /// Get current memory statistics
     pub fn get_stats(&self) -> MemoryStatsSnapshot {
-        GLOBAL_ALLOCATOR.get_stats()
+        self.stats.snapshot()
     }
 
     /// Profile a closure and return memory statistics
-    pub fn profile_closure<F, T>(&self, operation: F) -> (T, MemoryStatsSnapshot)
+    pub fn profile_closure<F, T>(&self, operation: F) -> Result<(T, MemoryStatsSnapshot)>
     where
         F: FnOnce() -> T,
     {
-        self.start_profiling();
+        self.start_profiling()?;
         let result = operation();
-        let stats = self.stop_profiling();
-        (result, stats)
+        let stats = self.stop_profiling()?;
+        Ok((result, stats))
     }
 
     /// Check for memory leaks (simplified)
@@ -241,21 +245,24 @@ impl MemoryProfiler {
     }
 }
 
-impl Default for MemoryProfiler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Custom allocator that tracks memory usage
-struct TrackingAllocator {
+/// Custom allocator that tracks memory usage when installed by a harness.
+pub struct TrackingAllocator {
     allocator: System,
     stats: MemoryStats,
 }
 
 impl TrackingAllocator {
-    fn get_stats(&self) -> MemoryStatsSnapshot {
-        self.stats.snapshot()
+    /// Creates an allocator with an independent allocation counter.
+    pub const fn new() -> Self {
+        Self {
+            allocator: System,
+            stats: MemoryStats::new(),
+        }
+    }
+
+    /// Returns the counter updated by this allocator.
+    pub const fn stats(&self) -> &MemoryStats {
+        &self.stats
     }
 
     fn record_allocation(&self, size: usize) {
@@ -312,9 +319,13 @@ impl TrackingAllocator {
     }
 }
 
+// SAFETY: Each method forwards the valid `GlobalAlloc` contract it receives to
+// `System` without changing the pointer, layout, or allocation ownership.
 unsafe impl GlobalAlloc for TrackingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let ptr = self.allocator.alloc(layout);
+        // SAFETY: The caller of `GlobalAlloc::alloc` supplies a valid layout;
+        // forwarding it unchanged preserves the `System` allocator contract.
+        let ptr = unsafe { self.allocator.alloc(layout) };
         if !ptr.is_null() {
             self.record_allocation(layout.size());
         }
@@ -323,11 +334,15 @@ unsafe impl GlobalAlloc for TrackingAllocator {
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         self.record_deallocation(layout.size());
-        self.allocator.dealloc(ptr, layout);
+        // SAFETY: The caller supplies the pointer and layout returned by this
+        // allocator, so forwarding them unchanged is valid for `System`.
+        unsafe { self.allocator.dealloc(ptr, layout) };
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        let ptr = self.allocator.alloc_zeroed(layout);
+        // SAFETY: The caller supplies a valid layout; `System` owns the
+        // resulting allocation and initializes it as required.
+        let ptr = unsafe { self.allocator.alloc_zeroed(layout) };
         if !ptr.is_null() {
             self.record_allocation(layout.size());
         }
@@ -336,7 +351,9 @@ unsafe impl GlobalAlloc for TrackingAllocator {
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let old_size = layout.size();
-        let new_ptr = self.allocator.realloc(ptr, layout, new_size);
+        // SAFETY: The caller supplies a pointer/layout pair previously
+        // allocated by this allocator and a valid replacement size.
+        let new_ptr = unsafe { self.allocator.realloc(ptr, layout, new_size) };
 
         if !new_ptr.is_null() {
             // Count as deallocation + allocation
@@ -348,67 +365,63 @@ unsafe impl GlobalAlloc for TrackingAllocator {
     }
 }
 
-/// CFD-specific memory profiling
-pub struct CfdMemoryProfiler {
-    profiler: MemoryProfiler,
+/// CFD-specific memory profiling backed by an explicit allocation counter.
+pub struct CfdMemoryProfiler<'stats> {
+    profiler: MemoryProfiler<'stats>,
 }
 
-impl CfdMemoryProfiler {
-    /// Create a new CFD memory profiler with default configuration
+impl<'stats> CfdMemoryProfiler<'stats> {
+    /// Creates a CFD profiler backed by an explicitly selected counter.
     ///
     /// Initializes memory profiling capabilities optimized for CFD workloads,
     /// including tracking of memory allocations for matrices, grids, and solver data structures.
     /// Configured with appropriate sampling rates and memory tracking thresholds for
     /// CFD simulation performance analysis.
-    pub fn new() -> Self {
+    pub fn new(stats: &'stats MemoryStats) -> Self {
         Self {
-            profiler: MemoryProfiler::new(),
+            profiler: MemoryProfiler::new(stats),
         }
     }
 
     /// Profile memory usage of CFD matrix operations
     pub fn profile_matrix_operations(&self) -> Result<MemoryStatsSnapshot> {
-        Ok(self
-            .profiler
-            .profile_closure(|| {
-                // Create and manipulate CFD-style matrices
-                let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(100, 100);
-                for i in 0..100 {
-                    builder.add_entry(i, i, 1.0).expect("expected value");
-                }
+        let ((), stats) = self.profiler.profile_closure(|| {
+            // Create and manipulate CFD-style matrices
+            let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(100, 100);
+            for i in 0..100 {
+                builder.add_entry(i, i, 1.0).expect("expected value");
+            }
 
-                let matrix = builder.build().expect("expected value");
-                let vector = leto::Array1::from_elem([100], 1.0_f64);
-                let mut result = leto::Array1::from_elem([100], 0.0_f64);
+            let matrix = builder.build().expect("expected value");
+            let vector = leto::Array1::from_elem([100], 1.0_f64);
+            let mut result = leto::Array1::from_elem([100], 0.0_f64);
 
-                // Perform SPMV operations
-                for _ in 0..10 {
-                    cfd_math::sparse::spmv(&matrix, &vector, &mut result);
-                }
-            })
-            .1)
+            // Perform SPMV operations
+            for _ in 0..10 {
+                cfd_math::sparse::spmv(&matrix, &vector, &mut result);
+            }
+        })?;
+        Ok(stats)
     }
 
     /// Profile memory usage of CFD grid operations
     pub fn profile_grid_operations(&self) -> Result<MemoryStatsSnapshot> {
         use cfd_2d::grid::StructuredGrid2D;
 
-        Ok(self
-            .profiler
-            .profile_closure(|| {
-                // Create multiple grids of different sizes
-                let grids = vec![
-                    StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
-                    StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
-                ];
+        let ((), stats) = self.profiler.profile_closure(|| {
+            // Create multiple grids of different sizes
+            let grids = vec![
+                StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
+                StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).expect("expected value"),
+            ];
 
-                // Perform grid operations
-                for grid in grids {
-                    let _nx = grid.nx();
-                    let _ny = grid.ny();
-                }
-            })
-            .1)
+            // Perform grid operations
+            for grid in grids {
+                let _nx = grid.nx();
+                let _ny = grid.ny();
+            }
+        })?;
+        Ok(stats)
     }
 
     /// Profile memory usage of CFD simulation fields
@@ -416,20 +429,18 @@ impl CfdMemoryProfiler {
         use cfd_2d::fields::SimulationFields;
         use cfd_core::physics::fluid::ConstantPropertyFluid;
 
-        Ok(self
-            .profiler
-            .profile_closure(|| {
-                let fluid = ConstantPropertyFluid::new(
-                    "Test".to_string(),
-                    aequitas::systems::si::quantities::MassDensity::from_base(1.0),
-                    aequitas::systems::si::quantities::DynamicViscosity::from_base(0.01),
-                    aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(1000.0),
-                    aequitas::systems::si::quantities::ThermalConductivity::from_base(0.001),
-                    aequitas::systems::si::quantities::Velocity::from_base(343.0),
-                );
-                let _fields = SimulationFields::with_fluid(32, 32, &fluid);
-            })
-            .1)
+        let ((), stats) = self.profiler.profile_closure(|| {
+            let fluid = ConstantPropertyFluid::new(
+                "Test".to_string(),
+                aequitas::systems::si::quantities::MassDensity::from_base(1.0),
+                aequitas::systems::si::quantities::DynamicViscosity::from_base(0.01),
+                aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(1000.0),
+                aequitas::systems::si::quantities::ThermalConductivity::from_base(0.001),
+                aequitas::systems::si::quantities::Velocity::from_base(343.0),
+            );
+            let _fields = SimulationFields::with_fluid(32, 32, &fluid);
+        })?;
+        Ok(stats)
     }
 
     /// Run comprehensive CFD memory profiling suite
@@ -443,12 +454,6 @@ impl CfdMemoryProfiler {
             ("Grid_Operations".to_string(), grid_ops),
             ("Simulation_Fields".to_string(), sim_fields),
         ])
-    }
-}
-
-impl Default for CfdMemoryProfiler {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -475,14 +480,19 @@ impl std::fmt::Display for MemoryStats {
 mod tests {
     use super::*;
 
+    #[global_allocator]
+    static TEST_ALLOCATOR: TrackingAllocator = TrackingAllocator::new();
+
     #[test]
     fn test_memory_profiler() {
-        let profiler = MemoryProfiler::new();
+        let profiler = MemoryProfiler::new(TEST_ALLOCATOR.stats());
 
-        let (result, stats) = profiler.profile_closure(|| {
-            let data = vec![1.0f64; 1000];
-            data.iter().sum::<f64>()
-        });
+        let (result, stats) = profiler
+            .profile_closure(|| {
+                let data = vec![1.0f64; 1000];
+                data.iter().sum::<f64>()
+            })
+            .expect("invariant: the test profiling session starts before it stops");
 
         assert!(result > 0.0);
         assert!(stats.total_allocated > 0);
@@ -509,8 +519,10 @@ mod tests {
 
     #[test]
     fn test_cfd_memory_profiling() {
-        let cfd_profiler = CfdMemoryProfiler::new();
-        let results = cfd_profiler.run_memory_suite().expect("expected value");
+        let cfd_profiler = CfdMemoryProfiler::new(TEST_ALLOCATOR.stats());
+        let results = cfd_profiler
+            .run_memory_suite()
+            .expect("invariant: the test profiling suite has valid inputs");
 
         assert!(!results.is_empty());
         for (name, stats) in results {

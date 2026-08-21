@@ -1,5 +1,1203 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.204: cfd-2d turbulence::TurbulenceBoundaryManager input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager::new(
+  nx, ny, dx, dy)` for missing physical invariant checks. The
+  `calculate_wall_distances` method (lines 58–61) multiplies cell
+  indices by `dx`/`dy` to compute wall distances; zero or non-finite
+  spacing collapses every wall distance to NaN/zero, leaving the
+  subsequent `y+` computation meaningless for wall-function
+  application.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive.
+- Pre-existing infallible callers (in `k_epsilon/model.rs:149`,
+  `k_epsilon/tests.rs`, and `turbulence::wall_functions`) compile
+  unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default `dx`/`dy`), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::boundary_conditions::manager` passes 4/4; full cfd-2d
+  lib Nextest passes 663/663; `cargo clippy -p cfd-2d
+  --no-default-features --tests` produces no new warnings on the
+  touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/boundary_conditions/manager.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.203: cfd-2d turbulence::DetachedEddySimulation input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::des::DetachedEddySimulation::new(
+  nx, ny, dx, dy, config, boundaries)` for missing physical invariant
+  checks. The DES length scale is `Δ = max(dx, dy)`; zero or non-finite
+  `dx`/`dy` collapses it, silencing the LES branch. The RANS–LES
+  shielding threshold `r̃_d = C_DES · Δ_w / Δ_max` requires `C_DES > 0`;
+  zero or negative `C_DES` collapses shielding. Zero `nx`/`ny`
+  silently underflows every `Array2` allocation. The RANS branch uses
+  `rans_viscosity` as the molecular viscosity baseline.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive, `des_constant`
+  non-finite or non-positive, `rans_viscosity` non-finite or
+  non-positive.
+- Pre-existing infallible callers (in `turbulence/des/mod.rs` tests
+  and `cfd-validation` benchmarks) compile unchanged via the thin
+  wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default config), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features turbulence::des`
+  passes 13/13 (5 new + 8 existing); full cfd-2d lib Nextest passes
+  659/659; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/des/mod.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.202: cfd-2d turbulence::SmagorinskyLES input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::les_smagorinsky::SmagorinskyLES::new(
+  nx, ny, dx, dy, config)` for missing physical invariant checks. The
+  filter width is `Δ = √(dx · dy)`; zero or non-finite `dx`/`dy`
+  collapses the filter to zero, turning the model into a no-op. The
+  Smagorinsky constant `C_S` enters via `ν_sgs = (C_S · Δ)² · |S|`;
+  zero or negative `C_S` produces zero SGS viscosity for any strain.
+  Zero `nx`/`ny` silently underflows every `Array2` allocation.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive, `smagorinsky_constant`
+  non-finite or non-positive, `min_sgs_viscosity` non-finite.
+- Pre-existing infallible callers (in `les_smagorinsky/model.rs` tests
+  and `cfd-validation` benchmarks) compile unchanged via the thin
+  wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default config), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::les_smagorinsky::model` passes 12/12 (5 new + 7
+  existing); full cfd-2d lib Nextest passes 654/654; `cargo clippy
+  -p cfd-2d --no-default-features --tests` produces no new warnings
+  on the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.201: cfd-2d turbulence::KOmegaSSTModel dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::k_omega_sst::KOmegaSSTModel::new(nx, ny)`
+  for missing physical invariant checks. The constructor allocates
+  `f1: Vec<T>` and `f2: Vec<T>` of length `nx * ny` for the SST
+  blending functions. The Bradshaw-assumption viscosity limiter
+  (`a₁ k / max(a₁ ω, S F₂)`) and wall-treatment path rely on these
+  buffers; zero `nx` or `ny` silently underflows every blending
+  computation.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (in `cfd-2d::physics::turbulence::k_omega_sst::tests`
+  and the broader turbulence pipeline) compile unchanged via the thin
+  wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `f1.len() == nx * ny` and
+  `f2.len() == nx * ny`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::k_omega_sst::model` passes 4/4; full cfd-2d lib Nextest
+  passes 649/649; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/k_omega_sst/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.200: cfd-2d turbulence::KEpsilonModel dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::k_epsilon::KEpsilonModel::new(nx, ny)`
+  and `new_realizable(nx, ny)` for missing physical invariant checks.
+  Both constructors allocate `k_scratch: Vec<T>` and `eps_scratch: Vec<T>`
+  of length `nx * ny`. The k-ε update loops index into these scratch
+  buffers; zero `nx` or `ny` silently underflows every iteration.
+- Add `try_new` and `try_new_realizable` returning `Result`; existing
+  infallible constructors become thin panic wrappers.
+
+### Acceptance and Verification
+- `try_new` and `try_new_realizable` reject `nx == 0` and `ny == 0`.
+- `try_new_realizable` enables the `use_realizable` flag (verified by
+  the `k_epsilon_try_new_realizable_accepts_valid_grid` test).
+- Pre-existing infallible callers (in `physics/turbulence/k_epsilon/tests.rs`
+  and benchmarks) compile unchanged via the thin wrapper pattern.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (with `use_realizable == false`), the realizable
+  accept-path, and the panic-wrapper contract for both infallible
+  constructors.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::k_epsilon::model` passes 6/6; full cfd-2d lib Nextest
+  passes 645/645; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/k_epsilon/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.199: cfd-2d physics::EnergyEquationSolver diffusivity validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::energy::EnergyEquationSolver::new(nx, ny,
+  initial_temperature, thermal_diffusivity)` for missing physical
+  invariant checks. The diffusive fluxes in `solve_explicit`
+  (lines 220–223) divide `alpha` by `dx`/`dy`; non-finite or negative
+  `thermal_diffusivity` produces a non-physical temperature field.
+  Zero is a legitimate input for pure-convection (see
+  `test_reverse_convection` in `physics/energy/tests.rs:701`).
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx < 1`, `ny < 1` (via `Array2D::try_new` from
+  Sprint 1.96.198), `initial_temperature` non-finite, and
+  `thermal_diffusivity` non-finite or negative. Zero `thermal_diffusivity`
+  is accepted (pure-convection).
+- Pre-existing infallible callers (in `physics/energy/tests.rs` for the
+  `EnergyEquationSolver` tests) compile unchanged via the thin wrapper
+  pattern.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (with positive `thermal_diffusivity`), the pure-convection
+  accept-path (zero `thermal_diffusivity`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features physics::energy`
+  passes 51/51 (including `test_reverse_convection`); full cfd-2d lib
+  Nextest passes 639/639; `cargo clippy -p cfd-2d --no-default-features
+  --tests` produces no new warnings on the touched file (only
+  pre-existing peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/energy/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.198: cfd-2d grid::Array2D dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] foundation invariant + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::grid::Array2D::new(rows, cols, val)` for missing
+  physical invariant checks. The row-major flat buffer (length
+  `rows * cols`) silently underflows every indexing call
+  `a[i, j] = a.data[i * cols + j]` when dimensions are zero. There are
+  146 `Array2D::new(...)` call sites across `cfd-2d`; this is the most
+  widely-shared primitive in the crate and the widest blast-radius
+  defect if left unfixed.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `rows == 0` and `cols == 0`.
+- Pre-existing 146 infallible callers compile unchanged via the thin
+  wrapper pattern (verified by `cargo nextest run -p cfd-2d
+  --no-default-features --lib` passing 633/633).
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `data.len() == rows * cols`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features grid::array2d`
+  passes 11/11; full cfd-2d lib Nextest passes 633/633; `cargo clippy
+  -p cfd-2d --no-default-features --tests` produces no new warnings on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/grid/array2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.197: cfd-2d ScalarTransportSolver2D dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::ScalarTransportSolver2D::new(nx, ny)` for
+  missing physical invariant checks. The FVM scalar transport solver
+  iterates `j ∈ [0, ny), i ∈ [0, nx)` and indexes the concentration
+  field `c` and previous-iteration `_c_old` (each `Array2D` of length
+  `nx * ny`) by `linear_index = j * nx + i`. Zero `nx` or `ny` silently
+  underflows every iteration index.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (in `cfd-2d::solvers::bifurcation_flow`,
+  `cfd-2d::solvers::n_furcation_flow`, and `cfd-python` wrappers)
+  compile unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `c.rows() == 8 && c.cols() == 12`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  solvers::scalar_transport_2d` passes 4/4; full cfd-2d lib Nextest
+  passes 629/629; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/scalar_transport_2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.196: cfd-2d fdm::AdvectionDiffusionSolver FdmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fdm::AdvectionDiffusionSolver::new(config)` for
+  missing invariant checks. The constructor wraps a `FdmConfig`
+  (a thin SSOT alias around
+  `cfd_core::compute::solver::SolverConfig`) and forwards it directly
+  to Gauss–Seidel iteration in `solve_steady`. The inner stencil
+  (line 125: `center_coeff = two * diffusivity / dx2 + two * diffusivity
+  / dy2`) inherits the Gauss–Seidel convergence guarantee on the
+  relaxation factor.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `tolerance` non-finite or non-positive,
+  `max_iterations == 0`, `relaxation_factor` non-finite or outside
+  `(0, 2]`.
+- Pre-existing infallible callers (in `tests_advection_diffusion_mms.rs`
+  and the `solve_steady` field of the `AdvectionDiffusionSolver`
+  itself) compile unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (default config), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  fdm::advection_diffusion` passes 5/5; full cfd-2d lib Nextest passes
+  625/625; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fdm/advection_diffusion.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.195: cfd-2d fdm::PoissonSolver FdmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fdm::PoissonSolver::new(config)` for missing
+  invariant checks. The constructor wraps a `FdmConfig` (a thin SSOT
+  alias around `cfd_core::compute::solver::SolverConfig`) and forwards
+  it directly to Gauss–Seidel iteration in `solve_with_neumann`. The
+  Gauss–Seidel iteration converges iff the relaxation factor lies in
+  `(0, 2]`; values outside that interval diverge. Zero or non-finite
+  `tolerance` produces a divergent convergence test; `max_iterations =
+  0` is a no-op (no progress can be made).
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `tolerance` non-finite or non-positive,
+  `max_iterations == 0`, `relaxation_factor` non-finite or outside
+  `(0, 2]`.
+- Pre-existing infallible caller (`tests_poisson_mms.rs:48`) compiles
+  unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (default config), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features fdm::poisson`
+  passes 5/5 (plus the pre-existing MMS test); full cfd-2d lib Nextest
+  passes 620/620; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (the four warnings in
+  `piso_algorithm/predictor.rs` are pre-existing peer-dirty WIP, not
+  from this change); `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fdm/poisson.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.194: cfd-2d lbm::MacroscopicQuantities dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::MacroscopicQuantities::new(nx, ny)` for
+  missing physical invariant checks. The constructor allocates
+  `density: Vec<T>` of length `nx * ny` and `velocity: Vec<T>` of length
+  `nx * ny * 2` (D2Q9 has 2 velocity components). The moment-extraction
+  loops index by `j * self.nx + i` and `(j * self.nx + i) * 2 + d`.
+  Zero `nx` or `ny` silently underflows every index.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible caller (`lbm::solver.rs:183`) compiles
+  unchanged via the thin wrapper pattern.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `density.len() == nx * ny` and
+  `velocity.len() == nx * ny * 2`), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features lbm::macroscopic`
+  passes 8/8; full cfd-2d lib Nextest passes 615/615; `cargo clippy
+  -p cfd-2d --no-default-features --tests -- -D warnings` is clean on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/macroscopic.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.193: cfd-2d lbm CarreauYasudaBgk dx/dt validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::collision::CarreauYasudaBgk::new(model,
+  dx, dt)` for missing physical invariant checks. The non-Newtonian BGK
+  operator's fixed-point iteration `compute_local_tau` (carreau_yasuda.rs
+  line 76) divides by `dx²` to convert physical viscosity to lattice
+  units: `dt_dx2 = self.dt / (self.dx * self.dx)`. Zero or non-finite
+  `dx`/`dt` silently produces `inf`/`NaN` `dt_dx2` and a divergent
+  fixed-point iteration.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `dx` non-finite or non-positive, `dt` non-finite
+  or non-positive.
+- Pre-existing infallible callers (`bounds_and_convergence_local_tau`,
+  `local_tau_satisfies_fixed_point_residual` and any external solver
+  wiring) compile unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `dx` round-trip), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  lbm::collision::carreau_yasuda` passes 7/7; full cfd-2d lib Nextest
+  passes 606/607 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/collision/carreau_yasuda.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.192: cfd-2d lbm::LbmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::LbmConfig` for missing physical invariant
+  checks. The struct's `tau` field is documented as `τ ∈ (0.5, ∞)`
+  with the comment "Stability requires τ > 0.5", but no caller
+  invariant was ever enforced. `LbmSolver::new` (solver.rs:128)
+  delegates the `tau` value directly to `BgkCollision::new(config.tau)`
+  — which, post-Sprint 1.96.191, is now a thin panic wrapper that
+  panics on degenerate `tau`. So a caller passing `tau < 0.5` would
+  now panic instead of silently producing a divergent LBM solve, but
+  catching it at construction time is better.
+- Add `LbmConfig::try_new` returning `Result`. The pre-existing
+  `Default` impl is preserved for backward compatibility — it produces
+  the canonical `tau = 1.0` configuration.
+
+### Acceptance and Verification
+- `try_new` rejects: `tau < 0.5`, `tau == 0`, `tau < 0`, `tau = NaN`,
+  `tau = ±∞`, `max_steps == 0`, `tolerance == 0`, `tolerance < 0`,
+  `tolerance = NaN`, `tolerance = ±∞`.
+- Pre-existing infallible callers (`lbm::solver::tests::test_*` and
+  any external solver wiring) compile unchanged because `Default` is
+  preserved and the constructor call sites use `LbmConfig::default()`
+  or constructed struct-literal patterns.
+- Six new value-semantic regression tests cover all rejection paths
+  and the accept-path.
+- `cargo nextest run -p cfd-2d --no-default-features lbm` passes 47/47;
+  full cfd-2d lib Nextest passes 601/602 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.191: cfd-2d lbm BGK + MRT relaxation-time validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::collision::BgkCollision::new(tau)` and
+  `MrtCollision::new(tau)` for missing physical invariant checks.
+- BGK collision operator is `fᵢ* = fᵢ - ω(fᵢ - fᵢ^eq)` with
+  `ω = 1/τ`. The MRT `RelaxationMatrix::default_d2q9(tau)` also computes
+  `ω = 1/τ` for the kinematic-viscosity stress slots (s7, s8).
+  Zero or non-finite `τ` silently produces `inf`/`NaN` collision
+  frequencies and a divergent LBM solve. The pre-fix doc comment on
+  `BgkCollision::new` admitted "tau = 0 would cause ω = ∞ but that is a
+  caller invariant" — but no caller invariant was ever enforced.
+- Add `BgkCollision::try_new` and `MrtCollision::try_new` returning
+  `Result`; existing infallible `new` methods become thin panic wrappers.
+
+### Acceptance and Verification
+- Both `try_new` methods reject: non-finite `tau`, zero `tau`, negative
+  `tau`. The BGK ↔ viscosity correspondence
+  `τ = ½ + ν·Δt / (c_s²·Δx²)` (cf. `cfd-2d/AGENTS.md § LBM BGK`) has a
+  stability floor at `τ = 0.5`; zero or negative `tau` is therefore
+  contractually forbidden.
+- Pre-existing infallible callers (`bgk::tests::test_h_theorem_bgk`,
+  `mrt::tests::relaxation_rates_conservation_and_stability`, and the
+  BGK/MRT collision operators invoked from `lbm::solver.rs`) compile
+  unchanged via the thin wrapper pattern.
+- Ten new value-semantic regression tests cover both constructors'
+  rejection paths, the accept-path (asserting `omega == 1/tau` for
+  BGK), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features lbm::collision`
+  passes 21/21; full cfd-2d lib Nextest passes 595/596 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/collision/bgk.rs`
+- `crates/cfd-2d/src/solvers/lbm/collision/mrt.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.190: cfd-2d fvm::Face geometry validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fvm::geometry::Face::new(center, normal, area,
+  owner, neighbor)` for missing physical invariant checks.
+- The constructor calls `normal.normalize()` (line 44) which divides by
+  `‖normal‖`; `flux()` (line 53) computes `area * velocity · normal`.
+- Zero-magnitude normal, non-finite center/normal components, and
+  non-positive or non-finite `area` silently produce `inf`/`NaN` face
+  flux through every face in the FVM mesh.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: non-finite `center.x`/`center.y`, non-finite
+  `normal.x`/`normal.y`, `‖normal‖² == 0` (zero-magnitude normal),
+  non-finite or non-positive `area`.
+- Pre-existing infallible callers (`fvm::solver.rs:71,89` and the 6
+  pre-existing tests at lines 74, 91, 97, 110, 124, 140 of the same
+  file) compile unchanged via the thin wrapper.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `‖normal‖ == 1` and `area` round-trip),
+  and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features fvm::geometry`
+  passes 12/12; full cfd-2d lib Nextest passes 585/586 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fvm/geometry.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.189: cfd-3d fem::ProjectionSolver timestep validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::ProjectionSolver::with_timestep(config, dt)` for
+  missing physical invariant checks. Chorin's projection method
+  (Chorin 1968) divides by `dt` at multiple sites:
+  - `dt_over_rho = self.dt / problem.fluid.density.into_base()`
+    (projection_solver.rs:399),
+  - `mass_coeff = density / self.dt` (line 473),
+  - `rho_over_dt = density / self.dt` (line 567).
+  Zero or non-finite `dt` silently produces `inf`/`NaN` mass
+  coefficients and a divergent projection solve.
+- Add `try_with_timestep` returning `Result`; existing infallible
+  `with_timestep` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `try_with_timestep` rejects `dt = 0`, `dt < 0`, `dt = NaN`.
+- Pre-existing infallible callers (`fem_tests.rs` lines 84, 126, 173,
+  250 + `projection_solver.rs:863` self-test) compile unchanged via the
+  thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path, and the panic-wrapper contract.
+- `cargo nextest run -p cfd-3d --no-default-features fem::projection_solver`
+  passes 7/7; full cfd-3d test Nextest passes 466/466;
+  `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/projection_solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.188: cfd-3d spectral::SpectralSolution dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::spectral::SpectralSolution::new(nx, ny, nz)` for missing
+  physical invariant checks. The accessor `at(i, j, k)` indexes by
+  `i * ny * nz + j * nz + k`. Zero `nx`, `ny`, or `nz` silently underflows
+  the corner cell and produces wrong indices for every other cell. The
+  internal solver call site is safe because `SpectralConfig::new` already
+  validates dims, but the public constructor is reachable from any
+  external consumer.
+- Add `try_new` returning `Result`; existing infallible `new` becomes thin
+  panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0`, `ny == 0`, `nz == 0`.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `u.len() == nx * ny * nz`), and the
+  panic-wrapper contract.
+- `cargo nextest run -p cfd-3d --no-default-features spectral::solver`
+  passes 5/5; full cfd-3d test Nextest passes 461/461;
+  `cargo clippy -p cfd-3d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/spectral/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.187: cfd-2d fdm::DiffusionSolver input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fdm::diffusion::DiffusionSolver::new(nx, ny, dx, dy, alpha)`
+  for missing physical invariant checks. The explicit-Euler 2D heat-diffusion
+  solver computes the stable time step
+  `dt = 0.25 * 0.9 * min(dx², dy²) / alpha` and divides the Laplacian by
+  `dx²` and `dy²`. Zero or non-finite `dx`/`dy`/`alpha` silently produce
+  `inf`/`NaN` `dt` and a divergent solve; `nx < 3` or `ny < 3` produces
+  an empty interior stencil.
+- Add `try_new` returning `Result`; existing infallible `new` becomes thin
+  panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx < 3`, `ny < 3`, `dx` non-finite or non-positive,
+  `dy` non-finite or non-positive, `alpha` non-finite or non-positive.
+- Seven new value-semantic regression tests cover all rejection paths,
+  the accept-path, and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features fdm::diffusion` passes
+  7/7; full cfd-2d lib Nextest passes 579/580 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fdm/diffusion.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.186: cfd-2d DriftDiffusionSolver2D grid-dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::drift_diffusion_2d::DriftDiffusionSolver2D::new`
+  for missing physical invariant checks. The solver allocates
+  `c: Array2D::new(nx, ny, zero())` and the downstream upwind-M-matrix
+  assembly (Scarborough boundedness criterion) assumes a non-degenerate
+  grid.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (`drift_diffusion_boundedness` test +
+  any external solver wiring) compile unchanged via the thin wrapper.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path (asserting `rows() == 8` and `cols() == 12`),
+  and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features drift_diffusion`
+  passes 5/5; full cfd-2d lib Nextest passes 572/573 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/drift_diffusion_2d.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.185: cfd-2d SpalartAllmaras grid-dimension validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::spalart_allmaras::SpalartAllmaras::new`
+  for missing physical invariant checks.
+- The SA model's `apply_boundary_conditions` indexes by
+  `(self.ny - 1) * self.nx + i` (top wall) and `j * self.nx` (left wall).
+  Zero `nx` or `ny` silently underflows `self.ny - 1` and produces a
+  degenerate transport solve. The `wall_distance_field` delegate divides
+  by `nx * ny` in the wall-distance grid construction.
+- Add `SpalartAllmaras::try_new` returning `Result`; existing infallible
+  `new` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects `nx == 0` and `ny == 0`.
+- Pre-existing infallible callers (21 tests in `physics::turbulence::
+  spalart_allmaras::*` and `literature_validation_tests`) compile
+  unchanged via the thin wrapper.
+- Four new value-semantic regression tests cover both rejection paths,
+  the accept-path, and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features spalart_allmaras`
+  passes 25/25; full cfd-2d lib Nextest passes 568/569 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/spalart_allmaras/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.184: cfd-3d fem::FemSolver + FemConfig input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::FemSolver::new` and `FemConfig` for missing physical
+  invariant checks. The solver assembles the Galerkin weak form using:
+  - `tau` (stabilization parameter) — used as a multiplier on the SUPG/PSPG
+    residual terms; negative or NaN `tau` destabilizes the entire weak form,
+  - `dt` (time step, optional) — divides the time-derivative contribution;
+    zero or negative `dt` invalidates the implicit-Euler step,
+  - `reynolds` (Reynolds number, optional) — scales the inertial/viscous
+    balance; non-positive Reynolds is dimensionally invalid,
+  - `quadrature_order` — controls Gauss-Legendre rule precision; zero
+    quadrature produces no integration points and a degenerate mass matrix,
+  - `grad_div_penalty` and `grad_div_gamma` — Olshanskii–Reusken grad-div
+    stabilization penalties; negative values produce non-physical mass
+    damping.
+- Add `FemConfig::try_new` and `FemSolver::try_new` returning `Result`;
+  existing infallible `FemSolver::new` becomes thin panic wrapper.
+
+### Acceptance and Verification
+- `FemConfig::try_new` and `FemSolver::try_new` reject: `tau` non-finite or
+  negative, `dt = Some(v)` non-finite or non-positive, `reynolds = Some(v)`
+  non-finite or non-positive, `quadrature_order == 0`,
+  `grad_div_penalty` non-finite or negative, `grad_div_gamma` non-finite or
+  negative.
+- Eight new value-semantic regression tests cover all rejection paths and
+  the accept-path (defaults round-trip via `FemConfig::default()`).
+- Pre-existing infallible `FemSolver::new` callers (`bifurcation::solver`,
+  `cascade::solver`, `tests/fem_boundary_conditions.rs`) compile unchanged
+  via the thin wrapper pattern.
+- `cargo nextest run -p cfd-3d --no-default-features --tests --no-fail-fast`
+  passes 456/456; `cargo clippy -p cfd-3d --no-default-features --lib --tests
+  -- -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/solver.rs`
+- `crates/cfd-3d/src/fem/config.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.183: cfd-3d fem::StabilizationParameters validation + cavitation_solver POLYTROPIC_INDEX_AIR SSOT redirect
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + SSOT consolidation + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d::fem::StabilizationParameters::new` for missing physical
+  invariant checks. SUPG/PSPG stabilization parameter τ requires:
+  - `h` (element length scale) finite and strictly positive — formula divides
+    by `h²` and `h`,
+  - `nu` (kinematic viscosity) finite and non-negative — `nu = 0` is allowed
+    for inviscid/Stokes-limit formulations,
+  - `velocity` vector with all components finite — every component enters
+    `‖u‖` and the bilinear convection term,
+  - `dt = Some(v)` finite and strictly positive when supplied — `(2/Δt)²`
+    term in the time-derivative contribution is undefined for `dt ≤ 0`.
+- Add `StabilizationParameters::try_new` returning `Result`; existing
+  infallible `new` becomes thin panic wrapper.
+- Remove dead `POLYTROPIC_INDEX_AIR = 1.4` constant in
+  `crates/cfd-3d/src/vof/cavitation_solver.rs`; the canonical SSOT lives in
+  `cfd_core::physics::constants::physics::thermo::GAMMA_AIR = 1.4`.
+  Replace with documentation comment that redirects callers to the SSOT.
+  `BubbleConfig::default()` keeps the literal `1.4` because `Default::default()`
+  is not allowed to return a SSOT constant in a `non_exhaustive`-disallowed
+  struct without an upstream SSOT constructor; this is the explicit local
+  default that mirrors the SSOT.
+
+### Acceptance and Verification
+- `try_new` rejects: `h = 0`, `h < 0`, `h = NaN`, `nu < 0`, `nu = NaN`,
+  `nu = ±∞`, any non-finite velocity component (NaN/Inf), `dt = 0`,
+  `dt < 0`, `dt = NaN`.
+- `try_new` accepts `nu = 0.0` (inviscid formulation), `dt = None`
+  (steady-state stabilization), and the canonical parameter triple.
+- All pre-existing tests (including `tests/robustness_tests.rs` callers using
+  `nu = 0.0`) compile and pass via the thin wrapper.
+- Five new value-semantic regression tests in `fem::stabilization::tests`.
+- `cavitation_solver.rs` no longer carries the duplicate `POLYTROPIC_INDEX_AIR`
+  constant; the SSOT reference is documented at the top of the file.
+- Integration tests `test_lagrangian_point_at_max_corner_no_panic` and
+  `test_lagrangian_point_outside_domain_no_panic` in `tests/ibm_tests.rs`
+  are renamed to `..._rejected` and assert the new (correct) contract from
+  Sprint 1.96.177: out-of-grid Lagrangian points are now rejected at
+  insertion time, not silently dropped.
+- `cargo nextest run -p cfd-3d --no-default-features --tests --no-fail-fast`
+  passes 443/443; `cargo clippy -p cfd-3d --no-default-features --lib --tests
+  -- -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/fem/stabilization.rs`
+- `crates/cfd-3d/src/vof/cavitation_solver.rs`
+- `crates/cfd-3d/src/level_set/solver.rs`
+- `crates/cfd-3d/tests/ibm_tests.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.182: cfd-3d level_set::LevelSetSolver input validation (try_new + advance dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `LevelSetSolver::new` and `LevelSetSolver::advance` for missing
+  physical invariant checks.
+- The WENO5-Z reconstruction divides by `Δx³`, the Sussman
+  reinitialization uses `Δx²` in the smoothed sign function `S(φ₀) =
+  φ₀ / √(φ₀² + Δx²)`, and the CFL bound at line 48 uses `Δx`/`Δy`/`Δz`.
+  The SSPRK3 time integrator at line 78 stagnates for `dt = 0` and
+  inverts sign for negative `dt`, masking the level-set evolution.
+- Add `try_new` returning `Result`; the existing infallible `new`
+  becomes a thin panic wrapper; `advance` validates `dt`.
+
+### Acceptance and Verification
+- `try_new` rejects zero `nx/ny/nz`, non-finite or non-positive
+  `dx/dy/dz`, non-finite or non-positive `config.cfl_number` and
+  `config.tolerance`, and non-finite or non-positive
+  `config.band_width` when `config.use_narrow_band` is enabled.
+- `advance` rejects non-finite or non-positive `dt`.
+- Pre-existing infallible callers (10 in `tests/level_set_tests.rs`)
+  compile unchanged via the thin wrapper pattern.
+- Ten new value-semantic regression tests cover all rejection paths and
+  the accept-path.
+- `cargo nextest run -p cfd-3d --no-default-features level_set::solver`
+  passes 10/10; full cfd-3d lib Nextest passes 249/249; `cargo clippy
+  -p cfd-3d --no-default-features --lib --tests -- -D warnings` is
+  clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/level_set/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.181: cfd-3d VOF BubbleDynamicsSolver input validation (try_new + update_bubble dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `BubbleDynamicsSolver::new` and `update_bubble` for missing
+  physical invariant checks.
+- The Rayleigh-Plesset ODE divides by `R` (initial_radius), `ρ_l`
+  (liquid_density), `γ` (polytropic_exponent); the cell population
+  weighting divides by `dx*dy*dz`; `update_bubble` runs semi-implicit
+  Euler with `dt` and uses `pressure` as the driving far-field pressure.
+  Zero or non-finite values silently produce inf/NaN bubbles; negative
+  `dt` inverts the time integration; out-of-bounds cell indices silently
+  index out of the internal `vec` storage.
+- Add `try_new` returning `Result`; the existing infallible `new` becomes
+  a thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects non-finite or non-positive `initial_radius`,
+  `polytropic_exponent`, `liquid_density`, `dx/dy/dz`; rejects
+  non-finite or negative `surface_tension`, `number_density`,
+  `vapor_pressure`; rejects zero `nx/ny/nz`.
+- `update_bubble` rejects non-finite `pressure`, non-finite or
+  non-positive `dt`, and out-of-bounds `(i, j)` cell indices (the `k`
+  index is bounded implicitly by the internal `vec` length).
+- Nine new value-semantic regression tests cover all rejection paths and
+  the accept-path; pre-existing 4 tests still pass.
+- `cargo nextest run -p cfd-3d --no-default-features vof::bubble_dynamics`
+  passes 13/13; full cfd-3d lib Nextest passes 239/239; `cargo clippy
+  -p cfd-3d --no-default-features --lib --tests -- -D warnings` is
+  clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/vof/bubble_dynamics.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.180: cfd-2d turbulence EPSILON_MIN SSOT consolidation + LES filter-width validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] SSOT consolidation + new fallible setters + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- `crates/cfd-2d/src/physics/turbulence/reynolds_stress/transport/mod.rs:33`
+  declared a local `EPSILON_MIN = 1e-12` that duplicated the canonical
+  `crate::physics::turbulence::constants::EPSILON_MIN = 1e-12` SSOT.
+  Consolidate to the canonical constant.
+- `VremanModel::set_filter_width` and `SigmaModel::set_filter_width`
+  silently accepted zero/negative/NaN filter width even though the
+  Vreman formula divides by `filter_width^3` and the Sigma formula divides
+  by `filter_width^2`.
+- Add `try_set_filter_width` and `try_set_c_v`/`try_set_c_sigma` that
+  return `Result`; the existing infallible setters become thin panic
+  wrappers.
+
+### Acceptance and Verification
+- `reynolds_stress::transport::mod.rs` imports `EPSILON_MIN` from the
+  canonical `crate::physics::turbulence::constants::EPSILON_MIN` SSOT.
+- `try_set_filter_width` rejects non-finite or non-positive inputs.
+- `try_set_c_v` and `try_set_c_sigma` reject non-finite inputs.
+- Eight new value-semantic regression tests cover the rejection paths and
+  the accept-path for both models; pre-existing tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features
+  physics::turbulence::les_smagorinsky::vreman
+  physics::turbulence::les_smagorinsky::sigma
+  physics::turbulence::reynolds_stress` passes 30/30;
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/reynolds_stress/transport/mod.rs`
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/vreman.rs`
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/sigma.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.179: cfd-2d immersed_boundary constructor + boundary-point invariants
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `ImmersedBoundaryMethod::new`, `ImmersedBoundaryMethod::with_config`,
+  `ImmersedBoundaryMethod::add_boundary_point`, and
+  `ImmersedBoundaryMethod::add_circle` for missing physical invariant checks.
+- The discrete-delta interpolation divides by `dx`/`dy` (computed from
+  `domain_size / grid_size`); `update_forces` divides by `regularization`;
+  the discrete-delta iteration silently skips out-of-grid boundary points
+  (line 270, 338), producing zero contribution with no caller diagnostic.
+- Add `try_new`, `try_add_boundary_point`, `try_add_circle`, and convert
+  `with_config` to return `Result`. Existing infallible callers
+  (`examples/enhanced_cfd_demo.rs`, `examples/blood_venturi.rs`, all
+  tests) continue to compile unchanged via the thin wrapper pattern.
+- Keep the sprint scope disjoint from peer-dirty files outside
+  `immersed_boundary.rs`.
+
+### Acceptance and Verification
+- `try_new` rejects zero `grid_size` and non-finite or non-positive
+  `domain_size`.
+- `with_config` additionally rejects non-finite or non-positive
+  `delta_support` and `regularization`.
+- `try_add_boundary_point` rejects non-finite positions, non-positive
+  `segment_length`, and out-of-grid positions.
+- `try_add_circle` rejects non-finite `center`/`velocity`, non-positive
+  `radius`, and zero `num_points`.
+- Eleven new value-semantic regression tests cover all rejection paths and
+  the accept-path; pre-existing 6 tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features
+  physics::immersed_boundary` passes 17/17; full cfd-2d lib Nextest
+  passes 556/556 (the pre-existing `gorkov::f1_f2_analytical_values`
+  failure is peer-dirty and unrelated); `cargo clippy -p cfd-2d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/immersed_boundary.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.178: cfd-2d energy STEFAN_BOLTZMANN SSOT consolidation + viscous_dissipation validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] SSOT consolidation + new fallible APIs + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `crates/cfd-2d/src/physics/energy/{mod.rs,viscous_dissipation.rs,tests.rs}`.
+- `energy::constants::STEFAN_BOLTZMANN = 5.67e-8` duplicates the canonical
+  `cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN =
+  5.670_374_419e-8` (CODATA 2018); the cfd-2d copy is less precise and
+  diverges from the canonical value.
+- `brinkman_number` silently clamps `delta_t` to `max(1e-30)`, masking
+  invalid input by silently inflating Br by 30 orders of magnitude.
+- `viscous_dissipation_2d` accepts negative `mu` and non-finite gradients
+  without validation.
+- Add `brinkman_number_validated` and `viscous_dissipation_2d_validated`
+  returning `Result`; the existing infallible APIs become thin panic
+  wrappers that preserve the fail-fast behaviour.
+- Keep the sprint scope disjoint from peer-dirty
+  `crates/cfd-2d/src/physics/energy/solver.rs` (the peer is also
+  consolidating on `cfd_core::physics::constants::physics::fluid::*`).
+
+### Acceptance and Verification
+- `energy::constants::STEFAN_BOLTZMANN` is removed; the one in-tree caller
+  (`tests::test_constants_validity`) now references the cfd-core SSOT.
+- `brinkman_number_validated` rejects non-finite `mu`/`u_ref`/`k_thermal`/
+  `delta_t`, non-positive `mu`/`k_thermal`/`delta_t`.
+- `viscous_dissipation_2d_validated` rejects non-finite gradients, non-finite
+  `mu`, and negative `mu`; accepts zero `mu` (mathematically valid: no
+  dissipation, Φ = 0).
+- Nine new value-semantic regression tests cover the new APIs and the
+  consolidated constant; pre-existing `brinkman_number` and
+  `viscous_dissipation_2d` tests still pass.
+- `cargo nextest run -p cfd-2d --no-default-features physics::energy` passes
+  46/46; full cfd-2d lib Nextest passes 545/545 (the pre-existing
+  `gorkov::f1_f2_analytical_values` failure is peer-dirty and unrelated);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/energy/mod.rs`
+- `crates/cfd-2d/src/physics/energy/viscous_dissipation.rs`
+- `crates/cfd-2d/src/physics/energy/tests.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.177: cfd-3d IBM solver input validation (try_new + try_add_lagrangian_point + calculate_forcing dt)
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `IbmSolver::new`, `IbmSolver::add_lagrangian_point`, and
+  `IbmSolver::calculate_forcing` for missing physical invariant checks.
+- The discrete-delta interpolation divides by `dx.x/dx.y/dx.z`; the kernel
+  normalization is `1/h^d`; `add_lagrangian_point` silently inserted markers
+  outside the grid extent (the stencil iteration's `if ii < grid_size.0 && ...`
+  guard produces zero contribution for out-of-grid points); `calculate_forcing`
+  uses `dt` in direct forcing's `(u_desired − u*) / Δt` and in feedback forcing's
+  derivative term.
+- The cfd-3d AGENTS.md already documents the invariant "IBM Lagrangian markers
+  must be placed at least 1.5Δx from grid boundaries"; this sprint enforces it
+  at the insertion boundary.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, `crates/cfd-3d/src/blueprint_integration/mod.rs`,
+  `crates/cfd-3d/src/cavitation.rs`, and other existing peer-dirty files.
+
+### Acceptance and Verification
+- `IbmSolver::try_new` rejects non-finite or non-positive `dx.x/dx.y/dx.z`,
+  zero `grid_size` in any dimension, and non-finite or non-positive
+  `config.smoothing_width`.
+- `IbmSolver::try_add_lagrangian_point` rejects non-finite positions and
+  positions outside the grid extent.
+- `IbmSolver::calculate_forcing` rejects non-finite or non-positive `dt`.
+- Pre-existing infallible callers (`examples/`, validation) compile unchanged
+  via the thin wrapper pattern.
+- Eleven new value-semantic regression tests cover zero/NaN `dx`, zero
+  `grid_size`, negative `smoothing_width`, in-grid/out-of-grid/NaN
+  `LagrangianPoint` insertion, zero/negative/NaN `dt`, and the accept-path.
+- `cargo nextest run -p cfd-3d --no-default-features ibm::solver` passes 14/14;
+  full cfd-3d lib Nextest passes 230/230; `cargo clippy -p cfd-3d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-3d/src/ibm/solver.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.176: cfd-2d vorticity_stream solver input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new `try_new` constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `VorticityStreamSolver::new` for missing physical invariant checks on
+  `reynolds`, `grid.dx`, `grid.dy`, `time_step`, `stream_tolerance`,
+  `vorticity_tolerance`, `sor_omega`, and grid extent.
+- The five-point Laplacian stencil divides by `dx²`/`dy²`; the vorticity
+  transport divides by `dx`/`dy` and the Reynolds number; the SOR Poisson
+  iteration consumes `sor_omega`. Zero or non-finite values silently produce
+  `inf` or `NaN` fields; negative `reynolds` flips the diffusion term to
+  anti-diffusion, producing a numerical blow-up that masquerades as physics.
+- Add a fallible `try_new` constructor that returns
+  `Result<Self, Error::InvalidConfiguration>`; the existing infallible
+  `new()` becomes a thin wrapper that panics on invalid inputs (the same
+  fail-fast behaviour callers implicitly relied on).
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and the existing peer-dirty `cfd-2d` files outside
+  `vorticity_stream.rs`.
+
+### Acceptance and Verification
+- `VorticityStreamSolver::try_new` rejects non-finite or non-positive
+  `reynolds`, `grid.dx`, `grid.dy`, `config.time_step`, and
+  `config.sor_omega`; rejects non-finite or negative tolerance values; rejects
+  grids with fewer than three cells in either direction.
+- Pre-existing infallible callers (`examples/cavity_validation.rs`,
+  `cfd-validation/src/benchmarks/vorticity_stream.rs`) continue to compile
+  and run unchanged.
+- Six new value-semantic regression tests cover zero/negative/non-finite
+  Reynolds, negative `time_step`, undersized grid, and the accept-path.
+- `cargo nextest run -p cfd-2d --no-default-features physics::vorticity_stream`
+  passes 9/9; full cfd-2d lib Nextest passes 535/535 (one pre-existing
+  peer-dirty `gorkov` failure is unrelated); `cargo clippy -p cfd-2d
+  --no-default-features --lib --tests -- -D warnings` is clean;
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/vorticity_stream.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.175: cfd-2d Zweifach-Fung separating_streamline_y strict-positivity validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d/src/physics/streamtube/partitioning.rs::ZweifachFung2D::separating_streamline_y`
+  against the module's stated theorem: the dividing-streamline integral assumes a
+  strictly positive unidirectional profile `u(y) > 0` and a monotonically
+  increasing y-grid.
+- Reject non-finite, negative, or non-monotonic inputs before trapezoidal
+  integration; partial reverse flow silently produced a non-monotonic cumulative
+  flow and a plausible-looking but physically wrong `y_sep`.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and the existing peer-dirty `cfd-2d` files outside
+  `partitioning.rs`.
+
+### Acceptance and Verification
+- Negative or non-finite velocity samples are rejected with `None`; non-monotonic
+  y-coordinates are rejected with `None`; pre-existing Poiseuille and linear-
+  profile tests still pass (parabolic profiles that touch `u = 0` at the walls
+  remain valid because wall stagnation is not reverse flow).
+- Four new value-semantic regression tests cover partial reverse flow, negative
+  sample, non-monotonic y-grid, and non-finite sample.
+- `cargo nextest run -p cfd-2d --no-default-features physics::streamtube` passes
+  6/6; `cargo clippy -p cfd-2d --no-default-features --lib --tests -- -D warnings`
+  is clean; `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/streamtube/partitioning.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
+## Sprint 1.96.174: cfd-3d multiphase volume-fraction conservation invariants
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + [minor] signature returning `Result`
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-3d/src/multiphase.rs::exchange()` against the volume-fraction
+  conservation identity `alpha + (1 - alpha) = 1` and the mass/momentum
+  conservation identities of the underlying VOF-coupled 3D multiphase solve.
+- Reject non-finite and out-of-range gas volume fraction `alpha`, and
+  non-finite or negative phase densities/viscosities, before any mixture
+  computation runs.
+- Add value-semantic regression coverage for alpha limits, single-phase limits,
+  pure-liquid/pure-gas boundaries, monotonicity, and the documented
+  conservation identity.
+- Keep the sprint scope disjoint from peer-dirty `cfd-math`,
+  `cfd-schematic-mesh`, and `cfd-2d`/`cfd-3d` files outside `multiphase.rs`.
+
+### Acceptance and Verification
+- `multiphase::exchange` returns
+  `Result<(MassDensity<T>, DynamicViscosity<T>)>` and rejects non-finite
+  `alpha`, `alpha ∉ [0, 1]`, and non-finite or negative `rho_l`/`rho_g`/
+  `mu_l`/`mu_g` via `Error::InvalidConfiguration`.
+- Two pre-existing value tests plus eight new regression tests pass; `cargo
+  nextest run -p cfd-3d --no-default-features --lib` passes 219/219.
+- `cargo clippy -p cfd-3d --no-default-features --lib --tests -- -D warnings`
+  and `rustfmt --edition 2024 --check` on the touched file are warning-clean.
+- `cargo run -p xtask -- legacy-migration-audit` reports a clean allowlist.
+- No caller of `exchange` exists in the workspace; the signature change has
+  zero downstream compile impact.
+
+### Claimed Files
+- `crates/cfd-3d/src/multiphase.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.173: cfd-1d Venturi screening book example
 **Status**: Completed
 **Owner**: current session

@@ -110,6 +110,29 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-08-20: Make cfd-validation allocation tracking opt-in [major] [arch]
+
+Context: `cfd-validation` installed `TrackingAllocator` as the process-wide
+global allocator from library code. Every binary linking the library therefore
+paid allocation-counter overhead and could not declare its own allocator.
+
+Decision: remove the library-level `#[global_allocator]`. `TrackingAllocator`
+and the profiling types remain public, but a benchmark or test harness now
+constructs the allocator, installs it for that executable, and passes its
+counter to `MemoryProfiler` or `CfdMemoryProfiler`. The shipped
+`memory_profiling` benchmark is the canonical opt-in harness; the integration
+test declares `System` to pin the downstream allocator contract.
+
+Rejected alternative: retain the static allocator behind a default or silent
+fallback. That would preserve the link conflict or produce allocation reports
+that do not measure the consumer's real allocator.
+
+Evidence: the library source contains no global allocator, the benchmark is the
+only production target installing `TrackingAllocator`, and the consumer
+allocator integration test links `cfd-validation` with its own `System`
+allocator. The public constructor now requires the explicit `MemoryStats`
+source, so profiling cannot silently report an uninstrumented process.
+
 ### 2026-07-31: Canonical cfd-3d turbulence module [major] [arch]
 
 Context: `cfd-3d/src/turbulence.rs` exposed no-op k-epsilon, k-omega-SST, and

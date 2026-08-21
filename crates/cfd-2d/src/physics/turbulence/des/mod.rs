@@ -46,6 +46,7 @@ mod length_scale;
 use super::boundary_conditions::TurbulenceBoundaryCondition;
 use super::spalart_allmaras::SpalartAllmaras;
 use super::traits::LESTurbulenceModel;
+use cfd_core::error::Error;
 use leto::geometry::Vector2;
 use leto::{Array2, Storage, StorageMut};
 use std::f64;
@@ -112,7 +113,11 @@ pub struct DetachedEddySimulation {
 }
 
 impl DetachedEddySimulation {
-    /// Create a new DES model
+    /// Create a new DES model.
+    ///
+    /// # Panics
+    /// Panics if any invariant is violated (see [`Self::try_new`]).
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         nx: usize,
         ny: usize,
@@ -121,6 +126,64 @@ impl DetachedEddySimulation {
         config: DESConfig,
         boundaries: &[(&str, TurbulenceBoundaryCondition<f64>)],
     ) -> Self {
+        Self::try_new(nx, ny, dx, dy, config, boundaries).unwrap_or_else(|error| {
+            panic!("DetachedEddySimulation::new called with invalid arguments: {error}");
+        })
+    }
+
+    /// Create a new DES model with invariant validation.
+    ///
+    /// Validates:
+    /// - `nx >= 1`, `ny >= 1`.
+    /// - `dx > 0`, `dy > 0` (DES length scale is `Δ = max(dx, dy, dy,
+    ///   d_w)`; zero or non-finite spacing collapses it).
+    /// - `des_constant > 0` and finite (the RANS-LES shielding threshold
+    ///   `r̃_d = C_DES · Δ_w / Δ_max` requires `C_DES > 0`).
+    /// - `rans_viscosity > 0` and finite.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if any invariant is violated.
+    #[allow(clippy::too_many_arguments)]
+    pub fn try_new(
+        nx: usize,
+        ny: usize,
+        dx: f64,
+        dy: f64,
+        config: DESConfig,
+        boundaries: &[(&str, TurbulenceBoundaryCondition<f64>)],
+    ) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "DetachedEddySimulation::try_new: nx must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "DetachedEddySimulation::try_new: ny must be at least 1".to_string(),
+            ));
+        }
+        if !dx.is_finite() || dx <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DetachedEddySimulation::try_new: dx must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !dy.is_finite() || dy <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DetachedEddySimulation::try_new: dy must be finite and positive, got {dy:?}"
+            )));
+        }
+        if !config.des_constant.is_finite() || config.des_constant <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DetachedEddySimulation::try_new: des_constant must be finite and positive, got {:?}",
+                config.des_constant
+            )));
+        }
+        if !config.rans_viscosity.is_finite() || config.rans_viscosity <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DetachedEddySimulation::try_new: rans_viscosity must be finite and positive, got {:?}",
+                config.rans_viscosity
+            )));
+        }
         let mut wall_distance = Array2::from_elem([nx, ny], f64::MAX);
 
         let has_boundaries = !boundaries.is_empty();
@@ -166,7 +229,7 @@ impl DetachedEddySimulation {
 
         let spalart_allmaras = SpalartAllmaras::new(nx, ny);
 
-        Self {
+        Ok(Self {
             config,
             sgs_viscosity: Array2::zeros([nx, ny]),
             nu_tilde: Array2::zeros([nx, ny]),
@@ -176,7 +239,7 @@ impl DetachedEddySimulation {
             velocity_buffer: vec![Vector2::zeros(); nx * ny],
             dx,
             dy,
-        }
+        })
     }
 }
 
@@ -518,5 +581,53 @@ mod tests {
             (l_les - 0.65).abs() < 1e-3,
             "With zero viscosity, DDES should return LES length (0.65), got {l_les}"
         );
+    }
+
+    /// **Positive**: `try_new` accepts valid arguments.
+    #[test]
+    fn des_try_new_accepts_valid_arguments() {
+        let des = DetachedEddySimulation::try_new(8, 12, 1e-3, 1e-3, DESConfig::default(), &[])
+            .expect("valid must succeed");
+        assert_eq!(des.dx, 1e-3);
+        assert_eq!(des.dy, 1e-3);
+    }
+
+    /// **Adversarial**: zero `dx` is rejected.
+    #[test]
+    fn des_try_new_rejects_zero_dx() {
+        match DetachedEddySimulation::try_new(8, 12, 0.0, 1e-3, DESConfig::default(), &[]) {
+            Err(e) => assert!(e.to_string().contains("dx"), "error must mention dx: {e}"),
+            Ok(_) => panic!("zero dx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `dy` is rejected.
+    #[test]
+    fn des_try_new_rejects_nan_dy() {
+        match DetachedEddySimulation::try_new(8, 12, 1e-3, f64::NAN, DESConfig::default(), &[]) {
+            Err(e) => assert!(e.to_string().contains("dy"), "error must mention dy: {e}"),
+            Ok(_) => panic!("NaN dy must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `des_constant` is rejected.
+    #[test]
+    fn des_try_new_rejects_zero_des_constant() {
+        let mut cfg = DESConfig::default();
+        cfg.des_constant = 0.0;
+        match DetachedEddySimulation::try_new(8, 12, 1e-3, 1e-3, cfg, &[]) {
+            Err(e) => assert!(
+                e.to_string().contains("des_constant"),
+                "error must mention des_constant: {e}"
+            ),
+            Ok(_) => panic!("zero des_constant must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `dx` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "dx")]
+    fn des_new_panics_on_invalid_dx() {
+        let _ = DetachedEddySimulation::new(8, 12, 0.0, 1e-3, DESConfig::default(), &[]);
     }
 }
