@@ -32,6 +32,32 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.195 Checklist: cfd-2d fdm::PoissonSolver FdmConfig validation
+**Goal**: Reject invalid `SolverConfig` wrapped in `FdmConfig` for
+`PoissonSolver::new` so the Gauss–Seidel inner iteration cannot diverge
+on a degenerate tolerance, max-iterations, or relaxation factor.
+
+**Success Criteria**:
+- [x] `PoissonSolver::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `tolerance` non-finite or non-positive,
+      `max_iterations == 0`, `relaxation_factor` non-finite or outside
+      `(0, 2]`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; the
+      `tests_poisson_mms.rs:48` caller compiles unchanged.
+- [x] Five new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features fdm::poisson`
+      passes 5/5 plus the pre-existing MMS test.
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file (only pre-existing peer-dirty
+      warnings in `piso_algorithm/predictor.rs`).
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The FDM
+Poisson solver is now contractually forbidden from running on a
+degenerate Gauss–Seidel configuration.
+
+---
+
 # Sprint 1.96.194 Checklist: cfd-2d lbm::MacroscopicQuantities dimension validation
 **Goal**: Reject zero grid dimensions in `MacroscopicQuantities::new` so
 the LBM moment-extraction loop never indexes an empty field.

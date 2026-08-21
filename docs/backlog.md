@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.195: cfd-2d fdm::PoissonSolver FdmConfig validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fdm::PoissonSolver::new(config)` for missing
+  invariant checks. The constructor wraps a `FdmConfig` (a thin SSOT
+  alias around `cfd_core::compute::solver::SolverConfig`) and forwards
+  it directly to Gauss–Seidel iteration in `solve_with_neumann`. The
+  Gauss–Seidel iteration converges iff the relaxation factor lies in
+  `(0, 2]`; values outside that interval diverge. Zero or non-finite
+  `tolerance` produces a divergent convergence test; `max_iterations =
+  0` is a no-op (no progress can be made).
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `tolerance` non-finite or non-positive,
+  `max_iterations == 0`, `relaxation_factor` non-finite or outside
+  `(0, 2]`.
+- Pre-existing infallible caller (`tests_poisson_mms.rs:48`) compiles
+  unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (default config), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features fdm::poisson`
+  passes 5/5 (plus the pre-existing MMS test); full cfd-2d lib Nextest
+  passes 620/620; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (the four warnings in
+  `piso_algorithm/predictor.rs` are pre-existing peer-dirty WIP, not
+  from this change); `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fdm/poisson.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.194: cfd-2d lbm::MacroscopicQuantities dimension validation
 **Status**: Completed
 **Owner**: current session
