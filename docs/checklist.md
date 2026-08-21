@@ -32,6 +32,33 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.202 Checklist: cfd-2d turbulence::SmagorinskyLES input validation
+**Goal**: Reject degenerate inputs in the Smagorinsky LES model so
+the filter-width `Δ = √(dx · dy)`, the Smagorinsky constant `C_S`,
+and the field dimensions can never collapse to a no-op or zero-SGS
+state silently.
+
+**Success Criteria**:
+- [x] `SmagorinskyLES::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+      non-positive, `dy` non-finite or non-positive, `smagorinsky_constant`
+      non-finite or non-positive, `min_sgs_viscosity` non-finite.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Five new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      turbulence::les_smagorinsky::model` passes 12/12 (5 new + 7
+      existing).
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The
+Smagorinsky LES model is now contractually forbidden from running on
+degenerate inputs.
+
+---
+
 # Sprint 1.96.201 Checklist: cfd-2d turbulence::KOmegaSSTModel dimension validation
 **Goal**: Reject zero grid dimensions in the k-ω SST turbulence model
 so the SST blending function loops never index empty buffers.

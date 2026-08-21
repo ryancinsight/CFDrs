@@ -2,6 +2,33 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.202 resolution: cfd-2d turbulence::SmagorinskyLES input validation
+
+### RESOLVED-234: `SmagorinskyLES::new` silently accepts degenerate inputs
+- **Location**: `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/model.rs:268`
+  (pre-fix).
+- **Issue**: the filter width is `Δ = √(dx · dy)`; zero or non-finite
+  `dx`/`dy` collapses the filter to zero, turning the model into a
+  no-op. The Smagorinsky constant `C_S` enters via
+  `ν_sgs = (C_S · Δ)² · |S|`; zero or negative `C_S` produces zero SGS
+  viscosity for any strain. Zero `nx`/`ny` silently underflows every
+  `Array2` allocation.
+- **Remediation**: new `SmagorinskyLES::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `nx == 0`, `ny == 0`, `dx` non-finite or non-positive, `dy`
+  non-finite or non-positive, `smagorinsky_constant` non-finite or
+  non-positive, and `min_sgs_viscosity` non-finite. The existing
+  infallible `new` becomes a thin panic wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths, the accept-path (with default config), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::les_smagorinsky::model` passes 12/12 (5 new + 7
+  existing); full cfd-2d lib Nextest passes 654/654; `cargo clippy
+  -p cfd-2d --no-default-features --tests` produces no new warnings on
+  the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.201 resolution: cfd-2d turbulence::KOmegaSSTModel dimension validation
 
 ### RESOLVED-233: `KOmegaSSTModel::new` silently accepts zero grid dimensions

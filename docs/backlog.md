@@ -1,5 +1,44 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.202: cfd-2d turbulence::SmagorinskyLES input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::les_smagorinsky::SmagorinskyLES::new(
+  nx, ny, dx, dy, config)` for missing physical invariant checks. The
+  filter width is `Δ = √(dx · dy)`; zero or non-finite `dx`/`dy`
+  collapses the filter to zero, turning the model into a no-op. The
+  Smagorinsky constant `C_S` enters via `ν_sgs = (C_S · Δ)² · |S|`;
+  zero or negative `C_S` produces zero SGS viscosity for any strain.
+  Zero `nx`/`ny` silently underflows every `Array2` allocation.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive, `smagorinsky_constant`
+  non-finite or non-positive, `min_sgs_viscosity` non-finite.
+- Pre-existing infallible callers (in `les_smagorinsky/model.rs` tests
+  and `cfd-validation` benchmarks) compile unchanged via the thin
+  wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default config), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  turbulence::les_smagorinsky::model` passes 12/12 (5 new + 7
+  existing); full cfd-2d lib Nextest passes 654/654; `cargo clippy
+  -p cfd-2d --no-default-features --tests` produces no new warnings
+  on the touched file (only pre-existing peer-dirty warnings in
+  `piso_algorithm/predictor.rs`); `rustfmt --edition 2024 --check` on
+  the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/model.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.201: cfd-2d turbulence::KOmegaSSTModel dimension validation
 **Status**: Completed
 **Owner**: current session
