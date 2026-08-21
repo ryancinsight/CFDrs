@@ -2,6 +2,31 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.193 resolution: cfd-2d lbm CarreauYasudaBgk dx/dt validation
+
+### RESOLVED-225: `CarreauYasudaBgk::new` silently accepts degenerate `dx`/`dt`
+- **Location**: `crates/cfd-2d/src/solvers/lbm/collision/carreau_yasuda.rs:60`
+  (pre-fix).
+- **Issue**: the non-Newtonian BGK operator's fixed-point iteration
+  `compute_local_tau` (line 76) divides by `dx²` to convert physical
+  viscosity to lattice units: `dt_dx2 = self.dt / (self.dx * self.dx)`.
+  Zero or non-finite `dx`/`dt` silently produces `inf`/`NaN` `dt_dx2`
+  and a divergent fixed-point iteration.
+- **Remediation**: new `CarreauYasudaBgk::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and
+  rejects `dx` non-finite or non-positive, `dt` non-finite or
+  non-positive. The existing infallible `new` becomes a thin panic
+  wrapper.
+- **Evidence**: five new value-semantic regression tests cover all
+  rejection paths, the accept-path (asserting `dx` round-trip), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d
+  --no-default-features lbm::collision::carreau_yasuda` passes 7/7;
+  full cfd-2d lib Nextest passes 606/607 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched file.
+
 ## Sprint 1.96.192 resolution: cfd-2d lbm::LbmConfig validation
 
 ### RESOLVED-224: `LbmConfig` documents `tau ∈ (0.5, ∞)` but accepts any `tau`

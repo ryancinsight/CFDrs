@@ -32,6 +32,31 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.193 Checklist: cfd-2d lbm CarreauYasudaBgk dx/dt validation
+**Goal**: Reject degenerate `dx`/`dt` in `CarreauYasudaBgk::new` so the
+fixed-point iteration in `compute_local_tau` never divides by zero-magnitude
+or non-finite grid spacing.
+
+**Success Criteria**:
+- [x] `CarreauYasudaBgk::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `dx` non-finite or non-positive, `dt` non-finite
+      or non-positive.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; all
+      callers (`bounds_and_convergence_local_tau`,
+      `local_tau_satisfies_fixed_point_residual`) compile unchanged.
+- [x] Five new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features
+      lbm::collision::carreau_yasuda` passes 7/7.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The non-Newtonian
+LBM fixed-point iteration is now contractually forbidden from running on
+degenerate grid spacing or time step.
+
+---
+
 # Sprint 1.96.192 Checklist: cfd-2d lbm::LbmConfig validation
 **Goal**: Reject unphysical LBM configurations at construction time so
 the LBM solve never receives `tau < 0.5` or `max_steps == 0`.

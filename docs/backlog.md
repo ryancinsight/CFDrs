@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.193: cfd-2d lbm CarreauYasudaBgk dx/dt validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::collision::CarreauYasudaBgk::new(model,
+  dx, dt)` for missing physical invariant checks. The non-Newtonian BGK
+  operator's fixed-point iteration `compute_local_tau` (carreau_yasuda.rs
+  line 76) divides by `dx²` to convert physical viscosity to lattice
+  units: `dt_dx2 = self.dt / (self.dx * self.dx)`. Zero or non-finite
+  `dx`/`dt` silently produces `inf`/`NaN` `dt_dx2` and a divergent
+  fixed-point iteration.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `dx` non-finite or non-positive, `dt` non-finite
+  or non-positive.
+- Pre-existing infallible callers (`bounds_and_convergence_local_tau`,
+  `local_tau_satisfies_fixed_point_residual` and any external solver
+  wiring) compile unchanged via the thin wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `dx` round-trip), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features
+  lbm::collision::carreau_yasuda` passes 7/7; full cfd-2d lib Nextest
+  passes 606/607 (one pre-existing peer-dirty
+  `gorkov::f1_f2_analytical_values` failure unrelated to this change);
+  `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/collision/carreau_yasuda.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.192: cfd-2d lbm::LbmConfig validation
 **Status**: Completed
 **Owner**: current session
