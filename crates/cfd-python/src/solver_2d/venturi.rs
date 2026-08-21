@@ -99,39 +99,52 @@ impl PyVenturiSolver2D {
     }
 
     /// Solve Venturi flow simulation using FVM Navier-Stokes solver.
-    fn solve(&self, inlet_velocity: f64, blood_type: &str) -> PyResult<PyVenturiResult2D> {
+    fn solve(
+        &self,
+        py: Python<'_>,
+        inlet_velocity: f64,
+        blood_type: &str,
+    ) -> PyResult<PyVenturiResult2D> {
         use cfd_2d::solvers::ns_fvm::BloodModel;
         use cfd_2d::solvers::venturi_flow::{VenturiGeometry as VGeom, VenturiSolver2D as VSolver};
 
-        let geom = VGeom::new(
-            self.w_inlet,
-            self.w_throat,
-            self.l_inlet,
-            self.l_converge,
-            self.l_throat,
-            self.l_diverge,
-            1.0e-3,
-        );
+        let w_inlet = self.w_inlet;
+        let w_throat = self.w_throat;
+        let l_inlet = self.l_inlet;
+        let l_converge = self.l_converge;
+        let l_throat = self.l_throat;
+        let l_diverge = self.l_diverge;
+        let nx = self.nx;
+        let ny = self.ny;
+        let blood_type = blood_type.to_owned();
 
-        let blood = match blood_type {
-            "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
-            "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
-            _ => BloodModel::Newtonian(0.0035),
-        };
+        py.detach(move || {
+            let geom = VGeom::new(
+                w_inlet, w_throat, l_inlet, l_converge, l_throat, l_diverge, 1.0e-3,
+            );
 
-        let density = 1060.0;
-        let mut solver = VSolver::new(geom, blood, density, self.nx, self.ny);
+            let blood = match blood_type.as_str() {
+                "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
+                "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
+                _ => BloodModel::Newtonian(0.0035),
+            };
 
-        let sol = solver
-            .solve(inlet_velocity)
-            .map_err(|e| PyRuntimeError::new_err(format!("Venturi solver error: {e}")))?;
+            let density = 1060.0;
+            let mut solver = VSolver::new(geom, blood, density, nx, ny);
 
-        Ok(PyVenturiResult2D {
-            cp_throat: sol.cp_throat,
-            pressure_recovery: sol.cp_recovery,
-            velocity_ratio: sol.u_throat / sol.u_inlet.max(1e-30),
-            mass_conservation_error: ((sol.u_inlet - sol.u_outlet) / sol.u_inlet.max(1e-30)).abs(),
+            let sol = solver
+                .solve(inlet_velocity)
+                .map_err(|e| format!("Venturi solver error: {e}"))?;
+
+            Ok::<_, String>(PyVenturiResult2D {
+                cp_throat: sol.cp_throat,
+                pressure_recovery: sol.cp_recovery,
+                velocity_ratio: sol.u_throat / sol.u_inlet.max(1e-30),
+                mass_conservation_error: ((sol.u_inlet - sol.u_outlet) / sol.u_inlet.max(1e-30))
+                    .abs(),
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 
@@ -213,63 +226,77 @@ impl PyVenturiSolver1D {
     }
 
     /// Solve Venturi resistance for given flow conditions.
-    fn solve(&self, velocity: f64, blood_type: &str) -> PyResult<PyVenturiResult1D> {
+    fn solve(
+        &self,
+        py: Python<'_>,
+        velocity: f64,
+        blood_type: &str,
+    ) -> PyResult<PyVenturiResult1D> {
         use cfd_1d::{FlowConditions, ResistanceModel, VenturiModel};
 
-        let model = VenturiModel::symmetric(
-            self.inlet_diameter,
-            self.throat_diameter,
-            self.throat_length,
-            self.total_length,
-        );
+        let inlet_diameter = self.inlet_diameter;
+        let throat_diameter = self.throat_diameter;
+        let throat_length = self.throat_length;
+        let total_length = self.total_length;
+        let blood_type = blood_type.to_owned();
 
-        let density = 1060.0;
-        let dh = self.inlet_diameter;
+        py.detach(move || {
+            let model = VenturiModel::symmetric(
+                inlet_diameter,
+                throat_diameter,
+                throat_length,
+                total_length,
+            );
 
-        let mu = match blood_type {
-            "casson" => {
-                let blood = CassonBlood::<f64>::normal_blood();
-                blood.apparent_viscosity(velocity / dh * 8.0)
-            }
-            "carreau_yasuda" => {
-                let blood = CarreauYasudaBlood::<f64>::normal_blood();
-                blood.apparent_viscosity(velocity / dh * 8.0)
-            }
-            _ => 0.0035,
-        };
+            let density = 1060.0;
+            let dh = inlet_diameter;
 
-        let re = density * velocity * dh / mu;
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+            let mu = match blood_type.as_str() {
+                "casson" => {
+                    let blood = CassonBlood::<f64>::normal_blood();
+                    blood.apparent_viscosity(velocity / dh * 8.0)
+                }
+                "carreau_yasuda" => {
+                    let blood = CarreauYasudaBlood::<f64>::normal_blood();
+                    blood.apparent_viscosity(velocity / dh * 8.0)
+                }
+                _ => 0.0035,
+            };
 
-        let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
-            "blood".to_string(),
-            MassDensity::from_base(density),
-            DynamicViscosity::from_base(mu),
-            SpecificHeatCapacity::from_base(3617.0),
-            ThermalConductivity::from_base(0.52),
-            Velocity::from_base(1570.0),
-        );
+            let re = density * velocity * dh / mu;
+            let mut conditions = FlowConditions::new(velocity);
+            conditions.reynolds_number = Some(re);
 
-        let resistance = model
-            .calculate_resistance(&fluid, &conditions)
-            .map_err(|e| PyRuntimeError::new_err(format!("Venturi solver error: {e}")))?;
+            let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
+                "blood".to_string(),
+                MassDensity::from_base(density),
+                DynamicViscosity::from_base(mu),
+                SpecificHeatCapacity::from_base(3617.0),
+                ThermalConductivity::from_base(0.52),
+                Velocity::from_base(1570.0),
+            );
 
-        let area = std::f64::consts::PI / 4.0 * self.inlet_diameter.powi(2);
-        let flow_rate = velocity * area;
-        let pressure_drop = resistance * flow_rate;
+            let resistance = model
+                .calculate_resistance(&fluid, &conditions)
+                .map_err(|e| format!("Venturi solver error: {e}"))?;
 
-        let beta = self.beta();
-        let dp_bernoulli = 0.5 * density * velocity.powi(2) * (1.0 / beta.powi(4) - 1.0);
+            let area = std::f64::consts::PI / 4.0 * inlet_diameter.powi(2);
+            let flow_rate = velocity * area;
+            let pressure_drop = resistance * flow_rate;
 
-        Ok(PyVenturiResult1D {
-            pressure_drop,
-            resistance,
-            dp_bernoulli,
-            reynolds_number: re,
-            beta,
-            apparent_viscosity: mu,
+            let beta = throat_diameter / inlet_diameter;
+            let dp_bernoulli = 0.5 * density * velocity.powi(2) * (1.0 / beta.powi(4) - 1.0);
+
+            Ok::<_, String>(PyVenturiResult1D {
+                pressure_drop,
+                resistance,
+                dp_bernoulli,
+                reynolds_number: re,
+                beta,
+                apparent_viscosity: mu,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 
     fn __str__(&self) -> String {

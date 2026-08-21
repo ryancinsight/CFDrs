@@ -94,46 +94,59 @@ impl PyBifurcation3DSolver {
     }
 
     /// Solve 3D bifurcation simulation
-    fn solve(&self, flow_rate: f64, blood_type: &str) -> PyResult<PyBifurcation3DResult> {
-        let geom = BifurcationGeometry3D::symmetric(
-            self.d_parent,
-            self.d_daughter1,
-            self.length,
-            self.length,
-            100e-6, // transition
-        );
+    fn solve(
+        &self,
+        py: Python<'_>,
+        flow_rate: f64,
+        blood_type: &str,
+    ) -> PyResult<PyBifurcation3DResult> {
+        let d_parent = self.d_parent;
+        let d_daughter1 = self.d_daughter1;
+        let length = self.length;
+        let blood_type = blood_type.to_owned();
 
-        let config = BifurcationConfig3D {
-            inlet_flow_rate: flow_rate,
-            ..Default::default()
-        };
+        py.detach(move || {
+            let geom = BifurcationGeometry3D::symmetric(
+                d_parent,
+                d_daughter1,
+                length,
+                length,
+                100e-6, // transition
+            );
 
-        let solver = BifurcationSolver3D::new(geom, config);
+            let config = BifurcationConfig3D {
+                inlet_flow_rate: flow_rate,
+                ..Default::default()
+            };
 
-        let fluid = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood(),
-            _ => CassonBlood::<f64>::normal_blood(),
-        };
+            let solver = BifurcationSolver3D::new(geom, config);
 
-        let solution = solver
-            .solve(fluid)
-            .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
+            let fluid = match blood_type.as_str() {
+                "casson" => CassonBlood::<f64>::normal_blood(),
+                _ => CassonBlood::<f64>::normal_blood(),
+            };
 
-        Ok(PyBifurcation3DResult {
-            max_wss: solution
-                .wall_shear_stress_parent
-                .max(solution.wall_shear_stress_daughter1),
-            min_wss: solution
-                .wall_shear_stress_parent
-                .min(solution.wall_shear_stress_daughter1),
-            mean_wss: (solution.wall_shear_stress_parent
-                + solution.wall_shear_stress_daughter1
-                + solution.wall_shear_stress_daughter2)
-                / 3.0,
-            wss_ratio: solution.wall_shear_stress_daughter1 / solution.wall_shear_stress_parent,
-            flow_split_ratio: solution.q_daughter1 / solution.q_parent,
-            mass_conservation_error: solution.mass_conservation_error,
+            let solution = solver
+                .solve(fluid)
+                .map_err(|e| format!("Solver error: {e}"))?;
+
+            Ok::<_, String>(PyBifurcation3DResult {
+                max_wss: solution
+                    .wall_shear_stress_parent
+                    .max(solution.wall_shear_stress_daughter1),
+                min_wss: solution
+                    .wall_shear_stress_parent
+                    .min(solution.wall_shear_stress_daughter1),
+                mean_wss: (solution.wall_shear_stress_parent
+                    + solution.wall_shear_stress_daughter1
+                    + solution.wall_shear_stress_daughter2)
+                    / 3.0,
+                wss_ratio: solution.wall_shear_stress_daughter1 / solution.wall_shear_stress_parent,
+                flow_split_ratio: solution.q_daughter1 / solution.q_parent,
+                mass_conservation_error: solution.mass_conservation_error,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 
@@ -190,45 +203,58 @@ impl PyTrifurcation3DSolver {
     }
 
     /// Solve 3D trifurcation simulation
-    fn solve(&self, flow_rate: f64, blood_type: &str) -> PyResult<PyTrifurcation3DResult> {
-        let geom = TrifurcationGeometry3D::symmetric(
-            self.d_parent,
-            self.d_daughter,
-            self.length,
-            self.length,
-            100e-6,
-            std::f64::consts::PI / 6.0,
-        );
+    fn solve(
+        &self,
+        py: Python<'_>,
+        flow_rate: f64,
+        blood_type: &str,
+    ) -> PyResult<PyTrifurcation3DResult> {
+        let d_parent = self.d_parent;
+        let d_daughter = self.d_daughter;
+        let length = self.length;
+        let blood_type = blood_type.to_owned();
 
-        let config = TrifurcationConfig3D {
-            inlet_flow_rate: flow_rate,
-            ..Default::default()
-        };
+        py.detach(move || {
+            let geom = TrifurcationGeometry3D::symmetric(
+                d_parent,
+                d_daughter,
+                length,
+                length,
+                100e-6,
+                std::f64::consts::PI / 6.0,
+            );
 
-        let solver = TrifurcationSolver3D::new(geom, config);
-        let fluid = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood(),
-            _ => CassonBlood::<f64>::normal_blood(),
-        };
+            let config = TrifurcationConfig3D {
+                inlet_flow_rate: flow_rate,
+                ..Default::default()
+            };
 
-        let solution = solver
-            .solve(&fluid)
-            .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
+            let solver = TrifurcationSolver3D::new(geom, config);
+            let fluid = match blood_type.as_str() {
+                "casson" => CassonBlood::<f64>::normal_blood(),
+                _ => CassonBlood::<f64>::normal_blood(),
+            };
 
-        Ok(PyTrifurcation3DResult {
-            max_wss: solution
-                .wall_shear_stresses
-                .iter()
-                .copied()
-                .fold(0.0, f64::max),
-            min_wss: solution
-                .wall_shear_stresses
-                .iter()
-                .copied()
-                .fold(f64::INFINITY, f64::min),
-            flow_rates: solution.flow_rates,
-            mass_conservation_error: solution.mass_conservation_error,
+            let solution = solver
+                .solve(&fluid)
+                .map_err(|e| format!("Solver error: {e}"))?;
+
+            Ok::<_, String>(PyTrifurcation3DResult {
+                max_wss: solution
+                    .wall_shear_stresses
+                    .iter()
+                    .copied()
+                    .fold(0.0, f64::max),
+                min_wss: solution
+                    .wall_shear_stresses
+                    .iter()
+                    .copied()
+                    .fold(f64::INFINITY, f64::min),
+                flow_rates: solution.flow_rates,
+                mass_conservation_error: solution.mass_conservation_error,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 

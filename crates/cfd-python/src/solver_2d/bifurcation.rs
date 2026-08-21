@@ -35,22 +35,35 @@ impl PyTrifurcationSolver2D {
     }
 
     /// Solve 2D trifurcation simulation
-    fn solve(&self, _flow_rate: f64, _blood_type: &str) -> PyResult<PyTrifurcationResult2D> {
-        let bench = TrifurcationFlow::new(self.width, self.length, self.angle);
-        let config = BenchmarkConfig {
-            resolution: self.nx,
-            max_iterations: 100,
-            ..Default::default()
-        };
+    fn solve(
+        &self,
+        py: Python<'_>,
+        _flow_rate: f64,
+        _blood_type: &str,
+    ) -> PyResult<PyTrifurcationResult2D> {
+        let width = self.width;
+        let length = self.length;
+        let angle = self.angle;
+        let resolution = self.nx;
 
-        let result = bench
-            .run(&config)
-            .map_err(|e| PyRuntimeError::new_err(format!("Benchmark error: {e}")))?;
+        py.detach(move || {
+            let bench = TrifurcationFlow::new(width, length, angle);
+            let config = BenchmarkConfig {
+                resolution,
+                max_iterations: 100,
+                ..Default::default()
+            };
 
-        Ok(PyTrifurcationResult2D {
-            execution_time: result.execution_time,
-            mass_conservation_error: result.convergence.last().copied().unwrap_or(0.0),
+            let result = bench
+                .run(&config)
+                .map_err(|e| format!("Benchmark error: {e}"))?;
+
+            Ok::<_, String>(PyTrifurcationResult2D {
+                execution_time: result.execution_time,
+                mass_conservation_error: result.convergence.last().copied().unwrap_or(0.0),
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 
@@ -139,50 +152,67 @@ impl PyBifurcationSolver2D {
     }
 
     /// Solve 2D bifurcation flow.
-    fn solve(&self, inlet_velocity: f64, blood_type: &str) -> PyResult<PyBifurcationResult2D> {
+    fn solve(
+        &self,
+        py: Python<'_>,
+        inlet_velocity: f64,
+        blood_type: &str,
+    ) -> PyResult<PyBifurcationResult2D> {
         use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
         use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 
-        let geom = BifurcationGeometry::new_symmetric(
-            self.parent_width,
-            self.parent_length,
-            self.daughter_width,
-            self.daughter_length,
-            self.angle,
-        );
+        let parent_width = self.parent_width;
+        let parent_length = self.parent_length;
+        let daughter_width = self.daughter_width;
+        let daughter_length = self.daughter_length;
+        let angle = self.angle;
+        let nx = self.nx;
+        let ny = self.ny;
+        let blood_type = blood_type.to_owned();
 
-        let blood = match blood_type {
-            "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
-            "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
-            _ => BloodModel::Newtonian(0.0035),
-        };
+        py.detach(move || {
+            let geom = BifurcationGeometry::new_symmetric(
+                parent_width,
+                parent_length,
+                daughter_width,
+                daughter_length,
+                angle,
+            );
 
-        let density = 1060.0;
-        let mut config = SIMPLEConfig::default();
-        config.max_iterations = 5000;
-        config.tolerance = 1e-5;
-        config.alpha_u = 0.5;
-        config.alpha_p = 0.2;
+            let blood = match blood_type.as_str() {
+                "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
+                "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
+                _ => BloodModel::Newtonian(0.0035),
+            };
 
-        let mut solver = BifurcationSolver2D::new(geom, blood, density, self.nx, self.ny, config);
+            let density = 1060.0;
+            let mut config = SIMPLEConfig::default();
+            config.max_iterations = 5000;
+            config.tolerance = 1e-5;
+            config.alpha_u = 0.5;
+            config.alpha_p = 0.2;
 
-        let sol = solver
-            .solve(inlet_velocity)
-            .map_err(|e| PyRuntimeError::new_err(format!("Bifurcation solver error: {e}")))?;
+            let mut solver = BifurcationSolver2D::new(geom, blood, density, nx, ny, config);
 
-        let flow_split = if sol.q_parent.abs() > 1e-30 {
-            sol.q_daughter1 / sol.q_parent
-        } else {
-            0.5
-        };
+            let sol = solver
+                .solve(inlet_velocity)
+                .map_err(|e| format!("Bifurcation solver error: {e}"))?;
 
-        Ok(PyBifurcationResult2D {
-            q_parent: sol.q_parent,
-            q_daughter1: sol.q_daughter1,
-            q_daughter2: sol.q_daughter2,
-            mass_balance_error: sol.mass_balance_error,
-            flow_split_ratio: flow_split,
+            let flow_split = if sol.q_parent.abs() > 1e-30 {
+                sol.q_daughter1 / sol.q_parent
+            } else {
+                0.5
+            };
+
+            Ok::<_, String>(PyBifurcationResult2D {
+                q_parent: sol.q_parent,
+                q_daughter1: sol.q_daughter1,
+                q_daughter2: sol.q_daughter2,
+                mass_balance_error: sol.mass_balance_error,
+                flow_split_ratio: flow_split,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 
     fn __str__(&self) -> String {

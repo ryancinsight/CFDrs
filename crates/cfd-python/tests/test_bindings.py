@@ -2,6 +2,8 @@
 
 import importlib.metadata
 import math
+import threading
+from typing import Dict
 
 import cfd_python
 
@@ -61,3 +63,45 @@ def test_poiseuille_solver_returns_analytical_profile_values() -> None:
     assert result.u_centerline[0] == 0.0
     assert math.isclose(result.u_centerline[2], result.max_velocity, rel_tol=2.0e-15)
     assert result.u_centerline[-1] == 0.0
+
+
+def test_solver_releases_gil_for_another_python_thread() -> None:
+    """A Rust solver does not block another Python thread from progressing."""
+    solver = cfd_python.Poiseuille2DSolver(2.0e-3, 1.0e-2, 5.0e-2, 1024, 512)
+    solver_started = threading.Event()
+    solver_finished = threading.Event()
+    progress_finished = threading.Event()
+    outcome: Dict[str, object] = {}
+
+    def run_solver() -> None:
+        solver_started.set()
+        outcome["result"] = solver.solve(100.0, "newtonian")
+        solver_finished.set()
+
+    def run_python_progress() -> None:
+        assert solver_started.wait(timeout=10.0)
+        outcome["progress_sum"] = sum(range(100_000))
+        outcome["progress_before_solver_finished"] = not solver_finished.is_set()
+        progress_finished.set()
+
+    solver_thread = threading.Thread(target=run_solver, daemon=True)
+    progress_thread = threading.Thread(target=run_python_progress, daemon=True)
+    solver_thread.start()
+    assert solver_started.wait(timeout=10.0)
+    progress_thread.start()
+
+    assert progress_finished.wait(timeout=30.0)
+    solver_thread.join(timeout=30.0)
+    progress_thread.join(timeout=30.0)
+
+    assert not solver_thread.is_alive()
+    assert not progress_thread.is_alive()
+    assert outcome["progress_sum"] == 4_999_950_000
+    assert outcome["progress_before_solver_finished"] is True
+
+    result = outcome["result"]
+    assert isinstance(result, cfd_python.Poiseuille2DResult)
+    assert math.isfinite(result.max_velocity)
+    assert result.u_centerline[0] == 0.0
+    assert result.u_centerline[-1] == 0.0
+    assert result.u_centerline[256] > 0.0

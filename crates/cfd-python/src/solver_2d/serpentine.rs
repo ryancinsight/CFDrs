@@ -56,74 +56,82 @@ impl PySerpentineSolver1D {
     }
 
     /// Solve serpentine resistance for given flow conditions.
-    fn solve(&self, velocity: f64, blood_type: &str) -> PyResult<PySerpentineResult1D> {
+    fn solve(
+        &self,
+        py: Python<'_>,
+        velocity: f64,
+        blood_type: &str,
+    ) -> PyResult<PySerpentineResult1D> {
         use cfd_1d::{FlowConditions, ResistanceModel, SerpentineCrossSection, SerpentineModel};
         use cfd_core::physics::fluid::blood::CarreauYasudaBlood as RustCY;
         use cfd_core::physics::fluid::blood::CassonBlood as RustCasson;
 
-        let cross_section = SerpentineCrossSection::Rectangular {
-            width: self.width,
-            height: self.height,
-        };
-        let total_straight = self.straight_length * self.num_segments as f64;
-        let model = SerpentineModel::new(
-            total_straight,
-            self.num_segments,
-            cross_section,
-            self.bend_radius,
-        );
+        let width = self.width;
+        let height = self.height;
+        let straight_length = self.straight_length;
+        let num_segments = self.num_segments;
+        let bend_radius = self.bend_radius;
+        let blood_type = blood_type.to_owned();
 
-        let dh = cross_section.hydraulic_diameter();
-        let density = 1060.0;
+        py.detach(move || {
+            let cross_section = SerpentineCrossSection::Rectangular { width, height };
+            let total_straight = straight_length * num_segments as f64;
+            let model =
+                SerpentineModel::new(total_straight, num_segments, cross_section, bend_radius);
 
-        let (mu, re) = match blood_type {
-            "casson" => {
-                let blood = RustCasson::<f64>::normal_blood();
-                let mu = blood.apparent_viscosity(velocity / dh * 8.0);
-                let re = density * velocity * dh / mu;
-                (mu, re)
-            }
-            "carreau_yasuda" => {
-                let blood = RustCY::<f64>::normal_blood();
-                let mu = blood.apparent_viscosity(velocity / dh * 8.0);
-                let re = density * velocity * dh / mu;
-                (mu, re)
-            }
-            _ => {
-                let mu = 0.0035;
-                let re = density * velocity * dh / mu;
-                (mu, re)
-            }
-        };
+            let dh = cross_section.hydraulic_diameter();
+            let density = 1060.0;
 
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+            let (mu, re) = match blood_type.as_str() {
+                "casson" => {
+                    let blood = RustCasson::<f64>::normal_blood();
+                    let mu = blood.apparent_viscosity(velocity / dh * 8.0);
+                    let re = density * velocity * dh / mu;
+                    (mu, re)
+                }
+                "carreau_yasuda" => {
+                    let blood = RustCY::<f64>::normal_blood();
+                    let mu = blood.apparent_viscosity(velocity / dh * 8.0);
+                    let re = density * velocity * dh / mu;
+                    (mu, re)
+                }
+                _ => {
+                    let mu = 0.0035;
+                    let re = density * velocity * dh / mu;
+                    (mu, re)
+                }
+            };
 
-        let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
-            "blood".to_string(),
-            MassDensity::from_base(density),
-            DynamicViscosity::from_base(mu),
-            SpecificHeatCapacity::from_base(3617.0),
-            ThermalConductivity::from_base(0.52),
-            Velocity::from_base(1570.0),
-        );
+            let mut conditions = FlowConditions::new(velocity);
+            conditions.reynolds_number = Some(re);
 
-        let resistance = model
-            .calculate_resistance(&fluid, &conditions)
-            .map_err(|e| PyRuntimeError::new_err(format!("Serpentine solver error: {e}")))?;
+            let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
+                "blood".to_string(),
+                MassDensity::from_base(density),
+                DynamicViscosity::from_base(mu),
+                SpecificHeatCapacity::from_base(3617.0),
+                ThermalConductivity::from_base(0.52),
+                Velocity::from_base(1570.0),
+            );
 
-        let area = self.width * self.height;
-        let flow_rate = velocity * area;
-        let pressure_drop = resistance * flow_rate;
-        let dean_number = re * (dh / (2.0 * self.bend_radius)).sqrt();
+            let resistance = model
+                .calculate_resistance(&fluid, &conditions)
+                .map_err(|e| format!("Serpentine solver error: {e}"))?;
 
-        Ok(PySerpentineResult1D {
-            pressure_drop,
-            resistance,
-            dean_number,
-            reynolds_number: re,
-            apparent_viscosity: mu,
+            let area = width * height;
+            let flow_rate = velocity * area;
+            let pressure_drop = resistance * flow_rate;
+            let dean_number = re * (dh / (2.0 * bend_radius)).sqrt();
+
+            Ok::<_, String>(PySerpentineResult1D {
+                pressure_drop,
+                resistance,
+                dean_number,
+                reynolds_number: re,
+                apparent_viscosity: mu,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 
     fn __str__(&self) -> String {

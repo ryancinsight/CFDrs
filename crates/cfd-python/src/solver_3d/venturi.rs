@@ -59,56 +59,74 @@ impl PyVenturi3DSolver {
     }
 
     /// Solve 3D Venturi simulation
-    fn solve(&self, flow_rate: f64, blood_type: &str) -> PyResult<PyVenturi3DResult> {
-        let builder = VenturiMeshBuilder::new(
-            self.d_inlet,
-            self.d_throat,
-            self.l_inlet,
-            self.l_convergent,
-            self.l_throat,
-            self.l_divergent,
-            self.l_outlet,
-        );
+    fn solve(
+        &self,
+        py: Python<'_>,
+        flow_rate: f64,
+        blood_type: &str,
+    ) -> PyResult<PyVenturi3DResult> {
+        let d_inlet = self.d_inlet;
+        let d_throat = self.d_throat;
+        let l_inlet = self.l_inlet;
+        let l_convergent = self.l_convergent;
+        let l_throat = self.l_throat;
+        let l_divergent = self.l_divergent;
+        let l_outlet = self.l_outlet;
+        let circular = self.circular;
+        let blood_type = blood_type.to_owned();
 
-        let config = VenturiConfig3D {
-            inlet_flow_rate: flow_rate,
-            circular: self.circular,
-            ..Default::default()
-        };
+        py.detach(move || {
+            let builder = VenturiMeshBuilder::new(
+                d_inlet,
+                d_throat,
+                l_inlet,
+                l_convergent,
+                l_throat,
+                l_divergent,
+                l_outlet,
+            );
 
-        let solver = VenturiSolver3D::new(builder, config);
+            let config = VenturiConfig3D {
+                inlet_flow_rate: flow_rate,
+                circular,
+                ..Default::default()
+            };
 
-        let fluid = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood(),
-            "carreau_yasuda" => {
-                // Carreau-Yasuda shares the same Fluid + NonNewtonianFluid traits as Casson.
-                // The 3D Venturi solver accepts any `F: FluidTrait<T> + Clone`, so CY works
-                // directly.  However, cfd_python dispatches through CassonBlood because the Rust
-                // solver is monomorphised over a single concrete fluid type per call.  To
-                // support CY we would need an enum dispatch or trait object.  For now we
-                // construct a Casson model whose effective viscosity approximates Carreau-Yasuda
-                // at the characteristic shear rate of the Venturi throat which is validated
-                // against Cho & Kensey (1991) reference data (see cfd-core blood.rs).
-                CassonBlood::<f64>::normal_blood()
-            }
-            _ => CassonBlood::<f64>::normal_blood(),
-        };
+            let solver = VenturiSolver3D::new(builder, config);
 
-        let solution = solver
-            .solve(fluid)
-            .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
+            let fluid = match blood_type.as_str() {
+                "casson" => CassonBlood::<f64>::normal_blood(),
+                "carreau_yasuda" => {
+                    // Carreau-Yasuda shares the same Fluid + NonNewtonianFluid traits as Casson.
+                    // The 3D Venturi solver accepts any `F: FluidTrait<T> + Clone`, so CY works
+                    // directly.  However, cfd_python dispatches through CassonBlood because the Rust
+                    // solver is monomorphised over a single concrete fluid type per call.  To
+                    // support CY we would need an enum dispatch or trait object.  For now we
+                    // construct a Casson model whose effective viscosity approximates Carreau-Yasuda
+                    // at the characteristic shear rate of the Venturi throat which is validated
+                    // against Cho & Kensey (1991) reference data (see cfd-core blood.rs).
+                    CassonBlood::<f64>::normal_blood()
+                }
+                _ => CassonBlood::<f64>::normal_blood(),
+            };
 
-        Ok(PyVenturi3DResult {
-            u_inlet: solution.u_inlet,
-            u_throat: solution.u_throat,
-            p_inlet: solution.p_inlet,
-            p_throat: solution.p_throat,
-            p_outlet: solution.p_outlet,
-            dp_throat: solution.dp_throat,
-            dp_recovery: solution.dp_recovery,
-            cp_throat: solution.cp_throat,
-            cp_recovery: solution.cp_recovery,
+            let solution = solver
+                .solve(fluid)
+                .map_err(|e| format!("Solver error: {e}"))?;
+
+            Ok::<_, String>(PyVenturi3DResult {
+                u_inlet: solution.u_inlet,
+                u_throat: solution.u_throat,
+                p_inlet: solution.p_inlet,
+                p_throat: solution.p_throat,
+                p_outlet: solution.p_outlet,
+                dp_throat: solution.dp_throat,
+                dp_recovery: solution.dp_recovery,
+                cp_throat: solution.cp_throat,
+                cp_recovery: solution.cp_recovery,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 
@@ -166,33 +184,48 @@ impl PySerpentine3DSolver {
     }
 
     /// Solve 3D Serpentine simulation
-    fn solve(&self, flow_rate: f64, blood_type: &str) -> PyResult<PySerpentine3DResult> {
-        let builder = SerpentineMeshBuilder::new(self.diameter, self.amplitude, self.wavelength)
-            .with_periods(self.cycles);
+    fn solve(
+        &self,
+        py: Python<'_>,
+        flow_rate: f64,
+        blood_type: &str,
+    ) -> PyResult<PySerpentine3DResult> {
+        let diameter = self.diameter;
+        let wavelength = self.wavelength;
+        let amplitude = self.amplitude;
+        let cycles = self.cycles;
+        let circular = self.circular;
+        let blood_type = blood_type.to_owned();
 
-        let config = SerpentineConfig3D {
-            inlet_flow_rate: flow_rate,
-            circular: self.circular,
-            ..Default::default()
-        };
+        py.detach(move || {
+            let builder =
+                SerpentineMeshBuilder::new(diameter, amplitude, wavelength).with_periods(cycles);
 
-        let solver = SerpentineSolver3D::new(builder, config);
+            let config = SerpentineConfig3D {
+                inlet_flow_rate: flow_rate,
+                circular,
+                ..Default::default()
+            };
 
-        let fluid = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood(),
-            _ => CassonBlood::<f64>::normal_blood(),
-        };
+            let solver = SerpentineSolver3D::new(builder, config);
 
-        let solution = solver
-            .solve(fluid)
-            .map_err(|e| PyRuntimeError::new_err(format!("Solver error: {e}")))?;
+            let fluid = match blood_type.as_str() {
+                "casson" => CassonBlood::<f64>::normal_blood(),
+                _ => CassonBlood::<f64>::normal_blood(),
+            };
 
-        Ok(PySerpentine3DResult {
-            u_inlet: solution.u_inlet,
-            p_inlet: solution.p_inlet,
-            dp_total: solution.dp_total,
-            dean_number: solution.dean_number,
+            let solution = solver
+                .solve(fluid)
+                .map_err(|e| format!("Solver error: {e}"))?;
+
+            Ok::<_, String>(PySerpentine3DResult {
+                u_inlet: solution.u_inlet,
+                p_inlet: solution.p_inlet,
+                dp_total: solution.dp_total,
+                dean_number: solution.dean_number,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 

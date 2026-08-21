@@ -3,6 +3,7 @@
 use super::pyarray2_from_leto;
 use leto::Array2;
 use numpy::PyArray2;
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
 // ── Ghia benchmark reference data ────────────────────────────────────────────
@@ -128,32 +129,41 @@ impl PyCavitySolver2D {
     }
 
     /// Solve lid-driven cavity flow
-    fn solve(&self) -> PyResult<PyCavityResult2D> {
+    fn solve(&self, py: Python<'_>) -> PyResult<PyCavityResult2D> {
         use cfd_2d::solvers::cavity_solver;
 
-        let max_iterations = if self.nx * self.ny > 4000 { 5000 } else { 3000 };
-        let result = cavity_solver::solve_lid_driven_cavity(
-            self.nx,
-            self.ny,
-            self.reynolds,
-            self.lid_velocity,
-            self.cavity_size,
-            max_iterations,
-            1e-6,
-            0.5,
-            0.3,
-        );
+        let nx = self.nx;
+        let ny = self.ny;
+        let reynolds = self.reynolds;
+        let lid_velocity = self.lid_velocity;
+        let cavity_size = self.cavity_size;
 
-        let l2_error = self.calculate_ghia_error(&result.y_coords, &result.u_centerline);
+        py.detach(move || {
+            let max_iterations = if nx * ny > 4000 { 5000 } else { 3000 };
+            let result = cavity_solver::solve_lid_driven_cavity(
+                nx,
+                ny,
+                reynolds,
+                lid_velocity,
+                cavity_size,
+                max_iterations,
+                1e-6,
+                0.5,
+                0.3,
+            );
 
-        Ok(PyCavityResult2D {
-            l2_error,
-            u_centerline: result.u_centerline,
-            v_centerline: result.v_centerline,
-            y_coords: result.y_coords,
-            x_coords: result.x_coords,
-            converged: result.converged,
+            let l2_error = Self::calculate_ghia_error(&result.y_coords, &result.u_centerline);
+
+            Ok::<_, String>(PyCavityResult2D {
+                l2_error,
+                u_centerline: result.u_centerline,
+                v_centerline: result.v_centerline,
+                y_coords: result.y_coords,
+                x_coords: result.x_coords,
+                converged: result.converged,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 
     fn __str__(&self) -> String {
@@ -167,7 +177,7 @@ impl PyCavitySolver2D {
 /// Internal implementation for `PyCavitySolver2D` (non-PyO3 methods)
 impl PyCavitySolver2D {
     /// Calculate L2 error between computed and Ghia benchmark data
-    fn calculate_ghia_error(&self, y_computed: &[f64], u_computed: &[f64]) -> f64 {
+    fn calculate_ghia_error(y_computed: &[f64], u_computed: &[f64]) -> f64 {
         let mut sum_sq_error = 0.0;
         let mut count = 0;
 

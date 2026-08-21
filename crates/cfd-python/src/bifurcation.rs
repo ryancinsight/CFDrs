@@ -278,39 +278,47 @@ impl PyTrifurcationSolver {
     /// Solve trifurcation with Casson blood
     fn solve(
         &self,
+        py: Python<'_>,
         flow_rate: f64,
         pressure: f64,
         _blood_type: &str,
     ) -> PyResult<PyTrifurcationResult> {
-        let roughness = 0.0; // Smooth walls for microfluidic channels
+        let length = self.length;
+        let d_parent = self.d_parent;
+        let d_daughter1 = self.d_daughter1;
+        let d_daughter2 = self.d_daughter2;
+        let d_daughter3 = self.d_daughter3;
 
-        let parent_geom = ChannelGeometry::circular(self.length, self.d_parent, roughness);
-        let d1_geom = ChannelGeometry::circular(self.length, self.d_daughter1, roughness);
-        let d2_geom = ChannelGeometry::circular(self.length, self.d_daughter2, roughness);
-        let d3_geom = ChannelGeometry::circular(self.length, self.d_daughter3, roughness);
+        py.detach(move || {
+            let roughness = 0.0; // Smooth walls for microfluidic channels
 
-        let parent = Channel::new(parent_geom);
-        let d1 = Channel::new(d1_geom);
-        let d2 = Channel::new(d2_geom);
-        let d3 = Channel::new(d3_geom);
+            let parent_geom = ChannelGeometry::circular(length, d_parent, roughness);
+            let d1_geom = ChannelGeometry::circular(length, d_daughter1, roughness);
+            let d2_geom = ChannelGeometry::circular(length, d_daughter2, roughness);
+            let d3_geom = ChannelGeometry::circular(length, d_daughter3, roughness);
 
-        let trifurc =
-            ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
-        let blood = CassonBlood::<f64>::normal_blood();
+            let parent = Channel::new(parent_geom);
+            let d1 = Channel::new(d1_geom);
+            let d2 = Channel::new(d2_geom);
+            let d3 = Channel::new(d3_geom);
 
-        let temperature_k = 310.0_f64;
-        match trifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
-            Ok(solution) => Ok(PyTrifurcationResult {
-                q_parent: solution.q_parent,
-                q_daughters: [solution.q_1, solution.q_2, solution.q_3],
-                p_parent: solution.p_parent,
-                p_daughters: [solution.p_1, solution.p_2, solution.p_3],
-                mass_conservation_error: solution.mass_conservation_error,
-            }),
-            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
-                "Solver failed: {e}"
-            ))),
-        }
+            let trifurc =
+                ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
+            let blood = CassonBlood::<f64>::normal_blood();
+
+            let temperature_k = 310.0_f64;
+            match trifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
+                Ok(solution) => Ok(PyTrifurcationResult {
+                    q_parent: solution.q_parent,
+                    q_daughters: [solution.q_1, solution.q_2, solution.q_3],
+                    p_parent: solution.p_parent,
+                    p_daughters: [solution.p_1, solution.p_2, solution.p_3],
+                    mass_conservation_error: solution.mass_conservation_error,
+                }),
+                Err(e) => Err(format!("Solver failed: {e}")),
+            }
+        })
+        .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     fn __str__(&self) -> String {

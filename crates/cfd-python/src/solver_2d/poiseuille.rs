@@ -62,11 +62,17 @@ impl PyPoiseuille2DSolver {
         pressure_gradient: f64,
         viscosity: f64,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let dy = self.height / (self.ny - 1) as f64;
+        let height = self.height;
+        let nx = self.nx;
+        let ny = self.ny;
 
-        let u = Array2::from_shape_fn([self.ny, self.nx], |[j, _i]| {
-            let y = j as f64 * dy;
-            (-pressure_gradient / (2.0 * viscosity)) * y * (self.height - y)
+        let u = py.detach(move || {
+            let dy = height / (ny - 1) as f64;
+
+            Array2::from_shape_fn([ny, nx], |[j, _i]| {
+                let y = j as f64 * dy;
+                (-pressure_gradient / (2.0 * viscosity)) * y * (height - y)
+            })
         });
 
         pyarray2_from_leto(py, u)
@@ -100,57 +106,74 @@ impl PyPoiseuille2DSolver {
     }
 
     /// Solve Poiseuille flow simulation
-    fn solve(&self, pressure_drop: f64, blood_type: &str) -> PyResult<PyPoiseuille2DResult> {
-        let _grid = StructuredGrid2D::new(self.nx, self.ny, 0.0, self.length, 0.0, self.height)
-            .map_err(|e| PyRuntimeError::new_err(format!("Grid error: {e}")))?;
+    fn solve(
+        &self,
+        py: Python<'_>,
+        pressure_drop: f64,
+        blood_type: &str,
+    ) -> PyResult<PyPoiseuille2DResult> {
+        let height = self.height;
+        let width = self.width;
+        let length = self.length;
+        let nx = self.nx;
+        let ny = self.ny;
+        let blood_type = blood_type.to_owned();
 
-        let mut fields = SimulationFields::new(self.nx, self.ny);
-        let rho = 1060.0;
-        let pressure_gradient = pressure_drop / self.length;
+        py.detach(move || {
+            let _grid = StructuredGrid2D::new(nx, ny, 0.0, length, 0.0, height)
+                .map_err(|e| format!("Grid error: {e}"))?;
 
-        let viscosity = match blood_type {
-            "casson" => CassonBlood::<f64>::normal_blood().apparent_viscosity(100.0),
-            "carreau_yasuda" => CarreauYasudaBlood::<f64>::normal_blood().apparent_viscosity(100.0),
-            _ => 0.0035,
-        };
+            let mut fields = SimulationFields::new(nx, ny);
+            let rho = 1060.0;
+            let pressure_gradient = pressure_drop / length;
 
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                fields.viscosity.set(i, j, viscosity);
-                fields.mask.set(i, j, true);
+            let viscosity = match blood_type.as_str() {
+                "casson" => CassonBlood::<f64>::normal_blood().apparent_viscosity(100.0),
+                "carreau_yasuda" => {
+                    CarreauYasudaBlood::<f64>::normal_blood().apparent_viscosity(100.0)
+                }
+                _ => 0.0035,
+            };
+
+            for i in 0..nx {
+                for j in 0..ny {
+                    fields.viscosity.set(i, j, viscosity);
+                    fields.mask.set(i, j, true);
+                }
             }
-        }
 
-        let u_max = (self.height.powi(2) / (8.0 * viscosity)) * pressure_gradient.abs();
+            let u_max = (height.powi(2) / (8.0 * viscosity)) * pressure_gradient.abs();
 
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                let y = j as f64 * (self.height / (self.ny - 1) as f64);
-                let u_val = 4.0 * u_max * (y / self.height) * (1.0 - y / self.height);
-                fields.u.set(i, j, u_val);
+            for i in 0..nx {
+                for j in 0..ny {
+                    let y = j as f64 * (height / (ny - 1) as f64);
+                    let u_val = 4.0 * u_max * (y / height) * (1.0 - y / height);
+                    fields.u.set(i, j, u_val);
+                }
             }
-        }
 
-        let flow_rate = (2.0 / 3.0) * u_max * self.height * self.width;
+            let flow_rate = (2.0 / 3.0) * u_max * height * width;
 
-        let mid_i = self.nx / 2;
-        let mut u_centerline = Vec::with_capacity(self.ny);
-        let mut y_coords = Vec::with_capacity(self.ny);
+            let mid_i = nx / 2;
+            let mut u_centerline = Vec::with_capacity(ny);
+            let mut y_coords = Vec::with_capacity(ny);
 
-        for j in 0..self.ny {
-            u_centerline.push(fields.u.at(mid_i, j));
-            y_coords.push(j as f64 * (self.height / (self.ny - 1) as f64));
-        }
+            for j in 0..ny {
+                u_centerline.push(fields.u.at(mid_i, j));
+                y_coords.push(j as f64 * (height / (ny - 1) as f64));
+            }
 
-        Ok(PyPoiseuille2DResult {
-            max_velocity: u_max,
-            flow_rate,
-            reynolds_number: (rho * u_max * self.height) / viscosity,
-            pressure_drop,
-            wall_shear_stress: (pressure_gradient * self.height) / 2.0,
-            u_centerline,
-            y_coords,
+            Ok::<_, String>(PyPoiseuille2DResult {
+                max_velocity: u_max,
+                flow_rate,
+                reynolds_number: (rho * u_max * height) / viscosity,
+                pressure_drop,
+                wall_shear_stress: (pressure_gradient * height) / 2.0,
+                u_centerline,
+                y_coords,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 

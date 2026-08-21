@@ -79,39 +79,52 @@ impl PyPoiseuille3DSolver {
     /// # Arguments
     /// * `pressure_drop` - Pressure drop (Pa). Use NEGATIVE for forward flow!
     /// * `blood_type` - Blood model: "newtonian", "casson", or "`carreau_yasuda`"
-    fn solve(&self, pressure_drop: f64, blood_type: &str) -> PyResult<PyPoiseuille3DResult> {
+    fn solve(
+        &self,
+        py: Python<'_>,
+        pressure_drop: f64,
+        blood_type: &str,
+    ) -> PyResult<PyPoiseuille3DResult> {
         use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 
-        let rho = 1060.0;
-        let gamma_dot = 100.0;
+        let diameter = self.diameter;
+        let length = self.length;
+        let blood_type = blood_type.to_owned();
 
-        let mu = match blood_type {
-            "newtonian" => 0.0035,
-            "casson" => {
-                let fluid = CassonBlood::<f64>::normal_blood();
-                fluid.apparent_viscosity(gamma_dot)
-            }
-            "carreau_yasuda" | "carreau_yasuda_blood" => {
-                let fluid = CarreauYasudaBlood::<f64>::normal_blood();
-                fluid.apparent_viscosity(gamma_dot)
-            }
-            _ => {
-                return Err(PyRuntimeError::new_err(format!(
-                    "Unknown blood type '{blood_type}'. Use: newtonian, casson, or carreau_yasuda"
-                )));
-            }
-        };
+        py.detach(move || {
+            let rho = 1060.0;
+            let gamma_dot = 100.0;
 
-        let dp_dx = pressure_drop / self.length;
-        let u_max = self.analytical_max_velocity(dp_dx, mu);
-        let q = self.analytical_flow_rate(dp_dx, mu);
+            let mu = match blood_type.as_str() {
+                "newtonian" => 0.0035,
+                "casson" => {
+                    let fluid = CassonBlood::<f64>::normal_blood();
+                    fluid.apparent_viscosity(gamma_dot)
+                }
+                "carreau_yasuda" | "carreau_yasuda_blood" => {
+                    let fluid = CarreauYasudaBlood::<f64>::normal_blood();
+                    fluid.apparent_viscosity(gamma_dot)
+                }
+                _ => {
+                    return Err(format!(
+                        "Unknown blood type '{blood_type}'. Use: newtonian, casson, or carreau_yasuda"
+                    ));
+                }
+            };
 
-        Ok(PyPoiseuille3DResult {
-            max_velocity: u_max,
-            flow_rate: q,
-            reynolds_number: (rho * u_max * self.diameter) / mu,
-            wall_shear_stress: (dp_dx * self.diameter) / 4.0,
+            let dp_dx = pressure_drop / length;
+            let radius = diameter / 2.0;
+            let u_max = (-dp_dx / (4.0 * mu)) * radius.powi(2);
+            let q = (-dp_dx / (8.0 * mu)) * std::f64::consts::PI * radius.powi(4);
+
+            Ok::<_, String>(PyPoiseuille3DResult {
+                max_velocity: u_max,
+                flow_rate: q,
+                reynolds_number: (rho * u_max * diameter) / mu,
+                wall_shear_stress: (dp_dx * diameter) / 4.0,
+            })
         })
+        .map_err(PyRuntimeError::new_err)
     }
 }
 
