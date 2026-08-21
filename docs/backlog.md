@@ -1,5 +1,45 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.203: cfd-2d turbulence::DetachedEddySimulation input validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::physics::turbulence::des::DetachedEddySimulation::new(
+  nx, ny, dx, dy, config, boundaries)` for missing physical invariant
+  checks. The DES length scale is `Δ = max(dx, dy)`; zero or non-finite
+  `dx`/`dy` collapses it, silencing the LES branch. The RANS–LES
+  shielding threshold `r̃_d = C_DES · Δ_w / Δ_max` requires `C_DES > 0`;
+  zero or negative `C_DES` collapses shielding. Zero `nx`/`ny`
+  silently underflows every `Array2` allocation. The RANS branch uses
+  `rans_viscosity` as the molecular viscosity baseline.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+  non-positive, `dy` non-finite or non-positive, `des_constant`
+  non-finite or non-positive, `rans_viscosity` non-finite or
+  non-positive.
+- Pre-existing infallible callers (in `turbulence/des/mod.rs` tests
+  and `cfd-validation` benchmarks) compile unchanged via the thin
+  wrapper pattern.
+- Five new value-semantic regression tests cover all rejection paths,
+  the accept-path (with default config), and the panic-wrapper
+  contract.
+- `cargo nextest run -p cfd-2d --no-default-features turbulence::des`
+  passes 13/13 (5 new + 8 existing); full cfd-2d lib Nextest passes
+  659/659; `cargo clippy -p cfd-2d --no-default-features --tests`
+  produces no new warnings on the touched file (only pre-existing
+  peer-dirty warnings in `piso_algorithm/predictor.rs`);
+  `rustfmt --edition 2024 --check` on the touched file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/physics/turbulence/des/mod.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.202: cfd-2d turbulence::SmagorinskyLES input validation
 **Status**: Completed
 **Owner**: current session

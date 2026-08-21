@@ -32,6 +32,34 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.203 Checklist: cfd-2d turbulence::DetachedEddySimulation input validation
+**Goal**: Reject degenerate inputs in the DES turbulence model so
+the length scale `Δ = max(dx, dy)`, the shielding constant `C_DES`,
+and the molecular viscosity `rans_viscosity` can never collapse to
+a no-op or disabled-shielding state silently.
+
+**Success Criteria**:
+- [x] `DetachedEddySimulation::try_new` returns
+      `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: `nx == 0`, `ny == 0`, `dx` non-finite or
+      non-positive, `dy` non-finite or non-positive, `des_constant`
+      non-finite or non-positive, `rans_viscosity` non-finite or
+      non-positive.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; existing
+      callers compile unchanged.
+- [x] Five new value-semantic regression tests.
+- [x] `cargo nextest run -p cfd-2d --no-default-features turbulence::des`
+      passes 13/13 (5 new + 8 existing).
+- [x] `cargo clippy -p cfd-2d --no-default-features --tests` produces
+      no new warnings on the touched file.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The DES
+turbulence model is now contractually forbidden from running on
+degenerate inputs.
+
+---
+
 # Sprint 1.96.202 Checklist: cfd-2d turbulence::SmagorinskyLES input validation
 **Goal**: Reject degenerate inputs in the Smagorinsky LES model so
 the filter-width `Δ = √(dx · dy)`, the Smagorinsky constant `C_S`,
