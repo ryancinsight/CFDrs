@@ -32,6 +32,33 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.190 Checklist: cfd-2d fvm::Face geometry validation
+**Goal**: Reject unphysical inputs in `Face::new` so the FVM face flux
+never divides by zero-magnitude normal or multiplies by non-positive area.
+
+**Success Criteria**:
+- [x] `Face::try_new` returns `cfd_core::error::Result<Self>`.
+- [x] `try_new` rejects: non-finite `center.x`/`center.y`, non-finite
+      `normal.x`/`normal.y`, `‖normal‖² == 0`, non-finite or
+      non-positive `area`.
+- [x] Pre-existing infallible `new` is a thin panic wrapper; all
+      callers (`fvm::solver.rs` and 6 pre-existing tests) compile
+      unchanged.
+- [x] Six new value-semantic regression tests cover all rejection paths,
+      the accept-path (asserting `‖normal‖ == 1`), and the panic-wrapper
+      contract.
+- [x] `cargo nextest run -p cfd-2d --no-default-features fvm::geometry`
+      passes 12/12.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched file is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The FVM face
+flux is now contractually forbidden from running on unphysical face
+geometry.
+
+---
+
 # Sprint 1.96.189 Checklist: cfd-3d fem::ProjectionSolver timestep validation
 **Goal**: Reject non-positive or non-finite `dt` in
 `ProjectionSolver::with_timestep` so Chorin's projection method never

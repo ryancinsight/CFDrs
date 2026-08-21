@@ -1,5 +1,43 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.190: cfd-2d fvm::Face geometry validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructor + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::fvm::geometry::Face::new(center, normal, area,
+  owner, neighbor)` for missing physical invariant checks.
+- The constructor calls `normal.normalize()` (line 44) which divides by
+  `‖normal‖`; `flux()` (line 53) computes `area * velocity · normal`.
+- Zero-magnitude normal, non-finite center/normal components, and
+  non-positive or non-finite `area` silently produce `inf`/`NaN` face
+  flux through every face in the FVM mesh.
+- Add `try_new` returning `Result`; existing infallible `new` becomes
+  thin panic wrapper.
+
+### Acceptance and Verification
+- `try_new` rejects: non-finite `center.x`/`center.y`, non-finite
+  `normal.x`/`normal.y`, `‖normal‖² == 0` (zero-magnitude normal),
+  non-finite or non-positive `area`.
+- Pre-existing infallible callers (`fvm::solver.rs:71,89` and the 6
+  pre-existing tests at lines 74, 91, 97, 110, 124, 140 of the same
+  file) compile unchanged via the thin wrapper.
+- Six new value-semantic regression tests cover all rejection paths,
+  the accept-path (asserting `‖normal‖ == 1` and `area` round-trip),
+  and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features fvm::geometry`
+  passes 12/12; full cfd-2d lib Nextest passes 585/586 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  file is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/fvm/geometry.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.189: cfd-3d fem::ProjectionSolver timestep validation
 **Status**: Completed
 **Owner**: current session

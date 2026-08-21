@@ -2,6 +2,30 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.190 resolution: cfd-2d fvm::Face geometry validation
+
+### RESOLVED-222: `Face::new` silently accepts unphysical face geometry
+- **Location**: `crates/cfd-2d/src/solvers/fvm/geometry.rs:35` (pre-fix).
+- **Issue**: the constructor calls `normal.normalize()` (line 44) which
+  divides by `‖normal‖`. Zero-magnitude normal silently produces `NaN`
+  face normal; non-finite `center` or `normal` components propagate
+  through `normalize()` and the flux calculation. The `flux()` method
+  (line 53) multiplies `area` by `velocity · normal`; non-positive or
+  non-finite `area` silently produces zero or `inf`/`NaN` fluxes through
+  every face in the FVM mesh.
+- **Remediation**: new `Face::try_new` returns
+  `cfd_core::error::Result<Self, Error::InvalidConfiguration>` and rejects
+  every invariant violation. The existing infallible `new` becomes a thin
+  panic wrapper.
+- **Evidence**: six new value-semantic regression tests cover all
+  rejection paths, the accept-path (asserting `‖normal‖ == 1`), and the
+  panic-wrapper contract. `cargo nextest run -p cfd-2d --no-default-features
+  fvm::geometry` passes 12/12; full cfd-2d lib Nextest passes 585/586
+  (one pre-existing peer-dirty `gorkov::f1_f2_analytical_values` failure
+  unrelated to this change); `cargo clippy -p cfd-2d --no-default-features
+  --lib --tests -- -D warnings` clean; `rustfmt --edition 2024 --check`
+  clean on the touched file.
+
 ## Sprint 1.96.189 resolution: cfd-3d fem::ProjectionSolver timestep validation
 
 ### RESOLVED-221: `ProjectionSolver::with_timestep` silently accepts degenerate `dt`
