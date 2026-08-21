@@ -1,5 +1,49 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.191: cfd-2d lbm BGK + MRT relaxation-time validation
+**Status**: Completed
+**Owner**: current session
+**Change Class**: [patch] physics invariants + new fallible constructors + tests
+**Start Date**: August 20, 2026
+
+### Scope
+- Audit `cfd-2d::solvers::lbm::collision::BgkCollision::new(tau)` and
+  `MrtCollision::new(tau)` for missing physical invariant checks.
+- BGK collision operator is `fᵢ* = fᵢ - ω(fᵢ - fᵢ^eq)` with
+  `ω = 1/τ`. The MRT `RelaxationMatrix::default_d2q9(tau)` also computes
+  `ω = 1/τ` for the kinematic-viscosity stress slots (s7, s8).
+  Zero or non-finite `τ` silently produces `inf`/`NaN` collision
+  frequencies and a divergent LBM solve. The pre-fix doc comment on
+  `BgkCollision::new` admitted "tau = 0 would cause ω = ∞ but that is a
+  caller invariant" — but no caller invariant was ever enforced.
+- Add `BgkCollision::try_new` and `MrtCollision::try_new` returning
+  `Result`; existing infallible `new` methods become thin panic wrappers.
+
+### Acceptance and Verification
+- Both `try_new` methods reject: non-finite `tau`, zero `tau`, negative
+  `tau`. The BGK ↔ viscosity correspondence
+  `τ = ½ + ν·Δt / (c_s²·Δx²)` (cf. `cfd-2d/AGENTS.md § LBM BGK`) has a
+  stability floor at `τ = 0.5`; zero or negative `tau` is therefore
+  contractually forbidden.
+- Pre-existing infallible callers (`bgk::tests::test_h_theorem_bgk`,
+  `mrt::tests::relaxation_rates_conservation_and_stability`, and the
+  BGK/MRT collision operators invoked from `lbm::solver.rs`) compile
+  unchanged via the thin wrapper pattern.
+- Ten new value-semantic regression tests cover both constructors'
+  rejection paths, the accept-path (asserting `omega == 1/tau` for
+  BGK), and the panic-wrapper contract.
+- `cargo nextest run -p cfd-2d --no-default-features lbm::collision`
+  passes 21/21; full cfd-2d lib Nextest passes 595/596 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+  -D warnings` is clean; `rustfmt --edition 2024 --check` on the touched
+  files is clean.
+
+### Claimed Files
+- `crates/cfd-2d/src/solvers/lbm/collision/bgk.rs`
+- `crates/cfd-2d/src/solvers/lbm/collision/mrt.rs`
+- `docs/{backlog,checklist,gap_audit}.md`
+
 ## Sprint 1.96.190: cfd-2d fvm::Face geometry validation
 **Status**: Completed
 **Owner**: current session

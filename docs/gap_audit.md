@@ -2,6 +2,39 @@
 
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
+## Sprint 1.96.191 resolution: cfd-2d lbm BGK + MRT relaxation-time validation
+
+### RESOLVED-223: `BgkCollision::new(tau)` and `MrtCollision::new(tau)` silently accept degenerate `tau`
+- **Location**:
+  - `crates/cfd-2d/src/solvers/lbm/collision/bgk.rs:61` (pre-fix),
+  - `crates/cfd-2d/src/solvers/lbm/collision/mrt.rs:108` (pre-fix),
+  - `crates/cfd-2d/src/solvers/lbm/collision/mrt.rs:69`
+    (`RelaxationMatrix::default_d2q9(tau)` — computes `omega = 1/tau`).
+- **Issue**: BGK collision operator is
+  `fᵢ* = fᵢ - ω(fᵢ - fᵢ^eq)` with `ω = 1/τ`; the MRT
+  `RelaxationMatrix::default_d2q9(tau)` also computes `ω = 1/τ` for the
+  kinematic-viscosity stress slots (s7, s8). Zero or non-finite `τ`
+  silently produces `inf`/`NaN` collision frequencies and a divergent
+  LBM solve. The pre-fix doc comment on `BgkCollision::new` admitted
+  "tau = 0 would cause ω = ∞ but that is a caller invariant" — but no
+  caller invariant was ever enforced. The BGK ↔ viscosity correspondence
+  `τ = ½ + ν·Δt / (c_s²·Δx²)` (cf. `cfd-2d/AGENTS.md § LBM BGK`) has a
+  stability floor at `τ = 0.5`; zero or negative `tau` is therefore
+  contractually forbidden.
+- **Remediation**: new `BgkCollision::try_new` and `MrtCollision::try_new`
+  return `cfd_core::error::Result<Self, Error::InvalidConfiguration>`
+  and reject every invariant violation. The existing infallible `new`
+  methods become thin panic wrappers.
+- **Evidence**: ten new value-semantic regression tests cover both
+  constructors' rejection paths, the accept-path (asserting
+  `omega == 1/tau` for BGK), and the panic-wrapper contract. `cargo
+  nextest run -p cfd-2d --no-default-features lbm::collision` passes
+  21/21; full cfd-2d lib Nextest passes 595/596 (one pre-existing
+  peer-dirty `gorkov::f1_f2_analytical_values` failure unrelated to this
+  change); `cargo clippy -p cfd-2d --no-default-features --lib --tests
+  -- -D warnings` clean; `rustfmt --edition 2024 --check` clean on the
+  touched files.
+
 ## Sprint 1.96.190 resolution: cfd-2d fvm::Face geometry validation
 
 ### RESOLVED-222: `Face::new` silently accepts unphysical face geometry

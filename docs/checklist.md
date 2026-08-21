@@ -32,6 +32,34 @@ eight new value-semantic regressions all pass.
 
 ---
 
+# Sprint 1.96.191 Checklist: cfd-2d lbm BGK + MRT relaxation-time validation
+**Goal**: Reject degenerate `tau` in the BGK and MRT collision operators
+so the LBM solve never runs with `ω = ∞` from `tau = 0`.
+
+**Success Criteria**:
+- [x] `BgkCollision::try_new` and `MrtCollision::try_new` return
+      `cfd_core::error::Result<Self>`.
+- [x] Both `try_new` methods reject: non-finite `tau`, zero `tau`,
+      negative `tau`.
+- [x] Pre-existing infallible `new` methods are thin panic wrappers; all
+      callers (`bgk::tests::test_h_theorem_bgk`, `mrt::tests::relaxation_*`,
+      and the BGK/MRT operators invoked from `lbm::solver.rs`) compile
+      unchanged.
+- [x] Ten new value-semantic regression tests cover both constructors'
+      rejection paths, the accept-path (asserting `omega == 1/tau` for
+      BGK), and the panic-wrapper contract.
+- [x] `cargo nextest run -p cfd-2d --no-default-features lbm::collision`
+      passes 21/21.
+- [x] `cargo clippy -p cfd-2d --no-default-features --lib --tests --
+      -D warnings` is clean.
+- [x] `rustfmt --edition 2024 --check` on the touched files is clean.
+
+**Closure**: Implemented and value-verified on 2026-08-20. The LBM BGK
+and MRT collision operators are now contractually forbidden from
+running on a degenerate relaxation time.
+
+---
+
 # Sprint 1.96.190 Checklist: cfd-2d fvm::Face geometry validation
 **Goal**: Reject unphysical inputs in `Face::new` so the FVM face flux
 never divides by zero-magnitude normal or multiplies by non-positive area.
