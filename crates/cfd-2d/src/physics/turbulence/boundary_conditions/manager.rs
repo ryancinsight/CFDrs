@@ -1,5 +1,6 @@
 use crate::physics::turbulence::constants::{C_MU, EPSILON_MIN, OMEGA_MIN};
 use crate::physics::turbulence::wall_functions::WallTreatment;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 
 /// Turbulence boundary condition types
@@ -35,8 +36,43 @@ pub struct TurbulenceBoundaryManager<T: RealField> {
 }
 
 impl<T: RealField> TurbulenceBoundaryManager<T> {
-    /// Create a new boundary condition manager
+    /// Create a new boundary condition manager.
+    ///
+    /// # Panics
+    /// Panics if any invariant is violated (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(nx: usize, ny: usize, dx: T, dy: T) -> Self {
+        Self::try_new(nx, ny, dx, dy).unwrap_or_else(|error| {
+            panic!("TurbulenceBoundaryManager::new called with invalid arguments: {error}");
+        })
+    }
+
+    /// Create a new boundary condition manager with invariant validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0`, `ny == 0`,
+    /// `dx` non-finite or non-positive, or `dy` non-finite or non-positive.
+    pub fn try_new(nx: usize, ny: usize, dx: T, dy: T) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "TurbulenceBoundaryManager::try_new: nx must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "TurbulenceBoundaryManager::try_new: ny must be at least 1".to_string(),
+            ));
+        }
+        if !<T as NumericElement>::is_finite(dx) || dx <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "TurbulenceBoundaryManager::try_new: dx must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dy) || dy <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "TurbulenceBoundaryManager::try_new: dy must be finite and positive, got {dy:?}"
+            )));
+        }
         let mut manager = Self {
             nx,
             ny,
@@ -45,7 +81,7 @@ impl<T: RealField> TurbulenceBoundaryManager<T> {
             wall_distances: vec![T::ZERO; nx * ny],
         };
         manager.calculate_wall_distances();
-        manager
+        Ok(manager)
     }
 
     /// Calculate wall distances for all grid points
@@ -388,5 +424,45 @@ impl<T: RealField> TurbulenceBoundaryManager<T> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid arguments.
+    #[test]
+    fn turbulence_boundary_manager_try_new_accepts_valid_arguments() {
+        let mgr = TurbulenceBoundaryManager::<f64>::try_new(8, 12, 1e-3, 1e-3)
+            .expect("valid must succeed");
+        assert_eq!(mgr.nx, 8);
+        assert_eq!(mgr.ny, 12);
+        assert_eq!(mgr.wall_distances.len(), 96);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn turbulence_boundary_manager_try_new_rejects_zero_nx() {
+        match TurbulenceBoundaryManager::<f64>::try_new(0, 10, 1.0, 1.0) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `dy` is rejected.
+    #[test]
+    fn turbulence_boundary_manager_try_new_rejects_zero_dy() {
+        match TurbulenceBoundaryManager::<f64>::try_new(8, 12, 1.0, 0.0) {
+            Err(e) => assert!(e.to_string().contains("dy"), "error must mention dy: {e}"),
+            Ok(_) => panic!("zero dy must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `dx` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "dx")]
+    fn turbulence_boundary_manager_new_panics_on_invalid_dx() {
+        let _ = TurbulenceBoundaryManager::<f64>::new(8, 12, 0.0, 1.0);
     }
 }
