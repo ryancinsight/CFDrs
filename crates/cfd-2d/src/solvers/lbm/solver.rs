@@ -34,13 +34,13 @@ use crate::grid::StructuredGrid2D;
 use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
-    lattice::{equilibrium, D2Q9},
-    macroscopic::{compute_pressure, MacroscopicQuantities},
-    streaming::{f_idx, StreamingOperator},
+    lattice::{D2Q9, equilibrium},
+    macroscopic::{MacroscopicQuantities, compute_pressure},
+    streaming::{StreamingOperator, f_idx},
 };
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,52 @@ pub struct LbmConfig<T: CfdScalar + Copy> {
     pub output_frequency: usize,
     /// Enable verbose stdout progress.
     pub verbose: bool,
+}
+
+impl<T: CfdScalar + Copy + FloatElement> LbmConfig<T> {
+    /// Construct a validated LBM configuration.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if:
+    /// - `tau` is non-finite, `tau ≤ 0`, or `tau < 0.5` (LBM stability
+    ///   floor — the BGK ↔ viscosity correspondence
+    ///   `τ = ½ + ν·Δt/(c_s²·Δx²)` implies `τ ≥ 0.5`),
+    /// - `max_steps == 0`,
+    /// - `tolerance` is non-finite or non-positive.
+    pub fn try_new(
+        tau: T,
+        max_steps: usize,
+        tolerance: T,
+        output_frequency: usize,
+        verbose: bool,
+    ) -> cfd_core::error::Result<Self> {
+        if !<T as NumericElement>::is_finite(tau)
+            || tau <= <T as NumericElement>::ZERO
+            || tau < <T as FloatElement>::from_f64(0.5)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "LbmConfig::try_new: tau must be finite, positive, and >= 0.5 (LBM stability floor), got {tau:?}"
+            )));
+        }
+        if max_steps == 0 {
+            return Err(Error::InvalidConfiguration(
+                "LbmConfig::try_new: max_steps must be at least 1".to_string(),
+            ));
+        }
+        if !<T as NumericElement>::is_finite(tolerance) || tolerance <= <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "LbmConfig::try_new: tolerance must be finite and positive, got {tolerance:?}"
+            )));
+        }
+        Ok(Self {
+            tau,
+            max_steps,
+            tolerance,
+            output_frequency,
+            verbose,
+        })
+    }
 }
 
 impl<T: CfdScalar + Copy + FloatElement> Default for LbmConfig<T> {
@@ -533,5 +579,73 @@ mod tests {
         assert_relative_eq!(at_threshold, 0.0, epsilon = 1e-15);
         assert_relative_eq!(above_threshold, 0.0, epsilon = 1e-15);
         Ok(())
+    }
+
+    /// **Positive**: `try_new` accepts a valid LBM configuration.
+    #[test]
+    fn lbm_config_try_new_accepts_valid_config() {
+        let cfg = LbmConfig::<f64>::try_new(1.0, 100, 1e-6, 10, false)
+            .expect("valid config must succeed");
+        assert!(cfg.tau > 0.5);
+        assert_eq!(cfg.max_steps, 100);
+        assert!(cfg.tolerance > 0.0);
+    }
+
+    /// **Adversarial**: `tau < 0.5` is rejected (LBM stability floor).
+    #[test]
+    fn lbm_config_try_new_rejects_below_stability_floor() {
+        match LbmConfig::<f64>::try_new(0.4, 100, 1e-6, 10, false) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("tau < 0.5 must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `tau` is rejected.
+    #[test]
+    fn lbm_config_try_new_rejects_zero_tau() {
+        match LbmConfig::<f64>::try_new(0.0, 100, 1e-6, 10, false) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("zero tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `tau` is rejected.
+    #[test]
+    fn lbm_config_try_new_rejects_nan_tau() {
+        match LbmConfig::<f64>::try_new(f64::NAN, 100, 1e-6, 10, false) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("NaN tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `max_steps` is rejected.
+    #[test]
+    fn lbm_config_try_new_rejects_zero_max_steps() {
+        match LbmConfig::<f64>::try_new(1.0, 0, 1e-6, 10, false) {
+            Err(e) => assert!(
+                e.to_string().contains("max_steps"),
+                "error must mention max_steps: {e}"
+            ),
+            Ok(_) => panic!("zero max_steps must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: non-positive or non-finite `tolerance` is rejected.
+    #[test]
+    fn lbm_config_try_new_rejects_invalid_tolerance() {
+        match LbmConfig::<f64>::try_new(1.0, 100, 0.0, 10, false) {
+            Err(e) => assert!(
+                e.to_string().contains("tolerance"),
+                "error must mention tolerance: {e}"
+            ),
+            Ok(_) => panic!("zero tolerance must be rejected"),
+        }
+        match LbmConfig::<f64>::try_new(1.0, 100, -1e-6, 10, false) {
+            Err(e) => assert!(
+                e.to_string().contains("tolerance"),
+                "error must mention tolerance: {e}"
+            ),
+            Ok(_) => panic!("negative tolerance must be rejected"),
+        }
     }
 }
