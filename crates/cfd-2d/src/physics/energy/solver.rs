@@ -1,7 +1,8 @@
 use crate::grid::array2d::Array2D;
-use cfd_core::error::Result;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
+use eunomia::NumericElement;
 use std::collections::HashMap;
 
 /// Energy equation solver for transporting thermal scalar fields.
@@ -38,20 +39,67 @@ pub struct EnergyEquationSolver<T: CfdScalar + Copy> {
 }
 
 impl<T: CfdScalar + Copy> EnergyEquationSolver<T> {
-    /// Create new energy equation solver
+    /// Create new energy equation solver.
+    ///
+    /// # Panics
+    /// Panics if any invariant is violated (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(nx: usize, ny: usize, initial_temperature: T, thermal_diffusivity: T) -> Self {
-        Self {
-            temperature: Array2D::new(nx, ny, initial_temperature),
-            thermal_diffusivity: Array2D::new(nx, ny, thermal_diffusivity),
-            heat_source: Array2D::new(nx, ny, T::ZERO),
+        Self::try_new(nx, ny, initial_temperature, thermal_diffusivity).unwrap_or_else(|error| {
+            panic!("EnergyEquationSolver::new called with invalid arguments: {error}");
+        })
+    }
+
+    /// Create new energy equation solver with invariant validation.
+    ///
+    /// Validates:
+    /// - `nx >= 1`, `ny >= 1` (delegated to `Array2D::try_new`).
+    /// - `initial_temperature` is finite.
+    /// - `thermal_diffusivity` is finite and non-negative (a zero value
+    ///   corresponds to pure-convection without diffusion, which is a
+    ///   legitimate use case; negative or non-finite values are rejected
+    ///   because the diffusive fluxes in `solve_explicit` divide α by
+    ///   `dx`/`dy`).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if any invariant is violated.
+    pub fn try_new(
+        nx: usize,
+        ny: usize,
+        initial_temperature: T,
+        thermal_diffusivity: T,
+    ) -> Result<Self> {
+        // Array2D::try_new enforces nx >= 1, ny >= 1 via error propagation.
+        let temperature = Array2D::try_new(nx, ny, initial_temperature)?;
+        let thermal_diffusivity_field = Array2D::try_new(nx, ny, thermal_diffusivity)?;
+        let heat_source = Array2D::try_new(nx, ny, T::ZERO)?;
+        let work_buffer = Array2D::try_new(nx, ny, T::ZERO)?;
+        let viscous_dissipation_mu = Array2D::try_new(nx, ny, 0.0_f64)?;
+        if !<T as NumericElement>::is_finite(initial_temperature) {
+            return Err(Error::InvalidConfiguration(format!(
+                "EnergyEquationSolver::try_new: initial_temperature must be finite, got {initial_temperature:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(thermal_diffusivity)
+            || thermal_diffusivity < <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "EnergyEquationSolver::try_new: thermal_diffusivity must be finite and non-negative (zero is allowed for pure convection), got {thermal_diffusivity:?}"
+            )));
+        }
+        Ok(Self {
+            temperature,
+            thermal_diffusivity: thermal_diffusivity_field,
+            heat_source,
             nx,
             ny,
-            work_buffer: Array2D::new(nx, ny, T::ZERO),
+            work_buffer,
             include_viscous_dissipation: false,
-            viscous_dissipation_mu: Array2D::new(nx, ny, 0.0),
-            viscous_dissipation_rho: 1000.0,
-            viscous_dissipation_cp: 4186.0,
-        }
+            viscous_dissipation_mu,
+            viscous_dissipation_rho: cfd_core::physics::constants::physics::fluid::WATER_DENSITY,
+            viscous_dissipation_cp:
+                cfd_core::physics::constants::physics::fluid::WATER_SPECIFIC_HEAT,
+        })
     }
 
     /// Enable or disable viscous dissipation as an additional heat source.
@@ -295,5 +343,71 @@ impl<T: CfdScalar + Copy> EnergyEquationSolver<T> {
         let dt_dy_wall = (self.temperature[(0, 1)] - self.temperature[(0, 0)]) / dy; // Use actual dy
         let h = self.thermal_diffusivity[(0, 0)] * dt_dy_wall / (wall_temp - bulk_temp);
         h * characteristic_length / self.thermal_diffusivity[(0, 0)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid arguments.
+    #[test]
+    fn energy_equation_try_new_accepts_valid_arguments() {
+        let solver =
+            EnergyEquationSolver::<f64>::try_new(8, 12, 300.0, 1.4e-7).expect("valid must succeed");
+        assert_eq!(solver.nx, 8);
+        assert_eq!(solver.ny, 12);
+    }
+
+    /// **Adversarial**: NaN `initial_temperature` is rejected.
+    #[test]
+    fn energy_equation_try_new_rejects_nan_initial_temperature() {
+        match EnergyEquationSolver::<f64>::try_new(8, 12, f64::NAN, 1.4e-7) {
+            Err(e) => assert!(
+                e.to_string().contains("initial_temperature"),
+                "error must mention initial_temperature: {e}"
+            ),
+            Ok(_) => panic!("NaN initial_temperature must be rejected"),
+        }
+    }
+
+    /// **Positive**: `try_new` accepts zero `thermal_diffusivity` for
+    /// pure-convection (no diffusion) — a legitimate use case.
+    #[test]
+    fn energy_equation_try_new_accepts_zero_thermal_diffusivity() {
+        let solver =
+            EnergyEquationSolver::<f64>::try_new(8, 12, 300.0, 0.0).expect("zero alpha is allowed");
+        assert_eq!(solver.nx, 8);
+    }
+
+    /// **Adversarial**: negative `thermal_diffusivity` is rejected.
+    #[test]
+    fn energy_equation_try_new_rejects_negative_thermal_diffusivity() {
+        match EnergyEquationSolver::<f64>::try_new(8, 12, 300.0, -1.0e-7) {
+            Err(e) => assert!(
+                e.to_string().contains("thermal_diffusivity"),
+                "error must mention thermal_diffusivity: {e}"
+            ),
+            Ok(_) => panic!("negative thermal_diffusivity must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `thermal_diffusivity` is rejected.
+    #[test]
+    fn energy_equation_try_new_rejects_nan_thermal_diffusivity() {
+        match EnergyEquationSolver::<f64>::try_new(8, 12, 300.0, f64::NAN) {
+            Err(e) => assert!(
+                e.to_string().contains("thermal_diffusivity"),
+                "error must mention thermal_diffusivity: {e}"
+            ),
+            Ok(_) => panic!("NaN thermal_diffusivity must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `thermal_diffusivity` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "thermal_diffusivity")]
+    fn energy_equation_new_panics_on_invalid_diffusivity() {
+        let _ = EnergyEquationSolver::<f64>::new(8, 12, 300.0, -1.0);
     }
 }
