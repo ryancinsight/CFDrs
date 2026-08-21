@@ -124,6 +124,17 @@ config.tolerance)`. The exact two-test locked Nextest filter passes locally at
 `0d725752-ad6c-4365-a569-013ca0caf8c5`; hosted confirmation is the remaining
 acceptance gate.
 
+The hosted format-gate head `c9aff82e` exposed a separate standard Venturi
+validation defect: the GA geometry reached a physically informative state in
+15.921 s but reported convergence without satisfying the provider continuity
+residual. The validation caller now selects two PISO pressure corrections for
+the `Re_throat > 100` non-Newtonian path and requires both solver convergence
+and the physical-state checks. The exact nine-test numerical-fidelity filter
+passes locally, including the GA regression, at run
+`21832c45-e7cb-49e0-9264-55c402eb0968`; the local serial observation is
+73.056 s with one pre-existing slow test, and the unchanged hosted budget
+remains the acceptance oracle.
+
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` SIMPLEC/PIMPLE pressure-solid
