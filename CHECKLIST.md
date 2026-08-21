@@ -16,6 +16,16 @@
 - [ ] Run the focused provider checks and hosted release dry-run at the exact
       source head; do not change registry-side trusted-publisher settings.
 
+## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch]
+
+- [ ] Release the GIL around Rust-only binding computations without moving
+      Python conversion or error mapping across the boundary.
+- [ ] Ship typed stubs and PEP 561 metadata for the exported module.
+- [ ] Build and install the wheel; run the existing value-semantic Python
+      tests and the focused Rust gates.
+- [ ] Remove the committed generated validation image and synchronize the
+      package README and changelog.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets
 
 - [x] Replace the fixed-threshold `min_scalar` selection with the caller's
