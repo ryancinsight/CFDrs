@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 #![allow(clippy::print_stdout)]
+use athena_leto::IncompleteLu;
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{
@@ -8,7 +9,6 @@ use cfd_2d::simplec_pimple::{
 };
 use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
-use athena_leto::IncompleteLu;
 use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
