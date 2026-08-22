@@ -50,7 +50,6 @@ use athena_leto::{LetoBackend, LetoBackendError};
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::Preconditioner;
 use leto_ops::{spgemm, spmv_into as leto_spmv_into, Scalar as LetoScalar};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -503,8 +502,18 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
     }
 }
 
-impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for AlgebraicMultigrid<T> {
-    fn apply_to(
+impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
+    /// Apply one multigrid cycle as a preconditioner: `z = M^-1 r`.
+    ///
+    /// This is the concrete cycle. The Athena
+    /// [`Preconditioner`](athena_core::Preconditioner) impl below is the seam
+    /// that exposes it to a Krylov solve; both share this one body.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`leto::LetoError::InvalidInput`] when `r` and `z` disagree in
+    /// shape, or when the cached level workspace lock is poisoned.
+    pub fn apply_to(
         &self,
         r: &MultigridVector<T>,
         z: &mut MultigridVector<T>,
@@ -591,7 +600,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar + leto_ops::RealScalar>
         for index in 0..length {
             scratch_residual[index] = residual[index];
         }
-        Preconditioner::apply_to(self, scratch_residual, scratch_output)
+        self.apply_to(scratch_residual, scratch_output)
             .map_err(LetoBackendError::Leto)?;
         for index in 0..length {
             output[index] = scratch_output[index];

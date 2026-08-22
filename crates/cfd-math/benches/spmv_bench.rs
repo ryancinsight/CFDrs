@@ -4,10 +4,9 @@
     clippy::many_single_char_names
 )]
 
-use cfd_math::iterative::LinearOperator;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;
-use leto_ops::CsrMatrix;
+use leto_ops::{spmv_into, CsrMatrix};
 
 fn bench_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_leto_provider");
@@ -39,7 +38,12 @@ fn bench_spmv(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
-                black_box(a.apply(black_box(&x), black_box(&mut y))).expect("expected value");
+                black_box(spmv_into(
+                    black_box(&a),
+                    black_box(&x.view()),
+                    black_box(y.as_slice_mut().expect("contiguous output")),
+                ))
+                .expect("expected value");
             });
         });
     }

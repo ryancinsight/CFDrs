@@ -7,7 +7,7 @@
 //! stationary preconditioned iteration must contract in the A-norm with
 //! factor `ρ < 1` (Ruge & Stüben 1987; theorem restated in `amg.rs`).
 
-use cfd_math::iterative::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::multigrid::{AMGConfig, AlgebraicMultigrid, CycleType};
 use leto::Array1;
 use leto_ops::{spmv_into, CsrMatrix};
@@ -102,20 +102,24 @@ fn test_amg_with_bicgstab() {
     let b = rhs_for(&a, &x_exact);
     let amg = amg_for(&a, AMGConfig::default());
 
-    let solver = BiCGSTAB::new(IterativeSolverConfig::new(1e-10).with_max_iterations(200));
+    let config = IterativeSolverConfig::new(1e-10).with_max_iterations(200);
     let mut x = Array1::zeros([n * n]);
-    let monitor = solver
-        .solve_preconditioned(&a, &b, &amg, &mut x)
-        .expect("AMG-preconditioned BiCGSTAB converges on SPD Poisson");
-
-    let final_residual = *monitor
-        .residual_history
-        .last()
-        .expect("monitor records at least the initial residual");
+    let outcome = krylov::interpret(
+        "AMG + BiCGSTAB",
+        krylov::bicgstab_preconditioned(&a, &b, &amg, &mut x, &config),
+    )
+    .expect("AMG-preconditioned BiCGSTAB runs on SPD Poisson");
     assert!(
-        final_residual <= 1e-10 * monitor.initial_residual.max(1.0),
-        "relative residual not reached: final {final_residual}, initial {}",
-        monitor.initial_residual
+        outcome.converged(),
+        "AMG-preconditioned BiCGSTAB converges on SPD Poisson: {outcome:?}"
+    );
+
+    let report = outcome.report();
+    assert!(
+        report.final_residual_norm <= 1e-10 * report.initial_residual_norm.max(1.0),
+        "relative residual not reached: final {}, initial {}",
+        report.final_residual_norm,
+        report.initial_residual_norm
     );
     let error = max_abs_diff(&x, &x_exact);
     assert!(error < 1e-6, "‖x - x*‖∞ = {error}");
@@ -129,14 +133,17 @@ fn test_amg_with_gmres() {
     let b = rhs_for(&a, &x_exact);
     let amg = amg_for(&a, AMGConfig::default());
 
-    let solver = GMRES::new(
-        IterativeSolverConfig::new(1e-10).with_max_iterations(200),
-        30,
-    );
+    let config = IterativeSolverConfig::new(1e-10).with_max_iterations(200);
     let mut x = Array1::zeros([n * n]);
-    solver
-        .solve_preconditioned(&a, &b, &amg, &mut x)
-        .expect("AMG-preconditioned GMRES converges on SPD Poisson");
+    let outcome = krylov::interpret(
+        "AMG + GMRES(30)",
+        krylov::gmres_preconditioned(&a, &b, &amg, &mut x, &config, 30),
+    )
+    .expect("AMG-preconditioned GMRES runs on SPD Poisson");
+    assert!(
+        outcome.converged(),
+        "AMG-preconditioned GMRES converges on SPD Poisson: {outcome:?}"
+    );
 
     let error = max_abs_diff(&x, &x_exact);
     assert!(error < 1e-6, "‖x - x*‖∞ = {error}");
@@ -157,11 +164,17 @@ fn test_amg_different_cycles() {
                 ..AMGConfig::default()
             },
         );
-        let solver = BiCGSTAB::new(IterativeSolverConfig::new(1e-10).with_max_iterations(200));
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(200);
         let mut x = Array1::zeros([n * n]);
-        solver
-            .solve_preconditioned(&a, &b, &amg, &mut x)
-            .unwrap_or_else(|e| panic!("{cycle:?} preconditioned solve failed: {e}"));
+        let outcome = krylov::interpret(
+            "AMG + BiCGSTAB",
+            krylov::bicgstab_preconditioned(&a, &b, &amg, &mut x, &config),
+        )
+        .unwrap_or_else(|e| panic!("{cycle:?} preconditioned solve failed: {e}"));
+        assert!(
+            outcome.converged(),
+            "{cycle:?} preconditioned solve did not converge: {outcome:?}"
+        );
         let error = max_abs_diff(&x, &x_exact);
         assert!(error < 1e-6, "{cycle:?}: ‖x - x*‖∞ = {error}");
     }
