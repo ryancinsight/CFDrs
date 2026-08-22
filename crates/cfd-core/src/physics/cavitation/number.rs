@@ -47,7 +47,8 @@ impl<T: FloatElement + Copy> CavitationNumber<T> {
 
     /// Calculate incipient cavitation index (Thoma number)
     pub fn thoma_number(&self, head: Length<T>) -> Dimensionless<T> {
-        let g = <T as FloatElement>::from_f64(crate::physics::constants::physics::universal::GRAVITY);
+        let g =
+            <T as FloatElement>::from_f64(crate::physics::constants::physics::universal::GRAVITY);
         Dimensionless::from_base(
             (self.reference_pressure.into_base() - self.vapor_pressure.into_base())
                 / (self.density.into_base() * g * head.into_base()),

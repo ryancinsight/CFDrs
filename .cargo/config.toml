@@ -4,6 +4,14 @@
 # when full debug info is included. Strip debug info in test profile to stay linkable.
 [profile.test]
 debug = 0
+# Measured exception (test-budget doctrine): the committed 30s nextest
+# termination bound is crossed on hosted Linux by the compute-bound 3D FEM
+# validation suites (cross_fidelity_trifurcation_dominance terminated at
+# 30.008s hosted; 11.4s debug on the local dev box). Raising the test profile
+# to opt-level 2 measures 11.4s -> 2.0s locally (5.5x), restoring budget
+# headroom on hosted runners. Dev/debug profiles are unchanged; no test or
+# workload was reduced.
+opt-level = 2
 
 env = { PKG_CONFIG_PATH = "/usr/lib/x86_64-linux-gnu/pkgconfig" }
 

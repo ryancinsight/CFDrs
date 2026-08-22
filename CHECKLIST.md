@@ -37,6 +37,12 @@
       `0d725752-ad6c-4365-a569-013ca0caf8c5`.
 - [x] Route production debug output through `tracing` and consume the
       provider solver reports in the touched validation paths.
+- [x] Make the standard non-Newtonian Venturi caller use two PISO pressure
+      corrections when `Re_throat > 100`, require the solver's convergence flag
+      in the result, and remove the touched-path stdout fallback. The exact
+      nine-test numerical-fidelity filter passes locally at run
+      `21832c45-e7cb-49e0-9264-55c402eb0968`; hosted verification remains the
+      closure gate.
 - [ ] Push the final source head and pass the exact hosted Rust and Pages
       gates without changing the committed budget or workloads.
 

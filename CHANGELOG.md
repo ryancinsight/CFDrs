@@ -36,6 +36,11 @@
   its measured sweep cap, while venturi cross-fidelity retains its prior
   value contract. Hosted numerical-fidelity rerun is pending.
 
+- **cfd-validation**: The standard non-Newtonian Venturi path now uses two
+  PISO pressure corrections for throat Reynolds numbers above 100 and reports
+  convergence only when the provider solver and physical-state checks both
+  pass. The touched fallback diagnostic uses structured tracing.
+
 - **cfd-2d/cfd-validation**: The backward-facing-step validation now uses the
   provider's reusable GMRES workspace and direct mutable Leto CSR structure
   access, with a measured consumer-owned SOR override for the benchmark. The
