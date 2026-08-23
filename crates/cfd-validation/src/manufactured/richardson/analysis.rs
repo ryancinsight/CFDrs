@@ -212,7 +212,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
 
     /// Run MMS validation
     fn run_mms_validation(&mut self) -> Result<(), String> {
-        println!("Running comprehensive MMS validation suite...");
+        tracing::info!("Running comprehensive MMS validation suite...");
 
         // Add sample stability region data for testing
         let sample_region = StabilityRegion {
@@ -255,13 +255,13 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
             .edge_case_results
             .push(sample_edge_case);
 
-        println!("MMS validation completed successfully");
+        tracing::info!("MMS validation completed successfully");
         Ok(())
     }
 
     /// Run boundary condition validation
     fn run_boundary_validation(&mut self) -> Result<(), String> {
-        println!("Running boundary condition validation...");
+        tracing::info!("Running boundary condition validation...");
 
         // Add sample boundary validation results
         let sample_boundary_result = BoundaryValidationResult {
@@ -274,39 +274,39 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
         self.boundary_validation_results
             .push(sample_boundary_result);
 
-        println!("Boundary condition validation completed successfully");
+        tracing::info!("Boundary condition validation completed successfully");
         Ok(())
     }
 
     /// Run performance profiling
     fn run_performance_profiling(&mut self) -> Result<(), String> {
-        println!("Running performance profiling...");
+        tracing::info!("Running performance profiling...");
         self.update_performance_profile();
-        println!("Performance profiling completed");
+        tracing::info!("Performance profiling completed");
         Ok(())
     }
 
     /// Run numerical stability analysis
     fn run_numerical_stability_analysis(&mut self) -> Result<(), String> {
-        println!("Running numerical stability analysis...");
+        tracing::info!("Running numerical stability analysis...");
         self.update_numerical_stability_analysis();
-        println!("Numerical stability analysis completed");
+        tracing::info!("Numerical stability analysis completed");
         Ok(())
     }
 
     /// Run conservation analysis
     fn run_conservation_analysis(&mut self) -> Result<(), String> {
-        println!("Running conservation property analysis...");
+        tracing::info!("Running conservation property analysis...");
         self.update_conservation_analysis();
-        println!("Conservation analysis completed");
+        tracing::info!("Conservation analysis completed");
         Ok(())
     }
 
     /// Run edge case testing
     fn run_edge_case_testing(&mut self) -> Result<(), String> {
-        println!("Running edge case testing...");
+        tracing::info!("Running edge case testing...");
         self.update_edge_case_testing();
-        println!("Edge case testing completed");
+        tracing::info!("Edge case testing completed");
         Ok(())
     }
 

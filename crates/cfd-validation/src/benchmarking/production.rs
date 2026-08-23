@@ -25,14 +25,14 @@ impl PerformanceProfiler {
 
     /// Run comprehensive CFD algorithm performance profiling
     pub fn run_comprehensive_profiling(&self) -> Result<PerformanceReport> {
-        println!("🔬 Comprehensive CFD Algorithm Performance Profiling");
-        println!("==================================================");
-        println!("Literature References:");
-        println!("- Saad (2003): Iterative Methods for Sparse Linear Systems");
-        println!("- Williams et al. (2009): SPMV on emerging multicore platforms");
-        println!("- Salari & Knupp (2000): Code verification by MMS");
-        println!("- LeVeque (2002): Finite Volume Methods for Hyperbolic Problems");
-        println!();
+        tracing::info!("🔬 Comprehensive CFD Algorithm Performance Profiling");
+        tracing::info!("==================================================");
+        tracing::info!("Literature References:");
+        tracing::info!("- Saad (2003): Iterative Methods for Sparse Linear Systems");
+        tracing::info!("- Williams et al. (2009): SPMV on emerging multicore platforms");
+        tracing::info!("- Salari & Knupp (2000): Code verification by MMS");
+        tracing::info!("- LeVeque (2002): Finite Volume Methods for Hyperbolic Problems");
+        tracing::info!("");
 
         // Run CFD algorithm benchmarks
         let profiles = self.benchmarks.benchmark_cfd_algorithms()?;
@@ -177,59 +177,59 @@ impl PerformanceProfiler {
 
     /// Display comprehensive performance report
     fn display_report(report: &PerformanceReport) {
-        println!("\n📊 Performance Profiling Summary");
-        println!("===============================");
-        println!(
+        tracing::info!("\n📊 Performance Profiling Summary");
+        tracing::info!("===============================");
+        tracing::info!(
             "Timestamp: {}",
             report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
         );
-        println!(
+        tracing::info!(
             "Total Algorithms Profiled: {}",
             report.summary.total_profiles
         );
-        println!(
+        tracing::info!(
             "Total Performance: {:.2} GFLOPS",
             report.summary.total_gflops
         );
-        println!(
+        tracing::info!(
             "Average Memory Bandwidth: {:.2} GB/s",
             report.summary.avg_memory_bandwidth
         );
-        println!(
+        tracing::info!(
             "Average Cache Efficiency: {:.1}%",
             report.summary.avg_cache_efficiency * 100.0
         );
-        println!(
+        tracing::info!(
             "Average Parallel Scalability: {:.1}%",
             report.summary.avg_scalability * 100.0
         );
-        println!(
+        tracing::info!(
             "Best Performing Algorithm: {}",
             report.summary.best_algorithm
         );
-        println!(
+        tracing::info!(
             "Algorithm Needing Optimization: {}",
             report.summary.worst_algorithm
         );
 
         if !report.recommendations.is_empty() {
-            println!("\n💡 Performance Recommendations");
-            println!("=============================");
+            tracing::info!("\n💡 Performance Recommendations");
+            tracing::info!("=============================");
             for (i, rec) in report.recommendations.iter().enumerate() {
-                println!(
+                tracing::info!(
                     "{}. [{}] {}: {}",
                     i + 1,
                     rec.severity,
                     rec.category,
                     rec.description
                 );
-                println!("   Solution: {}", rec.solution);
-                println!("   Reference: {}", rec.literature);
-                println!();
+                tracing::info!("   Solution: {}", rec.solution);
+                tracing::info!("   Reference: {}", rec.literature);
+                tracing::info!("");
             }
         }
 
-        println!("✅ Performance profiling completed successfully!");
+        tracing::info!("✅ Performance profiling completed successfully!");
     }
 }
 

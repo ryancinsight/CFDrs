@@ -26,25 +26,25 @@ impl LinearSolverValidator {
         // Test 1: Standard diagonal system
         match Self::test_diagonal_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Diagonal system test failed: {e}"),
+            Err(e) => tracing::info!("Diagonal system test failed: {e}"),
         }
 
         // Test 2: Tridiagonal system (1D Poisson)
         match Self::test_tridiagonal_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Tridiagonal system test failed: {e}"),
+            Err(e) => tracing::info!("Tridiagonal system test failed: {e}"),
         }
 
         // Test 3: 2D Poisson equation
         match Self::test_2d_poisson::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("2D Poisson test failed: {e}"),
+            Err(e) => tracing::info!("2D Poisson test failed: {e}"),
         }
 
         // Test 4: Ill-conditioned system (expected to have some failures)
         match Self::test_ill_conditioned_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Ill-conditioned system test failed (expected): {e}"),
+            Err(e) => tracing::info!("Ill-conditioned system test failed (expected): {e}"),
         }
 
         Ok(results)
@@ -89,7 +89,7 @@ impl LinearSolverValidator {
                     results.push(result);
                 }
                 None => {
-                    println!("Solver {name} did not converge on diagonal system");
+                    tracing::info!("Solver {name} did not converge on diagonal system");
                 }
             }
         }
@@ -227,7 +227,7 @@ impl LinearSolverValidator {
                 }
                 None => {
                     // For ill-conditioned systems, solver failure is expected and should be reported honestly
-                    eprintln!("Solver {name} did not converge on ill-conditioned system");
+                    tracing::warn!("Solver {name} did not converge on ill-conditioned system");
                     // Do not create misleading results with zero solutions
                     // Skip this test case for solvers that cannot handle ill-conditioned systems
                 }

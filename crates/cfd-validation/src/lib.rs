@@ -128,7 +128,7 @@ pub mod time_integration;
 /// use cfd_validation::run_performance_profiling;
 ///
 /// let report = run_performance_profiling().expect("Performance profiling failed");
-/// println!("Total performance: {:.2} GFLOPS", report.summary.total_gflops);
+/// tracing::info!("Total performance: {:.2} GFLOPS", report.summary.total_gflops);
 /// ```
 pub fn run_performance_profiling(
 ) -> cfd_core::error::Result<benchmarking::production::PerformanceReport> {
@@ -154,7 +154,7 @@ pub fn run_performance_profiling(
 /// use cfd_validation::run_stability_analysis;
 ///
 /// let report = run_stability_analysis().expect("Stability analysis failed");
-/// println!("Overall stability score: {:.1}%", report.overall_assessment.overall_score * 100.0);
+/// tracing::info!("Overall stability score: {:.1}%", report.overall_assessment.overall_score * 100.0);
 /// ```
 pub fn run_stability_analysis(
 ) -> cfd_core::error::Result<time_integration::stability_analysis::StabilityAnalysisReport<f64>> {
@@ -179,8 +179,8 @@ pub fn run_stability_analysis(
 ///
 /// let registry = get_algorithm_complexity_registry();
 /// if let Some(cg_info) = registry.get("ConjugateGradient") {
-///     println!("CG Time Complexity: {}", cg_info.time_complexity);
-///     println!("Cache Efficiency: {:.1}%", cg_info.cache_efficiency * 100.0);
+///     tracing::info!("CG Time Complexity: {}", cg_info.time_complexity);
+///     tracing::info!("Cache Efficiency: {:.1}%", cg_info.cache_efficiency * 100.0);
 /// }
 /// ```
 pub fn get_algorithm_complexity_registry() -> algorithm_complexity::AlgorithmComplexityRegistry {
@@ -201,9 +201,9 @@ pub fn get_algorithm_complexity_registry() -> algorithm_complexity::AlgorithmCom
 /// use cfd_validation::run_edge_case_testing;
 ///
 /// let report = run_edge_case_testing().expect("Edge case testing failed");
-/// println!("Overall pass rate: {:.1}%", report.overall_assessment.pass_rate * 100.0);
+/// tracing::info!("Overall pass rate: {:.1}%", report.overall_assessment.pass_rate * 100.0);
 /// if report.overall_assessment.critical_failures > 0 {
-///     println!("Warning: {} critical failures detected!", report.overall_assessment.critical_failures);
+///     tracing::warn!("Warning: {} critical failures detected!", report.overall_assessment.critical_failures);
 /// }
 /// ```
 pub fn run_edge_case_testing() -> cfd_core::error::Result<edge_case_testing::EdgeCaseReport> {
