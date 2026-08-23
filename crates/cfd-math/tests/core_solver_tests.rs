@@ -7,8 +7,9 @@
 //! ✅ ILU preconditioner validation
 //! ✅ Numerical accuracy and convergence testing
 
-use cfd_math::iterative::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
-use cfd_math::iterative::{BiCGSTAB, IterativeLinearSolver, Preconditioner, GMRES};
+use athena_core::{Identity, Preconditioner};
+use athena_leto::{Jacobi, LetoBackend};
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse;
 use leto::Array1;
 use leto_ops::CsrMatrix;
@@ -85,6 +86,10 @@ fn basic_preconditioner_matrix(matrix: &CsrMatrix<f64>) -> CsrMatrix<f64> {
     matrix.clone()
 }
 
+fn jacobi_for(matrix: &CsrMatrix<f64>) -> Jacobi<f64> {
+    Jacobi::from_csr(matrix).expect("test operators carry a nonzero diagonal")
+}
+
 /// BiCGSTAB solver validation - Sprint 1.72.0 Core Deliverable
 #[test]
 fn test_bicgstab_solver_validation() {
@@ -107,14 +112,19 @@ fn test_bicgstab_solver_validation() {
     let mut x = Array1::zeros([5]);
 
     // ✅ BiCGSTAB with Jacobi preconditioning
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
-    let solver = BiCGSTAB::new(config);
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let preconditioner_matrix = basic_preconditioner_matrix(&a);
-    let jacobi = JacobiPreconditioner::from_matrix(&preconditioner_matrix);
+    let jacobi = jacobi_for(&preconditioner_matrix);
 
-    solver
-        .solve(&a, &b, &mut x, Some(&jacobi))
-        .expect("BiCGSTAB converges with Jacobi preconditioning");
+    let outcome = krylov::interpret(
+        "BiCGSTAB + Jacobi",
+        krylov::bicgstab_preconditioned(&a, &b, &jacobi, &mut x, &config),
+    )
+    .expect("BiCGSTAB runs on the Poisson-like system");
+    assert!(
+        outcome.converged(),
+        "BiCGSTAB converges with Jacobi preconditioning: {outcome:?}"
+    );
 
     // Verify numerical accuracy
     assert_residual_below(&a, &x, &b, 1e-6);
@@ -142,12 +152,14 @@ fn test_gmres_solver_validation() {
     let mut x = Array1::zeros([6]);
 
     // ✅ GMRES with restart dimension 4
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
-    let solver = GMRES::new(config, 4);
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(50);
 
-    solver
-        .solve(&a, &b, &mut x, None::<&IdentityPreconditioner>)
-        .expect("GMRES converges with restart mechanism");
+    let outcome = krylov::interpret("GMRES(4)", krylov::gmres(&a, &b, &mut x, &config, 4))
+        .expect("GMRES runs on the tridiagonal system");
+    assert!(
+        outcome.converged(),
+        "GMRES converges with restart mechanism: {outcome:?}"
+    );
 
     // Verify restart capability works
     assert_residual_below(&a, &x, &b, 0.3);
@@ -175,13 +187,14 @@ fn test_preconditioner_integration() {
 
     // Test ILU preconditioner availability
     let preconditioner_matrix = basic_preconditioner_matrix(&a);
-    let jacobi = JacobiPreconditioner::from_matrix(&preconditioner_matrix);
+    let jacobi = jacobi_for(&preconditioner_matrix);
 
     // Verify preconditioner application works
+    let backend = LetoBackend::<f64>::default();
     let r = filled_array(4, 2.0);
     let mut z = Array1::zeros([4]);
     jacobi
-        .apply_to(&r, &mut z)
+        .apply(&backend, r.view(), z.view_mut())
         .expect("preconditioner application succeeds");
 
     for idx in 0..z.shape()[0] {
@@ -190,12 +203,17 @@ fn test_preconditioner_integration() {
 
     // Test BiCGSTAB with Jacobi in system
     let mut x = Array1::zeros([4]);
-    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
-    let solver = BiCGSTAB::new(config);
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(50);
 
-    solver
-        .solve(&a, &b, &mut x, Some(&jacobi))
-        .expect("BiCGSTAB converges with Jacobi preconditioning");
+    let outcome = krylov::interpret(
+        "BiCGSTAB + Jacobi",
+        krylov::bicgstab_preconditioned(&a, &b, &jacobi, &mut x, &config),
+    )
+    .expect("BiCGSTAB runs on the ill-conditioned system");
+    assert!(
+        outcome.converged(),
+        "BiCGSTAB converges with Jacobi preconditioning: {outcome:?}"
+    );
 
     assert_residual_below(&a, &x, &b, 1e-6);
 }
@@ -219,12 +237,17 @@ fn test_solver_convergence_matrix_conditions() {
         let mut x = Array1::zeros([4]);
 
         // ✅ Test robustness across condition numbers
-        let config = cfd_math::iterative::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
-        let solver = BiCGSTAB::new(config);
+        let config = IterativeSolverConfig::new(1e-6).with_max_iterations(100);
 
-        solver
-            .solve(&a, &b, &mut x, None::<&IdentityPreconditioner>)
-            .expect("BiCGSTAB converges for controlled condition matrix");
+        let outcome = krylov::interpret(
+            "BiCGSTAB",
+            krylov::bicgstab_preconditioned(&a, &b, &Identity, &mut x, &config),
+        )
+        .expect("BiCGSTAB runs for the controlled condition matrix");
+        assert!(
+            outcome.converged(),
+            "BiCGSTAB converges for controlled condition matrix: {outcome:?}"
+        );
 
         assert_residual_below(&a, &x, &b, 1e-4);
     }

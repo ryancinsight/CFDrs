@@ -1,6 +1,7 @@
 #![allow(missing_docs, clippy::explicit_iter_loop)]
 
-use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig};
+use athena_core::Identity;
+use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use leto::Array1;
 use leto_ops::CsrMatrix;
@@ -39,19 +40,18 @@ fn bench_cg(c: &mut Criterion) {
             tolerance: 1e-10,
             ..Default::default()
         };
-        let solver = ConjugateGradient::new(config);
-        let precond = IdentityPreconditioner;
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bench, &_| {
             bench.iter_batched_ref(
                 || Array1::zeros([n]),
                 |x_mut| {
-                    let _ = solver.solve_preconditioned(
+                    krylov::cg_preconditioned(
                         black_box(&a),
                         black_box(&b),
-                        black_box(&precond),
+                        black_box(&Identity),
                         black_box(x_mut),
-                    );
+                        black_box(&config),
+                    )
                 },
                 BatchSize::SmallInput,
             );
@@ -86,19 +86,18 @@ fn bench_cg_convergence(c: &mut Criterion) {
         let a =
             CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).expect("expected value");
         let b = Array1::from_elem([n], 1.0);
-        let solver =
-            ConjugateGradient::new(IterativeSolverConfig::new(1e-8).with_max_iterations(1000));
-        let precond = IdentityPreconditioner;
+        let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bmk, &_| {
             bmk.iter_batched_ref(
                 || Array1::zeros([n]),
                 |x_mut| {
-                    let _ = solver.solve_preconditioned(
+                    krylov::cg_preconditioned(
                         black_box(&a),
                         black_box(&b),
-                        black_box(&precond),
+                        black_box(&Identity),
                         black_box(x_mut),
-                    );
+                        black_box(&config),
+                    )
                 },
                 BatchSize::SmallInput,
             );

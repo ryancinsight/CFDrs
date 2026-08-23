@@ -158,7 +158,6 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> FemSolver<T> {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
             relative_tolerance: self.config.base.convergence.relative_tolerance,
-            ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         tracing::info!(
             n_total_dof,
@@ -259,7 +258,6 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> FemSolver<T> {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
             relative_tolerance: rel_tol,
-            ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
         let chain = LinearSolverChain::new(solver_config)
