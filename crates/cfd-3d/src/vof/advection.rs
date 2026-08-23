@@ -361,7 +361,7 @@ impl AdvectionMethod {
         delta_normal: T,
         dt: T,
         // 0 = x-face, 1 = y-face, 2 = z-face
-        _dir: usize,
+        dir: usize,
     ) -> T {
         let zero = scalar::zero::<T>();
         let one = scalar::one::<T>();
@@ -400,14 +400,27 @@ impl AdvectionMethod {
         let dy_p = solver.dy;
         let dz_p = solver.dz;
 
-        // The fraction of the prism volume that is fluid:
-        let f = plic_volume_fraction_in_prism(normal_donor, alpha_donor, depth, dx_p, dy_p, dz_p);
+        // The fraction of the prism volume that is fluid. The swept slab is
+        // the layer adjacent to the donor's outflow face: for u_face > 0 the
+        // donor is the left cell losing fluid through its high-coordinate
+        // face (flow_sign = +1); for u_face < 0 the donor is the right cell
+        // losing through its low-coordinate face (flow_sign = −1).
+        let flow_sign = if u_face > zero { one } else { -one };
+        let f = plic_volume_fraction_in_prism(
+            normal_donor,
+            alpha_donor,
+            depth,
+            dx_p,
+            dy_p,
+            dz_p,
+            dir,
+            flow_sign,
+        );
 
         // Flux = fraction_fluid × swept_prism_volume × sign(u_face)
         let swept_volume = depth * face_area;
-        let sign = if u_face > zero { one } else { -one };
 
-        scalar::min(scalar::max(f, zero), one) * swept_volume * sign
+        scalar::min(scalar::max(f, zero), one) * swept_volume * flow_sign
     }
 
     /// Algebraic advection (simpler but less accurate, first-order upwind).

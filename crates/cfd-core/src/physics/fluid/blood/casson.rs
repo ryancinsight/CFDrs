@@ -39,10 +39,10 @@ use aequitas::systems::si::quantities::{
 #[inline]
 #[must_use]
 pub fn temperature_viscosity_factor(temp_c: f64) -> f64 {
-    const B_K: f64 = 1500.0;
-    const T_REF_K: f64 = 310.15; // 37.0 °C in kelvin
-    let t_k = temp_c + 273.15;
-    (B_K * (1.0 / t_k - 1.0 / T_REF_K)).exp()
+    let b_k = super::constants::ANDRADE_B_BLOOD;
+    let t_ref_k = super::constants::BODY_TEMPERATURE_K;
+    let t_k = temp_c + crate::physics::constants::physics::thermo::CELSIUS_TO_KELVIN;
+    (b_k * (1.0 / t_k - 1.0 / t_ref_k)).exp()
 }
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use eunomia::RealField;
@@ -276,8 +276,8 @@ impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
         shear_rate: T,
         temperature: ThermodynamicTemperature<T>,
     ) -> T {
-        let t_ref = <T as FloatElement>::from_f64(310.15);
-        let b = <T as FloatElement>::from_f64(1500.0);
+        let t_ref = <T as FloatElement>::from_f64(super::constants::BODY_TEMPERATURE_K);
+        let b = <T as FloatElement>::from_f64(super::constants::ANDRADE_B_BLOOD);
         let temp_k = temperature.into_base();
         let t_eff = if temp_k <= <T as NumericElement>::ZERO {
             t_ref

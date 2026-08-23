@@ -74,7 +74,7 @@ impl PySerpentineSolver1D {
         );
 
         let dh = cross_section.hydraulic_diameter();
-        let density = 1060.0;
+        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 
         let (mu, re) = match blood_type {
             "casson" => {
@@ -90,7 +90,7 @@ impl PySerpentineSolver1D {
                 (mu, re)
             }
             _ => {
-                let mu = 0.0035;
+                let mu = cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY;
                 let re = density * velocity * dh / mu;
                 (mu, re)
             }
@@ -105,7 +105,7 @@ impl PySerpentineSolver1D {
             DynamicViscosity::from_base(mu),
             SpecificHeatCapacity::from_base(3617.0),
             ThermalConductivity::from_base(0.52),
-            Velocity::from_base(1570.0),
+            Velocity::from_base(cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND),
         );
 
         let resistance = model

@@ -96,11 +96,11 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            MassDensity::from_base(<T as FloatElement>::from_f64(998.2)),
-            DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.001_002)),
-            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(4186.0)),
-            ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.599)),
-            Velocity::from_base(<T as FloatElement>::from_f64(1482.0)),
+            MassDensity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_DENSITY)),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_VISCOSITY)),
+            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_SPECIFIC_HEAT)),
+            ThermalConductivity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_THERMAL_CONDUCTIVITY)),
+            Velocity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_SPEED_OF_SOUND)),
         );
         fluid.validate()?;
         Ok(fluid)

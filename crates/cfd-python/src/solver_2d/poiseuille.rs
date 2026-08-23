@@ -105,13 +105,13 @@ impl PyPoiseuille2DSolver {
             .map_err(|e| PyRuntimeError::new_err(format!("Grid error: {e}")))?;
 
         let mut fields = SimulationFields::new(self.nx, self.ny);
-        let rho = 1060.0;
+        let rho = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
         let pressure_gradient = pressure_drop / self.length;
 
         let viscosity = match blood_type {
             "casson" => CassonBlood::<f64>::normal_blood().apparent_viscosity(100.0),
             "carreau_yasuda" => CarreauYasudaBlood::<f64>::normal_blood().apparent_viscosity(100.0),
-            _ => 0.0035,
+            _ => cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
         };
 
         for i in 0..self.nx {

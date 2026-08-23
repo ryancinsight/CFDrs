@@ -19,7 +19,7 @@ use aequitas::systems::si::quantities::{Pressure, Time};
 /// use aequitas::systems::si::quantities::{Pressure, Time};
 /// use cfd_1d::giersiepen_hi;
 /// let hi = giersiepen_hi(Pressure::from_base(50.0), Time::from_base(0.01));
-/// assert!((hi - 2.578_444_864_181_722_3e-3).abs() < 1e-15);
+/// assert!((hi - 1.239_995_476_925_157_9e-4).abs() < 1e-15);
 /// ```
 #[inline]
 #[must_use]

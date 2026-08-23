@@ -82,11 +82,11 @@ impl PyPoiseuille3DSolver {
     fn solve(&self, pressure_drop: f64, blood_type: &str) -> PyResult<PyPoiseuille3DResult> {
         use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 
-        let rho = 1060.0;
+        let rho = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
         let gamma_dot = 100.0;
 
         let mu = match blood_type {
-            "newtonian" => 0.0035,
+            "newtonian" => cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
             "casson" => {
                 let fluid = CassonBlood::<f64>::normal_blood();
                 fluid.apparent_viscosity(gamma_dot)

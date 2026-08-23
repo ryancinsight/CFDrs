@@ -50,25 +50,29 @@ impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
         // Solve momentum equations without pressure gradient
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                // Get velocities at cell faces (linear interpolation)
+                // Face velocities (linear interpolation). The mass flux
+                // through the east/west faces of either momentum CV is carried
+                // by the u component; through the north/south faces by the v
+                // component.
                 let half = <T as FloatElement>::from_f64(HALF);
                 let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
                 let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
-                let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * half;
-                let us = (fields.u.at(i, j - 1) + fields.u.at(i, j)) * half;
-
-                let ve = (fields.v.at(i, j) + fields.v.at(i + 1, j)) * half;
-                let vw = (fields.v.at(i - 1, j) + fields.v.at(i, j)) * half;
                 let vn = (fields.v.at(i, j) + fields.v.at(i, j + 1)) * half;
                 let vs = (fields.v.at(i, j - 1) + fields.v.at(i, j)) * half;
 
                 // Convective terms (using upwind scheme)
-                let conv_u = self.calculate_convection_u(fields, i, j, ue, uw, un, us);
-                let conv_v = self.calculate_convection_v(fields, i, j, ve, vw, vn, vs);
+                let conv_u = self.calculate_convection_u(fields, i, j, ue, uw, vn, vs);
+                let conv_v = self.calculate_convection_v(fields, i, j, ue, uw, vn, vs);
 
                 // Diffusive terms (central difference)
                 let diff_u = self.calculate_diffusion_u(fields, i, j);
                 let diff_v = self.calculate_diffusion_v(fields, i, j);
+
+                // Pressure gradient at the current iterate (Issa 1986
+                // predictor: A u* = H(u^n) − ∇p^n).
+                let two_cell = <T as FloatElement>::from_f64(TWO);
+                let dp_dx = (fields.p.at(i + 1, j) - fields.p.at(i - 1, j)) / (two_cell * self.dx);
+                let dp_dy = (fields.p.at(i, j + 1) - fields.p.at(i, j - 1)) / (two_cell * self.dy);
 
                 // Time integration: Explicit Euler (first-order) for predictor step.
                 // Higher-order schemes (RK4, BDF2) can be added as solver enhancements.
@@ -76,10 +80,10 @@ impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
                 let v_current = fields.v.at(i, j);
 
                 if let Some(u) = u_star.at_mut(i, j) {
-                    *u = u_current + dt * (diff_u - conv_u) / fields.density.at(i, j);
+                    *u = u_current + dt * (diff_u - conv_u - dp_dx) / fields.density.at(i, j);
                 }
                 if let Some(v) = v_star.at_mut(i, j) {
-                    *v = v_current + dt * (diff_v - conv_v) / fields.density.at(i, j);
+                    *v = v_current + dt * (diff_v - conv_v - dp_dy) / fields.density.at(i, j);
                 }
             }
         }
@@ -105,6 +109,10 @@ impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
     }
 
     /// Calculate convection term for u-velocity
+    ///
+    /// `ue`/`uw` are the east/west face mass-flux velocities (u component);
+    /// `vn`/`vs` are the north/south face mass-flux velocities (v component).
+    /// The advected quantity is the u-velocity.
     fn calculate_convection_u(
         &self,
         fields: &SimulationFields<T>,
@@ -112,8 +120,8 @@ impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
         j: usize,
         ue: T,
         uw: T,
-        un: T,
-        us: T,
+        vn: T,
+        vs: T,
     ) -> T {
         let rho = fields.density.at(i, j);
 
@@ -130,45 +138,49 @@ impl<T: CfdScalar + Copy + FloatElement> VelocityPredictor<T> {
             rho * uw * fields.u.at(i, j)
         };
 
-        let f_n = if un > scalar::zero::<T>() {
-            rho * un * fields.u.at(i, j)
+        let f_n = if vn > scalar::zero::<T>() {
+            rho * vn * fields.u.at(i, j)
         } else {
-            rho * un * fields.u.at(i, j + 1)
+            rho * vn * fields.u.at(i, j + 1)
         };
 
-        let f_s = if us > scalar::zero::<T>() {
-            rho * us * fields.u.at(i, j - 1)
+        let f_s = if vs > scalar::zero::<T>() {
+            rho * vs * fields.u.at(i, j - 1)
         } else {
-            rho * us * fields.u.at(i, j)
+            rho * vs * fields.u.at(i, j)
         };
 
         (fe - fw) / self.dx + (f_n - f_s) / self.dy
     }
 
     /// Calculate convection term for v-velocity
+    ///
+    /// `ue`/`uw` are the east/west face mass-flux velocities (u component);
+    /// `vn`/`vs` are the north/south face mass-flux velocities (v component).
+    /// The advected quantity is the v-velocity.
     fn calculate_convection_v(
         &self,
         fields: &SimulationFields<T>,
         i: usize,
         j: usize,
-        ve: T,
-        vw: T,
+        ue: T,
+        uw: T,
         vn: T,
         vs: T,
     ) -> T {
         let rho = fields.density.at(i, j);
 
         // Upwind scheme
-        let fe = if ve > scalar::zero::<T>() {
-            rho * ve * fields.v.at(i, j)
+        let fe = if ue > scalar::zero::<T>() {
+            rho * ue * fields.v.at(i, j)
         } else {
-            rho * ve * fields.v.at(i + 1, j)
+            rho * ue * fields.v.at(i + 1, j)
         };
 
-        let fw = if vw > scalar::zero::<T>() {
-            rho * vw * fields.v.at(i - 1, j)
+        let fw = if uw > scalar::zero::<T>() {
+            rho * uw * fields.v.at(i - 1, j)
         } else {
-            rho * vw * fields.v.at(i, j)
+            rho * uw * fields.v.at(i, j)
         };
 
         let f_n = if vn > scalar::zero::<T>() {
@@ -259,6 +271,48 @@ mod tests {
             for j in 0..8 {
                 assert!(fields.u.at(i, j).is_finite());
                 assert!(fields.v.at(i, j).is_finite());
+            }
+        }
+    }
+
+    #[test]
+    fn shear_flow_with_no_transverse_velocity_is_unmodified() {
+        // u = 0.01·y, v = 0, p = const: the exact convective term
+        // ρ(u·∇)u = ρ(v ∂u/∂y) + ρ(u ∂u/∂x) vanishes because v = 0 and
+        // ∂u/∂x = 0; diffusion of a linear profile also vanishes. The
+        // predictor must therefore leave the field unchanged. Using the
+        // same-component velocity for the north/south mass fluxes produced
+        // a spurious ρ ∂(u²)/∂y and corrupted the field.
+        let grid = make_grid(8);
+        let predictor = VelocityPredictor::new(&grid, 1.0);
+        let mut fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+
+        for i in 0..8 {
+            for j in 0..8 {
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = 0.01 * (j as f64);
+                }
+            }
+        }
+
+        let before = (0..8)
+            .map(|i| {
+                (0..8)
+                    .map(|j| fields.u.at(i, j))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        predictor.predict(&mut fields, 0.01).expect("predict ok");
+
+        for i in 0..8 {
+            for j in 0..8 {
+                let expected = before[i][j];
+                assert!(
+                    (fields.u.at(i, j) - expected).abs() < 1e-12,
+                    "u[{i}][{j}] = {}, expected unchanged {expected}",
+                    fields.u.at(i, j)
+                );
             }
         }
     }

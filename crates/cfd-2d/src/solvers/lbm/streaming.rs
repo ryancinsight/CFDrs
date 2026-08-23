@@ -103,9 +103,12 @@ impl StreamingOperator {
                     if src_i >= 0 && src_i < nx as i32 && src_j >= 0 && src_j < ny as i32 {
                         let si = src_i as usize;
                         let sj = src_j as usize;
-                        if !boundary_mask[sj * nx + si] {
-                            f_dst[f_idx(j, i, q, nx)] = f_src[f_idx(sj, si, q, nx)];
-                        }
+                        // Pull regardless of the source's boundary status:
+                        // boundary nodes have already had their post-collision
+                        // populations prepared by the BC routine, so they are
+                        // valid sources. Skipping them left stale populations
+                        // from two steps ago in f_dst (buffers are swapped).
+                        f_dst[f_idx(j, i, q, nx)] = f_src[f_idx(sj, si, q, nx)];
                     }
                 }
             }
@@ -165,5 +168,46 @@ mod tests {
         let idx0 = f_idx(2, 3, 0, nx);
         let idx1 = f_idx(2, 3, 1, nx);
         assert_eq!(idx1 - idx0, 1, "q direction must be stride-1");
+    }
+
+    #[test]
+    fn stream_with_boundaries_pulls_from_boundary_prepared_source() {
+        // An interior node downstream of a boundary node must receive the
+        // boundary node's post-BC population. Skipping the pull left stale
+        // values from two steps ago in the swapped destination buffer.
+        let nx = 4_usize;
+        let ny = 4_usize;
+        let n = nx * ny * 9;
+
+        let mut boundary_mask = vec![false; nx * ny];
+        boundary_mask[0 * nx + 1] = true; // node (i=1, j=0) is a boundary
+
+        let f_src: Vec<f64> = (0..n).map(|k| 1.0 + (k % 17) as f64 * 0.05).collect();
+        let mut f_dst = vec![7.5_f64; n]; // sentinel: stale data would remain
+
+        StreamingOperator::stream_with_boundaries(&f_src, &mut f_dst, &boundary_mask, nx, ny);
+
+        // Interior node (i=1, j=1) pulls direction +y (q with ey=1) from the
+        // boundary node above it; every interior destination must be written.
+        for j in 0..ny {
+            for i in 0..nx {
+                if boundary_mask[j * nx + i] {
+                    continue;
+                }
+                for q in 0..9 {
+                    let (ex, ey) = D2Q9::VELOCITIES[q];
+                    let si = i as i32 - ex;
+                    let sj = j as i32 - ey;
+                    if (0..nx as i32).contains(&si) && (0..ny as i32).contains(&sj) {
+                        let expected = f_src[f_idx(sj as usize, si as usize, q, nx)];
+                        assert_relative_eq!(
+                            f_dst[f_idx(j, i, q, nx)],
+                            expected,
+                            epsilon = 1e-12
+                        );
+                    }
+                }
+            }
+        }
     }
 }

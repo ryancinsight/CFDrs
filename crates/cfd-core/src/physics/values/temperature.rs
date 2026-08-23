@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 // Temperature conversion constants
-const KELVIN_TO_CELSIUS_OFFSET: f64 = 273.15;
+use crate::physics::constants::physics::thermo::CELSIUS_TO_KELVIN as KELVIN_TO_CELSIUS_OFFSET;
 const FAHRENHEIT_SCALE_FACTOR: f64 = 9.0 / 5.0;
 const FAHRENHEIT_OFFSET: f64 = 32.0;
 const RANKINE_TO_KELVIN_FACTOR: f64 = 5.0 / 9.0;

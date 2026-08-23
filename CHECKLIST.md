@@ -4563,3 +4563,108 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 - [x] Propagate material-domain failures through `cfd_core::Error::InvalidInput`.
 - [x] Document the ownership decision and verify the independent closed-form
   density oracle plus negative-response rejection.
+
+## gap-audit-2026-08-20 (owner: atlas-gap-audit)
+
+Execution order for the CFDRS-GA-* items filed in `backlog.md` by the
+2026-08-20 scope-vs-delivery audit. Evidence for every step is in
+`gap_audit.md` §"Finding 2026-08-20: CFDrs scope-vs-delivery audit". Steps are
+dependency-ordered: the two structural blockers first, because both change what
+the gate can see, and every later verification claim depends on that.
+
+- [x] Audit pass: measure the tree statically (no build, no test run), cross-check
+      README/book/ADR claims against source, and record findings with file:line
+      evidence in `gap_audit.md`.
+- [x] Correct the two unambiguously stale factual claims found: `README.md:115`
+      crate-level allow count 288 → 292 (measured), and
+      `docs/book/appendix_glossary.md:1` "Appendix C" → "Appendix B" (SUMMARY
+      declares exactly A and B).
+- [ ] **CFDRS-GA-001** — Remove the ungated `#[global_allocator]` from
+      `crates/cfd-validation/src/benchmarking/memory.rs:93`. Do this first: it
+      changes the allocation behaviour of every binary in that link graph, so
+      any benchmark baseline captured before it is not comparable to one after.
+      Decide the replacement shape (opt-in harness constructed by the bench)
+      before touching the `unsafe impl GlobalAlloc` at :315-345.
+- [ ] **CFDRS-GA-002** — Decide the fate of the 54 root-directory files. Read
+      each of `examples/` (37), `benches/` (11), `tests/` (6) against its
+      nearest `crates/*/` equivalent and classify: duplicate of a member target
+      → delete; unique → move under the owning member crate with an explicit
+      target declaration. Do not add a `cfd-suite` façade — `Cargo.toml:26`
+      records its removal as deliberate. Update `README.md:130-141` to describe
+      the set that is actually built. Expect compile failures in the moved
+      files; each is a real post-leto-migration defect to fix, not a reason to
+      re-orphan them.
+- [ ] **CFDRS-GA-007** — Only after GA-002 settles which examples exist: rewrite
+      `docs/book/figures/MANIFEST.json` `source_example` entries to name real
+      packages and targets, and extend `xtask/src/check_figures.rs` from a
+      name-set difference to a content check (the `sha256_16` prebook already
+      computes, plus a `cargo metadata` existence check on each producer).
+      Verify the new gate is live by mutating one committed SVG byte and
+      confirming a red run.
+- [ ] **CFDRS-GA-006** — Convert the vacuous convergence studies. Start with
+      `crates/cfd-2d/tests/ghia_cavity_simplec_validation.rs:1088-1123`: delete
+      the underscore-bound `_target_order`, assert the computed observed order
+      against 2.0 within a band derived from the discretization's truncation
+      error and the refinement ratio, and cite that derivation at the assertion.
+      Then drive the MMS sources in `crates/cfd-validation/src/manufactured/`
+      through the FDM/FVM/SIMPLE solvers rather than evaluating them in
+      isolation, using
+      `crates/cfd-2d/tests/poisson_fdm_validation.rs:443-448` as the reference
+      form. Keep each case inside the committed 15s/30s budget; if a refinement
+      sequence cannot fit, profile the solver, do not shrink the sequence.
+- [ ] **CFDRS-GA-013** — Resolve the five capability-admitting `#[ignore]`s.
+      The three in `crates/cfd-1d/tests/component_validation.rs` are physics
+      defects (unclamped parameters, non-monotonic valve resistance, drifted
+      FlowSensor API); fix production code or withdraw the requirement with a
+      recorded reason. The two AMG ones depend on leto-ops coarsening coverage —
+      if the capability is missing upstream, that is a leto-ops item, not a
+      local reimplementation.
+- [ ] **CFDRS-GA-003** — Retire `validation/` in subject-area increments
+      (analytical, convergence, cross-package, external references). For each:
+      confirm the Rust equivalent in `crates/cfd-validation/src/` asserts the
+      same identity value-semantically, add it if it does not, then delete the
+      Python. Untrack the 6 `.pyc`, the 52 `.xml` and 5 `.png` run outputs, and
+      the timestamped `fluidsim_output/` directories, and gitignore that root.
+      Remove the Python harness commands from `xtask/src/main.rs` last, once
+      nothing invokes them.
+- [ ] **CFDRS-GA-005** — Ratchet `expect("expected value")` from 739 to 0, per
+      crate. Begin with `crates/cfd-2d/src/physics/momentum/solve.rs`, where the
+      eight sites all guard `Option` fields encoding an assemble-before-solve
+      call order: restructure that state so the pre-assembly phase is
+      unrepresentable rather than relabelling the panic.
+- [ ] **CFDRS-GA-004** — Consolidate SIMD onto `hermes-simd`. Inventory the
+      operations the three in-repo implementations cover, diff against hermes's
+      surface, file any gap upstream, then migrate call sites and delete
+      `crates/cfd-core/src/compute/simd/{x86,aarch64}.rs`,
+      `crates/cfd-math/src/simd/`, and
+      `crates/cfd-2d/src/solvers/simd_kernels.rs`. Differential-test the hermes
+      path against the scalar reference across every shipped scalar type and
+      attach a criterion baseline comparison before and after.
+- [ ] **CFDRS-GA-012** — Collapse the two Richardson implementations to one and
+      give it a typed error.
+- [ ] **CFDRS-GA-008** — Collapse the duplicate PM trees. Establish which of
+      root vs `docs/` is canonical (the `docs/` set is what the current session
+      writes; `README.md:146` names the root set), merge unique content into the
+      survivor, delete the other, and fix the `checklist.md` / `CHECKLIST.md`
+      reference. Split `docs/adr.md`'s 53 decision rows into numbered
+      `docs/adr/NNNN-<slug>.md` records with `docs/adr/README.md` as index and
+      canonical statuses. Absorb the 52 `SPRINT_*`/`AUDIT_*` report files into
+      their canonical owners and delete them. Move the vocabulary blockquote out
+      of `CHANGELOG.md`. Delete root `errors.json`.
+- [ ] **CFDRS-GA-009**, **CFDRS-GA-010** — Realign book chapter numbering with
+      `SUMMARY.md`, then fill the six stub chapters.
+- [ ] **CFDRS-GA-011**, **CFDRS-GA-014** — Promote `missing_docs` to deny per
+      crate (smallest first: `cfd-io`, `cfd-schematic-mesh`), and ship
+      `py.typed` plus `.pyi` stubs for `cfd-python`.
+- [ ] **CFDRS-GA-015** — Burn the 292 crate-level allows down to per-site
+      `#[expect(…, reason = "ratchet <id>")]`, starting with the two that cancel
+      workspace denies (`cfd-validation` `print_stdout`, `cfd-3d`
+      `print_stderr`). Also close the +8 `#[allow(` regression against the Atlas
+      baseline (89 → 97).
+- [ ] **CFDRS-GA-016** — Move to edition 2024 / resolver 3 last, once the unsafe
+      surface has shrunk to what GA-004 leaves behind.
+
+Not touched by this audit, recorded here so the next owner does not re-derive
+it: `CFDRS-VAL-RED-1` (`backlog.md:702`) still reads status "in progress" while
+its own body records closure at 434/434. The status field is another owner's to
+correct.

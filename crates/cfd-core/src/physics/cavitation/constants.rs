@@ -1,12 +1,18 @@
-//! Physical constants for cavitation.
+﻿//! Physical constants for cavitation.
 
 use aequitas::systems::si::quantities::{NumberDensity, Pressure, SurfaceTension};
 
 /// Surface tension of water at 20°C (N/m)
 pub const SURFACE_TENSION_WATER: SurfaceTension = SurfaceTension::from_base(0.0728);
 
+/// Surface tension of water at 20°C — raw f64 for generic contexts [N/m]
+pub const SURFACE_TENSION_WATER_VALUE: f64 = 0.0728;
+
 /// Vapor pressure of water at 20°C (Pa)
 pub const VAPOR_PRESSURE_WATER_20C: Pressure = Pressure::from_base(2339.0);
+
+/// Vapor pressure of water at 20C -- raw f64 for generic contexts [Pa]
+pub const VAPOR_PRESSURE_WATER_20C_VALUE: f64 = 2339.0;
 
 /// Saturation pressure ratio threshold for inception
 pub const CAVITATION_INCEPTION_THRESHOLD: f64 = 0.9;

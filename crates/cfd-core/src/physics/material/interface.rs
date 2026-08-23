@@ -44,7 +44,7 @@ impl<T: FloatElement + Copy> FluidSolidInterface<T> {
         let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let contact_angle = Angle::from_base(pi / <T as FloatElement>::from_f64(2.0));
         Self {
-            surface_tension: SurfaceTension::from_base(<T as FloatElement>::from_f64(0.0728)),
+            surface_tension: SurfaceTension::from_base(<T as FloatElement>::from_f64(crate::physics::cavitation::constants::SURFACE_TENSION_WATER_VALUE)),
             contact_angle,
             wetting: WettingProperties {
                 contact_angle,
