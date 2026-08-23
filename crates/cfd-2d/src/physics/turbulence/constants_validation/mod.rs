@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Turbulence Model Constants Validation against DNS Databases
 //!
 //! Implements MAJOR-004: Turbulence Model Constants Validation
@@ -112,20 +111,20 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
     /// Display validation result
     pub fn display(&self) {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
-        println!("{}: {} Constants Validation", status, self.model_name);
-        println!("  Reference: {}", self.reference);
-        println!(
+        tracing::info!("{}: {} Constants Validation", status, self.model_name);
+        tracing::info!("  Reference: {}", self.reference);
+        tracing::warn!(
             "  Baseline RMS Error: {:.4}",
             <T as NumericElement>::to_f64(self.baseline_error)
         );
-        println!(
+        tracing::info!(
             "  Max Uncertainty Bound: {:.4}",
             <T as NumericElement>::to_f64(self.max_uncertainty_bound)
         );
 
-        println!("  Constant Sensitivity Analysis:");
+        tracing::info!("  Constant Sensitivity Analysis:");
         for (constant_name, sensitivity) in &self.sensitivity_results {
-            println!(
+            tracing::info!(
                 "    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
                 constant_name,
                 <T as NumericElement>::to_f64(sensitivity.uncertainty_bound),
@@ -133,17 +132,17 @@ impl<T: RealField + Copy> ConstantsValidationResult<T> {
                 <T as NumericElement>::to_f64(sensitivity.plus_10_error)
             );
         }
-        println!();
+        tracing::info!("");
     }
 }
 
 /// Run comprehensive turbulence constants validation against DNS databases
 pub fn run_turbulence_constants_validation<T: RealField + Copy>() {
-    println!("🔬 Turbulence Model Constants Validation Suite");
-    println!("=============================================");
-    println!("MAJOR-004: Validating constants against DNS channel flow databases");
-    println!("References: Moser et al. (1999), Pope (2000), Wilcox (2008)");
-    println!();
+    tracing::info!("🔬 Turbulence Model Constants Validation Suite");
+    tracing::info!("=============================================");
+    tracing::info!("MAJOR-004: Validating constants against DNS channel flow databases");
+    tracing::info!("References: Moser et al. (1999), Pope (2000), Wilcox (2008)");
+    tracing::info!("");
 
     let validator = TurbulenceConstantsValidator::<T>::new();
     let results = validator.run_full_constants_validation();
@@ -156,19 +155,21 @@ pub fn run_turbulence_constants_validation<T: RealField + Copy>() {
         }
     }
 
-    println!("📊 Constants Validation Summary:");
-    println!("  Models Validated: {}/{}", passed_count, results.len());
-    println!(
+    tracing::info!("📊 Constants Validation Summary:");
+    tracing::info!("  Models Validated: {}/{}", passed_count, results.len());
+    tracing::info!(
         "  Success Rate: {:.1}%",
         100.0 * passed_count as f32 / results.len() as f32
     );
 
     if passed_count == results.len() {
-        println!("🎉 All turbulence model constants validated against DNS!");
-        println!("   Constants show acceptable uncertainty bounds and sensitivity.");
+        tracing::info!("🎉 All turbulence model constants validated against DNS!");
+        tracing::info!("   Constants show acceptable uncertainty bounds and sensitivity.");
     } else {
-        println!("⚠️  Some model constants require recalibration or uncertainty quantification.");
-        println!("   Review sensitivity analysis results for problematic constants.");
+        tracing::warn!(
+            "⚠️  Some model constants require recalibration or uncertainty quantification."
+        );
+        tracing::info!("   Review sensitivity analysis results for problematic constants.");
     }
 }
 
