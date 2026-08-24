@@ -332,8 +332,7 @@ mod energy_tests {
         // Stefan-Boltzmann constant moved to the cfd-core SSOT
         // (cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN);
         // bind through a `let` so clippy::assertions_on_constants stays quiet.
-        let stefan_boltzmann =
-            cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN;
+        let stefan_boltzmann = cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN;
         assert!(stefan_boltzmann > 0.0);
     }
 

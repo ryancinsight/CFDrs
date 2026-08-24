@@ -14,8 +14,8 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::Array1;

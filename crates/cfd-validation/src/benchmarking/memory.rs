@@ -6,8 +6,8 @@
 
 use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 /// Thread-safe memory statistics using atomics
 pub struct MemoryStats {

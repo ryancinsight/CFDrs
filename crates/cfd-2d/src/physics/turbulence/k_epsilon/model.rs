@@ -6,7 +6,7 @@
 use super::kato_launder;
 use super::realizable;
 use crate::physics::turbulence::constants::{
-    C_MU, C1_EPSILON, C2_EPSILON, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K,
+    C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use cfd_core::{

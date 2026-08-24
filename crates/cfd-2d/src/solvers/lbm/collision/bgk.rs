@@ -33,7 +33,7 @@
 
 use super::traits::CollisionOperator;
 use crate::scalar::one;
-use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
+use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
@@ -148,7 +148,7 @@ mod tests {
     /// BGK H-theorem: after collision, H* ≤ H (monotone entropy decrease).
     #[test]
     fn test_h_theorem_bgk() {
-        use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
+        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 
         let tau = 1.0_f64;
         let omega = 1.0 / tau;

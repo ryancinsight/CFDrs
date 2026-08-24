@@ -11,7 +11,7 @@
 //! | Property     | Eulerian forces always finite after spreading                    |
 
 use cfd_3d::ibm::{
-    DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint, config::IbmConfig,
+    config::IbmConfig, DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint,
 };
 use leto::Vector3;
 

@@ -38,7 +38,7 @@
 use super::traits::CollisionOperator;
 use crate::physics::non_newtonian::CarreauYasudaModel;
 use crate::scalar::{max, one, zero};
-use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
+use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
 use cfd_core::error::Error;
 use eunomia::{CastFrom, FloatElement, NumericElement};
@@ -145,7 +145,11 @@ impl<T: FloatElement> CarreauYasudaBgk<T> {
             tau = tau_next;
         }
 
-        if tau < lower_bound { lower_bound } else { tau }
+        if tau < lower_bound {
+            lower_bound
+        } else {
+            tau
+        }
     }
 }
 

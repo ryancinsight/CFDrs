@@ -34,13 +34,13 @@ use crate::grid::StructuredGrid2D;
 use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
-    lattice::{D2Q9, equilibrium},
-    macroscopic::{MacroscopicQuantities, compute_pressure},
-    streaming::{StreamingOperator, f_idx},
+    lattice::{equilibrium, D2Q9},
+    macroscopic::{compute_pressure, MacroscopicQuantities},
+    streaming::{f_idx, StreamingOperator},
 };
-use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};

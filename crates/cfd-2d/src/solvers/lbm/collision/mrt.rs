@@ -372,7 +372,7 @@ mod tests {
     /// unchanged by MRT collision (s₀ = s₃ = s₅ = 0 in default_d2q9).
     #[test]
     fn conserved_moments_preserved() {
-        use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
+        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 
         let nx = 1_usize;
         let ny = 1_usize;
@@ -427,7 +427,7 @@ mod tests {
     /// Equilibrium fixed point: applying MRT to f = f^eq must leave f unchanged.
     #[test]
     fn equilibrium_is_fixed_point() {
-        use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
+        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 
         let nx = 1_usize;
         let ny = 1_usize;

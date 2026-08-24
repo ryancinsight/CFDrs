@@ -91,8 +91,8 @@
 //! the fluid–structure system, guaranteeing stability of the coupled solver.
 
 use cfd_core::error::{Error, Result};
-use leto::Array2;
 use leto::geometry::Vector2;
+use leto::Array2;
 
 /// Immersed boundary configuration
 #[derive(Debug, Clone, Copy)]

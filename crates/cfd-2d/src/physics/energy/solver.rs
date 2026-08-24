@@ -1,7 +1,7 @@
 use crate::grid::array2d::Array2D;
-use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 

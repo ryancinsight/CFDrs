@@ -643,11 +643,9 @@ mod tests {
 
         let constants = les.get_model_constants();
         assert!(!constants.is_empty());
-        assert!(
-            constants
-                .iter()
-                .any(|(name, _)| *name == "Smagorinsky Constant")
-        );
+        assert!(constants
+            .iter()
+            .any(|(name, _)| *name == "Smagorinsky Constant"));
     }
 
     #[test]

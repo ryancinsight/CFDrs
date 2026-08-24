@@ -31,8 +31,8 @@ use crate::grid::array2d::Array2D;
 use crate::scalar::{max, one, zero};
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::ScalarTransportConfig;
-use cfd_core::CfdScalar;
 use cfd_core::error::Error;
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 /// 2D Drift-Diffusion Transport Solver

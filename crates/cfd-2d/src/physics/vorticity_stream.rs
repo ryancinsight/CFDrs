@@ -20,11 +20,11 @@
 //! is solved with SOR (spectral radius $< 1$ for $1 < \omega_{SOR} < 2$),
 //! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
 
-use crate::grid::{StructuredGrid2D, array2d::Array2D};
+use crate::grid::{array2d::Array2D, StructuredGrid2D};
 use crate::scalar::{one, zero};
-use cfd_core::CfdScalar;
 use cfd_core::compute::solver::SolverConfiguration;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};

@@ -36,12 +36,12 @@ use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
-    Matrix3x4, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
-    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
+    array1_l2_norm, array1_len, array1_subarray, matrix3_determinant, matrix3_from_columns,
+    matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed, Matrix3x4,
 };
 use crate::scalar;
 use cfd_core::CfdScalar;
-use moirai::{Adaptive, fold_reduce_with};
+use moirai::{fold_reduce_with, Adaptive};
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.

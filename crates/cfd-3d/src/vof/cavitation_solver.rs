@@ -81,7 +81,7 @@ use aequitas::systems::si::quantities::{
 };
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
-use leto::{Array2, geometry::Vector3};
+use leto::{geometry::Vector3, Array2};
 
 /// Dense row-major cavitation scalar field with logical shape `[nx, ny * nz]`.
 pub type CavitationField = Array2<f64>;
@@ -946,8 +946,8 @@ impl CavitationVofSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vof::BubbleDynamicsConfig;
     use crate::vof::config::VofConfig;
+    use crate::vof::BubbleDynamicsConfig;
     use aequitas::systems::si::quantities::{
         Length, MassDensity, NumberDensity, Pressure, SurfaceTension, ThermalDiffusivity, Time,
         Velocity,

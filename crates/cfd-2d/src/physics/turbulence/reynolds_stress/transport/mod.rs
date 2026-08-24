@@ -27,8 +27,8 @@ use super::tensor::ReynoldsStressTensor;
 use crate::physics::turbulence::constants::EPSILON_MIN;
 use cfd_core::error::Result;
 use eunomia::RealField;
-use leto::Array2;
 use leto::geometry::Vector2;
+use leto::Array2;
 
 impl<T: RealField + Copy> ReynoldsStressModel<T> {
     fn c(v: f64) -> T {

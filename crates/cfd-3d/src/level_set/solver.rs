@@ -86,8 +86,8 @@
 
 use super::{advection, config::LevelSetConfig};
 use crate::scalar;
-use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
+use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector3;
 
