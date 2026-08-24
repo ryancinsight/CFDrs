@@ -1,3 +1,27 @@
+## CFDRS-LOCK-GUARD-01 — wire the overlay lockfile guard [major] — implemented 2026-08-24
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-LOCK-GUARD-01 | Run `scripts/lockfile.py --check` before a push and in CI, and commit a standalone Cargo.lock. | [major] | implemented | current session | `scripts/lockfile.py`, `.githooks/pre-push`, `.github/workflows/ci.yml`, `Cargo.lock`, `README.md` |
+
+- **Why:** the committed `Cargo.lock` had every `source = "git+..."` line
+  stripped (zero first-party git sources) while the manifests demand 64 of
+  them — the Atlas overlay's `[patch]` redirects resolve first-party deps to
+  local paths and cargo records no source. CI masked it by regenerating an
+  ephemeral lock before every `--locked` gate instead of fixing the committed
+  one (the standalone form was restored by `fdf6552b` for ADR-0044 and
+  re-flattened by `733d7f77`).
+- **Delivered:** `scripts/lockfile.py` (the shared tool; runs cargo outside
+  the overlay), a committed `.githooks/pre-push` running it with a
+  `SKIP_LOCKFILE_CHECK` escape hatch, a `lockfile` job in `ci.yml` calling the
+  Atlas shared workflow (SHA-pinned), the standalone lock regenerated (64
+  first-party git sources restored), and the hook install documented in the
+  README.
+- **Verified by exercising it:** the checker exits 1 on the stripped lock, 0
+  on the regenerated one; the hook passes on the lane.
+- **Meta:** promotion tracked at the stack level as
+  `ATLAS-OVERLAY-LOCK-GUARD`.
+
 ## CI: Atlas provider checkout was a no-op fetching a whole repo — DONE (2026-08-17)
 
 ## Hosted evidence checkpoint — 2026-08-19

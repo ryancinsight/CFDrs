@@ -13,6 +13,17 @@ permissions:
   contents: read
 
 jobs:
+  # First and alone: needs no toolchain, cache or build, and guards the one
+  # artifact whose correctness cannot be checked from inside the environment
+  # that produces it. The Atlas overlay's `[patch]` redirects make cargo
+  # resolve first-party deps to local paths and write a Cargo.lock with every
+  # `source = "git+..."` line stripped; that lock resolves fine locally and
+  # fails every `--locked` job here. The committed lock carries a first-party
+  # git-source count of zero right now, so this gate will stay red until the
+  # lock is regenerated — which is the point.
+  lockfile:
+    uses: ryancinsight/atlas/.github/workflows/lockfile-guard.yml@886d85b0e4bea20c8e5ec4b4239e6ba9cdbcf74d
+
   rust-workspace:
     name: Rust workspace gate
     runs-on: ubuntu-latest
