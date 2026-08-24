@@ -31,6 +31,7 @@
 use crate::scalar::{one, zero};
 use crate::solvers::lbm::lattice::D2Q9;
 use crate::solvers::lbm::streaming::f_idx;
+use cfd_core::error::Error;
 use eunomia::FloatElement;
 
 /// Container for macroscopic fields stored contiguously.
@@ -58,17 +59,48 @@ pub struct MacroscopicQuantities<T: FloatElement> {
 
 impl<T: FloatElement> MacroscopicQuantities<T> {
     /// Construct, initialising ρ = 1, **u** = 0 everywhere.
+    ///
+    /// # Panics
+    /// Panics if `nx == 0` or `ny == 0` (see [`Self::try_new`]).
     #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
+        Self::try_new(nx, ny).unwrap_or_else(|error| {
+            panic!("MacroscopicQuantities::new called with invalid grid: {error}");
+        })
+    }
+
+    /// Construct macroscopic fields with grid-dimension validation.
+    ///
+    /// Allocates `density: Vec<T>` of length `nx * ny` and
+    /// `velocity: Vec<T>` of length `nx * ny * 2` (D2Q9 has 2 velocity
+    /// components). Zero `nx` or `ny` silently underflows every index
+    /// in the moment-extraction loop
+    /// (`j * self.nx + i`, `(j * self.nx + i) * 2 + d`).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `nx == 0` or `ny == 0`.
+    pub fn try_new(nx: usize, ny: usize) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "MacroscopicQuantities::try_new: nx (number of x cells) must be at least 1"
+                    .to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "MacroscopicQuantities::try_new: ny (number of y cells) must be at least 1"
+                    .to_string(),
+            ));
+        }
         let n = nx * ny;
-        Self {
+        Ok(Self {
             density: vec![one(); n],
             velocity: vec![zero(); n * 2],
             pressure: None,
             nuclei_fraction: None,
             nx,
             ny,
-        }
+        })
     }
 
     /// Enable pressure storage (allocates one extra field).
@@ -276,5 +308,40 @@ mod tests {
         let rho_flat = compute_density_flat(&f, 1, 2, nx);
         let rho_node_sum: f64 = (0..9).map(|q| (f64::from(q) + 1.0) * 0.05).sum();
         assert!(<f64 as eunomia::NumericElement>::abs(rho_flat - rho_node_sum) < 1e-12);
+    }
+
+    /// **Positive**: `try_new` accepts valid grid dimensions.
+    #[test]
+    fn macroscopic_try_new_accepts_valid_grid() {
+        let mq = MacroscopicQuantities::<f64>::try_new(8, 12).expect("valid grid must succeed");
+        assert_eq!(mq.nx, 8);
+        assert_eq!(mq.ny, 12);
+        assert_eq!(mq.density.len(), 8 * 12);
+        assert_eq!(mq.velocity.len(), 8 * 12 * 2);
+    }
+
+    /// **Adversarial**: zero `nx` is rejected.
+    #[test]
+    fn macroscopic_try_new_rejects_zero_nx() {
+        match MacroscopicQuantities::<f64>::try_new(0, 10) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("zero nx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `ny` is rejected.
+    #[test]
+    fn macroscopic_try_new_rejects_zero_ny() {
+        match MacroscopicQuantities::<f64>::try_new(10, 0) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("zero ny must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero dims (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "nx")]
+    fn macroscopic_new_panics_on_zero_nx() {
+        let _ = MacroscopicQuantities::<f64>::new(0, 10);
     }
 }

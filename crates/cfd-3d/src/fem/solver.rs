@@ -22,7 +22,7 @@
 //! **Reference:** Brezzi, F., "On the existence, uniqueness and discretization of
 //! saddle-point problems arising from Lagrangian multipliers", RAIRO Anal. Numér. 8(R-2), 1974.
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
@@ -91,10 +91,70 @@ struct AssembledSystem<T> {
     constrained_dofs: Vec<(usize, T)>,
 }
 
-impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> FemSolver<T> {
-    /// Create a new FEM solver with the given configuration
+impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> {
+    /// Create a new FEM solver with the given configuration.
+    ///
+    /// # Panics
+    /// Panics if `config` violates any physical invariant (see
+    /// [`FemConfig::try_new`]).
     pub fn new(config: FemConfig<T>) -> Self {
-        Self {
+        Self::try_new(config).unwrap_or_else(|error| {
+            panic!("FemSolver::new called with invalid config: {error}");
+        })
+    }
+
+    /// Create a new FEM solver with the given configuration, validating
+    /// every physical invariant in `FemConfig`.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `config` violates any
+    /// physical invariant (see [`FemConfig::try_new`]).
+    pub fn try_new(config: FemConfig<T>) -> Result<Self> {
+        if !<T as NumericElement>::is_finite(config.tau) || config.tau < <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: tau must be finite and non-negative, got {:?}",
+                config.tau
+            )));
+        }
+        if let Some(dt_value) = config.dt {
+            if !<T as NumericElement>::is_finite(dt_value)
+                || dt_value <= <T as NumericElement>::ZERO
+            {
+                return Err(Error::InvalidConfiguration(format!(
+                    "FemSolver::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+                )));
+            }
+        }
+        if let Some(re) = config.reynolds {
+            if !<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO {
+                return Err(Error::InvalidConfiguration(format!(
+                    "FemSolver::try_new: reynolds must be finite and positive when provided, got {re:?}"
+                )));
+            }
+        }
+        if config.quadrature_order == 0 {
+            return Err(Error::InvalidConfiguration(
+                "FemSolver::try_new: quadrature_order must be at least 1".to_string(),
+            ));
+        }
+        if !<T as NumericElement>::is_finite(config.grad_div_penalty)
+            || config.grad_div_penalty < <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: grad_div_penalty must be finite and non-negative, got {:?}",
+                config.grad_div_penalty
+            )));
+        }
+        if !<T as NumericElement>::is_finite(config.grad_div_gamma)
+            || config.grad_div_gamma < <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: grad_div_gamma must be finite and non-negative, got {:?}",
+                config.grad_div_gamma
+            )));
+        }
+        Ok(Self {
             config,
             matrix_builder: None,
             rhs: None,
@@ -105,7 +165,7 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> FemSolver<T> {
             element_geometry_key: None,
             quadrature: TetrahedronQuadrature::keast_degree_3(),
             linear_solver_state: LinearSolverState::default(),
-        }
+        })
     }
 
     /// Stokes Flow Problem ($-\mu \nabla^2 \mathbf{u} + \nabla p = \mathbf{f}$, $\nabla \cdot \mathbf{u} = 0$)
@@ -1255,5 +1315,94 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> FemSolver<T> {
         } else {
             Vector3::zeros()
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
+mod tests {
+    use super::*;
+    use crate::fem::config::FemConfig;
+    use crate::fem::constants;
+
+    /// **Positive**: `FemSolver::new` accepts valid configs (uses thin panic wrapper).
+    #[test]
+    fn fem_solver_new_accepts_defaults() {
+        let config = FemConfig::<f64>::default();
+        let _solver = FemSolver::new(config);
+    }
+
+    /// **Positive**: `FemSolver::try_new` accepts valid configs.
+    #[test]
+    fn fem_solver_try_new_accepts_defaults() {
+        let config = FemConfig::<f64>::default();
+        FemSolver::try_new(config).expect("default config must succeed");
+    }
+
+    /// **Adversarial**: `FemSolver::try_new` rejects invalid configs.
+    #[test]
+    fn fem_solver_try_new_rejects_negative_tau() {
+        let mut config = FemConfig::<f64>::default();
+        config.tau = -1.0;
+        match FemSolver::try_new(config) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("negative tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: `FemSolver::try_new` rejects invalid `dt` (when Some).
+    #[test]
+    fn fem_solver_try_new_rejects_invalid_dt() {
+        let mut config = FemConfig::<f64>::default();
+        config.dt = Some(0.0);
+        match FemSolver::try_new(config) {
+            Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
+            Ok(_) => panic!("zero dt must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: `FemSolver::try_new` rejects invalid `reynolds` (when Some).
+    #[test]
+    fn fem_solver_try_new_rejects_invalid_reynolds() {
+        let mut config = FemConfig::<f64>::default();
+        config.reynolds = Some(-1.0);
+        match FemSolver::try_new(config) {
+            Err(e) => assert!(
+                e.to_string().contains("reynolds"),
+                "error must mention reynolds: {e}"
+            ),
+            Ok(_) => panic!("negative reynolds must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: `FemSolver::try_new` rejects zero quadrature_order.
+    #[test]
+    fn fem_solver_try_new_rejects_zero_quadrature_order() {
+        let mut config = FemConfig::<f64>::default();
+        config.quadrature_order = 0;
+        match FemSolver::try_new(config) {
+            Err(e) => assert!(
+                e.to_string().contains("quadrature_order"),
+                "error must mention quadrature_order: {e}"
+            ),
+            Ok(_) => panic!("zero quadrature_order must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `FemSolver::new` panics on invalid configs (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "tau")]
+    fn fem_solver_new_panics_on_invalid_tau() {
+        let mut config = FemConfig::<f64>::default();
+        config.tau = f64::NAN;
+        let _ = FemSolver::new(config);
+    }
+
+    #[allow(dead_code)]
+    fn _unused() {
+        // Force the compiler to keep the `constants` import alive even if
+        // no field references it directly; the link to the SSOT constants
+        // is intentional for the FEM config validation tests above.
+        let _ = constants::DEFAULT_STABILIZATION;
     }
 }

@@ -106,92 +106,104 @@ impl PyBifurcationSolver {
     /// - `RuntimeError` if solver fails to converge
     fn solve(
         &self,
+        py: Python<'_>,
         flow_rate: f64,
         pressure: f64,
         blood_type: &str,
     ) -> PyResult<PyBifurcationResult> {
-        let roughness = 0.0; // Smooth walls for microfluidic channels
+        // Convert the Python-owned text and geometry before detaching. The
+        // detached closure then owns only Rust data and cannot touch the
+        // interpreter while the solver runs.
+        let blood_type = blood_type.to_owned();
+        let length = self.length;
+        let d_parent = self.d_parent;
+        let d_daughter1 = self.d_daughter1;
+        let d_daughter2 = self.d_daughter2;
+        let flow_split_ratio = self.flow_split_ratio;
 
-        let parent_geom = ChannelGeometry::circular(self.length, self.d_parent, roughness);
-        let d1_geom = ChannelGeometry::circular(self.length, self.d_daughter1, roughness);
-        let d2_geom = ChannelGeometry::circular(self.length, self.d_daughter2, roughness);
+        py.detach(move || {
+            let roughness = 0.0; // Smooth walls for microfluidic channels
 
-        let parent = Channel::new(parent_geom);
-        let d1 = Channel::new(d1_geom);
-        let d2 = Channel::new(d2_geom);
+            let parent_geom = ChannelGeometry::circular(length, d_parent, roughness);
+            let d1_geom = ChannelGeometry::circular(length, d_daughter1, roughness);
+            let d2_geom = ChannelGeometry::circular(length, d_daughter2, roughness);
 
-        let bifurc = TwoWayBranchJunction::new(parent, d1, d2, self.flow_split_ratio);
-        let temperature_k = 310.0_f64;
+            let parent = Channel::new(parent_geom);
+            let d1 = Channel::new(d1_geom);
+            let d2 = Channel::new(d2_geom);
 
-        match blood_type {
-            "casson" => {
-                let blood = CassonBlood::<f64>::normal_blood();
-                // Clone to satisfy Copy bound - blood models can't be Copy due to String field
-                let blood_copy = blood;
-                match bifurc.solve(blood_copy, flow_rate, pressure, temperature_k, pressure) {
-                    Ok(solution) => {
-                        let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
-                            / (std::f64::consts::PI * self.d_daughter1.powi(3));
-                        let wss_2 = (4.0 * solution.mu_2 * solution.q_2)
-                            / (std::f64::consts::PI * self.d_daughter2.powi(3));
+            let bifurc = TwoWayBranchJunction::new(parent, d1, d2, flow_split_ratio);
+            let temperature_k = 310.0_f64;
 
-                        Ok(PyBifurcationResult::new(
-                            solution.q_parent,
-                            solution.q_1,
-                            solution.q_2,
-                            solution.p_parent,
-                            solution.p_1,
-                            solution.p_2,
-                            solution.dp_1,
-                            solution.dp_2,
-                            solution.gamma_1,
-                            solution.gamma_2,
-                            solution.mu_1,
-                            solution.mu_2,
-                            wss_1,
-                            wss_2,
-                            solution.mass_conservation_error,
-                            solution.junction_pressure_error,
-                        ))
+            match blood_type.as_str() {
+                "casson" => {
+                    let blood = CassonBlood::<f64>::normal_blood();
+                    // Clone to satisfy Copy bound - blood models can't be Copy due to String field
+                    let blood_copy = blood;
+                    match bifurc.solve(blood_copy, flow_rate, pressure, temperature_k, pressure) {
+                        Ok(solution) => {
+                            let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
+                                / (std::f64::consts::PI * d_daughter1.powi(3));
+                            let wss_2 = (4.0 * solution.mu_2 * solution.q_2)
+                                / (std::f64::consts::PI * d_daughter2.powi(3));
+
+                            Ok(PyBifurcationResult::new(
+                                solution.q_parent,
+                                solution.q_1,
+                                solution.q_2,
+                                solution.p_parent,
+                                solution.p_1,
+                                solution.p_2,
+                                solution.dp_1,
+                                solution.dp_2,
+                                solution.gamma_1,
+                                solution.gamma_2,
+                                solution.mu_1,
+                                solution.mu_2,
+                                wss_1,
+                                wss_2,
+                                solution.mass_conservation_error,
+                                solution.junction_pressure_error,
+                            ))
+                        }
+                        Err(e) => Err(format!("Solver failed: {e}")),
                     }
-                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {e}"))),
                 }
-            }
-            "carreau_yasuda" => {
-                let blood = CarreauYasudaBlood::<f64>::normal_blood();
-                match bifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
-                    Ok(solution) => {
-                        let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
-                            / (std::f64::consts::PI * self.d_daughter1.powi(3));
-                        let wss_2 = (4.0 * solution.mu_2 * solution.q_2)
-                            / (std::f64::consts::PI * self.d_daughter2.powi(3));
+                "carreau_yasuda" => {
+                    let blood = CarreauYasudaBlood::<f64>::normal_blood();
+                    match bifurc.solve(blood, flow_rate, pressure, temperature_k, pressure) {
+                        Ok(solution) => {
+                            let wss_1 = (4.0 * solution.mu_1 * solution.q_1)
+                                / (std::f64::consts::PI * d_daughter1.powi(3));
+                            let wss_2 = (4.0 * solution.mu_2 * solution.q_2)
+                                / (std::f64::consts::PI * d_daughter2.powi(3));
 
-                        Ok(PyBifurcationResult::new(
-                            solution.q_parent,
-                            solution.q_1,
-                            solution.q_2,
-                            solution.p_parent,
-                            solution.p_1,
-                            solution.p_2,
-                            solution.dp_1,
-                            solution.dp_2,
-                            solution.gamma_1,
-                            solution.gamma_2,
-                            solution.mu_1,
-                            solution.mu_2,
-                            wss_1,
-                            wss_2,
-                            solution.mass_conservation_error,
-                            solution.junction_pressure_error,
-                        ))
+                            Ok(PyBifurcationResult::new(
+                                solution.q_parent,
+                                solution.q_1,
+                                solution.q_2,
+                                solution.p_parent,
+                                solution.p_1,
+                                solution.p_2,
+                                solution.dp_1,
+                                solution.dp_2,
+                                solution.gamma_1,
+                                solution.gamma_2,
+                                solution.mu_1,
+                                solution.mu_2,
+                                wss_1,
+                                wss_2,
+                                solution.mass_conservation_error,
+                                solution.junction_pressure_error,
+                            ))
+                        }
+                        Err(e) => Err(format!("Solver failed: {e}")),
                     }
-                    Err(e) => Err(PyTypeError::new_err(format!("Solver failed: {e}"))),
                 }
+                _ => Err("blood_type must be 'casson' or 'carreau_yasuda'".to_owned()),
             }
-            _ => Err(PyTypeError::new_err(
-                "blood_type must be 'casson' or 'carreau_yasuda'",
-            )),
-        }
+        })
+        .map_err(PyTypeError::new_err)
     }
 
     /// Calculate Murray's law deviation

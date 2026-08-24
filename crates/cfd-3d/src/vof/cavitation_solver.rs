@@ -58,11 +58,9 @@
 /// Default grid spacing \[m] used when constructing the VOF solver grid.
 const DEFAULT_GRID_SPACING: f64 = 0.01;
 
-/// Polytropic index (ratio of specific heats, gamma = c_p / c_v) for
-/// air at standard conditions.  Used in the Rayleigh-Plesset adiabatic
-/// compression model for bubble-collapse frequency estimation.
-#[allow(dead_code)]
-const POLYTROPIC_INDEX_AIR: f64 = 1.4;
+// The polytropic index for air at standard conditions is the canonical SSOT
+// in `cfd_core::physics::constants::physics::thermo::GAMMA_AIR` (= 1.4); use
+// that constant instead of declaring a local duplicate here.
 
 /// Cavitation inception field marker value.  When the local cavitation
 /// number falls below the inception threshold *or* pressure drops below

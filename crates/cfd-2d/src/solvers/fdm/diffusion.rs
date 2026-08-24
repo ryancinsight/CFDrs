@@ -12,8 +12,9 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use cfd_core::error::Error;
 use cfd_core::CfdScalar;
-use eunomia::FloatElement;
+use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
 use crate::scalar;
@@ -45,15 +46,62 @@ impl<T: CfdScalar + Copy + FloatElement> DiffusionSolver<T> {
     /// * `dx`: Grid spacing in the x-direction.
     /// * `dy`: Grid spacing in the y-direction.
     /// * `alpha`: Thermal diffusivity.
+    ///
+    /// # Panics
+    /// Panics if any input is invalid (see [`Self::try_new`]).
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, alpha: T) -> Self {
-        Self {
+        Self::try_new(nx, ny, dx, dy, alpha).unwrap_or_else(|error| {
+            panic!("DiffusionSolver::new called with invalid inputs: {error}");
+        })
+    }
+
+    /// Create a new explicit-Euler 2D heat-diffusion solver with grid and
+    /// physical-parameter validation.
+    ///
+    /// The explicit scheme computes a stable time step
+    /// `dt = 0.25 * 0.9 * min(dx², dy²) / alpha` and divides the Laplacian
+    /// by `dx²` and `dy²`. Zero or non-finite `dx`/`dy`/`alpha` silently
+    /// produce `inf`/`NaN` `dt` and a divergent solve.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if:
+    /// - `nx < 3` or `ny < 3` (the central-difference stencil needs at
+    ///   least one interior point in each direction),
+    /// - `dx`, `dy`, or `alpha` is non-finite or non-positive.
+    pub fn try_new(nx: usize, ny: usize, dx: T, dy: T, alpha: T) -> cfd_core::error::Result<Self> {
+        if nx < 3 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DiffusionSolver::try_new: nx must be at least 3 for the central-difference stencil, got {nx}"
+            )));
+        }
+        if ny < 3 {
+            return Err(Error::InvalidConfiguration(format!(
+                "DiffusionSolver::try_new: ny must be at least 3 for the central-difference stencil, got {ny}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dx) || dx <= scalar::zero() {
+            return Err(Error::InvalidConfiguration(format!(
+                "DiffusionSolver::try_new: dx (grid spacing) must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(dy) || dy <= scalar::zero() {
+            return Err(Error::InvalidConfiguration(format!(
+                "DiffusionSolver::try_new: dy (grid spacing) must be finite and positive, got {dy:?}"
+            )));
+        }
+        if !<T as NumericElement>::is_finite(alpha) || alpha <= scalar::zero() {
+            return Err(Error::InvalidConfiguration(format!(
+                "DiffusionSolver::try_new: alpha (thermal diffusivity) must be finite and positive, got {alpha:?}"
+            )));
+        }
+        Ok(Self {
             nx,
             ny,
             dx,
             dy,
             alpha,
             solution: HashMap::new(),
-        }
+        })
     }
 
     /// Sets the boundary and initial conditions for the solver.
@@ -124,5 +172,83 @@ impl<T: CfdScalar + Copy + FloatElement> DiffusionSolver<T> {
             t += dt;
         }
         self.solution.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts valid inputs.
+    #[test]
+    fn diffusion_try_new_accepts_valid_inputs() {
+        let _solver = DiffusionSolver::<f64>::try_new(10, 10, 0.1, 0.1, 0.01)
+            .expect("valid inputs must succeed");
+    }
+
+    /// **Adversarial**: `nx < 3` is rejected (central-difference stencil needs ≥3).
+    #[test]
+    fn diffusion_try_new_rejects_small_nx() {
+        match DiffusionSolver::<f64>::try_new(2, 10, 0.1, 0.1, 0.01) {
+            Err(e) => assert!(e.to_string().contains("nx"), "error must mention nx: {e}"),
+            Ok(_) => panic!("nx < 3 must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: `ny < 3` is rejected.
+    #[test]
+    fn diffusion_try_new_rejects_small_ny() {
+        match DiffusionSolver::<f64>::try_new(10, 2, 0.1, 0.1, 0.01) {
+            Err(e) => assert!(e.to_string().contains("ny"), "error must mention ny: {e}"),
+            Ok(_) => panic!("ny < 3 must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: invalid `dx` is rejected.
+    #[test]
+    fn diffusion_try_new_rejects_invalid_dx() {
+        match DiffusionSolver::<f64>::try_new(10, 10, 0.0, 0.1, 0.01) {
+            Err(e) => assert!(e.to_string().contains("dx"), "error must mention dx: {e}"),
+            Ok(_) => panic!("zero dx must be rejected"),
+        }
+        match DiffusionSolver::<f64>::try_new(10, 10, f64::NAN, 0.1, 0.01) {
+            Err(e) => assert!(e.to_string().contains("dx"), "error must mention dx: {e}"),
+            Ok(_) => panic!("NaN dx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: invalid `dy` is rejected.
+    #[test]
+    fn diffusion_try_new_rejects_invalid_dy() {
+        match DiffusionSolver::<f64>::try_new(10, 10, 0.1, 0.0, 0.01) {
+            Err(e) => assert!(e.to_string().contains("dy"), "error must mention dy: {e}"),
+            Ok(_) => panic!("zero dy must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: invalid `alpha` is rejected.
+    #[test]
+    fn diffusion_try_new_rejects_invalid_alpha() {
+        match DiffusionSolver::<f64>::try_new(10, 10, 0.1, 0.1, 0.0) {
+            Err(e) => assert!(
+                e.to_string().contains("alpha"),
+                "error must mention alpha: {e}"
+            ),
+            Ok(_) => panic!("zero alpha must be rejected"),
+        }
+        match DiffusionSolver::<f64>::try_new(10, 10, 0.1, 0.1, -1.0) {
+            Err(e) => assert!(
+                e.to_string().contains("alpha"),
+                "error must mention alpha: {e}"
+            ),
+            Ok(_) => panic!("negative alpha must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `alpha` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "alpha")]
+    fn diffusion_new_panics_on_invalid_alpha() {
+        let _ = DiffusionSolver::<f64>::new(10, 10, 0.1, 0.1, 0.0);
     }
 }

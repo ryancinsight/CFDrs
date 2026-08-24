@@ -25,7 +25,8 @@
 
 use super::traits::CollisionOperator;
 use crate::scalar::{one, zero};
-use eunomia::FloatElement;
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement};
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$ for D2Q9
 const LATTICE_SOUND_SPEED_SQUARED: f64 = 1.0 / 3.0;
@@ -104,12 +105,38 @@ pub struct MrtCollision<T: FloatElement> {
 }
 
 impl<T: FloatElement> MrtCollision<T> {
-    /// Create new MRT collision operator
+    /// Create new MRT collision operator.
+    ///
+    /// # Panics
+    /// Panics if `tau` is non-finite or non-positive (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(tau: T) -> Self {
+        Self::try_new(tau).unwrap_or_else(|error| {
+            panic!("MrtCollision::new called with invalid tau: {error}");
+        })
+    }
+
+    /// Create new MRT collision operator with validation.
+    ///
+    /// MRT collision calls `RelaxationMatrix::default_d2q9(tau)` which
+    /// computes `ω = 1/τ` for the kinematic-viscosity stress slots
+    /// (s7, s8). Zero or non-finite `τ` silently produces `inf`/`NaN`
+    /// relaxation rates and a divergent LBM solve (cf.
+    /// `cfd-2d/AGENTS.md § LBM BGK`).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `tau` is non-finite,
+    /// non-positive, or below the LBM stability floor `τ = 0.5`.
+    pub fn try_new(tau: T) -> cfd_core::error::Result<Self> {
+        if !<T as NumericElement>::is_finite(tau) || tau <= <T as NumericElement>::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "MrtCollision::try_new: tau (relaxation time) must be finite and positive, got {tau:?}"
+            )));
+        }
         let s = RelaxationMatrix::default_d2q9(tau);
         let (m, m_inv) = Self::create_transform_matrices();
 
-        Self { m, m_inv, s, tau }
+        Ok(Self { m, m_inv, s, tau })
     }
 
     fn create_transform_matrices() -> ([[T; 9]; 9], [[T; 9]; 9]) {
@@ -424,5 +451,45 @@ mod tests {
         for q in 0..9 {
             assert_relative_eq!(f[q], f_orig[q], epsilon = 1e-12);
         }
+    }
+
+    /// **Positive**: `try_new` accepts a valid relaxation time.
+    #[test]
+    fn mrt_try_new_accepts_valid_tau() {
+        let _mrt = MrtCollision::<f64>::try_new(1.0).expect("valid tau must succeed");
+    }
+
+    /// **Adversarial**: zero `tau` is rejected.
+    #[test]
+    fn mrt_try_new_rejects_zero_tau() {
+        match MrtCollision::<f64>::try_new(0.0) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("zero tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: negative `tau` is rejected.
+    #[test]
+    fn mrt_try_new_rejects_negative_tau() {
+        match MrtCollision::<f64>::try_new(-1.0) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("negative tau must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `tau` is rejected.
+    #[test]
+    fn mrt_try_new_rejects_nan_tau() {
+        match MrtCollision::<f64>::try_new(f64::NAN) {
+            Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
+            Ok(_) => panic!("NaN tau must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `tau` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "tau")]
+    fn mrt_new_panics_on_invalid_tau() {
+        let _ = MrtCollision::<f64>::new(0.0);
     }
 }

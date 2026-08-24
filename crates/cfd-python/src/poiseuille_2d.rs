@@ -219,7 +219,7 @@ impl PyPoiseuilleSolver {
     /// plt.ylabel('u \[m/s]')
     /// plt.show()
     /// ```
-    fn solve(&self, blood: &Bound<'_, PyAny>) -> PyResult<PyPoiseuilleResult> {
+    fn solve(&self, py: Python<'_>, blood: &Bound<'_, PyAny>) -> PyResult<PyPoiseuilleResult> {
         // Convert Python blood model to Rust blood model
         // Try to downcast to each blood model type
         let rust_blood_model = if blood.clone().cast_into::<PyCassonBlood>().is_ok() {
@@ -234,7 +234,9 @@ impl PyPoiseuilleSolver {
             ));
         };
 
-        // Convert Python config to Rust config
+        // Convert the Python-owned configuration before detaching. The
+        // detached closure then owns only Rust values and never touches the
+        // interpreter while the iterative solver runs.
         let mut rust_config = PoiseuilleConfig::<f64>::default();
         rust_config.height = self.config.height;
         rust_config.width = self.config.width;
@@ -245,30 +247,21 @@ impl PyPoiseuilleSolver {
         rust_config.max_iterations = self.config.max_iterations;
         rust_config.relaxation_factor = self.config.relaxation_factor;
 
-        // Create and run solver
-        let mut solver = PoiseuilleFlow2D::new(rust_config, rust_blood_model);
+        py.detach(move || {
+            let mut solver = PoiseuilleFlow2D::new(rust_config, rust_blood_model);
+            let iterations = solver.solve().map_err(|e| format!("Solver failed: {e}"))?;
 
-        let iterations = solver.solve().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Solver failed: {e}"))
-        })?;
-
-        // Extract results
-        let y_coords = solver.y_coordinates().to_vec();
-        let velocity = solver.velocity_profile().to_vec();
-        let shear_rate = solver.shear_rate_profile().to_vec();
-        let viscosity = solver.viscosity_profile().to_vec();
-        let flow_rate = solver.flow_rate();
-        let wall_shear_stress = solver.wall_shear_stress();
-
-        Ok(PyPoiseuilleResult {
-            y_coords,
-            velocity,
-            shear_rate,
-            viscosity,
-            flow_rate,
-            wall_shear_stress,
-            iterations,
+            Ok::<_, String>(PyPoiseuilleResult {
+                y_coords: solver.y_coordinates().to_vec(),
+                velocity: solver.velocity_profile().to_vec(),
+                shear_rate: solver.shear_rate_profile().to_vec(),
+                viscosity: solver.viscosity_profile().to_vec(),
+                flow_rate: solver.flow_rate(),
+                wall_shear_stress: solver.wall_shear_stress(),
+                iterations,
+            })
         })
+        .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     fn __repr__(&self) -> String {

@@ -68,6 +68,28 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch] — in progress
+
+- **Owner:** Codex; scope is `crates/cfd-python` binding methods, package
+  metadata, typed stubs, and binding verification artifacts.
+- **Acceptance:** compute-heavy PyO3 methods release the GIL around Rust-only
+  work; the wheel ships a complete typed stub and PEP 561 marker; installed
+  wheel tests retain value-semantic assertions; no generated image remains in
+  the crate directory.
+- **Non-goals:** changing solver equations or peer-owned files under the
+  active TVD integration slice.
+- **Local evidence (2026-08-21):** `maturin build --locked --release`
+  produced an abi3-py38 wheel containing `cfd_python.pyi` and
+  `cfd_python/py.typed`; installed-wheel pytest passes 4/4, strict mypy
+  consumer validation passes, and runtime export coverage finds no public
+  extension name missing from the stub. The selected bifurcation and legacy
+  Poiseuille methods convert Python-owned values before `Python::detach` and
+  perform Rust-only solver work outside the GIL. `cargo nextest` runs 0/0 for
+  the cdylib package, and locked package compilation passes.
+- **Residual:** package Clippy is blocked by the unrelated peer-dirty
+  `cfd-2d/src/solvers/ns_fvm/field.rs:25` unused import; hosted exact-head
+  verification remains open.
+
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch] — in progress
 
 **Owner:** Atlas coordinator; scope is the `cfd-python` binding release

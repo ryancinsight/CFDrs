@@ -40,6 +40,7 @@ aequitas.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
+
 athena-leto.workspace = true
 
 [[bench]]
@@ -48,6 +49,10 @@ harness = false
 
 [[bench]]
 name = "gcl_benchmark"
+harness = false
+
+[[bench]]
+name = "memory_profiling"
 harness = false
 
 [lints]

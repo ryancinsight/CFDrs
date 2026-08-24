@@ -24,13 +24,11 @@ use super::diffusion::{dissipation_tensor, turbulent_transport};
 use super::model::ReynoldsStressModel;
 use super::production::production_term as prod_term;
 use super::tensor::ReynoldsStressTensor;
+use crate::physics::turbulence::constants::EPSILON_MIN;
 use cfd_core::error::Result;
 use eunomia::RealField;
 use leto::geometry::Vector2;
 use leto::Array2;
-
-// Numerical stability floor for ε
-const EPSILON_MIN: f64 = 1e-12;
 
 impl<T: RealField + Copy> ReynoldsStressModel<T> {
     fn c(v: f64) -> T {

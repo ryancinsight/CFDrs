@@ -23,7 +23,7 @@
 use crate::grid::{array2d::Array2D, StructuredGrid2D};
 use crate::scalar::{one, zero};
 use cfd_core::compute::solver::SolverConfiguration;
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
@@ -34,6 +34,24 @@ const DEFAULT_MAX_ITERATIONS: usize = 1000;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const GRADIENT_FACTOR: f64 = 2.0;
 const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
+
+fn validate_finite_positive<T: NumericElement>(name: &str, value: T) -> Result<()> {
+    if !<T as NumericElement>::is_finite(value) || value <= <T as NumericElement>::ZERO {
+        return Err(Error::InvalidConfiguration(format!(
+            "VorticityStreamSolver: {name} must be finite and strictly positive, got {value:?}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_finite_non_negative<T: NumericElement>(name: &str, value: T) -> Result<()> {
+    if !<T as NumericElement>::is_finite(value) || value < <T as NumericElement>::ZERO {
+        return Err(Error::InvalidConfiguration(format!(
+            "VorticityStreamSolver: {name} must be finite and non-negative, got {value:?}"
+        )));
+    }
+    Ok(())
+}
 
 /// Vorticity-Stream function solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,9 +92,9 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for Vorticit
 /// ## Governing Equations:
 ///
 /// The Navier-Stokes equations in vorticity-stream function form:
-/// - Stream function: ∇²ψ = -ω
-/// - Vorticity transport: ∂ω/∂t + u·∇ω = ν∇²ω
-/// - Velocity recovery: u = ∂ψ/∂y, v = -∂ψ/∂x
+/// - Stream function: Γêç┬▓╧ê = -╧ë
+/// - Vorticity transport: Γêé╧ë/Γêét + u┬╖Γêç╧ë = ╬╜Γêç┬▓╧ë
+/// - Velocity recovery: u = Γêé╧ê/Γêéy, v = -Γêé╧ê/Γêéx
 ///
 /// ## Advantages:
 /// - Automatically satisfies continuity equation
@@ -102,17 +120,65 @@ pub struct VorticityStreamSolver<T: CfdScalar + EunomiaRealField + Copy> {
     /// Grid spacing
     dx: T,
     dy: T,
-    /// Reynolds number (Re = U*L/ν)
+    /// Reynolds number (Re = U*L/╬╜)
     reynolds: T,
 }
 
 impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> VorticityStreamSolver<T> {
     /// Create a new vorticity-stream solver
+    ///
+    /// Prefer [`VorticityStreamSolver::try_new`] for fallible construction;
+    /// this constructor is retained for callers that already validated their
+    /// inputs and need the infallible signature.
     pub fn new(config: VorticityStreamConfig<T>, grid: &StructuredGrid2D<T>, reynolds: T) -> Self {
+        match Self::try_new(config, grid, reynolds) {
+            Ok(solver) => solver,
+            Err(error) => panic!("VorticityStreamSolver::new called with invalid inputs: {error}"),
+        }
+    }
+
+    /// Create a new vorticity-stream solver, validating the physical inputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when:
+    ///
+    /// - `reynolds` is non-finite or non-positive (the diffusion term `1/Re`
+    ///   must remain finite and well-signed),
+    /// - `grid.dx` or `grid.dy` is non-finite or non-positive (the Laplacian
+    ///   five-point stencil divides by `dx^2` and `dy^2`, so zero or negative
+    ///   spacing breaks the discretization),
+    /// - the grid has fewer than three cells in either direction (the SOR
+    ///   Poisson solver and the boundary vorticity update require at least one
+    ///   interior cell on each side),
+    /// - `config.time_step` is non-finite or non-positive (the explicit Euler
+    ///   time integration inverts sign for negative `dt` and stagnates for
+    ///   `dt = 0`),
+    /// - `config.stream_tolerance`, `config.vorticity_tolerance`, or
+    ///   `config.sor_omega` is non-finite (these enter SOR convergence and
+    ///   divergence tests and must be well-defined).
+    pub fn try_new(
+        config: VorticityStreamConfig<T>,
+        grid: &StructuredGrid2D<T>,
+        reynolds: T,
+    ) -> Result<Self> {
         let nx = grid.nx;
         let ny = grid.ny;
 
-        Self {
+        validate_finite_positive("reynolds", reynolds)?;
+        validate_finite_positive("grid.dx", grid.dx)?;
+        validate_finite_positive("grid.dy", grid.dy)?;
+        validate_finite_positive("config.time_step", config.time_step)?;
+        validate_finite_non_negative("config.stream_tolerance", config.stream_tolerance)?;
+        validate_finite_non_negative("config.vorticity_tolerance", config.vorticity_tolerance)?;
+        validate_finite_positive("config.sor_omega", config.sor_omega)?;
+        if nx < 3 || ny < 3 {
+            return Err(Error::InvalidConfiguration(format!(
+                "VorticityStreamSolver::try_new: grid must have at least 3 cells in each direction (nx, ny >= 3), got ({nx}, {ny})"
+            )));
+        }
+
+        Ok(Self {
             config,
             psi: Array2D::new(nx, ny, zero()),
             omega: Array2D::new(nx, ny, zero()),
@@ -123,7 +189,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> Vortic
             dx: grid.dx,
             dy: grid.dy,
             reynolds,
-        }
+        })
     }
 
     /// Initialize with lid-driven cavity conditions
@@ -145,7 +211,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> Vortic
         Ok(())
     }
 
-    /// Solve stream function Poisson equation: ∇²ψ = -ω
+    /// Solve stream function Poisson equation: Γêç┬▓╧ê = -╧ë
     fn solve_stream_function(&mut self) {
         let omega_sor = self.config.sor_omega;
         let dx2 = self.dx * self.dx;
@@ -237,9 +303,9 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> Vortic
 
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                // u = ∂ψ/∂y
+                // u = Γêé╧ê/Γêéy
                 self.u[(i, j)][0] = (self.psi[(i, j + 1)] - self.psi[(i, j - 1)]) / two_dy;
-                // v = -∂ψ/∂x
+                // v = -Γêé╧ê/Γêéx
                 self.u[(i, j)][1] = -(self.psi[(i + 1, j)] - self.psi[(i - 1, j)]) / two_dx;
             }
         }
@@ -370,13 +436,13 @@ mod tests {
         assert_relative_eq!(solver.omega[(2, 2)], 0.0, epsilon = 1e-10);
     }
 
-    /// Continuity equation (∇·u = 0) must be satisfied identically by the
+    /// Continuity equation (Γêç┬╖u = 0) must be satisfied identically by the
     /// velocity field derived from the stream function.
     ///
-    /// **Theorem**: u = ∂ψ/∂y, v = −∂ψ/∂x ⟹ ∂u/∂x + ∂v/∂y
-    /// = ∂²ψ/∂x∂y − ∂²ψ/∂y∂x = 0 (Schwarz's theorem).
+    /// **Theorem**: u = Γêé╧ê/Γêéy, v = ΓêÆΓêé╧ê/Γêéx Γƒ╣ Γêéu/Γêéx + Γêév/Γêéy
+    /// = Γêé┬▓╧ê/ΓêéxΓêéy ΓêÆ Γêé┬▓╧ê/ΓêéyΓêéx = 0 (Schwarz's theorem).
     ///
-    /// Test: Set ψ to a non-trivial analytic field, recover u,v, verify ∇·u ≈ 0.
+    /// Test: Set ╧ê to a non-trivial analytic field, recover u,v, verify Γêç┬╖u Γëê 0.
     #[test]
     fn continuity_from_stream_function() {
         let n = 12;
@@ -385,7 +451,7 @@ mod tests {
         let config = VorticityStreamConfig::default();
         let mut solver = VorticityStreamSolver::new(config, &grid, 100.0);
 
-        // Set ψ = sin(πx)·sin(πy) — smooth, zero on boundaries
+        // Set ╧ê = sin(╧Çx)┬╖sin(╧Çy) ΓÇö smooth, zero on boundaries
         let pi = std::f64::consts::PI;
         for i in 0..n {
             for j in 0..n {
@@ -398,7 +464,7 @@ mod tests {
         // Recover velocity from stream function
         solver.update_velocity();
 
-        // Verify ∇·u = ∂u/∂x + ∂v/∂y ≈ 0 at interior points
+        // Verify Γêç┬╖u = Γêéu/Γêéx + Γêév/Γêéy Γëê 0 at interior points
         // using central differences
         for i in 2..n - 2 {
             for j in 2..n - 2 {
@@ -407,9 +473,84 @@ mod tests {
                 let div = du_dx + dv_dy;
                 assert!(
                     <f64 as NumericElement>::abs(div) < 1e-6,
-                    "Continuity violated at ({i},{j}): ∇·u = {div}"
+                    "Continuity violated at ({i},{j}): Γêç┬╖u = {div}"
                 );
             }
         }
+    }
+
+    #[test]
+    fn try_new_rejects_zero_reynolds() {
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::default();
+        let result = VorticityStreamSolver::try_new(config, &grid, 0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("reynolds")),
+            "expected InvalidConfiguration error for zero Reynolds"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_negative_reynolds() {
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::default();
+        let result = VorticityStreamSolver::try_new(config, &grid, -100.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("reynolds")),
+            "expected InvalidConfiguration error for negative Reynolds"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_non_finite_reynolds() {
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::default();
+        let result = VorticityStreamSolver::try_new(config, &grid, f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("reynolds")),
+            "expected InvalidConfiguration error for NaN Reynolds"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_negative_time_step() {
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::<f64> {
+            time_step: -0.001,
+            ..VorticityStreamConfig::default()
+        };
+        let result = VorticityStreamSolver::try_new(config, &grid, 100.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("time_step")),
+            "expected InvalidConfiguration error for negative time_step"
+        );
+    }
+
+    #[test]
+    fn try_new_rejects_undersized_grid() {
+        let grid = StructuredGrid2D::<f64>::unit_square(2, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::default();
+        let result = VorticityStreamSolver::try_new(config, &grid, 100.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("3 cells")),
+            "expected InvalidConfiguration error for undersized grid"
+        );
+    }
+
+    #[test]
+    fn try_new_accepts_physically_valid_inputs() {
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
+            .expect("unit_square grid construction should succeed for valid inputs");
+        let config = VorticityStreamConfig::default();
+        let result = VorticityStreamSolver::try_new(config, &grid, 100.0);
+        assert!(
+            result.is_ok(),
+            "valid Reynolds, grid, and config must succeed"
+        );
     }
 }

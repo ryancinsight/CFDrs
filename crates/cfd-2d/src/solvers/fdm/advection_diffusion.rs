@@ -14,10 +14,10 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::Array1;
 use std::collections::HashMap;
 
@@ -33,12 +33,55 @@ pub struct AdvectionDiffusionSolver<T: CfdScalar + EunomiaRealField + Copy> {
 }
 
 impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> AdvectionDiffusionSolver<T> {
-    /// Create a new advection-diffusion solver
+    /// Create a new advection-diffusion solver.
+    ///
+    /// # Panics
+    /// Panics if `config` violates any invariant (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(config: FdmConfig<T>) -> Self {
-        Self {
+        Self::try_new(config).unwrap_or_else(|error| {
+            panic!("AdvectionDiffusionSolver::new called with invalid config: {error}");
+        })
+    }
+
+    /// Create a new advection-diffusion solver with invariant validation.
+    ///
+    /// Validates the SSOT [`cfd_core::compute::solver::SolverConfig`]
+    /// wrapped inside `FdmConfig`: tolerance must be finite and positive,
+    /// `max_iterations` must be ≥ 1, and the relaxation factor must be
+    /// finite and in `(0, 2]` (the same convergence range as Gauss–Seidel
+    /// in [`super::PoissonSolver`]).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if any invariant is violated.
+    pub fn try_new(config: FdmConfig<T>) -> Result<Self> {
+        if !<T as NumericElement>::is_finite(config.tolerance())
+            || config.tolerance() <= <T as NumericElement>::ZERO
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "AdvectionDiffusionSolver::try_new: tolerance must be finite and positive, got {:?}",
+                config.tolerance()
+            )));
+        }
+        if config.max_iterations() == 0 {
+            return Err(Error::InvalidConfiguration(
+                "AdvectionDiffusionSolver::try_new: max_iterations must be at least 1".to_string(),
+            ));
+        }
+        let relaxation = config.relaxation_factor();
+        let two = <T as FloatElement>::from_f64(2.0);
+        if !<T as NumericElement>::is_finite(relaxation)
+            || relaxation <= <T as NumericElement>::ZERO
+            || relaxation > two
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "AdvectionDiffusionSolver::try_new: relaxation_factor must be finite and in (0, 2] for Gauss-Seidel convergence, got {relaxation:?}"
+            )));
+        }
+        Ok(Self {
             config,
             matrix_builder: core::cell::RefCell::new(None),
-        }
+        })
     }
 
     /// Solve steady-state advection-diffusion equation
@@ -180,5 +223,70 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> AdvectionDiffusionSo
     /// Convert 2D grid indices to linear index
     fn linear_index(grid: &StructuredGrid2D<T>, i: usize, j: usize) -> usize {
         j * grid.nx() + i
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Positive**: `try_new` accepts a default configuration.
+    #[test]
+    fn advection_diffusion_try_new_accepts_default() {
+        let _solver = AdvectionDiffusionSolver::<f64>::try_new(FdmConfig::<f64>::default())
+            .expect("default must succeed");
+    }
+
+    /// **Adversarial**: zero `tolerance` is rejected.
+    #[test]
+    fn advection_diffusion_try_new_rejects_zero_tolerance() {
+        let mut config = FdmConfig::<f64>::default();
+        config.base.convergence.tolerance = 0.0;
+        match AdvectionDiffusionSolver::try_new(config) {
+            Err(e) => assert!(
+                e.to_string().contains("tolerance"),
+                "error must mention tolerance: {e}"
+            ),
+            Ok(_) => panic!("zero tolerance must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `max_iterations` is rejected.
+    #[test]
+    fn advection_diffusion_try_new_rejects_zero_max_iterations() {
+        let mut config = FdmConfig::<f64>::default();
+        config.base.convergence.max_iterations = 0;
+        match AdvectionDiffusionSolver::try_new(config) {
+            Err(e) => assert!(
+                e.to_string().contains("max_iterations"),
+                "error must mention max_iterations: {e}"
+            ),
+            Ok(_) => panic!("zero max_iterations must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: relaxation factor outside (0, 2] is rejected.
+    #[test]
+    fn advection_diffusion_try_new_rejects_invalid_relaxation() {
+        for &bad in &[0.0_f64, -1.0, 3.0, f64::NAN] {
+            let mut config = FdmConfig::<f64>::default();
+            config.base.numerical.relaxation = bad;
+            match AdvectionDiffusionSolver::try_new(config) {
+                Err(e) => assert!(
+                    e.to_string().contains("relaxation_factor"),
+                    "error must mention relaxation_factor for input {bad}: {e}"
+                ),
+                Ok(_) => panic!("relaxation {bad} must be rejected"),
+            }
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `tolerance` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "tolerance")]
+    fn advection_diffusion_new_panics_on_invalid_tolerance() {
+        let mut config = FdmConfig::<f64>::default();
+        config.base.convergence.tolerance = f64::NAN;
+        let _ = AdvectionDiffusionSolver::new(config);
     }
 }

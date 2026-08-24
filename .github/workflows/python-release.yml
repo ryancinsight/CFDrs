@@ -25,7 +25,7 @@ jobs:
       distribution: cfd-python
       import-name: cfd_python
       manifest-path: crates/cfd-python/Cargo.toml
-      atlas-ref: 5936303396fd5a8a0aa0d432fd2c81a8cb203146
+      atlas-ref: ad22ec5eec7098a1f9c218b67388ca51fc4bf3da
       tag-prefix: cfd-python-v
       abi3: true
       abi3-python: "3.8"

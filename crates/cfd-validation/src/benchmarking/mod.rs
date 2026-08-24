@@ -22,7 +22,7 @@ pub use analysis::{
     RegressionConfig, TrendType,
 };
 pub use config::BenchmarkConfig;
-pub use memory::{MemoryProfiler, MemoryStats};
+pub use memory::{CfdMemoryProfiler, MemoryProfiler, MemoryStats, TrackingAllocator};
 pub use performance::{
     AlgorithmComplexity, CfdPerformanceBenchmarks, PerformanceBenchmark, PerformanceProfile,
     TimingResult,

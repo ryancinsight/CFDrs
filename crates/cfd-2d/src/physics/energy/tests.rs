@@ -2,6 +2,7 @@ use super::constants;
 use super::solver::*;
 use super::viscous_dissipation::*;
 use crate::grid::array2d::Array2D;
+use cfd_core::error::Error;
 use cfd_core::physics::boundary::BoundaryCondition;
 use std::collections::HashMap;
 
@@ -326,9 +327,13 @@ mod energy_tests {
     fn test_constants_validity() {
         const _: () = {
             assert!(constants::DEFAULT_PRANDTL > 0.0);
-            assert!(constants::STEFAN_BOLTZMANN > 0.0);
         };
         assert_relative_eq!(constants::CENTRAL_DIFF_COEFF, 2.0, epsilon = 1e-10);
+        // Stefan-Boltzmann constant moved to the cfd-core SSOT
+        // (cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN);
+        // bind through a `let` so clippy::assertions_on_constants stays quiet.
+        let stefan_boltzmann = cfd_core::physics::constants::physics::universal::STEFAN_BOLTZMANN;
+        assert!(stefan_boltzmann > 0.0);
     }
 
     #[test]
@@ -1221,5 +1226,95 @@ mod energy_tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn viscous_dissipation_validated_rejects_non_finite_gradient() {
+        let result = viscous_dissipation_2d_validated(f64::NAN, 0.0, 0.0, 0.0, 1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("velocity gradients")),
+            "expected InvalidConfiguration error for NaN gradient"
+        );
+    }
+
+    #[test]
+    fn viscous_dissipation_validated_rejects_negative_mu() {
+        let result = viscous_dissipation_2d_validated(0.0, 0.0, 0.0, 0.0, -1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("negative viscosity")),
+            "expected InvalidConfiguration error for negative mu"
+        );
+    }
+
+    #[test]
+    fn viscous_dissipation_validated_accepts_zero_mu() {
+        // Zero viscosity is mathematically valid: no dissipation, Phi = 0.
+        let result = viscous_dissipation_2d_validated(1.0, 0.0, 0.0, 0.0, 0.0);
+        assert!(
+            result.is_ok() && result.expect("expected value") == 0.0,
+            "zero mu must yield Phi = 0"
+        );
+    }
+
+    #[test]
+    fn viscous_dissipation_validated_matches_infailable_api() {
+        let expected = viscous_dissipation_2d(0.0, 3.0, 7.0, 0.0, 1.0);
+        let actual = viscous_dissipation_2d_validated(0.0, 3.0, 7.0, 0.0, 1.0)
+            .expect("validated API must succeed for valid inputs");
+        assert_relative_eq!(expected, actual, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn brinkman_number_validated_rejects_zero_delta_t() {
+        let result = brinkman_number_validated(1.0, 1.0, 1.0, 0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("delta_t")),
+            "expected InvalidConfiguration error for zero delta_t"
+        );
+    }
+
+    #[test]
+    fn brinkman_number_validated_rejects_negative_delta_t() {
+        let result = brinkman_number_validated(1.0, 1.0, 1.0, -1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("delta_t")),
+            "expected InvalidConfiguration error for negative delta_t"
+        );
+    }
+
+    #[test]
+    fn brinkman_number_validated_rejects_zero_k_thermal() {
+        let result = brinkman_number_validated(1.0, 1.0, 0.0, 1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("k_thermal")),
+            "expected InvalidConfiguration error for zero k_thermal"
+        );
+    }
+
+    #[test]
+    fn brinkman_number_validated_rejects_negative_mu() {
+        let result = brinkman_number_validated(-1.0, 1.0, 1.0, 1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("viscosity")),
+            "expected InvalidConfiguration error for negative mu"
+        );
+    }
+
+    #[test]
+    fn brinkman_number_validated_rejects_non_finite_u_ref() {
+        let result = brinkman_number_validated(1.0, f64::NAN, 1.0, 1.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("u_ref")),
+            "expected InvalidConfiguration error for NaN u_ref"
+        );
+    }
+
+    #[test]
+    fn brinkman_number_validated_matches_infailable_api() {
+        // Use a positive delta_t that the previous silent clamp didn't mask.
+        let expected = brinkman_number(3.5e-3, 0.1, 0.6, 10.0);
+        let actual = brinkman_number_validated(3.5e-3, 0.1, 0.6, 10.0)
+            .expect("validated API must succeed for valid inputs");
+        assert_relative_eq!(expected, actual, epsilon = 1e-15);
     }
 }

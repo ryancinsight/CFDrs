@@ -25,6 +25,11 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- `cfd-python` now packages a typed `cfd_python.pyi` surface and PEP 561
+  marker in its wheel. The 1D bifurcation and legacy 2D Poiseuille solver
+  methods detach Rust-only computation from the Python GIL after converting
+  Python inputs at the boundary; the generated validation image is removed
+  from the crate.
 - **cfd-1d/cfd-math**: Integrate the retained bounded-amplitude JFNK recovery
   into the nonlinear network solver. Recovery work is derived from the
   configured iteration budget, and residual callback failures remain typed

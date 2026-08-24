@@ -31,6 +31,8 @@
 
 use std::ops::{Index, IndexMut};
 
+use cfd_core::error::Error;
+
 /// A flat, row-major 2D array.
 ///
 /// Elements are stored in a single contiguous `Vec<T>` with row-major layout:
@@ -44,12 +46,36 @@ pub struct Array2D<T> {
 
 impl<T: Clone> Array2D<T> {
     /// Create an `rows × cols` array filled with `val`.
+    ///
+    /// # Panics
+    /// Panics if `rows == 0` or `cols == 0` (see [`Self::try_new`]).
     pub fn new(rows: usize, cols: usize, val: T) -> Self {
-        Self {
+        Self::try_new(rows, cols, val).unwrap_or_else(|error| {
+            panic!("Array2D::new called with invalid dimensions: {error}");
+        })
+    }
+
+    /// Create an `rows × cols` array filled with `val` with dimension
+    /// validation.
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if `rows == 0` or `cols == 0`.
+    pub fn try_new(rows: usize, cols: usize, val: T) -> cfd_core::error::Result<Self> {
+        if rows == 0 {
+            return Err(Error::InvalidConfiguration(
+                "Array2D::try_new: rows must be at least 1".to_string(),
+            ));
+        }
+        if cols == 0 {
+            return Err(Error::InvalidConfiguration(
+                "Array2D::try_new: cols must be at least 1".to_string(),
+            ));
+        }
+        Ok(Self {
             data: vec![val; rows * cols],
             rows,
             cols,
-        }
+        })
     }
 
     /// Number of rows.
@@ -206,5 +232,45 @@ mod tests {
         mask[(2, 3)] = false;
         assert!(!mask[(2, 3)]);
         assert!(mask[(0, 0)]);
+    }
+
+    /// **Positive**: `try_new` accepts valid dimensions.
+    #[test]
+    fn array2d_try_new_accepts_valid_dimensions() {
+        let a = Array2D::<f64>::try_new(8, 12, 0.0).expect("valid dims must succeed");
+        assert_eq!(a.rows(), 8);
+        assert_eq!(a.cols(), 12);
+        assert_eq!(a.data.len(), 96);
+    }
+
+    /// **Adversarial**: zero `rows` is rejected.
+    #[test]
+    fn array2d_try_new_rejects_zero_rows() {
+        match Array2D::<f64>::try_new(0, 12, 0.0) {
+            Err(e) => assert!(
+                e.to_string().contains("rows"),
+                "error must mention rows: {e}"
+            ),
+            Ok(_) => panic!("zero rows must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `cols` is rejected.
+    #[test]
+    fn array2d_try_new_rejects_zero_cols() {
+        match Array2D::<f64>::try_new(8, 0, 0.0) {
+            Err(e) => assert!(
+                e.to_string().contains("cols"),
+                "error must mention cols: {e}"
+            ),
+            Ok(_) => panic!("zero cols must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on zero `rows` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "rows")]
+    fn array2d_new_panics_on_zero_rows() {
+        let _ = Array2D::<f64>::new(0, 12, 0.0);
     }
 }

@@ -65,6 +65,7 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
+use cfd_core::error::{Error, Result};
 use eunomia::{NumericElement, RealField};
 use leto::Array2;
 
@@ -214,13 +215,58 @@ impl<T: RealField + Copy> VremanModel<T> {
     }
 
     /// Update filter width (useful for adaptive grids)
+    ///
+    /// Prefer [`VremanModel::try_set_filter_width`] for fallible input;
+    /// this method is retained for backwards compatibility with callers
+    /// that already validated their inputs.
     pub fn set_filter_width(&mut self, filter_width: T) {
+        match self.try_set_filter_width(filter_width) {
+            Ok(()) => {}
+            Err(error) => panic!("VremanModel::set_filter_width rejected the input: {error}"),
+        }
+    }
+
+    /// Update filter width, validating the input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `filter_width` is
+    /// non-finite or non-positive (the Vreman formula divides by
+    /// `filter_width^3`).
+    pub fn try_set_filter_width(&mut self, filter_width: T) -> Result<()> {
+        if !filter_width.is_finite() || filter_width <= T::ZERO {
+            return Err(Error::InvalidConfiguration(format!(
+                "VremanModel::try_set_filter_width: filter_width must be finite and positive, got {filter_width:?}"
+            )));
+        }
         self.config.filter_width = filter_width;
+        Ok(())
     }
 
     /// Update Vreman constant
+    ///
+    /// Prefer [`VremanModel::try_set_c_v`] for fallible input.
     pub fn set_c_v(&mut self, c_v: T) {
+        match self.try_set_c_v(c_v) {
+            Ok(()) => {}
+            Err(error) => panic!("VremanModel::set_c_v rejected the input: {error}"),
+        }
+    }
+
+    /// Update Vreman constant, validating the input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidConfiguration`] when `c_v` is non-finite
+    /// (the Vreman constant multiplies the SGS viscosity).
+    pub fn try_set_c_v(&mut self, c_v: T) -> Result<()> {
+        if !c_v.is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "VremanModel::try_set_c_v: c_v must be finite, got {c_v:?}"
+            )));
+        }
         self.config.c_v = c_v;
+        Ok(())
     }
 }
 
@@ -334,6 +380,43 @@ mod tests {
         assert_eq!(
             nu_sgs_zero, 0.0,
             "Zero velocity gradient should give zero SGS viscosity"
+        );
+    }
+
+    #[test]
+    fn try_set_filter_width_rejects_zero() {
+        let mut model = VremanModel::<f64>::default();
+        let result = model.try_set_filter_width(0.0);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("filter_width")),
+            "expected InvalidConfiguration error for zero filter_width"
+        );
+    }
+
+    #[test]
+    fn try_set_filter_width_rejects_non_finite() {
+        let mut model = VremanModel::<f64>::default();
+        let result = model.try_set_filter_width(f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("filter_width")),
+            "expected InvalidConfiguration error for NaN filter_width"
+        );
+    }
+
+    #[test]
+    fn try_set_filter_width_accepts_positive_value() {
+        let mut model = VremanModel::<f64>::default();
+        let result = model.try_set_filter_width(0.05);
+        assert!(result.is_ok(), "valid filter_width must succeed");
+    }
+
+    #[test]
+    fn try_set_c_v_rejects_non_finite() {
+        let mut model = VremanModel::<f64>::default();
+        let result = model.try_set_c_v(f64::NAN);
+        assert!(
+            matches!(result, Err(Error::InvalidConfiguration(ref msg)) if msg.contains("c_v")),
+            "expected InvalidConfiguration error for NaN c_v"
         );
     }
 }

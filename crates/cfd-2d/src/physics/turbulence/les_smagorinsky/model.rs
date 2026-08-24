@@ -236,6 +236,7 @@ use super::strain::compute_strain_rate_magnitude;
 use super::viscosity::compute_sgs_viscosity;
 use crate::physics::turbulence::boundary_conditions;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
+use cfd_core::error::Error;
 use leto::Array2;
 
 const YOSHIZAWA_C_K: f64 = 0.094;
@@ -264,8 +265,71 @@ pub struct SmagorinskyLES {
 }
 
 impl SmagorinskyLES {
-    /// Create a new Smagorinsky LES model
+    /// Create a new Smagorinsky LES model.
+    ///
+    /// # Panics
+    /// Panics if any invariant is violated (see [`Self::try_new`]).
+    #[must_use]
     pub fn new(nx: usize, ny: usize, dx: f64, dy: f64, config: SmagorinskyConfig) -> Self {
+        Self::try_new(nx, ny, dx, dy, config).unwrap_or_else(|error| {
+            panic!("SmagorinskyLES::new called with invalid arguments: {error}");
+        })
+    }
+
+    /// Create a new Smagorinsky LES model with invariant validation.
+    ///
+    /// Validates:
+    /// - `nx >= 1`, `ny >= 1` (Array2 has length `nx * ny`; zero dims
+    ///   silently underflow every grid access).
+    /// - `dx > 0`, `dy > 0` (filter width is `√(dx·dy)`; zero or negative
+    ///   spacing collapses the filter width to zero, producing zero SGS
+    ///   viscosity and turning the model into a no-op).
+    /// - `smagorinsky_constant > 0` and finite (the SGS viscosity is
+    ///   `ν_sgs = (C_S · Δ)² · |S|`; non-positive or non-finite `C_S`
+    ///   is unphysical).
+    /// - `min_sgs_viscosity` is finite (numerical regulariser).
+    ///
+    /// # Errors
+    /// Returns `Error::InvalidConfiguration` if any invariant is violated.
+    pub fn try_new(
+        nx: usize,
+        ny: usize,
+        dx: f64,
+        dy: f64,
+        config: SmagorinskyConfig,
+    ) -> cfd_core::error::Result<Self> {
+        if nx == 0 {
+            return Err(Error::InvalidConfiguration(
+                "SmagorinskyLES::try_new: nx must be at least 1".to_string(),
+            ));
+        }
+        if ny == 0 {
+            return Err(Error::InvalidConfiguration(
+                "SmagorinskyLES::try_new: ny must be at least 1".to_string(),
+            ));
+        }
+        if !dx.is_finite() || dx <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "SmagorinskyLES::try_new: dx (grid spacing in x) must be finite and positive, got {dx:?}"
+            )));
+        }
+        if !dy.is_finite() || dy <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "SmagorinskyLES::try_new: dy (grid spacing in y) must be finite and positive, got {dy:?}"
+            )));
+        }
+        if !config.smagorinsky_constant.is_finite() || config.smagorinsky_constant <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "SmagorinskyLES::try_new: smagorinsky_constant must be finite and positive, got {:?}",
+                config.smagorinsky_constant
+            )));
+        }
+        if !config.min_sgs_viscosity.is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "SmagorinskyLES::try_new: min_sgs_viscosity must be finite, got {:?}",
+                config.min_sgs_viscosity
+            )));
+        }
         let mut filter_width = Array2::zeros([nx, ny]);
 
         // Initialize filter width as geometric mean of grid spacings
@@ -278,7 +342,7 @@ impl SmagorinskyLES {
             None
         };
 
-        Self {
+        Ok(Self {
             config,
             nx,
             ny,
@@ -289,7 +353,7 @@ impl SmagorinskyLES {
             sgs_kinetic_energy: Array2::zeros([nx, ny]),
             sgs_dissipation_rate: Array2::zeros([nx, ny]),
             dynamic_constant,
-        }
+        })
     }
 
     /// CPU-based update implementation
@@ -637,5 +701,53 @@ mod tests {
         assert!(les.sgs_viscosity.iter().all(|&value| value == 0.0));
         assert!(les.sgs_kinetic_energy.iter().all(|&value| value == 0.0));
         assert!(les.sgs_dissipation_rate.iter().all(|&value| value == 0.0));
+    }
+
+    /// **Positive**: `try_new` accepts valid arguments.
+    #[test]
+    fn smagorinsky_les_try_new_accepts_valid_arguments() {
+        let les = SmagorinskyLES::try_new(8, 12, 1e-3, 1e-3, SmagorinskyConfig::default())
+            .expect("valid must succeed");
+        assert_eq!(les.nx, 8);
+        assert_eq!(les.ny, 12);
+    }
+
+    /// **Adversarial**: zero `dx` is rejected.
+    #[test]
+    fn smagorinsky_les_try_new_rejects_zero_dx() {
+        match SmagorinskyLES::try_new(8, 12, 0.0, 1e-3, SmagorinskyConfig::default()) {
+            Err(e) => assert!(e.to_string().contains("dx"), "error must mention dx: {e}"),
+            Ok(_) => panic!("zero dx must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: NaN `dy` is rejected.
+    #[test]
+    fn smagorinsky_les_try_new_rejects_nan_dy() {
+        match SmagorinskyLES::try_new(8, 12, 1e-3, f64::NAN, SmagorinskyConfig::default()) {
+            Err(e) => assert!(e.to_string().contains("dy"), "error must mention dy: {e}"),
+            Ok(_) => panic!("NaN dy must be rejected"),
+        }
+    }
+
+    /// **Adversarial**: zero `smagorinsky_constant` is rejected.
+    #[test]
+    fn smagorinsky_les_try_new_rejects_zero_smagorinsky_constant() {
+        let mut cfg = SmagorinskyConfig::default();
+        cfg.smagorinsky_constant = 0.0;
+        match SmagorinskyLES::try_new(8, 12, 1e-3, 1e-3, cfg) {
+            Err(e) => assert!(
+                e.to_string().contains("smagorinsky_constant"),
+                "error must mention smagorinsky_constant: {e}"
+            ),
+            Ok(_) => panic!("zero smagorinsky_constant must be rejected"),
+        }
+    }
+
+    /// **Boundary**: `new` panics on invalid `dx` (thin wrapper contract).
+    #[test]
+    #[should_panic(expected = "dx")]
+    fn smagorinsky_les_new_panics_on_invalid_dx() {
+        let _ = SmagorinskyLES::new(8, 12, 0.0, 1e-3, SmagorinskyConfig::default());
     }
 }
