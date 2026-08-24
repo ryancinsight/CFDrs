@@ -82,7 +82,9 @@ pub fn ideal_air<T: RealField + FloatElement + Copy>() -> Result<IdealGas<T>, Er
         SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(287.0)),
         SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(1005.0)),
         DynamicViscosity::from_base(<T as FloatElement>::from_f64(1.716e-5)),
-        ThermodynamicTemperature::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::thermo::CELSIUS_TO_KELVIN)),
+        ThermodynamicTemperature::from_base(<T as FloatElement>::from_f64(
+            crate::physics::constants::physics::thermo::CELSIUS_TO_KELVIN,
+        )),
         TemperatureDifference::from_base(<T as FloatElement>::from_f64(110.4)),
     ))
 }

@@ -98,8 +98,8 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingNetworkSolver<T> {
             fluid,
             inlet_flow_rate,
             inlet_pressure,
-            T::from_f64_or_one(293.15),   // 20°C standard temperature [K]
-            T::from_f64_or_one(P_ATM), // 1 atm [Pa]
+            T::from_f64_or_one(293.15), // 20°C standard temperature [K]
+            T::from_f64_or_one(P_ATM),  // 1 atm [Pa]
         )
     }
 

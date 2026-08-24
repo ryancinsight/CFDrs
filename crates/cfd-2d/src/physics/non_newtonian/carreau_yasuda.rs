@@ -61,7 +61,9 @@ impl<T: FloatElement> CarreauYasudaModel<T> {
     #[must_use]
     pub fn typical_blood() -> Self {
         Self {
-            density: <T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY),
+            density: <T as FloatElement>::from_f64(
+                cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+            ),
             mu_0: <T as FloatElement>::from_f64(0.022),
             mu_inf: <T as FloatElement>::from_f64(0.0022),
             lambda: <T as FloatElement>::from_f64(0.11),

@@ -96,11 +96,21 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            MassDensity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_DENSITY)),
-            DynamicViscosity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_VISCOSITY)),
-            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_SPECIFIC_HEAT)),
-            ThermalConductivity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_THERMAL_CONDUCTIVITY)),
-            Velocity::from_base(<T as FloatElement>::from_f64(crate::physics::constants::physics::fluid::WATER_SPEED_OF_SOUND)),
+            MassDensity::from_base(<T as FloatElement>::from_f64(
+                crate::physics::constants::physics::fluid::WATER_DENSITY,
+            )),
+            DynamicViscosity::from_base(<T as FloatElement>::from_f64(
+                crate::physics::constants::physics::fluid::WATER_VISCOSITY,
+            )),
+            SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+                crate::physics::constants::physics::fluid::WATER_SPECIFIC_HEAT,
+            )),
+            ThermalConductivity::from_base(<T as FloatElement>::from_f64(
+                crate::physics::constants::physics::fluid::WATER_THERMAL_CONDUCTIVITY,
+            )),
+            Velocity::from_base(<T as FloatElement>::from_f64(
+                crate::physics::constants::physics::fluid::WATER_SPEED_OF_SOUND,
+            )),
         );
         fluid.validate()?;
         Ok(fluid)

@@ -105,8 +105,13 @@ where
 
         // Perform simulation iterations
         let mut convergence = Vec::new();
-        let rho = <T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY); // Blood density
-        let _nu_base: T = <T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY / cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY); // Base kinematic viscosity
+        let rho = <T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+        ); // Blood density
+        let _nu_base: T = <T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY
+                / cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+        ); // Base kinematic viscosity
 
         for _ in 0..config.max_iterations {
             // In a real implementation, we'd update viscosity based on local shear rate here

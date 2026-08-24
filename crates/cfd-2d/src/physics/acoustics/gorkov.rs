@@ -61,8 +61,12 @@ impl<T: CfdScalar + Copy + FloatElement> GorkovPotential<T> {
     #[must_use]
     pub fn typical_rbc() -> Self {
         Self {
-            fluid_density: <T as FloatElement>::from_f64(cfd_core::physics::constants::physics::fluid::WATER_DENSITY),
-            fluid_sound_speed: <T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX),
+            fluid_density: <T as FloatElement>::from_f64(
+                cfd_core::physics::constants::physics::fluid::WATER_DENSITY,
+            ),
+            fluid_sound_speed: <T as FloatElement>::from_f64(
+                cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX,
+            ),
             particle_density: <T as FloatElement>::from_f64(1090.0),
             particle_sound_speed: <T as FloatElement>::from_f64(1639.0),
             particle_radius: <T as FloatElement>::from_f64(2.5e-6),
@@ -200,10 +204,8 @@ mod tests {
     /// used by [`GorkovPotential::typical_rbc`] (blood, not pure water).
     #[test]
     fn f1_f2_analytical_values() {
-        let rho_0 =
-            cfd_core::physics::constants::physics::fluid::WATER_DENSITY as f64;
-        let c_0 =
-            cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX as f64;
+        let rho_0 = cfd_core::physics::constants::physics::fluid::WATER_DENSITY;
+        let c_0 = cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX;
         let rbc = GorkovPotential::<f64>::typical_rbc();
         let kappa_0 = 1.0 / (rho_0 * c_0.powi(2));
         let kappa_p = 1.0 / (1090.0 * 1639.0_f64.powi(2));

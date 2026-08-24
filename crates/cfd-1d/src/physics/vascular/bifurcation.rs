@@ -328,8 +328,12 @@ impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
             inlet_pressure: Pressure::from_base(<T as FloatElement>::from_f64(13_332.0)),
             // 100 mmHg
             outlet_resistance: HydraulicResistance::from_base(<T as FloatElement>::from_f64(1e9)),
-            density: MassDensity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY)),
-            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(
+                cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+            )),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
+                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
+            )),
         }
     }
 

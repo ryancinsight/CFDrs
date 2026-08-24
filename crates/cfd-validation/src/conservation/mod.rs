@@ -4,8 +4,8 @@
 //! This module provides tools to verify that CFD simulations satisfy fundamental
 //! conservation laws such as mass, momentum, and energy conservation.
 
-use cfd_core::physics::constants::physics::thermo::P_ATM;
 use crate::scalar;
+use cfd_core::physics::constants::physics::thermo::P_ATM;
 use eunomia::FloatElement;
 use eunomia::NumericElement;
 use eunomia::RealField;

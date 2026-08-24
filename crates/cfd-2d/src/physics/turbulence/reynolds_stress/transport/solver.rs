@@ -1,12 +1,12 @@
 //! Core Reynolds stress transport solver — optimised block-cached implementation.
 
-use super::super::PressureStrainModel;
 use super::super::diffusion::{dissipation_tensor_optimized, turbulent_transport};
 use super::super::model::ReynoldsStressModel;
 use super::super::pressure_strain::{
     pressure_strain_linear, pressure_strain_quadratic, pressure_strain_ssg,
 };
 use super::super::tensor::ReynoldsStressTensor;
+use super::super::PressureStrainModel;
 use super::EPSILON_MIN;
 use cfd_core::error::Result;
 use eunomia::RealField;

@@ -22,7 +22,6 @@ use super::grid::StaggeredGrid2D;
 use crate::grid::array2d::{Array2D, Mask2D};
 use crate::scalar;
 use cfd_core::CfdScalar;
-use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 /// 2D velocity and pressure fields on a staggered grid.

@@ -192,12 +192,8 @@ where
             // ch. 2). Multiplying the real Nyquist coefficient by ik would
             // inject a component outside the approximation space and break
             // conjugate symmetry.
-            let is_nyquist = self.transform.n % 2 == 0 && k_idx == self.transform.n / 2;
-            let factor = if order > 0 && is_nyquist {
-                zero
-            } else {
-                i * k
-            };
+            let is_nyquist = self.transform.n.is_multiple_of(2) && k_idx == self.transform.n / 2;
+            let factor = if order > 0 && is_nyquist { zero } else { i * k };
             let factor = factor.powi(order as i32);
             du_hat[[k_idx]] = factor * u_hat[[k_idx]];
         }
@@ -226,13 +222,7 @@ mod tests {
         let derivative = SpectralDerivative::<f64>::new(n).expect("valid size");
 
         // Pure Nyquist mode: cos(2x) sampled at x_j = πj/2 → [1, −1, 1, −1].
-        let signal = array_from_fn(n, |j| {
-            if j % 2 == 0 {
-                1.0
-            } else {
-                -1.0
-            }
-        });
+        let signal = array_from_fn(n, |j| if j % 2 == 0 { 1.0 } else { -1.0 });
 
         let d = derivative
             .derivative(&signal, 1)
@@ -242,8 +232,7 @@ mod tests {
         for (idx, &value) in d.iter().enumerate() {
             assert!(
                 value.abs() < 1e-12,
-                "du/dx[{idx}] = {} must vanish for the Nyquist mode",
-                value
+                "du/dx[{idx}] = {value} must vanish for the Nyquist mode"
             );
         }
     }

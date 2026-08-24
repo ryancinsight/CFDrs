@@ -126,8 +126,7 @@ pub(crate) fn plic_volume_fraction_in_prism<T: CfdScalar>(
     // expression for a mirrored normal flips which slab is fluid — the
     // orientation-blind absolute-value form cannot.
     let negative_axis = scalar::min(n_a_signed, zero);
-    let c_gas_slab =
-        c_gas + negative_axis * (delta_a - depth) - n_a_signed * slab_offset;
+    let c_gas_slab = c_gas + negative_axis * (delta_a - depth) - n_a_signed * slab_offset;
 
     // Gas fraction inside the slab prism (extent `depth` along the axis, full
     // cell dimensions perpendicular).
@@ -205,7 +204,7 @@ fn corner_cut_volume_fraction<T: CfdScalar>(m: [T; 3], c: T) -> T {
 
     let mut active: [T; 3] = [zero; 3];
     let mut k = 0_usize;
-    for &component in m.iter() {
+    for &component in &m {
         if component > eps {
             active[k] = component;
             k += 1;
@@ -227,8 +226,8 @@ fn corner_cut_volume_fraction<T: CfdScalar>(m: [T; 3], c: T) -> T {
         2 => {
             let (m0, m1) = (active[0], active[1]);
             let two = <T as FloatElement>::from_f64(2.0);
-            let numerator = pos_pow(c, 2) - pos_pow(c - m0, 2) - pos_pow(c - m1, 2)
-                + pos_pow(c - m0 - m1, 2);
+            let numerator =
+                pos_pow(c, 2) - pos_pow(c - m0, 2) - pos_pow(c - m1, 2) + pos_pow(c - m0 - m1, 2);
             scalar::min(
                 scalar::max(numerator / (two * m0 * m1), zero),
                 scalar::one::<T>(),
@@ -237,14 +236,12 @@ fn corner_cut_volume_fraction<T: CfdScalar>(m: [T; 3], c: T) -> T {
         _ => {
             let (m0, m1, m2) = (active[0], active[1], active[2]);
             let six = <T as FloatElement>::from_f64(6.0);
-            let numerator = pos_pow(c, 3)
-                - pos_pow(c - m0, 3)
-                - pos_pow(c - m1, 3)
-                - pos_pow(c - m2, 3)
-                + pos_pow(c - m0 - m1, 3)
-                + pos_pow(c - m0 - m2, 3)
-                + pos_pow(c - m1 - m2, 3)
-                - pos_pow(c - m0 - m1 - m2, 3);
+            let numerator =
+                pos_pow(c, 3) - pos_pow(c - m0, 3) - pos_pow(c - m1, 3) - pos_pow(c - m2, 3)
+                    + pos_pow(c - m0 - m1, 3)
+                    + pos_pow(c - m0 - m2, 3)
+                    + pos_pow(c - m1 - m2, 3)
+                    - pos_pow(c - m0 - m1 - m2, 3);
             scalar::min(
                 scalar::max(numerator / (six * m0 * m1 * m2), zero),
                 scalar::one::<T>(),
@@ -320,8 +317,14 @@ mod tests {
         let f_out_low: f64 =
             plic_volume_fraction_in_prism(normal, alpha, depth, dx, dy, dz, 0, -1.0);
 
-        assert!((f_out_high - 1.0).abs() < 1e-9, "high-side outflow f={f_out_high}");
-        assert!((f_out_low - 0.0).abs() < 1e-9, "low-side outflow f={f_out_low}");
+        assert!(
+            (f_out_high - 1.0).abs() < 1e-9,
+            "high-side outflow f={f_out_high}"
+        );
+        assert!(
+            (f_out_low - 0.0).abs() < 1e-9,
+            "low-side outflow f={f_out_low}"
+        );
 
         // Mirrored normal puts the fluid at low x; fractions swap.
         let mirrored = Vector3::new(-1.0, 0.0, 0.0);
@@ -339,15 +342,11 @@ mod tests {
         // α = 0.75 with normal (1, 0, 0): gas fills x ≤ 0.25. A slab of
         // depth 0.5 on the low side ([0, 0.5]) is half gas, half fluid.
         let normal = Vector3::new(1.0, 0.0, 0.0);
-        let f_low: f64 = plic_volume_fraction_in_prism(
-            normal, 0.75, 0.5, 1.0, 1.0, 1.0, 0, -1.0,
-        );
+        let f_low: f64 = plic_volume_fraction_in_prism(normal, 0.75, 0.5, 1.0, 1.0, 1.0, 0, -1.0);
         assert!((f_low - 0.5).abs() < 1e-9, "partial slab f={f_low}");
 
         // The high-side slab [0.5, 1.0] is entirely fluid.
-        let f_high: f64 = plic_volume_fraction_in_prism(
-            normal, 0.75, 0.5, 1.0, 1.0, 1.0, 0, 1.0,
-        );
+        let f_high: f64 = plic_volume_fraction_in_prism(normal, 0.75, 0.5, 1.0, 1.0, 1.0, 0, 1.0);
         assert!((f_high - 1.0).abs() < 1e-9);
     }
 
@@ -372,12 +371,8 @@ mod tests {
         assert!((f_z_low - 0.0).abs() < 1e-9);
 
         // Full/empty cells carry their fraction regardless of direction.
-        let full: f64 = plic_volume_fraction_in_prism(
-            normal_x(), 1.0, 0.2, 1.0, 1.0, 1.0, 0, -1.0,
-        );
-        let empty: f64 = plic_volume_fraction_in_prism(
-            normal_x(), 0.0, 0.2, 1.0, 1.0, 1.0, 0, 1.0,
-        );
+        let full: f64 = plic_volume_fraction_in_prism(normal_x(), 1.0, 0.2, 1.0, 1.0, 1.0, 0, -1.0);
+        let empty: f64 = plic_volume_fraction_in_prism(normal_x(), 0.0, 0.2, 1.0, 1.0, 1.0, 0, 1.0);
         assert!((full - 1.0).abs() < 1e-12);
         assert!((empty - 0.0).abs() < 1e-12);
     }

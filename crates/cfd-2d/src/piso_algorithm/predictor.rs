@@ -296,11 +296,7 @@ mod tests {
         }
 
         let before = (0..8)
-            .map(|i| {
-                (0..8)
-                    .map(|j| fields.u.at(i, j))
-                    .collect::<Vec<_>>()
-            })
+            .map(|i| (0..8).map(|j| fields.u.at(i, j)).collect::<Vec<_>>())
             .collect::<Vec<_>>();
 
         predictor.predict(&mut fields, 0.01).expect("predict ok");

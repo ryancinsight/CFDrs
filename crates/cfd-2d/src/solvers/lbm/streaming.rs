@@ -200,11 +200,7 @@ mod tests {
                     let sj = j as i32 - ey;
                     if (0..nx as i32).contains(&si) && (0..ny as i32).contains(&sj) {
                         let expected = f_src[f_idx(sj as usize, si as usize, q, nx)];
-                        assert_relative_eq!(
-                            f_dst[f_idx(j, i, q, nx)],
-                            expected,
-                            epsilon = 1e-12
-                        );
+                        assert_relative_eq!(f_dst[f_idx(j, i, q, nx)], expected, epsilon = 1e-12);
                     }
                 }
             }

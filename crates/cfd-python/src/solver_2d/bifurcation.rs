@@ -154,7 +154,9 @@ impl PyBifurcationSolver2D {
         let blood = match blood_type {
             "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
             "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
-            _ => BloodModel::Newtonian(cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY),
+            _ => BloodModel::Newtonian(
+                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
+            ),
         };
 
         let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;

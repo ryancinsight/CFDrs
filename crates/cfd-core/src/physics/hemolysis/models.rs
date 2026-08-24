@@ -230,7 +230,8 @@ impl HemolysisModel {
                 coefficient,
                 rate_exponent,
             } => {
-                let shear_rate = shear_stress / crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY;
+                let shear_rate = shear_stress
+                    / crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY;
                 Ok(coefficient * shear_rate.powf(*rate_exponent) * exposure_time)
             }
 
