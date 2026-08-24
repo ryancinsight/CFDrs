@@ -5,48 +5,53 @@
 *Figure 11.2 — Example: Matrix Free Demo*
 <!-- generated-figure-end -->
 
-**Crate**: `cfd-suite` (workspace root)  
-**Run**: `cargo run --example matrix_free_demo`  
-**Source**: [`examples/matrix_free_demo.rs`](../../../examples/matrix_free_demo.rs)
+**Crate**: `cfd-math`  
+**Run**: `cargo run -p cfd-math --example matrix_free_demo`  
+**Source**: [`crates/cfd-math/examples/matrix_free_demo.rs`](../../../crates/cfd-math/examples/matrix_free_demo.rs)
 
 ## What This Example Demonstrates
 
-Matrix-free CG and Laplacian operator application using the `LinearOperator`
-trait, solving a 1D diffusion problem and a 2D Laplacian system without ever
-storing the coefficient matrix.
+Matrix-free CG and Laplacian operator application using the
+`csr_math::linear_solver` path, solving a 1D diffusion problem without ever
+storing the coefficient matrix beyond its CSR triple.
 
 | API | Purpose |
 |---|---|
-| `LinearOperator<f64>` trait | Implement a matrix-free operator |
-| `LaplacianOperator2D` | Typed provider-backed negative 2D Laplacian |
-| `ConjugateGradient` | Iterative solver for SPD systems |
-| `IterativeSolverConfig` | Tolerance, max-iteration control |
+| `csr_matrix::sparse::SparseMatrixBuilder` | Assembles the SPD tridiagonal 1D Laplacian |
+| `csr_matrix::linear_solver::krylov::cg` | Iterative SPD solver |
+| `IterativeSolverConfig` | Tolerance, max-iteration, relative-tolerance control |
+| `csr_core::SolveReport` | Termination, iteration count, final residual norm |
 
 ## Key Code Snippet
 
 ```rust,ignore
-use cfd_math::linear_solver::{
-    ConjugateGradient, IterativeSolverConfig, LaplacianOperator2D, LinearOperator,
-};
+use cfd_math::linear_solver::{krylov::cg, IterativeSolverConfig};
+use cfd_math::sparse::SparseMatrixBuilder;
 use leto::Array1;
+use leto_ops::CsrMatrix;
 
-// 1D diffusion operator (d²u/dx²) with homogeneous Dirichlet BCs
-struct DiffusionOperator1D { n: usize, dx: f64 }
+let n = 64_usize;
+let dx = 1.0 / (n + 1) as f64;
+let dx2_inv = 1.0 / (dx * dx);
 
-impl LinearOperator<f64> for DiffusionOperator1D {
-    fn apply(&self, x: &Array1<f64>, y: &mut Array1<f64>) -> Result<()> {
-        let dx2_inv = 1.0 / (self.dx * self.dx);
-        for i in 1..(self.n - 1) {
-            y[i] = (x[i-1] + x[i+1] - 2.0*x[i]) * dx2_inv;
-        }
-        y[0] = 0.0; y[self.n-1] = 0.0;
-        Ok(())
-    }
-    fn size(&self) -> usize { self.n }
+// 1D diffusion operator (d²u/dx²) with homogeneous Dirichlet BCs.
+let mut builder = SparseMatrixBuilder::<f64>::new(n, n);
+for i in 0..n {
+    builder.add_entry(i, i, 2.0 * dx2_inv)?;
+    if i > 0 { builder.add_entry(i, i - 1, -dx2_inv)?; }
+    if i + 1 < n { builder.add_entry(i, i + 1, -dx2_inv)?; }
 }
+let matrix: CsrMatrix<f64> = builder.build()?;
 
-let cg = ConjugateGradient::new(IterativeSolverConfig::default());
-let sol = cg.solve(&op, &rhs)?;
+let rhs = Array1::from_elem([n], 1.0_f64);
+let mut solution = Array1::<f64>::zeros([n]);
+let config = IterativeSolverConfig {
+    max_iterations: n * 4,
+    tolerance: 1.0e-10,
+    relative_tolerance: 1.0e-12,
+};
+let report = cg(&matrix, &rhs, &mut solution, &config)?;
+println!("{} iters, ‖b − A·x‖₂ = {}", report.iterations, report.final_residual_norm);
 ```
 
 ## Why Matrix-Free?
