@@ -1,5 +1,15 @@
 ## CI: Atlas provider checkout was a no-op fetching a whole repo — DONE (2026-08-17)
 
+## Hosted evidence checkpoint — 2026-08-19
+
+Default `931ee3a0130a5238461a1ee9547e12aef11e90bf` passes hosted run
+`32222487306`: the Rust workspace gate completes format, check, Clippy, tests,
+numerical-fidelity tests, doctests, and fontconfig setup, and the figure SSOT
+gate passes. This closes the provider Rust/figure evidence gap for the current
+source head. It does not close the separate Pages deployment or PyPI release
+dry-run gates, and the Atlas development overlay still prevents a standalone
+locked package claim locally.
+
 Both `ci.yml` jobs ran `ryancinsight/atlas/.github/actions/checkout-path-dependencies`,
 which downloads a full atlas tarball to materialize sibling provider repos. It
 materialized nothing — CFDrs CI run 32046526277 reports, in both jobs:
@@ -136,6 +146,17 @@ config.tolerance)`. The exact two-test locked Nextest filter passes locally at
 `0d725752-ad6c-4365-a569-013ca0caf8c5`; hosted confirmation is the remaining
 acceptance gate.
 
+The hosted format-gate head `c9aff82e` exposed a separate standard Venturi
+validation defect: the GA geometry reached a physically informative state in
+15.921 s but reported convergence without satisfying the provider continuity
+residual. The validation caller now selects two PISO pressure corrections for
+the `Re_throat > 100` non-Newtonian path and requires both solver convergence
+and the physical-state checks. The exact nine-test numerical-fidelity filter
+passes locally, including the GA regression, at run
+`21832c45-e7cb-49e0-9264-55c402eb0968`; the local serial observation is
+73.056 s with one pre-existing slow test, and the unchanged hosted budget
+remains the acceptance oracle.
+
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` SIMPLEC/PIMPLE pressure-solid
@@ -252,6 +273,21 @@ stub modules are deleted. The exact post-change scan reports one residual,
 CI run `32033808279` passes its Rust workspace and book-figure gates at source
 head `b455a416`; the pushed PM head `5b95fe3a` passes the same gates in run
 `32036370369`. External `recurseml/analysis` remains report-only.
+
+## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix] — in progress
+
+**Owner:** Atlas session; scope is `cfd-1d` nonlinear network recovery and the
+provider-owned `cfd-math` JFNK callback seam. **Acceptance:** the retained
+`newton_fallback.rs` source is reachable from `NetworkSolver`; bounded-amplitude
+stagnation invokes one finite-budget JFNK trajectory; assembly and linear-solver
+failures remain typed; and the exact provider hosted gates pass at the final
+source head. No tolerance relaxation, compatibility shim, or test-workload
+change is permitted.
+
+The source integration and value-semantic unit coverage are implemented. Local
+format and diff checks pass. Locked Cargo verification is currently blocked
+before compilation by the shared Atlas overlay/lock mismatch; hosted exact-head
+verification is the remaining closure gate.
 
 ## ATLAS-CFDRS-CONFORMANCE-101 — Close current ratchet regressions [patch] — done 2026-08-17
 

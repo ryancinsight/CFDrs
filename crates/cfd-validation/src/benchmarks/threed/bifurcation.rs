@@ -122,18 +122,18 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> Benchmark<T> for Bifurcation
             .metrics
             .insert("dp Parent (Pa)".to_string(), solution.dp_parent);
 
-        println!("Bifurcation 3D Validation:");
-        println!("  Murray deviation:        {murray_deviation:?}");
-        println!(
+        tracing::info!("Bifurcation 3D Validation:");
+        tracing::info!("  Murray deviation:        {murray_deviation:?}");
+        tracing::info!(
             "  Mass conservation error: {:?}",
             solution.mass_conservation_error
         );
-        println!("  Q_parent:                {:?}", solution.q_parent);
-        println!(
+        tracing::info!("  Q_parent:                {:?}", solution.q_parent);
+        tracing::info!(
             "  Q_d1 + Q_d2:             {:?}",
             solution.q_daughter1 + solution.q_daughter2
         );
-        println!(
+        tracing::info!(
             "  Wall shear (parent, Pa): {:?}",
             solution.wall_shear_stress_parent
         );

@@ -1,5 +1,16 @@
 # CFDrs Work Checklist
 
+## Hosted evidence checkpoint — 2026-08-19
+
+- [x] Collect exact default-head run `32222487306` at source
+      `931ee3a0130a5238461a1ee9547e12aef11e90bf`. The Rust workspace gate
+      passes format, check, Clippy, tests, numerical-fidelity tests, doctests,
+      and native fontconfig setup; the figure SSOT gate also passes.
+- [ ] Collect the separate Pages deployment and PyPI release dry-run gates.
+      The passing Rust/figure run does not establish either publication path,
+      and the local Atlas overlay still prevents standalone locked package
+      evidence.
+
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller
 
 - [x] Register the provider release slice and keep its scope to the Python
@@ -41,6 +52,12 @@
       `0d725752-ad6c-4365-a569-013ca0caf8c5`.
 - [x] Route production debug output through `tracing` and consume the
       provider solver reports in the touched validation paths.
+- [x] Make the standard non-Newtonian Venturi caller use two PISO pressure
+      corrections when `Re_throat > 100`, require the solver's convergence flag
+      in the result, and remove the touched-path stdout fallback. The exact
+      nine-test numerical-fidelity filter passes locally at run
+      `21832c45-e7cb-49e0-9264-55c402eb0968`; hosted verification remains the
+      closure gate.
 - [ ] Push the final source head and pass the exact hosted Rust and Pages
       gates without changing the committed budget or workloads.
 
@@ -138,6 +155,18 @@
 - [ ] Run the focused locked Nextest and hosted exact-head provider gate;
       local compilation is currently blocked by the shared overlay/lock
       mismatch, not by a source diagnostic.
+
+## ATLAS-CFDRS-JFNK-OPEN-033 [fix] — Integrate bounded Newton-Krylov recovery
+
+- [x] Declare `newton_fallback.rs` in the `cfd-1d` solver graph and invoke it
+      once after the existing bounded-amplitude stagnation detector.
+- [x] Derive the Newton/Krylov recovery limits from `SolverConfig.max_iterations`
+      and route residual callback failures through a fallible JFNK API.
+- [x] Add value-semantic coverage for checked JFNK error propagation and the
+      finite recovery-budget invariant.
+- [ ] Run the locked `cfd-1d`/`cfd-math` Nextest filters and the hosted exact-head
+      Rust and book-figure gates; the local Atlas overlay currently blocks Cargo
+      resolution before compilation.
 
 ## ATLAS-ORPHAN-MODULES-096-CFDRS [patch] — done 2026-08-17
 

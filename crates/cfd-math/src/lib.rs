@@ -161,30 +161,6 @@ pub mod time_stepping;
 // `Interpolation` was removed; use `cfd_math::interp::Interpolation` instead.
 pub use self::sparse::SparseMatrix;
 
-/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
-/// `cfd-math` can use the Atlas-canonical implementations directly:
-///
-/// ```rust,no_run
-/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
-/// use cfd_math::iterative::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
-/// ```
-pub mod iterative {
-    pub use leto_ops::{
-        BiCGSTAB, Configurable, ConjugateGradient, ConvergenceMonitor, ILUPreconditioner,
-        IdentityPreconditioner, IterativeLinearSolver, IterativeSolverConfig, JacobiPreconditioner,
-        LinearOperator, LinearSolver, LsqrConfig, LsqrResult, LsqrSolver, LsqrStopReason,
-        Preconditioner, GMRES,
-    };
-
-    /// Preconditioner implementations (Identity, Jacobi, ILU, SOR, SSOR).
-    pub mod preconditioners {
-        pub use leto_ops::{
-            ILUPreconditioner, IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
-            SSORPreconditioner,
-        };
-    }
-}
-
 /// Re-export the SSOT interpolation types from `leto-ops`.
 ///
 /// ```rust,no_run
@@ -220,7 +196,7 @@ pub mod quadrature_rules {
 // The primary API is through the public modules themselves.
 // This creates a hierarchical, self-documenting structure.
 // Example usage:
-//   use cfd_math::iterative::BiCGSTAB;
+//   use cfd_math::linear_solver::krylov;
 //   use cfd_math::interp::CubicSplineInterpolation;
 //   use cfd_math::quadrature_rules::GaussQuadrature;
 
@@ -229,7 +205,7 @@ pub mod prelude {
     pub use crate::{
         fd::{FiniteDifference, FiniteDifferenceScheme},
         fd_extensions::{compute_gradient_2d, compute_gradient_3d, Gradient},
-        iterative::ConjugateGradient,
+        linear_solver::{krylov, IterativeSolverConfig},
         sparse::{SparseMatrix, SparseMatrixBuilder},
     };
 }

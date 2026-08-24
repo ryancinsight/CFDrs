@@ -30,12 +30,21 @@
   methods detach Rust-only computation from the Python GIL after converting
   Python inputs at the boundary; the generated validation image is removed
   from the crate.
+- **cfd-1d/cfd-math**: Integrate the retained bounded-amplitude JFNK recovery
+  into the nonlinear network solver. Recovery work is derived from the
+  configured iteration budget, and residual callback failures remain typed
+  through the new checked JFNK entry point.
 
 - **cfd-2d**: The Newtonian pressure-correction default remains its existing
   calibrated SOR split; `SIMPLEConfig` now permits a validated consumer-owned
   override. The backward-facing-step benchmark selects `1.7` together with
   its measured sweep cap, while venturi cross-fidelity retains its prior
   value contract. Hosted numerical-fidelity rerun is pending.
+
+- **cfd-validation**: The standard non-Newtonian Venturi path now uses two
+  PISO pressure corrections for throat Reynolds numbers above 100 and reports
+  convergence only when the provider solver and physical-state checks both
+  pass. The touched fallback diagnostic uses structured tracing.
 
 - **cfd-2d/cfd-validation**: The backward-facing-step validation now uses the
   provider's reusable GMRES workspace and direct mutable Leto CSR structure

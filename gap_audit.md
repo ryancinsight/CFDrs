@@ -1,5 +1,15 @@
 ## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
 
+## Finding 2026-08-19: exact default-head Rust and figure gates pass
+
+CFDrs default `931ee3a0130a5238461a1ee9547e12aef11e90bf` passes hosted run
+`32222487306`. The Rust workspace job completes format, check, Clippy, tests,
+the numerical-fidelity suite, doctests, and native fontconfig setup. The figure
+SSOT job also passes. This is behavioral and figure evidence for the exact
+provider head, not proof of Pages deployment or PyPI publication; those remain
+separate gates. The local standalone locked package path remains blocked by the
+Atlas development overlay, so no local package result is claimed.
+
 The first implementation placed a new streamfunction–vorticity solver in
 `cfd-validation`, which violated provider-first ownership because `cfd-2d`
 already owns the SIMPLE Navier–Stokes field and mask path. The follow-up moves
@@ -165,6 +175,20 @@ Apollo head `c87a1abe` does not expose it. Apollo remote head
 `81583aab8b3eb48c96d138e3980e2c554d9d83fa` contains the provider-owned
 re-export and public module change. CFDrs remains unadvanced until that
 upstream head is merged; no compatibility shim is permitted.
+
+## Bounded Newton-Krylov recovery integration — CFDrs (2026-08-19)
+
+- `crates/cfd-1d/src/solver/core/newton_fallback.rs` is now declared in the
+  solver module graph and is called once when the existing bounded-amplitude
+  stagnation detector classifies the Picard trajectory as stalled.
+- The recovery budget derives its warm-up and Newton/Krylov limits from
+  `SolverConfig.max_iterations`, so the fallback does not create a second
+  unbounded solver attempt. `cfd-math::JfnkSolver::solve_checked` propagates
+  residual callback failures as typed errors instead of panicking.
+- Static source reachability, package formatting, and diff checks are clean.
+  Locked local Cargo verification is blocked before compilation by the shared
+  Atlas overlay/lock mismatch; provider hosted exact-head Rust and book-figure
+  gates remain open until the source branch is checked.
 
 ## Unreachable source-module closure — CFDrs (2026-08-17)
 

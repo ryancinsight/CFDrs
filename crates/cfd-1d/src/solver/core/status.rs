@@ -51,6 +51,9 @@ pub struct PrimarySolveDiagnostics {
     pub last_solution_change_norm: Option<f64>,
     /// True when the network was solved as a static linear system.
     pub matrix_treated_as_linear_static: bool,
+    /// True when the bounded JFNK recovery trajectory was attempted.
+    #[serde(default)]
+    pub fallback_used: bool,
     /// True when `cfd-optim` had to degrade geometry-dependent coefficients for recovery.
     pub degraded_geometry_for_recovery: bool,
     /// Human-readable failure detail from the underlying solver/model error.

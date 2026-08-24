@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Cross-fidelity venturi pressure-drop validation.
 //!
 //! Compares three levels of fidelity for the pressure drop across a
@@ -369,7 +368,10 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     // Adaptive SIMPLE relaxation based on throat Re.
     let re_throat = input.throat_reynolds();
     let config = if re_throat > 100.0 {
-        SIMPLEConfig::new(1000, 1e-4_f64, 0.4_f64, 0.2_f64, 0.05_f64, 1, 1)
+        // PISO's second pressure correction removes the splitting error that
+        // otherwise leaves the stiff non-Newtonian path at a large continuity
+        // residual after its fixed outer iteration budget.
+        SIMPLEConfig::new(1000, 1e-4_f64, 0.4_f64, 0.2_f64, 0.05_f64, 1, 2)
     } else {
         SIMPLEConfig {
             alpha_u: 0.5_f64,
@@ -378,14 +380,13 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
             ..SIMPLEConfig::default()
         }
     };
-
     let mut solver =
         VenturiSolver2D::new_stretched_with_config(geom, blood, RHO, 48, ny, beta, config);
 
     let sol = match solver.solve(u_inlet) {
         Ok(sol) => sol,
         Err(e) => {
-            println!("Staggered solver failed: {e:?}");
+            tracing::warn!(error = %e, "staggered Venturi solver failed; using collocated fallback");
             return run_2d_simplec(input);
         }
     };
@@ -415,7 +416,7 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
         && dp_2d < p_abs_inlet.max(1.0)
         && sol.u_throat > u_inlet
         && (0.60..=1.40).contains(&throat_velocity_ratio);
-    let converged = physically_informative;
+    let converged = sol.converged && physically_informative;
 
     Fidelity2DResult {
         u_inlet,

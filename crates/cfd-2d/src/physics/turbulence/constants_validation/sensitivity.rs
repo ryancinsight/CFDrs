@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Sensitivity analysis: validates turbulence constants against DNS channel flow.
 
 use super::{
@@ -14,7 +13,7 @@ use std::collections::HashMap;
 impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
     /// Validate k-ε model constants against DNS channel flow
     pub fn validate_k_epsilon_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
+        tracing::info!(
             "🔬 Validating k-ε model constants against DNS channel flow (Re_τ = {})",
             self.dns_database.re_tau
         );
@@ -190,7 +189,7 @@ impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
 
     /// Validate k-ω SST model constants against DNS
     pub fn validate_k_omega_sst_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
+        tracing::info!(
             "🔬 Validating k-ω SST model constants against DNS channel flow (Re_τ = {})",
             self.dns_database.re_tau
         );
@@ -312,7 +311,7 @@ impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
 
     /// Validate Spalart-Allmaras constants
     pub fn validate_spalart_allmaras_constants(&self) -> ConstantsValidationResult<T> {
-        println!(
+        tracing::info!(
             "🔬 Validating Spalart-Allmaras constants against DNS channel flow (Re_τ = {})",
             self.dns_database.re_tau
         );
