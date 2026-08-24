@@ -613,8 +613,10 @@ mod tests {
     /// **Adversarial**: zero `des_constant` is rejected.
     #[test]
     fn des_try_new_rejects_zero_des_constant() {
-        let mut cfg = DESConfig::default();
-        cfg.des_constant = 0.0;
+        let cfg = DESConfig {
+            des_constant: 0.0,
+            ..DESConfig::default()
+        };
         match DetachedEddySimulation::try_new(8, 12, 1e-3, 1e-3, cfg, &[]) {
             Err(e) => assert!(
                 e.to_string().contains("des_constant"),
