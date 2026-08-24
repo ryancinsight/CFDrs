@@ -261,6 +261,12 @@ pub struct SimulationFields<T: CfdScalar + Copy> {
     pub force_u: Field2D<T>,
     /// External force Y-component (e.g. gravity, IBM)
     pub force_v: Field2D<T>,
+    /// Rhie–Chow mass flux velocity at the east face of each cell
+    /// (the face between nodes (i, j) and (i + 1, j))
+    pub u_face_e: Field2D<T>,
+    /// Rhie–Chow mass flux velocity at the north face of each cell
+    /// (the face between nodes (i, j) and (i, j + 1))
+    pub v_face_n: Field2D<T>,
     /// Mask field (true = fluid, false = solid)
     pub mask: Field2D<bool>,
     /// Grid dimensions
@@ -289,6 +295,8 @@ impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
             viscosity: Field2D::new(nx, ny, <T as FloatElement>::from_f64(0.001)),
             force_u: Field2D::new(nx, ny, scalar::zero()),
             force_v: Field2D::new(nx, ny, scalar::zero()),
+            u_face_e: Field2D::new(nx, ny, scalar::zero()),
+            v_face_n: Field2D::new(nx, ny, scalar::zero()),
             mask: Field2D::new(nx, ny, true),
             nx,
             ny,
@@ -320,6 +328,8 @@ impl<T: CfdScalar + Copy + FloatElement> SimulationFields<T> {
         self.p_prime.map_inplace(|val| *val = scalar::zero());
         self.force_u.map_inplace(|val| *val = scalar::zero());
         self.force_v.map_inplace(|val| *val = scalar::zero());
+        self.u_face_e.map_inplace(|val| *val = scalar::zero());
+        self.v_face_n.map_inplace(|val| *val = scalar::zero());
     }
 }
 
@@ -351,6 +361,8 @@ impl<T: CfdScalar + Copy> SimulationFields<T> {
         self.viscosity.data.copy_from_slice(&other.viscosity.data);
         self.force_u.data.copy_from_slice(&other.force_u.data);
         self.force_v.data.copy_from_slice(&other.force_v.data);
+        self.u_face_e.data.copy_from_slice(&other.u_face_e.data);
+        self.v_face_n.data.copy_from_slice(&other.v_face_n.data);
         self.mask.data.copy_from_slice(&other.mask.data);
 
         Ok(())

@@ -40,6 +40,10 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
 
     /// Perform pressure correction steps
     pub fn correct(&self, fields: &mut SimulationFields<T>, dt: T) -> Result<()> {
+        // Seed the face-flux containers from the predicted nodal field so
+        // every corrector reads a consistent face-based mass imbalance.
+        self.seed_face_fluxes(fields);
+
         for corrector in 0..self.num_correctors {
             // Solve pressure correction equation
             let p_prime = self.solve_pressure_correction(fields, dt)?;
@@ -50,13 +54,39 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
             // Correct velocity field
             self.correct_velocity(fields, &p_prime, dt);
 
-            // Update face fluxes for next corrector (if any)
+            // Refresh Rhie–Chow face fluxes for the next corrector (if any)
             if corrector < self.num_correctors - 1 {
                 self.update_face_fluxes(fields, dt);
             }
         }
 
         Ok(())
+    }
+
+    /// Initialize the face-flux containers from nodal velocity averages.
+    ///
+    /// The east face of cell (i, j) is the face between nodes (i, j) and
+    /// (i + 1, j); the north face is between (i, j) and (i, j + 1).
+    fn seed_face_fluxes(&self, fields: &mut SimulationFields<T>) {
+        let two_t = scalar::one::<T>() + scalar::one::<T>();
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                if let Some(uf) = fields.u_face_e.at_mut(i, j) {
+                    *uf = if i + 1 < self.nx {
+                        (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t
+                    } else {
+                        fields.u.at(i, j)
+                    };
+                }
+                if let Some(vf) = fields.v_face_n.at_mut(i, j) {
+                    *vf = if j + 1 < self.ny {
+                        (fields.v.at(i, j) + fields.v.at(i, j + 1)) / two_t
+                    } else {
+                        fields.v.at(i, j)
+                    };
+                }
+            }
+        }
     }
 
     /// Solve pressure correction equation according to Issa (1986)
@@ -84,11 +114,15 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
                     let mass_imbalance =
                         self.calculate_mass_imbalance_with_h(fields, &h_operator, i, j);
 
-                    // Calculate coefficients
-                    let ae = fields.density.at(i, j) * self.dy * dt / self.dx;
-                    let aw = fields.density.at(i, j) * self.dy * dt / self.dx;
-                    let an = fields.density.at(i, j) * self.dx * dt / self.dy;
-                    let as_ = fields.density.at(i, j) * self.dx * dt / self.dy;
+                    // Calculate coefficients. The velocity correction applies
+                    // δu = −(Δt/ρ)∇p′, so the ρ cancels in the resulting mass-flux
+                    // change and the p′ Poisson coefficients carry no density.
+                    // Prior to 2026-08-20 a spurious ρ scaled the LHS only,
+                    // under-correcting the velocity by 1/ρ² for ρ ≠ 1.
+                    let ae = self.dy * dt / self.dx;
+                    let aw = self.dy * dt / self.dx;
+                    let an = self.dx * dt / self.dy;
+                    let as_ = self.dx * dt / self.dy;
                     let ap = ae + aw + an + as_;
 
                     // Update pressure correction
@@ -215,14 +249,17 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
     }
 
     /// Calculate mass imbalance at a cell
+    ///
+    /// Reads the face-flux containers: the east face of cell (i, j) is
+    /// `u_face_e[(i, j)]` and the west face is `u_face_e[(i − 1, j)]`.
     fn calculate_mass_imbalance(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let rho = fields.density.at(i, j);
 
         // Face mass fluxes
-        let me = rho * fields.u.at(i + 1, j) * self.dy;
-        let mw = rho * fields.u.at(i, j) * self.dy;
-        let mn = rho * fields.v.at(i, j + 1) * self.dx;
-        let ms = rho * fields.v.at(i, j) * self.dx;
+        let me = rho * fields.u_face_e.at(i, j) * self.dy;
+        let mw = rho * fields.u_face_e.at(i - 1, j) * self.dy;
+        let mn = rho * fields.v_face_n.at(i, j) * self.dx;
+        let ms = rho * fields.v_face_n.at(i, j - 1) * self.dx;
 
         // Mass imbalance (should be zero for continuity)
         me - mw + mn - ms
@@ -283,6 +320,11 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
     ///
     /// Omitting `(∇p)_cells` reduces this to plain pressure interpolation which does
     /// NOT suppress checkerboard oscillations. Both terms are mathematically mandatory.
+    ///
+    /// The interpolated values are stored in the dedicated face-flux containers
+    /// `u_face_e`/`v_face_n`. Prior to 2026-08-20 they were written into the
+    /// nodal velocity fields, shifting the field by half a cell and discarding
+    /// the just-applied nodal pressure correction.
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>, dt: T) {
         let tiny = <T as FloatElement>::from_f64(1e-30);
         for i in 1..self.nx - 1 {
@@ -334,11 +376,11 @@ impl<T: CfdScalar + Copy + FloatElement> PressureCorrector<T> {
 
                 let v_corrected = v_bar + d_v * (dp_dy_cells - dp_dy_face);
 
-                if let Some(u) = fields.u.at_mut(i, j) {
-                    *u = u_corrected;
+                if let Some(uf) = fields.u_face_e.at_mut(i, j) {
+                    *uf = u_corrected;
                 }
-                if let Some(v) = fields.v.at_mut(i, j) {
-                    *v = v_corrected;
+                if let Some(vf) = fields.v_face_n.at_mut(i, j) {
+                    *vf = v_corrected;
                 }
             }
         }

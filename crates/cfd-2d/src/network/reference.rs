@@ -404,9 +404,15 @@ where
         "Blood reference fluid".to_string(),
         MassDensity::from_base(<T as FloatElement>::from_f64(density_kg_m3)),
         DynamicViscosity::from_base(<T as FloatElement>::from_f64(viscosity_pa_s)),
-        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(3617.0)),
-        ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.52)),
-        Velocity::from_base(<T as FloatElement>::from_f64(1570.0)),
+        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::BLOOD_SPECIFIC_HEAT,
+        )),
+        ThermalConductivity::from_base(<T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::BLOOD_THERMAL_CONDUCTIVITY,
+        )),
+        Velocity::from_base(<T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND,
+        )),
     );
     fluid.validate()?;
     Ok(fluid)

@@ -511,11 +511,13 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                 let dp_dx = (p_prime[idx + 1] - p_prime[idx - 1]) / (two * dx);
                 let dp_dy = (p_prime[idx + nx] - p_prime[idx - nx]) / (two * dy);
 
+                // d already carries the cell volume (V/a_P), so the nodal
+                // correction is δu = −(V/a_P)∇p′ with no extra spacing factor.
                 if let Some(u) = fields.u.at_mut(i, j) {
-                    *u -= d_u.at(i, j) * dp_dx * dx;
+                    *u -= d_u.at(i, j) * dp_dx;
                 }
                 if let Some(v) = fields.v.at_mut(i, j) {
-                    *v -= d_v.at(i, j) * dp_dy * dy;
+                    *v -= d_v.at(i, j) * dp_dy;
                 }
             }
         }

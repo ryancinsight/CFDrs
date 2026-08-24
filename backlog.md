@@ -4567,3 +4567,259 @@ debt outside this slice; no lint was weakened and no baseline was changed.
 
 ## Rigor & Correctness
 - [x] Review all numerical bounds and geometry assumptions in `cfd-schematics`.
+
+## Gap audit 2026-08-20 — scope-vs-delivery items
+
+Filed by the Atlas gap audit (evidence: `gap_audit.md` §"Finding 2026-08-20:
+CFDrs scope-vs-delivery audit"). Every item below is `status=todo`, unclaimed.
+No existing item's status was changed by this audit.
+
+- **CFDRS-GA-001 [major][arch] — Remove the library-crate global allocator (status=todo, effort=M).**
+  Outcome: `cfd-validation` no longer installs a process-wide allocator, so no
+  test, bench, example, or downstream binary in its link graph inherits
+  allocation instrumentation it did not request, and a consumer may declare its
+  own `#[global_allocator]`.
+  Scope: `crates/cfd-validation/src/benchmarking/memory.rs` (`#[global_allocator]`
+  at :93, `unsafe impl GlobalAlloc` at :315-345) and its callers.
+  Non-goals: removing the memory-statistics API itself — only its unconditional
+  global installation; the tracking facility may return through an opt-in
+  harness the benchmark explicitly constructs.
+  Acceptance oracle: no `#[global_allocator]` outside an explicitly opted-in
+  bench/bin target; a test binary asserts allocation counts only where the
+  harness is installed; `cargo check --workspace --all-targets` green.
+  Dependencies: none. Risk: public behaviour change of a published crate.
+
+- **CFDRS-GA-002 [patch][verification] — Bring root `examples/`, `benches/`, `tests/` under a cargo target (status=todo, effort=M).**
+  Outcome: the 54 files / 10 543 lines under the repository-root `examples/`,
+  `benches/`, and `tests/` are compiled by a gate, or are deleted because their
+  content already lives under `crates/*/`.
+  Scope: root `Cargo.toml` (virtual manifest, no `[package]`), the three root
+  directories, `README.md:130-141`, and `.github/workflows/ci.yml`.
+  Non-goals: reintroducing a `cfd-suite` façade package that re-exports member
+  crates — the manifest comment at `Cargo.toml:26` records that removal as
+  deliberate; if a host package is the chosen route it hosts targets only.
+  Acceptance oracle: `cargo metadata --no-deps` reports a target for every
+  retained root-directory file, `cargo check --workspace --all-targets`
+  compiles them, and `README.md` names the set that is actually built.
+  Dependencies: decide with CFDRS-GA-007 (the book figure manifest cites three
+  of these examples as figure sources).
+  Risk: moderate — some of these drivers may not compile after the leto
+  migration; that is the finding, not a blocker.
+
+- **CFDRS-GA-003 [major][arch] — Retire the parallel Python validation stack (status=todo, effort=L).**
+  Outcome: the analytical solutions, convergence studies, and cross-package
+  comparisons under `validation/` exist once, in Rust, inside `cfd-validation`,
+  and run under the committed gate; external-reference comparisons
+  (FEniCS/FluidSim oracles) that genuinely require a third-party solver are
+  either a scheduled, run-output-segregated job or are deleted with their
+  reference values captured as committed fixtures.
+  Scope: `validation/` (126 tracked files: 59 `.py`/20 563 lines, 6 `.pyc`,
+  52 `.xml`, 5 `.png`), `validation_reports/`, `parity_artefacts/`, and the
+  Python harness commands in `xtask/src/main.rs` (`setup_venv`, `install_deps`,
+  `install_fenics`, `validate`).
+  Non-goals: `crates/cfd-python` — the PyO3 binding surface is in scope for the
+  stack and stays.
+  Acceptance oracle: no `.py` domain logic outside `crates/cfd-python/tests`;
+  no tracked `.pyc` or timestamped run-output directory; every analytical
+  identity previously asserted in Python has a value-semantic Rust test.
+  Dependencies: none. Decompose per subject area (analytical, convergence,
+  cross-package, external references).
+
+- **CFDRS-GA-004 [minor][arch] — Consolidate the three SIMD implementations onto hermes-simd (status=todo, effort=L).**
+  Outcome: one SIMD seam. Lane-wise kernels dispatch through `hermes-simd`;
+  any capability hermes lacks is implemented upstream in hermes rather than
+  re-derived here.
+  Scope: `crates/cfd-core/src/compute/simd/{mod,x86,aarch64}.rs` (492 lines,
+  six `pub unsafe fn` on raw `std::arch` intrinsics),
+  `crates/cfd-math/src/simd/` (972 lines),
+  `crates/cfd-2d/src/solvers/simd_kernels.rs` (562 lines), and the two existing
+  hermes call sites at `crates/cfd-math/src/simd/ops/mod.rs:8,196`.
+  Non-goals: the `.wgsl` GPU kernels — those belong to the separate
+  hephaestus adoption axis recorded at `Cargo.toml:110`.
+  Acceptance oracle: `crates/*/src` contains no `std::arch` intrinsic import;
+  differential tests assert the hermes path against the scalar reference within
+  a derived tolerance across every shipped scalar type; a criterion baseline
+  shows no regression on the affected kernels.
+  Dependencies: hermes-simd must cover advection, diffusion, and dot product
+  for `f32`/`f64`; a gap is an upstream hermes item, not a local reimplementation.
+
+- **CFDRS-GA-005 [patch][correctness] — Replace the 739 `expect("expected value")` sites (status=todo, effort=M).**
+  Outcome: every panicking site in library source either carries an
+  `invariant: <statement>` message proving why it cannot fire, or is converted
+  to a typed `Result`/`let-else`; the `Option`-field solver state that motivates
+  most of them is restructured so the invalid phase is unrepresentable.
+  Scope: 739 sites across `crates/*/src`; start at
+  `crates/cfd-2d/src/physics/momentum/solve.rs:83,84,87,88,232,237,343,344`,
+  where `matrix_u`/`rhs_u`/`matrix_v`/`rhs_v` are `Option` fields whose
+  `Some`-ness encodes an undocumented assemble-before-solve call order.
+  Non-goals: test-module sites, which may keep `expect` with a descriptive
+  message.
+  Acceptance oracle: `grep -rc 'expect("expected value")' crates/*/src`
+  returns 0; a negative test asserts a typed error (not a panic) for the
+  solve-before-assemble sequence.
+  Dependencies: none. Decompose per crate; ratchet the count down.
+
+- **CFDRS-GA-006 [patch][verification] — Make the grid-convergence studies assert observed order (status=todo, effort=M).**
+  Outcome: each declared second-order discretization has a test that computes
+  the observed order over a refinement sequence and asserts it against the
+  theoretical order within a derived band, so an order regression fails the
+  gate.
+  Scope: `crates/cfd-2d/tests/ghia_cavity_simplec_validation.rs:1088-1123`
+  (currently computes `observed_order`, binds `let _target_order = 2.0;`, and
+  only prints); `crates/cfd-2d/tests/reynolds_stress_comprehensive_tests.rs:544-600`
+  (self-consistency of the MMS evaluation, per its own comment at :583); the
+  MMS sources in `crates/cfd-validation/src/manufactured/` driven through the
+  FDM/FVM/SIMPLE solvers rather than evaluated in isolation.
+  Non-goals: widening any existing tolerance; the workload stays inside the
+  committed 15s/30s nextest budget or moves to a reviewed profile with a
+  derived bound.
+  Acceptance oracle: a mutation to a discretization coefficient makes at least
+  one order-of-accuracy test fail; the band at each assertion cites its
+  derivation.
+  Dependencies: none. Reference form already exists at
+  `crates/cfd-2d/tests/poisson_fdm_validation.rs:443-448`.
+
+- **CFDRS-GA-007 [patch][verification] — Make `check-figures` verify content and repair figure provenance (status=todo, effort=S).**
+  Outcome: the CI figure gate detects a figure whose content diverged from the
+  data it depicts, and every figure's recorded producer is a runnable target.
+  Scope: `xtask/src/check_figures.rs:94-129` (currently a name-set difference
+  over `SUMMARY.md`/`README.md` references vs `prebook::FIGURE_SPECS` — it
+  opens no SVG and compares no hash), `xtask/src/prebook.rs` (which already
+  computes `sha256_16`), and `docs/book/figures/MANIFEST.json`, whose every
+  entry records `"crate_name":"cfd-suite"` — a package `Cargo.toml:26` states
+  does not exist — naming root-directory examples cargo cannot build.
+  Non-goals: replacing the figure set.
+  Acceptance oracle: `cargo run -p xtask -- check-figures` fails when a
+  committed SVG's bytes differ from its manifest hash and when a
+  `source_example` names a target absent from `cargo metadata`.
+  Dependencies: CFDRS-GA-002 (the named producers are the orphaned examples).
+
+- **CFDRS-GA-008 [patch][pm-hygiene] — Collapse the duplicate PM trees and adopt ADR governance (status=todo, effort=M).**
+  Outcome: one board, one checklist, one gap file, each with a single
+  authoritative location that `README.md` names correctly; decisions are
+  numbered records citable from board items and commits.
+  Scope: root `backlog.md`/`CHECKLIST.md`/`gap_audit.md` vs
+  `docs/backlog.md`/`docs/checklist.md`/`docs/gap_audit.md` plus
+  `docs/gap_audit_clean.md` (both trees written by different sessions in the
+  same week); `README.md:146` (`checklist.md` vs the tracked `CHECKLIST.md`);
+  `docs/adr.md` (1601 lines, header `## Status: ACTIVE - Version
+  1.42.0-SIMD-EXCELLENCE` against workspace `0.3.0`, 53 table rows, no
+  `docs/adr/` directory and no index); the 52 `SPRINT_*`/`AUDIT_*`/`FINAL_*`
+  report files under `docs/`; the 30-line vocabulary blockquote prepended to
+  `CHANGELOG.md` and duplicated at `gap_audit.md:41`; root `errors.json`
+  (174 KB of raw cargo JSON build output), `ACCOMPLISHMENTS.md`.
+  Also stale: `CFDRS-VAL-RED-1` at `backlog.md:702` carries status
+  "in progress 2026-07-31" while its own body at :729 records "CLOSURE:
+  cfd-validation Nextest 434/434 (1 slow)" — status field only; left as found
+  because the item belongs to another owner.
+  Non-goals: deleting any unique content — durable material is absorbed by its
+  canonical owner before its report file is removed.
+  Acceptance oracle: exactly one of each PM artifact tracked; `docs/adr/README.md`
+  indexes numbered ADRs with canonical statuses; no repository-root file outside
+  the enumerable set.
+  Dependencies: none.
+
+- **CFDRS-GA-009 [patch][docs] — Realign book chapter numbering with SUMMARY.md (status=todo, effort=S).**
+  Outcome: every chapter's `# ` heading number matches its position in
+  `docs/book/SUMMARY.md` and its own figure labels.
+  Scope: `core_flows.md` and `governing_equations.md` both open "Chapter 2";
+  `pressure_velocity.md` and `turbulence_multiphase.md` both open "Chapter 3";
+  `crate_schematics.md` opens "Chapter 21" (SUMMARY 13, figure 13.1);
+  `crate_optim.md` opens "Chapter 22" (SUMMARY 19, figure 19.1);
+  `crate_1d_flows.md` 20, `crate_3d_flows.md` 19, `crate_validation.md` 18,
+  `performance_and_atlas.md` 17 against SUMMARY 9, 14, 18, 17; and
+  `cavitation.md`, `matrix_free_operators.md`, `schematic_integration_2d.md`,
+  `vascular_bifurcations.md` carry no number where SUMMARY assigns 6, 11, 15, 8.
+  Non-goals: rewriting chapter content.
+  Acceptance oracle: an xtask check (extendable from `check_figures.rs`) fails
+  when a chapter's heading number disagrees with its SUMMARY position.
+  Dependencies: none. Related: `appendix_glossary.md` said "Appendix C" against
+  SUMMARY's "B"; corrected in this audit.
+
+- **CFDRS-GA-010 [patch][docs] — Fill the stub book chapters (status=todo, effort=M).**
+  Outcome: each chapter teaches its subject rather than pointing elsewhere.
+  Scope: `docs/book/crate_schematics.md` (8 lines: a generated figure and a
+  cross-reference), `core_flows.md` (11 lines), `crate_optim.md` (20),
+  `crate_validation.md` (22), `crate_3d_flows.md` (23), `crate_1d_flows.md` (29).
+  Non-goals: migration guides or status content, which belong to CHANGELOG and
+  the board.
+  Acceptance oracle: each listed chapter derives its governing equations with
+  resolved citations and carries at least one tested code sample.
+  Dependencies: none.
+
+- **CFDRS-GA-011 [patch][docs] — Promote `missing_docs` to deny per crate (status=todo, effort=M).**
+  Outcome: undocumented public API does not compile.
+  Scope: all 11 `crates/*/src/lib.rs` — none currently declares
+  `#![deny(missing_docs)]`; the workspace floor at `Cargo.toml:128` is `warn`
+  and each crate re-declares `#![warn(missing_docs)]`.
+  Non-goals: the workspace floor itself, which stays `warn` until the last
+  crate is promoted.
+  Acceptance oracle: `cargo doc --workspace --no-deps` warning-clean with
+  `deny` active in every member.
+  Dependencies: none. Promote crate by crate, smallest first (`cfd-io` at
+  1807 lines, `cfd-schematic-mesh` at 3590).
+
+- **CFDRS-GA-012 [patch][arch] — Consolidate the duplicate Richardson extrapolation (status=todo, effort=S).**
+  Outcome: one Richardson implementation in `cfd-validation`, returning typed
+  errors.
+  Scope: `crates/cfd-validation/src/convergence/richardson.rs` (224 lines) and
+  `crates/cfd-validation/src/manufactured/richardson/core.rs` (551 lines) —
+  both define `estimate_order`, `extrapolate`, and `is_asymptotic`; the second
+  returns `Result<_, String>` (9 stringly-typed returns in this crate, 56
+  workspace-wide).
+  Non-goals: the GCI reporting layer in `manufactured/richardson/analysis.rs`.
+  Acceptance oracle: one public entry point; its error type is a
+  `cfd-core` error variant; the published three-grid worked example from
+  Roache (1998) is asserted value-semantically against it.
+  Dependencies: none.
+
+- **CFDRS-GA-013 [patch][verification] — Resolve the five capability-admitting `#[ignore]`s (status=todo, effort=M).**
+  Outcome: each ignored test either passes against corrected production code or
+  its requirement is explicitly withdrawn with a recorded reason.
+  Scope: `crates/cfd-1d/tests/component_validation.rs:185` ("Implementation does
+  not clamp parameters to physical bounds"), `:234` ("Valve resistance behavior
+  does not follow expected monotonic relationship"), `:443` ("FlowSensor
+  component API differs from expected"); `crates/cfd-math/tests/amg_coarsening_tests.rs:5,9`
+  ("pending migration of domain-specific multigrid code to leto-ops API").
+  Non-goals: the 27 slowness-motivated ignores.
+  Acceptance oracle: zero `#[ignore]` whose reason describes missing or
+  incorrect behaviour rather than runtime.
+  Dependencies: the two AMG ignores depend on leto-ops coarsening coverage.
+
+- **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python` (status=todo, effort=S).**
+  Outcome: the PyO3 binding is visible to mypy and IDEs.
+  Scope: `crates/cfd-python` — add `py.typed` and `.pyi` stubs (generated where
+  feasible), and remove the committed `casson_rheology_validation.png` run
+  output from the crate directory.
+  Non-goals: expanding the binding surface.
+  Acceptance oracle: a mypy run over the installed wheel resolves every
+  exported symbol; no image artifact tracked under `crates/cfd-python`.
+  Dependencies: none.
+
+- **CFDRS-GA-015 [patch][arch] — Restore the pedantic floor erased by crate-level allows (status=todo, effort=L).**
+  Outcome: crate-level blanket `#![allow]` gives way to per-site
+  `#[expect(lint, reason = "ratchet <id>")]`, so the ratchet signal the
+  workspace comment at `Cargo.toml:137-141` describes actually survives.
+  Scope: 292 `#![allow(...)]` lines across 10 `lib.rs` files; specifically
+  `crates/cfd-validation/src/lib.rs:1` (`clippy::print_stdout`) and
+  `crates/cfd-3d/src/lib.rs:6` (`print_stderr`), which cancel workspace denies;
+  409 print/`dbg` sites in `crates/*/src`; the 97 `#[allow(` sites (Atlas
+  baseline 89, so +8) against only 5 `#[expect(`.
+  Non-goals: the curated workspace-level `allow` set in `Cargo.toml`, which is
+  the sanctioned noise-control surface.
+  Acceptance oracle: the Atlas conformance scan's `crate_level_allows` and
+  `allow_sites` counts strictly decrease each increment and never increase.
+  Dependencies: none. Burn down per crate.
+
+- **CFDRS-GA-016 [patch][arch] — Move the workspace to edition 2024 / resolver 3 (status=todo, effort=M).**
+  Outcome: the workspace builds on the current edition, so `unsafe_op_in_unsafe_fn`,
+  `unsafe extern`, and let-chains are available and enforced.
+  Scope: `Cargo.toml` (`edition = "2021"`, `resolver = "2"`) and all 12
+  packages; the six `pub unsafe fn` in `crates/cfd-core/src/compute/simd/`
+  gain per-operation `unsafe {}` blocks with one `// SAFETY:` per discharged
+  obligation (17 unsafe sites in library source currently carry 2 such comments).
+  Non-goals: raising the toolchain pin beyond what edition 2024 requires.
+  Acceptance oracle: `cargo check --workspace --all-targets` and `cargo clippy
+  --workspace --all-targets -- -D warnings` green at edition 2024.
+  Dependencies: verify every Atlas provider in the graph resolves under
+  resolver 3 before landing.

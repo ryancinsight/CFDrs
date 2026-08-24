@@ -50,10 +50,18 @@ impl Default for RayleighPlesset {
     fn default() -> Self {
         Self {
             initial_radius: Length::from_base(1.0e-6),
-            liquid_density: MassDensity::from_base(998.0),
-            liquid_viscosity: DynamicViscosity::from_base(1.002e-3),
-            surface_tension: SurfaceTension::from_base(0.0728),
-            vapor_pressure: Pressure::from_base(2_339.0),
+            liquid_density: MassDensity::from_base(
+                cfd_core::physics::constants::physics::fluid::WATER_DENSITY,
+            ),
+            liquid_viscosity: DynamicViscosity::from_base(
+                cfd_core::physics::constants::physics::fluid::WATER_VISCOSITY,
+            ),
+            surface_tension: SurfaceTension::from_base(
+                cfd_core::physics::cavitation::constants::SURFACE_TENSION_WATER_VALUE,
+            ),
+            vapor_pressure: Pressure::from_base(
+                cfd_core::physics::cavitation::constants::VAPOR_PRESSURE_WATER_20C_VALUE,
+            ),
             polytropic_index: 1.4,
         }
     }
@@ -153,8 +161,12 @@ impl Default for EulerianEulerian {
     fn default() -> Self {
         Self {
             nucleation_density: NumberDensity::from_base(1.0e13),
-            vapor_pressure: Pressure::from_base(2_339.0),
-            liquid_density: MassDensity::from_base(998.0),
+            vapor_pressure: Pressure::from_base(
+                cfd_core::physics::cavitation::constants::VAPOR_PRESSURE_WATER_20C_VALUE,
+            ),
+            liquid_density: MassDensity::from_base(
+                cfd_core::physics::constants::physics::fluid::WATER_DENSITY,
+            ),
             vapor_density: MassDensity::from_base(0.0173),
             volume_fraction: 0.5,
             bubble_radius: Length::from_base(1.0e-6),

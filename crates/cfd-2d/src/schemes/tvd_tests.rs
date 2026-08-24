@@ -218,4 +218,57 @@ mod tests {
             "MUSCL2 should report second-order accuracy"
         );
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MUSCL3 theorems
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Verify MUSCL3 reproduces a constant field exactly for both states.
+    #[test]
+    fn test_muscl3_constant_preservation() {
+        let nx = 20;
+        let ny = 1;
+        let constant = 3.7_f64;
+        let mut grid = Grid2D::<f64>::new(nx, ny, 1.0, 1.0, 0);
+        let [rows, cols] = grid.data.shape();
+        for i in 0..rows {
+            for j in 0..cols {
+                grid.data[[i, j]] = constant;
+            }
+        }
+
+        let scheme = MUSCLScheme::<f64>::muscl3_superbee();
+        for i in 2..nx - 2 {
+            let j = 0;
+            let left = scheme.reconstruct_face_value_x(&grid, 1.0, i, j);
+            let right = scheme.reconstruct_face_value_x(&grid, -1.0, i, j);
+            assert_relative_eq!(left, constant, epsilon = 1e-10);
+            assert_relative_eq!(right, constant, epsilon = 1e-10);
+        }
+    }
+
+    /// Verify MUSCL3 left and right states are exact for linear fields:
+    /// φ_{i+½}^L = φ_{i+½}^R = slope·(i + ½).
+    ///
+    /// The κ = 1/3 stencils (−φ_{i−1}+5φ_i+2φ_{i+1})/6 and
+    /// (2φ_i+5φ_{i+1}−φ_{i+2})/6 both reproduce linear data exactly. The
+    /// pre-2026-08-20 coefficients summed to 11/12 (left) and had sign-flipped
+    /// end coefficients (right), breaking this theorem.
+    #[test]
+    fn test_muscl3_linear_exactness() {
+        let nx = 20;
+        let ny = 1;
+        let slope = 2.5;
+        let grid = make_linear_grid_x(nx, ny, slope);
+        let scheme = MUSCLScheme::<f64>::muscl3_superbee();
+
+        for i in 2..nx - 2 {
+            let j = 0;
+            let expected = slope * (i as f64 + 0.5);
+            let left = scheme.reconstruct_face_value_x(&grid, 1.0, i, j);
+            let right = scheme.reconstruct_face_value_x(&grid, -1.0, i, j);
+            assert_relative_eq!(left, expected, epsilon = 1e-10);
+            assert_relative_eq!(right, expected, epsilon = 1e-10);
+        }
+    }
 }

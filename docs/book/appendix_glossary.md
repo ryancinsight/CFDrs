@@ -1,4 +1,4 @@
-# Appendix C — Atlas Glossary
+# Appendix B — Atlas Glossary
 
 <!-- generated-figure-start -->
 ![Figure B.2 — B. Glossary](figures/appendix/fig02_b_glossary.svg)

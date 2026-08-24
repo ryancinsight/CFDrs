@@ -417,12 +417,14 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumCoefficients<T> {
                     *ap = ap_val;
                 }
 
-                // SIMPLEC consistent diagonal: aP - gamma * sum(aNb)
-                // This represents the part of aP that does not depend on neighbor velocities.
-                // For SIMPLEC consistency, we use this in the velocity correction equation.
+                // SIMPLEC consistent diagonal: aP − sum(aNb)
+                // Van Doormaal & Raithby (1984) approximate the neighbour
+                // velocity corrections u'_nb ≈ u'_P, which folds the neighbour
+                // contribution into the diagonal and requires the FULL
+                // a_P − Σa_nb here. Prior to 2026-08-20 an ad-hoc γ = 0.85
+                // blend was used instead of the published γ = 1.
                 if let Some(ap_c) = self.ap_consistent.at_mut(i, j) {
-                    let gamma: T = <T as FloatElement>::from_f64(0.85);
-                    let val = ap_val - ap_sum * gamma;
+                    let val = ap_val - ap_sum;
                     let eps: T = <T as FloatElement>::from_f64(1e-10);
 
                     *ap_c = if val > eps { val } else { eps };
