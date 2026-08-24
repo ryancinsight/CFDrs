@@ -10,6 +10,8 @@ use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
 use cfd_core::error::Result;
+use cfd_core::physics::constants::physics::thermo::P_ATM;
+use cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE_K;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::CfdScalar;
@@ -90,7 +92,9 @@ where
 
         let start_time = std::time::Instant::now();
         let mut convergence = Vec::new();
-        let rho = <T as FloatElement>::from_f64(1060.0);
+        let rho = <T as FloatElement>::from_f64(
+            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+        );
 
         for _ in 0..config.max_iterations {
             let dt = config
@@ -115,8 +119,8 @@ where
         // Calculate metrics
         let props = FluidTrait::properties_at(
             &blood,
-            <T as FloatElement>::from_f64(310.0),
-            <T as FloatElement>::from_f64(101325.0),
+            <T as FloatElement>::from_f64(BODY_TEMPERATURE_K),
+            <T as FloatElement>::from_f64(P_ATM),
         )?;
         // dynamic_viscosity available via props if needed downstream
         let _ = props.dynamic_viscosity;

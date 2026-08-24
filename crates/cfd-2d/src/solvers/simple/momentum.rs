@@ -36,12 +36,21 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
 
         for j in 0..grid.ny {
             for i in 0..grid.nx {
+                // d = V / |a_P| (Patankar 1980): the velocity response to a
+                // unit pressure gradient, δu = −(V/a_P)∇p′. Both the p′
+                // Poisson coefficients and the Rhie–Chow interpolation must
+                // use this same volume-based coefficient to remain mutually
+                // consistent. Prior to 2026-08-20 d_u = dy/|a_P| omitted the
+                // dx factor, leaving the p′ equation inconsistent with the
+                // applied nodal correction by 1/dx on non-square grids.
+                let cell_volume = dx * dy;
+
                 let ap_u_val = NumericElement::abs(ap_u.at(i, j));
                 d_u.set(
                     i,
                     j,
                     if ap_u_val > min_ap {
-                        dy / ap_u_val
+                        cell_volume / ap_u_val
                     } else {
                         scalar::zero::<T>()
                     },
@@ -52,7 +61,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                     i,
                     j,
                     if ap_v_val > min_ap {
-                        dx / ap_v_val
+                        cell_volume / ap_v_val
                     } else {
                         scalar::zero::<T>()
                     },

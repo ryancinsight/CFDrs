@@ -103,11 +103,14 @@ impl<T: CfdScalar + Copy + FloatElement> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            let quick = (<T as FloatElement>::from_f64(6.0) * phi_i
-                - <T as FloatElement>::from_f64(2.0) * phi_im1
-                + <T as FloatElement>::from_f64(8.0) * phi_ip1
-                - phi_ip2)
-                / <T as FloatElement>::from_f64(12.0);
+            // κ = 1/3 upwind-biased left state (van Leer 1977), matching the
+            // documented formula in schemes/tvd/mod.rs. Prior to 2026-08-20
+            // the coefficients (6, −2, 8, −1)/12 summed to 11/12 and failed
+            // to reproduce even a constant field.
+            let quick = (-phi_im1
+                + <T as FloatElement>::from_f64(5.0) * phi_i
+                + <T as FloatElement>::from_f64(2.0) * phi_ip1)
+                / <T as FloatElement>::from_f64(6.0);
 
             let muscl2 = self.reconstruct_left_muscl2(phi_im1, phi_i, phi_ip1);
             let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
@@ -136,9 +139,12 @@ impl<T: CfdScalar + Copy + FloatElement> MUSCLScheme<T> {
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-            let quick = (-phi_i
+            // Mirrored κ = 1/3 right state. Prior to 2026-08-20 the φ_i and
+            // φ_{i+2} coefficients were sign-flipped ((−φ_i + 5φ_{i+1} +
+            // 2φ_{i+2})/6), which returned 3/2 instead of 1/2 for φ = x.
+            let quick = (<T as FloatElement>::from_f64(2.0) * phi_i
                 + <T as FloatElement>::from_f64(5.0) * phi_ip1
-                + <T as FloatElement>::from_f64(2.0) * phi_ip2)
+                - phi_ip2)
                 / <T as FloatElement>::from_f64(6.0);
 
             let muscl2 = self.reconstruct_right_muscl2(phi_im1, phi_i, phi_ip1);

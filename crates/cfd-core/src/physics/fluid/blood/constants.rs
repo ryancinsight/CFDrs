@@ -55,3 +55,11 @@ pub const NORMAL_HEMATOCRIT: f64 = 0.45;
 
 /// Critical vessel diameter for Fåhræus-Lindqvist effect \[m]
 pub const FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER: f64 = 300e-6;
+
+/// Normal human body temperature [K] (37 C)
+pub const BODY_TEMPERATURE_K: f64 = 310.15;
+
+/// Andrade blood viscosity temperature coefficient B [K]
+/// Used in the exponential temperature correction: exp(B * (1/T - 1/T_ref))
+/// Reference: Fung (1993)
+pub const ANDRADE_B_BLOOD: f64 = 1500.0;

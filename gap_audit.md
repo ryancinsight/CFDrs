@@ -1,3 +1,298 @@
+## Finding 2026-08-20: CFDrs scope-vs-delivery audit
+
+Static-evidence audit (no build, no test run) of the declared scope in
+`README.md`, `docs/book/SUMMARY.md`, and `docs/adr.md` against the tree at
+`68e69690` (branch `codex/cfdrs-tvd-test-integration`, 35 pre-existing dirty
+files from a peer session, left untouched). Every number below is a command
+result, not an estimate. No gate was executed, so nothing here asserts that any
+suite passes.
+
+### Measured baseline
+
+| Quantity | Value | How measured |
+|---|---|---|
+| Workspace packages | 12 (11 libs + xtask) | `cargo metadata --offline --no-deps` |
+| Library source | 1154 `.rs`, 268 175 lines under `crates/*/src` | `find`/`cat`/`wc -l` |
+| All Rust incl. tests/benches/examples | 1393 `.rs`, 331 108 lines | same |
+| Test functions | 3129 `#[test]` | `grep -rn '#\[test\]'` |
+| `proptest!` blocks | 60 | `grep -rn 'proptest!'` |
+| Cargo targets | 10 lib, 1 cdylib, 2 bin, 112 test, 49 example, 18 bench | `cargo metadata` |
+| `todo!` / `unimplemented!` / TODO / FIXME | 0 / 0 / 0 | `grep` over `crates xtask tests benches examples` |
+| Files > 500 lines | 135 | `find … -exec wc -l` (Atlas baseline records 134; +1 drift) |
+| Crate-level `#![allow(...)]` in `lib.rs` | 292 across 10 of 11 crates | `grep -h '^#!\[allow' crates/*/src/lib.rs \| wc -l` |
+| `#[allow(` sites | 97 | `grep -rn '#\[allow('` (Atlas baseline 89; **+8 regression**) |
+| Crates with `#![deny(missing_docs)]` | **0 of 11** (all use `warn`) | `grep -l 'deny(missing_docs)' crates/*/src/lib.rs` |
+| Production `.unwrap()` | 0 | `grep -rn '\.unwrap()' crates/*/src \| grep -v test` |
+| `.expect(` sites in `crates/*/src` | 1701, of which **739 read `expect("expected value")`** | `grep -rho 'expect("[^"]*"' \| sort \| uniq -c` |
+| Ignored tests | 32, of which 3 admit unimplemented behaviour | `grep -rn '#\[ignore'` |
+| Book chapters | 19 numbered + 2 appendices, 1610 total lines incl. a 249-line glossary | `wc -l docs/book/*.md` |
+| ADRs | 1 file (`docs/adr.md`, 1601 lines, 53 table rows), 0 numbered ADR files, no index | `ls docs/adr` → absent |
+
+### Substrate consumption — clean at the manifest layer
+
+No workspace or member manifest declares `ndarray`, `nalgebra`, `rayon`,
+`tokio`, `rustfft`, or `approx`. The two occurrences in `Cargo.lock` are
+legitimate boundary transitives: `ndarray` ← `numpy` (the PyO3 NumPy bridge in
+`cfd-python`) and `rayon` ← `criterion` (dev-only). The ndarray→leto migration
+is complete at the dependency-graph level; the only `ndarray::`/`nalgebra::`
+string in the tree is inside `xtask/src/migration_audit.rs`, which is the
+scanner that enforces their absence.
+
+Atlas providers genuinely bound (import-site counts across `crates`, `xtask`,
+`benches`, `examples`, `tests`): eunomia 864, aequitas 518, leto 411,
+gaia-mesh 409 (as `cfd_mesh`), leto-ops 92, athena-leto 31, athena-core 17,
+moirai 17, iris 15, hephaestus-wgpu 14, apollo-fft 8, melinoe 4, hyperion 4,
+themis 3, apollo-nufft 3, hermes-simd 2, coeus-optim 2, consus 3, ritk-vtk 1,
+harmonia 1, proteus 1, tyche-core 1. `moirai` is real consumption — six crates
+declare it and use `Adaptive`, `fold_reduce_with`, `map_collect_mut_with`,
+`ParallelSlice` — not a manifest-only edge. Only 4 `std::thread` sites remain in
+library source. Zero raw `wgpu::` references survive; GPU work routes through
+`hephaestus-wgpu`, though 14 in-repo `.wgsl` kernels remain
+(`crates/cfd-core/src/compute/gpu/kernels/*`, `crates/cfd-math/src/shaders/*`),
+which `Cargo.toml:110` already labels an in-flight replacement.
+
+### F-1 [arch][major] Ungated `#[global_allocator]` inside a library crate
+
+`crates/cfd-validation/src/benchmarking/memory.rs:93` installs
+`TrackingAllocator` as the process global allocator with no `#[cfg]` guard:
+
+    #[global_allocator]
+    static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
+        allocator: System,
+        stats: MemoryStats::new(),
+    };
+
+Every binary that links `cfd-validation` — its 40 test targets, both benches,
+its examples, and any downstream consumer — silently routes all allocation
+through atomic counters (`unsafe impl GlobalAlloc`, lines 315-345). Two
+consequences, both observable without running anything: allocation-heavy
+benchmark numbers produced anywhere in that link graph are contaminated by
+instrumentation the measured code did not ask for, and a downstream consumer
+that declares its own `#[global_allocator]` cannot compile against
+`cfd-validation` at all (`E0152`, one allocator per program). This is public
+behaviour of a published crate, so removing or gating it is `[major]`.
+
+### F-2 [verification][patch] 54 files / 10 543 lines sit outside every cargo target
+
+The root manifest is a virtual workspace: `grep '^\[' Cargo.toml` returns
+`[workspace]`, `[workspace.package]`, `[workspace.dependencies]`,
+`[workspace.lints.*]` — and no `[package]`. `Cargo.toml:26` states the cause
+outright: "There is no `cfd-suite` package." Target auto-discovery is
+per-package, so the root `examples/` (37 files), `benches/` (11 files), and
+`tests/` (6 files) are claimed by nothing. Confirmed authoritatively:
+`cargo metadata --offline --no-deps` reports **0 targets** whose `src_path`
+lies under those three directories, while the 49 example / 18 bench / 112 test
+targets it does report all live under `crates/*/`.
+
+`README.md:130-141` presents those same directories as the live set — "37
+example programs", "`benches/` holds 11 criterion suites", and "Examples are not
+run by the test gates, so `cargo build --examples` is the check that keeps them
+from rotting". That check cannot reach them. Neither can `cargo bench
+--workspace`, `cargo check --workspace --all-targets` (the CI step at
+`.github/workflows/ci.yml:85`), or nextest. 10 543 lines of validation drivers —
+including `examples/cavity_validation.rs`, `examples/pipe_flow_validation.rs`,
+and `examples/turbulent_channel_flow.rs`, the three named as figure sources in
+the book manifest — are unverified by construction.
+
+### F-3 [arch][major] 20 563 lines of committed Python domain logic in `validation/`
+
+`git ls-files validation` returns 126 tracked files: 59 `.py` (20 563 lines),
+6 `.pyc` bytecode files under `__pycache__/`, 52 `.xml` and 5 `.png` run
+outputs, 1 `.ps1`, 2 `.md`. The Python is not binding glue — it is a parallel
+implementation of the crate's own declared scope:
+`validation/analytical/poiseuille_2d.py` and
+`validation/analytical/bernoulli_venturi.py` restate analytical solutions that
+`crates/cfd-validation/src/analytical/{poiseuille_2d,…}.rs` already own, and
+`validation/convergence_study.py` restates `crates/cfd-validation/src/convergence/`.
+`xtask/src/main.rs` carries the harness for it (`setup_venv`, `install_deps`,
+`install_fenics`, `validate(…, plot, quick, category)`), so the second stack is
+tooled, not vestigial.
+
+None of it runs in CI — `.github/workflows/ci.yml` has exactly six run steps
+(metadata, fmt, check, clippy, two nextest invocations, doctests) plus the
+figure job. The run outputs are committed under timestamped directories
+(`validation/fluidsim_output/NS2D_64x64_S2pix2pi_2026-02-09_18-10-11/…`),
+which is run-output segregation inverted: the outputs are in git and the
+verification is not in the gate. `CHECKLIST.md:15-17` shows the `.pyc` caches
+were excluded from the *sdist*; they remain tracked in the repository.
+
+### F-4 [arch][minor] Three in-repo SIMD implementations beside a 2-call-site hermes binding
+
+2026 lines of SIMD live in the workspace across three unrelated homes:
+
+- `crates/cfd-core/src/compute/simd/x86.rs` (286 lines) and `aarch64.rs` (197):
+  hand-written `std::arch` intrinsics behind six `pub unsafe fn`
+  (`advection_avx2`, `advection_sse41`, `diffusion_avx2`, `advection_neon`,
+  `diffusion_neon`, `dot_product_neon`), each `#[target_feature(enable = …)]`.
+- `crates/cfd-math/src/simd/` (972 lines: `cfd.rs`, `vector.rs`,
+  `vectorization.rs`, `ops/`, `tests.rs`).
+- `crates/cfd-2d/src/solvers/simd_kernels.rs` (562 lines).
+
+`hermes-simd`, the Atlas SIMD provider, is declared by exactly one crate
+(`crates/cfd-math/Cargo.toml:22`) and referenced at exactly two lines —
+`crates/cfd-math/src/simd/ops/mod.rs:8` and `:196`, the second being an error
+conversion. For an integrator layer this is the substrate-duplication pattern:
+the provider is bound as a thin alias while the workspace keeps three
+first-party implementations of the capability the provider exists to own.
+Related: 17 `unsafe` sites in library source carry only 2 `// SAFETY:` comments;
+the six `pub unsafe fn` do carry `# Safety` rustdoc, and the two genuine
+`unsafe {}` blocks (`crates/cfd-core/src/physics/fluid_dynamics/operations.rs:41,73`)
+are the two that are commented, so the gap is in the intrinsic bodies rather
+than at the call sites.
+
+### F-5 [correctness][patch] 739 content-free `expect` sites, including production solver paths
+
+`grep -rho 'expect("[^"]*"' crates/*/src | sort | uniq -c` puts
+`expect("expected value")` at 739 occurrences — 43% of all 1701 `.expect(` sites
+— against 154 that carry an `invariant:`-prefixed statement. The message states
+nothing a reader or a panic report can use. These are not confined to tests:
+
+    crates/cfd-2d/src/physics/momentum/solve.rs:83   self.matrix_u.as_ref().expect("expected value"),
+    crates/cfd-2d/src/physics/momentum/solve.rs:84   self.rhs_u.as_ref().expect("expected value"),
+    crates/cfd-2d/src/physics/momentum/solve.rs:343  MomentumComponent::U => self.matrix_u.take().expect("expected value"),
+
+That file contains no `mod tests`. Each site is an `Option` field whose
+`Some`-ness depends on an earlier assembly call — an undocumented call-order
+requirement panicking with an unlabelled message. The repo's 0-production-unwrap
+conformance number is therefore satisfied in form: `clippy::unwrap_used` is
+denied at `Cargo.toml:150` and the sites were converted to `expect` without the
+proof the panic policy asks the message to carry.
+
+### F-6 [verification][patch] The flagship grid-convergence study asserts nothing
+
+`crates/cfd-2d/tests/ghia_cavity_simplec_validation.rs:1088-1123` computes an
+observed order per grid pair and prints it. Line 1109 reads
+`let _target_order = 2.0;` — bound, underscored, never compared. The only
+branch is `if *final_error < expected_error { println!("✓ …") } else {
+println!("⚠ …") }`. Replacing the solver body with a constant field would still
+let this test pass; it cannot fail on a convergence regression.
+
+The MMS layer is a source-term library rather than a code-verification gate. The
+Reynolds-stress "grid convergence" test says so in its own comment —
+`crates/cfd-2d/tests/reynolds_stress_comprehensive_tests.rs:583-584`: "This
+tests the MMS implementation itself rather than numerical convergence." The one
+genuine order-of-accuracy assertion found is
+`crates/cfd-2d/tests/poisson_fdm_validation.rs:443-448` (`reduction_factor > 3.0`
+for an expected 4× at second order); `crates/cfd-math/src/time_stepping/imex.rs:484`
+covers temporal order. So the V&V ladder has real published-benchmark anchors
+(Ghia cavity, Armaly backward step in `benchmarks/step.rs`, Taylor-Green,
+Poiseuille, Couette, Blasius, Womersley, Stokes, cylinder) and real analytical
+oracles, but code verification via observed order is asserted at one spatial and
+one temporal site, not across the solver families that declare second order.
+
+Three ignored tests are admissions of unimplemented declared behaviour rather
+than slowness:
+
+    crates/cfd-1d/tests/component_validation.rs:185  "Implementation does not clamp parameters to physical bounds"
+    crates/cfd-1d/tests/component_validation.rs:234  "Valve resistance behavior does not follow expected monotonic relationship"
+    crates/cfd-1d/tests/component_validation.rs:443  "FlowSensor component API differs from expected"
+
+and two more park a migration: `crates/cfd-math/tests/amg_coarsening_tests.rs:5,9`
+"pending migration of domain-specific multigrid code to leto-ops API".
+
+### F-7 [verification][patch] The figure SSOT gate checks names, and its provenance is dangling
+
+`xtask/src/check_figures.rs:94-129` — the function CI runs at
+`.github/workflows/ci.yml:131` — parses `figures/*.svg` references out of
+`SUMMARY.md` and `README.md`, collects the `FIGURE_SPECS` names from
+`prebook.rs`, and reports the two set differences. It never opens an SVG, never
+compares a hash, and never regenerates anything. A figure whose content diverged
+from the data it depicts passes.
+
+`docs/book/figures/MANIFEST.json` records each figure's
+`source_example` as `{"crate_name":"cfd-suite","example_name":"…"}` —
+`cfd-suite` is the package `Cargo.toml:26` states does not exist, and the named
+examples (`pipe_flow_validation`, `cavity_validation`, `turbulent_channel_flow`)
+are root-directory files that F-2 shows cargo cannot build. The figure → data
+chain is therefore unverifiable end to end: the gate does not check content, and
+the recorded producer cannot be run.
+
+### F-8 [pm-hygiene][patch] Two parallel PM systems, a non-conformant ADR store, stale status
+
+Both trees are live and neither defers to the other:
+
+    root:  backlog.md (4487 L)  CHECKLIST.md (4550 L)  gap_audit.md (8705 L)   last touched 2026-08-19
+    docs/: docs/backlog.md (4587 L)  docs/checklist.md (5212 L)  docs/gap_audit.md (4505 L)  last touched 2026-08-20 (68e69690)
+           plus docs/gap_audit_clean.md (a fourth gap file)
+
+`README.md:146` names the root three. The peer session at HEAD writes the
+`docs/` three. `git ls-files` tracks `CHECKLIST.md`; README references
+`checklist.md` — identical on this case-insensitive host, a broken reference on
+a case-sensitive one.
+
+`CFDRS-VAL-RED-1` (`backlog.md:702`) is the item this audit was asked to locate.
+Its status marker reads "(in progress 2026-07-31; owner=Claude atlas session
+0161539d)" while its own body at `backlog.md:729` records "CLOSURE:
+cfd-validation Nextest 434/434 (1 slow)", with root causes named for both
+failures and all four timeouts. The work is reported complete; only the status
+field is stale. It is left as found — the item is another owner's.
+
+ADRs do not follow the governance form: there is no `docs/adr/` directory, no
+numbered records, and no index. `docs/adr.md` is one 1601-line file whose header
+reads `## Status: ACTIVE - Version 1.42.0-SIMD-EXCELLENCE` (the workspace is at
+`0.3.0`) above a 53-row decision table. Decisions cannot be cited by number from
+board items or commits.
+
+`docs/` additionally holds 52 sprint/audit report files
+(`SPRINT_1.45.0_SUMMARY.md` … `SPRINT_1.94.0_…`, `FINAL_VALIDATION_REPORT.md`,
+`AUDIT_SUMMARY_2025_11_18.md`), the report-file genre in bulk. `CHANGELOG.md`
+opens with 30 lines of internal vocabulary policy before its `# Changelog`
+heading; the same block is duplicated verbatim at `gap_audit.md:41`.
+Repository-root non-source files include `errors.json` (174 KB of raw
+`cargo --message-format=json` build output), `ACCOMPLISHMENTS.md`, and
+`ARCHITECTURE.md`.
+
+Book chapter numbering has drifted from `SUMMARY.md`: `core_flows.md` and
+`governing_equations.md` both open "Chapter 2"; `pressure_velocity.md` and
+`turbulence_multiphase.md` both open "Chapter 3"; `crate_schematics.md` opens
+"Chapter 21" where SUMMARY lists it as 13 and its own figure is labelled 13.1;
+`crate_optim.md` opens "Chapter 22" against SUMMARY's 19 / figure 19.1;
+`cavitation.md`, `matrix_free_operators.md`, `schematic_integration_2d.md`, and
+`vascular_bifurcations.md` carry no chapter number at all. Several chapters are
+stubs — `crate_schematics.md` is 8 lines (a figure plus a cross-reference),
+`core_flows.md` 11 lines.
+
+### Conformance floor: the pedantic baseline is suppressed at crate level
+
+`Cargo.toml:133-145` sets `clippy::all` and `clippy::pedantic` to warn and denies
+`unwrap_used`, `print_stdout`, `print_stderr`, `dbg_macro`, with the comment
+"the floor itself never `allow`s them — that would erase the ratchet signal."
+The floor is nonetheless erased downstream: `crates/cfd-validation/src/lib.rs:1`
+is `#![allow(clippy::print_stdout)]` and `crates/cfd-3d/src/lib.rs:6` allows
+`print_stderr`. 409 print/`dbg` sites sit in `crates/*/src` (2673 across all
+targets). Only 5 `#[expect(…)]` ratchet sites exist against 97 `#[allow(`.
+`README.md:113-119` describes this honestly, which is why the crate-level count
+in that paragraph is worth keeping accurate — it read 288 and measures 292.
+
+All 12 packages are `edition = "2021"` with `resolver = "2"`; the toolchain pin
+is `1.97.0`. `crates/cfd-python` ships `pyproject.toml` and a README but no
+`py.typed` and no `.pyi` stubs, so the Python surface is untyped to mypy and
+IDEs; it also carries a committed `casson_rheology_validation.png`.
+
+`crates/cfd-validation/src/convergence/richardson.rs` (224 lines) and
+`crates/cfd-validation/src/manufactured/richardson/core.rs` (551 lines) are two
+implementations of Richardson extrapolation in one crate — `estimate_order`,
+`extrapolate`, and `is_asymptotic` exist in both, the second returning
+`Result<_, String>` (9 stringly-typed error returns in `cfd-validation`, 56
+workspace-wide).
+
+### Completeness
+
+66% of declared scope delivered and verified. Denominator: the capability set
+named in `README.md` (11 crates and their stated solver families), the 19
+chapters plus 2 appendices of `docs/book/SUMMARY.md`, and the 53 accepted
+decisions in `docs/adr.md`. Weighting per the Atlas rubric — capabilities
+implemented without stubs 40% (scored ≈0.92: no `todo!`/`unimplemented!`
+anywhere, every declared solver family present, minus five ignored tests that
+admit unfinished behaviour), verification depth 25% (≈0.55: strong analytical
+and published-benchmark anchors, but observed-order code verification asserted
+at two sites, the flagship convergence study vacuous, 10 543 lines of drivers
+and 20 563 lines of Python validation outside every gate, figure provenance
+dangling), documentation 20% (≈0.55: complete book skeleton with stub chapters
+and drifted numbering, zero crates at `deny(missing_docs)`, non-conformant ADR
+store), conformance floor 15% (≈0.30: 135 oversized files, 292 crate-level
+allows, +8 `#[allow]` regression against the Atlas baseline, edition 2021).
+
 ## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
 
 ## Finding 2026-08-19: exact default-head Rust and figure gates pass

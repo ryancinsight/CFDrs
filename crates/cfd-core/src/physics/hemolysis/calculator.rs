@@ -181,8 +181,10 @@ impl<T: FloatElement + Copy> HemolysisCalculator<T> {
                     Ok(f64::INFINITY)
                 }
             }
-            HemolysisModel::HeuserOpitz { threshold, .. } => Ok(threshold),
-            HemolysisModel::Zhang { .. } => Ok(1000.0 * 0.0035),
+            HemolysisModel::LinearThreshold { threshold, .. } => Ok(threshold),
+            HemolysisModel::Zhang { .. } => {
+                Ok(1000.0 * crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY)
+            }
         }
     }
 }
