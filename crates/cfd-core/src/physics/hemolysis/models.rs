@@ -10,7 +10,7 @@
 //! HI = ΔHb / Hb = C · τ^α · t^β
 //! ```
 //!
-//! with standard constants $C = 3.62 \times 10^{-5}$, $\alpha = 2.416$,
+//! with standard constants $C = 3.62 \times 10^{-7}$, $\alpha = 2.416$,
 //! $\beta = 0.785$ (laminar Couette-flow calibration).
 //!
 //! **Proof sketch.** Giersiepen et al. performed controlled Couette-viscometer
@@ -31,24 +31,24 @@
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
-// ── Named constants for millifluidic Giersiepen model ─────────────────────────
+// ── Named constants for the Giersiepen power law ─────────────────────────────
 
-/// Giersiepen (1990) Table 1: Couette viscometer calibration constant C for
-/// blood processing and millifluidic devices.  `HI = C · τ^β · t^α`.
+/// Giersiepen (1990) calibration constant C for the haemolysis index
+/// `HI = C · τ^α · t^β` (τ in Pa, t in s).
 ///
 /// **Reference**: Giersiepen M. et al. (1990). "Estimation of shear stress-related
 /// blood damage in heart valve prostheses." *Int. J. Artif. Organs* 13(5):300–306.
-pub const GIERSIEPEN_MILLIFLUIDIC_C: f64 = 3.62e-5;
+pub const GIERSIEPEN_MILLIFLUIDIC_C: f64 = 3.62e-7;
 
-/// Giersiepen (1990) shear-stress exponent β for millifluidic devices.
+/// Giersiepen (1990) shear-stress exponent α.
 ///
 /// Calibrated from Couette-viscometer experiments at τ ∈ [40, 255] Pa.
-pub const GIERSIEPEN_MILLIFLUIDIC_STRESS: f64 = 1.991;
+pub const GIERSIEPEN_MILLIFLUIDIC_STRESS: f64 = 2.416;
 
-/// Giersiepen (1990) time exponent α for millifluidic devices.
+/// Giersiepen (1990) time exponent β.
 ///
 /// Calibrated from Couette-viscometer experiments at t ∈ [7, 700] ms.
-pub const GIERSIEPEN_MILLIFLUIDIC_TIME: f64 = 0.765;
+pub const GIERSIEPEN_MILLIFLUIDIC_TIME: f64 = 0.785;
 
 /// Conservative cavitation amplification slope for SDT millifluidic devices.
 ///
@@ -80,8 +80,8 @@ pub enum HemolysisModel {
         /// Shear rate exponent
         rate_exponent: f64,
     },
-    /// Heuser-Opitz model (1980)
-    HeuserOpitz {
+    /// Generic linear-threshold damage model.
+    LinearThreshold {
         /// Critical shear stress threshold (Pa)
         threshold: f64,
         /// Damage rate above threshold
@@ -92,7 +92,7 @@ pub enum HemolysisModel {
 impl Default for HemolysisModel {
     fn default() -> Self {
         Self::PowerLaw {
-            coefficient: 3.62e-5,
+            coefficient: 3.62e-7,
             stress_exponent: 2.416,
             time_exponent: 0.785,
         }
@@ -103,31 +103,38 @@ impl HemolysisModel {
     /// Create Giersiepen model with standard constants
     pub fn giersiepen_standard() -> Self {
         Self::PowerLaw {
-            coefficient: 3.62e-5,
+            coefficient: 3.62e-7,
             stress_exponent: 2.416,
             time_exponent: 0.785,
         }
     }
 
-    /// Create Giersiepen model for turbulent flow
-    pub fn giersiepen_turbulent() -> Self {
+    /// Heuser & Opitz (1980) Couette-viscometer power law:
+    /// `HI = 1.8×10⁻⁶ · τ^2.09 · t^0.765`.
+    ///
+    /// **Reference**: Heuser, G. & Opitz, R. (1980). "A Couette viscometer for
+    /// short time shearing of blood." *Biorheology* 17:17–24.
+    pub fn heuser_opitz_couette() -> Self {
         Self::PowerLaw {
             coefficient: 1.8e-6,
-            stress_exponent: 1.991,
+            stress_exponent: 2.09,
             time_exponent: 0.765,
         }
     }
 
-    /// Create Giersiepen model for laminar flow
-    pub fn giersiepen_laminar() -> Self {
-        Self::PowerLaw {
-            coefficient: 1.228e-5,
-            stress_exponent: 1.9918,
-            time_exponent: 0.6606,
+    /// Create a generic linear-threshold damage model.
+    ///
+    /// Note: this is *not* the published Heuser & Opitz (1980) correlation —
+    /// that is the power law returned by [`Self::heuser_opitz_couette`].
+    pub fn linear_threshold(threshold: f64, damage_rate: f64) -> Self {
+        Self::LinearThreshold {
+            threshold,
+            damage_rate,
         }
     }
 
-    /// Create Zhang model for Couette flow
+    /// Zhang model for Couette flow (Zhang et al. 2011):
+    /// `HI = 1.86×10⁻⁴ · γ̇^1.84 · t` with γ̇ the shear rate in s⁻¹.
     pub fn zhang() -> Self {
         Self::Zhang {
             coefficient: 1.86e-4,
@@ -135,16 +142,14 @@ impl HemolysisModel {
         }
     }
 
-    /// Create Heuser-Opitz threshold model
-    pub fn heuser_opitz() -> Self {
-        Self::HeuserOpitz {
-            threshold: 150.0,
-            damage_rate: 0.01,
-        }
-    }
-
-    /// Giersiepen (1990) model validated for millifluidic and blood-processing
-    /// devices (SDT, micro-pump, oxygenator, venturi).
+    /// Giersiepen (1990) model applied to millifluidic and blood-processing
+    /// device screening (SDT, micro-pump, oxygenator, venturi).
+    ///
+    /// Uses the standard Couette calibration — no device-specific
+    /// recalibration exists in the literature. Prior to 2026-08-20 this
+    /// variant carried fabricated constants (C = 3.62×10⁻⁵, β = 1.991,
+    /// α = 0.765) presented as "Giersiepen Table 1"; the actual published
+    /// values are C = 3.62×10⁻⁷, α = 2.416, β = 0.785.
     ///
     /// # Theorem — Giersiepen Power-Law (Giersiepen et al. 1990)
     ///
@@ -152,10 +157,10 @@ impl HemolysisModel {
     /// exposed to scalar shear stress τ for duration t follows the empirical law:
     ///
     /// ```text
-    /// HI = C · τ^β · t^α
+    /// HI = C · τ^α · t^β
     /// ```
     ///
-    /// with C = 3.62 × 10⁻⁵,  β = 1.991 (shear exponent),  α = 0.765 (time exponent).
+    /// with C = 3.62 × 10⁻⁷,  α = 2.416 (shear exponent),  β = 0.785 (time exponent).
     /// These constants were calibrated against Couette-viscometer experiments at
     /// τ ∈ [40, 255] Pa and t ∈ [7, 700] ms (Table 1 of Giersiepen et al. 1990).
     ///
@@ -225,11 +230,11 @@ impl HemolysisModel {
                 coefficient,
                 rate_exponent,
             } => {
-                let shear_rate = shear_stress / 0.0035;
+                let shear_rate = shear_stress / crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY;
                 Ok(coefficient * shear_rate.powf(*rate_exponent) * exposure_time)
             }
 
-            Self::HeuserOpitz {
+            Self::LinearThreshold {
                 threshold,
                 damage_rate,
             } => {

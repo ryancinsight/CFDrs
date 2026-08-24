@@ -115,8 +115,8 @@ impl<T: CfdScalar + FloatElement + Copy> WomersleyNumber<T> {
         Self {
             radius: Length::from_base(<T as FloatElement>::from_f64(0.0125)),
             omega: ReciprocalTime::from_base(<T as FloatElement>::from_f64(2.0 * PI * 1.2)),
-            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
-            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY)),
         }
     }
 
@@ -126,8 +126,8 @@ impl<T: CfdScalar + FloatElement + Copy> WomersleyNumber<T> {
         Self {
             radius: Length::from_base(<T as FloatElement>::from_f64(0.003)),
             omega: ReciprocalTime::from_base(<T as FloatElement>::from_f64(2.0 * PI * 1.2)),
-            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
-            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY)),
         }
     }
 

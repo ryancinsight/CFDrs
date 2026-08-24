@@ -4,6 +4,7 @@
 //! This module provides tools to verify that CFD simulations satisfy fundamental
 //! conservation laws such as mass, momentum, and energy conservation.
 
+use cfd_core::physics::constants::physics::thermo::P_ATM;
 use crate::scalar;
 use eunomia::FloatElement;
 use eunomia::NumericElement;
@@ -78,7 +79,7 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FloatEl
     );
     let u_prev = Array2::from_elem([32, 32], <T as FloatElement>::from_f64(0.95)); // Slightly different for time derivative
     let v_prev = Array2::zeros([32, 32]);
-    let pressure = Array2::from_elem([32, 32], <T as FloatElement>::from_f64(101325.0)); // Atmospheric pressure
+    let pressure = Array2::from_elem([32, 32], <T as FloatElement>::from_f64(P_ATM)); // Atmospheric pressure
 
     match momentum_checker.check_momentum_2d(
         &velocity_u,

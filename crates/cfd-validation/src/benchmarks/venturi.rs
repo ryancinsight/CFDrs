@@ -11,6 +11,7 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::VenturiCavitation;
+use cfd_core::physics::constants::physics::thermo::P_ATM;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::CfdScalar;
 use eunomia::NumericElement;
@@ -97,7 +98,7 @@ where
 
         let start_time = std::time::Instant::now();
         let mut convergence = Vec::new();
-        let rho = <T as FloatElement>::from_f64(1060.0);
+        let rho = <T as FloatElement>::from_f64(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY);
 
         for _ in 0..config.max_iterations {
             let dt = config
@@ -127,7 +128,7 @@ where
                 self.geometry.outlet_width - self.geometry.throat_width,
                 self.geometry.l_diverge,
             )),
-            inlet_pressure: Pressure::from_base(<T as FloatElement>::from_f64(101325.0)),
+            inlet_pressure: Pressure::from_base(<T as FloatElement>::from_f64(P_ATM)),
             inlet_velocity: Velocity::from_base(<T as FloatElement>::from_f64(1.0)),
             density: MassDensity::from_base(rho),
             vapor_pressure: Pressure::from_base(<T as FloatElement>::from_f64(2339.0)),

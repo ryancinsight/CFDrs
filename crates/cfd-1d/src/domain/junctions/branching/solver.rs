@@ -6,6 +6,7 @@
 use super::physics::{TwoWayBranchJunction, TwoWayBranchSolution};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
+use cfd_core::physics::constants::physics::thermo::P_ATM;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
 use cfd_core::CfdScalar;
@@ -98,7 +99,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingNetworkSolver<T> {
             inlet_flow_rate,
             inlet_pressure,
             T::from_f64_or_one(293.15),   // 20°C standard temperature [K]
-            T::from_f64_or_one(101325.0), // 1 atm [Pa]
+            T::from_f64_or_one(P_ATM), // 1 atm [Pa]
         )
     }
 
@@ -160,7 +161,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingNetworkSolver<T> {
                 current_flow,
                 current_pressure,
                 T::from_f64_or_one(293.15),
-                T::from_f64_or_one(101325.0),
+                T::from_f64_or_one(P_ATM),
             )?;
 
             solutions.push(solution);
@@ -217,21 +218,21 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingNetworkSolver<T> {
             q_ref,
             &junction.parent,
             T::from_f64_or_one(293.15),
-            T::from_f64_or_one(101325.0),
+            T::from_f64_or_one(P_ATM),
         ) / (q_ref + T::from_f64_or_one(1e-15));
         let r_1 = TwoWayBranchJunction::pressure_drop(
             &fluid,
             q_ref / T::from_f64_or_one(2.0),
             &junction.daughter1,
             T::from_f64_or_one(293.15),
-            T::from_f64_or_one(101325.0),
+            T::from_f64_or_one(P_ATM),
         ) / (q_ref / T::from_f64_or_one(2.0) + T::from_f64_or_one(1e-15));
         let r_2 = TwoWayBranchJunction::pressure_drop(
             &fluid,
             q_ref / T::from_f64_or_one(2.0),
             &junction.daughter2,
             T::from_f64_or_one(293.15),
-            T::from_f64_or_one(101325.0),
+            T::from_f64_or_one(P_ATM),
         ) / (q_ref / T::from_f64_or_one(2.0) + T::from_f64_or_one(1e-15));
 
         (r_parent, r_1, r_2)

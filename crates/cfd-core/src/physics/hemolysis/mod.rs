@@ -68,14 +68,23 @@ mod tests {
     }
 
     #[test]
-    fn test_heuser_opitz_threshold() {
-        let model = HemolysisModel::heuser_opitz();
+    fn test_linear_threshold_model() {
+        let model = HemolysisModel::linear_threshold(150.0, 0.01);
 
         let d_below = model.damage_index(100.0, 1.0).expect("expected value");
         let d_above = model.damage_index(200.0, 1.0).expect("expected value");
 
         assert_eq!(d_below, 0.0);
         assert!(d_above > 0.0);
+    }
+
+    #[test]
+    fn test_heuser_opitz_couette_power_law() {
+        // Heuser & Opitz (1980): HI = 1.8e-6 · τ^2.09 · t^0.765
+        let model = HemolysisModel::heuser_opitz_couette();
+        let expected = 1.8e-6 * 100.0_f64.powf(2.09) * 1.0_f64.powf(0.765);
+        let actual = model.damage_index(100.0, 1.0).expect("expected value");
+        assert!((actual - expected).abs() < 1e-15);
     }
 
     #[test]

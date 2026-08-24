@@ -61,9 +61,7 @@ pub(super) fn weno5_reconstruct_left<T: CfdScalar>(v: [T; 5]) -> T {
     let q1 = (-v[1] + five * v[2] + two * v[3]) / six;
     let q2 = (two * v[2] + five * v[3] - v[4]) / six;
 
-    let b0 = smoothness_indicator(v[0], v[1], v[2]);
-    let b1 = smoothness_indicator(v[1], v[2], v[3]);
-    let b2 = smoothness_indicator(v[2], v[3], v[4]);
+    let [b0, b1, b2] = smoothness_indicators(v);
 
     let (w0, w1, w2) = nonlinear_weights(
         b0,
@@ -84,16 +82,34 @@ pub(super) fn weno5_reconstruct_right<T: CfdScalar>(v: [T; 5]) -> T {
     weno5_reconstruct_left([v[4], v[3], v[2], v[1], v[0]])
 }
 
-/// WENO5 smoothness indicator for a 3-point sub-stencil (Jiang & Shu 1996).
+/// Jiang–Shu (1996) smoothness indicators β₀..β₂ for the three 3-point
+/// sub-stencils of a 5-point WENO5 reconstruction.
+///
+/// Prior to 2026-08-20 every sub-stencil used the middle-stencil second term
+/// (v₀ − v₂)², which deviates from the published indicators:
+///
+/// ```text
+/// β₀ = 13/12(v₀−2v₁+v₂)² + 1/4(v₀−4v₁+3v₂)²
+/// β₁ = 13/12(v₁−2v₂+v₃)² + 1/4(v₁−v₃)²
+/// β₂ = 13/12(v₂−2v₃+v₄)² + 1/4(3v₂−4v₃+v₄)²
+/// ```
 #[inline]
-pub(super) fn smoothness_indicator<T: CfdScalar>(v0: T, v1: T, v2: T) -> T {
+pub(super) fn smoothness_indicators<T: CfdScalar>(v: [T; 5]) -> [T; 3] {
     let thirteen_over_twelve = <T as FloatElement>::from_f64(13.0 / 12.0);
     let quarter = <T as FloatElement>::from_f64(0.25);
-    let two = scalar::one::<T>() + scalar::one::<T>();
+    let one = scalar::one::<T>();
+    let two = one + one;
+    let three = two + one;
+    let four = three + one;
 
-    let diff1 = v0 - two * v1 + v2;
-    let diff2 = v0 - v2;
-    thirteen_over_twelve * diff1 * diff1 + quarter * diff2 * diff2
+    let b0 = thirteen_over_twelve * scalar::powi::<T>(v[0] - two * v[1] + v[2], 2)
+        + quarter * scalar::powi::<T>(v[0] - four * v[1] + three * v[2], 2);
+    let b1 = thirteen_over_twelve * scalar::powi::<T>(v[1] - two * v[2] + v[3], 2)
+        + quarter * scalar::powi::<T>(v[1] - v[3], 2);
+    let b2 = thirteen_over_twelve * scalar::powi::<T>(v[2] - two * v[3] + v[4], 2)
+        + quarter * scalar::powi::<T>(three * v[2] - four * v[3] + v[4], 2);
+
+    [b0, b1, b2]
 }
 
 /// Compute normalized WENO5-Z nonlinear weights from smoothness indicators.
@@ -135,13 +151,17 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_smoothness_indicator_non_negative(
+        fn test_smoothness_indicators_non_negative(
             v0 in -10.0..10.0f64,
             v1 in -10.0..10.0f64,
             v2 in -10.0..10.0f64,
+            v3 in -10.0..10.0f64,
+            v4 in -10.0..10.0f64,
         ) {
-            let beta = smoothness_indicator(v0, v1, v2);
-            assert!(beta >= 0.0);
+            let betas = smoothness_indicators([v0, v1, v2, v3, v4]);
+            for beta in betas {
+                assert!(beta >= 0.0);
+            }
         }
 
         #[test]

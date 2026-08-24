@@ -217,7 +217,7 @@ where
         T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
         T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM),
     )?;
-    let default_hematocrit = T::from_f64_or_zero(0.45);
+    let default_hematocrit = T::from_f64_or_zero(cfd_core::physics::fluid::blood::constants::NORMAL_HEMATOCRIT);
     let default_plasma_viscosity =
         blood_state.dynamic_viscosity.into_base() / T::from_f64_or_one(3.2);
 

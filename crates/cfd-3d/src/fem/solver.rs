@@ -1000,7 +1000,13 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
                     for j in 0..4 {
                         let gj = idxs[j];
                         let gp_j = p_offset + gj;
-                        let b_val = shape_values[j] * grad_i[d] * weight;
+                        // Taylor–Hood: the pressure space is P1, so the
+                        // pressure basis at corner node j is the linear
+                        // barycentric coordinate l[j] — not shape_values[j],
+                        // which is the quadratic P2 corner function
+                        // L_j(2L_j−1) for Tet10 elements. Using the P2 value
+                        // made constant/linear pressure fields unrepresentable.
+                        let b_val = l[j] * grad_i[d] * weight;
                         *local_map.entry((gv_i, gp_j)).or_insert(scalar::zero::<T>()) -= b_val;
                         *local_map.entry((gp_j, gv_i)).or_insert(scalar::zero::<T>()) += b_val;
                     }

@@ -112,7 +112,7 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the figure chec
 individual crates on tagged releases.
 
 Ten of the eleven crates declare `#![warn(clippy::pedantic)]` and then pre-suppress it
-with crate-level `#![allow(...)]` attributes — 288 of them across those ten `lib.rs`
+with crate-level `#![allow(...)]` attributes — 292 of them across those ten `lib.rs`
 files. `cfd-schematic-mesh` declares neither, only `#![forbid(unsafe_code)]`. Those
 exemptions are debt being burned down, not a clean pedantic baseline: read the
 `lib.rs` header before treating a warning-free clippy run as evidence of pedantic
