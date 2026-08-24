@@ -85,17 +85,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tolerance: 1.0e-10,
         relative_tolerance: 1.0e-12,
     };
-    let report = cg(&matrix, &rhs, &mut solution, &config)
-        .map_err(|e| format!("cg failed: {e:?}"))?;
+    let report =
+        cg(&matrix, &rhs, &mut solution, &config).map_err(|e| format!("cg failed: {e:?}"))?;
     assert!(
         report.final_residual_norm < config.tolerance,
         "CG did not converge: final residual {:.3e} exceeds tolerance {:.3e}",
-        report.final_residual_norm, config.tolerance
+        report.final_residual_norm,
+        config.tolerance
     );
     assert!(
         report.iterations < config.max_iterations,
         "CG did not converge: {} iterations hit the budget {}",
-        report.iterations, config.max_iterations
+        report.iterations,
+        config.max_iterations
     );
 
     // -------------------------------------------------------------------

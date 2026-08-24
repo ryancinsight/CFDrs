@@ -38,10 +38,7 @@ fn main() -> Result<()> {
         divergence.iter().all(|d| d.abs() < f64::EPSILON),
         "zero initial condition must satisfy continuity exactly (∇·u = 0)"
     );
-    let vorticity_max: f64 = vorticity
-        .iter()
-        .map(|v| v.norm())
-        .fold(0.0_f64, f64::max);
+    let vorticity_max: f64 = vorticity.iter().map(|v| v.norm()).fold(0.0_f64, f64::max);
     assert!(
         vorticity_max < f64::EPSILON,
         "quiescent field has zero vorticity everywhere"
@@ -51,9 +48,7 @@ fn main() -> Result<()> {
         ke_max < f64::EPSILON,
         "quiescent field has zero kinetic energy everywhere"
     );
-    let enstrophy_max: f64 = enstrophy_field
-        .iter()
-        .fold(0.0_f64, |a, b| f64::max(a, *b));
+    let enstrophy_max: f64 = enstrophy_field.iter().fold(0.0_f64, |a, b| f64::max(a, *b));
     assert!(
         enstrophy_max < f64::EPSILON,
         "quiescent field has zero enstrophy everywhere"
