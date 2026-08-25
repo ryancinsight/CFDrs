@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! High-level cell separation model for millifluidic device design.
 //!
 //! [`CellSeparationModel`] combines the inertial lift and Dean drag force

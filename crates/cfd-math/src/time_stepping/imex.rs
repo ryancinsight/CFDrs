@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Implicit-Explicit (IMEX) time-stepping methods.
 //!
 //! This module provides IMEX Runge-Kutta schemes that treat stiff terms implicitly

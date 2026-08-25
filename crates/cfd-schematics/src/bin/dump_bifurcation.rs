@@ -1,5 +1,5 @@
 //! Dump a symmetric bifurcation network blueprint to stdout for debugging.
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 use cfd_schematics::interface::presets::symmetric_bifurcation;
 
 fn main() {

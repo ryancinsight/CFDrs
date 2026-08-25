@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! MMS validation and Richardson extrapolation study
 
 use cfd_core::error::{Error, Result};

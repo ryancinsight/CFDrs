@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Comprehensive Reynolds Stress Transport Model (RSTM) validation tests
 //!
 //! Tests cover full tensor transport equations, pressure-strain correlations,

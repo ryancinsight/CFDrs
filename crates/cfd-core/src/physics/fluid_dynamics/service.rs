@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Fluid dynamics service following Domain Service pattern
 //!
 //! This service coordinates complex fluid mechanics operations and

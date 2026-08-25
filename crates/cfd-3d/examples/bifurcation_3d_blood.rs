@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 3D Bifurcation with Blood Flow
 //!
 //! Solves 3D Navier-Stokes in a Y-junction bifurcation using the Casson

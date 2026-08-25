@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Parallel scaling analysis for CFD operations
 //!
 //! Analyzes weak and strong scaling behavior, parallel efficiency,

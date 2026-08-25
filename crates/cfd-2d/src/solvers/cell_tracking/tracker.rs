@@ -2,10 +2,9 @@
     clippy::field_reassign_with_default,
     clippy::uninlined_format_args,
     clippy::explicit_iter_loop,
-    clippy::cast_lossless,
-    clippy::print_stderr
+    clippy::cast_lossless
 )]
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stderr, reason = "test diagnostic output"))]
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time};
 
 use super::physics::{CellTrackerConfig, VelocityFieldInterpolator};

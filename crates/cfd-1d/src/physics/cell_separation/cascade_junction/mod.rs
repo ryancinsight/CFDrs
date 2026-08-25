@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout, clippy::print_stderr)]
+#![cfg_attr(test, expect(clippy::print_stderr, reason = "test diagnostic output"))]
 //! Zweifach-Fung junction routing model for selective split-sequence trees.
 //!
 //! Used by primitive selective branching topologies to predict the

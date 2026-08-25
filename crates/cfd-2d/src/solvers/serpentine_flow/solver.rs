@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Discretized 2D serpentine flow solver using FVM.
 
 use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution};

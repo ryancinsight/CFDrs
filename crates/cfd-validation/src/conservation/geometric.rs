@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Geometric Conservation Law (GCL) tests for CFD schemes
 //!
 //! The Geometric Conservation Law requires that numerical schemes preserve

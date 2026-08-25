@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! 3D Serpentine flow benchmark with Dean vortex validation
 //!
 //! Validates 3D Dean vortices and secondary flow effects in

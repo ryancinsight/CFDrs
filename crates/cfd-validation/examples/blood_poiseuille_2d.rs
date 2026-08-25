@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 2D Poiseuille flow validation with Casson blood rheology
 //!
 //! Solves steady non-Newtonian Poiseuille flow in a 2D channel with Casson

@@ -1,5 +1,5 @@
 #![allow(clippy::single_match_else, missing_docs, clippy::unwrap_used)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! # Comprehensive FEM Solver Tests
 //!
 //! ## Test Coverage Matrix

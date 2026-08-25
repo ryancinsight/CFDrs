@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Performance benchmarking for CFD operations
 //!
 //! Measures execution time, throughput, and identifies performance bottlenecks

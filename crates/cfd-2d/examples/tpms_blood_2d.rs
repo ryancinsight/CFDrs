@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 2D Blood Flow through a TPMS-Derived Periodic Channel
 //!
 //! Simulates non-Newtonian blood flow past TPMS-inspired periodic

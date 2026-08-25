@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Branch-junction validation against analytical solutions and literature benchmarks
 //!
 //! This module provides comprehensive validation tools proving CFD simulations

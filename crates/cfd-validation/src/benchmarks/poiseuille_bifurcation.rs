@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Complete 2D Bifurcation Validation Using Poiseuille Flow Segments
 //!
 //! This validates a bifurcation by solving each segment as fully-developed

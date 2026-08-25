@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Validation tests for advanced physics manufactured solutions
 //!
 //! Tests compressible flows, shock capturing, hypersonic flows,

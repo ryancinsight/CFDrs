@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 3D Hagen-Poiseuille Pipe Flow Analytical Validation
 //!
 //! Validates the 3D Stokes FEM solver against the exact analytical

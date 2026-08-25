@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Memory usage profiling for CFD operations
 //!
 //! Tracks memory allocation patterns, peak usage, and memory efficiency

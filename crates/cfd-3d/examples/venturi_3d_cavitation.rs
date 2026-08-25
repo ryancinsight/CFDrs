@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 3D Venturi Flow with Cavitation Analysis
 //!
 //! Solves 3D flow through a venturi throat and computes cavitation number.

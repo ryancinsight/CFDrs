@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used)]
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Tests for compute backend
 
 use super::*;

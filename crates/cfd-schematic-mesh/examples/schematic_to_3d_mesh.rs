@@ -1,6 +1,9 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stderr)]
-#![allow(clippy::print_stdout)]
+#![expect(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "test/validation output"
+)]
 //! JSON schematic → watertight 3-D mesh (STL + OpenFOAM).
 //!
 //! Reads any `InterchangeChannelSystem` JSON produced by `cfd-schematics`,

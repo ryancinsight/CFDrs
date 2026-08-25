@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! MMS validation for complex boundary conditions
 //!
 //! Tests manufactured solutions with mixed boundary condition types

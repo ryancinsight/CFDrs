@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Linear solver validation against analytical solutions
 
 use cfd_core::error::Result;

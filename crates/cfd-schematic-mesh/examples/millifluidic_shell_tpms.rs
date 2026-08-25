@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Millifluidic Shell TPMS export — schematic JSON → binary STL.
 //!
 //! Demonstrates the creation of a millifluidic chip modelled as a shell

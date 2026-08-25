@@ -1,6 +1,5 @@
 #![allow(clippy::unwrap_used)]
-#![allow(clippy::print_stdout)]
-#![allow(clippy::print_stderr)]
+#![cfg_attr(test, expect(clippy::print_stderr, reason = "test/skip diagnostics"))]
 use super::{DiffusionConfig, GpuDiffusionKernel};
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;

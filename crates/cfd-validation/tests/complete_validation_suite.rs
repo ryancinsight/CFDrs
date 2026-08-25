@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 #![allow(clippy::unwrap_used)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Complete CFD validation suite integration test
 //!
 //! This comprehensive test validates the entire CFD validation framework:

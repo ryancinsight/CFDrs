@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout, clippy::uninlined_format_args)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 1D Blood Flow in a Bifurcation (Carreau-Yasuda Model)
 //!
 //! This example demonstrates simulating blood flow in a bifurcating artery
