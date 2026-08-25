@@ -180,7 +180,8 @@ mod tests {
         let n = nx * ny * 9;
 
         let mut boundary_mask = vec![false; nx * ny];
-        boundary_mask[0 * nx + 1] = true; // node (i=1, j=0) is a boundary
+        // node (i=1, j=0): flat index j*nx + i = 1
+        boundary_mask[1] = true;
 
         let f_src: Vec<f64> = (0..n).map(|k| 1.0 + (k % 17) as f64 * 0.05).collect();
         let mut f_dst = vec![7.5_f64; n]; // sentinel: stale data would remain
