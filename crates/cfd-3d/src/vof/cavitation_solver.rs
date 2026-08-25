@@ -4,7 +4,6 @@
     clippy::explicit_iter_loop,
     clippy::cast_lossless
 )]
-#![allow(clippy::explicit_iter_loop)]
 //! Cavitation Solver Integration with VOF Method
 //!
 //! This module provides comprehensive cavitation simulation capabilities

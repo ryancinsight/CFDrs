@@ -1,4 +1,3 @@
-#![allow(clippy::uninlined_format_args)]
 use std::collections::HashMap;
 
 use aequitas::systems::si::quantities::{Area, Pressure, Velocity};

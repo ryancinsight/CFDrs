@@ -30,9 +30,6 @@
 //! determining the inception of vapor phase transition at the throat.
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 // CFD validation allows
 #![allow(clippy::similar_names)] // Test variables often similar (u1,u2; err1,err2)
 #![allow(clippy::cast_precision_loss)] // Acceptable in validation calculations
@@ -56,20 +53,14 @@
 #![allow(clippy::too_many_lines)] // Complex validation/benchmark functions need detailed implementation
 #![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::useless_conversion)]
 #![allow(clippy::inline_always)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::empty_line_after_doc_comments)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::new_ret_no_self)]
 #![allow(clippy::unused_self)]
 #![allow(clippy::implicit_hasher)]
-#![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::same_item_push)]
 #![allow(clippy::doc_overindented_list_items)]
 

@@ -4,7 +4,6 @@
     clippy::explicit_iter_loop,
     clippy::cast_lossless
 )]
-#![allow(clippy::module_inception)]
 #![allow(clippy::print_stdout)]
 #[cfg(test)]
 mod tests {

@@ -85,9 +85,6 @@
 //! - **Level Set**: Osher, S. & Fedkiw, R. (2003). *Level Set Methods and Dynamic Implicit Surfaces*
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 // 3D CFD simulation allows - strategic configuration for numerical computing
 #![allow(clippy::similar_names)] // 3D variables (u,v,w,p; nx,ny,nz; dx,dy,dz; i,j,k) often similar
 #![allow(clippy::cast_precision_loss)] // Performance-critical numerical loops in 3D solvers
@@ -109,16 +106,10 @@
 #![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::useless_conversion)]
 #![allow(clippy::inline_always)]
-#![allow(clippy::needless_range_loop)]
-#![allow(clippy::format_push_string)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::trivially_copy_pass_by_ref)]
 #![allow(clippy::empty_line_after_doc_comments)]
-#![allow(clippy::too_many_lines)]
 #![allow(clippy::doc_overindented_list_items)]
 #![allow(clippy::same_item_push)]
 #![allow(clippy::manual_clamp)]

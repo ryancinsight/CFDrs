@@ -1,7 +1,5 @@
 #![allow(clippy::print_stdout)]
 #![allow(missing_docs)]
-#![allow(clippy::uninlined_format_args)]
-#![allow(clippy::unnecessary_wraps)]
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::{create_geometry, SplitType};
 

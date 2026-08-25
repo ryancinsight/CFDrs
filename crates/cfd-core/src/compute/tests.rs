@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used)]
-#![allow(clippy::float_cmp)]
 #![allow(clippy::print_stdout)]
 //! Tests for compute backend
 

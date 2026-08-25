@@ -76,9 +76,6 @@
 //!    Convection Dominated Problems.
 
 #![warn(missing_docs)]
-#![allow(clippy::many_single_char_names)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::float_cmp)]
 
 pub mod dg;
 /// Legendre-Gauss-Lobatto nodes and weights — SSOT for DG and SEM methods.

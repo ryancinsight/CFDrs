@@ -103,9 +103,6 @@
 //! - **SIMD Programming**: Fog, A. (2012). *Optimizing software in C++*
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 #![allow(clippy::needless_range_loop)] // Explicit indexing clearer for numerical algorithms
 #![allow(clippy::too_many_lines)] // Complex numerical algorithms need detailed implementation
 // CFD numerical computation allows

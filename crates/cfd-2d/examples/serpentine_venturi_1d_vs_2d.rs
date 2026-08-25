@@ -32,7 +32,6 @@
 //! cargo run -p cfd-2d --example serpentine_venturi_1d_vs_2d --no-default-features
 //! ```
 
-#![allow(clippy::cast_precision_loss)]
 
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use std::fs;

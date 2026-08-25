@@ -1,5 +1,4 @@
 #![allow(missing_docs)]
-#![allow(clippy::uninlined_format_args, clippy::unnecessary_wraps)]
 //! Comprehensive Split Patterns Demo
 //!
 //! This example demonstrates various split patterns (bifurcation and trifurcation)
