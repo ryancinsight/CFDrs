@@ -41,7 +41,7 @@ tracing-subscriber = "0.3"
 
 # Math and numerical
 aequitas = { version = "0.2.0", git = "https://github.com/ryancinsight/aequitas", default-features = false, features = ["std"] }
-proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
+proteus = { package = "proteus-mat", version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
 hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
 tyche-core = { version = "0.2.0", git = "https://github.com/ryancinsight/tyche" }
 eunomia = { version = "0.8.0", git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
