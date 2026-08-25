@@ -80,14 +80,17 @@ jobs:
           echo "apt-get did not complete after 3 attempts" >&2
           exit 1
 
-      - name: Cache cargo dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      # Shared-key rust-cache instead of a lockfile-hash actions/cache: the
+      # hash key wipes the whole target/ directory whenever Cargo.lock moves
+      # (e.g. a first-party dependency repin), forcing a full workspace
+      # rebuild on exactly the routine dependency-bump PRs. rust-cache
+      # invalidates incrementally and shares one entry across jobs, written
+      # from main only so concurrent branches cannot evict each other.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-workspace-${{ hashFiles('**/Cargo.lock') }}
+          workspaces: .
+          shared-key: cfdrs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Format
         run: cargo fmt --all --check
@@ -129,14 +132,17 @@ jobs:
       - name: Normalize materialized dependency lock
         run: cargo metadata --format-version 1 --all-features > /dev/null
 
-      - name: Cache cargo dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      # Shared-key rust-cache instead of a lockfile-hash actions/cache: the
+      # hash key wipes the whole target/ directory whenever Cargo.lock moves
+      # (e.g. a first-party dependency repin), forcing a full workspace
+      # rebuild on exactly the routine dependency-bump PRs. rust-cache
+      # invalidates incrementally and shares one entry across jobs, written
+      # from main only so concurrent branches cannot evict each other.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-xtask-${{ hashFiles('**/Cargo.lock') }}
+          workspaces: .
+          shared-key: cfdrs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check book figures
         run: cargo run --locked -p xtask -- check-figures
