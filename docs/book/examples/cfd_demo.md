@@ -5,20 +5,19 @@
 *Figure 1.2 — Example: CFD Demo*
 <!-- generated-figure-end -->
 
-**Crate**: `cfd-suite` (workspace root)  
-**Run**: `cargo run --example cfd_demo`  
-**Source**: [`examples/cfd_demo.rs`](../../../examples/cfd_demo.rs)
+**Crate**: `cfd-core`  
+**Run**: `cargo run -p cfd-core --example cfd_demo`  
+**Source**: [`crates/cfd-core/examples/cfd_demo.rs`](../../../crates/cfd-core/examples/cfd_demo.rs)
 
 ## What This Example Demonstrates
 
-Baseline sanity check covering four primitives of the CFDrs stack:
+Baseline sanity check covering three primitives of the CFDrs stack:
 
 | Concept | API |
 |---|---|
 | 3D incompressible flow field | `FlowField::<f64>::new(nx, ny, nz)` |
 | Divergence, vorticity, KE, enstrophy | `FlowOperations::{divergence, vorticity, kinetic_energy, enstrophy}` |
 | Laminar/transitional/turbulent classification | `ReynoldsNumber::new(re, FlowGeometry::Pipe)` |
-| Sparse matrix assembly | `SparseMatrixBuilder`, `IterativeLinearSolver` |
 
 ## Key Code Snippet
 
