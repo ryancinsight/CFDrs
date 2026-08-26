@@ -1,9 +1,3 @@
-#![allow(
-    clippy::field_reassign_with_default,
-    clippy::uninlined_format_args,
-    clippy::explicit_iter_loop,
-    clippy::cast_lossless
-)]
 #![cfg_attr(test, expect(clippy::print_stderr, reason = "test diagnostic output"))]
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time};
 

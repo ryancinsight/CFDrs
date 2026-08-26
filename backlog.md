@@ -1,3 +1,29 @@
+## CFDRS-EXPOSED-PEDANTIC-277 — removing the blanket allows made 277 lints visible [patch] — todo
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-EXPOSED-PEDANTIC-277 | Fix or per-site `#[expect]` the lints the crate-level allows were hiding. | [patch] | todo | unowned | workspace |
+
+- **Evidence:** with the blanket `#![allow]` blocks gone,
+  `cargo clippy --workspace --all-targets` reports 132 `unused_self`, 98
+  `return_self_not_must_use`, 47 `needless_pass_by_value` and 3
+  `if_same_then_else`. Clippy still exits 0 -- none is denied -- so nothing
+  fails, but the count is real and was previously invisible.
+- **This is progress, not a regression.** The lints were always firing; a
+  crate-level allow suppressed them without recording why, per file, for every
+  lint at once. They are now countable and attributable, which is the state the
+  ratchet can act on.
+- **Not resolved by re-allowing.** Three of the four could plausibly join the
+  workspace table with a recorded reason -- `unused_self` on solver trait
+  methods that keep a uniform interface is the same argument the doc lints
+  already carry -- but that is a curation decision per lint, not a bulk move,
+  and `needless_pass_by_value` in particular is often a real finding in
+  numerical code that copies large structs.
+- **Shape of the fix:** triage per lint, not per site. Fix
+  `if_same_then_else` (3, almost certainly real). Decide `unused_self` and
+  `return_self_not_must_use` as workspace-table entries with reasons, or fix
+  them. Work `needless_pass_by_value` site by site.
+
 ## CFDRS-LOCK-GUARD-01 — wire the overlay lockfile guard [major] — implemented 2026-08-24
 
 | ID | Outcome | Class | Status | Owner | Scope |

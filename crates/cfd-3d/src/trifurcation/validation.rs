@@ -1,9 +1,3 @@
-#![allow(
-    clippy::field_reassign_with_default,
-    clippy::uninlined_format_args,
-    clippy::explicit_iter_loop,
-    clippy::cast_lossless
-)]
 #![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Validation tools for 3D trifurcation simulations
 //!

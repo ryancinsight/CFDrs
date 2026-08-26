@@ -1,9 +1,3 @@
-#![allow(
-    clippy::field_reassign_with_default,
-    clippy::uninlined_format_args,
-    clippy::explicit_iter_loop,
-    clippy::cast_lossless
-)]
 #![expect(clippy::print_stdout, reason = "validation report output")]
 //! Validation tools for 3D bifurcation simulations
 //!

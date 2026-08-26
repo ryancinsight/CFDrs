@@ -37,15 +37,6 @@
 
 // Numerical cast patterns common in optimisation scoring.
 // Physics variable names (x, y, k, n, …) are conventional.
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::return_self_not_must_use)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::struct_excessive_bools)]
 
 // ── SDT-specific modules ─────────────────────────────────────────────────────
 

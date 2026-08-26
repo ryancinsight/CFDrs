@@ -28,21 +28,7 @@
 //! ```
 
 // PyO3 bindings require specific patterns that trigger pedantic lints.
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::needless_pass_by_value)]
 // PyO3 getters/setters don't follow Rust naming conventions.
-#![allow(clippy::unused_self)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::implicit_hasher)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::empty_line_after_doc_comments)]
-#![allow(clippy::len_without_is_empty)]
-#![allow(clippy::new_ret_no_self)]
-#![allow(clippy::return_self_not_must_use)]
-#![allow(clippy::doc_overindented_list_items)]
-#![allow(clippy::same_item_push)]
 
 use pyo3::prelude::*;
 

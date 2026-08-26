@@ -2,30 +2,22 @@
 // Pedantic lints enabled, with domain-appropriate exceptions:
 // usize→f64 casts are pervasive in geometry/point-count arithmetic
 // Every Result-returning fn documenting errors is excessive for internal APIs
-#![allow(clippy::missing_errors_doc)]
 // Too aggressive for builder/config-heavy crate
 // Trait-object consistency requires &self even if unused by some impls
-#![allow(clippy::unused_self)]
 // Builder pattern returns Self — must_use on Self is noise
-#![allow(clippy::return_self_not_must_use)]
 // Domain math variables (x0 vs x1) are intentionally similar
 // Complex geometry functions are inherently long
 // Complex config types are acceptable
-#![allow(clippy::type_complexity)]
 // Config constructors legitimately have many parameters
 // Geometry structs have many fields
-#![allow(clippy::struct_excessive_bools)]
 // f64→u32/u8 casts are clamped in practice (pixel coordinates, color channels)
 // Module-level re-exports are deliberate API design
 // format! push is clearer than write! for non-hot-path string building
 // Domain-specific terms (e.g. NodeSpec) don't need backticks
 // Some public APIs take owned values for ergonomics
-#![allow(clippy::needless_pass_by_value)]
 // &mut Vec is sometimes needed for push operations
 // Panics docs are low-value for internal geometry functions
-#![allow(clippy::missing_panics_doc)]
 // Returning &str tied to argument lifetime is correct
-#![allow(clippy::unnecessary_literal_bound)]
 
 //! # cfd-schematics — Design-Time Topology & Visualization Layer
 //!
