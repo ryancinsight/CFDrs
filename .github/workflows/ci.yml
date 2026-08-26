@@ -12,6 +12,14 @@ env:
 permissions:
   contents: read
 
+# Superseded runs cancel rather than queue. Without this, every force-push
+# or rapid commit series on one branch accumulated a full three-job pipeline
+# per push; during the 2026-08-25 runner-saturation window CFDrs carried the
+# fleet's worst queue-to-work ratio (828 queued minutes against 741 consumed).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # First and alone: needs no toolchain, cache or build, and guards the one
   # artifact whose correctness cannot be checked from inside the environment
