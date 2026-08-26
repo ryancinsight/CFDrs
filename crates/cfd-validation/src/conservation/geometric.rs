@@ -426,7 +426,12 @@ mod tests {
     #[test]
     fn test_spatial_gcl() {
         let checker = GeometricConservationChecker::<f64>::new(1e-14, 10, 10);
-        let result = checker.test_spatial_gcl(3.14).expect("expected value");
+        // The law holds for any constant field, which is what this asserts;
+        // the particular value carries no meaning.
+        const CONSTANT_FIELD: f64 = 2.5;
+        let result = checker
+            .test_spatial_gcl(CONSTANT_FIELD)
+            .expect("expected value");
         assert!(result.error < 1e-13);
         assert!(result.is_conserved);
         assert_eq!(result.details["dx"], 0.1);

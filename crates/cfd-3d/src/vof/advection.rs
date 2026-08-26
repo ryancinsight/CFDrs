@@ -343,7 +343,7 @@ impl AdvectionMethod {
     /// analytical formula from Scardovelli & Zaleski (2000) is used via
     /// `volume_fraction_in_prism`.
     fn plic_face_flux<T: CfdScalar>(
-        &self,
+        self,
         solver: &VofSolver<T>,
         // Left/upstream cell index
         il: usize,

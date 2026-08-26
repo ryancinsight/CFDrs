@@ -91,7 +91,11 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
     let mut min_bend_radius_mm = f64::INFINITY;
     let mut max_bend_radius_mm = f64::NEG_INFINITY;
 
-    for channel in blueprint.channels.iter().filter(is_treatment_lane_channel) {
+    for channel in blueprint
+        .channels
+        .iter()
+        .filter(|channel| is_treatment_lane_channel(channel))
+    {
         if channel.path.len() < 2 {
             continue;
         }
@@ -161,7 +165,7 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
     }
 }
 
-fn is_treatment_lane_channel(channel: &&ChannelSpec) -> bool {
+fn is_treatment_lane_channel(channel: &ChannelSpec) -> bool {
     matches!(
         channel.visual_role,
         Some(ChannelVisualRole::CenterTreatment | ChannelVisualRole::VenturiThroat)

@@ -32,6 +32,13 @@ pub struct PoissonSolver<T: CfdScalar + EunomiaRealField + Copy> {
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
+impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for PoissonSolver<T> {
+    /// Create with default configuration.
+    fn default() -> Self {
+        Self::new(FdmConfig::<T>::default())
+    }
+}
+
 impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
     /// Create new Poisson solver.
     ///
@@ -85,12 +92,6 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
             config,
             matrix_builder: core::cell::RefCell::new(None),
         })
-    }
-
-    /// Create with default configuration
-    #[must_use]
-    pub fn default() -> Self {
-        Self::new(FdmConfig::<T>::default())
     }
 
     /// Solve Poisson equation on structured grid (Dirichlet only)

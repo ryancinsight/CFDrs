@@ -35,6 +35,10 @@ pub struct ChannelHemolysis {
 
 /// All physics-derived metrics for one [`BlueprintCandidate`](crate::BlueprintCandidate).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a flat compliance report: each flag is an independent \n              pass/fail against a named standard, not a state machine"
+)]
 pub struct SdtMetrics {
     // ── Cavitation ──
     /// Cavitation number σ at the primary venturi throat.

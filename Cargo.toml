@@ -155,6 +155,19 @@ missing_errors_doc = "allow"
 # panics/failures are pervasive across the numerical solver crates and
 # each signature carries an explicit doc constraint in the prose.
 missing_panics_doc = "allow"
+# Solver trait methods keep a uniform interface whether or not a given
+# implementation reads `self`; 132 sites said so per-crate before this table
+# was authoritative. Consolidated here rather than restated in each crate.
+unused_self = "allow"
+# Builder and configuration methods returning `Self`, 98 sites. Marking each
+# `#[must_use]` adds no information a caller of a builder does not already
+# have.
+return_self_not_must_use = "allow"
+# 47 sites, nearly all `T: RealField` scalars and small `Copy` configuration
+# structs where by-value is the idiomatic form. Carried here with the same
+# per-crate rationale it had before; the genuinely large-struct cases are
+# CFDRS-EXPOSED-PEDANTIC-277's remaining triage.
+needless_pass_by_value = "allow"
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
 similar_names = "allow"

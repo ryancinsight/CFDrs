@@ -1,28 +1,57 @@
-## CFDRS-EXPOSED-PEDANTIC-277 — removing the blanket allows made 277 lints visible [patch] — todo
+## CFDRS-EXPOSED-PEDANTIC-277 — the blanket allows hid 291 lints [patch] — IMPLEMENTED 2026-08-26
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
-| CFDRS-EXPOSED-PEDANTIC-277 | Fix or per-site `#[expect]` the lints the crate-level allows were hiding. | [patch] | todo | unowned | workspace |
+| CFDRS-EXPOSED-PEDANTIC-277 | Fix or consolidate the lints the crate-level allows were hiding. | [patch] | IMPLEMENTED | unowned | workspace |
 
-- **Evidence:** with the blanket `#![allow]` blocks gone,
-  `cargo clippy --workspace --all-targets` reports 132 `unused_self`, 98
-  `return_self_not_must_use`, 47 `needless_pass_by_value` and 3
-  `if_same_then_else`. Clippy still exits 0 -- none is denied -- so nothing
-  fails, but the count is real and was previously invisible.
-- **This is progress, not a regression.** The lints were always firing; a
-  crate-level allow suppressed them without recording why, per file, for every
-  lint at once. They are now countable and attributable, which is the state the
-  ratchet can act on.
-- **Not resolved by re-allowing.** Three of the four could plausibly join the
-  workspace table with a recorded reason -- `unused_self` on solver trait
-  methods that keep a uniform interface is the same argument the doc lints
-  already carry -- but that is a curation decision per lint, not a bulk move,
-  and `needless_pass_by_value` in particular is often a real finding in
-  numerical code that copies large structs.
-- **Shape of the fix:** triage per lint, not per site. Fix
-  `if_same_then_else` (3, almost certainly real). Decide `unused_self` and
-  `return_self_not_must_use` as workspace-table entries with reasons, or fix
-  them. Work `needless_pass_by_value` site by site.
+- **Evidence:** with the blanket `#![allow]` blocks gone, the workspace clippy
+  gate -- `--workspace --all-targets --locked -- -D warnings` -- failed. The
+  earlier note here said clippy "exits 0"; that measurement used the command
+  without `-D warnings` and was wrong. CI runs the denying form.
+- **What was there:** 277 in three classes the removed per-crate blocks had
+  allowed (132 `unused_self`, 98 `return_self_not_must_use`, 47
+  `needless_pass_by_value`), and a 14-item tail in ten classes that no block
+  had allowed and that nothing had ever reported.
+- **Resolved:** the three previously-allowed classes move to the workspace lint
+  table with their rationale recorded once, which is what this branch is for --
+  it preserves the effective policy while deleting 300 lines of duplication.
+  The tail is fixed rather than allowed:
+  - `manual_clamp`, `inline_always`, two `empty_line_after_doc_comments`, a
+    doc overindent, and two `trivially_copy_pass_by_ref` -- mechanical.
+  - four `new_without_default` -- `Default` impls added.
+  - two inherent `default()` methods shadowing the trait -- moved to
+    `impl Default`, which `X::default()` resolves to identically.
+  - `approx_constant`: a test passed `3.14` as an arbitrary constant field. It
+    is a named constant now, with the note that the geometric conservation law
+    holds for any constant -- which is the property the test asserts.
+  - `struct_excessive_bools` on `SdtMetrics`: a per-site `#[expect]` with its
+    reason. The flags are independent pass/fail results against named
+    standards, not a state machine.
+  - two `if_same_then_else` in `simple/pressure.rs`: two conditions that
+    genuinely share one treatment, collapsed with a comment saying why.
+- **One real defect found and filed, not silenced:** see
+  `CFDRS-OUTLET-FLAG-INERT`.
+
+## CFDRS-OUTLET-FLAG-INERT — a boundary-condition flag selects between identical branches [minor] — todo
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-OUTLET-FLAG-INERT | Give `CharacteristicOutlet::extrapolate_velocity` an effect, or remove it. | [minor] | todo | unowned | `crates/cfd-2d/src/physics/momentum/boundary/directional.rs` |
+
+- **Evidence:** `if *extrapolate_velocity { A } else { A }` -- both arms apply
+  the same three matrix entries, so a `CharacteristicOutlet` configured with
+  `extrapolate_velocity: false` behaves exactly like `true`. Surfaced by
+  `clippy::if_same_then_else` once the crate-level allows stopped hiding it.
+- **Not fixed here.** Which stencil the non-extrapolating case should use is a
+  modelling question -- zero-gradient, a specified value, a different
+  characteristic treatment -- and guessing it would be worse than the current
+  state, which at least does something defensible. The site carries an
+  `#[expect]` naming this item so the gate passes and the defect stays
+  attributed rather than disappearing into an allow list.
+- **Shape of the fix:** decide the intended non-extrapolating stencil against
+  the reference the outlet condition comes from, implement it, and add a test
+  that distinguishes the two settings -- there is none today, which is how this
+  survived.
 
 ## CFDRS-LOCK-GUARD-01 — wire the overlay lockfile guard [major] — implemented 2026-08-24
 

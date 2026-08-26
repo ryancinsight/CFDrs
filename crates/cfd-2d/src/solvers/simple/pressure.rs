@@ -222,9 +222,10 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                         }
                     }
 
-                    if !has_pressure_anchor && idx == 0 {
-                        matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
-                    } else if neighbor_indices.is_empty() {
+                    // The anchor cell and any cell with no neighbours both get
+                    // a pinned row: one to fix the pressure datum, the other
+                    // because there is no stencil to build.
+                    if (!has_pressure_anchor && idx == 0) || neighbor_indices.is_empty() {
                         matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
                     } else {
                         neighbor_indices.sort_unstable();
@@ -430,9 +431,8 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                         }
                     }
 
-                    if !has_pressure_anchor && idx == 0 {
-                        update_entry(idx, idx, scalar::one::<T>());
-                    } else if neighbor_indices.is_empty() {
+                    // Same two reasons, same pinned row, as in the builder above.
+                    if (!has_pressure_anchor && idx == 0) || neighbor_indices.is_empty() {
                         update_entry(idx, idx, scalar::one::<T>());
                     } else {
                         neighbor_indices.sort_unstable();

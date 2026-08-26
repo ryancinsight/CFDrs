@@ -112,6 +112,13 @@ pub struct BenchmarkSuite {
     results: Vec<BenchmarkResult>,
 }
 
+impl Default for BenchmarkSuite {
+    /// Create with default configuration.
+    fn default() -> Self {
+        Self::new(BenchmarkConfig::default())
+    }
+}
+
 impl BenchmarkSuite {
     /// Create new benchmark suite with configuration
     pub fn new(config: BenchmarkConfig) -> Self {
@@ -119,11 +126,6 @@ impl BenchmarkSuite {
             config,
             results: Vec::new(),
         }
-    }
-
-    /// Create with default configuration
-    pub fn default() -> Self {
-        Self::new(BenchmarkConfig::default())
     }
 
     /// Add benchmark result to suite

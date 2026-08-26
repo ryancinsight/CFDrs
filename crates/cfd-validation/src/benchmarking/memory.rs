@@ -48,6 +48,12 @@ pub struct MemoryStatsSnapshot {
     pub max_allocation_size: usize,
 }
 
+impl Default for MemoryStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStats {
     /// Creates an empty allocation counter.
     pub const fn new() -> Self {
@@ -249,6 +255,12 @@ impl<'stats> MemoryProfiler<'stats> {
 pub struct TrackingAllocator {
     allocator: System,
     stats: MemoryStats,
+}
+
+impl Default for TrackingAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TrackingAllocator {

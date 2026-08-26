@@ -51,6 +51,12 @@ pub struct StenosisValidation<T: CfdScalar> {
     accuracy: T,
 }
 
+impl<T: CfdScalar> Default for StenosisValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: CfdScalar> StenosisValidation<T> {
     /// Create a new stenosis validation test
     pub fn new() -> Self {
@@ -264,6 +270,12 @@ impl<T: CfdScalar> LiteratureValidation<T> for StenosisValidation<T> {
 /// - Mass conservation at junction
 pub struct BifurcationValidation<T: CfdScalar> {
     accuracy: T,
+}
+
+impl<T: CfdScalar> Default for BifurcationValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: CfdScalar> BifurcationValidation<T> {

@@ -32,7 +32,6 @@ use leto::geometry::Vector3;
 /// The donor-flux evaluation in [`plic_volume_fraction_in_prism`] treats the
 /// gas as the corner cut (the interface normal points into the fluid) and
 /// intersects that cut with the swept slab adjacent to the outflow face.
-
 /// Fluid-volume fraction of the swept PLIC prism in a donor cell.
 ///
 /// # Convention
