@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! 2D Bifurcation flow solver for branching microfluidic junctions
 //!
 //! This module implements a validated solver for bifurcating flows, which are

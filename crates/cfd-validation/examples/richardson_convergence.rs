@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Richardson Extrapolation for Grid Convergence Study
 //!
 //! Demonstrates the use of Richardson extrapolation to estimate the

@@ -53,7 +53,7 @@ pub struct StreamingOperator;
 ///
 /// # Returns
 /// `j * nx * 9 + i * 9 + q`
-#[inline(always)]
+#[inline]
 pub fn f_idx(j: usize, i: usize, q: usize, nx: usize) -> usize {
     j * nx * 9 + i * 9 + q
 }

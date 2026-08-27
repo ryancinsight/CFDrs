@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! 3D Serpentine Channel — Dean Vortex Validation
 //!
 //! Solves 3D flow through a serpentine (wavy) channel and validates

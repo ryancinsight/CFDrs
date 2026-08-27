@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Automated validation suite combining MMS and performance benchmarking
 //!
 //! This comprehensive test suite validates CFD implementations through:

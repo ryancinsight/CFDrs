@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! 3D Venturi tube flow benchmark with blood rheology
 //!
 //! Validates 3D Venturi flow against 1D analytical models and

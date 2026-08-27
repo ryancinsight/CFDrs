@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Momentum conservation checker for CFD simulations
 //!
 //! Validates that momentum is conserved: ∂(ρu)/∂t + ∇·(ρuu) = -∇p + ∇·τ + ρg

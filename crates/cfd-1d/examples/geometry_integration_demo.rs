@@ -1,6 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stderr)]
-#![allow(clippy::print_stdout, clippy::uninlined_format_args)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Geometry Integration Demo
 //!
 //! Demonstrates the full pipeline:

@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Ghia et al. (1982) lid-driven cavity benchmark validation with SIMPLEC/PIMPLE + Rhie-Chow
 //!
 //! This test validates the SIMPLEC and PIMPLE solvers with Rhie-Chow interpolation

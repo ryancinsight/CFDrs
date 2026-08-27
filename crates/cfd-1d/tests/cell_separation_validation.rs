@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Validated cell separation tests for inertial microfluidic focusing.
 //!
 //! # Validation strategy

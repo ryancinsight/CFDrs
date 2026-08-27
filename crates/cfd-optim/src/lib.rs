@@ -35,41 +35,8 @@
 //! `design`          | Milestone 12 blueprint candidate-space helpers |
 //! `error`           | Error types |
 
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
 // Numerical cast patterns common in optimisation scoring.
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
 // Physics variable names (x, y, k, n, …) are conventional.
-#![allow(clippy::similar_names)]
-#![allow(clippy::many_single_char_names)]
-#![allow(clippy::too_many_lines)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::must_use_candidate)]
-#![allow(clippy::redundant_closure_for_method_calls)]
-#![allow(clippy::doc_markdown)]
-#![allow(clippy::unreadable_literal)]
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::unnecessary_wraps)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::useless_conversion)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::needless_range_loop)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::items_after_statements)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::float_cmp)]
-#![allow(clippy::return_self_not_must_use)]
-#![allow(clippy::cast_possible_wrap)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::struct_excessive_bools)]
 
 // ── SDT-specific modules ─────────────────────────────────────────────────────
 

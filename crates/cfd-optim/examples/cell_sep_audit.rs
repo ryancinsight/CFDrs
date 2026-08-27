@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Cell-separation physics audit using the memory-efficient EvaluatedPool.
 //!
 //! Evaluates the Milestone 12 candidate space **once**, then scores under

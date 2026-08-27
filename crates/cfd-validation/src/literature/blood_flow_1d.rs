@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! 1D Blood Flow Validation Tests
 //!
 //! Validation of 1D network solver for non-Newtonian blood flow in:
@@ -49,6 +49,12 @@ use std::collections::HashMap;
 /// - Shear-thinning behavior (lower viscosity in constriction)
 pub struct StenosisValidation<T: CfdScalar> {
     accuracy: T,
+}
+
+impl<T: CfdScalar> Default for StenosisValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: CfdScalar> StenosisValidation<T> {
@@ -264,6 +270,12 @@ impl<T: CfdScalar> LiteratureValidation<T> for StenosisValidation<T> {
 /// - Mass conservation at junction
 pub struct BifurcationValidation<T: CfdScalar> {
     accuracy: T,
+}
+
+impl<T: CfdScalar> Default for BifurcationValidation<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: CfdScalar> BifurcationValidation<T> {

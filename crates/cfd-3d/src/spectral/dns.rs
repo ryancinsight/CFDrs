@@ -1,4 +1,3 @@
-#![allow(clippy::cast_abs_to_unsigned)]
 //! Periodic pseudospectral DNS for incompressible 3D Navier-Stokes.
 //!
 //! This module provides a small Apollo-backed stepping kernel for periodic

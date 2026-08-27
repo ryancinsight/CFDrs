@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Conservation checking for CFD simulations.
 //!
 //! This module provides tools to verify that CFD simulations satisfy fundamental

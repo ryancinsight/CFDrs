@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Validation framework for CFD simulations
 //!
 //! This module provides tools for validating CFD implementations against:
@@ -30,48 +29,7 @@
 //! determining the inception of vapor phase transition at the throat.
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 // CFD validation allows
-#![allow(clippy::similar_names)] // Test variables often similar (u1,u2; err1,err2)
-#![allow(clippy::cast_precision_loss)] // Acceptable in validation calculations
-#![allow(clippy::must_use_candidate)] // Validation utilities often used in expressions
-#![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
-#![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
-#![allow(clippy::cast_sign_loss)] // Signed to unsigned casts common in CFD indexing
-#![allow(clippy::cast_possible_wrap)] // Wrap-around acceptable for grid indices
-#![allow(clippy::too_many_arguments)] // CFD functions often need many physical parameters
-#![allow(clippy::float_cmp)] // Float comparisons necessary in numerical algorithms
-#![allow(clippy::unnecessary_wraps)] // Result types maintained for API consistency
-#![allow(clippy::items_after_statements)] // Helper functions after statements improve readability
-#![allow(clippy::many_single_char_names)] // Mathematical notation (i,j,k,x,y,z) is standard
-#![allow(clippy::unreadable_literal)] // Long literals used for precise physical constants
-#![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines
-#![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
-#![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
-#![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
-#![allow(clippy::approx_constant)] // Fallback constants for generic numerical types
-#![allow(clippy::too_many_lines)] // Complex validation/benchmark functions need detailed implementation
-#![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays
-#![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::useless_conversion)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::empty_line_after_doc_comments)]
-#![allow(clippy::len_without_is_empty)]
-#![allow(clippy::new_ret_no_self)]
-#![allow(clippy::unused_self)]
-#![allow(clippy::implicit_hasher)]
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::same_item_push)]
-#![allow(clippy::doc_overindented_list_items)]
 
 pub mod adaptive_mesh;
 pub mod algorithm_complexity;

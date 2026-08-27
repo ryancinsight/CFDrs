@@ -1,4 +1,3 @@
-#![allow(clippy::explicit_iter_loop)]
 //! Dynamic Smagorinsky procedure implementation
 //!
 //! Implements Germano's dynamic procedure for computing the Smagorinsky

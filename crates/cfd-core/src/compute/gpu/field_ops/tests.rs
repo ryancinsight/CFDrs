@@ -1,5 +1,4 @@
-#![allow(clippy::print_stdout)]
-#![allow(clippy::print_stderr)]
+#![cfg_attr(test, expect(clippy::print_stderr, reason = "test/skip diagnostics"))]
 use super::GpuFieldOps;
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;

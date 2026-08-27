@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! 2D Poiseuille flow solver with non-Newtonian blood rheology
 //!
 //! # Physical Problem

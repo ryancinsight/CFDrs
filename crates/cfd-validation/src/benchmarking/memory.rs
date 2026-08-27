@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Memory usage profiling for CFD operations
 //!
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
@@ -46,6 +46,12 @@ pub struct MemoryStatsSnapshot {
     pub avg_allocation_size: f64,
     /// Largest single allocation in bytes
     pub max_allocation_size: usize,
+}
+
+impl Default for MemoryStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryStats {
@@ -249,6 +255,12 @@ impl<'stats> MemoryProfiler<'stats> {
 pub struct TrackingAllocator {
     allocator: System,
     stats: MemoryStats,
+}
+
+impl Default for TrackingAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TrackingAllocator {

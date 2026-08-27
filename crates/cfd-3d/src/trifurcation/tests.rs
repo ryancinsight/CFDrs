@@ -4,8 +4,7 @@
     clippy::explicit_iter_loop,
     clippy::cast_lossless
 )]
-#![allow(clippy::module_inception)]
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 #[cfg(test)]
 mod tests {
     use super::super::geometry::TrifurcationGeometry3D;

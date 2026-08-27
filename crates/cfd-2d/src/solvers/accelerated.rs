@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Accelerated solvers using SIMD/GPU when available
 //!
 //! Provides unified interface that automatically uses best available acceleration

@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Comprehensive validation pipeline integration test
 //!
 //! This test demonstrates the complete CFD validation workflow:

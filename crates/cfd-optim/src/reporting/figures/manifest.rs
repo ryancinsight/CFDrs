@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Dynamic figure generation and manifest assembly for Milestone 12 narrative.
 
 use std::path::Path;

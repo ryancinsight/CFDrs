@@ -4,7 +4,7 @@
     clippy::explicit_iter_loop,
     clippy::cast_lossless
 )]
-#![allow(clippy::print_stdout)]
+#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Comprehensive validation tests for cavitation and hemolysis in venturi systems.
 //!
 //! This test suite validates the integration of:

@@ -1,5 +1,4 @@
-#![allow(clippy::print_stdout)]
-#![allow(clippy::print_stderr)]
+#![cfg_attr(test, expect(clippy::print_stderr, reason = "test/skip diagnostics"))]
 //! GPU kernel validation tests
 //! Verifies GPU implementations match CPU results within numerical tolerance
 

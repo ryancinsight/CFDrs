@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! # Serpentine-Venturi 1D vs 2D Cross-Fidelity Comparison
 //!
 //! Builds a serpentine channel with venturi constrictions at each U-turn
@@ -31,8 +31,6 @@
 //! ```sh
 //! cargo run -p cfd-2d --example serpentine_venturi_1d_vs_2d --no-default-features
 //! ```
-
-#![allow(clippy::cast_precision_loss)]
 
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use std::fs;

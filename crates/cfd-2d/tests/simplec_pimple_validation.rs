@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Validation tests for SIMPLEC and PIMPLE algorithms
 //! including Ghia cavity benchmark comparisons
 

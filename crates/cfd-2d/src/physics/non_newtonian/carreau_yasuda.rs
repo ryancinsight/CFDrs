@@ -76,7 +76,7 @@ impl<T: FloatElement> CarreauYasudaModel<T> {
     ///
     /// # Arguments
     /// * `shear_rate` - Shear rate magnitude $|\dot{\gamma}|$ [1/s].
-    ///                  Must be $\ge 0$.
+    ///   Must be $\ge 0$.
     ///
     /// # Returns
     /// Apparent dynamic viscosity $\mu_{app}$ [Pa·s]. bounded in $[\mu_\infty, \mu_0]$.

@@ -1,7 +1,6 @@
-#![allow(clippy::print_stderr)]
+#![expect(clippy::print_stderr, reason = "test/validation output")]
 #![allow(missing_docs)]
 #![allow(clippy::unwrap_used)]
-#![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: 1D vs 2D vs 3D simulation consistency.
 //!
 //! # Purpose

@@ -338,7 +338,6 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> TurbulenceModel<T> for DESMo
 /// Strelets, M.Kh. & Travin, A. (2006). "A New Version of Detached-Eddy
 /// Simulation, Resistant to Ambiguous Grid Densities",
 /// *Theor. Comput. Fluid Dyn.* 20:181-195.
-
 /// DDES constant C_d1 = 8.0 (Spalart et al. 2006).
 pub const CD1: f64 = 8.0;
 /// DDES constant C_d2 = 3.0 (Spalart et al. 2006).

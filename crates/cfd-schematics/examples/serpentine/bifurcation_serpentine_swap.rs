@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Bifurcation → Serpentine channel swap example.
 //!
 //! Uses `create_geometry` with three `SplitType::Bifurcation` levels

@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Canonical JSON schematic → STL + OpenFOAM pipeline.
 //!
 //! Demonstrates the complete path from `cfd-schematics` designs to watertight

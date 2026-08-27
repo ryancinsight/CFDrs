@@ -8,6 +8,11 @@ use super::GeometryGenerator;
 use crate::config::ChannelTypeConfig;
 use crate::domain::model::NetworkBlueprint;
 
+/// One generation of a branching layout: the next level's y centres, the
+/// y-extent of each branch, each branch's width, and the segments drawn to
+/// reach them -- in that order.
+type SplitGeneration = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<(Point2D, Point2D)>);
+
 impl GeometryGenerator {
     pub(super) fn generate(mut self, splits: &[SplitType]) -> NetworkBlueprint {
         let (length, width) = self.box_dims;
@@ -118,7 +123,7 @@ impl GeometryGenerator {
         current_widths: &[f64],
         current_x: f64,
         dx: f64,
-    ) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<(Point2D, Point2D)>) {
+    ) -> SplitGeneration {
         let mut next_y_coords = Vec::new();
         let mut next_y_ranges = Vec::new();
         let mut next_widths = Vec::new();
@@ -229,7 +234,7 @@ impl GeometryGenerator {
         current_widths: &[f64],
         current_x: f64,
         dx: f64,
-    ) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<(Point2D, Point2D)>) {
+    ) -> SplitGeneration {
         let mut next_y_coords = Vec::new();
         let mut next_y_ranges = Vec::new();
         let mut next_widths = Vec::new();

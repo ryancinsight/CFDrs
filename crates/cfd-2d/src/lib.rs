@@ -132,52 +132,7 @@
 //! their CFL assumptions hold.
 
 #![warn(missing_docs)]
-#![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
 // 2D CFD simulation allows
-#![allow(clippy::similar_names)] // CFD variables (u,v,p; nx,ny; dx,dy; i,j) often similar
-#![allow(clippy::cast_precision_loss)] // Performance-critical numerical loops
-#![allow(clippy::cast_possible_truncation)] // Grid indices and array sizes typically small
-#![allow(clippy::unused_self)] // Solver trait methods maintain consistent interfaces
-#![allow(clippy::must_use_candidate)] // Solver utilities and getters used in computational contexts
-#![allow(clippy::missing_errors_doc)] // Error documentation deferred for internal APIs
-#![allow(clippy::missing_panics_doc)] // Panic documentation deferred for internal APIs
-#![allow(clippy::cast_sign_loss)] // Signed to unsigned casts common in CFD indexing
-#![allow(clippy::cast_possible_wrap)] // Wrap-around acceptable for grid indices
-#![allow(clippy::too_many_arguments)] // CFD functions often need many physical parameters
-#![allow(clippy::float_cmp)] // Float comparisons necessary in numerical algorithms
-#![allow(clippy::unnecessary_wraps)] // Result types maintained for API consistency
-#![allow(clippy::items_after_statements)] // Helper functions after statements improve readability
-#![allow(clippy::doc_lazy_continuation)] // LaTeX math in doc comments triggers false positives
-#![allow(clippy::many_single_char_names)] // Mathematical notation (i,j,k,x,y,z) is standard
-#![allow(clippy::unreadable_literal)] // Long literals used for precise physical constants
-#![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines
-#![allow(clippy::doc_markdown)] // Math notation doesn't need backticks
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::match_same_arms)]
-#![allow(clippy::useless_conversion)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::needless_range_loop)]
-#![allow(clippy::needless_pass_by_value)]
-#![allow(clippy::format_push_string)]
-#![allow(clippy::new_without_default)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(clippy::empty_line_after_doc_comments)]
-#![allow(clippy::too_many_lines)]
-#![allow(clippy::manual_clamp)]
-#![allow(clippy::duplicated_attributes)]
-#![allow(clippy::same_item_push)]
-#![allow(clippy::doc_overindented_list_items)]
-#![allow(clippy::implicit_hasher)]
-#![allow(clippy::needless_pass_by_value)] // Pass by value for Copy types is idiomatic
-#![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
-#![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
-#![allow(clippy::too_many_lines)] // Complex solver implementations require detailed methods
-#![allow(clippy::needless_range_loop)] // Explicit indexing clearer for multi-dimensional CFD arrays
-#![allow(clippy::struct_field_names)] // Field names like field_* common in computational contexts
-#![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
-#![allow(clippy::if_same_then_else)]
 
 // Core modules
 pub mod constants;

@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Comprehensive CFD validation analysis suite
 
 use eunomia::NumericElement;

@@ -1,4 +1,4 @@
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "diagnostic output")]
 //! Post-solve analysis helpers for the 3D Venturi solver.
 //!
 //! Contains shear-rate computation, divergence diagnostics, and boundary

@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Comprehensive CFD Validation Suite Report
 //!
 //! Executes all implemented 2D and 3D benchmarks and generates a unified

@@ -1,6 +1,5 @@
-#![allow(clippy::print_stderr)]
+#![expect(clippy::print_stderr, reason = "test/validation output")]
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
 //! Cross-fidelity validation: 2D bifurcation flow split vs analytical resistance model.
 //!
 //! CIF (Cell Impedance Filtration) uses asymmetric daughter widths at junctions

@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! Comprehensive stability analysis for CFD time-stepping schemes
 //!
 //! This module provides validation of numerical stability including:

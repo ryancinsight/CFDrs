@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 use athena_leto::IncompleteLu;
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;

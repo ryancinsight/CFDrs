@@ -72,9 +72,6 @@
 //! - `solver`: Time integration and solution algorithms
 
 #![warn(missing_docs)]
-#![allow(clippy::many_single_char_names)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::float_cmp)]
 
 mod basis;
 mod flux;

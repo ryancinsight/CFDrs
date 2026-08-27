@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! MMS validation for turbulent flow equations
 //!
 //! Tests manufactured solutions for various turbulence models:

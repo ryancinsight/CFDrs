@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-#![allow(clippy::print_stdout)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
 //! Comprehensive 2D FDM Poisson solver validation tests
 //!
 //! Validates the finite difference Poisson solver
