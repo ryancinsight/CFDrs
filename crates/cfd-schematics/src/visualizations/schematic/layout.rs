@@ -200,30 +200,31 @@ fn auto_layout_positions(depths: &[usize], box_dims: (f64, f64)) -> Vec<Point2D>
     let y_min = box_dims.1 * 0.12;
     let y_span = box_dims.1 * 0.76;
 
-    let mut columns: Vec<Vec<usize>> = vec![Vec::new(); max_depth.saturating_add(1)];
-    for (idx, depth) in depths.iter().copied().enumerate() {
-        columns[depth].push(idx);
+    // Keep the grouping metadata flat. The previous `Vec<Vec<usize>>` created
+    // one heap allocation per depth column even though each node index was only
+    // consumed once to derive its row.
+    let mut column_counts = vec![0usize; max_depth.saturating_add(1)];
+    for &depth in depths {
+        column_counts[depth] += 1;
     }
 
+    let mut column_rows = vec![0usize; column_counts.len()];
     let mut positions = vec![(box_dims.0 * 0.5, box_dims.1 * 0.5); depths.len()];
-    for (depth, node_indices) in columns.into_iter().enumerate() {
-        if node_indices.is_empty() {
-            continue;
-        }
+    for (idx, &depth) in depths.iter().enumerate() {
+        let count = column_counts[depth];
+        let row = column_rows[depth];
+        column_rows[depth] += 1;
         let x = if max_depth == 0 {
             box_dims.0 * 0.5
         } else {
             x_min + x_span * (depth as f64 / max_depth as f64)
         };
-        let count = node_indices.len();
-        for (row, idx) in node_indices.into_iter().enumerate() {
-            let y = if count == 1 {
-                box_dims.1 * 0.5
-            } else {
-                y_min + y_span * (row as f64 / (count - 1) as f64)
-            };
-            positions[idx] = (x, y);
-        }
+        let y = if count == 1 {
+            box_dims.1 * 0.5
+        } else {
+            y_min + y_span * (row as f64 / (count - 1) as f64)
+        };
+        positions[idx] = (x, y);
     }
 
     positions
