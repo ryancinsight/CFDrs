@@ -114,6 +114,15 @@ pub struct TrifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub config: TrifurcationConfig3D<T>,
 }
 
+/// Mesh-only data needed to evaluate one element's centroid shear rate.
+///
+/// Shape gradients are invariant while the mesh is fixed, so retaining them
+/// avoids reconstructing element geometry on every nonlinear iteration.
+struct ElementShearGeometry {
+    indices: Vec<usize>,
+    gradients: Vec<LetoVector3<f64>>,
+}
+
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64>
     TrifurcationSolver3D<T>
 {
@@ -417,6 +426,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 n_elements
             ];
         let mut next_viscosities = Vec::with_capacity(n_elements);
+        let shear_geometries = Self::build_shear_geometries(&problem.mesh);
 
         // 4. Picard Iteration Loop
         let mut fem_config = FemConfig::<f64>::default();
@@ -474,9 +484,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 .as_ref()
                 .expect("element_viscosities set before Picard loop");
 
-            for (i, cell) in problem.mesh.cells.iter().enumerate() {
+            for (i, geometry) in shear_geometries.iter().enumerate() {
                 let shear_rate_f64 =
-                    self.calculate_element_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
+                    Self::calculate_element_shear_rate_f64(geometry.as_ref(), &updated_solution);
                 let shear_rate = <T as FloatElement>::from_f64(shear_rate_f64);
                 let new_visc_t = fluid.apparent_viscosity(shear_rate);
                 let new_visc = <T as NumericElement>::to_f64(new_visc_t.into_base());
@@ -714,77 +724,101 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         }
     }
 
-    fn calculate_element_shear_rate_f64(
-        &self,
-        cell: &cfd_mesh::domain::topology::Cell,
+    fn build_shear_geometries(
         mesh: &cfd_mesh::IndexedMesh<f64>,
-        solution: &crate::fem::StokesFlowSolution<f64>,
-    ) -> Result<f64> {
-        let idxs =
-            match crate::fem::mesh_utils::extract_vertex_indices(cell, mesh, mesh.vertex_count()) {
-                Ok(indices) => indices,
-                Err(_) => return Ok(0.0_f64),
-            };
-        if idxs.len() < 4 {
-            return Ok(0.0_f64);
-        }
-        let mut local_verts = Vec::with_capacity(idxs.len());
-        for &idx in &idxs {
-            local_verts.push(vector3_from_indexed(
-                &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
-            ));
-        }
-        let mut l: Matrix3<f64> = Matrix3::zeros();
-        if idxs.len() == 10 {
-            use crate::fem::shape_functions::LagrangeTet10;
-            let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
-            let six_v = tet4.calculate_volume(&local_verts);
-            if six_v.abs() < 1e-24_f64 {
-                return Ok(0.0_f64);
-            }
-            tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = matrix3x4_from_columns([
-                LetoVector3::new(
-                    tet4.shape_derivatives[[0, 0]],
-                    tet4.shape_derivatives[[1, 0]],
-                    tet4.shape_derivatives[[2, 0]],
-                ),
-                LetoVector3::new(
-                    tet4.shape_derivatives[[0, 1]],
-                    tet4.shape_derivatives[[1, 1]],
-                    tet4.shape_derivatives[[2, 1]],
-                ),
-                LetoVector3::new(
-                    tet4.shape_derivatives[[0, 2]],
-                    tet4.shape_derivatives[[1, 2]],
-                    tet4.shape_derivatives[[2, 2]],
-                ),
-                LetoVector3::new(
-                    tet4.shape_derivatives[[0, 3]],
-                    tet4.shape_derivatives[[1, 3]],
-                    tet4.shape_derivatives[[2, 3]],
-                ),
-            ]);
-            let tet10 = LagrangeTet10::new(p1_grads);
-            let l_centroid = [0.25_f64; 4];
-            let p2_grads = tet10.gradients(&l_centroid);
-            for i in 0..10 {
-                let u = solution.get_velocity(idxs[i]);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += p2_grads[[col, i]] * u[row];
-                    }
+    ) -> Vec<Option<ElementShearGeometry>> {
+        use crate::fem::shape_functions::LagrangeTet10;
+
+        mesh.cells
+            .iter()
+            .map(|cell| {
+                let Ok(idxs) =
+                    crate::fem::mesh_utils::extract_vertex_indices(cell, mesh, mesh.vertex_count())
+                else {
+                    return None;
+                };
+                if idxs.len() < 4 {
+                    return None;
                 }
-            }
-        } else {
-            let mut element = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
-            element.calculate_shape_derivatives(&local_verts);
-            for (i, &idx) in idxs.iter().enumerate().take(4) {
-                let u = solution.get_velocity(idx);
-                for row in 0..3 {
-                    for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[[col, i]] * u[row];
+
+                let local_verts: Vec<_> = idxs
+                    .iter()
+                    .map(|&idx| {
+                        vector3_from_indexed(
+                            &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
+                        )
+                    })
+                    .collect();
+                let gradients = if idxs.len() == 10 {
+                    let mut tet4 =
+                        crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
+                    if tet4.calculate_volume(&local_verts).abs() < 1e-24_f64 {
+                        return None;
                     }
+                    tet4.calculate_shape_derivatives(&local_verts[0..4]);
+                    let p1_grads = matrix3x4_from_columns([
+                        LetoVector3::new(
+                            tet4.shape_derivatives[[0, 0]],
+                            tet4.shape_derivatives[[1, 0]],
+                            tet4.shape_derivatives[[2, 0]],
+                        ),
+                        LetoVector3::new(
+                            tet4.shape_derivatives[[0, 1]],
+                            tet4.shape_derivatives[[1, 1]],
+                            tet4.shape_derivatives[[2, 1]],
+                        ),
+                        LetoVector3::new(
+                            tet4.shape_derivatives[[0, 2]],
+                            tet4.shape_derivatives[[1, 2]],
+                            tet4.shape_derivatives[[2, 2]],
+                        ),
+                        LetoVector3::new(
+                            tet4.shape_derivatives[[0, 3]],
+                            tet4.shape_derivatives[[1, 3]],
+                            tet4.shape_derivatives[[2, 3]],
+                        ),
+                    ]);
+                    let p2_grads = LagrangeTet10::new(p1_grads).gradients(&[0.25_f64; 4]);
+                    (0..10)
+                        .map(|i| {
+                            LetoVector3::new(p2_grads[[0, i]], p2_grads[[1, i]], p2_grads[[2, i]])
+                        })
+                        .collect()
+                } else {
+                    let mut element = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
+                    element.calculate_shape_derivatives(&local_verts);
+                    (0..4)
+                        .map(|i| {
+                            LetoVector3::new(
+                                element.shape_derivatives[[0, i]],
+                                element.shape_derivatives[[1, i]],
+                                element.shape_derivatives[[2, i]],
+                            )
+                        })
+                        .collect()
+                };
+
+                Some(ElementShearGeometry {
+                    indices: idxs,
+                    gradients,
+                })
+            })
+            .collect()
+    }
+
+    fn calculate_element_shear_rate_f64(
+        geometry: Option<&ElementShearGeometry>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
+    ) -> f64 {
+        let Some(geometry) = geometry else {
+            return 0.0_f64;
+        };
+        let mut l: Matrix3<f64> = Matrix3::zeros();
+        for (&idx, gradient) in geometry.indices.iter().zip(&geometry.gradients) {
+            let u = solution.get_velocity(idx);
+            for row in 0..3 {
+                for col in 0..3 {
+                    l[(row, col)] += gradient[col] * u[row];
                 }
             }
         }
@@ -795,6 +829,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 inner_prod += epsilon[(i, j)] * epsilon[(i, j)];
             }
         }
-        Ok((2.0_f64 * inner_prod).sqrt())
+        (2.0_f64 * inner_prod).sqrt()
     }
 }

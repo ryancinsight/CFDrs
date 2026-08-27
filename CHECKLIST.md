@@ -1,5 +1,31 @@
 # CFDrs Work Checklist
 
+## ATLAS-CFDRS-TRIFURCATION-SHEAR-CACHE-110 [perf] — implemented 2026-08-26
+
+- [x] Audit the trifurcation Picard path and identify repeated per-element
+      geometry reconstruction in the viscosity update loop.
+- [x] Cache each cell's extracted node indices and P2 centroid shape gradients
+      once per solve; retain the old zero-shear behavior for malformed or
+      degenerate cells.
+- [x] Preserve the shear-rate formula, solver iteration/tolerance settings,
+      mesh resolution, output values, and validation assertions.
+- [x] Run `cargo fmt --all -- --check` and `git diff --check`.
+- [x] Run the exact `cross_fidelity_trifurcation_dominance` test and collect
+      runtime evidence. The recorded blocker was the development overlay, not
+      the code: `apollo-fft`'s one-argument `LaneKernel::call` against the
+      two-argument Hermes trait only arises when `[patch]` redirects those
+      crates to local trees. Built against the committed git sources -- cargo
+      run from outside the stack root with `CARGO_TARGET_DIR` pointed at the
+      shared cache -- the workspace compiles and the test passes.
+- [x] Runtime, three runs each on one machine, same session:
+      without the cache 15.015 / 15.005 / 15.457 s, with it
+      14.849 / 14.530 / 14.623 s. The ranges do not overlap, so the effect is
+      real, and it is small: about 2.6% off a median 15.0 s. This is a
+      validation test rather than a benchmark, and the geometry reconstruction
+      the cache removes is a modest share of total solve time, so treat the
+      figure as indicative. A criterion benchmark over the viscosity update
+      alone would measure the change rather than the solve around it.
+
 ## Hosted evidence checkpoint — 2026-08-19
 
 - [x] Collect exact default-head run `32222487306` at source
