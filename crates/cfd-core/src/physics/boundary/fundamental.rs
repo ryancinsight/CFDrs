@@ -121,12 +121,17 @@ pub enum BoundaryCondition<T: RealField + Copy> {
         pressure: Option<T>,
     },
 
-    /// Characteristic-based outlet
+    /// Characteristic-based outlet.
+    ///
+    /// Velocity is always extrapolated from the interior: the variant carries
+    /// no velocity to impose, so a "specify" mode would have nothing to
+    /// specify. A flag selecting between the two once existed and applied the
+    /// same stencil on both branches (CFDRS-OUTLET-FLAG-INERT). Imposing a
+    /// velocity here is a different boundary condition — use
+    /// [`BoundaryCondition::VelocityInlet`] or a Dirichlet wall for that.
     CharacteristicOutlet {
         /// Pressure specification for outgoing acoustic waves
         pressure: T,
-        /// Allow velocity extrapolation (true) or specify (false)
-        extrapolate_velocity: bool,
     },
 }
 
@@ -169,11 +174,8 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
     }
 
     /// Create characteristic-based outlet boundary condition
-    pub fn characteristic_outlet(pressure: T, extrapolate_velocity: bool) -> Self {
-        Self::CharacteristicOutlet {
-            pressure,
-            extrapolate_velocity,
-        }
+    pub fn characteristic_outlet(pressure: T) -> Self {
+        Self::CharacteristicOutlet { pressure }
     }
 
     /// Get fundamental type classification

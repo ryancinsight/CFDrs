@@ -140,6 +140,16 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Remove `BoundaryCondition::CharacteristicOutlet`'s
+  `extrapolate_velocity` field and the matching `characteristic_outlet`
+  parameter. The flag selected between two branches that applied the same
+  three matrix entries, so no configuration of it was distinguishable by
+  behaviour, and it could not be implemented as documented: "specify" needs a
+  velocity, and the variant carries only a pressure. The outlet extrapolates
+  velocity from the interior, which is the one stencil the variant can
+  express; imposing a velocity is a different boundary condition. Callers pass
+  one argument instead of two (CFDRS-OUTLET-FLAG-INERT).
+
 - **Breaking:** Type `ChannelSpec` linear and quadratic hydraulic-loss
   coefficients with Eunomia `HydraulicResistance` and
   `QuadraticHydraulicResistance`, and type pump flow/pressure limits with

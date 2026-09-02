@@ -125,3 +125,53 @@ fn north_wall_owns_the_top_corners() {
     assert_eq!(rhs[bottom_left], 0.0);
     assert_eq!(rhs[bottom_right], 0.0);
 }
+
+/// The characteristic outlet writes the zero-gradient stencil, and nothing
+/// else (CFDRS-OUTLET-FLAG-INERT).
+///
+/// This is the test whose absence let an inert flag survive: the variant once
+/// carried an `extrapolate_velocity: bool` selecting between two branches that
+/// applied the same three matrix entries, so no configuration of it could be
+/// distinguished by behaviour. Asserting the entries rather than "it ran"
+/// pins the one stencil the variant can express.
+#[test]
+fn characteristic_outlet_writes_the_zero_gradient_stencil() {
+    let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
+        .expect("grid creation failed");
+    let mut matrix = RecordingMatrix::new();
+    let mut rhs = Array1::from_elem([grid.nx * grid.ny], 7.0_f64);
+    let outlet = BoundaryCondition::characteristic_outlet(101_325.0_f64);
+
+    apply_west_boundary(
+        &mut matrix,
+        &mut rhs,
+        &outlet,
+        MomentumComponent::U,
+        &grid,
+        grid.nx,
+        grid.ny,
+    )
+    .expect("west outlet application");
+
+    // Interior rows only: the horizontal walls own the corners, so a 4x4 grid
+    // leaves rows j = 1 and j = 2 on the west edge.
+    let expected: Vec<(usize, usize, f64)> = [1_usize, 2]
+        .into_iter()
+        .flat_map(|j| {
+            let idx = j * grid.nx;
+            [(idx, idx, 1.0_f64), (idx, idx + 1, -1.0_f64)]
+        })
+        .collect();
+    assert_eq!(
+        matrix.entries, expected,
+        "the outlet must write u[boundary] - u[interior] = 0 and nothing else"
+    );
+
+    // The right-hand side is zeroed at those rows and untouched elsewhere, so
+    // the pressure the variant carries does not leak into the momentum system.
+    for j in 0..grid.ny {
+        let idx = j * grid.nx;
+        let expected_rhs = if (1..=2).contains(&j) { 0.0 } else { 7.0 };
+        assert_eq!(rhs[idx], expected_rhs, "west row j = {j} right-hand side");
+    }
+}

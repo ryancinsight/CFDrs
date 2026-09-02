@@ -32,7 +32,7 @@
 - **One real defect found and filed, not silenced:** see
   `CFDRS-OUTLET-FLAG-INERT`.
 
-## CFDRS-OUTLET-FLAG-INERT — a boundary-condition flag selects between identical branches [minor] — todo
+## ✅ CFDRS-OUTLET-FLAG-INERT — a boundary-condition flag selects between identical branches [minor] — done 2026-09-02
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
@@ -52,6 +52,21 @@
   the reference the outlet condition comes from, implement it, and add a test
   that distinguishes the two settings -- there is none today, which is how this
   survived.
+- **Delivered 2026-09-02, by the other branch of the fix.** The modelling
+  question the item deferred does not arise: `CharacteristicOutlet` carries a
+  pressure and no velocity, so the documented "specify (false)" mode has
+  nothing to specify. The flag was not merely inert, it was unimplementable as
+  declared. It is removed, along with its `characteristic_outlet` parameter,
+  which makes the invalid state unrepresentable rather than checked.
+- **Consumer sweep:** no in-tree caller constructs the variant through the
+  constructor; the only readers are the 2-D momentum stencil, the 3-D
+  bifurcation solver's scalar conversion, and matches that already ignored the
+  field. Breaking, recorded in the changelog for external callers.
+- **The missing test is the deliverable.** `characteristic_outlet_writes_the_
+  zero_gradient_stencil` asserts the exact matrix entries and right-hand side
+  the outlet writes, so a stencil change is a value failure rather than an
+  invisible one. Deleting the interior-coupling entry fails it with the entry
+  list; that is the discrimination the item said was absent.
 
 ## CFDRS-LOCK-GUARD-01 — wire the overlay lockfile guard [major] — implemented 2026-08-24
 
