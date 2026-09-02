@@ -24,6 +24,20 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Public-surface compatibility, informational on pull requests: the
+  # detected change class is visible while the change is still in
+  # review. The blocking comparison runs on release.
+  # Atlas ATLAS-SEMVER-GATE-FLEETWIDE-2026-08-28.
+  semver:
+    name: SemVer gate
+    uses: ryancinsight/atlas/.github/workflows/semver-gate.yml@fcbc5202c9205a25c3f5f8a38999aa02e9e95453
+    with:
+      package: cfd-1d,cfd-2d,cfd-3d,cfd-core,cfd-io,cfd-math,cfd-optim,cfd-python,cfd-schematic-mesh,cfd-schematics,cfd-validation
+      apt-packages: libfontconfig1-dev
+      rust-toolchain: 1.97.0
+    permissions:
+      contents: read
+
   # First and alone: needs no toolchain, cache or build, and guards the one
   # artifact whose correctness cannot be checked from inside the environment
   # that produces it. The Atlas overlay's `[patch]` redirects make cargo
