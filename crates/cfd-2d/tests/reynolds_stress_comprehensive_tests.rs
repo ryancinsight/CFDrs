@@ -541,10 +541,23 @@ fn test_mms_convergence_study_setup() {
     assert_eq!(study.mms.alpha, 0.1);
 }
 
-/// Test grid convergence for Reynolds stress MMS
-/// Verifies 2nd-order convergence rates
+/// The MMS evaluation is self-consistent to rounding — **not** a convergence
+/// study (CFDRS-GA-006).
+///
+/// This fills the "numerical" arrays with `exact_reynolds_stress` itself, so
+/// the L2 error it measures is `exact - exact`: zero up to the summation
+/// rounding, on every grid. No discretization is exercised and no order can be
+/// recovered from it. It was named `..._mms_convergence` and documented as
+/// "Verifies 2nd-order convergence rates", which is a claim it cannot support;
+/// the name and the doc now say what it does.
+///
+/// What it *is* worth keeping for: it pins that the manufactured solution and
+/// the study's error norm agree, so a defect in either surfaces here rather
+/// than inside a convergence result that would then be blamed on the solver.
+/// A real order study drives the MMS source through a solver, which is the
+/// remaining half of CFDRS-GA-006.
 #[test]
-fn test_reynolds_stress_mms_convergence() {
+fn reynolds_stress_mms_evaluation_is_self_consistent_to_rounding() {
     let mms = ManufacturedReynoldsStressMMS::<f64>::standard_test_case();
     let study = ReynoldsStressConvergenceStudy::new(mms);
 
@@ -580,14 +593,19 @@ fn test_reynolds_stress_mms_convergence() {
         errors.push(l2_errors);
     }
 
-    // For exact MMS evaluation, errors should be very small (near machine precision)
-    // This tests the MMS implementation itself rather than numerical convergence
-    for error_set in &errors {
+    // `exact - exact` is zero in exact arithmetic. What survives is the L2
+    // norm's own summation rounding over `nx * ny` terms: bounded by
+    // `sqrt(N) * eps * max|stress|`, which for the largest grid here and an
+    // O(1) manufactured field is a few times 1e-14. The bound below carries
+    // orders of magnitude over that rather than being fitted to a run — the
+    // clause exists to catch a mismatched MMS or norm, which fails it by many
+    // orders, not to measure the rounding.
+    let bound = 1.0e-10_f64;
+    for (error_set, &nx) in errors.iter().zip(&resolutions) {
         for &err in error_set {
             assert!(
-                err < 1e-10,
-                "MMS evaluation should be very accurate, got error: {}",
-                err
+                err < bound,
+                "the MMS and the study's error norm must agree to rounding on                  a {nx}x{nx} grid; got {err:.3e} against {bound:.3e}, which is                  a disagreement rather than accumulated rounding"
             );
         }
     }
