@@ -17,8 +17,11 @@ permissions:
 # per push; during the 2026-08-25 runner-saturation window CFDrs carried the
 # fleet's worst queue-to-work ratio (828 queued minutes against 741 consumed).
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Pull requests share one group per ref and cancel superseded runs; default-
+  # branch runs get one group per commit, since GitHub supersedes a pending run
+  # in a shared group whatever `cancel-in-progress` says.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # First and alone: needs no toolchain, cache or build, and guards the one
