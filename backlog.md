@@ -4737,6 +4737,36 @@ No existing item's status was changed by this audit.
   solve-before-assemble sequence.
   Dependencies: none. Decompose per crate; ratchet the count down.
 
+- **CFDRS-CAVITY-VALIDATION-INERT-2026-09-02 [major][correctness] — the Ghia
+  lid-driven-cavity suite validates a solver that never runs (status=todo,
+  unclaimed).**
+  Evidence, measured 2026-09-02 by running the ignored tests:
+  `test_simplec_convergence_ghia_cavity_re100` reports **final residual
+  `0.00e0`, `Iterations: 1`, L2 error 24.6%** against the Ghia reference and
+  **passes**, in 0.02 s. `test_simplec_grid_convergence_study` returns the
+  **bit-identical** error `0.456899` on 16x16, 24x24, 32x32 and 48x48 — so
+  `observed order = -0.000` and `error ratio = 1.000` at every refinement —
+  and also passes, in 0.09 s.
+  An error that does not move with the grid, a residual of exactly zero after
+  one iteration, and a runtime three orders of magnitude under the `>3 min`
+  the `#[ignore]` reasons claim, together say the field never leaves its
+  initial state: nothing drives the cavity. Each test uses `lid_velocity` only
+  to compute `nu` (`:58`, `:160`, `:294`, `:416`, `:860`), and `:304` records
+  the assumption that the solver applies the boundary conditions itself.
+  Why it went unnoticed: every test in the file is `#[ignore]`d, and none
+  asserts on the error it prints — they print a check mark on any outcome. The
+  suite is named for Ghia et al. and compares against its data while measuring
+  the norm of that data against zero.
+  Scope: whatever applies the lid — solver or fixture — plus assertions on the
+  centerline error once the flow exists. Non-goals: no tolerance widening; the
+  reference data itself is not in question.
+  Acceptance oracle: the residual falls across iterations, the centerline error
+  falls when the grid is refined, and the assertions fail if either stops
+  holding. Until then the `#[ignore]` reasons should name this item rather than
+  claim the tests are slow, which they are not.
+  Dependencies: none. This supersedes the premise of CFDRS-GA-006 below, which
+  assumed the studies compute a real order and merely fail to assert it.
+
 - **CFDRS-GA-006 [patch][verification] — Make the grid-convergence studies assert observed order (status=todo, effort=M).**
   Outcome: each declared second-order discretization has a test that computes
   the observed order over a refinement sequence and asserts it against the

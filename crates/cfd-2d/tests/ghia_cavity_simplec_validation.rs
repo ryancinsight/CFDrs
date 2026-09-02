@@ -50,7 +50,7 @@ fn constant_fluid(
 
 /// Test SIMPLEC solver basic functionality with Rhie-Chow interpolation
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_solver_creation_and_basic_functionality() {
     // Create lid-driven cavity setup
     let nx = 16; // Smaller grid for faster testing
@@ -152,7 +152,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
 /// Test SIMPLEC solver convergence for lid-driven cavity at Re=100
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_convergence_ghia_cavity_re100() {
     // Create lid-driven cavity setup with optimized parameters
     let nx = 32;
@@ -286,7 +286,7 @@ fn test_simplec_convergence_ghia_cavity_re100() {
 
 /// Test PIMPLE solver with Rhie-Chow interpolation at Re=100
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_pimple_rhie_chow_ghia_cavity_re100() {
     // Create lid-driven cavity setup
     let nx = 64;
@@ -409,7 +409,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
 
 /// Test Rhie-Chow effectiveness by comparing with/without interpolation
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_rhie_chow_effectiveness() {
     let nx = 32;
     let ny = 32;
@@ -852,7 +852,7 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
 
 /// Parameter optimization study for SIMPLEC algorithm accuracy
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_parameter_optimization_re100() {
     // Create lid-driven cavity setup
     let nx = 32;
@@ -987,7 +987,7 @@ fn test_simplec_parameter_optimization_re100() {
 
 /// Grid convergence study to validate spatial accuracy scaling
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_grid_convergence_study() {
     let reynolds = 100.0_f64;
     let lid_velocity = 1.0_f64;
@@ -1127,7 +1127,7 @@ fn test_simplec_grid_convergence_study() {
 
 /// Comprehensive validation at higher Reynolds numbers (Re=400, Re=1000)
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_higher_reynolds_validation() {
     let nx = 32;
     let ny = 32;
@@ -1252,7 +1252,7 @@ fn test_simplec_higher_reynolds_validation() {
 
 /// Performance benchmarking for production deployment
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_performance_benchmark() {
     use std::time::Instant;
 
@@ -1412,7 +1412,7 @@ fn test_simplec_performance_benchmark() {
 
 /// Channel flow validation - test fully developed Poiseuille flow
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_channel_flow_validation() {
     // Create channel flow setup (Poiseuille flow between parallel plates)
     let nx = 32;
@@ -1572,7 +1572,7 @@ fn test_simplec_channel_flow_validation() {
 
 /// Edge case validation: very low Reynolds number (Stokes flow)
 #[test]
-#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
 fn test_simplec_stokes_flow_validation() {
     // Test extremely low Reynolds number for Stokes flow regime
     let nx = 16;
