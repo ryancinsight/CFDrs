@@ -3,7 +3,21 @@ name: ci
 on:
   push:
     branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - 'xtask/**'
+      - '.github/workflows/ci.yml'
+      - '.gitmodules'
   pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - 'xtask/**'
+      - '.github/workflows/ci.yml'
+      - '.gitmodules'
 
 env:
   CARGO_TERM_COLOR: always
@@ -34,12 +48,13 @@ jobs:
 
   rust-workspace:
     name: Rust workspace gate
+    needs: lockfile
+    if: ${{ needs.lockfile.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      # Keep the measured finite-volume/FEM cases out of the parallel suite.
-      # They are run in a second invocation below so unrelated tests cannot
-      # consume the hosted runner while their existing per-test budget holds.
+      CARGO_BUILD_JOBS: "2"
+      CARGO_TERM_COLOR: always
       NUMERICAL_FIDELITY_FILTER: >-
         test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) |
         test(/test_venturi_blood_flow/) |
@@ -54,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Install the pinned Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
@@ -103,9 +118,10 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
 
-      - name: Check
-        run: cargo check --workspace --all-targets --locked
-
+      # Clippy performs its own compilation and supplies the same type-check
+      # coverage as `cargo check`; keeping both workspace-wide builds here
+      # wastes runner time and duplicates peak memory pressure.
+      # `cargo check` remains available locally for focused crate debugging.
       # The clippy component is installed above, so without this step the
       # workspace's denied pedantic floor is declared and never enforced -
       # which is the state CFDrs was already in when the floor was found to be
@@ -125,12 +141,14 @@ jobs:
 
   check-figures:
     name: Check book figures SSOT
+    needs: lockfile
+    if: ${{ needs.lockfile.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
