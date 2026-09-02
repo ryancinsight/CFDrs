@@ -17,7 +17,9 @@ permissions:
 
 concurrency:
   group: book-pages-${{ github.ref }}
-  cancel-in-progress: true
+  # Deploys queue behind one another; a half-cancelled deploy is worse than a
+  # superseded one, and a cancelled default-branch run leaves that merge undeployed.
+  cancel-in-progress: false
 
 jobs:
   book:
