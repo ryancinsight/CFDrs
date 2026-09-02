@@ -342,12 +342,8 @@ where
                     velocity: velocity.map(|v| LetoVector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
                     pressure: pressure.map(to_f),
                 },
-                BC::CharacteristicOutlet {
-                    pressure,
-                    extrapolate_velocity,
-                } => BC::CharacteristicOutlet {
+                BC::CharacteristicOutlet { pressure } => BC::CharacteristicOutlet {
                     pressure: to_f(pressure),
-                    extrapolate_velocity,
                 },
             }
         };

@@ -119,29 +119,15 @@ pub(super) fn apply_west_boundary<T: CfdScalar + Copy + FloatElement, M: MatrixU
                     rhs[idx] = scalar::zero();
                 }
             }
-            BoundaryCondition::CharacteristicOutlet {
-                extrapolate_velocity,
-                ..
-            } => {
-                // `extrapolate_velocity` selects between two identical
-                // stencils, so a `CharacteristicOutlet { extrapolate_velocity:
-                // false }` behaves exactly like `true` and the flag does
-                // nothing. Which stencil the non-extrapolating case should use
-                // is a modelling question, not a lint one, so it is filed
-                // rather than guessed at: CFDRS-OUTLET-FLAG-INERT.
-                #[expect(
-                    clippy::if_same_then_else,
-                    reason = "inert flag, filed as CFDRS-OUTLET-FLAG-INERT"
-                )]
-                if *extrapolate_velocity {
-                    matrix.add_entry(idx, idx, scalar::one())?;
-                    matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
-                    rhs[idx] = scalar::zero();
-                } else {
-                    matrix.add_entry(idx, idx, scalar::one())?;
-                    matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
-                    rhs[idx] = scalar::zero();
-                }
+            BoundaryCondition::CharacteristicOutlet { .. } => {
+                // Zero-gradient on the boundary-normal velocity component:
+                // `u[boundary] - u[interior] = 0`, extrapolating the interior
+                // value outward. This is the only stencil the variant can
+                // express — it carries a pressure and no velocity, so there is
+                // nothing to impose instead (CFDRS-OUTLET-FLAG-INERT).
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             _ => {}
         }
