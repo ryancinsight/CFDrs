@@ -1,5 +1,30 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW [perf] — implemented 2026-09-03
+
+- [x] Pass borrowed annotation strings directly to Plotters text elements;
+      remove per-label `String` allocations from the render path.
+- [x] Preserve marker, legend, and split-note SVG output with existing
+      value-semantic renderer tests.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
+## CFDRS-SCHEMATICS-ANNOTATION-BORROW [perf] — implemented 2026-09-03
+
+- [x] Route explicit annotation references through the Plotters renderer without
+      cloning `RenderConfig` or `SchematicAnnotations`.
+- [x] Preserve annotated and non-annotated output, validation, and renderer
+      trait behavior with the existing SVG value-semantic tests.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
+## CFDRS-SCHEMATICS-RENDER-PATH-MOVE [perf] — implemented 2026-09-03
+
+- [x] Move owned render-model channel paths into Plotters path elements instead
+      of cloning each path at draw time.
+- [x] Preserve rendered channel geometry, categories, and output behavior with
+      the existing renderer tests and value-semantic checks.
+
 ## CFDRS-SCHEMATICS-TREATMENT-BORROW [perf] — implemented 2026-09-03
 
 - [x] Centralize borrowed treatment-route serpentine selection so Dean

@@ -29,13 +29,14 @@ pub(super) fn draw_annotation_overlay<DB: DrawingBackend>(
             let label_text = marker.label.as_deref().unwrap_or_default();
             let (label_dx, label_dy) = label_offset_for_marker(marker, system);
             chart
-                .draw_series(std::iter::once(Text::new(
-                    label_text.to_string(),
+                .plotting_area()
+                .draw(&Text::new(
+                    label_text,
                     (marker.point.0 + label_dx, marker.point.1 + label_dy),
                     ("sans-serif", annotations.style.label_font_size_pt.max(8))
                         .into_font()
                         .color(&convert_color(&marker_color)),
-                )))
+                ))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         }
     }
@@ -100,11 +101,12 @@ fn draw_annotation_legend<DB: DrawingBackend>(
 
     if !present_roles.is_empty() {
         chart
-            .draw_series(std::iter::once(Text::new(
-                "Legend".to_string(),
+            .plotting_area()
+            .draw(&Text::new(
+                "Legend",
                 (legend_x, legend_y),
                 ("sans-serif", 12).into_font().color(&RGBColor(20, 20, 20)),
-            )))
+            ))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         legend_y -= row_step;
     }
@@ -120,11 +122,12 @@ fn draw_annotation_legend<DB: DrawingBackend>(
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
         chart
-            .draw_series(std::iter::once(Text::new(
-                role.legend_label().to_string(),
+            .plotting_area()
+            .draw(&Text::new(
+                role.legend_label(),
                 (legend_x + system.box_dims.0 * 0.018, legend_y),
                 ("sans-serif", 10).into_font().color(&RGBColor(50, 50, 50)),
-            )))
+            ))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
         legend_y -= row_step;
@@ -141,13 +144,14 @@ fn draw_annotation_legend<DB: DrawingBackend>(
             let note_step = row_step * 0.9;
             for (idx, line) in note_lines.iter().enumerate() {
                 chart
-                    .draw_series(std::iter::once(Text::new(
-                        (*line).to_string(),
+                    .plotting_area()
+                    .draw(&Text::new(
+                        *line,
                         (legend_x, legend_y),
                         ("sans-serif", note_font_size)
                             .into_font()
                             .color(&RGBColor(30, 30, 30)),
-                    )))
+                    ))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
                 if idx + 1 < note_lines.len() {
                     legend_y -= note_step;

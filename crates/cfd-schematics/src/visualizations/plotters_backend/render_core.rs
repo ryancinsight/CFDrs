@@ -3,6 +3,7 @@ use crate::domain::model::{ChannelShape, NetworkBlueprint};
 use crate::error::{VisualizationError, VisualizationResult};
 use crate::geometry::{ChannelTypeCategory, Point2D};
 use crate::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
+use crate::visualizations::annotations::SchematicAnnotations;
 use crate::visualizations::traits::{
     Color as CfdColor, LineStyle, OutputFormat, RenderConfig, SchematicRenderer,
 };
@@ -27,11 +28,13 @@ impl SchematicRenderer for PlottersRenderer {
         output_path: &Path,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
-        self.render_analysis(
+        let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::BlueRed);
+        self.render_analysis_with_annotations(
             system,
             output_path,
             config,
-            &AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::BlueRed),
+            &overlay,
+            config.annotations.as_ref(),
         )
     }
 
@@ -42,20 +45,13 @@ impl SchematicRenderer for PlottersRenderer {
         config: &RenderConfig,
         overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
-        if system.channels.is_empty() && system.nodes.is_empty() {
-            return Err(VisualizationError::EmptyChannelSystem);
-        }
-
-        match self.detect_output_format(output_path)? {
-            OutputFormat::PNG | OutputFormat::JPEG => {
-                self.render_bitmap(system, output_path, config, overlay)
-            }
-            OutputFormat::SVG => self.render_svg(system, output_path, config, overlay),
-            OutputFormat::PDF => Err(VisualizationError::UnsupportedFormat {
-                format: "PDF".to_string(),
-                message: "PDF output is not supported by the plotters backend".to_string(),
-            }),
-        }
+        self.render_analysis_with_annotations(
+            system,
+            output_path,
+            config,
+            overlay,
+            config.annotations.as_ref(),
+        )
     }
 
     fn supported_formats(&self) -> Vec<OutputFormat> {
@@ -64,6 +60,47 @@ impl SchematicRenderer for PlottersRenderer {
 }
 
 impl PlottersRenderer {
+    pub(crate) fn render_system_with_annotations(
+        &self,
+        system: &NetworkBlueprint,
+        output_path: &Path,
+        config: &RenderConfig,
+        annotations: &SchematicAnnotations,
+    ) -> VisualizationResult<()> {
+        let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::BlueRed);
+        self.render_analysis_with_annotations(
+            system,
+            output_path,
+            config,
+            &overlay,
+            Some(annotations),
+        )
+    }
+
+    fn render_analysis_with_annotations(
+        &self,
+        system: &NetworkBlueprint,
+        output_path: &Path,
+        config: &RenderConfig,
+        overlay: &AnalysisOverlay<'_>,
+        annotations: Option<&SchematicAnnotations>,
+    ) -> VisualizationResult<()> {
+        if system.channels.is_empty() && system.nodes.is_empty() {
+            return Err(VisualizationError::EmptyChannelSystem);
+        }
+
+        match self.detect_output_format(output_path)? {
+            OutputFormat::PNG | OutputFormat::JPEG => {
+                self.render_bitmap(system, output_path, config, overlay, annotations)
+            }
+            OutputFormat::SVG => self.render_svg(system, output_path, config, overlay, annotations),
+            OutputFormat::PDF => Err(VisualizationError::UnsupportedFormat {
+                format: "PDF".to_string(),
+                message: "PDF output is not supported by the plotters backend".to_string(),
+            }),
+        }
+    }
+
     pub(super) fn detect_output_format(
         &self,
         output_path: &Path,
@@ -97,6 +134,7 @@ impl PlottersRenderer {
         #[allow(unused_variables)] output_path: &Path,
         #[allow(unused_variables)] config: &RenderConfig,
         #[allow(unused_variables)] overlay: &AnalysisOverlay<'_>,
+        #[allow(unused_variables)] annotations: Option<&SchematicAnnotations>,
     ) -> VisualizationResult<()> {
         #[cfg(target_arch = "wasm32")]
         {
@@ -111,7 +149,7 @@ impl PlottersRenderer {
                 BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
             root.fill(&convert_color(&config.background_color))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-            self.render_with_backend(system, config, root, output_path, overlay)
+            self.render_with_backend(system, config, root, output_path, overlay, annotations)
         }
     }
 
@@ -121,11 +159,12 @@ impl PlottersRenderer {
         output_path: &Path,
         config: &RenderConfig,
         overlay: &AnalysisOverlay<'_>,
+        annotations: Option<&SchematicAnnotations>,
     ) -> VisualizationResult<()> {
         let root = SVGBackend::new(output_path, (config.width, config.height)).into_drawing_area();
         root.fill(&convert_color(&config.background_color))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-        self.render_with_backend(system, config, root, output_path, overlay)
+        self.render_with_backend(system, config, root, output_path, overlay, annotations)
     }
 
     fn render_with_backend<DB: DrawingBackend>(
@@ -135,9 +174,13 @@ impl PlottersRenderer {
         root: DrawingArea<DB, Shift>,
         output_path: &Path,
         overlay: &AnalysisOverlay<'_>,
+        annotations: Option<&SchematicAnnotations>,
     ) -> VisualizationResult<()> {
         let renderable =
             channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
+        let box_outline = renderable.box_outline;
+        let channel_paths = renderable.channel_paths;
+        let channel_categories = renderable.channel_categories;
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;
@@ -168,7 +211,7 @@ impl PlottersRenderer {
         }
 
         chart
-            .draw_series(renderable.box_outline.iter().map(|(p1, p2)| {
+            .draw_series(box_outline.iter().map(|(p1, p2)| {
                 PathElement::new(
                     [*p1, *p2],
                     convert_color(&config.boundary_style.color)
@@ -201,7 +244,7 @@ impl PlottersRenderer {
         };
 
         let has_edge_data = !overlay.edge_data().is_empty();
-        for (i, channel) in system.channels.iter().enumerate() {
+        for (i, (channel, path)) in system.channels.iter().zip(channel_paths).enumerate() {
             let base_style = if has_edge_data {
                 let color = overlay
                     .edge_color(i)
@@ -216,13 +259,15 @@ impl PlottersRenderer {
                 // channels also render with a thicker stroke.
                 role_styles.get_style(role).clone()
             } else {
-                let category = renderable.channel_categories.get(i).copied().unwrap_or(
-                    match channel.channel_shape {
-                        ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
-                            ChannelTypeCategory::Straight
-                        }
-                    },
-                );
+                let category =
+                    channel_categories
+                        .get(i)
+                        .copied()
+                        .unwrap_or(match channel.channel_shape {
+                            ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
+                                ChannelTypeCategory::Straight
+                            }
+                        });
                 config.channel_type_styles.get_style(category).clone()
             };
 
@@ -234,7 +279,6 @@ impl PlottersRenderer {
             }
             .max(1);
 
-            let path = renderable.channel_paths.get(i).cloned().unwrap_or_default();
             if path.len() < 2 {
                 continue;
             }
@@ -274,7 +318,7 @@ impl PlottersRenderer {
             }
         }
 
-        if let Some(annotations) = config.annotations.as_ref() {
+        if let Some(annotations) = annotations {
             if let Err(message) = annotations.validate() {
                 return Err(VisualizationError::InvalidParameters {
                     parameter: "annotations".to_string(),

@@ -44,9 +44,7 @@ pub fn plot_geometry_with_annotations(
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
     let renderer = PlottersRenderer;
-    let mut annotated_config = config.clone();
-    annotated_config.annotations = Some(annotations.clone());
-    renderer.render_system(blueprint, output_path.as_ref(), &annotated_config)
+    renderer.render_system_with_annotations(blueprint, output_path.as_ref(), config, annotations)
 }
 
 /// Plot a blueprint with the given render configuration.

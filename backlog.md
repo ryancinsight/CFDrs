@@ -7,6 +7,35 @@
 - **Acceptance:** Dean-site fallback selects the first treatment serpentine with the existing series/parallel/split ordering and preserves Dean number, radius, and arc length. The fallback performs no temporary `Vec<String>` allocation and does not alter the public channel-ID API.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
 - **Evidence:** `cfd-schematics` check, 207/207 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass.
+## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW — borrow renderer text [perf] — IMPLEMENTED 2026-09-03
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-RENDER-TEXT-BORROW | Pass annotation labels and legend segments into Plotters text elements as borrowed strings and remove render-time string allocations. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_annotations.rs`, renderer tests |
+
+- **Acceptance:** marker labels, legend labels, and split legend-note segments render with the same text and ordering, the renderer allocates no temporary `String` for these borrowed values, and no public API or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 206/206 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. Existing renderer coverage preserves marker labels, legend labels, split-note text, and SVG output ordering.
+
+## CFDRS-SCHEMATICS-ANNOTATION-BORROW — borrow explicit annotations [perf] — IMPLEMENTED 2026-09-03
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-ANNOTATION-BORROW | Pass explicit annotation references through the Plotters renderer and remove the public helper's configuration and annotation deep copies. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/schematic/mod.rs`, `crates/cfd-schematics/src/visualizations/plotters_backend/render_core.rs`, renderer tests |
+
+- **Acceptance:** annotated rendering uses borrowed annotation data, non-annotated rendering and the `SchematicRenderer` trait remain unchanged, annotation validation remains enforced, and rendered SVG output remains value-equivalent. No public type or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 206/206 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. The existing explicit-annotation SVG test confirms passed markers and role colors remain rendered when the configuration also contains annotations.
+
+## CFDRS-SCHEMATICS-RENDER-PATH-MOVE — move owned renderer paths [perf] — IMPLEMENTED 2026-09-03
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-RENDER-PATH-MOVE | Transfer owned render-model channel paths directly into Plotters path elements and remove the per-channel clone. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_core.rs`, renderer tests |
+
+- **Acceptance:** every valid channel path is drawn with the same points and style, short paths remain skipped, and the renderer no longer clones `channel_paths` at draw time. No public API or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 206/206 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass.
 
 ## CFDRS-SCHEMATICS-DEAN-BORROW — borrow topology serpentine analysis [perf] — IMPLEMENTED 2026-09-03
 
