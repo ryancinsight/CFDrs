@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN — centralize serpentine shape inference [arch][perf] — in-progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN | Centralize serpentine turn-count and bend-radius inference in the generator path-geometry module with a rolling borrowed offset scan. | [arch][perf] | in-progress | Codex | `crates/cfd-schematics/src/geometry/generator/path_geometry.rs`, `generator_impl.rs`, selective callers, shape-inference tests, `docs/adr.md` |
+
+- **Acceptance:** both legacy and selective generators use one shared shape-inference implementation; short-path defaults, turn counts, and bend-radius inference remain value-equivalent; the production scan allocates no offset vector; and no public API or geometry contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM — stream legend-note segmentation [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
