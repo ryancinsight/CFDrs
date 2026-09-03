@@ -1,12 +1,12 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM [perf] — in progress
+## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM [perf] — implemented 2026-09-03
 
-- [ ] Render legend-note segments from a lazy borrowed iterator without
+- [x] Render legend-note segments from a lazy borrowed iterator without
       materializing a temporary vector.
-- [ ] Preserve trimmed, separator-filtered line order and inter-line spacing
+- [x] Preserve trimmed, separator-filtered line order and inter-line spacing
       with focused value-semantic tests.
-- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
       rustfmt/diff checks, and the standalone lockfile check.
 
 ## CFDRS-SCHEMATICS-CURVATURE-SCAN [perf] — implemented 2026-09-03

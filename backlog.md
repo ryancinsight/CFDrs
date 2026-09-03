@@ -1,11 +1,12 @@
-## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM — stream legend-note segmentation [perf] — in-progress
+## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM — stream legend-note segmentation [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
-| CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM | Render trimmed legend-note segments directly from borrowed input without allocating an intermediate vector. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_annotations.rs`, renderer tests |
+| CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM | Render trimmed legend-note segments directly from borrowed input without allocating an intermediate vector. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_annotations.rs`, renderer tests |
 
 - **Acceptance:** legend-note rendering preserves trimmed non-empty segment order and spacing, the production helper performs no intermediate allocation, and no public API or output contract changes.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 211/211 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. Renderer tests preserve trimmed segment order and empty-fragment filtering; source review confirms the production path remains borrowed and lazy.
 
 ## CFDRS-SCHEMATICS-CURVATURE-SCAN — stream serpentine curvature detection [perf] — IMPLEMENTED 2026-09-03
 
