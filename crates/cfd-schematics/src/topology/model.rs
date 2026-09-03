@@ -394,6 +394,39 @@ impl BlueprintTopologySpec {
         ids
     }
 
+    /// Returns the first treatment-route serpentine without materializing
+    /// treatment channel identifiers.
+    pub(crate) fn first_treatment_serpentine(&self) -> Option<&SerpentineSpec> {
+        if !self.split_stages.is_empty() {
+            return self
+                .split_stages
+                .iter()
+                .flat_map(|stage| stage.branches.iter())
+                .filter(|branch| branch.treatment_path)
+                .find_map(|branch| branch.route.serpentine.as_ref());
+        }
+
+        self.series_channels
+            .iter()
+            .chain(self.parallel_channels.iter())
+            .filter(|channel| {
+                channel.route.therapy_zone == TherapyZone::CancerTarget
+                    || self
+                        .venturi_placements
+                        .iter()
+                        .any(|placement| placement.target_channel_id == channel.channel_id)
+            })
+            .filter_map(|channel| {
+                channel
+                    .route
+                    .serpentine
+                    .as_ref()
+                    .map(|serpentine| (channel.channel_id.as_str(), serpentine))
+            })
+            .min_by(|(left_id, _), (right_id, _)| left_id.cmp(right_id))
+            .map(|(_, serpentine)| serpentine)
+    }
+
     /// Derives a channel ID from a split stage and branch label.
     #[must_use]
     pub fn branch_channel_id(stage_id: &str, branch_label: &str) -> String {
