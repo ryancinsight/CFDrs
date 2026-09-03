@@ -1,11 +1,11 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [perf] — in progress
+## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — in progress
 
-- [ ] Count serpentine direction turns with a rolling borrowed offset scan
-      instead of materializing one offset per path point.
-- [ ] Preserve short-path defaults, turn counts, and bend-radius inference with
-      focused value-semantic tests.
+- [ ] Move shared serpentine-shape inference to the generator path-geometry
+      module and count turns with a rolling borrowed offset scan.
+- [ ] Preserve short-path defaults, turn counts, and bend-radius inference for
+      both legacy and selective generators with focused value-semantic tests.
 - [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
       rustfmt/diff checks, and the standalone lockfile check.
 

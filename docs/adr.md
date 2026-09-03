@@ -110,6 +110,26 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-09-03: Canonical serpentine shape inference [arch][perf]
+
+Context: the legacy geometry generator and selective-tree generator each
+implemented serpentine turn counting and local bend-radius inference. Both
+materialized a temporary offset vector before scanning adjacent values, which
+duplicated the geometry rule and allocated once per inspected path.
+
+Decision: place the shared implementation in
+`geometry/generator/path_geometry.rs`. Both generators call that module's
+single inference function, which computes offsets through a rolling iterator
+state and retains the existing threshold, reversal, and radius rules.
+
+Rejected alternative: optimize only the selective copy or keep two local
+implementations. Either leaves the legacy allocation in place and permits the
+two geometry paths to diverge.
+
+Evidence target: `CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN` in
+`backlog.md`; focused shape tests and the cfd-schematics compile, native test,
+Clippy, doctest, format, diff, and standalone lockfile gates.
+
 ### 2026-08-20: Make cfd-validation allocation tracking opt-in [major] [arch]
 
 Context: `cfd-validation` installed `TrackingAllocator` as the process-wide
