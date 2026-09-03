@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-RENDER-PATH-MOVE — move owned renderer paths [perf] — in progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-RENDER-PATH-MOVE | Transfer owned render-model channel paths directly into Plotters path elements and remove the per-channel clone. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_core.rs`, renderer tests |
+
+- **Acceptance:** every valid channel path is drawn with the same points and style, short paths remain skipped, and the renderer no longer clones `channel_paths` at draw time. No public API or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-SCHEMATICS-DEAN-BORROW — borrow topology serpentine analysis [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |

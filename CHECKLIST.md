@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-RENDER-PATH-MOVE [perf] — in progress
+
+- [ ] Move owned render-model channel paths into Plotters path elements instead
+      of cloning each path at draw time.
+- [ ] Preserve rendered channel geometry, categories, and output behavior with
+      the existing renderer tests and value-semantic checks.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-DEAN-BORROW [perf] — implemented 2026-09-03
 
 - [x] Borrow the topology serpentine specification during Dean-site analysis;
