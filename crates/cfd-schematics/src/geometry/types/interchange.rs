@@ -153,22 +153,21 @@ impl NetworkBlueprint {
             })
             .collect();
 
+        let node_point = |node_id: &str, default: Point2D| {
+            node_indices
+                .get(node_id)
+                .and_then(|&idx| self.nodes.get(idx))
+                .map_or(default, |node| node.point)
+        };
+
         let channels = self
             .channels
             .iter()
             .enumerate()
             .map(|(idx, channel)| {
                 let centerline = if channel.path.is_empty() {
-                    let from_point = self
-                        .nodes
-                        .iter()
-                        .find(|node| node.id == channel.from)
-                        .map_or((0.0, 0.0), |node| node.point);
-                    let to_point = self
-                        .nodes
-                        .iter()
-                        .find(|node| node.id == channel.to)
-                        .map_or(from_point, |node| node.point);
+                    let from_point = node_point(channel.from.as_str(), (0.0, 0.0));
+                    let to_point = node_point(channel.to.as_str(), from_point);
                     vec![from_point, to_point]
                 } else {
                     channel.path.clone()
@@ -287,6 +286,41 @@ impl NetworkBlueprint {
     /// Export overlap-resolved interchange payload as JSON.
     pub fn to_interchange_json_resolved(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(&self.to_interchange_resolved())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NetworkBlueprint;
+    use crate::domain::model::{ChannelSpec, NodeKind, NodeSpec};
+
+    #[test]
+    fn interchange_resolves_empty_path_endpoints_by_id() {
+        let blueprint = NetworkBlueprint {
+            name: "non-ordered-endpoints".to_string(),
+            box_dims: (100.0, 50.0),
+            box_outline: Vec::new(),
+            nodes: vec![
+                NodeSpec::new_at("outlet", NodeKind::Outlet, (70.0, 30.0)),
+                NodeSpec::new_at("unused", NodeKind::Junction, (40.0, 25.0)),
+                NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)),
+            ],
+            channels: vec![ChannelSpec::new_pipe(
+                "channel", "inlet", "outlet", 1.0, 1.0, 1.0, 0.0,
+            )],
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        };
+
+        let interchange = blueprint.to_interchange();
+        let channel = &interchange.channels[0];
+
+        assert_eq!(channel.from_node_id, 2);
+        assert_eq!(channel.to_node_id, 0);
+        assert_eq!(channel.centerline_mm, vec![(10.0, 20.0), (70.0, 30.0)]);
     }
 }
 
