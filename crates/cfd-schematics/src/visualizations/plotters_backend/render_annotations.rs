@@ -134,26 +134,26 @@ fn draw_annotation_legend<DB: DrawingBackend>(
     }
 
     if let Some(note) = annotations.legend_note.as_deref() {
-        let note_lines = split_legend_note(note);
-        if !note_lines.is_empty() {
+        let mut note_lines = split_legend_note(note).peekable();
+        if note_lines.peek().is_some() {
             let note_font_size = annotations
                 .style
                 .label_font_size_pt
                 .saturating_sub(2)
                 .max(8);
             let note_step = row_step * 0.9;
-            for (idx, line) in note_lines.iter().enumerate() {
+            while let Some(line) = note_lines.next() {
                 chart
                     .plotting_area()
                     .draw(&Text::new(
-                        *line,
+                        line,
                         (legend_x, legend_y),
                         ("sans-serif", note_font_size)
                             .into_font()
                             .color(&RGBColor(30, 30, 30)),
                     ))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-                if idx + 1 < note_lines.len() {
+                if note_lines.peek().is_some() {
                     legend_y -= note_step;
                 }
             }
@@ -163,11 +163,10 @@ fn draw_annotation_legend<DB: DrawingBackend>(
     Ok(())
 }
 
-fn split_legend_note(note: &str) -> Vec<&str> {
+fn split_legend_note(note: &str) -> impl Iterator<Item = &str> {
     note.split('|')
         .map(str::trim)
         .filter(|segment| !segment.is_empty())
-        .collect()
 }
 
 #[cfg(test)]
@@ -266,7 +265,13 @@ mod tests {
 
     #[test]
     fn split_legend_note_trims_separators_and_discards_empty_fragments() {
-        let lines = split_legend_note(" alpha | beta || gamma | ");
+        let lines: Vec<_> = split_legend_note(" alpha | beta || gamma | ").collect();
+
         assert_eq!(lines, vec!["alpha", "beta", "gamma"]);
+    }
+
+    #[test]
+    fn split_legend_note_yields_no_lines_for_empty_fragments() {
+        assert!(split_legend_note(" |  || ").next().is_none());
     }
 }
