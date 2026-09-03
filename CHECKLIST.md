@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-CURVATURE-SCAN [perf] — implemented 2026-09-03
+
+- [x] Detect visible serpentine curvature in one pass without collecting
+      qualifying offsets into a temporary vector.
+- [x] Preserve both-sided, one-sided, and thresholded curvature decisions with
+      focused value-semantic tests.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM [perf] — implemented 2026-09-03
 
 - [x] Compute aggregate fluid-volume totals directly from channel geometry;

@@ -57,13 +57,21 @@ pub(super) fn path_has_visible_serpentine_curvature(path: &[Point2D], bend_radiu
     let nx = -dy / chord;
     let ny = dx / chord;
     let min_expected_offset_mm = (bend_radius_mm * 0.25).max(0.75);
-    let offsets = path
+    let mut has_positive_offset = false;
+    let mut has_negative_offset = false;
+    for offset in path
         .iter()
         .map(|point| ((point.0 - start.0) * nx) + ((point.1 - start.1) * ny))
         .filter(|offset| offset.abs() >= min_expected_offset_mm)
-        .collect::<Vec<_>>();
+    {
+        has_positive_offset |= offset > 0.0;
+        has_negative_offset |= offset < 0.0;
+        if has_positive_offset && has_negative_offset {
+            return true;
+        }
+    }
 
-    offsets.iter().any(|offset| *offset > 0.0) && offsets.iter().any(|offset| *offset < 0.0)
+    false
 }
 
 /// Generates a square-wave serpentine path between two endpoints.
@@ -123,4 +131,30 @@ pub(super) fn generated_serpentine_path(
     }
     path.push(end);
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_has_visible_serpentine_curvature;
+
+    #[test]
+    fn curvature_scan_requires_offsets_on_both_sides() {
+        let path = [(0.0, 0.0), (5.0, 2.0), (5.0, -2.0), (10.0, 0.0)];
+
+        assert!(path_has_visible_serpentine_curvature(&path, 2.0));
+    }
+
+    #[test]
+    fn curvature_scan_rejects_one_sided_offsets() {
+        let path = [(0.0, 0.0), (5.0, 2.0), (10.0, 0.0)];
+
+        assert!(!path_has_visible_serpentine_curvature(&path, 2.0));
+    }
+
+    #[test]
+    fn curvature_scan_rejects_offsets_below_threshold() {
+        let path = [(0.0, 0.0), (5.0, 0.5), (5.0, -0.5), (10.0, 0.0)];
+
+        assert!(!path_has_visible_serpentine_curvature(&path, 4.0));
+    }
 }
