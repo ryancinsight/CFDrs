@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM [perf] — in progress
+
+- [ ] Compute aggregate fluid-volume totals directly from channel geometry;
+      avoid materializing per-channel summaries and identifier strings.
+- [ ] Preserve per-channel summaries and aggregate values, units, and labels
+      with value-semantic regression coverage.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW [perf] — implemented 2026-09-03
 
 - [x] Pass borrowed annotation strings directly to Plotters text elements;
