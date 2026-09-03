@@ -162,14 +162,12 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
             format!("junction_{idx}")
         };
         let start = nodes
-            .iter()
-            .find(|node| node.id.as_str() == from)
-            .expect("series start node must exist")
+            .get(idx)
+            .expect("series start node follows construction order")
             .point;
         let end = nodes
-            .iter()
-            .find(|node| node.id.as_str() == to)
-            .expect("series end node must exist")
+            .get(idx + 1)
+            .expect("series end node follows construction order")
             .point;
         channels.push(build_series_channel(&from, &to, start, end, channel, spec));
     }
