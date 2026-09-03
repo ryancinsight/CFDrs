@@ -34,7 +34,6 @@
 pub mod adaptive_mesh;
 pub mod algorithm_complexity;
 pub mod analytical;
-pub mod analytical_benchmarks;
 pub mod benchmarking;
 pub mod benchmarks;
 pub mod conservation;

@@ -10,6 +10,7 @@ use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::CfdScalar;
+use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::{Vector2, Vector3};
 
@@ -301,39 +302,9 @@ where
     Ok(())
 }
 
-/// Ghia cavity benchmark data for different Reynolds numbers
-struct GhiaReferenceData {
-    pub y: Vec<f64>,
-    pub u_centerline: Vec<f64>,
-}
-
-impl GhiaReferenceData {
-    fn re100() -> Self {
-        // Ghia et al. (1982) Re=100 reference data (y from 0.0 to 1.0)
-        Self {
-            y: vec![
-                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
-                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
-            ],
-            u_centerline: vec![
-                0.0000, -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662, -0.21090,
-                -0.20581, -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 1.0000,
-            ],
-        }
-    }
-
-    fn re400() -> Self {
-        Self {
-            y: vec![
-                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
-                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
-            ],
-            u_centerline: vec![
-                0.0000, -0.08186, -0.09266, -0.10338, -0.14612, -0.24299, -0.32726, -0.17119,
-                -0.11477, 0.02135, 0.16256, 0.29093, 0.55892, 0.61756, 0.68439, 0.75837, 1.0000,
-            ],
-        }
-    }
+/// Get Ghia et al. (1982) Table I data for a supported Reynolds number.
+fn ghia_reference(reynolds: f64) -> Vec<(f64, f64)> {
+    LidDrivenCavity::new(1.0, 1.0, reynolds).ghia_u_centerline(reynolds)
 }
 
 /// Extract centerline u-velocity profile from fields
@@ -345,50 +316,52 @@ where
     (0..ny).map(|j| fields.u.at(centerline_i, j)).collect()
 }
 
-/// Calculate L2 error between computed and reference u-velocity profiles
-fn calculate_l2_error<T>(computed: &[T], y_computed: &[T], reference: &GhiaReferenceData) -> T
+/// Calculate L2 error between computed and reference u-velocity profiles.
+fn calculate_l2_error<T>(computed: &[T], y_computed: &[T], reference: &[(f64, f64)]) -> T
 where
     T: CfdScalar + Copy + FloatElement,
 {
     // Interpolate reference data to match computed grid points
     let mut l2_error: T = zero();
     let mut count = 0;
+    let &(y_max, _) = reference
+        .first()
+        .expect("invariant: a supported Ghia reference is non-empty");
+    let &(y_min, _) = reference
+        .last()
+        .expect("invariant: a supported Ghia reference is non-empty");
+    let y_min_t: T = <T as FloatElement>::from_f64(y_min);
+    let y_max_t: T = <T as FloatElement>::from_f64(y_max);
 
     for (&y_comp, &u_comp) in y_computed.iter().zip(computed.iter()) {
-        // Convert reference data to T for comparison
-        let y_min: T = <T as FloatElement>::from_f64(reference.y[0]);
-        let y_max: T = <T as FloatElement>::from_f64(reference.y[reference.y.len() - 1]);
-
-        if y_comp < y_min || y_comp > y_max {
+        if y_comp < y_min_t || y_comp > y_max_t {
             continue; // Skip boundary points that may not be accurate
         }
 
-        // Find interpolated reference value at y_comp
-        // Convert y_comp to f64 for binary search on f64 reference data
+        // Find the reference interval containing y_comp. The canonical Table I
+        // stations descend from the lid, so binary_search would use the wrong
+        // ordering here.
         let y_f64 = <T as NumericElement>::to_f64(y_comp);
-
-        let idx = match reference
-            .y
-            .binary_search_by(|&probe| probe.partial_cmp(&y_f64).expect("expected value"))
-        {
-            Ok(idx) => idx,
-            Err(idx) if idx > 0 && idx < reference.y.len() => {
-                // Linear interpolation between reference points
-                let y1: T = <T as FloatElement>::from_f64(reference.y[idx - 1]);
-                let y2: T = <T as FloatElement>::from_f64(reference.y[idx]);
-                let u1: T = <T as FloatElement>::from_f64(reference.u_centerline[idx - 1]);
-                let u2: T = <T as FloatElement>::from_f64(reference.u_centerline[idx]);
-
-                let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
-                let error = u_comp - u_ref;
-                l2_error += error * error;
-                count += 1;
-                continue;
+        let Some(u_ref) = reference.windows(2).find_map(|window| {
+            let [lower, upper] = window else {
+                return None;
+            };
+            let (y1, u1) = *lower;
+            let (y2, u2) = *upper;
+            let y_low = y1.min(y2);
+            let y_high = y1.max(y2);
+            if !(y_low..=y_high).contains(&y_f64) {
+                return None;
             }
-            _ => continue,
-        };
 
-        let u_ref: T = <T as FloatElement>::from_f64(reference.u_centerline[idx]);
+            let y1_t = <T as FloatElement>::from_f64(y1);
+            let y2_t = <T as FloatElement>::from_f64(y2);
+            let u1_t = <T as FloatElement>::from_f64(u1);
+            let u2_t = <T as FloatElement>::from_f64(u2);
+            Some(u1_t + (u2_t - u1_t) * (y_comp - y1_t) / (y2_t - y1_t))
+        }) else {
+            continue;
+        };
         let error = u_comp - u_ref;
         l2_error += error * error;
         count += 1;
@@ -465,7 +438,7 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // Extract centerline velocity profile
     let computed_u = extract_centerline_u(&fields, NX, NY);
     let y_positions: Vec<f64> = (0..NY).map(|j| j as f64 / (NY - 1) as f64).collect();
-    let reference = GhiaReferenceData::re100();
+    let reference = ghia_reference(100.0);
 
     // Calculate L2 error
     let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
@@ -535,7 +508,7 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
     let y_positions: Vec<f64> = (0..NY).map(|j| j as f64 / (NY - 1) as f64).collect();
-    let reference = GhiaReferenceData::re400();
+    let reference = ghia_reference(400.0);
     let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
 
     // Current SIMPLEC implementation shows ~29% L2 error vs target <8%
@@ -608,7 +581,7 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
     let y_positions: Vec<f64> = (0..NY).map(|j| j as f64 / (NY - 1) as f64).collect();
-    let reference = GhiaReferenceData::re100();
+    let reference = ghia_reference(100.0);
     let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
 
     // Current PIMPLE implementation shows ~28% L2 error vs target <5%

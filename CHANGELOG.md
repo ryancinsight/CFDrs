@@ -25,6 +25,10 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **Breaking (`cfd-validation`)**: Remove the fabricated Ghia centerline
+  constants and the obsolete `analytical_benchmarks` module. All consumers use
+  the canonical Ghia Table I data, now including Re=400 and Re=1000 columns.
+
 - `cfd-python` now packages a typed `cfd_python.pyi` surface and PEP 561
   marker in its wheel. The 1D bifurcation and legacy 2D Poiseuille solver
   methods detach Rust-only computation from the Python GIL after converting

@@ -36,11 +36,11 @@ separate imaginary-unit physical quantity, and this model does not need one.
 
 ## Follow-on audit
 
-The same current-head scan leaves only the unique normalized
-`analytical_benchmarks::lid_driven_cavity` reference tables outside the
-canonical analytical models. Dense sampled fields, coordinates, interpolation
-tables, dimensionless coefficients, and runtime-exponent formula parameters
-remain explicit scalar boundaries.
+The canonical published cavity reference is owned by
+`benchmarks::cavity::LidDrivenCavity::ghia_u_centerline` alongside the other
+benchmark problems. Dense sampled fields, coordinates, interpolation tables,
+dimensionless coefficients, and runtime-exponent formula parameters remain
+explicit scalar boundaries.
 
 ## Verification
 
@@ -95,8 +95,8 @@ The former raw-scalar Couette, Poiseuille, and Taylor-Green implementations in
 `analytical_benchmarks` duplicated the canonical analytical modules and have
 been removed. The physics-validation consumer now constructs the canonical
 Aequitas-backed models and matches their typed geometry-dependent result enums.
-`analytical_benchmarks` retains only the Ghia lid-driven-cavity reference
-tables. Those normalized dimensionless samples stay scalar because they are
+`benchmarks::cavity::LidDrivenCavity` owns the Ghia lid-driven-cavity reference
+tables. The normalized dimensionless samples stay scalar because they are
 benchmark data, not physical-unit model state. Eunomia real-field execution is
 preserved and no complex or imaginary-unit metric is introduced.
 

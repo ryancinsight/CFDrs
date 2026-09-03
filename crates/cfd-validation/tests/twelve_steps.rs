@@ -11,7 +11,7 @@ use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
-use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
+use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use eunomia::assert_relative_eq;
 use leto::{geometry::Vector3, Array1};
 
@@ -841,7 +841,7 @@ fn test_step_11_lid_driven_cavity() {
         values[lower] + t * (values[upper] - values[lower])
     }
 
-    let reference = ghia_lid_driven_cavity::RE100_U_CENTERLINE;
+    let reference = LidDrivenCavity::new(1.0, 1.0, 100.0).ghia_u_centerline(100.0);
     let y_min = *result
         .y_coords
         .first()
@@ -853,7 +853,7 @@ fn test_step_11_lid_driven_cavity() {
 
     let mut l2_sum = 0.0_f64;
     let mut sample_count = 0_usize;
-    for &(y_ref, u_ref) in reference {
+    for &(y_ref, u_ref) in &reference {
         if y_ref <= y_min || y_ref >= y_max {
             continue;
         }

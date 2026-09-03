@@ -12,6 +12,7 @@ use cfd_validation::analytical::taylor_green::TaylorGreenKineticEnergy;
 use cfd_validation::analytical::{
     AnalyticalSolution, CouetteFlow, PoiseuilleFlow, TaylorGreenVortex,
 };
+use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use eunomia::assert_relative_eq;
 
 #[test]
@@ -168,18 +169,19 @@ fn validate_prandtl_number() {
 
 #[test]
 fn validate_lid_driven_cavity_benchmark() {
-    use cfd_validation::analytical_benchmarks::lid_driven_cavity;
+    let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
+    let re100 = cavity.ghia_u_centerline(100.0);
+    let re400 = cavity.ghia_u_centerline(400.0);
+    let re1000 = cavity.ghia_u_centerline(1000.0);
 
-    // Verify benchmark data is properly loaded
-    assert_eq!(lid_driven_cavity::RE100_U_CENTERLINE.len(), 17);
-    assert_eq!(lid_driven_cavity::RE1000_U_CENTERLINE.len(), 17);
+    assert_eq!(re100.len(), 17);
+    assert_eq!(re400.len(), 17);
+    assert_eq!(re1000.len(), 17);
 
-    // Check boundary conditions
-    let first = lid_driven_cavity::RE100_U_CENTERLINE[0];
-    let last = lid_driven_cavity::RE100_U_CENTERLINE[16];
-
-    assert_eq!(first.0, 0.0); // Bottom wall
-    assert_eq!(first.1, 0.0); // No-slip
-    assert_eq!(last.0, 1.0); // Top wall (lid)
-    assert_eq!(last.1, 1.0); // Lid velocity
+    // Boundary values and interior extrema are published Table I values.
+    assert_eq!(re100.first(), Some(&(1.0, 1.0)));
+    assert_eq!(re100.last(), Some(&(0.0, 0.0)));
+    assert_eq!(re100.get(9), Some(&(0.4531, -0.21090)));
+    assert_eq!(re400.get(10), Some(&(0.2813, -0.32726)));
+    assert_eq!(re1000.get(11), Some(&(0.1719, -0.38289)));
 }
