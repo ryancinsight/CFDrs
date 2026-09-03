@@ -1,5 +1,15 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-ROUTING-REFS [patch] — in progress
+
+- [ ] Replace the private assigned-path deep-copy collection with borrowed
+      channel-path slices at the routing boundary; keep path-geometry helpers
+      independent of blueprint ownership.
+- [ ] Preserve direct, dogleg, fallback, and generated-channel path values,
+      lengths, and collision behavior with value-semantic tests.
+- [ ] Run the focused package compile, native tests, warning-denied Clippy,
+      doctests, rustfmt/diff checks, and the standalone lockfile check.
+
 ## ATLAS-CFDRS-TRIFURCATION-SHEAR-CACHE-110 [perf] — implemented 2026-08-26
 
 - [x] Audit the trifurcation Picard path and identify repeated per-element
