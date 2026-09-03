@@ -1,6 +1,6 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT [perf] — review
+## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT [perf] — done
 
 - [x] Sort pending Venturi route records in place and remove the transient
       record-vector clone.
@@ -14,6 +14,8 @@ Evidence: 214/214 cfd-schematics Nextest tests, 16/16 doctests, Clippy with
 pass against the working revision. The route sorter mutates the private pending
 slice in place; the direct ordering regression covers descending preferred-Y
 with channel-index tie ordering.
+
+Delivery: implementation `39a0f45a`, merged by PR #412 as `0309026c`.
 
 ## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — done
 
