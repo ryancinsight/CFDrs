@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM — stream legend-note segmentation [perf] — in-progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM | Render trimmed legend-note segments directly from borrowed input without allocating an intermediate vector. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_annotations.rs`, renderer tests |
+
+- **Acceptance:** legend-note rendering preserves trimmed non-empty segment order and spacing, the production helper performs no intermediate allocation, and no public API or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-SCHEMATICS-CURVATURE-SCAN — stream serpentine curvature detection [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
