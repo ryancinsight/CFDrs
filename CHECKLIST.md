@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW [perf] — in progress
+
+- [ ] Pass borrowed annotation strings directly to Plotters text elements;
+      remove per-label `String` allocations from the render path.
+- [ ] Preserve marker, legend, and split-note SVG output with existing
+      value-semantic renderer tests.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-ANNOTATION-BORROW [perf] — implemented 2026-09-03
 
 - [x] Route explicit annotation references through the Plotters renderer without
