@@ -90,9 +90,7 @@ pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
             (channel.path.is_empty() && path.len() >= 2).then(|| path.into_owned())
         })
         .collect::<Vec<_>>();
-    let positions = node_layout.positions().to_vec();
-    let auto_layout_indices = node_layout.auto_layout_indices().to_vec();
-    drop(node_layout);
+    let (positions, auto_layout_indices) = node_layout.into_materialization_parts();
 
     let mut auto_layout_indices = auto_layout_indices.iter().copied().peekable();
     for (idx, node) in blueprint.nodes.iter_mut().enumerate() {
