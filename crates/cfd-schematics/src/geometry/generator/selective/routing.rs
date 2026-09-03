@@ -50,14 +50,21 @@ pub(super) fn route_pending_venturi_paths(
             .then(left.channel_idx.cmp(&right.channel_idx))
     });
 
-    let mut assigned_paths = Vec::with_capacity(ordered_paths.len());
+    let mut assigned_path_indices: Vec<usize> = Vec::with_capacity(ordered_paths.len());
     for pending in ordered_paths {
         let routed_path = route_monotone_treatment_path(
             pending.start,
             pending.end,
             pending.preferred_y,
             mid_y,
-            &assigned_paths,
+            |candidate| {
+                path_intersects_any(
+                    candidate,
+                    assigned_path_indices
+                        .iter()
+                        .map(|&channel_idx| channels[channel_idx].path.as_slice()),
+                )
+            },
         );
         let channel = &mut channels[pending.channel_idx];
         channel.path = routed_path;
@@ -67,24 +74,24 @@ pub(super) fn route_pending_venturi_paths(
             pending.end,
             pending.fallback_length_m,
         ));
-        assigned_paths.push(channel.path.clone());
+        assigned_path_indices.push(pending.channel_idx);
     }
 }
 
-/// Route a single treatment segment from `start` to `end` without crossing any
-/// of the `existing_paths`.  A monotone dogleg is attempted up to 8 times with
+/// Route a single treatment segment from `start` to `end` using the supplied
+/// collision predicate. A monotone dogleg is attempted up to 8 times with
 /// increasing lateral offsets before falling back to a direct segment.
 pub(super) fn route_monotone_treatment_path(
     start: Option<Point2D>,
     end: Option<Point2D>,
     preferred_y: f64,
     mid_y: f64,
-    existing_paths: &[Vec<Point2D>],
+    intersects_existing: impl Fn(&[Point2D]) -> bool,
 ) -> Vec<Point2D> {
     match (start, end) {
         (Some(a), Some(b)) => {
             let direct = simplify_polyline_points(vec![a, b]);
-            if !path_intersects_any(&direct, existing_paths) {
+            if !intersects_existing(&direct) {
                 return direct;
             }
 
@@ -93,7 +100,7 @@ pub(super) fn route_monotone_treatment_path(
             for attempt in 0..8 {
                 let lane_y = preferred_y + direction * f64::from(attempt) * offset_step;
                 let dogleg = simplify_polyline_points(monotone_dogleg_path(a, b, lane_y));
-                if !path_intersects_any(&dogleg, existing_paths) {
+                if !intersects_existing(&dogleg) {
                     return dogleg;
                 }
             }

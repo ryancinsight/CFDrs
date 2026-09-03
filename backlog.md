@@ -170,6 +170,23 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — review
+
+- **Owner:** Ryan Clanton; scope is `cfd-schematics` selective-tree routing
+  path ownership and its value-semantic tests.
+- **Acceptance:** pending venturi routing checks previously assigned channel
+  paths through borrowed slices without cloning their point buffers; direct,
+  dogleg, and fallback routing preserve their existing geometry and collision
+  contracts; focused package gates pass with no public API change.
+- **Non-goals:** changing routing heuristics, tolerances, geometry equations,
+  or peer-owned files outside the selective routing leaf.
+- **Evidence:** the routing predicate now scans channel-owned slices through a
+  monomorphized iterator, removing the assigned-path deep copies without
+  changing the routing heuristics or public API. `cargo nextest run
+  -p cfd-schematics --no-fail-fast --status-level fail` passes 201/201;
+  warning-denied all-target Clippy, 16/16 doctests, rustfmt, diff checks, and
+  `python scripts/lockfile.py --check` also pass.
+
 ## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch] — in progress
 
 - **Owner:** Codex; scope is `crates/cfd-python` binding methods, package

@@ -81,12 +81,16 @@ pub(super) fn segment_intersection_strict(
     t > eps && t < (1.0 - eps) && u > eps && u < (1.0 - eps)
 }
 
-/// Return `true` when `candidate` intersects any segment in any of
-/// `existing_paths`.
-pub(super) fn path_intersects_any(candidate: &[Point2D], existing_paths: &[Vec<Point2D>]) -> bool {
+/// Return `true` when `candidate` intersects any segment in any path yielded
+/// by `existing_paths`.
+pub(super) fn path_intersects_any<P, I>(candidate: &[Point2D], existing_paths: I) -> bool
+where
+    P: AsRef<[Point2D]>,
+    I: Clone + IntoIterator<Item = P>,
+{
     candidate.windows(2).any(|segment_a| {
-        existing_paths.iter().any(|path| {
-            path.windows(2).any(|segment_b| {
+        existing_paths.clone().into_iter().any(|path| {
+            path.as_ref().windows(2).any(|segment_b| {
                 segment_intersection_strict(segment_a[0], segment_a[1], segment_b[0], segment_b[1])
             })
         })

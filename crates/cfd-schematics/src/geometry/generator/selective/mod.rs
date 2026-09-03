@@ -395,8 +395,13 @@ mod tests {
 
     #[test]
     fn monotone_treatment_routing_preserves_equal_y_lane() {
-        let routed =
-            route_monotone_treatment_path(Some((10.0, 24.0)), Some((40.0, 24.0)), 24.0, 42.0, &[]);
+        let routed = route_monotone_treatment_path(
+            Some((10.0, 24.0)),
+            Some((40.0, 24.0)),
+            24.0,
+            42.0,
+            |_| false,
+        );
         assert_eq!(routed, vec![(10.0, 24.0), (40.0, 24.0)]);
     }
 
@@ -408,7 +413,7 @@ mod tests {
             Some((10.0, 2.0)),
             0.0,
             2.0,
-            &existing_paths,
+            |candidate| path_intersects_any(candidate, existing_paths.iter()),
         );
 
         assert!(
@@ -419,6 +424,14 @@ mod tests {
             !path_intersects_any(&routed, &existing_paths),
             "rerouted path must not cross the existing treatment lane"
         );
+    }
+
+    #[test]
+    fn monotone_treatment_routing_falls_back_to_direct_segment() {
+        let routed =
+            route_monotone_treatment_path(Some((0.0, 2.0)), Some((10.0, 2.0)), 0.0, 2.0, |_| true);
+
+        assert_eq!(routed, vec![(0.0, 2.0), (10.0, 2.0)]);
     }
 
     #[test]
