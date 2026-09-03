@@ -7,14 +7,16 @@
 - **Acceptance:** Dean-site fallback selects the first treatment serpentine with the existing series/parallel/split ordering and preserves Dean number, radius, and arc length. The fallback performs no temporary `Vec<String>` allocation and does not alter the public channel-ID API.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
 - **Evidence:** `cfd-schematics` check, 207/207 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass.
-## CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM — stream aggregate volume calculation [perf] — in-progress
+
+## CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM — stream aggregate volume calculation [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
-| CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM | Compute aggregate fluid-volume totals directly from channel geometry without materializing per-channel summaries or identifier strings. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/geometry/types/volume.rs`, volume tests |
+| CFDRS-SCHEMATICS-VOLUME-SUMMARY-STREAM | Compute aggregate fluid-volume totals directly from channel geometry without materializing per-channel summaries or identifier strings. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/geometry/types/volume.rs`, volume tests |
 
 - **Acceptance:** `fluid_volume_summary` preserves channel count, total centerline length, total fluid volume, unit conversions, and display-label values while avoiding the intermediate per-channel `Vec` and its owned identifier strings. `channel_fluid_volume_summaries` remains value-equivalent and unchanged for per-channel callers.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 207/207 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. The two-channel volume regression compares aggregate totals and exact display-label formatting with per-channel reductions; source review confirms the aggregate path no longer constructs per-channel summaries or identifier strings.
 
 ## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW — borrow renderer text [perf] — IMPLEMENTED 2026-09-03
 
