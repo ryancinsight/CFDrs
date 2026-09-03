@@ -145,8 +145,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - **Breaking:** `ElasticSolid` composes `proteus::IsotropicSolid` instead of
-  storing elastic constants itself, so `cfd-core` no longer carries any
-  material constant. `steel()` and `aluminum()` are replaced by
+  storing elastic constants itself, so no material constant is hardcoded in
+  `cfd-core` any more. The struct still stores thermal conductivity, specific
+  heat, and thermal expansion as fields, because the provider type covers
+  elastic state and density only; their values come from the provider catalog
+  rather than from literals here. `steel()` and `aluminum()` are replaced by
   `from_catalog(proteus::NamedIsotropicSolid)`, and the six public fields
   become private because the elastic state is now a validated provider type
   rather than six independently settable numbers. `SolidProperties::
