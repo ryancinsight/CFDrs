@@ -36,22 +36,13 @@ pub(super) fn preferred_treatment_lane_y(
 /// Assign resolved non-intersecting paths to the pending venturi channels.
 pub(super) fn route_pending_venturi_paths(
     channels: &mut [ChannelSpec],
-    pending_paths: &[PendingVenturiPath],
+    pending_paths: &mut [PendingVenturiPath],
     mid_y: f64,
 ) {
-    use std::cmp::Ordering;
+    sort_pending_paths(pending_paths);
 
-    let mut ordered_paths = pending_paths.to_vec();
-    ordered_paths.sort_by(|left, right| {
-        right
-            .preferred_y
-            .partial_cmp(&left.preferred_y)
-            .unwrap_or(Ordering::Equal)
-            .then(left.channel_idx.cmp(&right.channel_idx))
-    });
-
-    let mut assigned_path_indices: Vec<usize> = Vec::with_capacity(ordered_paths.len());
-    for pending in ordered_paths {
+    let mut assigned_path_indices: Vec<usize> = Vec::with_capacity(pending_paths.len());
+    for &pending in pending_paths.iter() {
         let routed_path = route_monotone_treatment_path(
             pending.start,
             pending.end,
@@ -76,6 +67,18 @@ pub(super) fn route_pending_venturi_paths(
         ));
         assigned_path_indices.push(pending.channel_idx);
     }
+}
+
+fn sort_pending_paths(pending_paths: &mut [PendingVenturiPath]) {
+    use std::cmp::Ordering;
+
+    pending_paths.sort_unstable_by(|left, right| {
+        right
+            .preferred_y
+            .partial_cmp(&left.preferred_y)
+            .unwrap_or(Ordering::Equal)
+            .then(left.channel_idx.cmp(&right.channel_idx))
+    });
 }
 
 /// Route a single treatment segment from `start` to `end` using the supplied
@@ -257,4 +260,46 @@ fn dfs_channel_path(
     }
     visited.remove(current);
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sort_pending_paths, PendingVenturiPath};
+
+    #[test]
+    fn pending_paths_sort_by_descending_lane_then_channel() {
+        let mut pending_paths = [
+            PendingVenturiPath {
+                channel_idx: 8,
+                start: None,
+                end: None,
+                preferred_y: 20.0,
+                fallback_length_m: 1.0,
+            },
+            PendingVenturiPath {
+                channel_idx: 3,
+                start: None,
+                end: None,
+                preferred_y: 40.0,
+                fallback_length_m: 1.0,
+            },
+            PendingVenturiPath {
+                channel_idx: 1,
+                start: None,
+                end: None,
+                preferred_y: 40.0,
+                fallback_length_m: 1.0,
+            },
+        ];
+
+        sort_pending_paths(&mut pending_paths);
+
+        assert_eq!(
+            pending_paths
+                .iter()
+                .map(|pending| pending.channel_idx)
+                .collect::<Vec<_>>(),
+            vec![1, 3, 8]
+        );
+    }
 }

@@ -1,4 +1,4 @@
-## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT — sort pending routes in place [perf] — in-progress
+## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT — sort pending routes in place [perf] — review
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
@@ -6,6 +6,7 @@
 
 - **Acceptance:** pending Venturi routes retain descending preferred-Y and channel-index tie ordering; routed paths, lengths, and collision avoidance remain value-equivalent; the routing pass does not clone the pending-record slice; and no public API or routing policy changes.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** the pending records now sort in place with no `to_vec()` clone; the ordering regression and existing routing geometry/collision tests pass in 214/214 native tests. Warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass.
 
 ## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN — centralize serpentine shape inference [arch][perf] — done 2026-09-03
 

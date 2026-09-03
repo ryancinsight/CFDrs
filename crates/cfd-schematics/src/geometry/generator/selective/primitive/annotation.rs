@@ -302,5 +302,5 @@ pub(super) fn annotate_primitive_tree(
         }
     }
 
-    route_pending_venturi_paths(&mut system.channels, &pending_venturi_paths, mid_y);
+    route_pending_venturi_paths(&mut system.channels, &mut pending_venturi_paths, mid_y);
 }

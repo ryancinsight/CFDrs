@@ -1,13 +1,19 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT [perf] — in progress
+## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT [perf] — review
 
-- [ ] Sort pending Venturi route records in place and remove the transient
+- [x] Sort pending Venturi route records in place and remove the transient
       record-vector clone.
-- [ ] Preserve preferred-Y ordering, tie ordering, routed geometry, lengths,
+- [x] Preserve preferred-Y ordering, tie ordering, routed geometry, lengths,
       and collision avoidance with value-semantic routing coverage.
-- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
       rustfmt/diff checks, and the standalone lockfile check.
+
+Evidence: 214/214 cfd-schematics Nextest tests, 16/16 doctests, Clippy with
+`-D warnings`, rustfmt, `git diff --check`, and standalone lockfile validation
+pass against the working revision. The route sorter mutates the private pending
+slice in place; the direct ordering regression covers descending preferred-Y
+with channel-index tie ordering.
 
 ## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — done
 
