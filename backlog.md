@@ -4847,7 +4847,7 @@ No existing item's status was changed by this audit.
   Dependencies: none. This supersedes the premise of CFDRS-GA-006 below, which
   assumed the studies compute a real order and merely fail to assert it.
 
-- **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — status=review, integrator=current Codex session.**
+- **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — status=done, commit=`087d2a48`.**
   Canonical Table I now owns Re=100/400/1000; fabricated tables/module deleted; all Rust consumers migrated; interior assertions added. Verification: cfd-validation nextest 18/18, cfd-2d nextest 11/11 active, clippy, doctests, and fmt pass; no thresholds changed.
 
 - **CFDRS-GA-006 [patch][verification] — Make the grid-convergence studies assert observed order (status=todo, effort=M).**
