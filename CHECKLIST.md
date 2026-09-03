@@ -4602,6 +4602,9 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 - [x] Audit `cfd-schematics` crate for redundancy and consolidate shared components.
 - [x] Enhance deep vertical hierarchical file tree in `cfd-schematics` with DIP, SRP, SSOT, SOC.
 - [x] Optimize performance and memory efficiency representation in `cfd-schematics` by preserving explicit channel paths as borrowed `Cow` values through resolution and moving owned generated paths into empty channels; verified with touched-file rustfmt/diff checks, `cargo check -p cfd-schematics --locked`, `cargo nextest run -p cfd-schematics --locked --no-fail-fast --status-level fail` (195/195), `cargo clippy -p cfd-schematics --all-targets --locked -- -D warnings`, `cargo test --doc -p cfd-schematics --locked` (16/16), and a value-semantic borrowed-path regression.
+- [ ] Reduce annotation lane path cloning in `cfd-schematics` by borrowing single forward segments as `Cow`, owning reversed segments, and materializing only merged lanes.
+  - status: in-progress; owner: current Codex session; lease: `crates/cfd-schematics/src/visualizations/annotations/geometry.rs`
+  - acceptance: forward/reversed lane values remain correct, single-segment forward lanes are borrowed, merged lanes retain ordering, and warning-denied focused package gates pass.
 - [x] Ensure no placeholders, stubs, approximations, or simplifications exist in `cfd-schematics` (implemented native math handling for `n_furcation`).
 - [x] Sync README, backlog, and checklist artifacts.
 - [x] Integrate Tyche Latin-hypercube sampling into `cfd-optim`, including
