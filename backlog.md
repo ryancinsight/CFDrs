@@ -1,8 +1,8 @@
-## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT — sort pending routes in place [perf] — review
+## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT — sort pending routes in place [perf] — done 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
-| CFDRS-SCHEMATICS-PENDING-ROUTE-SORT | Sort private pending Venturi route records in place before routing to remove the transient record-vector clone. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/geometry/generator/selective/routing.rs`, `annotation.rs`, routing tests |
+| CFDRS-SCHEMATICS-PENDING-ROUTE-SORT | Sort private pending Venturi route records in place before routing to remove the transient record-vector clone. | [perf] | done | Codex | `crates/cfd-schematics/src/geometry/generator/selective/routing.rs`, `annotation.rs`, routing tests |
 
 - **Acceptance:** pending Venturi routes retain descending preferred-Y and channel-index tie ordering; routed paths, lengths, and collision avoidance remain value-equivalent; the routing pass does not clone the pending-record slice; and no public API or routing policy changes.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
