@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [perf] — in progress
+
+- [ ] Count serpentine direction turns with a rolling borrowed offset scan
+      instead of materializing one offset per path point.
+- [ ] Preserve short-path defaults, turn counts, and bend-radius inference with
+      focused value-semantic tests.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM [perf] — implemented 2026-09-03
 
 - [x] Render legend-note segments from a lazy borrowed iterator without
