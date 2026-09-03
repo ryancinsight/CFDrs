@@ -170,7 +170,7 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — review
+## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — done 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` selective-tree routing
   path ownership and its value-semantic tests.
@@ -186,6 +186,7 @@ anything there is unverified -- do not assume it matches.
   -p cfd-schematics --no-fail-fast --status-level fail` passes 201/201;
   warning-denied all-target Clippy, 16/16 doctests, rustfmt, diff checks, and
   `python scripts/lockfile.py --check` also pass.
+- **Delivered:** commit `868a7dff`, merged by PR #394 at `f3018d1a`.
 
 ## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch] — in progress
 
