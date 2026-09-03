@@ -138,6 +138,9 @@ impl PlottersRenderer {
     ) -> VisualizationResult<()> {
         let renderable =
             channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
+        let box_outline = renderable.box_outline;
+        let channel_paths = renderable.channel_paths;
+        let channel_categories = renderable.channel_categories;
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;
@@ -168,7 +171,7 @@ impl PlottersRenderer {
         }
 
         chart
-            .draw_series(renderable.box_outline.iter().map(|(p1, p2)| {
+            .draw_series(box_outline.iter().map(|(p1, p2)| {
                 PathElement::new(
                     [*p1, *p2],
                     convert_color(&config.boundary_style.color)
@@ -201,7 +204,7 @@ impl PlottersRenderer {
         };
 
         let has_edge_data = !overlay.edge_data().is_empty();
-        for (i, channel) in system.channels.iter().enumerate() {
+        for (i, (channel, path)) in system.channels.iter().zip(channel_paths).enumerate() {
             let base_style = if has_edge_data {
                 let color = overlay
                     .edge_color(i)
@@ -216,13 +219,15 @@ impl PlottersRenderer {
                 // channels also render with a thicker stroke.
                 role_styles.get_style(role).clone()
             } else {
-                let category = renderable.channel_categories.get(i).copied().unwrap_or(
-                    match channel.channel_shape {
-                        ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
-                            ChannelTypeCategory::Straight
-                        }
-                    },
-                );
+                let category =
+                    channel_categories
+                        .get(i)
+                        .copied()
+                        .unwrap_or(match channel.channel_shape {
+                            ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
+                                ChannelTypeCategory::Straight
+                            }
+                        });
                 config.channel_type_styles.get_style(category).clone()
             };
 
@@ -234,7 +239,6 @@ impl PlottersRenderer {
             }
             .max(1);
 
-            let path = renderable.channel_paths.get(i).cloned().unwrap_or_default();
             if path.len() < 2 {
                 continue;
             }
