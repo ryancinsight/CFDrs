@@ -170,6 +170,20 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## CFDRS-SCHEMATICS-CHANNEL-PATHS — move generated path ownership [perf] — in progress
+
+- **Owner:** Ryan Clanton; scope is `cfd-schematics` geometry-generator path
+  extraction, channel construction, and value-semantic generator tests.
+- **Acceptance:** explicit paths are borrowed for length/shape measurement and
+  moved into the resulting channel or metadata builder without an intermediate
+  deep copy; straight fallback and metadata/non-metadata output preserve their
+  existing path, length, and shape contracts; focused package gates pass.
+- **Non-goals:** changing channel-generation heuristics, dimensions, public
+  API behavior, or peer-owned files outside the generator leaf.
+- **Lease:** Ryan Clanton —
+  `crates/cfd-schematics/src/geometry/generator/{generator_impl.rs,tests.rs}`
+  — 2026-09-03T13:17:54-04:00
+
 ## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — done 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` selective-tree routing
