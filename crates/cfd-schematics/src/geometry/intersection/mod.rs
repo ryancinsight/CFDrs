@@ -66,12 +66,14 @@ pub struct IntersectionResult {
 
 #[cfg(test)]
 mod tests {
-    use super::detection::segment_intersection;
+    use super::detection::{channel_centerline_points, segment_intersection};
     use super::*;
     use crate::config::{ChannelTypeConfig, GeometryConfig};
     use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
     use crate::geometry::generator::create_geometry;
     use crate::geometry::SplitType;
+    use std::borrow::Cow;
+    use std::collections::HashMap;
 
     #[test]
     fn segment_intersection_detects_crossing() {
@@ -94,6 +96,37 @@ mod tests {
     fn segment_intersection_excludes_shared_endpoints() {
         let result = segment_intersection((0.0, 0.0), (1.0, 0.0), (1.0, 0.0), (2.0, 1.0));
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn centerline_storage_matches_path_shape() {
+        let node_points =
+            HashMap::from([("a".to_string(), (0.0, 0.0)), ("b".to_string(), (1.0, 0.0))]);
+
+        let mut complete =
+            ChannelSpec::new_pipe_rect("complete", "a", "b", 1.0, 0.1, 0.05, 0.0, 0.0);
+        complete.path = vec![(0.25, 0.0), (0.75, 0.0)];
+        let complete_centerline = channel_centerline_points(&complete, &node_points);
+        assert!(matches!(&complete_centerline, Cow::Borrowed(_)));
+        assert_eq!(complete_centerline.as_ref(), complete.path.as_slice());
+
+        let empty = ChannelSpec::new_pipe_rect("empty", "a", "b", 1.0, 0.1, 0.05, 0.0, 0.0);
+        let empty_centerline = channel_centerline_points(&empty, &node_points);
+        assert!(matches!(&empty_centerline, Cow::Owned(_)));
+        assert_eq!(
+            empty_centerline.as_ref(),
+            [(0.0, 0.0), (1.0, 0.0)].as_slice()
+        );
+
+        let mut singleton =
+            ChannelSpec::new_pipe_rect("singleton", "a", "b", 1.0, 0.1, 0.05, 0.0, 0.0);
+        singleton.path = vec![(0.5, 0.25)];
+        let singleton_centerline = channel_centerline_points(&singleton, &node_points);
+        assert!(matches!(&singleton_centerline, Cow::Owned(_)));
+        assert_eq!(
+            singleton_centerline.as_ref(),
+            [(0.0, 0.0), (0.5, 0.25), (1.0, 0.0)].as_slice()
+        );
     }
 
     #[test]
