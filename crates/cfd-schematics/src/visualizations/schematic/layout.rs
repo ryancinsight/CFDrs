@@ -1,4 +1,4 @@
-use crate::domain::model::NetworkBlueprint;
+use crate::domain::model::{ChannelSpec, NodeSpec};
 use crate::geometry::metadata::NodeLayoutMetadata;
 use crate::geometry::Point2D;
 use serde::Serialize;
@@ -57,25 +57,26 @@ impl<'a> BlueprintNodeLayout<'a> {
 }
 
 /// Build the indexed node-layout cache for a blueprint.
-pub(super) fn blueprint_node_positions(
-    blueprint: &NetworkBlueprint,
+pub(super) fn blueprint_node_positions<'nodes>(
+    nodes: &'nodes [NodeSpec],
+    channels: &[ChannelSpec],
     box_dims: (f64, f64),
-) -> BlueprintNodeLayout<'_> {
-    let node_count = blueprint.nodes.len();
+) -> BlueprintNodeLayout<'nodes> {
+    let node_count = nodes.len();
     let mut node_ids = Vec::with_capacity(node_count);
     let mut index_by_id = HashMap::with_capacity(node_count);
-    for (idx, node) in blueprint.nodes.iter().enumerate() {
+    for (idx, node) in nodes.iter().enumerate() {
         let id = node.id.as_str();
         node_ids.push(id);
         index_by_id.insert(id, idx);
     }
 
-    let depths = auto_layout_depths(blueprint, &index_by_id);
+    let depths = auto_layout_depths(node_count, channels, &index_by_id);
     let auto_positions = auto_layout_positions(&depths, box_dims);
 
     let mut positions = Vec::with_capacity(node_count);
     let mut auto_layout_indices = Vec::new();
-    for (idx, node_spec) in blueprint.nodes.iter().enumerate() {
+    for (idx, node_spec) in nodes.iter().enumerate() {
         let explicit = node_spec
             .layout
             .as_ref()
@@ -152,14 +153,14 @@ pub(super) fn save_auto_layout_json(
 }
 
 fn auto_layout_depths(
-    blueprint: &NetworkBlueprint,
+    node_count: usize,
+    channels: &[ChannelSpec],
     index_by_id: &HashMap<&str, usize>,
 ) -> Vec<usize> {
-    let node_count = blueprint.nodes.len();
     let mut indegree = vec![0usize; node_count];
     let mut outgoing = vec![Vec::new(); node_count];
 
-    for channel in &blueprint.channels {
+    for channel in channels {
         let Some(&from_idx) = index_by_id.get(channel.from.as_str()) else {
             continue;
         };
@@ -266,7 +267,8 @@ mod tests {
     #[test]
     fn blueprint_node_positions_use_flat_indexed_layout_cache() {
         let blueprint = layout_blueprint();
-        let layout = blueprint_node_positions(&blueprint, blueprint.box_dims);
+        let layout =
+            blueprint_node_positions(&blueprint.nodes, &blueprint.channels, blueprint.box_dims);
 
         assert_eq!(layout.position("inlet"), Some((10.0, 20.0)));
         assert_eq!(layout.position("mid"), Some((50.0, 25.0)));
