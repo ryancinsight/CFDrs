@@ -24,6 +24,13 @@
       of cloning each path at draw time.
 - [x] Preserve rendered channel geometry, categories, and output behavior with
       the existing renderer tests and value-semantic checks.
+
+## CFDRS-SCHEMATICS-TREATMENT-BORROW [perf] — implemented 2026-09-03
+
+- [x] Centralize borrowed treatment-route serpentine selection so Dean
+      fallback analysis does not allocate temporary channel-ID strings.
+- [x] Preserve treatment-route fallback and computed Dean-site values with a
+      value-semantic factory regression.
 - [x] Run focused compile, native tests, warning-denied Clippy, doctests,
       rustfmt/diff checks, and the standalone lockfile check.
 

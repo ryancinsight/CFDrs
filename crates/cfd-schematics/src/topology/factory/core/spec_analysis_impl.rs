@@ -40,13 +40,7 @@ impl BlueprintTopologyFactory {
             topology
                 .channel_route(&placement.target_channel_id)
                 .and_then(|route| route.serpentine.as_ref())
-                .or_else(|| {
-                    topology
-                        .treatment_channel_ids()
-                        .into_iter()
-                        .filter_map(|channel_id| topology.channel_route(&channel_id))
-                        .find_map(|route| route.serpentine.as_ref())
-                })
+                .or_else(|| topology.first_treatment_serpentine())
         });
 
         // Estimate curvature radius from polyline path (3-point circumradius)
