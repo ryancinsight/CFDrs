@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT [perf] — in progress
+
+- [ ] Sort pending Venturi route records in place and remove the transient
+      record-vector clone.
+- [ ] Preserve preferred-Y ordering, tie ordering, routed geometry, lengths,
+      and collision avoidance with value-semantic routing coverage.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — done
 
 - [x] Move shared serpentine-shape inference to the generator path-geometry
