@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-CURVATURE-SCAN — stream serpentine curvature detection [perf] — in-progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-CURVATURE-SCAN | Detect visible serpentine curvature directly from path offsets without allocating an intermediate vector. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/visualizations/schematic/path_generation.rs`, path-generation tests |
+
+- **Acceptance:** visible curvature requires qualifying offsets on both sides of the endpoint chord, one-sided and below-threshold paths remain false, and the production scan performs no intermediate allocation or public API change.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-SCHEMATICS-TREATMENT-BORROW — borrow treatment-route fallback scan [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
