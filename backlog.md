@@ -4738,8 +4738,10 @@ No existing item's status was changed by this audit.
   Dependencies: none. Decompose per crate; ratchet the count down.
 
 - **CFDRS-CAVITY-VALIDATION-INERT-2026-09-02 [major][correctness] — the Ghia
-  lid-driven-cavity suite validates a solver that never runs (status=todo,
-  unclaimed).**
+  lid-driven-cavity suite validates a solver that never runs
+  (status=review, integrator=claude-opus-5/d49f3b0a,
+  lease: crates/cfd-2d/tests/ghia_cavity_simplec_validation.rs,
+  crates/cfd-2d/src/simplec_pimple/algorithms.rs).**
   Evidence, measured 2026-09-02 by running the ignored tests:
   `test_simplec_convergence_ghia_cavity_re100` reports **final residual
   `0.00e0`, `Iterations: 1`, L2 error 24.6%** against the Ghia reference and
@@ -4759,13 +4761,83 @@ No existing item's status was changed by this audit.
   the norm of that data against zero.
   Scope: whatever applies the lid — solver or fixture — plus assertions on the
   centerline error once the flow exists. Non-goals: no tolerance widening; the
-  reference data itself is not in question.
+  reference data was assumed sound — superseded by CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02,
+  which found the `analytical_benchmarks` tables fabricated; this item
+  repoints the cavity suite at Ghia Table I and leaves their deletion there.
+  A second root cause, found while fixing the first: `solve_adaptive`
+  compared its `target_residual` against the **inner** SIMPLEC coupling
+  residual, which is small after any small step, so the march broke on step
+  1 — 1 ms of physical time against a 100 s diffusive scale. With the lid
+  applied but the criterion unfixed the error *grew* with refinement
+  (observed order -0.224 to -1.122): coarse grids' numerical diffusion made
+  them look more developed.
+  A third: `dt = 1e-3` was commented "smaller time step for better
+  accuracy", but for a steady march dt is a relaxation parameter and the
+  converged answer is dt-independent — measured, dt0 = 1e-2 and 1e-1
+  converge to L2 0.1199 and 0.1186 on the same grid.
+  Two further hollow tests in the same file, found while fixing this:
+  `test_simplec_performance_benchmark` carries **zero assertions** and cannot
+  fail, and `test_simplec_parameter_optimization_re100` carries one. Both are
+  timing/sweep studies rather than tests; they belong in `benches/` or need
+  acceptance criteria.
   Acceptance oracle: the residual falls across iterations, the centerline error
   falls when the grid is refined, and the assertions fail if either stops
   holding. Until then the `#[ignore]` reasons should name this item rather than
   claim the tests are slow, which they are not.
+  Outcome (2026-09-02): all three causes fixed. The grid study now measures
+  L2 0.1236 / 0.1114 / 0.0997 / 0.0833 over 16/24/32/48 against Ghia Table I,
+  every grid converging in ~31 steps, observed order 0.244 -> 0.372 -> 0.431.
+  Sabotage-checked: removing the lid fails the interior-peak assertion in
+  0.17 s. The observed order stays far below the scheme's nominal second
+  order — the lid-corner singularity is the expected cause, and asserting
+  a theoretical order belongs to CFDRS-GA-006.
   Dependencies: none. This supersedes the premise of CFDRS-GA-006 below, which
   assumed the studies compute a real order and merely fail to assert it.
+
+- **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — the
+  `analytical_benchmarks` Ghia tables are not Ghia data (status=todo,
+  unclaimed).**
+  The repository holds two "Ghia Re=100 u-centerline" tables that disagree.
+  `cfd-validation/src/benchmarks/cavity.rs:38` carries Ghia et al. (1982)
+  Table I on its published non-uniform y stations. `analytical_benchmarks.rs:14`
+  `RE100_U_CENTERLINE` takes the first three of those u values
+  (`-0.03717`, `-0.04192`, `-0.04775`, Ghia's y=0.0547/0.0625/0.0703),
+  relabels them onto uniform `0.0625k` stations, and fills the remaining
+  thirteen with values that appear nowhere in Table I. Its interior extremum
+  is `-0.05641` against Table I's `-0.21090`, and it reaches `0.06898` at
+  y=0.9375 where Table I gives `0.68717` at y=0.9531.
+  `RE1000_U_CENTERLINE` is built the same way: Ghia's `-0.18109`, `-0.20196`,
+  `-0.22220` relabelled, then fabricated values decaying to `0.0104` where
+  Table I reaches `0.65928`.
+  Measured consequence: scored on the fabricated table's own 17 stations, a
+  **motionless field gets L2 0.2460 and the true Ghia profile gets 0.1865** —
+  and `ghia_cavity_simplec_validation.rs:278` asserts `l2_error < 0.25`, so
+  the threshold admits the dead solver. That 0.2460 is exactly the 24.6%
+  recorded as the inert suite's error in
+  CFDRS-CAVITY-VALIDATION-INERT-2026-09-02: the number was the norm of the
+  fabricated reference, not a solver error.
+  Consumers: `ghia_cavity_simplec_validation.rs:252` (repointed to Table I by
+  CFDRS-CAVITY-VALIDATION-INERT), `twelve_steps.rs:844` (asserts a real cavity
+  solve at `l2_error < 0.2` against the fabricated table) and
+  `physics_validation.rs:174` (asserts only `len() == 17` and the two
+  endpoints, so it passes on any fabricated interior).
+  A third gap in the same reference: `LidDrivenCavity::ghia_u_centerline`
+  carries only the Re=100 column and returns an empty vector otherwise
+  (`benchmarks/cavity.rs:67`, "other Reynolds numbers would go here"), so
+  `test_simplec_higher_reynolds_validation` takes its "no reference data"
+  branch at Re=400 and Re=1000 and asserts only convergence — a higher-Re
+  validation that validates nothing at higher Re.
+  Scope: delete both fabricated tables, repoint the two remaining consumers at
+  `LidDrivenCavity::ghia_u_centerline`, add the genuine Table I Re=400 and
+  Re=1000 columns so the higher-Re test has an oracle, and give
+  `physics_validation` an assertion on interior values rather than length. Expect `twelve_steps` to
+  fail once scored against real data — that failure is the solver's actual
+  accuracy and is this item's finding, not a reason to keep the table.
+  Acceptance oracle: one Ghia table in the tree; every consumer scored against
+  it; a fabricated or relabelled reference cannot pass.
+  Dependencies: none. Supersedes the "the reference data itself is not in
+  question" non-goal recorded in CFDRS-CAVITY-VALIDATION-INERT, which assumed
+  the tables were genuine.
 
 - **CFDRS-GA-006 [patch][verification] — Make the grid-convergence studies assert observed order (status=todo, effort=M).**
   Outcome: each declared second-order discretization has a test that computes

@@ -78,6 +78,8 @@ pub struct SimplecPimpleSolver<T: CfdScalar + Copy> {
     pub(super) _cons_vel_cache:
         std::cell::RefCell<Option<crate::grid::array2d::Array2D<Vector2<T>>>>,
     _solid_pressure_layers: std::cell::RefCell<Option<SolidPressureLayers<T>>>,
+    /// Steady-state residual of each step of the last `solve_adaptive` march.
+    pub(super) residual_history: Vec<T>,
 }
 
 impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
@@ -174,6 +176,7 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
             _vel_field_cache: std::cell::RefCell::new(None),
             _cons_vel_cache: std::cell::RefCell::new(None),
             _solid_pressure_layers: std::cell::RefCell::new(None),
+            residual_history: Vec::new(),
         })
     }
 
@@ -189,6 +192,16 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
         bc: cfd_core::physics::boundary::BoundaryCondition<T>,
     ) {
         self.momentum_solver.set_boundary(name, bc);
+    }
+
+    /// Steady-state residual after each step of the last `solve_adaptive`
+    /// march, oldest first.
+    ///
+    /// A march that is converging produces a falling sequence; one that has
+    /// stalled or diverged does not. Empty before the first march.
+    #[must_use]
+    pub fn residual_history(&self) -> &[T] {
+        &self.residual_history
     }
 
     /// Get current iteration count
