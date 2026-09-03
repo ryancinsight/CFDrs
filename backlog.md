@@ -5111,6 +5111,34 @@ No existing item's status was changed by this audit.
   incorrect behaviour rather than runtime.
   Dependencies: the two AMG ignores depend on leto-ops coarsening coverage.
 
+- **CFDRS-GHIA-V-CENTERLINE-HALF-2026-09-03 [minor][correctness] — Table II
+  still stops at Re=100 while Table I now reaches Re=1000 (status=todo,
+  unclaimed).**
+  `CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02` canonicalized the u-centerline
+  and added the genuine Table I Re=400 and Re=1000 columns
+  (`benchmarks/cavity.rs`, `GHIA_REYNOLDS`). `ghia_v_centerline` was not
+  extended: it still branches on `(re_f64 - 100.0).abs() < 1.0` and returns an
+  empty vector for anything else.
+  Consequence, measured against the two callers that pass a runtime Reynolds:
+  `vorticity_stream.rs:446` requires both centerlines and returns `None` when
+  either is empty, so at Re=400 and Re=1000 the newly added u-data is
+  discarded and the validation silently skips — the columns are inert exactly
+  where they were added to help. `cfd-python`'s `ghia_v_centerline` binding
+  hands Python an empty array at Re != 100; its sibling
+  `calculate_ghia_error` does raise `PyValueError` on an empty u-reference,
+  so the u path surfaces and the v path does not.
+  Scope: add the published Table II Re=400 and Re=1000 v-velocity columns,
+  keyed the same way as `GHIA_REYNOLDS`, and give the v path the same
+  empty-reference error the u path has.
+  Non-goal: do not reconstruct the values from memory. Fabricated reference
+  data is the defect the parent item existed to remove, and the same
+  temptation applies here; take them from Ghia et al. (1982) Table II, p. 398.
+  Acceptance oracle: `ghia_v_centerline` returns 17 rows at each of 100, 400
+  and 1000; a test pins published interior extrema per column the way
+  `physics_validation::validate_lid_driven_cavity_benchmark` now does for
+  Table I; and the vorticity-stream validation no longer skips at Re=400/1000.
+  Dependencies: none.
+
 - **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python` (status=todo, effort=S).**
   Outcome: the PyO3 binding is visible to mypy and IDEs.
   Scope: `crates/cfd-python` — add `py.typed` and `.pyi` stubs (generated where
