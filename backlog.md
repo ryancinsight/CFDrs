@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-TREATMENT-BORROW — borrow treatment-route fallback scan [perf] — in progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-TREATMENT-BORROW | Select treatment-route serpentine data through borrowed topology references without materializing temporary channel IDs. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/topology/model.rs`, `crates/cfd-schematics/src/topology/factory/core/spec_analysis_impl.rs`, factory tests |
+
+- **Acceptance:** Dean-site fallback selects the first treatment serpentine with the existing series/parallel/split ordering and preserves Dean number, radius, and arc length. The fallback performs no temporary `Vec<String>` allocation and does not alter the public channel-ID API.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-SCHEMATICS-DEAN-BORROW — borrow topology serpentine analysis [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |

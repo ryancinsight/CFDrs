@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-TREATMENT-BORROW [perf] — in progress
+
+- [ ] Centralize borrowed treatment-route serpentine selection so Dean
+      fallback analysis does not allocate temporary channel-ID strings.
+- [ ] Preserve treatment-route fallback and computed Dean-site values with a
+      value-semantic factory regression.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-DEAN-BORROW [perf] — implemented 2026-09-03
 
 - [x] Borrow the topology serpentine specification during Dean-site analysis;
