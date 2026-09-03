@@ -25,10 +25,9 @@ fn test_backward_facing_step_reference_solution() {
     );
 
     // Reference solution should be available
-    let reference = step.reference_solution();
-    assert!(reference.is_some(), "Reference solution should exist");
-
-    let reference = reference.expect("expected value");
+    let reference = step
+        .reference_solution()
+        .expect("Backward facing step reference solution should exist");
     assert_eq!(reference.name, "Backward Facing Step (Armaly Reference)");
     assert_eq!(
         reference.values.len(),
@@ -180,10 +179,9 @@ fn test_flow_over_cylinder_reference_solution() {
     );
 
     // Reference solution should be available
-    let reference = cylinder.reference_solution();
-    assert!(reference.is_some(), "Reference solution should exist");
-
-    let reference = reference.expect("expected value");
+    let reference = cylinder
+        .reference_solution()
+        .expect("Cylinder reference solution should exist");
     assert_eq!(
         reference.name,
         "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)"
@@ -378,12 +376,22 @@ fn test_flow_over_cylinder_validation_failure_unphysical_cl() {
 fn test_benchmark_with_generic_types() {
     // Test that benchmarks work with f32 as well as f64
     let step_f32 = BackwardFacingStep::<f32>::new(1.0, 2.0, 3.0, 7.0, 1.0);
-    let reference_f32 = step_f32.reference_solution();
-    assert!(reference_f32.is_some(), "Should work with f32");
+    let reference_f32 = step_f32
+        .reference_solution()
+        .expect("Backward facing step reference solution should work with f32");
+    assert!(
+        !reference_f32.name.is_empty(),
+        "f32 path must yield real reference data"
+    );
 
     let cylinder_f32 = FlowOverCylinder::<f32>::new(0.1, (2.2, 0.41), 1.0);
-    let reference_cylinder_f32 = cylinder_f32.reference_solution();
-    assert!(reference_cylinder_f32.is_some(), "Should work with f32");
+    let reference_cylinder_f32 = cylinder_f32
+        .reference_solution()
+        .expect("Cylinder reference solution should work with f32");
+    assert!(
+        !reference_cylinder_f32.name.is_empty(),
+        "f32 path must yield real reference data"
+    );
 }
 
 #[test]

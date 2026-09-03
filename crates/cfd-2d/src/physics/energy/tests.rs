@@ -42,7 +42,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -60,7 +60,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // With uniform temperature and zero source, temperature should remain approximately constant
         for i in 1..4 {
@@ -95,7 +95,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Check that Dirichlet BC is applied
         assert_relative_eq!(solver.temperature[(0, 0)], 350.0, epsilon = 1e-10);
@@ -119,7 +119,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -140,7 +140,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -172,7 +172,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -193,7 +193,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Symmetry should set T(i, 0) = T(i, 1)
         assert_relative_eq!(
@@ -224,7 +224,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Temperature at center should increase due to heat source
         assert!(solver.temperature[(2, 2)] > initial_temp);
@@ -251,7 +251,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -275,7 +275,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
     }
 
     #[test]
@@ -353,7 +353,7 @@ mod energy_tests {
                 0.1,
                 &boundary_conditions,
             );
-            assert!(result.is_ok());
+            result.expect("explicit energy solve must succeed for valid inputs");
 
             // Check stability (no blow-up)
             for i in 0..5 {
@@ -685,7 +685,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Check Dirichlet boundaries
         for j in 0..5 {
@@ -931,7 +931,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Check that corners are set correctly
         assert_relative_eq!(solver.temperature[(0, 0)], 400.0, epsilon = 1e-10);
@@ -959,7 +959,7 @@ mod energy_tests {
             0.1,
             &boundary_conditions,
         );
-        assert!(result.is_ok());
+        result.expect("explicit energy solve must succeed for valid inputs");
 
         // Temperatures should remain finite (numerical dissipation prevents blow-up)
         for temp in solver.temperature.iter() {
@@ -1248,12 +1248,10 @@ mod energy_tests {
 
     #[test]
     fn viscous_dissipation_validated_accepts_zero_mu() {
-        // Zero viscosity is mathematically valid: no dissipation, Phi = 0.
-        let result = viscous_dissipation_2d_validated(1.0, 0.0, 0.0, 0.0, 0.0);
-        assert!(
-            result.is_ok() && result.expect("expected value") == 0.0,
-            "zero mu must yield Phi = 0"
-        );
+        // Zero viscosity is mathematically valid: no dissipation, Phi = 0 (exact).
+        let phi = viscous_dissipation_2d_validated(1.0, 0.0, 0.0, 0.0, 0.0)
+            .expect("validated API must succeed for zero mu");
+        assert_relative_eq!(phi, 0.0, epsilon = 1e-15);
     }
 
     #[test]
