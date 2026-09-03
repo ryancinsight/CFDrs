@@ -1,11 +1,12 @@
-## CFDRS-SCHEMATICS-CURVATURE-SCAN — stream serpentine curvature detection [perf] — in-progress
+## CFDRS-SCHEMATICS-CURVATURE-SCAN — stream serpentine curvature detection [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
 |----|---------|-------|--------|-------|-------|
-| CFDRS-SCHEMATICS-CURVATURE-SCAN | Detect visible serpentine curvature directly from path offsets without allocating an intermediate vector. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/visualizations/schematic/path_generation.rs`, path-generation tests |
+| CFDRS-SCHEMATICS-CURVATURE-SCAN | Detect visible serpentine curvature directly from path offsets without allocating an intermediate vector. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/schematic/path_generation.rs`, path-generation tests |
 
 - **Acceptance:** visible curvature requires qualifying offsets on both sides of the endpoint chord, one-sided and below-threshold paths remain false, and the production scan performs no intermediate allocation or public API change.
 - **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 210/210 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. The focused regressions cover both-sided curvature, one-sided rejection, and threshold rejection; source review confirms the scan is lazy and exits as soon as both signs are observed.
 
 ## CFDRS-SCHEMATICS-TREATMENT-BORROW — borrow treatment-route fallback scan [perf] — IMPLEMENTED 2026-09-03
 
