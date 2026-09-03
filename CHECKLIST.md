@@ -1,12 +1,12 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-DEAN-BORROW [perf] — in progress
+## CFDRS-SCHEMATICS-DEAN-BORROW [perf] — implemented 2026-09-03
 
-- [ ] Borrow the topology serpentine specification during Dean-site analysis;
+- [x] Borrow the topology serpentine specification during Dean-site analysis;
       do not clone route configuration for a read-only estimate.
-- [ ] Preserve target-route precedence, treatment-route fallback, and the
+- [x] Preserve target-route precedence, treatment-route fallback, and the
       Dean-number, radius, and arc-length values with value-semantic tests.
-- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
       rustfmt/diff checks, and the standalone lockfile check.
 
 ## CFDRS-SCHEMATICS-ANNOTATION-COW [perf] — implemented 2026-09-03

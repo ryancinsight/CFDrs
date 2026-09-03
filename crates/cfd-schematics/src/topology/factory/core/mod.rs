@@ -357,4 +357,84 @@ mod tests {
                 && channel.venturi_geometry.is_some())
         }));
     }
+
+    #[test]
+    fn dean_site_prefers_target_route_serpentine_without_changing_values() {
+        let mut blueprint = base_blueprint();
+        let target_channel_id = blueprint
+            .treatment_channel_ids()
+            .into_iter()
+            .next()
+            .expect("treatment channel");
+        blueprint
+            .channels
+            .iter_mut()
+            .find(|channel| channel.therapy_zone == Some(TherapyZone::CancerTarget))
+            .expect("materialized treatment channel")
+            .id
+            .0
+            .clone_from(&target_channel_id);
+        let mut topology = blueprint.topology_spec().expect("topology").clone();
+        let expected_serpentine = SerpentineSpec {
+            wave_type: crate::topology::SerpentineWaveType::Sine,
+            segments: 3,
+            bend_radius_m: Length::from_base(1.2e-3),
+            segment_length_m: Length::from_base(4.0e-3),
+        };
+        for stage in &mut topology.split_stages {
+            for branch in &mut stage.branches {
+                if format!("{}_{}", stage.stage_id, branch.label) == target_channel_id {
+                    branch.route.serpentine = Some(expected_serpentine.clone());
+                }
+            }
+        }
+        let route = topology
+            .channel_route(&target_channel_id)
+            .expect("target route");
+        let channel = blueprint
+            .channels
+            .iter()
+            .find(|channel| channel.id.as_str() == target_channel_id)
+            .expect("target channel");
+        let area = channel.cross_section.area().into_base();
+        let hydraulic_diameter = channel.cross_section.hydraulic_diameter().into_base();
+        let average_velocity = 2.0e-9 / area;
+        let reynolds = average_velocity * hydraulic_diameter / 4.0e-6;
+        let serpentine = route.serpentine.as_ref().expect("target serpentine");
+        let expected_radius = serpentine.bend_radius_m.into_base();
+        let expected_arc_length = (serpentine.segments.max(1) as f64
+            * (serpentine.segment_length_m.into_base().max(0.0)
+                + std::f64::consts::PI * serpentine.bend_radius_m.into_base().max(0.0)))
+        .max(channel.length_m.into_base());
+        let route_height = route.height_m;
+        let route_width = route.width_m;
+        blueprint.topology = Some(topology);
+
+        let estimate = BlueprintTopologyFactory::estimate_dean_site(
+            &blueprint,
+            &crate::VenturiPlacementSpec {
+                placement_id: "target".to_string(),
+                target_channel_id,
+                serial_throat_count: 1,
+                throat_geometry: crate::ThroatGeometrySpec {
+                    throat_width_m: Length::from_base(50.0e-6),
+                    throat_height_m: route_height,
+                    throat_length_m: Length::from_base(100.0e-6),
+                    inlet_width_m: route_width,
+                    outlet_width_m: route_width,
+                    convergent_half_angle: Angle::from_base(0.1),
+                    divergent_half_angle: Angle::from_base(0.1),
+                },
+                placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+            },
+            2.0e-9,
+            4.0e-6,
+        )
+        .expect("target route estimate");
+
+        let expected_dean = reynolds * (hydraulic_diameter / (2.0 * expected_radius)).sqrt();
+        assert_eq!(estimate.curvature_radius_m.into_base(), expected_radius);
+        assert_eq!(estimate.arc_length_m.into_base(), expected_arc_length);
+        assert_eq!(estimate.dean_number.into_base(), expected_dean);
+    }
 }

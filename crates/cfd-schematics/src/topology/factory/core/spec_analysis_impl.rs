@@ -39,13 +39,13 @@ impl BlueprintTopologyFactory {
         let spec_serpentine = blueprint.topology_spec().and_then(|topology| {
             topology
                 .channel_route(&placement.target_channel_id)
-                .and_then(|route| route.serpentine.clone())
+                .and_then(|route| route.serpentine.as_ref())
                 .or_else(|| {
                     topology
                         .treatment_channel_ids()
                         .into_iter()
                         .filter_map(|channel_id| topology.channel_route(&channel_id))
-                        .find_map(|route| route.serpentine.clone())
+                        .find_map(|route| route.serpentine.as_ref())
                 })
         });
 
@@ -69,14 +69,13 @@ impl BlueprintTopologyFactory {
             let r = ((ax - ux).powi(2) + (ay - uy).powi(2)).sqrt();
             Some(r * 1e-3) // mm → m
         });
-        let spec_curve_radius_m = spec_serpentine
-            .as_ref()
-            .map(|serpentine| serpentine.bend_radius_m.into_base());
+        let spec_curve_radius_m =
+            spec_serpentine.map(|serpentine| serpentine.bend_radius_m.into_base());
         let curve_radius_m = spec_curve_radius_m
             .or(path_curve_radius_m)
             .unwrap_or(5.0e-3);
 
-        let spec_arc_length_m = spec_serpentine.as_ref().map(|serpentine| {
+        let spec_arc_length_m = spec_serpentine.map(|serpentine| {
             let segments = serpentine.segments.max(1) as f64;
             let straight_length = segments * serpentine.segment_length_m.into_base().max(0.0);
             let bend_length =
