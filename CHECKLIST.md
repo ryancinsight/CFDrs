@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-INTERSECTION-COW [perf] — in progress
+
+- [ ] Return borrowed complete channel paths from centerline extraction and
+      retain owned storage only for endpoint synthesis.
+- [ ] Preserve crossing coordinates/counts and intersection-node insertion with
+      value-semantic tests for complete, empty, and singleton paths.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-CHANNEL-PATHS [perf] — implemented 2026-09-03
 
 - [x] Borrow explicit channel paths for measurement and shape inference, then
