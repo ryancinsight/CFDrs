@@ -170,7 +170,7 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## CFDRS-SCHEMATICS-ANNOTATION-COW — borrow selective annotation paths [perf] — in progress
+## CFDRS-SCHEMATICS-ANNOTATION-COW — borrow selective annotation paths [perf] — IMPLEMENTED 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is primitive selective annotation path
   analysis and its focused geometry tests.
@@ -184,6 +184,9 @@ anything there is unverified -- do not assume it matches.
   `crates/cfd-schematics/src/geometry/generator/selective/primitive/annotation.rs`
   and `crates/cfd-schematics/src/geometry/generator/selective/mod.rs` tests —
   2026-09-03T13:58:00-04:00
+- **Evidence:** non-empty paths remain borrowed for analysis and overlay input;
+  empty-path synthesis remains owned; 205/205 nextest tests, warning-denied
+  Clippy, 16/16 doctests, rustfmt, and standalone lockfile validation pass.
 
 ## CFDRS-SCHEMATICS-METADATA-COW — borrow metadata-backed paths [perf] — IMPLEMENTED 2026-09-03
 
