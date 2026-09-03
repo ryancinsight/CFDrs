@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-ANNOTATION-COW [perf] — implemented 2026-09-03
+
+- [x] Read existing channel paths through immutable slices during annotation
+      analysis and use owned storage only for synthesized overlay inputs.
+- [x] Preserve annotated geometry, lengths, roles, and venturi routing with
+      value-semantic regression coverage.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-METADATA-COW [perf] — implemented 2026-09-03
 
 - [x] Return metadata-backed channel paths as borrowed slices and keep owned

@@ -209,7 +209,7 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
 
 #[cfg(test)]
 mod tests {
-    use super::path_geometry::path_intersects_any;
+    use super::path_geometry::{path_intersects_any, polyline_length_mm};
     use super::routing::route_monotone_treatment_path;
     use super::{
         create_primitive_selective_tree_geometry, CenterSerpentinePathSpec,
@@ -252,6 +252,54 @@ mod tests {
             invalid_lengths.is_empty(),
             "primitive selective annotation should preserve positive channel lengths: {}",
             invalid_lengths.join(", ")
+        );
+    }
+
+    #[test]
+    fn primitive_selective_annotation_lengths_match_materialized_paths() {
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "primitive-selective-path-lengths".to_string(),
+            box_dims_m: (Length::from_base(0.12776), Length::from_base(0.08547)),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Tri,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: Length::from_base(4.0e-3),
+            throat_width_m: Length::from_base(55.0e-6),
+            throat_length_m: Length::from_base(110.0e-6),
+            channel_height_m: Length::from_base(1.0e-3),
+            first_trifurcation_center_frac: 0.55,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: false,
+            treatment_branch_throat_count: 1,
+            center_serpentine: Some(CenterSerpentinePathSpec {
+                segments: 5,
+                bend_radius_m: Length::from_base(3.0e-3),
+                wave_type: crate::SerpentineWaveType::default(),
+            }),
+        });
+
+        let mismatches: Vec<String> = blueprint
+            .channels
+            .iter()
+            .filter(|channel| channel.path.len() >= 2)
+            .filter_map(|channel| {
+                let expected = polyline_length_mm(&channel.path) * 1.0e-3;
+                (channel.length_m.into_base() != expected).then(|| {
+                    format!(
+                        "{}: expected {expected}, got {}",
+                        channel.id.as_str(),
+                        channel.length_m.into_base()
+                    )
+                })
+            })
+            .collect();
+
+        assert!(
+            mismatches.is_empty(),
+            "annotated channel lengths must match their materialized paths: {}",
+            mismatches.join(", ")
         );
     }
 

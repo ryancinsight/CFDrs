@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use super::super::super::super::types::Point2D;
@@ -142,25 +143,35 @@ pub(super) fn annotate_primitive_tree(
     let mut pending_venturi_paths = Vec::new();
 
     for (idx, channel) in system.channels.iter_mut().enumerate() {
-        let points = channel.path.clone();
         let start_point = node_pts.get(&channel.from).copied();
         let end_point = node_pts.get(&channel.to).copied();
-        let (min_x, max_x) = if points.is_empty() {
-            let x0 = start_point.map_or(f64::INFINITY, |(x, _)| x);
-            let x1 = end_point.map_or(f64::NEG_INFINITY, |(x, _)| x);
-            (x0.min(x1), x0.max(x1))
-        } else {
-            let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
-            let max_x = points
-                .iter()
-                .map(|(x, _)| *x)
-                .fold(f64::NEG_INFINITY, f64::max);
-            (min_x, max_x)
-        };
-        let avg_y = if points.is_empty() {
-            mid_y
-        } else {
-            points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64
+        let (min_x, max_x, path_start, path_end, preferred_y) = {
+            let points = channel.path.as_slice();
+            let (min_x, max_x) = if points.is_empty() {
+                let x0 = start_point.map_or(f64::INFINITY, |(x, _)| x);
+                let x1 = end_point.map_or(f64::NEG_INFINITY, |(x, _)| x);
+                (x0.min(x1), x0.max(x1))
+            } else {
+                let min_x = points.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
+                let max_x = points
+                    .iter()
+                    .map(|(x, _)| *x)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                (min_x, max_x)
+            };
+            let avg_y = if points.is_empty() {
+                mid_y
+            } else {
+                points.iter().map(|(_, y)| *y).sum::<f64>() / points.len() as f64
+            };
+            let preferred_y = preferred_treatment_lane_y(points, start_point, end_point, avg_y);
+            (
+                min_x,
+                max_x,
+                points.first().copied(),
+                points.last().copied(),
+                preferred_y,
+            )
         };
 
         let is_treatment = treatment_channels.contains(&idx);
@@ -184,7 +195,7 @@ pub(super) fn annotate_primitive_tree(
             height_m: Length::from_base(channel_height_m),
         };
         channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
-            &points,
+            channel.path.as_slice(),
             start_point,
             end_point,
             channel.length_m.into_base(),
@@ -216,13 +227,13 @@ pub(super) fn annotate_primitive_tree(
 
         if should_overlay_serpentine {
             if let Some(spec) = request.center_serpentine {
-                let source_points: Vec<Point2D> = if points.is_empty() {
-                    [start_point, end_point].into_iter().flatten().collect()
+                let source_points: Cow<'_, [Point2D]> = if channel.path.is_empty() {
+                    Cow::Owned([start_point, end_point].into_iter().flatten().collect())
                 } else {
-                    points.clone()
+                    Cow::Borrowed(channel.path.as_slice())
                 };
                 let serpentine_path = serpentine_overlay_path(
-                    &source_points,
+                    source_points.as_ref(),
                     physical_width,
                     spec,
                     if request.treatment_branch_venturi_enabled {
@@ -248,9 +259,9 @@ pub(super) fn annotate_primitive_tree(
         if is_treatment && is_treatment_window_channel && request.treatment_branch_venturi_enabled {
             pending_venturi_paths.push(PendingVenturiPath {
                 channel_idx: idx,
-                start: points.first().copied().or(start_point),
-                end: points.last().copied().or(end_point),
-                preferred_y: preferred_treatment_lane_y(&points, start_point, end_point, avg_y),
+                start: path_start.or(start_point),
+                end: path_end.or(end_point),
+                preferred_y,
                 fallback_length_m: channel.length_m.into_base(),
             });
             channel.visual_role = Some(ChannelVisualRole::VenturiThroat);
