@@ -34,11 +34,6 @@ impl<'a> BlueprintNodeLayout<'a> {
     }
 
     #[must_use]
-    pub(super) fn positions(&self) -> &[Point2D] {
-        &self.positions
-    }
-
-    #[must_use]
     pub(super) fn index_of(&self, node_id: &str) -> Option<usize> {
         self.index_by_id.get(node_id).copied()
     }
@@ -46,6 +41,15 @@ impl<'a> BlueprintNodeLayout<'a> {
     #[must_use]
     pub(super) fn auto_layout_indices(&self) -> &[usize] {
         &self.auto_layout_indices
+    }
+
+    pub(super) fn into_materialization_parts(self) -> (Vec<Point2D>, Vec<usize>) {
+        let Self {
+            positions,
+            auto_layout_indices,
+            ..
+        } = self;
+        (positions, auto_layout_indices)
     }
 
     pub(super) fn auto_layout_entries(&self) -> impl Iterator<Item = (&'a str, Point2D)> + '_ {
@@ -273,7 +277,6 @@ mod tests {
         assert_eq!(layout.position("inlet"), Some((10.0, 20.0)));
         assert_eq!(layout.position("mid"), Some((50.0, 25.0)));
         assert_eq!(layout.position("outlet"), Some((90.0, 30.0)));
-        assert_eq!(layout.positions().get(1).copied(), Some((50.0, 25.0)));
         assert_eq!(layout.index_of("mid"), Some(1));
         assert_eq!(layout.auto_layout_indices(), &[1]);
 
