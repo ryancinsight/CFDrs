@@ -299,23 +299,41 @@ fn test_micromixer_inlet_validation() -> Result<()> {
 /// Validates that factory produces appropriate errors for invalid inputs.
 #[test]
 fn test_component_factory_error_handling() -> Result<()> {
-    // Test missing required parameters
+    // Test missing required parameters — the error must name the first missing one
     let params_empty = HashMap::new();
-    let result = ComponentFactory::create::<f64>("CircularChannel", &params_empty);
-    assert!(result.is_err(), "Should fail with missing parameters");
+    let err = match ComponentFactory::create::<f64>("CircularChannel", &params_empty) {
+        Err(e) => e,
+        Ok(_) => panic!("missing parameters must be rejected"),
+    };
+    assert!(
+        matches!(&err, cfd_core::error::Error::InvalidConfiguration(msg) if msg.contains("Missing length parameter")),
+        "expected InvalidConfiguration naming 'length', got {err:?}"
+    );
 
-    // Test with only some parameters
+    // Test with only some parameters — 'diameter' is the first still-missing one
     let mut params_partial = HashMap::new();
     params_partial.insert("length".to_string(), 0.1);
-    let result = ComponentFactory::create::<f64>("CircularChannel", &params_partial);
-    assert!(result.is_err(), "Should fail with incomplete parameters");
+    let err = match ComponentFactory::create::<f64>("CircularChannel", &params_partial) {
+        Err(e) => e,
+        Ok(_) => panic!("incomplete parameters must be rejected"),
+    };
+    assert!(
+        matches!(&err, cfd_core::error::Error::InvalidConfiguration(msg) if msg.contains("Missing diameter parameter")),
+        "expected InvalidConfiguration naming 'diameter', got {err:?}"
+    );
 
-    // Test with invalid component type
+    // Test with invalid component type — the error must name the type
     let mut params_valid = HashMap::new();
     params_valid.insert("length".to_string(), 0.1);
     params_valid.insert("diameter".to_string(), 1e-3);
-    let result = ComponentFactory::create::<f64>("InvalidComponent", &params_valid);
-    assert!(result.is_err(), "Should fail with unknown component type");
+    let err = match ComponentFactory::create::<f64>("InvalidComponent", &params_valid) {
+        Err(e) => e,
+        Ok(_) => panic!("unknown component type must be rejected"),
+    };
+    assert!(
+        matches!(&err, cfd_core::error::Error::InvalidConfiguration(msg) if msg.contains("Unknown component type: InvalidComponent")),
+        "expected InvalidConfiguration naming the type, got {err:?}"
+    );
 
     Ok(())
 }

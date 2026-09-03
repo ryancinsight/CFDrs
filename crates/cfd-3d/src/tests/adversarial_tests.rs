@@ -164,14 +164,20 @@ mod spectral_round_trip_tests {
     /// Theorem: SpectralConfig construction must fail for zero mode counts.
     #[test]
     fn test_spectral_config_zero_modes_rejected() {
-        let result = SpectralConfig::<f64>::new(0, 8, 8);
-        assert!(result.is_err(), "zero mode count nx=0 must return Err");
-
-        let result = SpectralConfig::<f64>::new(8, 0, 8);
-        assert!(result.is_err(), "zero mode count ny=0 must return Err");
-
-        let result = SpectralConfig::<f64>::new(8, 8, 0);
-        assert!(result.is_err(), "zero mode count nz=0 must return Err");
+        for (nx, ny, nz) in [(0usize, 8usize, 8usize), (8, 0, 8), (8, 8, 0)] {
+            let result = SpectralConfig::<f64>::new(nx, ny, nz);
+            match result {
+                Err(cfd_core::error::Error::InvalidConfiguration(msg)) => {
+                    assert!(
+                        msg.contains("mode counts must be > 0"),
+                        "zero mode count ({nx}, {ny}, {nz}) must name the constraint, got: {msg}"
+                    );
+                }
+                other => panic!(
+                    "zero mode count ({nx}, {ny}, {nz}) must return InvalidConfiguration, got {other:?}"
+                ),
+            }
+        }
     }
 
     /// Theorem: SpectralSolver on small valid config must produce non-null solver.

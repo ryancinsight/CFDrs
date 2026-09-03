@@ -63,20 +63,18 @@ fn assert_invalid_configuration(
 #[test]
 fn test_ilu0_construction() {
     let matrix = create_tridiagonal_matrix();
-    let ilu = IncompleteLU::new(&matrix);
 
-    assert!(ilu.is_ok());
-    let ilu = ilu.expect("expected value");
+    let ilu =
+        IncompleteLU::new(&matrix).expect("ILU(0) construction on square matrix must succeed");
     assert_eq!(ilu.fill_level(), 0);
 }
 
 #[test]
 fn test_iluk_construction() {
     let matrix = create_tridiagonal_matrix();
-    let ilu = IncompleteLU::with_fill_level(&matrix, 1);
 
-    assert!(ilu.is_ok());
-    let ilu = ilu.expect("expected value");
+    let ilu = IncompleteLU::with_fill_level(&matrix, 1)
+        .expect("ILU(1) construction on square matrix must succeed");
     assert_eq!(ilu.fill_level(), 1);
 }
 
@@ -201,10 +199,18 @@ fn test_ilu_non_square_matrix() {
         CsrMatrix::from_parts(values, col_indices, row_offsets, 2, 3).expect("valid CSR matrix");
 
     let ilu = IncompleteLU::new(&matrix);
-    assert!(ilu.is_err());
 
-    // Verify error is InvalidInput for non-square matrix
-    assert!(matches!(ilu, Err(Error::InvalidInput(_))));
+    // Verify error is InvalidInput for non-square matrix, naming the shape
+    match ilu {
+        Err(Error::InvalidInput(msg)) => {
+            assert!(
+                msg.contains("square") && msg.contains("2x3"),
+                "error must name the squareness constraint and shape, got: {msg}"
+            );
+        }
+        Err(e) => panic!("non-square matrix must be rejected with InvalidInput, got: {e:?}"),
+        Ok(_) => panic!("non-square matrix must be rejected with InvalidInput, got Ok(_)"),
+    }
 }
 
 #[test]
@@ -223,10 +229,8 @@ fn test_ilu_multiple_fill_levels() {
     let matrix = create_sparse_matrix();
 
     for k in 0..=3 {
-        let ilu = IncompleteLU::with_fill_level(&matrix, k);
-        assert!(ilu.is_ok(), "ILU({k}) construction failed");
-
-        let ilu = ilu.expect("expected value");
+        let ilu = IncompleteLU::with_fill_level(&matrix, k)
+            .unwrap_or_else(|e| panic!("ILU({k}) construction failed: {e}"));
         assert_eq!(ilu.fill_level(), k);
 
         // Test that matrix dimensions are correct

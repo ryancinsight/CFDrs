@@ -74,10 +74,8 @@ fn test_complete_cfd_validation_suite() {
     println!("-----------------------------------------");
 
     let benchmark_results = test_performance_benchmarking();
-    assert!(
-        benchmark_results.is_ok(),
-        "Performance benchmarking must succeed"
-    );
+    let benchmark_results =
+        benchmark_results.unwrap_or_else(|e| panic!("Performance benchmarking must succeed: {e}"));
 
     // Phase 6: Automated Validation Reporting
     println!("\n📋 Phase 6: Automated Validation Reporting");
@@ -88,15 +86,11 @@ fn test_complete_cfd_validation_suite() {
         &multi_physics_results,
         &advanced_physics_results,
         &convergence_results,
-        benchmark_results.as_ref().unwrap_or(&Vec::new()),
+        &benchmark_results,
     );
 
-    assert!(
-        report.is_ok(),
-        "Comprehensive report generation must succeed"
-    );
-
-    let report = report.expect("expected value");
+    let report =
+        report.unwrap_or_else(|e| panic!("Comprehensive report generation must succeed: {e}"));
 
     // Phase 7: Quality Assessment
     println!("\n🎯 Phase 7: Quality Assessment & Validation");
@@ -655,11 +649,20 @@ fn test_performance_regression_monitoring() {
         analyzer.add_result("regression_test", metric);
     }
 
-    // Should detect regression
-    let regression = analyzer
+    // Should detect regression, with the alert naming the benchmark and a positive rate
+    let alert = analyzer
         .detect_regression("regression_test")
-        .expect("expected value");
-    assert!(regression.is_some(), "Should detect performance regression");
+        .unwrap_or_else(|e| panic!("regression detection must succeed: {e}"))
+        .expect("Should detect performance regression");
+    assert_eq!(
+        alert.benchmark_name, "regression_test",
+        "alert must name the degrading benchmark"
+    );
+    assert!(
+        alert.degradation_rate > 0.0,
+        "degradation rate must be positive for a degrading trend, got {}",
+        alert.degradation_rate
+    );
 
     println!("✅ Performance regression monitoring test passed");
 }

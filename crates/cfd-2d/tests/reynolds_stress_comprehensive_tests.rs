@@ -242,7 +242,7 @@ fn test_convergence_stability() {
         k_history.push(k_before);
 
         let result = model.update_reynolds_stresses(&mut stresses, &velocity, dt, dx, dy);
-        assert!(result.is_ok(), "Update should succeed at step {}", step);
+        result.unwrap_or_else(|e| panic!("RSM update should succeed at step {step}: {e}"));
 
         // Check boundedness
         assert!(stresses.k[[5, 5]] >= 0.0, "k should remain non-negative");
@@ -353,21 +353,24 @@ fn test_dissipation_tensor() {
     model.enable_dissipation_tensor(&mut stresses, 0.1);
 
     // Check that dissipation tensor is initialized
-    assert!(stresses.epsilon_xx.is_some());
-    assert!(stresses.epsilon_xy.is_some());
-    assert!(stresses.epsilon_yy.is_some());
+    // Check isotropic initialization (expect, so the value checks always run)
+    let eps_xx = stresses
+        .epsilon_xx
+        .as_ref()
+        .expect("dissipation tensor εxx must be initialized");
+    let eps_xy = stresses
+        .epsilon_xy
+        .as_ref()
+        .expect("dissipation tensor εxy must be initialized");
+    let eps_yy = stresses
+        .epsilon_yy
+        .as_ref()
+        .expect("dissipation tensor εyy must be initialized");
 
-    // Check isotropic initialization
-    if let (Some(eps_xx), Some(eps_xy), Some(eps_yy)) = (
-        &stresses.epsilon_xx,
-        &stresses.epsilon_xy,
-        &stresses.epsilon_yy,
-    ) {
-        let expected_iso = 2.0 / 3.0 * 0.1;
-        assert_relative_eq!(eps_xx[[2, 2]], expected_iso, epsilon = 1e-10);
-        assert_relative_eq!(eps_xy[[2, 2]], 0.0, epsilon = 1e-10);
-        assert_relative_eq!(eps_yy[[2, 2]], expected_iso, epsilon = 1e-10);
-    }
+    let expected_iso = 2.0 / 3.0 * 0.1;
+    assert_relative_eq!(eps_xx[[2, 2]], expected_iso, epsilon = 1e-10);
+    assert_relative_eq!(eps_xy[[2, 2]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(eps_yy[[2, 2]], expected_iso, epsilon = 1e-10);
 
     // Test dissipation tensor access
     let eps_xx_val = model.dissipation_tensor(&stresses, 0, 0, 2, 2);
@@ -454,7 +457,7 @@ fn test_rsm_with_simple_solver() {
     // Run several updates
     for _ in 0..10 {
         let result = model.update_reynolds_stresses(&mut stresses, &velocity, dt, dx, dy);
-        assert!(result.is_ok(), "RSM update should succeed");
+        result.expect("RSM update should succeed");
 
         // Check realizability: normal stresses >= 0, |shear| <= sqrt(xx*yy)
         for i in 1..4 {
@@ -760,7 +763,7 @@ fn test_mms_rsm_solver_integration() {
 
     // Run one time step
     let result = rsm_model.update_reynolds_stresses(&mut stresses, &velocity, dt, dx, dy);
-    assert!(result.is_ok(), "RSM update with MMS should succeed");
+    result.expect("RSM update with MMS should succeed");
 
     // Check that solution remains bounded and physical
     for i in 1..4 {
