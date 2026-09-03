@@ -93,9 +93,46 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
         }
     }
 
-    /// Solve with adaptive time stepping and convergence acceleration
+    /// Steady-state residual: the velocity field's relative change per unit of
+    /// convective time.
     ///
-    /// Returns the effective time step used and residual.
+    /// `(‖u^{n+1} − u^n‖_∞ / ‖u‖_∞) · (t_ref / dt)` with `t_ref = L_ref / ‖u‖_∞`
+    /// and `L_ref` the larger domain extent: the fractional change the field
+    /// would accumulate over one convective transit if the current rate held.
+    /// Dividing by `dt` is what makes the measure step-size independent — a
+    /// change of `1e-9` taken over a step of `1e-9` is not convergence — and
+    /// the two reference scales make it dimensionless, so a caller's tolerance
+    /// means the same thing at any velocity or domain scale. A field that is
+    /// still exactly zero everywhere returns the caller's worst case rather
+    /// than zero, since an unmoved field is the starting condition, not a
+    /// converged one.
+    #[must_use]
+    pub fn steady_state_residual(&self, fields: &SimulationFields<T>, dt: T) -> T {
+        let mut max_change = scalar::zero::<T>();
+        let mut max_speed = scalar::zero::<T>();
+        for (component, previous) in [(&fields.u, &fields.u_old), (&fields.v, &fields.v_old)] {
+            for (new, old) in component.data.iter().zip(previous.data.iter()) {
+                max_change = max_change.max_scalar(NumericElement::abs(*new - *old));
+                max_speed = max_speed.max_scalar(NumericElement::abs(*new));
+            }
+        }
+        if max_speed <= T::default_epsilon() || dt <= scalar::zero::<T>() {
+            return <T as FloatElement>::from_f64(1e10);
+        }
+        let (x_min, x_max, y_min, y_max) = self.grid.bounds;
+        let length_reference = (x_max - x_min).max_scalar(y_max - y_min);
+        max_change * length_reference / (dt * max_speed * max_speed)
+    }
+
+    /// March to steady state with adaptive time stepping.
+    ///
+    /// Returns the effective time step reached and the final steady-state
+    /// residual (see [`Self::steady_state_residual`]). Termination is on that
+    /// residual, not on the per-step pressure-velocity coupling residual: the
+    /// coupling residual measures how well one time level was solved and falls
+    /// below any tolerance on the first small step, so using it here reports
+    /// convergence for a field that has barely moved.
+    ///
     /// Uses Aitken's Δ² acceleration to estimate convergence trajectory
     /// and adjusts the time step based on residual behaviour.
     pub fn solve_adaptive(
@@ -109,7 +146,7 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
     ) -> cfd_core::error::Result<(T, T)> {
         let mut dt = dt_initial;
         let mut step_count = 0;
-        let mut residuals = Vec::new();
+        self.residual_history.clear();
         let mut last_residual = <T as FloatElement>::from_f64(1e10);
 
         let dt_increase_factor = <T as FloatElement>::from_f64(1.2);
@@ -123,20 +160,32 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
             // absolute tolerance for ordinary steps, but must not replace a
             // looser dimensional target with an unreachable fixed threshold.
             let convergence_tolerance = target_residual.max_scalar(self.config.tolerance);
-            let residual =
+            let coupling_residual =
                 self.solve_time_step_with_tolerance(fields, dt, nu, rho, convergence_tolerance)?;
-            residuals.push(residual);
+            if !NumericElement::is_finite(coupling_residual) {
+                return Err(cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::InvalidValue {
+                        value: format!(
+                            "coupling residual {coupling_residual:e} at step {step_count}"
+                        ),
+                    },
+                ));
+            }
+            // `u_old`/`v_old` hold the start-of-step field: the step just taken
+            // is the difference against the current one.
+            let residual = self.steady_state_residual(fields, dt);
+            self.residual_history.push(residual);
 
             if residual < target_residual {
                 break;
             }
 
             // Aitken's Δ² acceleration diagnostic
-            if residuals.len() >= 3 {
-                let n = residuals.len();
-                let r0 = residuals[n - 3];
-                let r1 = residuals[n - 2];
-                let r2 = residuals[n - 1];
+            if self.residual_history.len() >= 3 {
+                let n = self.residual_history.len();
+                let r0 = self.residual_history[n - 3];
+                let r1 = self.residual_history[n - 2];
+                let r2 = self.residual_history[n - 1];
 
                 let denominator = r2 - r1 * <T as FloatElement>::from_f64(2.0) + r0;
                 if NumericElement::abs(denominator) > T::default_epsilon() {
@@ -175,7 +224,7 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
         }
 
         let fallback_residual = <T as FloatElement>::from_f64(1e10);
-        let final_residual = *residuals.last().unwrap_or(&fallback_residual);
+        let final_residual = *self.residual_history.last().unwrap_or(&fallback_residual);
         Ok((dt, final_residual))
     }
 }

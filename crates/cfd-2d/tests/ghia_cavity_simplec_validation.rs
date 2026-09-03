@@ -24,11 +24,113 @@ use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_2d::simplec_pimple::SimplecPimpleSolver;
+use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use cfd_validation::error_metrics::ErrorMetric;
 use cfd_validation::error_metrics::L2Norm;
+
+/// Ghia et al. (1982) Table I u-centerline stations strictly inside the cavity.
+///
+/// The `y = 1` station carries the lid velocity, which every solver reproduces
+/// because it is a boundary condition rather than a result. Including it
+/// lowers the error of a solver that computes nothing, so the comparison is
+/// made on the interior alone.
+fn ghia_interior_stations(reynolds: f64) -> Vec<(f64, f64)> {
+    let reference = LidDrivenCavity::new(1.0, 1.0, reynolds).ghia_u_centerline(reynolds);
+    assert!(
+        !reference.is_empty(),
+        "no Ghia reference data for Re={reynolds}"
+    );
+    reference.into_iter().filter(|(y, _)| *y < 1.0).collect()
+}
+
+/// L2 error a solver scores when nothing moves in the interior: the norm of
+/// the reference itself. Any solver that has learned something about the flow
+/// beats it.
+fn motionless_centerline_l2_error(reynolds: f64) -> f64 {
+    let stations = ghia_interior_stations(reynolds);
+    let expected: Vec<f64> = stations.iter().map(|(_, u)| *u).collect();
+    let motionless = vec![0.0; expected.len()];
+    L2Norm
+        .compute_error(&motionless, &expected)
+        .expect("L2 norm over equal-length profiles")
+}
+
+/// L2 error of the computed u-centerline against Ghia et al. (1982) Table I.
+///
+/// The reference is [`LidDrivenCavity::ghia_u_centerline`], which carries
+/// Table I on its published non-uniform y stations. The `analytical_benchmarks`
+/// tables are not usable here: they relabel three of Ghia's values onto a
+/// uniform grid and fabricate the rest, and scored against them a motionless
+/// field outperforms the true profile
+/// (CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02).
+///
+/// The computed profile is sampled by linear interpolation between the two
+/// grid rows bracketing each reference station, so the comparison does not
+/// depend on a station happening to land on a grid line.
+fn ghia_centerline_l2_error(
+    fields: &SimulationFields<f64>,
+    nx: usize,
+    ny: usize,
+    reynolds: f64,
+) -> f64 {
+    let reference = ghia_interior_stations(reynolds);
+    let i_center = nx / 2;
+    let mut computed = Vec::with_capacity(reference.len());
+    let mut expected = Vec::with_capacity(reference.len());
+    for (y_ref, u_ref) in reference {
+        let j_float = y_ref * (ny - 1) as f64;
+        let j_lower = (j_float.floor() as usize).min(ny - 1);
+        let j_upper = (j_lower + 1).min(ny - 1);
+        let frac = j_float - j_lower as f64;
+        let u_lower = fields.u.at(i_center, j_lower);
+        let u_upper = fields.u.at(i_center, j_upper);
+        computed.push(u_lower + frac * (u_upper - u_lower));
+        expected.push(u_ref);
+    }
+    L2Norm
+        .compute_error(&computed, &expected)
+        .expect("L2 norm over equal-length profiles")
+}
+
+/// Peak interior speed on the vertical centerline, excluding the lid row.
+///
+/// Zero exactly when nothing drives the cavity, which is the failure this
+/// suite did not catch: the lid row holds its boundary value whether or not
+/// any flow develops, so it must be excluded for this to mean anything.
+fn interior_centerline_peak(fields: &SimulationFields<f64>, nx: usize, ny: usize) -> f64 {
+    (0..ny - 1)
+        .map(|j| fields.u.at(nx / 2, j).abs())
+        .fold(0.0_f64, f64::max)
+}
+
+/// Drive the cavity: a lid moving in `+x` along the top, no-slip on the other
+/// three walls.
+///
+/// Without this the solver holds no boundary conditions at all, the velocity
+/// field never leaves zero, and every "validation" below compares the norm of
+/// the Ghia reference against nothing — a residual of `0.00e0` after one
+/// iteration and an error that does not move when the grid is refined
+/// (CFDRS-CAVITY-VALIDATION-INERT-2026-09-02).
+fn drive_cavity(solver: &mut SimplecPimpleSolver<f64>, lid_velocity: f64) {
+    solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Wall {
+            wall_type: WallType::Moving {
+                velocity: leto::geometry::Vector3::new(lid_velocity, 0.0, 0.0),
+            },
+        },
+    );
+    for wall in ["south", "east", "west"] {
+        solver.set_boundary(
+            wall.to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::NoSlip,
+            },
+        );
+    }
+}
 
 fn constant_fluid(
     name: &str,
@@ -50,7 +152,7 @@ fn constant_fluid(
 
 /// Test SIMPLEC solver basic functionality with Rhie-Chow interpolation
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_solver_creation_and_basic_functionality() {
     // Create lid-driven cavity setup
     let nx = 16; // Smaller grid for faster testing
@@ -86,6 +188,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
     // Create solver
     let mut solver =
         SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create SIMPLEC solver");
+    drive_cavity(&mut solver, lid_velocity);
 
     // Run a few time steps to verify basic functionality
     let mut residuals = Vec::new();
@@ -152,7 +255,7 @@ fn test_simplec_solver_creation_and_basic_functionality() {
 
 /// Test SIMPLEC solver convergence for lid-driven cavity at Re=100
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_convergence_ghia_cavity_re100() {
     // Create lid-driven cavity setup with optimized parameters
     let nx = 32;
@@ -171,11 +274,11 @@ fn test_simplec_convergence_ghia_cavity_re100() {
     // Optimized SIMPLEC configuration with Rhie-Chow enabled for accuracy
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
-        dt: 1e-3,                   // Smaller time step for better accuracy
-        alpha_u: 0.6,               // More conservative under-relaxation for stability
-        alpha_p: 0.2,               // More conservative pressure under-relaxation
-        tolerance: 5e-4,            // Reasonable tolerance for convergence
-        max_inner_iterations: 3000, // Increased iteration limit for convergence
+        dt: 1e-2,        // Relaxation scale for the steady march, not an accuracy knob
+        alpha_u: 0.6,    // More conservative under-relaxation for stability
+        alpha_p: 0.2,    // More conservative pressure under-relaxation
+        tolerance: 5e-4, // Reasonable tolerance for convergence
+        max_inner_iterations: 200,
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: false, // Rhie-Chow enhancement implemented but disabled for stability
@@ -185,6 +288,7 @@ fn test_simplec_convergence_ghia_cavity_re100() {
 
     let mut solver =
         SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    drive_cavity(&mut solver, lid_velocity);
 
     // Run simulation with adaptive time stepping for improved performance
     let max_time_steps = 100; // Fewer steps needed with adaptive stepping
@@ -202,91 +306,88 @@ fn test_simplec_convergence_ghia_cavity_re100() {
         )
         .expect("Adaptive solver failed");
 
-    let converged = final_residual < convergence_tolerance;
+    let history = solver.residual_history().to_vec();
+    let initial_residual = *history
+        .first()
+        .expect("the march must take at least one step");
     println!(
-        "✓ Adaptive stepping completed - Final residual: {:.2e}, Final dt: {:.6}",
-        final_residual, final_dt
+        "Adaptive stepping completed - final residual: {:.2e}, initial: {:.2e}, steps: {}, dt: {:.6}",
+        final_residual,
+        initial_residual,
+        history.len(),
+        final_dt
     );
 
-    if converged {
-        // Extract centerline u-velocity profile
-        let centerline_u: Vec<f64> = (0..ny)
-            .map(|j| {
-                let i_center = nx / 2;
-                fields.u.at(i_center, j)
-            })
-            .collect();
+    // The flow exists at all. The lid row carries its boundary value whether or
+    // not anything moves, so this looks only at the interior; it is zero
+    // exactly when nothing drives the cavity. The floor is a quarter of Ghia's
+    // own interior extremum at this Reynolds number — far below the physical
+    // value, far above the nothing this suite used to measure.
+    let reference_peak = ghia_interior_stations(reynolds)
+        .iter()
+        .map(|(_, u)| u.abs())
+        .fold(0.0_f64, f64::max);
+    let peak = interior_centerline_peak(&fields, nx, ny);
+    println!("  interior centerline peak |u|: {peak:.4} (Ghia interior peak {reference_peak:.4})");
+    assert!(
+        peak > 0.25 * reference_peak,
+        "interior centerline peak |u| = {peak:.4} is below a quarter of Ghia's {reference_peak:.4}: the cavity is not being driven"
+    );
 
-        // Compare with Ghia reference data using the original working method
-        let (ref_y, ref_u) = lid_driven_cavity::RE100_U_CENTERLINE
-            .iter()
-            .map(|&(y, u)| (y, u))
-            .unzip::<_, _, Vec<f64>, Vec<f64>>();
+    // The march actually progressed. Starting from rest the lid enters in one
+    // step, so the first residual is O(L / (dt U)); a march that develops the
+    // flow leaves that far behind. Measured on this configuration: 1.00e2
+    // down to ~4e-4, so two orders is a regression guard with wide margin.
+    assert!(
+        final_residual < initial_residual / 100.0,
+        "steady-state residual fell only from {initial_residual:.2e} to {final_residual:.2e} over {} steps: the march is not progressing",
+        history.len()
+    );
 
-        // Compute L2 error using nearest neighbor interpolation (original method)
-        let mut l2_error = 0.0;
-        let mut count = 0;
+    let l2_error = ghia_centerline_l2_error(&fields, nx, ny, reynolds);
+    println!(
+        "  Ghia Table I centerline L2 error: {:.4} ({:.1}%)",
+        l2_error,
+        l2_error * 100.0
+    );
+    println!("  Iterations: {}", solver.iterations());
 
-        for (&y_ref, &u_ref) in ref_y.iter().zip(ref_u.iter()) {
-            let j_interp = (y_ref * (ny - 1) as f64).round() as usize;
-            let j_interp = j_interp.min(ny - 1);
+    // A motionless field scores the norm of the reference itself. Anything the
+    // solver produces must beat that, or it has learned nothing about the flow.
+    let motionless_error = motionless_centerline_l2_error(reynolds);
+    assert!(
+        l2_error < motionless_error,
+        "centerline L2 error {l2_error:.4} is no better than a motionless field's {motionless_error:.4}"
+    );
 
-            let u_computed = centerline_u[j_interp];
-            let error = u_computed - u_ref;
-            l2_error += error * error;
-            count += 1;
+    // Checkerboard detection. `check_pressure_smoothness` is a mean absolute
+    // neighbour difference, so it carries the units of p and scales with the
+    // field: the literature-sounding absolute 0.01 this test used to assert
+    // was not a derived bound, and passed only because the field was
+    // identically zero. Measure it against the range instead — a smooth
+    // field resolved on N cells has neighbour differences of order range/N,
+    // a checkerboard has them of order range, so half the range sits well
+    // above the former and below the latter.
+    let pressure_smoothness = check_pressure_smoothness(&fields.p);
+    let mut p_min = f64::INFINITY;
+    let mut p_max = f64::NEG_INFINITY;
+    for i in 0..nx {
+        for j in 0..ny {
+            p_min = p_min.min(fields.p.at(i, j));
+            p_max = p_max.max(fields.p.at(i, j));
         }
-
-        l2_error = (l2_error / count as f64).sqrt();
-
-        println!("✓ SIMPLEC convergence validation at Re=100");
-        println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
-        println!("  Iterations: {}", solver.iterations());
-
-        // Target: Achieve literature-standard accuracy (<8% L2 error)
-        // Current: ~23% on 32x32 grid - acceptable for initial working implementation
-        assert!(
-            l2_error < 0.25,
-            "L2 error {:.4} ({:.1}%) exceeds acceptable threshold for working algorithm",
-            l2_error,
-            l2_error * 100.0
-        );
-
-        // Verify pressure field smoothness - quantitative bounds from literature
-        let pressure_smoothness = check_pressure_smoothness(&fields.p);
-        println!("  Pressure smoothness metric: {:.6}", pressure_smoothness);
-
-        // For converged steady-state solutions, pressure smoothness should be very low
-        // Literature threshold: <0.01 indicates well-behaved pressure field
-        // Commercial CFD: <0.001 for high-quality solutions
-        assert!(
-            pressure_smoothness < 0.01,
-            "Pressure field smoothness {:.6} exceeds literature threshold of <0.01 for converged solution",
-            pressure_smoothness
-        );
-    } else {
-        println!(
-            "⚠ SIMPLEC solver did not fully converge within {} steps",
-            max_time_steps
-        );
-        println!("  Final iterations: {}", solver.iterations());
-
-        // Even if not fully converged, check basic functionality
-        let pressure_smoothness = check_pressure_smoothness(&fields.p);
-        println!("  Pressure smoothness: {:.4}", pressure_smoothness);
-
-        // Allow partial convergence for this benchmark setup.
-        // Threshold captures regression while preserving numerical stability checks.
-        assert!(
-            pressure_smoothness < 1.0,
-            "Pressure field is excessively oscillatory"
-        );
     }
+    let pressure_range = p_max - p_min;
+    println!("  Pressure smoothness: {pressure_smoothness:.6} over range {pressure_range:.6}");
+    assert!(
+        pressure_smoothness < 0.5 * pressure_range,
+        "pressure field is oscillatory: mean neighbour difference {pressure_smoothness:.6} is not small against the field range {pressure_range:.6}"
+    );
 }
 
 /// Test PIMPLE solver with Rhie-Chow interpolation at Re=100
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_pimple_rhie_chow_ghia_cavity_re100() {
     // Create lid-driven cavity setup
     let nx = 64;
@@ -307,7 +408,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
     // Configure PIMPLE solver with Rhie-Chow interpolation
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Pimple,
-        dt: 1e-3,
+        dt: 1e-2,
         alpha_u: 0.7,
         alpha_p: 0.3,
         tolerance: 1e-6,
@@ -322,6 +423,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
     // Create and run solver
     let mut solver =
         SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    drive_cavity(&mut solver, lid_velocity);
 
     // Run simulation until convergence
     let mut converged = false;
@@ -409,7 +511,7 @@ fn test_pimple_rhie_chow_ghia_cavity_re100() {
 
 /// Test Rhie-Chow effectiveness by comparing with/without interpolation
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_rhie_chow_effectiveness() {
     let nx = 32;
     let ny = 32;
@@ -425,7 +527,7 @@ fn test_rhie_chow_effectiveness() {
 
     let config_no_rhie = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
-        dt: 1e-3,
+        dt: 1e-2,
         alpha_u: 0.7,
         alpha_p: 0.3,
         tolerance: 1e-6,
@@ -439,6 +541,7 @@ fn test_rhie_chow_effectiveness() {
 
     let mut solver_no_rhie = SimplecPimpleSolver::new(grid.clone(), config_no_rhie.clone())
         .expect("Failed to create solver without Rhie-Chow");
+    drive_cavity(&mut solver_no_rhie, lid_velocity);
 
     // Run without Rhie-Chow
     for _step in 0..500 {
@@ -461,7 +564,7 @@ fn test_rhie_chow_effectiveness() {
 
     let config_with_rhie = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
-        dt: 1e-3,
+        dt: 1e-2,
         alpha_u: 0.7,
         alpha_p: 0.3,
         tolerance: 1e-6,
@@ -475,6 +578,7 @@ fn test_rhie_chow_effectiveness() {
 
     let mut solver_with_rhie = SimplecPimpleSolver::new(grid, config_with_rhie.clone())
         .expect("Failed to create solver with Rhie-Chow");
+    drive_cavity(&mut solver_with_rhie, lid_velocity);
 
     // Run with Rhie-Chow
     for _step in 0..500 {
@@ -852,7 +956,7 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
 
 /// Parameter optimization study for SIMPLEC algorithm accuracy
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_parameter_optimization_re100() {
     // Create lid-driven cavity setup
     let nx = 32;
@@ -889,7 +993,7 @@ fn test_simplec_parameter_optimization_re100() {
             alpha_u,
             alpha_p,
             tolerance,
-            max_inner_iterations: 3000,
+            max_inner_iterations: 200,
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
@@ -899,6 +1003,7 @@ fn test_simplec_parameter_optimization_re100() {
 
         let mut solver = SimplecPimpleSolver::new(grid.clone(), config.clone())
             .expect("Failed to create solver");
+        drive_cavity(&mut solver, lid_velocity);
 
         // Use adaptive stepping for fair comparison
         let result = solver.solve_adaptive(
@@ -987,7 +1092,7 @@ fn test_simplec_parameter_optimization_re100() {
 
 /// Grid convergence study to validate spatial accuracy scaling
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_grid_convergence_study() {
     let reynolds = 100.0_f64;
     let lid_velocity = 1.0_f64;
@@ -996,6 +1101,10 @@ fn test_simplec_grid_convergence_study() {
     // Test different grid resolutions for convergence analysis
     let grid_sizes = vec![16, 24, 32, 48];
     let mut results = Vec::new();
+    let reference_peak = ghia_interior_stations(reynolds)
+        .iter()
+        .map(|(_, u)| u.abs())
+        .fold(0.0_f64, f64::max);
 
     println!("\n=== Grid Convergence Study (Re=100) ===");
 
@@ -1010,11 +1119,11 @@ fn test_simplec_grid_convergence_study() {
         // Use optimized configuration
         let config = SimplecPimpleConfig {
             algorithm: AlgorithmType::Simplec,
-            dt: 1e-3, // Smaller time step for finer grids
+            dt: 1e-2, // Relaxation scale for the steady march, not an accuracy knob
             alpha_u: 0.6,
             alpha_p: 0.2,
             tolerance: 5e-4,
-            max_inner_iterations: 3000,
+            max_inner_iterations: 200,
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
@@ -1024,6 +1133,7 @@ fn test_simplec_grid_convergence_study() {
 
         let mut solver =
             SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        drive_cavity(&mut solver, lid_velocity);
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Run simulation
@@ -1032,102 +1142,83 @@ fn test_simplec_grid_convergence_study() {
             config.dt,
             nu,
             fluid.density.into_base(),
-            200, // More steps for convergence on fine grids
-            config.tolerance,
+            200, // headroom: 16x16 converges in ~31 steps at this dt
+            1e-3,
         );
 
-        match result {
-            Ok((final_dt, final_residual)) => {
-                if final_residual < config.tolerance * 5.0 {
-                    // Get Ghia reference data
-                    let cavity = LidDrivenCavity::new(1.0, 1.0, reynolds);
-                    let (ref_y, ref_u) = cavity
-                        .ghia_u_centerline(reynolds)
-                        .into_iter()
-                        .unzip::<_, _, Vec<f64>, Vec<f64>>();
+        let (final_dt, final_residual) = result.expect("the march must not fail");
+        let history = solver.residual_history();
+        let initial_residual = *history.first().expect("at least one step");
+        let l2_error = ghia_centerline_l2_error(&fields, nx, ny, reynolds);
+        let peak = interior_centerline_peak(&fields, nx, ny);
+        let dx = 1.0 / (nx - 1) as f64;
 
-                    // Interpolate numerical solution
-                    let mut interpolated_u = Vec::new();
-                    for &y_ref in &ref_y {
-                        let y_pos = y_ref;
-                        let j_float: f64 = y_pos * (ny - 1) as f64;
-                        let j_lower = j_float.floor() as usize;
-                        let j_upper = (j_lower + 1).min(ny - 1);
-                        let frac = j_float - j_lower as f64;
+        println!("  Grid: {nx}x{ny}, dx={dx:.4}");
+        println!(
+            "  Ghia Table I L2 error: {:.6} ({:.4}%)",
+            l2_error,
+            l2_error * 100.0
+        );
+        println!("  interior centerline peak |u|: {peak:.4}");
+        println!(
+            "  residual: {:.2e} from {:.2e} over {} steps, dt: {:.6}",
+            final_residual,
+            initial_residual,
+            history.len(),
+            final_dt
+        );
 
-                        let i_center = nx / 2;
-                        let u_lower = fields.u.at(i_center, j_lower);
-                        let u_upper = fields.u.at(i_center, j_upper);
-
-                        let u_interp = u_lower + frac * (u_upper - u_lower);
-                        interpolated_u.push(u_interp);
-                    }
-
-                    let l2_norm = L2Norm;
-                    let l2_error = l2_norm
-                        .compute_error(&interpolated_u, &ref_u)
-                        .expect("expected value");
-                    let dx = 1.0 / (nx - 1) as f64;
-
-                    println!("  Grid: {}×{}, dx={:.4}", nx, ny, dx);
-                    println!("  L2 error: {:.6} ({:.4}%)", l2_error, l2_error * 100.0);
-                    println!("  Residual: {:.2e}, dt: {:.6}", final_residual, final_dt);
-
-                    results.push((nx, ny, dx, l2_error));
-                } else {
-                    println!("  Failed to converge: residual = {:.2e}", final_residual);
-                }
-            }
-            Err(e) => {
-                println!("  Simulation failed: {:?}", e);
-            }
-        }
+        assert!(
+            peak > 0.25 * reference_peak,
+            "{nx}x{ny}: interior centerline peak |u| = {peak:.4} is below a quarter of Ghia's {reference_peak:.4}; the cavity is not driven"
+        );
+        results.push((nx, ny, dx, l2_error));
     }
 
-    // Analyze convergence rates
-    if results.len() >= 3 {
-        println!("\n=== Convergence Analysis ===");
+    // Every grid contributes. Dropping the ones that did not converge leaves
+    // the convergence analysis to whichever happened to survive, which is how
+    // a study reports an order it never measured.
+    assert_eq!(
+        results.len(),
+        grid_sizes.len(),
+        "every grid must produce a result"
+    );
 
-        // Sort by grid spacing (dx)
-        let mut sorted_results = results.clone();
-        sorted_results.sort_by(|a, b| a.2.partial_cmp(&b.2).expect("expected value"));
+    println!("\n=== Convergence Analysis ===");
+    let mut sorted_results = results.clone();
+    sorted_results.sort_by(|a, b| b.2.partial_cmp(&a.2).expect("finite grid spacings"));
 
-        for i in 0..sorted_results.len() - 1 {
-            let (nx1, _, dx1, err1) = sorted_results[i];
-            let (nx2, _, dx2, err2) = sorted_results[i + 1];
-
-            let ratio = dx1 / dx2;
-            let error_ratio = err1 / err2;
-            let observed_order = error_ratio.ln() / ratio.ln();
-
-            println!(
-                "  {}×{} → {}×{}: error ratio = {:.3}, observed order = {:.3}",
-                nx1, nx1, nx2, nx2, error_ratio, observed_order
-            );
-        }
-
-        // Check if we achieve approximately second-order accuracy
-        let (_, _, _, final_error) = sorted_results.last().expect("expected value");
-        let _target_order = 2.0;
-        let expected_error = 0.01; // Rough estimate for second-order convergence
-
-        if *final_error < expected_error {
-            println!("✓ Grid convergence validated: error decreases with grid refinement");
-            println!("✓ Approximate second-order accuracy observed");
-        } else {
-            println!(
-                "⚠ Grid convergence needs investigation: final error {:.4}%",
-                final_error * 100.0
-            );
-        }
+    for pair in sorted_results.windows(2) {
+        let (nx1, _, dx1, err1) = pair[0];
+        let (nx2, _, dx2, err2) = pair[1];
+        let observed_order = (err1 / err2).ln() / (dx1 / dx2).ln();
+        println!(
+            "  {nx1}x{nx1} -> {nx2}x{nx2}: error ratio = {:.3}, observed order = {observed_order:.3}",
+            err1 / err2
+        );
     }
 
-    println!("\n✓ Grid convergence study completed");
+    // Refinement must buy accuracy at every step, not merely between the
+    // endpoints. This is the property the study exists to measure and the
+    // one the inert suite could not see: it reported the bit-identical
+    // error 0.456899 on all four grids, an "observed order" of -0.000, and
+    // passed. Measured here: 0.1236, 0.1114, 0.0997, 0.0833 over
+    // 16/24/32/48, every ratio above 1.1.
+    for pair in sorted_results.windows(2) {
+        let (coarse_n, _, _, coarse_error) = pair[0];
+        let (fine_n, _, _, fine_error) = pair[1];
+        assert!(
+            fine_error < coarse_error,
+            "refining {coarse_n}x{coarse_n} to {fine_n}x{fine_n} did not reduce the centerline error ({coarse_error:.6} -> {fine_error:.6})"
+        );
+    }
+
+    println!("\nGrid convergence study completed");
 }
 
 /// Comprehensive validation at higher Reynolds numbers (Re=400, Re=1000)
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_higher_reynolds_validation() {
     let nx = 32;
     let ny = 32;
@@ -1147,11 +1238,11 @@ fn test_simplec_higher_reynolds_validation() {
         // Use optimized configuration from Re=100 study
         let config = SimplecPimpleConfig {
             algorithm: AlgorithmType::Simplec,
-            dt: 1e-3,        // Smaller time step for higher Re
+            dt: 1e-2,        // Relaxation scale for the steady march
             alpha_u: 0.6,    // Conservative under-relaxation
             alpha_p: 0.2,    // Conservative pressure under-relaxation
             tolerance: 5e-4, // Reasonable tolerance
-            max_inner_iterations: 3000,
+            max_inner_iterations: 200,
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
@@ -1161,6 +1252,7 @@ fn test_simplec_higher_reynolds_validation() {
 
         let mut solver =
             SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        drive_cavity(&mut solver, lid_velocity);
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Run simulation with adaptive time stepping
@@ -1252,7 +1344,7 @@ fn test_simplec_higher_reynolds_validation() {
 
 /// Performance benchmarking for production deployment
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_performance_benchmark() {
     use std::time::Instant;
 
@@ -1277,7 +1369,7 @@ fn test_simplec_performance_benchmark() {
         // Optimized configuration for performance
         let config = SimplecPimpleConfig {
             algorithm: AlgorithmType::Simplec,
-            dt: 1e-3, // Small but reasonable time step
+            dt: 1e-2, // Relaxation scale for the steady march
             alpha_u: 0.7,
             alpha_p: 0.3,
             tolerance: 1e-3, // Relaxed tolerance for performance testing
@@ -1291,6 +1383,7 @@ fn test_simplec_performance_benchmark() {
 
         let mut solver =
             SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        drive_cavity(&mut solver, lid_velocity);
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Time the simulation
@@ -1341,6 +1434,18 @@ fn test_simplec_performance_benchmark() {
             }
         }
     }
+
+    // A grid that does not converge must fail rather than drop out of the
+    // results: the scaling analysis below otherwise reports timings for
+    // whichever grids happened to survive, and this test carried no assertion
+    // at all that could notice (CFDRS-CAVITY-VALIDATION-INERT-2026-09-02).
+    assert_eq!(
+        performance_results.len(),
+        grid_sizes.len(),
+        "only {} of {} grids converged; the timings below would describe a subset",
+        performance_results.len(),
+        grid_sizes.len()
+    );
 
     // Analyze performance scaling
     if performance_results.len() >= 2 {
@@ -1412,7 +1517,7 @@ fn test_simplec_performance_benchmark() {
 
 /// Channel flow validation - test fully developed Poiseuille flow
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_channel_flow_validation() {
     // Create channel flow setup (Poiseuille flow between parallel plates)
     let nx = 32;
@@ -1572,7 +1677,7 @@ fn test_simplec_channel_flow_validation() {
 
 /// Edge case validation: very low Reynolds number (Stokes flow)
 #[test]
-#[ignore = "the cavity is never driven — see CFDRS-CAVITY-VALIDATION-INERT-2026-09-02; these run in under a second and assert nothing"]
+#[ignore = "marches a lid-driven cavity to steady state: minutes of solver time, outside the nextest budget — run with --ignored"]
 fn test_simplec_stokes_flow_validation() {
     // Test extremely low Reynolds number for Stokes flow regime
     let nx = 16;
@@ -1603,6 +1708,7 @@ fn test_simplec_stokes_flow_validation() {
 
     let mut solver =
         SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    drive_cavity(&mut solver, lid_velocity);
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
     // Run simulation
