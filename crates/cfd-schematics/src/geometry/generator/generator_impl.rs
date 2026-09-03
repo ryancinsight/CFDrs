@@ -46,13 +46,13 @@ pub(super) struct GeometryGenerator {
 }
 
 impl GeometryGenerator {
-    pub(super) fn channel_path(channel_type: &ChannelType) -> Vec<Point2D> {
+    pub(super) fn channel_path(channel_type: &ChannelType) -> &[Point2D] {
         match channel_type {
-            ChannelType::Straight => Vec::new(),
+            ChannelType::Straight => &[],
             ChannelType::SmoothStraight { path }
             | ChannelType::Serpentine { path }
             | ChannelType::Arc { path }
-            | ChannelType::Frustum { path, .. } => path.clone(),
+            | ChannelType::Frustum { path, .. } => path.as_slice(),
         }
     }
 
@@ -332,18 +332,29 @@ impl GeometryGenerator {
             channel_type.unwrap_or_else(|| self.determine_channel_type(p1, p2, None));
 
         let channel_width = width.unwrap_or(self.config.channel_width_mm());
-        let mut channel_path = Self::channel_path(&final_channel_type);
-        if channel_path.len() < 2 {
-            channel_path = vec![p1, p2];
-        }
-        let physical_length_m = Self::channel_length_m(p1, p2, &channel_path);
+        let source_path = Self::channel_path(&final_channel_type);
+        let fallback_path = [p1, p2];
+        let channel_path = if source_path.len() >= 2 {
+            source_path
+        } else {
+            fallback_path.as_slice()
+        };
+        let physical_length_m = Self::channel_length_m(p1, p2, channel_path);
         let physical_shape = Self::physical_shape_for_channel(
             &final_channel_type,
-            &channel_path,
+            channel_path,
             p1,
             p2,
             channel_width,
         );
+        let path_points = match &final_channel_type {
+            ChannelType::Straight => 2,
+            ChannelType::SmoothStraight { path }
+            | ChannelType::Serpentine { path }
+            | ChannelType::Arc { path }
+            | ChannelType::Frustum { path, .. } => path.len(),
+        };
+        let is_serpentine = matches!(&final_channel_type, ChannelType::Serpentine { .. });
 
         let channel = if let Some(ref metadata_config) = self.metadata_config {
             let mut channel_builder = ChannelBuilder::new(
@@ -352,7 +363,7 @@ impl GeometryGenerator {
                 to_id,
                 channel_width,
                 self.config.channel_height_mm(),
-                final_channel_type.clone(),
+                final_channel_type,
             );
             channel_builder = channel_builder
                 .with_physical_length_m(physical_length_m)
@@ -361,14 +372,6 @@ impl GeometryGenerator {
 
             if metadata_config.track_performance {
                 if let Some(start_time) = self.generation_start_time {
-                    let path_points = match &final_channel_type {
-                        ChannelType::Straight => 2,
-                        ChannelType::SmoothStraight { path }
-                        | ChannelType::Serpentine { path }
-                        | ChannelType::Arc { path }
-                        | ChannelType::Frustum { path, .. } => path.len(),
-                    };
-
                     let perf_metadata = PerformanceMetadata {
                         generation_time_us: start_time.elapsed().as_micros() as u64,
                         memory_usage_bytes: std::mem::size_of::<ChannelSpec>()
@@ -379,18 +382,16 @@ impl GeometryGenerator {
                 }
             }
 
-            if metadata_config.track_optimization {
-                if let ChannelType::Serpentine { .. } = &final_channel_type {
-                    let opt_metadata = OptimizationMetadata {
-                        original_length: 0.0,
-                        optimized_length: 0.0,
-                        improvement_percentage: 0.0,
-                        iterations: 0,
-                        optimization_time_ms: 0,
-                        optimization_profile: "None".to_string(),
-                    };
-                    channel_builder = channel_builder.with_metadata(opt_metadata);
-                }
+            if metadata_config.track_optimization && is_serpentine {
+                let opt_metadata = OptimizationMetadata {
+                    original_length: 0.0,
+                    optimized_length: 0.0,
+                    improvement_percentage: 0.0,
+                    iterations: 0,
+                    optimization_time_ms: 0,
+                    optimization_profile: "None".to_string(),
+                };
+                channel_builder = channel_builder.with_metadata(opt_metadata);
             }
 
             if let Some(channel_diameter_m) =
@@ -415,7 +416,19 @@ impl GeometryGenerator {
                 0.0,
                 0.0,
             );
-            channel.path = channel_path;
+            channel.path = match final_channel_type {
+                ChannelType::Straight => vec![p1, p2],
+                ChannelType::SmoothStraight { path }
+                | ChannelType::Serpentine { path }
+                | ChannelType::Arc { path }
+                | ChannelType::Frustum { path, .. } => {
+                    if path.len() >= 2 {
+                        path
+                    } else {
+                        vec![p1, p2]
+                    }
+                }
+            };
             channel.channel_shape = physical_shape;
             channel
         };

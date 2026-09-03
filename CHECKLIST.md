@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-CHANNEL-PATHS [perf] — implemented 2026-09-03
+
+- [x] Borrow explicit channel paths for measurement and shape inference, then
+      move their owned storage into the destination channel representation.
+- [x] Preserve generated, explicit, straight-fallback, metadata, and
+      non-metadata channel values with value-semantic tests.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-ROUTING-REFS [patch] — implemented 2026-09-03
 
 - [x] Replace the private assigned-path deep-copy collection with borrowed

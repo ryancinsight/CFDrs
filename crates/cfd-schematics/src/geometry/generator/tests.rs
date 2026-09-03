@@ -3,7 +3,7 @@ use crate::config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig};
 use crate::domain::model::ChannelShape;
 use crate::geometry::builders::{ChannelExt, NodeExt};
 use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
-use crate::geometry::types::polyline_length;
+use crate::geometry::types::{polyline_length, ChannelType};
 use crate::geometry::SplitType;
 use crate::topology::presets::single_venturi_series_spec;
 use aequitas::systems::si::quantities::Length;
@@ -139,6 +139,41 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
             ),
         }
     }
+}
+
+#[test]
+fn explicit_channel_paths_survive_owned_construction_modes() {
+    let path = vec![(0.0, 0.0), (20.0, 3.0), (40.0, 0.0)];
+
+    let mut generator = GeometryGenerator::new(
+        (100.0, 50.0),
+        GeometryConfig::default(),
+        ChannelTypeConfig::AllStraight,
+        1,
+    );
+    generator.add_channel_with_type(
+        (0.0, 0.0),
+        (40.0, 0.0),
+        Some(ChannelType::Serpentine { path: path.clone() }),
+        None,
+    );
+
+    let mut metadata_generator = GeometryGenerator::new_with_metadata(
+        (100.0, 50.0),
+        GeometryConfig::default(),
+        ChannelTypeConfig::AllStraight,
+        1,
+        MetadataConfig::default(),
+    );
+    metadata_generator.add_channel_with_type(
+        (0.0, 0.0),
+        (40.0, 0.0),
+        Some(ChannelType::Serpentine { path: path.clone() }),
+        None,
+    );
+
+    assert_eq!(generator.channels[0].path, path);
+    assert_eq!(metadata_generator.channels[0].path, path);
 }
 
 #[test]

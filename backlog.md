@@ -170,6 +170,23 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## CFDRS-SCHEMATICS-CHANNEL-PATHS — move generated path ownership [perf] — review
+
+- **Owner:** Ryan Clanton; scope is `cfd-schematics` geometry-generator path
+  extraction, channel construction, and value-semantic generator tests.
+- **Acceptance:** explicit paths are borrowed for length/shape measurement and
+  moved into the resulting channel or metadata builder without an intermediate
+  deep copy; straight fallback and metadata/non-metadata output preserve their
+  existing path, length, and shape contracts; focused package gates pass.
+- **Non-goals:** changing channel-generation heuristics, dimensions, public
+  API behavior, or peer-owned files outside the generator leaf.
+- **Evidence:** `GeometryGenerator` now borrows explicit paths for measurement
+  and moves path storage into the metadata builder or non-metadata channel,
+  removing the intermediate deep copy while preserving straight fallback.
+  `cargo nextest run -p cfd-schematics --no-fail-fast --status-level fail`
+  passes 202/202; warning-denied all-target Clippy, 16/16 doctests, package
+  rustfmt, focused diff checks, and `python scripts/lockfile.py --check` pass.
+
 ## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — done 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` selective-tree routing
@@ -4813,8 +4830,8 @@ No existing item's status was changed by this audit.
   assumed the studies compute a real order and merely fail to assert it.
 
 - **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — the
-  `analytical_benchmarks` Ghia tables are not Ghia data (status=todo,
-  unclaimed).**
+  `analytical_benchmarks` Ghia tables are not Ghia data (status=in-progress,
+  integrator=current Codex session, claimed 2026-09-03).**
   The repository holds two "Ghia Re=100 u-centerline" tables that disagree.
   `cfd-validation/src/benchmarks/cavity.rs:38` carries Ghia et al. (1982)
   Table I on its published non-uniform y stations. `analytical_benchmarks.rs:14`
