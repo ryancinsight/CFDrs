@@ -1,6 +1,6 @@
 # CFDrs Work Checklist
 
-## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — review
+## CFDRS-SCHEMATICS-SERPENTINE-SHAPE-SCAN [arch][perf] — done
 
 - [x] Move shared serpentine-shape inference to the generator path-geometry
       module and count turns with a rolling borrowed offset scan.
@@ -13,6 +13,8 @@ Evidence: 213/213 cfd-schematics Nextest tests, 16/16 doctests, Clippy with
 `-D warnings`, rustfmt, `git diff --check`, and standalone lockfile validation
 pass against the working revision. The production offset scan has no temporary
 allocation, and both generator paths call the canonical implementation.
+
+Delivery: implementation `bfbfec90`, merged by PR #410 as `ca01cd9a`.
 
 ## CFDRS-SCHEMATICS-LEGEND-NOTE-STREAM [perf] — implemented 2026-09-03
 
