@@ -4827,8 +4827,8 @@ No existing item's status was changed by this audit.
   assumed the studies compute a real order and merely fail to assert it.
 
 - **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — the
-  `analytical_benchmarks` Ghia tables are not Ghia data (status=todo,
-  unclaimed).**
+  `analytical_benchmarks` Ghia tables are not Ghia data (status=in-progress,
+  integrator=current Codex session, claimed 2026-09-03).**
   The repository holds two "Ghia Re=100 u-centerline" tables that disagree.
   `cfd-validation/src/benchmarks/cavity.rs:38` carries Ghia et al. (1982)
   Table I on its published non-uniform y stations. `analytical_benchmarks.rs:14`
