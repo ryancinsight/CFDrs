@@ -4738,8 +4738,10 @@ No existing item's status was changed by this audit.
   Dependencies: none. Decompose per crate; ratchet the count down.
 
 - **CFDRS-CAVITY-VALIDATION-INERT-2026-09-02 [major][correctness] — the Ghia
-  lid-driven-cavity suite validates a solver that never runs (status=todo,
-  unclaimed).**
+  lid-driven-cavity suite validates a solver that never runs
+  (status=in-progress, integrator=claude-opus-5/d49f3b0a,
+  lease: crates/cfd-2d/tests/ghia_cavity_simplec_validation.rs,
+  crates/cfd-2d/src/simplec_pimple/algorithms.rs).**
   Evidence, measured 2026-09-02 by running the ignored tests:
   `test_simplec_convergence_ghia_cavity_re100` reports **final residual
   `0.00e0`, `Iterations: 1`, L2 error 24.6%** against the Ghia reference and
