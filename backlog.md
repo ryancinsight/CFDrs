@@ -4769,6 +4769,44 @@ No existing item's status was changed by this audit.
   Dependencies: none. This supersedes the premise of CFDRS-GA-006 below, which
   assumed the studies compute a real order and merely fail to assert it.
 
+- **CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02 [major][correctness] — the
+  `analytical_benchmarks` Ghia tables are not Ghia data (status=todo,
+  unclaimed).**
+  The repository holds two "Ghia Re=100 u-centerline" tables that disagree.
+  `cfd-validation/src/benchmarks/cavity.rs:38` carries Ghia et al. (1982)
+  Table I on its published non-uniform y stations. `analytical_benchmarks.rs:14`
+  `RE100_U_CENTERLINE` takes the first three of those u values
+  (`-0.03717`, `-0.04192`, `-0.04775`, Ghia's y=0.0547/0.0625/0.0703),
+  relabels them onto uniform `0.0625k` stations, and fills the remaining
+  thirteen with values that appear nowhere in Table I. Its interior extremum
+  is `-0.05641` against Table I's `-0.21090`, and it reaches `0.06898` at
+  y=0.9375 where Table I gives `0.68717` at y=0.9531.
+  `RE1000_U_CENTERLINE` is built the same way: Ghia's `-0.18109`, `-0.20196`,
+  `-0.22220` relabelled, then fabricated values decaying to `0.0104` where
+  Table I reaches `0.65928`.
+  Measured consequence: scored on the fabricated table's own 17 stations, a
+  **motionless field gets L2 0.2460 and the true Ghia profile gets 0.1865** —
+  and `ghia_cavity_simplec_validation.rs:278` asserts `l2_error < 0.25`, so
+  the threshold admits the dead solver. That 0.2460 is exactly the 24.6%
+  recorded as the inert suite's error in
+  CFDRS-CAVITY-VALIDATION-INERT-2026-09-02: the number was the norm of the
+  fabricated reference, not a solver error.
+  Consumers: `ghia_cavity_simplec_validation.rs:252` (repointed to Table I by
+  CFDRS-CAVITY-VALIDATION-INERT), `twelve_steps.rs:844` (asserts a real cavity
+  solve at `l2_error < 0.2` against the fabricated table) and
+  `physics_validation.rs:174` (asserts only `len() == 17` and the two
+  endpoints, so it passes on any fabricated interior).
+  Scope: delete both tables, repoint the two remaining consumers at
+  `LidDrivenCavity::ghia_u_centerline`, and give `physics_validation` an
+  assertion on interior values rather than length. Expect `twelve_steps` to
+  fail once scored against real data — that failure is the solver's actual
+  accuracy and is this item's finding, not a reason to keep the table.
+  Acceptance oracle: one Ghia table in the tree; every consumer scored against
+  it; a fabricated or relabelled reference cannot pass.
+  Dependencies: none. Supersedes the "the reference data itself is not in
+  question" non-goal recorded in CFDRS-CAVITY-VALIDATION-INERT, which assumed
+  the tables were genuine.
+
 - **CFDRS-GA-006 [patch][verification] — Make the grid-convergence studies assert observed order (status=todo, effort=M).**
   Outcome: each declared second-order discretization has a test that computes
   the observed order over a refinement sequence and asserts it against the
