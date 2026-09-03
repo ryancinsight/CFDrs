@@ -1,6 +1,7 @@
 //! Shared schematic annotation types and geometry utilities.
 
 mod geometry;
+mod lane_paths;
 
 use crate::geometry::Point2D;
 use crate::visualizations::traits::Color;
