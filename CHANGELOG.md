@@ -144,6 +144,32 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** `ElasticSolid` composes `proteus::IsotropicSolid` instead of
+  storing elastic constants itself, so `cfd-core` no longer carries any
+  material constant. `steel()` and `aluminum()` are replaced by
+  `from_catalog(proteus::NamedIsotropicSolid)`, and the six public fields
+  become private because the elastic state is now a validated provider type
+  rather than six independently settable numbers. `SolidProperties::
+  shear_modulus` loses its default body and becomes required: the default
+  computed `mu = E / (2 (1 + nu))`, which is the identity
+  `proteus::elastic::IsotropicModuli` owns, and a default here was a second
+  copy of it. `Serialize`/`Deserialize` are dropped from `ElasticSolid`, which
+  was only ever stored as `Box<dyn SolidProperties>` and so was never
+  serializable in practice.
+
+  Two catalog corrections arrive with the provider. The database keys move
+  from `steel`/`aluminum` to `carbon-steel`/`aluminium-6061`, because the old
+  keys named a grade only by implication and kwavers means 316L by the same
+  word. And aluminium's modulus moves from 70 GPa to the published 6061-T6
+  value of 68.9 GPa: the two consumer catalogs had drifted to 70 and 69 GPa,
+  and neither was the grade's value.
+
+  `cargo-semver-checks` reports five major findings for this change
+  (`constructible_struct_adds_private_field`, `inherent_method_missing`,
+  `struct_pub_field_missing`, `struct_pub_field_now_doc_hidden`,
+  `trait_method_default_impl_removed`). All five are intended and accepted
+  here (ATLAS-PROTEUS-ELASTIC-SSOT).
+
 - **Breaking:** Remove `BoundaryCondition::CharacteristicOutlet`'s
   `extrapolate_velocity` field and the matching `characteristic_outlet`
   parameter. The flag selected between two branches that applied the same
