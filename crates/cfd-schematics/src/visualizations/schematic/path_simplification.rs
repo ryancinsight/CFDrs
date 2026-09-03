@@ -1,16 +1,17 @@
 use crate::geometry::{ChannelTypeCategory, Point2D};
+use std::borrow::Cow;
 
 pub(super) fn render_path_for_display(
-    path: &[Point2D],
+    path: Cow<'_, [Point2D]>,
     category: ChannelTypeCategory,
     box_dims: (f64, f64),
 ) -> Vec<Point2D> {
     if path.len() <= 2 {
-        return path.to_vec();
+        return path.into_owned();
     }
 
     let tolerance_mm = (box_dims.0.max(box_dims.1) / 1200.0).clamp(0.10, 0.40);
-    let simplified = simplify_polyline(path, tolerance_mm);
+    let simplified = simplify_polyline(path.as_ref(), tolerance_mm);
 
     if !matches!(category, ChannelTypeCategory::Curved) || simplified.len() < 4 {
         return simplified;

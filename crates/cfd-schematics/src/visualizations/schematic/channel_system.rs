@@ -1,6 +1,7 @@
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind};
 use crate::geometry::metadata::ChannelPathMetadata;
 use crate::geometry::{ChannelTypeCategory, Point2D};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -22,7 +23,7 @@ pub(crate) fn channel_system_from_blueprint(
     output_path: Option<&Path>,
 ) -> RenderChannelSystem {
     let box_dims = box_dims_hint.unwrap_or(blueprint.box_dims);
-    let node_layout = blueprint_node_positions(blueprint, box_dims);
+    let node_layout = blueprint_node_positions(&blueprint.nodes, &blueprint.channels, box_dims);
     if !node_layout.auto_layout_indices().is_empty() {
         if let Some(path) = output_path {
             save_auto_layout_json(&node_layout, box_dims, path);
@@ -30,11 +31,11 @@ pub(crate) fn channel_system_from_blueprint(
     }
     let mut channel_paths = Vec::with_capacity(blueprint.channels.len());
     let mut channel_categories = Vec::with_capacity(blueprint.channels.len());
-    let resolved_paths = resolved_channel_paths(blueprint, &node_layout, box_dims);
+    let resolved_paths = resolved_channel_paths(&blueprint.channels, &node_layout, box_dims);
 
     for (channel_spec, raw_path) in blueprint.channels.iter().zip(resolved_paths) {
         let category = channel_category_from_blueprint(channel_spec);
-        channel_paths.push(render_path_for_display(&raw_path, category, box_dims));
+        channel_paths.push(render_path_for_display(raw_path, category, box_dims));
         channel_categories.push(category);
     }
 
@@ -45,16 +46,17 @@ pub(crate) fn channel_system_from_blueprint(
     }
 }
 
-pub(super) fn resolved_channel_paths(
-    blueprint: &NetworkBlueprint,
-    node_layout: &BlueprintNodeLayout<'_>,
+// Authored paths stay borrowed; generated and metadata paths own their storage
+// so materialization can move them into an empty channel without copying.
+pub(super) fn resolved_channel_paths<'blueprint>(
+    channels: &'blueprint [ChannelSpec],
+    node_layout: &BlueprintNodeLayout<'blueprint>,
     box_dims: (f64, f64),
-) -> Vec<Vec<Point2D>> {
-    let parallel_groups = parallel_channel_groups(blueprint, node_layout);
+) -> Vec<Cow<'blueprint, [Point2D]>> {
+    let parallel_groups = parallel_channel_groups(channels, node_layout);
     let default_point = (box_dims.0 * 0.5, box_dims.1 * 0.5);
 
-    blueprint
-        .channels
+    channels
         .iter()
         .enumerate()
         .map(|(channel_idx, channel_spec)| {
@@ -85,12 +87,11 @@ pub(super) fn resolved_channel_paths(
 }
 
 fn parallel_channel_groups(
-    blueprint: &NetworkBlueprint,
+    channels: &[ChannelSpec],
     node_layout: &BlueprintNodeLayout<'_>,
 ) -> HashMap<(usize, usize), Vec<usize>> {
-    let mut groups: HashMap<(usize, usize), Vec<usize>> =
-        HashMap::with_capacity(blueprint.channels.len());
-    for (channel_idx, channel) in blueprint.channels.iter().enumerate() {
+    let mut groups: HashMap<(usize, usize), Vec<usize>> = HashMap::with_capacity(channels.len());
+    for (channel_idx, channel) in channels.iter().enumerate() {
         let Some(from_idx) = node_layout.index_of(channel.from.as_str()) else {
             continue;
         };
@@ -137,7 +138,7 @@ fn explicit_or_generated_path(
     to: Point2D,
     parallel_slot: Option<(usize, usize)>,
     box_dims: (f64, f64),
-) -> Vec<Point2D> {
+) -> Cow<'_, [Point2D]> {
     if let ChannelShape::Serpentine {
         segments,
         bend_radius_m,
@@ -149,15 +150,20 @@ fn explicit_or_generated_path(
                 &channel_spec.path,
                 bend_radius_m.into_base() * 1.0e3,
             ) {
-                channel_spec.path.clone()
+                Cow::Borrowed(channel_spec.path.as_slice())
             } else {
-                generated_serpentine_path(from, to, segments, bend_radius_m.into_base() * 1.0e3)
+                Cow::Owned(generated_serpentine_path(
+                    from,
+                    to,
+                    segments,
+                    bend_radius_m.into_base() * 1.0e3,
+                ))
             };
         }
     }
 
     if !channel_spec.path.is_empty() {
-        return channel_spec.path.clone();
+        return Cow::Borrowed(channel_spec.path.as_slice());
     }
 
     if let Some(path) = channel_spec
@@ -166,11 +172,11 @@ fn explicit_or_generated_path(
         .and_then(|meta| meta.get::<ChannelPathMetadata>())
         .map(|path| path.polyline_mm.clone())
     {
-        return path;
+        return Cow::Owned(path);
     }
 
     if let Some((slot, count)) = parallel_slot.filter(|(_, count)| *count > 1) {
-        return generated_parallel_path(from, to, slot, count, box_dims);
+        return Cow::Owned(generated_parallel_path(from, to, slot, count, box_dims));
     }
 
     match channel_spec.channel_shape {
@@ -178,8 +184,13 @@ fn explicit_or_generated_path(
             segments,
             bend_radius_m,
             ..
-        } => generated_serpentine_path(from, to, segments, bend_radius_m.into_base() * 1.0e3),
-        ChannelShape::Straight => vec![from, to],
+        } => Cow::Owned(generated_serpentine_path(
+            from,
+            to,
+            segments,
+            bend_radius_m.into_base() * 1.0e3,
+        )),
+        ChannelShape::Straight => Cow::Owned(vec![from, to]),
     }
 }
 

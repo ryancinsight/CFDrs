@@ -80,8 +80,16 @@ pub fn plot_blueprint_auto_annotated(
 
 pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
     let box_dims = blueprint.box_dims;
-    let node_layout = blueprint_node_positions(blueprint, box_dims);
-    let channel_paths = resolved_channel_paths(blueprint, &node_layout, box_dims);
+    let node_layout = blueprint_node_positions(&blueprint.nodes, &blueprint.channels, box_dims);
+    let channels = std::mem::take(&mut blueprint.channels);
+    let channel_paths = resolved_channel_paths(&channels, &node_layout, box_dims);
+    let materialized_paths = channels
+        .iter()
+        .zip(channel_paths)
+        .map(|(channel, path)| {
+            (channel.path.is_empty() && path.len() >= 2).then(|| path.into_owned())
+        })
+        .collect::<Vec<_>>();
     let positions = node_layout.positions().to_vec();
     let auto_layout_indices = node_layout.auto_layout_indices().to_vec();
     drop(node_layout);
@@ -102,11 +110,16 @@ pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
         }
     }
 
-    for (channel, path) in blueprint.channels.iter_mut().zip(channel_paths) {
-        if channel.path.is_empty() && path.len() >= 2 {
-            channel.path = path;
-        }
-    }
+    blueprint.channels = channels
+        .into_iter()
+        .zip(materialized_paths)
+        .map(|(mut channel, path)| {
+            if let Some(path) = path {
+                channel.path = path;
+            }
+            channel
+        })
+        .collect();
 }
 
 /// Plot a blueprint with auto-generated annotations (default config).
@@ -150,6 +163,7 @@ mod tests {
     use crate::geometry::metadata::NodeLayoutMetadata;
     use crate::geometry::ChannelTypeCategory;
     use aequitas::systems::si::quantities::Length;
+    use std::borrow::Cow;
 
     #[test]
     fn generated_serpentine_path_has_mirrored_two_lobe_offsets() {
@@ -174,11 +188,51 @@ mod tests {
     #[test]
     fn serpentine_channels_render_as_curved_paths() {
         let path = generated_serpentine_path((0.0, 0.0), (20.0, 0.0), 5, 2.5);
-        let rendered = render_path_for_display(&path, ChannelTypeCategory::Curved, (40.0, 20.0));
+        let rendered = render_path_for_display(
+            Cow::Borrowed(path.as_slice()),
+            ChannelTypeCategory::Curved,
+            (40.0, 20.0),
+        );
         assert!(
             rendered.len() > path.len(),
             "curved serpentine display path should be spline-resampled"
         );
+    }
+
+    #[test]
+    fn explicit_channel_paths_borrow_through_resolution() {
+        let path = vec![(10.0, 20.0), (30.0, 25.0), (90.0, 30.0)];
+        let blueprint = NetworkBlueprint {
+            name: "borrowed-path".to_string(),
+            box_dims: (100.0, 50.0),
+            box_outline: Vec::new(),
+            nodes: vec![
+                NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)),
+                NodeSpec::new_at("outlet", NodeKind::Outlet, (90.0, 30.0)),
+            ],
+            channels: vec![ChannelSpec::new_pipe_rect(
+                "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
+            )
+            .with_path(path.clone())],
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        };
+        let layout = super::layout::blueprint_node_positions(
+            &blueprint.nodes,
+            &blueprint.channels,
+            blueprint.box_dims,
+        );
+        let resolved =
+            super::resolved_channel_paths(&blueprint.channels, &layout, blueprint.box_dims);
+
+        let Cow::Borrowed(resolved_path) = &resolved[0] else {
+            panic!("explicit paths must remain borrowed during resolution");
+        };
+        assert_eq!(*resolved_path, blueprint.channels[0].path.as_slice());
+        assert_eq!(resolved[0].as_ref(), path.as_slice());
     }
 
     #[test]
