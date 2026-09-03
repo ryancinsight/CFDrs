@@ -27,7 +27,7 @@
 | **Aequitas-owned analytical Taylor-Green metrics** | 2026-07-31 | The cfd-validation Taylor-Green configuration erased fixed dimensions and represented 2D/3D energy with one raw scalar | Length, Velocity, KinematicViscosity, MassDensity, Dimensionless, ReciprocalTime, ReciprocalTimeSquared, and a closed `Force`/`Energy` result enum remain typed through the validation boundary; formula, mesh-coordinate, and benchmark/report boundaries extract explicitly | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical Blasius metrics** | 2026-07-31 | The cfd-validation Blasius configuration erased boundary-layer dimensions and treated kinematic viscosity as dynamic viscosity for wall stress | Velocity, KinematicViscosity, MassDensity, Length, Dimensionless, Pressure, and typed velocity/similarity results remain explicit through the validation boundary; interpolation and mesh-coordinate boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
 | **Aequitas-owned analytical non-Newtonian metrics** | 2026-07-31 | The cfd-validation non-Newtonian Poiseuille models erased fixed dimensions from geometry and derived metrics | Length, PressureGradient, Velocity, AreaPerTime, Pressure, ReciprocalTime, MassDensity, and Dimensionless remain typed through the validation boundary; the exponent-dependent `PowerLawConsistency` coefficient remains formula-bound; constitutive, integration, and mesh boundaries extract scalars | Breaking change for external analytical-validation constructors and callers |
-| **Canonical analytical benchmark ownership** | 2026-07-31 | `analytical_benchmarks` duplicated raw-scalar Couette, Poiseuille, and Taylor-Green models beside the canonical analytical modules | Remove duplicate model implementations and migrate the physics-validation consumer to canonical Aequitas-backed APIs; retain only normalized Ghia reference tables | Breaking removal of the legacy duplicate model names from `analytical_benchmarks` |
+| **Canonical analytical benchmark ownership** | 2026-07-31; revised 2026-09-03 | `analytical_benchmarks` duplicated analytical models and retained a second, fabricated Ghia table beside the canonical cavity benchmark | Keep analytical models under `analytical`, and keep one published Ghia Table I in `benchmarks::cavity::LidDrivenCavity::ghia_u_centerline` | Breaking removal of the legacy analytical-benchmark module and its Ghia constants |
 | **Aequitas-owned schematic volume metrics** | 2026-07-31 | `cfd-schematics` volume summaries and `cfd-schematic-mesh` diagnostics exposed unit-suffixed length, area, volume, and percentage `f64` fields, including redundant mm³/uL pairs | `Length`, `Area`, `Volume`, and `Dimensionless` remain typed through public schematic and mesh volume contracts; mesh signed-volume and percentage calculations are explicit scalar boundaries | Breaking change for schematic and mesh diagnostic consumers |
 | **Aequitas-owned schematic mesh geometry metrics** | 2026-08-02 | `cfd-schematic-mesh` runtime configuration and emitted centerlines exposed angles, lengths, clearances, overlap fractions, and diameters as raw scalars | `Angle`, `Length`, and `Dimensionless` remain typed through blueprint/shell configuration and centerline output; mesh-provider, trigonometric, and CSG boundaries extract explicit scalars | Breaking change for runtime mesh configuration and centerline consumers |
 | **Canonical cfd-3d turbulence module** | 2026-07-31 | The crate-level turbulence module was a no-op placeholder beside the real Eunomia-backed models under `physics::turbulence` | One public module re-exports the canonical input-sensitive implementations; typed physical turbulence outputs are defined by the following Aequitas decision | Breaking removal of the placeholder model names; metric return types are covered by the following breaking decision |
@@ -390,28 +390,39 @@ before the crate by peer-dirty cfd-math `leto-ops` API errors at
 
 Context: `cfd-validation::analytical_benchmarks` duplicated the Couette,
 Poiseuille, and Taylor-Green analytical models already owned by
-`cfd-validation::analytical`. The duplicate models retained raw generic
-physical fields and a separate scalar test surface.
+`cfd-validation::analytical`. After those models were removed, the module
+also retained a second Ghia u-centerline table whose stations and interiors
+did not match the published Table I data already owned by
+`cfd-validation::benchmarks::cavity::LidDrivenCavity`.
 
 Decision: remove the duplicate implementations and migrate
 `tests/physics_validation.rs` to the canonical Aequitas-backed analytical
-constructors and typed result enums. Retain only the unique normalized Ghia
-lid-driven-cavity reference tables in `analytical_benchmarks`.
+constructors and typed result enums. Remove the obsolete
+`analytical_benchmarks` module, route its validation consumers to
+`LidDrivenCavity::ghia_u_centerline`, and store the genuine Re=100, 400, and
+1000 Table I columns in that canonical benchmark.
 
 Rejected alternative: add Aequitas fields to both module copies or retain a
 re-export wrapper under the legacy names. Both preserve parallel ownership and
 compatibility soup instead of one canonical analytical contract.
 
 Consequences: external callers of the removed legacy model names must use
-`cfd_validation::analytical`. The canonical models remain real-valued under
-Eunomia `RealField`; no complex or imaginary-unit physical quantity applies to
-the normalized cavity reference data.
+`cfd_validation::analytical`; callers of the removed Ghia constants must use
+`cfd_validation::benchmarks::cavity::LidDrivenCavity`. The canonical models
+remain real-valued under Eunomia `RealField`; no complex or imaginary-unit
+physical quantity applies to the normalized cavity reference data.
 
-Verification: duplicate-model residue scan, typed consumer migration,
-targeted Rustfmt, and diff checks pass. The focused cfd-validation test-target
-check remains blocked before the crate by peer-dirty cfd-math `leto-ops` API
-errors at `linear_solver/block_preconditioner.rs:26-28,769`. See
+Verification: duplicate-model and fabricated-table residue scans, canonical
+consumer migration, interior-value assertions, targeted Rustfmt, and focused
+validation tests cover this revision. The Re=400 and Re=1000 values are the
+published Table I columns, not interpolated or relabelled data. See
 [`analytical-validation-metrics.md`](atlas-migration/analytical-validation-metrics.md).
+
+Revision note (2026-09-03): `CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02`
+found that the retained constants relabelled three Table I samples onto a
+uniform grid and fabricated the other interiors. The canonical cavity table
+is extended with the genuine Re=400 and Re=1000 columns, and the affected
+consumers are migrated to it.
 
 ### 2026-07-31: Aequitas owns analytical Couette and Poiseuille metrics [major] [arch]
 

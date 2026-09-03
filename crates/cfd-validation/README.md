@@ -5,7 +5,7 @@ Verification and validation framework for the
 
 ## What it provides
 
-- **`analytical`, `analytical_benchmarks`, `solutions`** — closed-form reference
+- **`analytical`, `benchmarks`, `solutions`** — closed-form and published reference
   solutions used as oracles.
 - **`manufactured`** — the Method of Manufactured Solutions, for code verification
   where no analytical solution exists.

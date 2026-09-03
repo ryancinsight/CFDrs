@@ -158,7 +158,7 @@ mod tests {
     use super::path_generation::generated_serpentine_path;
     use super::path_simplification::render_path_for_display;
     use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-    use crate::geometry::metadata::NodeLayoutMetadata;
+    use crate::geometry::metadata::{ChannelPathMetadata, ChannelVisualRole, NodeLayoutMetadata};
     use crate::geometry::ChannelTypeCategory;
     use aequitas::systems::si::quantities::Length;
     use std::borrow::Cow;
@@ -231,6 +231,52 @@ mod tests {
         };
         assert_eq!(*resolved_path, blueprint.channels[0].path.as_slice());
         assert_eq!(resolved[0].as_ref(), path.as_slice());
+    }
+
+    #[test]
+    fn metadata_channel_paths_borrow_through_resolution() {
+        let path = vec![(10.0, 20.0), (30.0, 35.0), (90.0, 30.0)];
+        let blueprint = NetworkBlueprint {
+            name: "metadata-path".to_string(),
+            box_dims: (100.0, 50.0),
+            box_outline: Vec::new(),
+            nodes: vec![
+                NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)),
+                NodeSpec::new_at("outlet", NodeKind::Outlet, (90.0, 30.0)),
+            ],
+            channels: vec![ChannelSpec::new_pipe_rect(
+                "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
+            )
+            .with_metadata(ChannelPathMetadata {
+                polyline_mm: path.clone(),
+                visual_role: ChannelVisualRole::Trunk,
+            })],
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        };
+        let layout = super::layout::blueprint_node_positions(
+            &blueprint.nodes,
+            &blueprint.channels,
+            blueprint.box_dims,
+        );
+        let resolved =
+            super::resolved_channel_paths(&blueprint.channels, &layout, blueprint.box_dims);
+
+        let Cow::Borrowed(resolved_path) = &resolved[0] else {
+            panic!("metadata paths must remain borrowed during resolution");
+        };
+        assert_eq!(*resolved_path, path.as_slice());
+        assert_eq!(
+            render_path_for_display(
+                resolved[0].clone(),
+                ChannelTypeCategory::Straight,
+                (100.0, 50.0)
+            ),
+            path
+        );
     }
 
     #[test]

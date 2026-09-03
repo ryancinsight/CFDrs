@@ -12,8 +12,8 @@
 - Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
 - Direct internal crate dependencies (`cargo metadata`): `cfd-1d`, `cfd-2d`, `cfd-3d`, `cfd-core`, `cfd-io`, `cfd-math`, `cfd-mesh`, `cfd-schematics`.
 - Cargo features: (none).
-- `src/lib.rs` module surface: `adaptive_mesh`, `algorithm_complexity`, `analytical`, `analytical_benchmarks`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing`, `error_metrics`, `geometry`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
-- Top-level `src/` entries: `adaptive_mesh.rs`, `algorithm_complexity.rs`, `analytical`, `analytical_benchmarks.rs`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing.rs`, `error_metrics`, `geometry`, `lib.rs`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
+- `src/lib.rs` module surface: `adaptive_mesh`, `algorithm_complexity`, `analytical`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing`, `error_metrics`, `geometry`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
+- Top-level `src/` entries: `adaptive_mesh.rs`, `algorithm_complexity.rs`, `analytical`, `benchmarking`, `benchmarks`, `conservation`, `convergence`, `edge_case_testing.rs`, `error_metrics`, `geometry`, `lib.rs`, `literature`, `manufactured`, `numerical`, `reporting`, `solutions`, `time_integration`.
 
 <!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose

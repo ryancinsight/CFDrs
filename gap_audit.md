@@ -1203,8 +1203,8 @@ repository baseline.
 `CFDRS-AEQ-MET-42` closes the legacy `analytical_benchmarks` duplication
 gap. Its raw-scalar Couette, Poiseuille, and Taylor-Green implementations and
 their local tests were removed; `tests/physics_validation.rs` now exercises
-the canonical Aequitas-backed `analytical` models. The module retains only the
-unique Ghia lid-driven-cavity reference tables, which are normalized
+the canonical Aequitas-backed `analytical` models. The Ghia lid-driven-cavity
+reference is owned by `benchmarks::cavity::LidDrivenCavity` as normalized
 dimensionless benchmark data rather than physical-unit model state.
 
 The migrated consumer constructs `Velocity`, `Length`, `PressureGradient`,
@@ -1351,11 +1351,11 @@ provider/peer integration residual, not a MET37 diagnostic.
 ## Analytical validation metric audit (2026-07-31)
 
 The current public-surface scan leaves the canonical analytical contracts and
-the unique `analytical_benchmarks::lid_driven_cavity` reference tables. The
-tables are normalized dimensionless benchmark data, not typed physical model
-state. Coordinates, sampled fields, interpolation tables, normalized
-coefficients, and equation-dependent formula parameters remain scalar at
-their explicit formula or mesh boundaries.
+the Ghia reference under `benchmarks::cavity::LidDrivenCavity`. The tables are
+normalized dimensionless benchmark data, not typed physical model state.
+Coordinates, sampled fields, interpolation tables, normalized coefficients,
+and equation-dependent formula parameters remain scalar at their explicit
+formula or mesh boundaries.
 
 `CFDRS-AEQ-MET-36` closes the first bounded slice: the Womersley
 configuration stores radius as `Length`, density as `MassDensity`, dynamic

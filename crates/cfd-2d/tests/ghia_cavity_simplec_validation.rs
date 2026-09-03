@@ -60,11 +60,7 @@ fn motionless_centerline_l2_error(reynolds: f64) -> f64 {
 /// L2 error of the computed u-centerline against Ghia et al. (1982) Table I.
 ///
 /// The reference is [`LidDrivenCavity::ghia_u_centerline`], which carries
-/// Table I on its published non-uniform y stations. The `analytical_benchmarks`
-/// tables are not usable here: they relabel three of Ghia's values onto a
-/// uniform grid and fabricate the rest, and scored against them a motionless
-/// field outperforms the true profile
-/// (CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02).
+/// Table I on its published non-uniform y stations.
 ///
 /// The computed profile is sampled by linear interpolation between the two
 /// grid rows bracketing each reference station, so the comparison does not

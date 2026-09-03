@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-METADATA-COW [perf] — implemented 2026-09-03
+
+- [x] Return metadata-backed channel paths as borrowed slices and keep owned
+      storage only for generated paths.
+- [x] Preserve metadata path values and rendered output with a value-semantic
+      ownership regression.
+- [x] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-INTERSECTION-COW [perf] — implemented 2026-09-03
 
 - [x] Return borrowed complete channel paths from centerline extraction and

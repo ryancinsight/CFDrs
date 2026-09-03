@@ -21,6 +21,30 @@ pub struct LidDrivenCavity<T: RealField + Copy> {
     pub reynolds: T,
 }
 
+const GHIA_REYNOLDS: [f64; 3] = [100.0, 400.0, 1000.0];
+
+// Ghia et al. (1982), Table I, p. 396: u/U along x/L = 0.5.
+// Each row is [y/L, Re=100, Re=400, Re=1000].
+const GHIA_U_CENTERLINE_TABLE: &[(f64, [f64; 3])] = &[
+    (1.0000, [1.00000, 1.00000, 1.00000]),
+    (0.9766, [0.84123, 0.75837, 0.65928]),
+    (0.9688, [0.78871, 0.68439, 0.57492]),
+    (0.9609, [0.73722, 0.61756, 0.51117]),
+    (0.9531, [0.68717, 0.55892, 0.46604]),
+    (0.8516, [0.23151, 0.29093, 0.33304]),
+    (0.7344, [0.00332, 0.16256, 0.18719]),
+    (0.6172, [-0.13641, 0.02135, 0.05702]),
+    (0.5000, [-0.20581, -0.11477, -0.06080]),
+    (0.4531, [-0.21090, -0.17119, -0.10648]),
+    (0.2813, [-0.15662, -0.32726, -0.27805]),
+    (0.1719, [-0.10150, -0.24299, -0.38289]),
+    (0.1016, [-0.06434, -0.14612, -0.29730]),
+    (0.0703, [-0.04775, -0.10338, -0.22220]),
+    (0.0625, [-0.04192, -0.09266, -0.20196]),
+    (0.0547, [-0.03717, -0.08186, -0.18109]),
+    (0.0000, [0.00000, 0.00000, 0.00000]),
+];
+
 impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
     /// Create a new lid-driven cavity benchmark
     pub fn new(size: T, lid_velocity: T, reynolds: T) -> Self {
@@ -31,44 +55,33 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
         }
     }
 
-    /// Get Ghia et al. (1982) reference data for u-velocity along vertical centerline (x=0.5)
+    /// Get Ghia et al. (1982) Table I data for u-velocity along x/L = 0.5.
+    ///
+    /// The supported Reynolds numbers are 100, 400, and 1000. The returned
+    /// stations are the non-uniform y/L values published in Table I, ordered
+    /// from the moving lid toward the stationary wall.
     pub fn ghia_u_centerline(&self, re: T) -> Vec<(T, T)> {
         let re_f64 = <T as NumericElement>::to_f64(re);
+        let Some(column) = GHIA_REYNOLDS
+            .iter()
+            .position(|reference| (re_f64 - reference).abs() < 1.0)
+        else {
+            return Vec::new();
+        };
 
-        // Tabulated data from Ghia et al. (1982) Table I, p. 396
-        // Re = 100 column
-        if (re_f64 - 100.0).abs() < 1.0 {
-            vec![
-                (1.0000, 1.00000),
-                (0.9766, 0.84123),
-                (0.9688, 0.78871),
-                (0.9609, 0.73722),
-                (0.9531, 0.68717),
-                (0.8516, 0.23151),
-                (0.7344, 0.00332),
-                (0.6172, -0.13641),
-                (0.5000, -0.20581),
-                (0.4531, -0.21090),
-                (0.2813, -0.15662),
-                (0.1719, -0.10150),
-                (0.1016, -0.06434),
-                (0.0703, -0.04775),
-                (0.0625, -0.04192),
-                (0.0547, -0.03717),
-                (0.0000, 0.00000),
-            ]
-            .into_iter()
-            .map(|(y, u)| {
+        GHIA_U_CENTERLINE_TABLE
+            .iter()
+            .map(|(y, values)| {
+                let u = values
+                    .get(column)
+                    .copied()
+                    .expect("invariant: every supported Ghia column has a value");
                 (
-                    <T as FloatElement>::from_f64(y),
+                    <T as FloatElement>::from_f64(*y),
                     <T as FloatElement>::from_f64(u),
                 )
             })
             .collect()
-        } else {
-            // Fallback or other Reynolds numbers would go here
-            vec![]
-        }
     }
 
     /// Get Ghia et al. (1982) reference data for v-velocity along horizontal centerline (y=0.5)

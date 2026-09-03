@@ -1,54 +1,11 @@
 //! 2D Lid-Driven Cavity solver `PyO3` wrapper — Ghia et al. (1982) benchmark.
 
 use super::pyarray2_from_leto;
+use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use leto::Array2;
 use numpy::PyArray2;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-// ── Ghia benchmark reference data ────────────────────────────────────────────
-
-/// Ghia et al. (1982) benchmark data for Re=100
-/// U-velocity along vertical centerline (y, u)
-const GHIA_U_RE100: [(f64, f64); 17] = [
-    (1.0000, 1.0000),
-    (0.9766, 0.84123),
-    (0.9688, 0.78871),
-    (0.9609, 0.73722),
-    (0.9531, 0.68717),
-    (0.8516, 0.23151),
-    (0.7344, 0.00332),
-    (0.6172, -0.13641),
-    (0.5000, -0.20581),
-    (0.4531, -0.21090),
-    (0.2813, -0.15662),
-    (0.1719, -0.10150),
-    (0.1016, -0.06434),
-    (0.0703, -0.04775),
-    (0.0625, -0.04192),
-    (0.0547, -0.03717),
-    (0.0000, 0.00000),
-];
-
-/// V-velocity along horizontal centerline (x, v)
-const GHIA_V_RE100: [(f64, f64); 17] = [
-    (1.0000, 0.00000),
-    (0.9688, -0.05906),
-    (0.9609, -0.07391),
-    (0.9531, -0.08864),
-    (0.9453, -0.10313),
-    (0.9063, -0.16914),
-    (0.8594, -0.22445),
-    (0.8047, -0.24533),
-    (0.5000, 0.05454),
-    (0.2344, 0.17527),
-    (0.2266, 0.17507),
-    (0.1563, 0.16077),
-    (0.0938, 0.12317),
-    (0.0781, 0.10890),
-    (0.0703, 0.10091),
-    (0.0625, 0.09233),
-    (0.0000, 0.00000),
-];
 
 // ── Solver ───────────────────────────────────────────────────────────────────
 
@@ -105,11 +62,21 @@ impl PyCavitySolver2D {
 
     /// Get Ghia benchmark data for U-velocity along vertical centerline
     fn ghia_u_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let array = Array2::from_shape_fn([GHIA_U_RE100.len(), 2], |[i, j]| {
+        let reference = self.ghia_u_reference();
+        if reference.is_empty() {
+            return Err(PyValueError::new_err(format!(
+                "Ghia Table I has no u-centerline column for Re={}",
+                self.reynolds
+            )));
+        }
+        let array = Array2::from_shape_fn([reference.len(), 2], |[i, j]| {
+            let &(coordinate, velocity) = reference
+                .get(i)
+                .expect("invariant: array shape matches canonical Ghia data");
             if j == 0 {
-                GHIA_U_RE100[i].0
+                coordinate
             } else {
-                GHIA_U_RE100[i].1
+                velocity
             }
         });
         pyarray2_from_leto(py, array)
@@ -117,11 +84,21 @@ impl PyCavitySolver2D {
 
     /// Get Ghia benchmark data for V-velocity along horizontal centerline
     fn ghia_v_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let array = Array2::from_shape_fn([GHIA_V_RE100.len(), 2], |[i, j]| {
+        let reference = self.ghia_v_reference();
+        if reference.is_empty() {
+            return Err(PyValueError::new_err(format!(
+                "Ghia Table II has no v-centerline column for Re={}",
+                self.reynolds
+            )));
+        }
+        let array = Array2::from_shape_fn([reference.len(), 2], |[i, j]| {
+            let &(coordinate, velocity) = reference
+                .get(i)
+                .expect("invariant: array shape matches canonical Ghia data");
             if j == 0 {
-                GHIA_V_RE100[i].0
+                coordinate
             } else {
-                GHIA_V_RE100[i].1
+                velocity
             }
         });
         pyarray2_from_leto(py, array)
@@ -144,7 +121,7 @@ impl PyCavitySolver2D {
             0.3,
         );
 
-        let l2_error = self.calculate_ghia_error(&result.y_coords, &result.u_centerline);
+        let l2_error = self.calculate_ghia_error(&result.y_coords, &result.u_centerline)?;
 
         Ok(PyCavityResult2D {
             l2_error,
@@ -166,12 +143,27 @@ impl PyCavitySolver2D {
 
 /// Internal implementation for `PyCavitySolver2D` (non-PyO3 methods)
 impl PyCavitySolver2D {
+    fn ghia_u_reference(&self) -> Vec<(f64, f64)> {
+        LidDrivenCavity::new(1.0, 1.0, self.reynolds).ghia_u_centerline(self.reynolds)
+    }
+
+    fn ghia_v_reference(&self) -> Vec<(f64, f64)> {
+        LidDrivenCavity::new(1.0, 1.0, self.reynolds).ghia_v_centerline(self.reynolds)
+    }
+
     /// Calculate L2 error between computed and Ghia benchmark data
-    fn calculate_ghia_error(&self, y_computed: &[f64], u_computed: &[f64]) -> f64 {
+    fn calculate_ghia_error(&self, y_computed: &[f64], u_computed: &[f64]) -> PyResult<f64> {
+        let reference = self.ghia_u_reference();
+        if reference.is_empty() {
+            return Err(PyValueError::new_err(format!(
+                "Ghia Table I has no u-centerline column for Re={}",
+                self.reynolds
+            )));
+        }
         let mut sum_sq_error = 0.0;
         let mut count = 0;
 
-        for (y_ghia, u_ghia) in &GHIA_U_RE100 {
+        for &(y_ghia, u_ghia) in &reference {
             let mut best_idx = 0;
             let mut best_dist = f64::MAX;
             for (i, &y) in y_computed.iter().enumerate() {
@@ -182,12 +174,14 @@ impl PyCavitySolver2D {
                 }
             }
 
-            let u_interp = u_computed[best_idx];
+            let u_interp = *u_computed.get(best_idx).ok_or_else(|| {
+                PyValueError::new_err("cavity result has no u-centerline samples")
+            })?;
             sum_sq_error += (u_interp - u_ghia).powi(2);
             count += 1;
         }
 
-        (sum_sq_error / f64::from(count)).sqrt()
+        Ok((sum_sq_error / f64::from(count)).sqrt())
     }
 }
 
