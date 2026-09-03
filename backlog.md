@@ -1,3 +1,12 @@
+## CFDRS-SCHEMATICS-DEAN-BORROW — borrow topology serpentine analysis [perf] — in progress
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-DEAN-BORROW | Keep Dean-site estimation read-only over topology-owned serpentine data and preserve its route-selection values. | [perf] | in-progress | Codex | `crates/cfd-schematics/src/topology/factory/core/spec_analysis_impl.rs`, factory tests |
+
+- **Acceptance:** target-route serpentine data remains preferred, treatment-route fallback remains selected when the target has no serpentine, and Dean number, curvature radius, and arc length remain value-equivalent. The analysis performs no `SerpentineSpec` clone; only the read-only reference lifetime changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+
 ## CFDRS-EXPOSED-PEDANTIC-277 — the blanket allows hid 291 lints [patch] — IMPLEMENTED 2026-08-26
 
 | ID | Outcome | Class | Status | Owner | Scope |
