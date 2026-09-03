@@ -12,6 +12,7 @@
 mod entrypoints;
 mod generator_impl;
 mod linear;
+mod path_geometry;
 mod selective;
 pub mod shell;
 mod splits;

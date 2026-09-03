@@ -2,7 +2,8 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use super::super::super::super::types::Point2D;
-use super::super::path_geometry::{infer_serpentine_shape, serpentine_overlay_path};
+use super::super::super::path_geometry::infer_serpentine_shape;
+use super::super::path_geometry::serpentine_overlay_path;
 use super::super::routing::{
     channel_length_from_points_or_endpoints, channel_path_between, preferred_treatment_lane_y,
     primitive_treatment_leaf_indices, route_pending_venturi_paths,
