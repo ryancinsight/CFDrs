@@ -5,6 +5,7 @@ use crate::geometry::builders::{ChannelExt, NodeExt};
 use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
 use crate::geometry::types::polyline_length;
 use crate::geometry::SplitType;
+use crate::topology::presets::single_venturi_series_spec;
 use aequitas::systems::si::quantities::Length;
 
 #[test]
@@ -137,5 +138,37 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
                 channel.id, shape
             ),
         }
+    }
+}
+
+#[test]
+fn series_geometry_uses_adjacent_node_coordinates() {
+    let spec = single_venturi_series_spec("series-index", 1.0e-3, 100.0e-6, 500.0e-6, 200.0e-6);
+    let blueprint = create_series_geometry_from_spec(&spec);
+
+    assert_eq!(blueprint.channels.len(), 3);
+    assert_eq!(blueprint.nodes.len(), blueprint.channels.len() + 1);
+    assert_eq!(
+        blueprint
+            .channels
+            .iter()
+            .map(|channel| (channel.from.0.as_str(), channel.to.0.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("inlet", "junction_0"),
+            ("junction_0", "junction_1"),
+            ("junction_1", "outlet"),
+        ]
+    );
+
+    for (idx, channel) in blueprint.channels.iter().enumerate() {
+        assert_eq!(
+            channel.path.first().copied(),
+            Some(blueprint.nodes[idx].point)
+        );
+        assert_eq!(
+            channel.path.last().copied(),
+            Some(blueprint.nodes[idx + 1].point)
+        );
     }
 }
