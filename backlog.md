@@ -170,7 +170,7 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## CFDRS-SCHEMATICS-CHANNEL-PATHS — move generated path ownership [perf] — review
+## CFDRS-SCHEMATICS-CHANNEL-PATHS — move generated path ownership [perf] — done 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` geometry-generator path
   extraction, channel construction, and value-semantic generator tests.
@@ -186,6 +186,7 @@ anything there is unverified -- do not assume it matches.
   `cargo nextest run -p cfd-schematics --no-fail-fast --status-level fail`
   passes 202/202; warning-denied all-target Clippy, 16/16 doctests, package
   rustfmt, focused diff checks, and `python scripts/lockfile.py --check` pass.
+- **Delivered:** commit `dbd305af`, merged by PR #396 at `6dc6d48b`.
 
 ## CFDRS-SCHEMATICS-ROUTING-REFS — retain borrowed routed paths [patch] — done 2026-09-03
 
