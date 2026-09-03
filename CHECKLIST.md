@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## CFDRS-SCHEMATICS-ANNOTATION-BORROW [perf] — in progress
+
+- [ ] Route explicit annotation references through the Plotters renderer without
+      cloning `RenderConfig` or `SchematicAnnotations`.
+- [ ] Preserve annotated and non-annotated output, validation, and renderer
+      trait behavior with the existing SVG value-semantic tests.
+- [ ] Run focused compile, native tests, warning-denied Clippy, doctests,
+      rustfmt/diff checks, and the standalone lockfile check.
+
 ## CFDRS-SCHEMATICS-RENDER-PATH-MOVE [perf] — implemented 2026-09-03
 
 - [x] Move owned render-model channel paths into Plotters path elements instead
