@@ -1,3 +1,13 @@
+## CFDRS-SCHEMATICS-RENDER-TEXT-BORROW — borrow renderer text [perf] — IMPLEMENTED 2026-09-03
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-RENDER-TEXT-BORROW | Pass annotation labels and legend segments into Plotters text elements as borrowed strings and remove render-time string allocations. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/plotters_backend/render_annotations.rs`, renderer tests |
+
+- **Acceptance:** marker labels, legend labels, and split legend-note segments render with the same text and ordering, the renderer allocates no temporary `String` for these borrowed values, and no public API or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 206/206 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. Existing renderer coverage preserves marker labels, legend labels, split-note text, and SVG output ordering.
+
 ## CFDRS-SCHEMATICS-ANNOTATION-BORROW — borrow explicit annotations [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
