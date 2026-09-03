@@ -170,6 +170,23 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## CFDRS-SCHEMATICS-INTERSECTION-COW — borrow explicit centerlines [perf] — IMPLEMENTED 2026-09-03
+
+- **Owner:** Ryan Clanton; scope is `cfd-schematics` intersection centerline
+  extraction and its value-semantic detection/insertion tests.
+- **Acceptance:** complete channel paths remain borrowed during pairwise
+  intersection scans; empty and singleton paths still synthesize owned
+  endpoint centerlines; crossing counts, locations, and insertion behavior are
+  unchanged; focused package gates pass with no public API change.
+- **Non-goals:** changing segment-intersection tolerances, pairwise scan
+  ordering, topology insertion semantics, or peer-owned files.
+- **Lease:** Ryan Clanton —
+  `crates/cfd-schematics/src/geometry/intersection/{detection.rs,mod.rs}`
+  — 2026-09-03T13:30:21-04:00
+- **Evidence:** `Cow` borrows complete explicit paths and owns only synthesized
+  empty/singleton centerlines; 203/203 nextest tests, warning-denied Clippy,
+  16/16 doctests, rustfmt, and standalone lockfile validation pass.
+
 ## CFDRS-SCHEMATICS-CHANNEL-PATHS — move generated path ownership [perf] — done 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` geometry-generator path

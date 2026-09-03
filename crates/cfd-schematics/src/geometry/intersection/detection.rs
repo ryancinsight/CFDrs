@@ -1,5 +1,6 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::geometry::Point2D;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 /// Test whether two line segments (p1,p2) and (p3,p4) properly intersect.
@@ -54,10 +55,10 @@ fn push_distinct_point(points: &mut Vec<Point2D>, point: Point2D) {
     }
 }
 
-fn channel_centerline_points(
-    channel: &ChannelSpec,
+pub(super) fn channel_centerline_points<'blueprint>(
+    channel: &'blueprint ChannelSpec,
     node_points: &HashMap<String, Point2D>,
-) -> Vec<Point2D> {
+) -> Cow<'blueprint, [Point2D]> {
     match channel.path.as_slice() {
         [] => {
             let mut centerline = Vec::with_capacity(2);
@@ -67,7 +68,7 @@ fn channel_centerline_points(
             if let Some(end) = node_points.get(channel.to.as_str()).copied() {
                 push_distinct_point(&mut centerline, end);
             }
-            centerline
+            Cow::Owned(centerline)
         }
         [midpoint] => {
             let mut centerline = Vec::with_capacity(3);
@@ -78,9 +79,9 @@ fn channel_centerline_points(
             if let Some(end) = node_points.get(channel.to.as_str()).copied() {
                 push_distinct_point(&mut centerline, end);
             }
-            centerline
+            Cow::Owned(centerline)
         }
-        points => points.to_vec(),
+        points => Cow::Borrowed(points),
     }
 }
 
@@ -92,7 +93,7 @@ pub(super) fn detect_crossings(system: &NetworkBlueprint) -> Vec<SegmentCrossing
         .iter()
         .map(|node| (node.id.as_str().to_string(), node.point))
         .collect();
-    let centerlines: Vec<Vec<Point2D>> = system
+    let centerlines: Vec<Cow<'_, [Point2D]>> = system
         .channels
         .iter()
         .map(|channel| channel_centerline_points(channel, &node_points))
@@ -111,8 +112,8 @@ pub(super) fn detect_crossings(system: &NetworkBlueprint) -> Vec<SegmentCrossing
                 continue;
             }
 
-            let cl_a = &centerlines[i];
-            let cl_b = &centerlines[j];
+            let cl_a = centerlines[i].as_ref();
+            let cl_b = centerlines[j].as_ref();
             if cl_a.len() < 2 || cl_b.len() < 2 {
                 continue;
             }
