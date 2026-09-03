@@ -170,7 +170,7 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## CFDRS-SCHEMATICS-METADATA-COW — borrow metadata-backed paths [perf] — in progress
+## CFDRS-SCHEMATICS-METADATA-COW — borrow metadata-backed paths [perf] — IMPLEMENTED 2026-09-03
 
 - **Owner:** Ryan Clanton; scope is `cfd-schematics` schematic path resolution
   and its value-semantic tests.
@@ -182,6 +182,9 @@ anything there is unverified -- do not assume it matches.
 - **Lease:** Ryan Clanton —
   `crates/cfd-schematics/src/visualizations/schematic/{channel_system.rs,mod.rs}`
   — 2026-09-03T13:48:00-04:00
+- **Evidence:** metadata-backed paths now borrow through resolution and render
+  with unchanged values; 204/204 nextest tests, warning-denied Clippy, 16/16
+  doctests, rustfmt, and standalone lockfile validation pass.
 
 ## CFDRS-SCHEMATICS-INTERSECTION-COW — borrow explicit centerlines [perf] — IMPLEMENTED 2026-09-03
 

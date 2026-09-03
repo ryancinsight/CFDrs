@@ -170,9 +170,8 @@ fn explicit_or_generated_path(
         .metadata
         .as_ref()
         .and_then(|meta| meta.get::<ChannelPathMetadata>())
-        .map(|path| path.polyline_mm.clone())
     {
-        return Cow::Owned(path);
+        return Cow::Borrowed(path.polyline_mm.as_slice());
     }
 
     if let Some((slot, count)) = parallel_slot.filter(|(_, count)| *count > 1) {
