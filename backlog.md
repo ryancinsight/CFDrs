@@ -1,3 +1,13 @@
+## CFDRS-SCHEMATICS-ANNOTATION-BORROW — borrow explicit annotations [perf] — IMPLEMENTED 2026-09-03
+
+| ID | Outcome | Class | Status | Owner | Scope |
+|----|---------|-------|--------|-------|-------|
+| CFDRS-SCHEMATICS-ANNOTATION-BORROW | Pass explicit annotation references through the Plotters renderer and remove the public helper's configuration and annotation deep copies. | [perf] | IMPLEMENTED | Codex | `crates/cfd-schematics/src/visualizations/schematic/mod.rs`, `crates/cfd-schematics/src/visualizations/plotters_backend/render_core.rs`, renderer tests |
+
+- **Acceptance:** annotated rendering uses borrowed annotation data, non-annotated rendering and the `SchematicRenderer` trait remain unchanged, annotation validation remains enforced, and rendered SVG output remains value-equivalent. No public type or output contract changes.
+- **Verification:** focused package compile, native Nextest, warning-denied Clippy, doctests, rustfmt/diff checks, and standalone lockfile validation.
+- **Evidence:** `cfd-schematics` compilation, 206/206 Nextest tests, warning-denied Clippy, 16/16 doctests, rustfmt, diff checks, and standalone lockfile validation pass. The existing explicit-annotation SVG test confirms passed markers and role colors remain rendered when the configuration also contains annotations.
+
 ## CFDRS-SCHEMATICS-RENDER-PATH-MOVE — move owned renderer paths [perf] — IMPLEMENTED 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
