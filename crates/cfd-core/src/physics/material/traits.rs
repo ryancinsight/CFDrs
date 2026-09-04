@@ -7,7 +7,7 @@ use aequitas::systems::si::quantities::{
     Angle, Dimensionless, EnergyPerArea, MassDensity, Pressure, ReciprocalTemperature,
     SpecificHeatCapacity, SurfaceTension, ThermalConductivity,
 };
-use eunomia::{FloatElement, NumericElement};
+use eunomia::FloatElement;
 
 /// Solid properties abstraction for structural and thermal analysis
 pub trait SolidProperties<T: FloatElement + Copy>: Send + Sync {
@@ -21,11 +21,11 @@ pub trait SolidProperties<T: FloatElement + Copy>: Send + Sync {
     fn poissons_ratio(&self) -> Dimensionless<T>;
 
     /// Get shear modulus \[Pa]
-    fn shear_modulus(&self) -> Pressure<T> {
-        let two = Dimensionless::from_base(<T as NumericElement>::ONE + <T as NumericElement>::ONE);
-        let one = Dimensionless::from_base(<T as NumericElement>::ONE);
-        self.youngs_modulus() / (two * (one + self.poissons_ratio()))
-    }
+    ///
+    /// Required rather than defaulted: `mu = E / (2 (1 + nu))` is owned by
+    /// `proteus::elastic::IsotropicModuli`, and a default here would be a
+    /// second copy of that identity. Implementors delegate to the provider.
+    fn shear_modulus(&self) -> Pressure<T>;
 
     /// Get thermal conductivity [W/(m·K)]
     fn thermal_conductivity(&self) -> ThermalConductivity<T>;
