@@ -172,6 +172,7 @@
 /// Acoustic force field physics.
 pub mod acoustics;
 pub mod energy;
+pub mod fsi;
 pub mod immersed_boundary;
 pub mod momentum;
 /// Non-Newtonian fluid rheology models (shear-thinning, yield stress).
