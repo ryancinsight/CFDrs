@@ -50,7 +50,57 @@
 //! stress semantics marker so traction cannot be filled from a pressure.
 
 use crate::fields::{Field2D, SimulationFields};
+use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use eunomia::NumericElement;
+
+/// Validated structured-grid cell spacing.
+///
+/// The gradient stencils divide by these, so a zero, negative, or non-finite
+/// spacing does not merely give a poor answer: `0.0 / 0.0` is `NaN` and
+/// `x / 0.0` is infinite, and either propagates silently through every
+/// traction on the interface into whatever consumes it. A structural solve
+/// fed `NaN` tractions converges to nothing diagnosable.
+///
+/// Validating once at construction rather than per call keeps the check off
+/// the per-face path and makes the invalid state unrepresentable, so
+/// [`interface_traction`] is infallible.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GridSpacing<T> {
+    dx: T,
+    dy: T,
+}
+
+impl<T: CfdScalar + Copy> GridSpacing<T> {
+    /// Validate cell spacing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidInput`] when either spacing is not finite and
+    /// strictly positive.
+    pub fn try_new(dx: T, dy: T) -> Result<Self> {
+        for (value, axis) in [(dx, "dx"), (dy, "dy")] {
+            if !value.is_finite() || value <= <T as NumericElement>::ZERO {
+                return Err(Error::InvalidInput(format!(
+                    "GridSpacing::try_new: {axis} must be finite and positive, got {value}"
+                )));
+            }
+        }
+        Ok(Self { dx, dy })
+    }
+
+    /// Spacing along x.
+    #[must_use]
+    pub const fn dx(&self) -> T {
+        self.dx
+    }
+
+    /// Spacing along y.
+    #[must_use]
+    pub const fn dy(&self) -> T {
+        self.dy
+    }
+}
 
 /// Which face of a fluid cell the interface crosses.
 ///
@@ -138,7 +188,10 @@ pub struct FaceTraction<T> {
 /// one-sided difference where they are not, because differencing across the
 /// interface would read velocity from inside the solid.
 #[must_use]
-pub fn interface_traction<T>(fields: &SimulationFields<T>, dx: T, dy: T) -> Vec<FaceTraction<T>>
+pub fn interface_traction<T>(
+    fields: &SimulationFields<T>,
+    spacing: GridSpacing<T>,
+) -> Vec<FaceTraction<T>>
 where
     T: CfdScalar + Copy,
 {
@@ -158,7 +211,7 @@ where
                     continue;
                 }
                 let (nx_c, ny_c) = face.solid_outward_normal::<T>();
-                let (tx, ty) = face_traction(fields, i, j, nx_c, ny_c, dx, dy);
+                let (tx, ty) = face_traction(fields, i, j, nx_c, ny_c, spacing);
                 out.push(FaceTraction {
                     cell: (i, j),
                     face,
@@ -178,8 +231,7 @@ fn face_traction<T>(
     j: usize,
     nx_c: T,
     ny_c: T,
-    dx: T,
-    dy: T,
+    spacing: GridSpacing<T>,
 ) -> (T, T)
 where
     T: CfdScalar + Copy,
@@ -188,10 +240,10 @@ where
     let p = fields.p.at(i, j);
     let mu = fields.viscosity.at(i, j);
 
-    let du_dx = gradient_x(&fields.u, &fields.mask, i, j, dx);
-    let du_dy = gradient_y(&fields.u, &fields.mask, i, j, dy);
-    let dv_dx = gradient_x(&fields.v, &fields.mask, i, j, dx);
-    let dv_dy = gradient_y(&fields.v, &fields.mask, i, j, dy);
+    let du_dx = gradient_x(&fields.u, &fields.mask, i, j, spacing.dx());
+    let du_dy = gradient_y(&fields.u, &fields.mask, i, j, spacing.dy());
+    let dv_dx = gradient_x(&fields.v, &fields.mask, i, j, spacing.dx());
+    let dv_dy = gradient_y(&fields.v, &fields.mask, i, j, spacing.dy());
 
     // tau = mu (grad u + grad u^T), symmetric for a Newtonian fluid.
     let tau_xx = mu * two * du_dx;
@@ -240,8 +292,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{interface_traction, InterfaceFace};
+    use super::{interface_traction, GridSpacing, InterfaceFace};
     use crate::fields::SimulationFields;
+
+    fn unit_spacing() -> GridSpacing<f64> {
+        GridSpacing::try_new(1.0, 1.0).expect("unit spacing is valid")
+    }
 
     /// A 3x3 grid whose centre column at `j = 1` is solid, everything fluid.
     fn one_solid_cell(pressure: f64, u: f64, viscosity: f64) -> SimulationFields<f64> {
@@ -263,7 +319,7 @@ mod tests {
         // The sign that is easy to invert and silent when wrong. A positive
         // pressure must push *into* the solid at every face, never out of it.
         let fields = one_solid_cell(100.0, 0.0, 0.0);
-        let faces = interface_traction(&fields, 1.0, 1.0);
+        let faces = interface_traction(&fields, unit_spacing());
         assert_eq!(faces.len(), 4, "four fluid cells touch the solid cell");
 
         for face in &faces {
@@ -288,7 +344,7 @@ mod tests {
     fn hydrostatic_traction_is_exactly_minus_p_times_the_normal() {
         // Zero velocity kills the viscous term, leaving t = -p n_s exactly.
         let fields = one_solid_cell(100.0, 0.0, 0.5);
-        for face in interface_traction(&fields, 1.0, 1.0) {
+        for face in interface_traction(&fields, unit_spacing()) {
             let (nx, ny) = face.face.solid_outward_normal::<f64>();
             assert_eq!(face.tx, -100.0 * nx);
             assert_eq!(face.ty, -100.0 * ny);
@@ -299,7 +355,7 @@ mod tests {
     fn zero_pressure_and_zero_velocity_produce_no_load() {
         // The coupling must add no spurious loading of its own.
         let fields = one_solid_cell(0.0, 0.0, 1.0);
-        for face in interface_traction(&fields, 1.0, 1.0) {
+        for face in interface_traction(&fields, unit_spacing()) {
             assert_eq!(face.tx, 0.0);
             assert_eq!(face.ty, 0.0);
         }
@@ -310,7 +366,7 @@ mod tests {
         // grad u = 0 for a uniform field, so tau vanishes and only -p n_s
         // survives even at nonzero viscosity.
         let fields = one_solid_cell(10.0, 2.5, 0.9);
-        for face in interface_traction(&fields, 1.0, 1.0) {
+        for face in interface_traction(&fields, unit_spacing()) {
             let (nx, ny) = face.face.solid_outward_normal::<f64>();
             assert_eq!(face.tx, -10.0 * nx);
             assert_eq!(face.ty, -10.0 * ny);
@@ -318,10 +374,29 @@ mod tests {
     }
 
     #[test]
+    fn invalid_spacing_is_rejected_before_it_can_poison_a_traction() {
+        // Zero spacing divides a zero velocity difference by zero, which is
+        // NaN, and that would propagate through every face silently.
+        for (dx, dy, what) in [
+            (0.0, 1.0, "zero dx"),
+            (1.0, 0.0, "zero dy"),
+            (-1.0, 1.0, "negative dx"),
+            (1.0, f64::NAN, "NaN dy"),
+            (f64::INFINITY, 1.0, "infinite dx"),
+        ] {
+            assert!(
+                GridSpacing::try_new(dx, dy).is_err(),
+                "{what} must be rejected"
+            );
+        }
+        assert!(GridSpacing::try_new(1e-9, 1e-9).is_ok(), "small but valid");
+    }
+
+    #[test]
     fn an_all_fluid_domain_has_no_interface() {
         let mut fields = one_solid_cell(1.0, 0.0, 0.0);
         *fields.mask.at_mut(1, 1).expect("in bounds") = true;
-        assert!(interface_traction(&fields, 1.0, 1.0).is_empty());
+        assert!(interface_traction(&fields, unit_spacing()).is_empty());
     }
 
     #[test]
@@ -364,7 +439,7 @@ mod tests {
             *fields.mask.at_mut(i, 2).expect("in bounds") = false;
         }
 
-        let faces = interface_traction(&fields, 1.0, 1.0);
+        let faces = interface_traction(&fields, unit_spacing());
         assert_eq!(faces.len(), 3, "three fluid cells touch the solid strip");
         for face in faces {
             assert_eq!(face.face, InterfaceFace::North);
