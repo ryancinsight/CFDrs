@@ -84,8 +84,20 @@ impl<T: RealField + FloatElement + Copy> MaterialDatabase<T> {
         }
 
         // Add common solids
-        db.add_solid("steel".to_string(), Box::new(ElasticSolid::steel()));
-        db.add_solid("aluminum".to_string(), Box::new(ElasticSolid::aluminum()));
+        db.add_solid(
+            "carbon-steel".to_string(),
+            Box::new(
+                ElasticSolid::from_catalog(proteus::NamedIsotropicSolid::CarbonSteel)
+                    .expect("invariant: every Proteus catalog entry is representable at T"),
+            ),
+        );
+        db.add_solid(
+            "aluminium-6061".to_string(),
+            Box::new(
+                ElasticSolid::from_catalog(proteus::NamedIsotropicSolid::Aluminium6061)
+                    .expect("invariant: every Proteus catalog entry is representable at T"),
+            ),
+        );
 
         // Add common interfaces
         db.add_interface(

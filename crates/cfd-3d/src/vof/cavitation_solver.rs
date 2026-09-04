@@ -63,7 +63,6 @@ const INCEPTION_ACTIVE: f64 = 1.0;
 /// Threshold applied to the inception field when counting cavitating
 /// cells in statistics.  Cells with inception_field > this value are
 /// counted as actively cavitating.
-#[allow(dead_code)]
 const INCEPTION_COUNT_THRESHOLD: f64 = 0.5;
 
 use super::bubble_dynamics::BubbleDynamicsSolver;

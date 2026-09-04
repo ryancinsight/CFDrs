@@ -1200,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "eunomia"
 version = "0.8.0"
-source = "git+https://github.com/ryancinsight/eunomia#3a8836e32c4a5f6202591432b2eb16d1b2b14891"
+source = "git+https://github.com/ryancinsight/eunomia#e49ba8afcf02c1d9bcf369cfdb3237212e46a44e"
 dependencies = [
  "bytemuck",
  "libm",
@@ -2676,7 +2676,7 @@ dependencies = [
 [[package]]
 name = "proteus-mat"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/proteus#930208f59b4bd29783f7e15f19b444b3829bbc13"
+source = "git+https://github.com/ryancinsight/proteus#1726082f9a4a1618ee7e4f8f5af9d0589083c2d5"
 dependencies = [
  "aequitas",
  "eunomia",
