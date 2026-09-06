@@ -20,12 +20,12 @@ jobs:
       attestations: write
       contents: write
       id-token: write
-    uses: ryancinsight/atlas/.github/workflows/python-wheels.yml@5936303396fd5a8a0aa0d432fd2c81a8cb203146
+    uses: ryancinsight/atlas/.github/workflows/python-wheels.yml@d15afbf5ad2c4126cfb174ea4f5e4a2b970d1ddf
     with:
       distribution: cfd-python
       import-name: cfd_python
       manifest-path: crates/cfd-python/Cargo.toml
-      atlas-ref: ad22ec5eec7098a1f9c218b67388ca51fc4bf3da
+      atlas-ref: d15afbf5ad2c4126cfb174ea4f5e4a2b970d1ddf
       tag-prefix: cfd-python-v
       abi3: true
       abi3-python: "3.8"
