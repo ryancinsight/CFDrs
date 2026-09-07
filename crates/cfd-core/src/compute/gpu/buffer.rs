@@ -3,8 +3,7 @@
 use super::GpuContext;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
-use bytemuck::{Pod, Zeroable};
-use eunomia::RealField;
+use eunomia::{Pod, RealField, Zeroable};
 use hephaestus_wgpu::{ComputeDevice, WgpuBuffer as HephaestusWgpuBuffer};
 use std::marker::PhantomData;
 use std::sync::Arc;
