@@ -25,6 +25,14 @@ pub struct PoissonParams {
     pub omega: f32,
 }
 
+// SAFETY: `#[repr(C)]` struct of five 4-byte `Pod` scalars
+// (`u32`, `u32`, `f32`, `f32`, `f32`): contiguous 20-byte layout with
+// 4-byte alignment throughout, so no padding; every bit pattern is valid
+// and all-zeroes is inhabited; `Copy` is derived.
+unsafe impl eunomia::Zeroable for PoissonParams {}
+// SAFETY: see the `Zeroable` impl; additionally `Copy + 'static`.
+unsafe impl eunomia::Pod for PoissonParams {}
+
 /// GPU-accelerated Poisson equation solver.
 pub struct GpuPoissonSolver {
     provider: WgpuDevice,

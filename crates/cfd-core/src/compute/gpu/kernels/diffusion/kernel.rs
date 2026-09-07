@@ -20,6 +20,13 @@ struct DiffusionParams {
     inverse_spacing_squared_step: [f32; 4],
 }
 
+// SAFETY: `#[repr(C)]` struct of two `Pod` arrays (`[u32; 4]`, `[f32; 4]`):
+// contiguous 32-byte layout with 4-byte alignment throughout, so no padding;
+// every bit pattern is valid and all-zeroes is inhabited; `Copy` is derived.
+unsafe impl eunomia::Zeroable for DiffusionParams {}
+// SAFETY: see the `Zeroable` impl; additionally `Copy + 'static`.
+unsafe impl eunomia::Pod for DiffusionParams {}
+
 /// Validated grid and coefficients for three-dimensional explicit diffusion.
 #[derive(Debug, Clone, Copy)]
 pub struct DiffusionConfig {

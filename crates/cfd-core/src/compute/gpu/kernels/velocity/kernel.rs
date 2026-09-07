@@ -19,6 +19,13 @@ struct VelocityParams {
     gradient_scale: [f32; 4],
 }
 
+// SAFETY: `#[repr(C)]` struct of two `Pod` arrays (`[u32; 4]`, `[f32; 4]`):
+// contiguous 32-byte layout with 4-byte alignment throughout, so no padding;
+// every bit pattern is valid and all-zeroes is inhabited; `Copy` is derived.
+unsafe impl eunomia::Zeroable for VelocityParams {}
+// SAFETY: see the `Zeroable` impl; additionally `Copy + 'static`.
+unsafe impl eunomia::Pod for VelocityParams {}
+
 /// Validated grid and physical coefficients for SIMPLE velocity operations.
 #[derive(Debug, Clone, Copy)]
 pub struct VelocityConfig {

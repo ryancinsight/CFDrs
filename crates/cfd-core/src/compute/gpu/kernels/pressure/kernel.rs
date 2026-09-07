@@ -19,6 +19,13 @@ struct PressureParams {
     inverse_spacing_squared_relaxation: [f32; 4],
 }
 
+// SAFETY: `#[repr(C)]` struct of two `Pod` arrays (`[u32; 4]`, `[f32; 4]`):
+// contiguous 32-byte layout with 4-byte alignment throughout, so no padding;
+// every bit pattern is valid and all-zeroes is inhabited; `Copy` is derived.
+unsafe impl eunomia::Zeroable for PressureParams {}
+// SAFETY: see the `Zeroable` impl; additionally `Copy + 'static`.
+unsafe impl eunomia::Pod for PressureParams {}
+
 /// Validated grid and relaxation contract for pressure operations.
 #[derive(Debug, Clone, Copy)]
 pub struct PressureConfig {

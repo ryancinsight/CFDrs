@@ -19,6 +19,13 @@ struct AdvectionParams {
     spacing_step: [f32; 4],
 }
 
+// SAFETY: `#[repr(C)]` struct of two `Pod` arrays (`[u32; 4]`, `[f32; 4]`):
+// contiguous 32-byte layout with 4-byte alignment throughout, so no padding;
+// every bit pattern is valid and all-zeroes is inhabited; `Copy` is derived.
+unsafe impl eunomia::Zeroable for AdvectionParams {}
+// SAFETY: see the `Zeroable` impl; additionally `Copy + 'static`.
+unsafe impl eunomia::Pod for AdvectionParams {}
+
 /// Validated grid and timestep for two-dimensional upwind advection on z-planes.
 #[derive(Debug, Clone, Copy)]
 pub struct AdvectionConfig {
