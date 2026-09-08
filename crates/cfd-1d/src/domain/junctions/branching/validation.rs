@@ -25,6 +25,53 @@ use std::fmt;
 /// observed convergence order.
 const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
 
+/// Renders the validation report as the caller chooses to consume it.
+///
+/// This is a `Display` rather than a `print_summary` because a library does
+/// not own the program's output: the same report has to reach a terminal, a
+/// log line, an assertion message and a test snapshot, and only the caller
+/// knows which. `println!("{report}")` recovers the old behaviour exactly.
+impl<T: CfdScalar + Copy + SafeFromF64 + fmt::Display> fmt::Display
+    for BranchingValidationResult<T>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let rule = "=".repeat(70);
+        writeln!(f, "{rule}")?;
+        writeln!(f, "Branching Validation: {}", self.test_name)?;
+        writeln!(f, "{rule}")?;
+        writeln!(f, "Expected convergence order: {}", self.expected_order)?;
+        if let Some(obs_order) = self.observed_order {
+            writeln!(f, "Observed convergence order: {obs_order}")?;
+        }
+        if let Some(gci) = self.gci_percent {
+            writeln!(f, "Grid Convergence Index (GCI): {gci}%")?;
+        }
+        if let Some(l2) = self.l2_error {
+            writeln!(f, "L2 Error: {:.2e}", <T as NumericElement>::to_f64(l2))?;
+        }
+        if let Some(linf) = self.linf_error {
+            writeln!(
+                f,
+                "L-infinity Error: {:.2e}",
+                <T as NumericElement>::to_f64(linf)
+            )?;
+        }
+        writeln!(
+            f,
+            "Validation Status: {}",
+            if self.validation_passed {
+                "PASSED"
+            } else {
+                "FAILED"
+            }
+        )?;
+        if let Some(msg) = &self.error_message {
+            writeln!(f, "Error: {msg}")?;
+        }
+        write!(f, "{rule}")
+    }
+}
+
 // ============================================================================
 // Validation Framework
 // ============================================================================
@@ -88,42 +135,6 @@ impl<T: CfdScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult
             validation_passed: false,
             error_message: None,
         }
-    }
-
-    /// Print validation summary
-    #[allow(clippy::print_stdout)]
-    pub fn print_summary(&self) {
-        println!("\n{}", "=".repeat(70));
-        println!("Branching Validation: {}", self.test_name);
-        println!("{}", "=".repeat(70));
-        println!("Expected convergence order: {}", self.expected_order);
-        if let Some(obs_order) = self.observed_order {
-            println!("Observed convergence order: {obs_order}");
-        }
-        if let Some(gci) = self.gci_percent {
-            println!("Grid Convergence Index (GCI): {gci}%");
-        }
-        if let Some(l2) = self.l2_error {
-            println!("L2 Error: {:.2e}", <T as NumericElement>::to_f64(l2));
-        }
-        if let Some(linf) = self.linf_error {
-            println!(
-                "L-infinity Error: {:.2e}",
-                <T as NumericElement>::to_f64(linf)
-            );
-        }
-        println!(
-            "Validation Status: {}",
-            if self.validation_passed {
-                "PASSED"
-            } else {
-                "FAILED"
-            }
-        );
-        if let Some(msg) = &self.error_message {
-            println!("Error: {msg}");
-        }
-        println!("{}", "=".repeat(70));
     }
 }
 
