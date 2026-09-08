@@ -1,4 +1,3 @@
-#![expect(clippy::print_stdout, reason = "validation report output")]
 //! Validation tools for 3D bifurcation simulations
 //!
 //! Provides mesh convergence studies, error metrics, and comparison with
@@ -14,6 +13,8 @@
 //! ```
 //!
 //! The GCI provides a 95% confidence band on the discretisation error.
+
+use core::fmt;
 
 use super::geometry::BifurcationGeometry3D;
 use super::solver::BifurcationSolver3D;
@@ -266,43 +267,46 @@ where
             error_message: None,
         }
     }
+}
 
-    /// Print summary
-    pub fn print_summary(&self) {
-        println!("\n{}", "-".repeat(60));
-        println!("Validation: {}", self.test_name);
-        println!("{}", "-".repeat(60));
-
+/// Renders the validation report as the caller chooses to consume it.
+///
+/// A library does not own the program's output: the same report has to reach
+/// a terminal, a log line, an assertion message and a test snapshot, and only
+/// the caller knows which. `println!("{report}")` recovers the old behaviour.
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + SafeFromF64> fmt::Display
+    for BifurcationValidationResult3D<T>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let rule = "-".repeat(60);
+        writeln!(f, "{rule}")?;
+        writeln!(f, "Validation: {}", self.test_name)?;
+        writeln!(f, "{rule}")?;
         if let Some(m_err) = self.mass_error {
             let m = <T as NumericElement>::to_f64(m_err);
-            println!("Mass error: {m:.2e}");
+            writeln!(f, "Mass error: {m:.2e}")?;
         }
         if let Some(p_err) = self.pressure_error {
             let p = <T as NumericElement>::to_f64(p_err);
-            println!("Pressure error: {p:.2e}");
+            writeln!(f, "Pressure error: {p:.2e}")?;
         }
         if let Some(order) = self.convergence_order {
             let o = <T as NumericElement>::to_f64(order);
-            println!("Convergence order: {o:.2}");
+            writeln!(f, "Convergence order: {o:.2}")?;
         }
         if let Some(gci_val) = self.gci {
             let g = <T as NumericElement>::to_f64(gci_val);
-            println!("GCI: {g:.2e}");
+            writeln!(f, "GCI: {g:.2e}")?;
         }
-
-        println!(
+        write!(
+            f,
             "Result: {}",
             if self.validation_passed {
-                "✓ PASSED"
+                "PASSED"
             } else {
-                "✗ FAILED"
+                "FAILED"
             }
-        );
-
-        if let Some(msg) = &self.error_message {
-            println!("Error: {msg}");
-        }
-        println!("{}", "-".repeat(60));
+        )
     }
 }
 
@@ -326,17 +330,6 @@ mod tests {
         let result = validator
             .validate_blood_flow(&solution)
             .expect("expected value");
-
-        // Debug output
-        println!(
-            "Mass conservation error: {:.2e}",
-            solution.mass_conservation_error
-        );
-        println!(
-            "Wall shear stress parent: {:.2e}",
-            solution.wall_shear_stress_parent
-        );
-        println!("Validation message: {:?}", result.error_message);
 
         assert!(result.validation_passed);
     }
