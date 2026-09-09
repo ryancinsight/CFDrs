@@ -401,17 +401,43 @@ pub fn calculate_residual_simd(
 mod tests {
     use super::*;
 
+    /// One sweep from a zero field under a unit source has a closed form.
+    ///
+    /// With `phi = 0` both Laplacian sums vanish, so every interior cell
+    /// becomes `-0.5 / (1/dx^2 + 1/dy^2)` times the source. This is the only
+    /// case here that drives the source term: `test_jacobi_known_stencil`
+    /// exercises the neighbour sums against a zero source. `phi_new` starts
+    /// filled with a sentinel, so a kernel that writes nothing fails instead
+    /// of inheriting a zero buffer.
     #[test]
-    fn test_jacobi_iteration() {
+    fn jacobi_sweep_from_zero_is_the_scaled_source() {
         let nx = 10;
         let ny = 10;
+        let (dx, dy) = (0.1f32, 0.1f32);
         let mut phi = vec![0.0f32; nx * ny];
-        let mut phi_new = vec![0.0f32; nx * ny];
+        let mut phi_new = vec![f32::MIN; nx * ny];
         let source = vec![1.0f32; nx * ny];
 
-        let result = jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, 0.1, 0.1);
+        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, dx, dy)
+            .expect("a 10x10 grid admits the interior sweep");
 
-        assert!(result.is_ok());
+        // Four roundings separate this from the exact value (two reciprocals,
+        // their sum, the product), so 8 f32 ulp is a generous bound.
+        let expected = -0.5 / (1.0 / (dx * dx) + 1.0 / (dy * dy));
+        let tolerance = 8.0 * f32::EPSILON * expected.abs();
+        for i in 0..nx {
+            for j in 0..ny {
+                let got = phi_new[i * ny + j];
+                if i == 0 || j == 0 || i == nx - 1 || j == ny - 1 {
+                    assert_eq!(got, 0.0, "boundary ({i},{j}) must carry phi through");
+                } else {
+                    assert!(
+                        (got - expected).abs() <= tolerance,
+                        "interior ({i},{j}): {got} is not the scaled source {expected}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -677,19 +703,6 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn test_divergence_calculation() {
-        let nx = 5;
-        let ny = 5;
-        let u = vec![1.0f32; nx * ny];
-        let v = vec![2.0f32; nx * ny];
-        let mut divergence = vec![0.0f32; nx * ny];
-
-        let result = calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, 1.0, 1.0);
-
-        assert!(result.is_ok());
     }
 
     // ── Differential suite: ported kernels vs the historical scalar form ──
