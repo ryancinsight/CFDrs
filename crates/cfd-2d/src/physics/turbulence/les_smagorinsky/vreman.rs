@@ -407,7 +407,7 @@ mod tests {
     fn try_set_filter_width_accepts_positive_value() {
         let mut model = VremanModel::<f64>::default();
         let result = model.try_set_filter_width(0.05);
-        assert!(result.is_ok(), "valid filter_width must succeed");
+        result.as_ref().expect("valid filter_width must succeed");
     }
 
     #[test]

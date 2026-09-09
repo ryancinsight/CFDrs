@@ -548,9 +548,8 @@ mod tests {
             .expect("unit_square grid construction should succeed for valid inputs");
         let config = VorticityStreamConfig::default();
         let result = VorticityStreamSolver::try_new(config, &grid, 100.0);
-        assert!(
-            result.is_ok(),
-            "valid Reynolds, grid, and config must succeed"
-        );
+        result
+            .as_ref()
+            .expect("valid Reynolds, grid, and config must succeed");
     }
 }

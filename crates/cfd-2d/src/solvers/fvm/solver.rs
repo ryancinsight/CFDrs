@@ -238,6 +238,8 @@ mod tests {
         let source = Field2D::new(8, 8, 0.0);
 
         let result = solver.solve(&mut phi, &velocity, &source);
-        assert!(result.is_ok());
+        result
+            .as_ref()
+            .expect("the FVM transport solve must succeed");
     }
 }

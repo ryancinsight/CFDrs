@@ -354,7 +354,6 @@ mod tests {
         let suite = EdgeCaseTestSuite::<f64>::new();
         let report = suite.run_comprehensive_edge_case_tests();
 
-        assert!(report.is_ok());
         let report = match report {
             Ok(report) => report,
             Err(err) => panic!("Edge case test suite failed: {err:?}"),

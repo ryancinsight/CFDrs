@@ -687,7 +687,6 @@ mod tests {
         let runner = StabilityAnalysisRunner::<f64>::new();
         let report = runner.run_comprehensive_stability_analysis();
 
-        assert!(report.is_ok());
         let report = report.expect("expected value");
 
         assert!(!report.rk_stability_regions.is_empty());

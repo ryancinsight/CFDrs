@@ -264,7 +264,7 @@ mod tests {
 
         let dt = 0.001;
         let result = predictor.predict(&mut fields, dt);
-        assert!(result.is_ok());
+        result.as_ref().expect("the PISO predictor must succeed");
 
         // Verify all values remain finite after prediction
         for i in 0..8 {

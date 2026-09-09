@@ -164,7 +164,6 @@ mod tests {
 
         // Test amplitude metadata
         let amplitude_metadata = serpentine_manager.get_metadata("amplitude");
-        assert!(amplitude_metadata.is_ok());
 
         let metadata = amplitude_metadata.expect("structural invariant");
         assert_eq!(metadata.name, "amplitude");

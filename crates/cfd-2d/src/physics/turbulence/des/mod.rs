@@ -480,7 +480,9 @@ mod tests {
             0.1,
             0.1,
         );
-        assert!(result.is_ok());
+        result
+            .as_ref()
+            .expect("the DES eddy-viscosity update must succeed");
     }
 
     #[test]

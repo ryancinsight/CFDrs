@@ -578,6 +578,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
 
     #[test]
     fn test_bifurcation_solver_creation() {
@@ -595,6 +596,6 @@ mod tests {
 
         let water = cfd_core::physics::fluid::water_20c::<f64>().expect("expected value");
         let result = solver.solve(water);
-        assert!(result.is_err());
+        assert_rejects(&result, "Invalid input: Mesh resolution must be >= 2");
     }
 }

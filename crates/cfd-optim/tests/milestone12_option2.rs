@@ -11,6 +11,7 @@
 //! 5. FDA venturi transient shear compliance (≤ 300 Pa for ≤ 0.015 s)
 //! 6. EvaluatedPool ranking for Option 2 is consistent
 
+use cfd_core::test_support::assert_rejects;
 use std::collections::HashSet;
 
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
@@ -240,10 +241,7 @@ fn option2_rejects_non_venturi_candidates() {
 
     let eval = evaluate_blueprint_candidate(&acoustic).expect("evaluation succeeds");
     let result = evaluate_selective_venturi_cavitation(&acoustic, eval);
-    assert!(
-        result.is_err(),
-        "Option 2 scoring must reject candidates without venturi placements"
-    );
+    assert_rejects(&result, "invalid parameter: Option 2 requires venturi treatment geometry, but candidate 'test-acoustic' has no venturi placements");
 }
 
 #[test]

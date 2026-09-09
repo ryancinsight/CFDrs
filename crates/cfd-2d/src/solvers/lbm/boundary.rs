@@ -486,6 +486,7 @@ impl<T: CfdScalar + Copy + FloatElement> BoundaryHandler<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
     use eunomia::assert_relative_eq;
 
     fn write_cell(f: &mut [f64], i: usize, j: usize, nx: usize, values: [f64; 9]) {
@@ -648,6 +649,6 @@ mod tests {
             [0.2, 0.0],
         );
 
-        assert!(result.is_err(), "D2Q9 velocity inlet must reject Ma > 0.1");
+        assert_rejects(&result, "Invalid configuration: LBM velocity boundary violates Ma <= 0.1 low-Mach incompressible limit");
     }
 }

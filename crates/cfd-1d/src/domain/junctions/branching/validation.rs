@@ -532,7 +532,14 @@ mod tests {
             .expect("expected value");
 
         // For water (Newtonian), symmetric geometry should match analytical
-        assert!(result.l2_error.is_some());
+        // A completed comparison reports a finite, non-negative L2 error.
+        let l2 = result
+            .l2_error
+            .expect("a Newtonian comparison must report its L2 error");
+        assert!(
+            l2.is_finite() && l2 >= 0.0,
+            "L2 error must be a finite non-negative norm, got {l2}"
+        );
     }
 
     #[test]
@@ -563,7 +570,13 @@ mod tests {
             .expect("expected value");
 
         // Blood should have physiological properties
-        assert!(result.validation_passed || result.error_message.is_some());
+        // No silent failure: an explanation is present exactly when it failed.
+        assert_eq!(
+            result.validation_passed,
+            result.error_message.is_none(),
+            "a validation result must explain itself exactly when it fails: {:?}",
+            result.error_message
+        );
     }
 
     #[test]

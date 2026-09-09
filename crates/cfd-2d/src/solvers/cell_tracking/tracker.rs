@@ -432,8 +432,10 @@ mod tests {
         let trajectories = tracker.trace_cells(&cells, Time::from_base(1e-5), 200_000);
         for traj in &trajectories {
             assert!(
-                traj.exit_outlet.is_some(),
-                "cell {} should exit",
+                traj.exit_outlet
+                    .as_ref()
+                    .is_some_and(|outlet| !outlet.is_empty()),
+                "cell {} should exit through a named outlet",
                 traj.cell_id
             );
             assert!(
@@ -470,7 +472,9 @@ mod tests {
         }];
         let trajectories = tracker.trace_cells(&cells, Time::from_base(1e-5), 500_000);
         let traj = &trajectories[0];
-        assert!(traj.exit_outlet.is_some());
+        traj.exit_outlet
+            .as_ref()
+            .expect("a traced cell must reach an outlet");
         // Final y should be within 30% of centerline (0.001 m).
         let final_y = traj
             .positions

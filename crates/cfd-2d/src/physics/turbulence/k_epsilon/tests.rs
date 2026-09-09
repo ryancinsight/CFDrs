@@ -139,7 +139,7 @@ fn test_update_maintains_positivity() {
 
     let result = model.update(&mut k, &mut epsilon, &velocity, 1.0, 1e-5, 0.001, 0.1, 0.1);
 
-    assert!(result.is_ok());
+    result.as_ref().expect("the k-epsilon update must succeed");
     for &val in &k {
         assert!(val >= 0.0);
     }
@@ -183,7 +183,7 @@ fn test_update_with_uniform_flow() {
     let velocity = vec![Vector2::new(1.0, 0.0); 25];
 
     let result = model.update(&mut k, &mut epsilon, &velocity, 1.0, 1e-5, 0.001, 0.1, 0.1);
-    assert!(result.is_ok());
+    result.as_ref().expect("the k-epsilon update must succeed");
 }
 
 #[test]

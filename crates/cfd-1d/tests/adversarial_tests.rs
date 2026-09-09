@@ -19,6 +19,7 @@ use cfd_1d::{
     Network, NetworkBuilder, NetworkProblem, NetworkSolver,
 };
 use cfd_core::physics::fluid::database::water_20c;
+use cfd_core::test_support::assert_rejects;
 use eunomia::assert_relative_eq;
 use petgraph::visit::EdgeRef;
 
@@ -132,9 +133,9 @@ fn test_no_inlet_or_outlet_is_rejected() {
     let j2 = builder.add_junction("j2".into());
     builder.connect_with_pipe(j1, j2, "pipe".into());
     let result = builder.build();
-    assert!(
-        result.is_err(),
-        "Network without inlet/outlet must be rejected"
+    assert_rejects(
+        &result,
+        "Invalid configuration: Network requires at least one inlet",
     );
 }
 

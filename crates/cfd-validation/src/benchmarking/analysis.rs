@@ -517,6 +517,7 @@ impl PerformanceAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
     use eunomia::assert_relative_eq;
 
     #[test]
@@ -648,7 +649,6 @@ mod tests {
         let regression = analyzer
             .detect_regression("degrading_benchmark")
             .expect("expected value");
-        assert!(regression.is_some());
 
         let alert = regression.expect("expected value");
         assert!(alert.degradation_rate > 0.0);
@@ -684,6 +684,9 @@ mod tests {
 
         // Should fail with insufficient data
         let result = analyzer.analyze_trend("sparse_benchmark");
-        assert!(result.is_err());
+        assert_rejects(
+            &result,
+            "Invalid input: Insufficient data for trend analysis: 1 samples, need 5",
+        );
     }
 }

@@ -78,7 +78,6 @@ mod tests {
     #[test]
     fn segment_intersection_detects_crossing() {
         let result = segment_intersection((0.0, 0.0), (1.0, 1.0), (0.0, 1.0), (1.0, 0.0));
-        assert!(result.is_some());
         let (t, u, point) = result.expect("structural invariant");
         assert!((t - 0.5).abs() < 1e-10);
         assert!((u - 0.5).abs() < 1e-10);

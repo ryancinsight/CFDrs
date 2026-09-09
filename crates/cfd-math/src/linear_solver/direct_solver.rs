@@ -195,10 +195,9 @@ mod tests {
         let rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).expect("expected value");
         let result = catch_unwind(AssertUnwindSafe(|| solver.solve(&matrix, &rhs)));
 
-        assert!(
-            result.is_ok(),
-            "direct solver must not panic on singular input"
-        );
+        result
+            .as_ref()
+            .expect("direct solver must not panic on singular input");
         assert!(result.expect("expected value").is_err());
     }
 

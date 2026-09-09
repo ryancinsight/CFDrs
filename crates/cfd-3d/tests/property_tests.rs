@@ -29,8 +29,9 @@ proptest! {
         use cfd_3d::{SpectralConfig, SpectralSolver};
         let config = SpectralConfig::<f64>::new(n, n, n)
             .expect("SpectralConfig::new must succeed");
-        let result = SpectralSolver::new(config);
-        prop_assert!(result.is_ok(), "SpectralSolver::new must succeed for n={n}");
+        SpectralSolver::new(config).unwrap_or_else(|error| {
+            panic!("SpectralSolver::new must succeed for n={n}: {error}")
+        });
     }
 }
 

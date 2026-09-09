@@ -584,6 +584,7 @@ mod tests {
     use super::*;
     use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
     use cfd_core::physics::fluid::ConstantPropertyFluid;
+    use cfd_core::test_support::assert_rejects;
 
     fn water_fluid() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
@@ -623,9 +624,9 @@ mod tests {
         let fluid = water_fluid();
         let solver = CascadeSolver3D::new(config, fluid);
         let result = solver.solve(&[]);
-        assert!(
-            result.is_err(),
-            "solving with zero channels should return an error"
+        assert_rejects(
+            &result,
+            "Invalid configuration: CascadeSolver3D: no channels supplied",
         );
     }
 

@@ -122,7 +122,7 @@ mod boundary_edge_cases {
         );
 
         let result = applicator.apply(&mut field, &spec, 0.0);
-        assert!(result.is_ok(), "Empty field should not cause error");
+        result.as_ref().expect("Empty field should not cause error");
     }
 
     /// Test Dirichlet on single-element field
@@ -251,7 +251,9 @@ mod boundary_edge_cases {
         );
 
         let result = applicator.apply(&mut field, &spec, 0.0);
-        assert!(result.is_ok(), "Small alpha should not cause issues");
+        result
+            .as_ref()
+            .expect("Small alpha should not cause issues");
     }
 
     // Property-based test: Dirichlet preserves value exactly

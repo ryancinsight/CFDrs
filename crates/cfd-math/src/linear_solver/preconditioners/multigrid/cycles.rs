@@ -428,6 +428,7 @@ fn solve_coarsest_level(
 mod tests {
     use super::super::csr_from_parts;
     use super::*;
+    use cfd_core::test_support::assert_rejects;
 
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
         let matrix = csr_from_parts(
@@ -540,6 +541,9 @@ mod tests {
             MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).expect("expected value");
 
         let result = apply_v_cycle(&levels, &residual, 1, 1e-6);
-        assert!(result.is_err());
+        assert_rejects(
+            &result,
+            "Invalid configuration: No multigrid levels available",
+        );
     }
 }

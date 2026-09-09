@@ -320,7 +320,6 @@ mod tests {
         let c = vector_from_vec(vec![0.0, 0.5, 0.5, 1.0]);
 
         let result = analyzer.compute_rk_stability_region(&a, &b, &c);
-        assert!(result.is_ok());
 
         let region = result.expect("expected value");
         assert_eq!(region.method_info.order, 4);

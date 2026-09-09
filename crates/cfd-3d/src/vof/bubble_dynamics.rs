@@ -685,7 +685,7 @@ mod tests {
             BloodModel::Newtonian(1.0e-3),
             Pressure::from_base(2300.0),
         );
-        assert!(result.is_ok(), "valid config and grid must succeed");
+        result.as_ref().expect("valid config and grid must succeed");
     }
 
     #[test]

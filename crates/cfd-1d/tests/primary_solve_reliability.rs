@@ -261,10 +261,10 @@ fn aggressive_primitive_selective_case_primary_converges_without_recovery() {
     );
 
     assert!(diagnostics.picard_iterations >= 1);
-    assert!(
-        diagnostics.linear_solver_method.is_some(),
-        "primary-converged aggressive cases must record which linear solver was chosen"
-    );
+    diagnostics
+        .linear_solver_method
+        .as_ref()
+        .expect("primary-converged aggressive cases must record which linear solver was chosen");
     assert!(!diagnostics.degraded_geometry_for_recovery);
     for edge in network.graph.edge_weights() {
         assert!(edge.resistance.into_base().is_finite() && edge.resistance.into_base() > 0.0);
@@ -292,10 +292,10 @@ fn constrained_iteration_budget_classifies_max_iterations_exceeded() {
 
     assert_eq!(err.reason, SolveFailureReason::MaxIterationsExceeded);
     assert_eq!(err.diagnostics.picard_iterations, 1);
-    assert!(
-        err.diagnostics.linear_solver_method.is_some(),
-        "classified failures after matrix assembly should record the chosen linear solver"
-    );
+    err.diagnostics
+        .linear_solver_method
+        .as_ref()
+        .expect("classified failures after matrix assembly must record the chosen linear solver");
 }
 
 #[test]

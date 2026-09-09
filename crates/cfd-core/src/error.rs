@@ -1590,12 +1590,13 @@ impl From<leto::LetoError> for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_rejects;
 
     #[test]
     fn test_error_context() {
         let result: Result<()> = Err(Error::InvalidInput("test".into()));
         let with_context = result.context("Additional context");
-        assert!(with_context.is_err());
+        assert_rejects(&with_context, "Additional context: Invalid input: test");
         let error_msg = format!("{}", with_context.expect_err("should have error"));
         assert!(error_msg.contains("Additional context"));
     }

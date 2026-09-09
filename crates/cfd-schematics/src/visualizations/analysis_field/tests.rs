@@ -1,5 +1,6 @@
 //! Value-semantic overlay and color-law integration tests.
 
+use cfd_core::test_support::assert_rejects;
 use std::{borrow::Cow, collections::HashMap, ptr};
 
 use iris::color::NamedColorMap;
@@ -73,7 +74,10 @@ fn non_finite_field_data_is_rejected_at_the_ownership_boundary() {
     let edge_data = HashMap::from([(0, f64::NAN)]);
     let result = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)
         .with_edge_data(Cow::Owned(edge_data));
-    assert!(result.is_err());
+    assert_rejects(
+        &result,
+        "Invalid parameters: edge data = NaN. all scalar field values must be finite",
+    );
 }
 
 #[test]
