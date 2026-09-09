@@ -160,6 +160,34 @@ All notable changes to this project will be documented in this file.
   simd_kernels.rs`) are the next GA-004 legs and route lane-wise work through
   hermes-simd there.
 
+- `cfd-2d` completes the final GA-004 leg: the six kernels in
+  `solvers/simd_kernels.rs` — despite the module name, five were pure scalar
+  loops and only `interpolate_velocity_simd` touched the hermes seam — now
+  route their bulk stencil arithmetic through `cfd_math::simd::SimdOps`
+  row operations. The row-major layout (`idx = i * ny + j`) makes every
+  5-point stencil neighbor sum a contiguous row-slice op: full-row
+  differences for x-neighbors, a shifted ny-2 sum/difference for
+  y-neighbors. Kernels whose scalar form precomputes reciprocal spacings
+  (divergence, gradient, residual) reuse that value and are bit-identical
+  to the historical loops, verified by whole-field `assert_eq!`
+  differential tests; Jacobi and Gauss-Seidel divide by `dx²`/`dy²`
+  directly in the scalar form and their ports multiply by the reciprocal,
+  a derived two-ulp bound. Red-black SOR keeps the historical red-pass/
+  black-pass structure with only the per-color commit scalar, preserving
+  sequential SOR semantics. A differential suite (6 tests) covers
+  degenerate grids (`nx` or `ny` < 3, matching the original's
+  empty-interior behavior), lane/tail boundary sizes, and multi-sweep SOR
+  trajectories. New `SimdOps::scale_in_place` and `abs_max_f32` expose
+  hermes' in-place scale kernel and ∞-norm reduction on the cfd-math
+  seam. Gates: fmt clean; clippy `-D warnings` clean via the standalone
+  `--locked` gate (including cfd-2d and its full dependent cone —
+  cfd-3d, cfd-validation); 990 tests green across cfd-math + cfd-2d,
+  0 failures. With the cfd-math leg (branch
+  `perf/cfdrs-port-cfd-math-simd-to-hermes`), this closes CFDRS-GA-004:
+  `crates/*/src` contains no `std::arch` intrinsic import (the
+  `compute/traits.rs` availability probe remains the intended exception),
+  and all lane-wise kernels route through one hermes seam.
+
 - **Breaking:** `ElasticSolid` composes `proteus::IsotropicSolid` instead of
   storing elastic constants itself, so no material constant is hardcoded in
   `cfd-core` any more. The struct still stores thermal conductivity, specific
