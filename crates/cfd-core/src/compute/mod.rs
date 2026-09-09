@@ -10,7 +10,6 @@ pub mod cpu;
 pub mod dispatch;
 #[cfg(feature = "gpu")]
 pub mod gpu;
-pub mod simd;
 pub mod solver;
 pub mod time;
 pub mod traits;

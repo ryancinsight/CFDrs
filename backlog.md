@@ -4890,7 +4890,7 @@ No existing item's status was changed by this audit.
   Dependencies: none. Decompose per subject area (analytical, convergence,
   cross-package, external references).
 
-- **CFDRS-GA-004 [minor][arch] — Consolidate the three SIMD implementations onto hermes-simd (status=todo, effort=L).**
+- **CFDRS-GA-004 [minor][arch] — Consolidate the three SIMD implementations onto hermes-simd (status=in-progress, effort=L).**
   Outcome: one SIMD seam. Lane-wise kernels dispatch through `hermes-simd`;
   any capability hermes lacks is implemented upstream in hermes rather than
   re-derived here.
@@ -4907,6 +4907,30 @@ No existing item's status was changed by this audit.
   shows no regression on the affected kernels.
   Dependencies: hermes-simd must cover advection, diffusion, and dot product
   for `f32`/`f64`; a gap is an upstream hermes item, not a local reimplementation.
+  - **cfd-core leg delivered 2026-09-09 (deletion, not port).** Probe before
+    porting: the six `pub unsafe fn` kernels in
+    `compute/simd/{x86,aarch64}.rs` (286 + 197 lines) had zero callers across
+    the entire workspace — the `compute::simd` facade was a bare module
+    re-export, `ComputeDispatcher::execute_simd` checks availability and
+    delegates to the kernel without touching the modules, and no test, bench,
+    example, or doc named any kernel. They were dead hand-rolled `std::arch`
+    surface beside the provider, not a third active implementation, so the
+    fix was deletion (recorded as Breaking in the changelog; the workspace
+    has no external consumers and the release bump owns the version).
+    `crates/*/src` now contains no `std::arch` intrinsic import — the one
+    remaining match is `compute/traits.rs:149`, the
+    `is_aarch64_feature_detected!("neon")` availability probe, which is the
+    oracle's intended exception. Gates: `cargo fmt --all --check` clean;
+    `cargo clippy -p cfd-core --all-targets -- -D warnings` clean;
+    `cargo test -p cfd-core` 249 unit + 13 doc green. Workspace-wide gates
+    are partially blocked by the standing overlay break (quarantined
+    `apollo-fft` imports `leto_ops::transpose_complex_matrices`, removed on
+    leto main), so clippy/tests ran on the resolvable subset
+    (cfd-core, cfd-math, cfd-io, cfd-1d, cfd-schematics): 52/52 test-result
+    sections green, 0 failures. Remaining legs: `cfd-math/src/simd` (972
+    lines) and `cfd-2d/src/solvers/simd_kernels.rs` (562 lines) — the live
+    implementations, to be ported onto hermes facets with differential tests
+    and a criterion baseline per the acceptance oracle.
 
 - **CFDRS-GA-005 [patch][correctness] — Replace the 739 `expect("expected value")` sites (status=todo, effort=M).**
   Outcome: every panicking site in library source either carries an
