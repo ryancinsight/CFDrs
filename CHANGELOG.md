@@ -187,6 +187,23 @@ All notable changes to this project will be documented in this file.
   `crates/*/src` contains no `std::arch` intrinsic import (the
   `compute/traits.rs` availability probe remains the intended exception),
   and all lane-wise kernels route through one hermes seam.
+- `cfd-math` completes its GA-004 leg: the last scalar holdouts in
+  `simd::SimdOps` — `fma`/`fma_f64` and `scale`/`scale_f64` — now route
+  through hermes-simd's sealed dispatch kernels (fused `axpy_mul` with unit
+  alpha for FMA, in-place `scale`), replacing the residual per-element loops.
+  `add_u32` remains the documented scalar exception: hermes' sealed
+  `SimdOps` covers f32/f64, i8/i16/i32, and the eunomia scalars, but no
+  unsigned integer. A differential test suite sweeps 27 lengths covering
+  every dispatch regime (empty, sub-lane tails, lane and unrolled-chunk
+  boundaries, large arrays), asserting bit-exact agreement with scalar
+  references for the same-rounding elementwise kernels, one-ulp agreement
+  for FMA against `f32/f64::mul_add`, and f64-oracle/tolerance contracts
+  for the order-sensitive reductions (`dot`, `sum`). Gates: fmt clean;
+  clippy `-D warnings` clean via a standalone `--locked` gate at the
+  committed lock revs (in-tree clippy is blocked by the path-patched
+  mnemosyne tip's mid-refactor break, independent of this change);
+  217 unit + 33 integration + 6 doc tests green, and dependents `cfd-1d`
+  and `cfd-io` clippy green.
 
 - **Breaking:** `ElasticSolid` composes `proteus::IsotropicSolid` instead of
   storing elastic constants itself, so no material constant is hardcoded in

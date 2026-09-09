@@ -52,24 +52,27 @@ impl SimdOps {
 
     /// Fused multiply-add: `result[i] = a[i] * b[i] + c[i]`.
     ///
-    /// Uses hardware FMA via `mul_add` when available.
+    /// Delegates to hermes' fused AXPY kernel (`axpy_mul` with unit alpha,
+    /// after seeding `result` with `c`): masked FMADD on supporting hardware,
+    /// no temporaries, and no memory touched beyond the live tail. The unit
+    /// alpha is exact, so single-rounding semantics match `f32::mul_add`.
     #[inline]
     pub fn fma(&self, a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> Result<()> {
         validate_same_len(a.len(), b.len(), c.len())?;
         validate_same_len(a.len(), result.len(), result.len())?;
-        for ((r, &ai), (&bi, &ci)) in result.iter_mut().zip(a.iter()).zip(b.iter().zip(c.iter())) {
-            *r = ai.mul_add(bi, ci);
-        }
-        Ok(())
+        result.copy_from_slice(c);
+        f32::axpy_mul(1.0, a, b, result).map_err(simd_err)
     }
 
     /// Scalar multiplication: `result[i] = input[i] * scalar`.
+    ///
+    /// Copies `input` into `result`, then applies hermes' in-place scale
+    /// kernel (broadcast-splat multiply with masked tail handling).
     #[inline]
     pub fn scale(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
         validate_same_len(input.len(), result.len(), result.len())?;
-        for (r, &v) in result.iter_mut().zip(input.iter()) {
-            *r = v * scalar;
-        }
+        result.copy_from_slice(input);
+        f32::scale(result, scalar);
         Ok(())
     }
 
@@ -129,23 +132,25 @@ impl SimdOps {
     }
 
     /// Fused multiply-add (f64): `result[i] = a[i] * b[i] + c[i]`.
+    ///
+    /// Delegates to hermes' fused AXPY kernel (`axpy_mul` with unit alpha,
+    /// after seeding `result` with `c`) — see [`SimdOps::fma`].
     #[inline]
     pub fn fma_f64(&self, a: &[f64], b: &[f64], c: &[f64], result: &mut [f64]) -> Result<()> {
         validate_same_len(a.len(), b.len(), c.len())?;
         validate_same_len(a.len(), result.len(), result.len())?;
-        for ((r, &ai), (&bi, &ci)) in result.iter_mut().zip(a.iter()).zip(b.iter().zip(c.iter())) {
-            *r = ai.mul_add(bi, ci);
-        }
-        Ok(())
+        result.copy_from_slice(c);
+        f64::axpy_mul(1.0, a, b, result).map_err(simd_err)
     }
 
     /// Scalar multiplication (f64): `result[i] = input[i] * scalar`.
+    ///
+    /// Delegates to hermes' in-place scale kernel — see [`SimdOps::scale`].
     #[inline]
     pub fn scale_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
         validate_same_len(input.len(), result.len(), result.len())?;
-        for (r, &v) in result.iter_mut().zip(input.iter()) {
-            *r = v * scalar;
-        }
+        result.copy_from_slice(input);
+        f64::scale(result, scalar);
         Ok(())
     }
 
@@ -173,6 +178,10 @@ impl SimdOps {
     // ── Integer operations (scalar fallback) ────────────────────────────
 
     /// Element-wise u32 addition (scalar — hermes does not seal u32).
+    ///
+    /// This is the only non-hermes kernel here: hermes' sealed `SimdOps`
+    /// covers f32/f64, i8/i16/i32, and the eunomia scalars, but no unsigned
+    /// integer. `wrapping_add` preserves the historical overflow contract.
     #[inline]
     pub fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()> {
         validate_same_len(a.len(), b.len(), result.len())?;
