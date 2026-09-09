@@ -42,7 +42,6 @@ mod gpu_tests {
 
         let size = 1000;
         let buffer = GpuBuffer::<f32>::new(context.clone(), size);
-        assert!(buffer.is_ok());
 
         let buffer = buffer.expect("expected value");
         assert_eq!(buffer.size(), size);

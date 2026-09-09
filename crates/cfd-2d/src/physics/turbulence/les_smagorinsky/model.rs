@@ -569,7 +569,9 @@ mod tests {
             0.1,
             0.1,
         );
-        assert!(result.is_ok());
+        result
+            .as_ref()
+            .expect("the Smagorinsky sub-grid update must succeed");
 
         // Check that SGS viscosity was computed
         assert!(les.sgs_viscosity.iter().any(|&v| v > 0.0));
@@ -624,8 +626,13 @@ mod tests {
         };
         let les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
 
-        // Should have dynamic constant field when enabled
-        assert!(les.dynamic_constant.is_some());
+        // The dynamic constant is solved per cell, so the field must cover
+        // the grid it was computed on.
+        let dynamic = les
+            .dynamic_constant
+            .as_ref()
+            .expect("enabling the dynamic model must produce a constant field");
+        assert_eq!(dynamic.len(), 10 * 10);
     }
 
     #[test]
@@ -660,7 +667,9 @@ mod tests {
             0.2,
             0.2,
         );
-        assert!(result.is_ok());
+        result
+            .as_ref()
+            .expect("updating the filter width must succeed");
 
         // Check that filter width was updated
         let expected_delta = (0.2f64 * 0.2f64).sqrt();

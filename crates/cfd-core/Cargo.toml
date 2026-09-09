@@ -38,6 +38,9 @@ default = ["gpu"]
 gpu = ["dep:hephaestus-wgpu"]
 simd = []
 experimental = []
+# Exposes `test_support` to sibling crates' test targets; carries no
+# production code.
+test-util = []
 
 [dev-dependencies]
 proptest.workspace = true

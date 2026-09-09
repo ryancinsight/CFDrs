@@ -162,6 +162,7 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> StokesFlowProblem<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
     use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
     use leto::Point3;
@@ -324,7 +325,10 @@ mod tests {
 
         // Should fail validation - boundary nodes exist but no BCs
         let result = problem.validate();
-        assert!(result.is_err());
+        assert_rejects(
+            &result,
+            "Invalid configuration: Missing boundary conditions for nodes: [0, 1, 2, 3]",
+        );
 
         if let Err(Error::InvalidConfiguration(msg)) = result {
             assert!(msg.contains("Missing boundary conditions"));
@@ -353,8 +357,9 @@ mod tests {
         let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
 
         // Should pass validation
-        let result = problem.validate();
-        assert!(result.is_ok());
+        problem
+            .validate()
+            .expect("a problem with boundary conditions on every node must validate");
     }
 
     #[test]

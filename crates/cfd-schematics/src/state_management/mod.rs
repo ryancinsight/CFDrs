@@ -91,13 +91,13 @@ mod tests {
 
     #[test]
     fn test_default_registry_creation() {
-        let registry = DefaultParameterConfig::create_registry();
-        assert!(registry.is_ok());
+        DefaultParameterConfig::create_registry()
+            .expect("the default parameter registry must build");
     }
 
     #[test]
     fn test_validated_registry_creation() {
-        let registry = DefaultParameterConfig::create_validated_registry();
-        assert!(registry.is_ok());
+        DefaultParameterConfig::create_validated_registry()
+            .expect("the validated parameter registry must build");
     }
 }

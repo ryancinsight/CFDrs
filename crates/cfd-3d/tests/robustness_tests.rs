@@ -8,6 +8,7 @@
 //! shape-function gradient completeness.
 
 use aequitas::systems::si::quantities::SurfaceTension;
+use cfd_core::test_support::assert_rejects;
 use eunomia::assert_relative_eq;
 use leto::{FixedMatrix, Vector3};
 
@@ -556,7 +557,7 @@ fn test_vof_set_volume_fraction_wrong_size() {
     let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).expect("expected value");
     // Wrong size: 10 instead of 125
     let result = solver.set_volume_fraction(vec![0.5; 10]);
-    assert!(result.is_err(), "Should reject wrong-size alpha vector");
+    assert_rejects(&result, "Dimension mismatch: expected 125, got 10");
 }
 
 /// set_velocity_field rejects wrong-size input.
@@ -576,7 +577,7 @@ fn test_vof_set_velocity_field_wrong_size() {
     };
     let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).expect("expected value");
     let result = solver.set_velocity_field(vec![leto::geometry::Vector3::zeros(); 10]);
-    assert!(result.is_err(), "Should reject wrong-size velocity vector");
+    assert_rejects(&result, "Dimension mismatch: expected 125, got 10");
 }
 
 /// total_volume is consistent with alpha sum * cell volume.

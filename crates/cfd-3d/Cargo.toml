@@ -39,6 +39,7 @@ default = []
 
 
 [dev-dependencies]
+cfd-core = { workspace = true, features = ["test-util"] }
 proptest.workspace = true
 criterion.workspace = true
 cfd-validation.workspace = true

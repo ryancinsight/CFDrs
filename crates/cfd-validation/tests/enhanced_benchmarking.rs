@@ -8,6 +8,7 @@
 //! - Statistical analysis
 //! - Benchmark suite operations
 
+use cfd_core::test_support::assert_rejects;
 use cfd_validation::benchmarking::{
     analysis::{PerformanceAnalyzer, RegressionConfig, TrendType},
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
@@ -162,9 +163,7 @@ fn test_regression_detection() {
         .detect_regression("degrading_benchmark")
         .expect("expected value");
 
-    assert!(regression.is_some(), "Should detect performance regression");
-
-    let alert = regression.expect("expected value");
+    let alert = regression.expect("Should detect performance regression");
     assert!(
         alert.degradation_rate > 2.0,
         "Degradation rate should exceed threshold: {:.2}%",
@@ -339,7 +338,10 @@ fn test_statistical_analysis_robustness() {
     );
 
     let trend_result = analyzer.analyze_trend("minimal_test");
-    assert!(trend_result.is_err(), "Should reject insufficient data");
+    assert_rejects(
+        &trend_result,
+        "Invalid input: Insufficient data for trend analysis: 1 samples, need 3",
+    );
 
     // Add more data
     analyzer.add_result(

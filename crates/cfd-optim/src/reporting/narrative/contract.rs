@@ -106,7 +106,9 @@ mod tests {
 
         let result = load_m12_contract_text(&workspace_root);
         let cleanup_result = std::fs::remove_dir_all(&workspace_root);
-        assert!(cleanup_result.is_ok(), "fixture cleanup must succeed");
+        cleanup_result
+            .as_ref()
+            .expect("fixture cleanup must succeed");
         let txt = result.expect("contract text must load from the fixture");
         assert_eq!(txt.description, M12_DESCRIPTION);
         assert_eq!(txt.exit_criteria, M12_EXIT);

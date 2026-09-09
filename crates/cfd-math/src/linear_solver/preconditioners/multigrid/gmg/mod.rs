@@ -80,9 +80,8 @@ mod tests {
     #[test]
     fn test_geometric_multigrid_creation() {
         let gmg = GeometricMultigrid::<f64>::new(16, 16, 4);
-        assert!(gmg.is_ok(), "GMG creation should succeed");
 
-        let gmg = gmg.expect("expected value");
+        let gmg = gmg.expect("GMG creation should succeed");
         assert!(!gmg.grid_sizes.is_empty(), "Should have grid levels");
         assert!(!gmg.matrices.is_empty(), "Should have matrices");
         assert_eq!(gmg.grid_sizes[0], (16, 16), "Finest grid should be 16x16");
@@ -91,9 +90,8 @@ mod tests {
     #[test]
     fn test_poisson_matrix_creation() {
         let matrix = GeometricMultigrid::<f64>::create_poisson_matrix(4, 4, 0.25);
-        assert!(matrix.is_ok(), "Poisson matrix creation should succeed");
 
-        let matrix = matrix.expect("expected value");
+        let matrix = matrix.expect("Poisson matrix creation should succeed");
         assert_eq!(matrix.shape(), [16, 16], "Matrix should be 16x16");
 
         // Check that diagonal elements are positive

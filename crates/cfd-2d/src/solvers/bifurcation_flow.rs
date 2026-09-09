@@ -362,7 +362,6 @@ mod tests {
         let mut solver = BifurcationSolver2D::new(geom, blood, density, nx, ny, config);
         let result = solver.solve(0.1);
 
-        assert!(result.is_ok());
         let sol = result.expect("expected value");
 
         println!(

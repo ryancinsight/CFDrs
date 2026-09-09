@@ -111,7 +111,17 @@ mod tests {
             .iter()
             .find(|channel| channel.id.as_str() == "treatment_lane")
             .expect("target channel must exist");
-        assert!(channel.venturi_geometry.is_some());
+        let venturi = channel
+            .venturi_geometry
+            .as_ref()
+            .expect("the treatment lane must carry venturi geometry");
+        // A venturi constricts: the throat is narrower than its inlet.
+        assert!(
+            venturi.throat_width_m < venturi.inlet_width_m,
+            "throat {:?} must be narrower than inlet {:?}",
+            venturi.throat_width_m,
+            venturi.inlet_width_m
+        );
         assert_eq!(
             channel
                 .metadata

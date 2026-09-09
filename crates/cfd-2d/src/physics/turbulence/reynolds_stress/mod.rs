@@ -157,7 +157,7 @@ mod tests {
         for step in 0..200 {
             let result =
                 model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
-            assert!(result.is_ok(), "RSM update failed at step {step}");
+            result.as_ref().expect("RSM update failed at step {step}");
             uv_history.push(stresses.xy[[1, 1]]);
             if step > 10
                 && (uv_history[step] - uv_history[step - 1]).abs()
@@ -259,7 +259,7 @@ mod tests {
         for _ in 0..50 {
             let r =
                 model.update_reynolds_stresses_optimized(&mut stresses, &velocity, 0.001, 0.1, 0.1);
-            assert!(r.is_ok(), "SSG update failed");
+            r.as_ref().expect("SSG update failed");
         }
         assert!(
             stresses.xy[[1, 1]] < 0.0,

@@ -107,7 +107,7 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
     let result = solver.solve(MomentumComponent::U, &mut fields, dt);
 
     // Should not crash (may or may not converge depending on solver settings)
-    assert!(result.is_ok(), "Momentum solver should complete");
+    result.as_ref().expect("Momentum solver should complete");
     // Note: Convergence depends on numerical parameters, we verify execution completes
 
     Ok(())
@@ -257,10 +257,9 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
     let result = solver.solve(MomentumComponent::U, &mut fields, dt);
 
     // Should execute successfully with given boundary conditions
-    assert!(
-        result.is_ok(),
-        "Momentum solver should handle boundary conditions"
-    );
+    result
+        .as_ref()
+        .expect("Momentum solver should handle boundary conditions");
 
     Ok(())
 }

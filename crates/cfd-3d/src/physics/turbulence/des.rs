@@ -215,9 +215,9 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> TurbulenceModel<T> for DESMo
             "DES delta_max must match the flow-field size"
         );
         if self.use_ddes {
-            assert!(
-                self.background_turbulent_viscosity.is_some(),
-                "DDES requires background_turbulent_viscosity from the baseline RANS model"
+            self.background_turbulent_viscosity.as_ref().expect(
+                "invariant: DDES requires background_turbulent_viscosity from the \
+                 baseline RANS model",
             );
         }
         if let Some(background) = &self.background_turbulent_viscosity {

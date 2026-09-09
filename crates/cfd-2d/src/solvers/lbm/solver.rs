@@ -493,6 +493,7 @@ where
 mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
+    use cfd_core::test_support::assert_rejects;
     use eunomia::assert_relative_eq;
 
     #[test]
@@ -534,7 +535,7 @@ mod tests {
 
         let result = solver.initialize(|_, _| 1.0, |_, _| Vector2::new(0.2, 0.0));
 
-        assert!(result.is_err(), "D2Q9 initialization must reject Ma > 0.1");
+        assert_rejects(&result, "Invalid configuration: LBM initialization violates Ma <= 0.1 low-Mach incompressible limit");
         Ok(())
     }
 

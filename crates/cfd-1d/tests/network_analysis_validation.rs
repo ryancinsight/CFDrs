@@ -378,7 +378,9 @@ fn test_solver_convergence_simple() -> Result<()> {
     let result = solver.solve_network(&problem);
 
     // Should converge successfully
-    assert!(result.is_ok(), "Solver should converge for simple network");
+    result
+        .as_ref()
+        .expect("Solver should converge for simple network");
 
     let solved = result?;
 

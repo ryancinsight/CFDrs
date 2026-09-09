@@ -182,6 +182,7 @@ mod tests {
     use crate::physics::momentum::MomentumSolver;
     use crate::solvers::fdm::PoissonSolver;
     use cfd_core::physics::boundary::BoundaryCondition;
+    use cfd_core::test_support::assert_rejects;
     use eunomia::NumericElement;
     use std::collections::HashMap;
 
@@ -268,6 +269,6 @@ mod tests {
             &boundary_conditions,
         );
 
-        assert!(result.is_err());
+        assert_rejects(&result, "Invalid configuration: Boundary error: Invalid boundary region: Missing required boundary: east");
     }
 }

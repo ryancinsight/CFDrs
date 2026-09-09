@@ -19,6 +19,7 @@ use cfd_1d::physics::resistance::{
 };
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;
+use cfd_core::test_support::assert_rejects;
 use eunomia::assert_relative_eq;
 
 /// Test Hagen-Poiseuille law for laminar flow in circular pipes.
@@ -192,7 +193,7 @@ fn test_mach_number_violation() -> Result<()> {
 
     let result = model.validate_invariants(&fluid, &conditions);
 
-    assert!(result.is_err());
+    assert_rejects(&result, "Physical invariant violation: Mach number violation: Ma > 0.3. Incompressibility assumption invalid for model 'Darcy-Weisbach'");
     if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
         assert!(msg.contains("Mach number violation"));
     } else {
@@ -217,7 +218,7 @@ fn test_entrance_length_violation() -> Result<()> {
 
     let result = model.validate_invariants(&fluid, &conditions);
 
-    assert!(result.is_err());
+    assert_rejects(&result, "Physical invariant violation: Entrance length violation: L/Dh = 5.00 < 10. Flow may not be fully developed for model 'Rectangular Channel (Exact)'");
     if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
         assert!(msg.contains("Entrance length violation"));
     } else {

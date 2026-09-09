@@ -313,6 +313,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + SafeFromF64> fmt::Di
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
 
     #[test]
     fn test_blood_flow_validation() {
@@ -349,7 +350,12 @@ mod tests {
             .validate_mesh_convergence(&config, water)
             .expect("mesh convergence validation should succeed");
 
-        assert!(result.gci.is_some());
+        // The grid-convergence index is a fraction, not merely present.
+        let gci = result.gci.expect("mesh convergence must report a GCI");
+        assert!(
+            gci.is_finite() && gci >= 0.0,
+            "GCI must be a finite non-negative fraction, got {gci}"
+        );
         assert!(
             result.convergence_order.is_some() || result.gci == Some(0.0),
             "Expected observed order or noise-floor convergence marker"
@@ -369,6 +375,6 @@ mod tests {
         let water = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();
 
         let result = validator.validate_mesh_convergence(&config, water);
-        assert!(result.is_err());
+        assert_rejects(&result, "Invalid input: Mesh refinement factor must be > 1");
     }
 }

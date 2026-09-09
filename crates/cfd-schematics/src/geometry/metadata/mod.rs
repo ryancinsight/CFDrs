@@ -157,8 +157,16 @@ mod tests {
         assert!(container.contains::<FlowMetadata>());
         assert!(!container.contains::<ThermalMetadata>());
 
-        let removed = container.remove::<FlowMetadata>();
-        assert!(removed.is_some());
+        // Removal must hand back exactly what was inserted. `remove` returns
+        // the boxed trait object rather than downcasting as `get` does, so the
+        // concrete value has to be recovered here.
+        let removed = container
+            .remove::<FlowMetadata>()
+            .expect("removing an inserted value must return it");
+        assert_eq!(
+            removed.as_any().downcast_ref::<FlowMetadata>(),
+            Some(&flow_data)
+        );
         assert!(!container.contains::<FlowMetadata>());
     }
 

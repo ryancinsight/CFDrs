@@ -268,6 +268,7 @@ impl DataDrivenOrderEstimation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
 
     #[test]
     fn test_richardson_extrapolation_basic() {
@@ -346,19 +347,31 @@ mod tests {
             1.0 + 0.25e-13,
             2.0,
         );
-        assert!(result.is_err(), "Should detect insufficient variation");
+        assert_rejects(
+            &result,
+            "Insufficient solution variation for order estimation",
+        );
 
         // Case 2: Zero differences (exact solution)
         let result = RichardsonExtrapolation::estimate_order(1.0, 1.0, 1.0, 2.0);
-        assert!(result.is_err(), "Should detect zero variation");
+        assert_rejects(
+            &result,
+            "Insufficient solution variation for order estimation",
+        );
 
         // Case 3: Invalid refinement ratio
         let result = RichardsonExtrapolation::estimate_order(2.0, 1.5, 1.25, 0.0);
-        assert!(result.is_err(), "Should detect invalid refinement ratio");
+        assert_rejects(
+            &result,
+            "Richardson extrapolation numerically unstable: order -0 out of bounds",
+        );
 
         // Case 4: Negative refinement ratio
         let result = RichardsonExtrapolation::estimate_order(2.0, 1.5, 1.25, -2.0);
-        assert!(result.is_err(), "Should detect negative refinement ratio");
+        assert_rejects(
+            &result,
+            "Richardson extrapolation numerically unstable: order NaN out of bounds",
+        );
     }
 
     #[test]

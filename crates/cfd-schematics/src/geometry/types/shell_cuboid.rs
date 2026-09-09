@@ -326,6 +326,7 @@ impl ShellCuboid {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cfd_core::test_support::assert_rejects;
 
     fn make_80x40() -> ShellCuboid {
         ShellCuboid::new(
@@ -399,10 +400,7 @@ mod tests {
             ),
             Length::from_unit::<Millimeter>(3.0),
         );
-        assert!(
-            result.is_err(),
-            "thickness larger than half-height must fail"
-        );
+        assert_rejects(&result, "Invalid channel path: shell_thickness_mm (3) is too large for outer_dims (10×4): inner cavity dimensions would be (4×-2)");
     }
 
     #[test]
@@ -414,7 +412,10 @@ mod tests {
             ),
             Length::from_unit::<Millimeter>(2.0),
         );
-        assert!(result.is_err(), "zero outer width must fail");
+        assert_rejects(
+            &result,
+            "Invalid box dimensions: width=0, height=40. Both must be positive.",
+        );
     }
 
     #[test]
@@ -426,7 +427,10 @@ mod tests {
             ),
             Length::from_unit::<Millimeter>(-1.0),
         );
-        assert!(result.is_err(), "negative thickness must fail");
+        assert_rejects(
+            &result,
+            "Invalid channel path: shell_thickness_mm must be a finite positive value, got -1",
+        );
     }
 
     #[test]

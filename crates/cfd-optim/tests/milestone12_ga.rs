@@ -283,16 +283,17 @@ fn ga_optimizer_evolves_population_and_ranks_results() {
             &entry.candidate,
             OptimizationGoal::InPlaceDeanSerpentineRefinement,
         );
-        assert!(
-            eval.is_ok(),
-            "ranked GA candidate '{}' must be evaluable",
-            entry.candidate.id
-        );
+        eval.as_ref().unwrap_or_else(|error| {
+            panic!(
+                "ranked GA candidate '{}' must be evaluable: {error}",
+                entry.candidate.id
+            )
+        });
         assert_eq!(entry.evaluation.status, BlueprintEvaluationStatus::Eligible);
-        assert!(
-            entry.evaluation.exceeds_all_baselines.is_some(),
-            "GA evaluation should record baseline comparison"
-        );
+        entry
+            .evaluation
+            .exceeds_all_baselines
+            .expect("an eligible GA evaluation must record its baseline comparison");
     }
 }
 

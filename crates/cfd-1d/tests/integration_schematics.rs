@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 use cfd_1d::domain::network::{Edge, EdgeType, NetworkBuilder, Node, NodeType};
+use cfd_core::test_support::assert_rejects;
 
 #[test]
 fn test_new_components_integration() {
@@ -86,9 +87,9 @@ fn test_blueprint_pump_edges_rejected_until_source_term_plumbing_exists() {
     ));
 
     let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
-    assert!(
-        result.is_err(),
-        "Pump blueprints must be rejected until edge-level source-term plumbing exists"
+    assert_rejects(
+        &result,
+        "Invalid configuration: Channel 'pump' has non-positive length: 0",
     );
 }
 
@@ -212,8 +213,8 @@ fn test_blueprint_zero_diameter_rejected() {
     };
 
     let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
-    assert!(
-        result.is_err(),
-        "Blueprint with zero diameter must be rejected"
+    assert_rejects(
+        &result,
+        "Invalid configuration: Channel 'c1' has non-positive hydraulic diameter: 0",
     );
 }

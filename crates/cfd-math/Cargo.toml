@@ -30,6 +30,7 @@ athena-core.workspace = true
 athena-leto.workspace = true
 
 [dev-dependencies]
+cfd-core = { workspace = true, features = ["test-util"] }
 proptest.workspace = true
 criterion.workspace = true
 

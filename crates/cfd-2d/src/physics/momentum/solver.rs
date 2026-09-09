@@ -430,13 +430,11 @@ mod tests {
             .find(|(col, _)| **col == top_row)
             .map(|(_, val)| *val);
 
+        let top_coeff = top_coeff.expect("interior momentum row must couple to the moving lid row");
+        // An off-diagonal coupling of zero is no coupling at all.
         assert!(
-            top_coeff.is_some(),
-            "interior momentum row must couple to the moving lid row"
-        );
-        assert!(
-            top_coeff.expect("checked above").abs() > 0.0,
-            "moving lid coupling coefficient must be non-zero"
+            top_coeff != 0.0 && top_coeff.is_finite(),
+            "the lid coupling must be a non-zero finite coefficient, got {top_coeff}"
         );
 
         let mut gmres_solution = Array1::from_elem([matrix.nrows()], 0.0);

@@ -38,6 +38,7 @@ aequitas = { workspace = true, features = ["serde"] }
 gpu = ["cfd-core/gpu"]
 
 [dev-dependencies]
+cfd-core = { workspace = true, features = ["test-util"] }
 cfd-schematics = { path = "../cfd-schematics" }
 cfd-validation = { path = "../cfd-validation" }
 iris.workspace = true

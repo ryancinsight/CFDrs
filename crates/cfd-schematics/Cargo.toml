@@ -77,3 +77,6 @@ path = "examples/advanced/shell_cuboid_demo.rs"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+cfd-core = { workspace = true, features = ["test-util"] }

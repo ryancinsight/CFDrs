@@ -571,10 +571,9 @@ mod tests {
         let config = IbmConfig::default();
         let dx = Vector3::new(0.1, 0.1, 0.1);
         let result = IbmSolver::try_new(config, dx, (10, 10, 10));
-        assert!(
-            result.is_ok(),
-            "valid config, dx, and grid_size must succeed"
-        );
+        result
+            .as_ref()
+            .expect("valid config, dx, and grid_size must succeed");
     }
 
     #[test]
@@ -604,7 +603,9 @@ mod tests {
         let mut solver = default_solver();
         let inside = LagrangianPoint::new(Vector3::new(0.5, 0.5, 0.5), 1.0);
         let result = solver.try_add_lagrangian_point(inside);
-        assert!(result.is_ok(), "in-grid point insertion must succeed");
+        result
+            .as_ref()
+            .expect("in-grid point insertion must succeed");
         assert_eq!(solver.num_points(), 1);
     }
 

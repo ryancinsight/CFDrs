@@ -428,7 +428,7 @@ mod tests {
 
         let dt = 0.001;
         let result = corrector.correct(&mut fields, dt);
-        assert!(result.is_ok());
+        result.as_ref().expect("the PISO corrector must succeed");
 
         // Verify all fields remain finite
         for i in 0..8 {
@@ -461,7 +461,7 @@ mod tests {
         }
 
         let result = corrector.correct(&mut fields, 0.001);
-        assert!(result.is_ok());
+        result.as_ref().expect("the PISO corrector must succeed");
 
         for i in 0..8 {
             for j in 0..8 {

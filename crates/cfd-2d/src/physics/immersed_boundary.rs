@@ -744,10 +744,9 @@ mod tests {
     #[test]
     fn try_new_accepts_physically_valid_inputs() {
         let result = ImmersedBoundaryMethod::try_new((64, 64), (1.0, 1.0));
-        assert!(
-            result.is_ok(),
-            "valid grid_size and domain_size must succeed"
-        );
+        result
+            .as_ref()
+            .expect("valid grid_size and domain_size must succeed");
     }
 
     #[test]
@@ -810,7 +809,7 @@ mod tests {
     fn try_add_circle_accepts_physically_valid_inputs() {
         let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
         let result = ibm.try_add_circle(Vector2::new(0.5, 0.5), 0.2, 32, Vector2::zeros());
-        assert!(result.is_ok(), "valid circle must be accepted");
+        result.as_ref().expect("valid circle must be accepted");
         assert_eq!(ibm.boundary_points.len(), 32);
     }
 }

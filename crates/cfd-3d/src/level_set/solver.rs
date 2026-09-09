@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn try_new_accepts_physically_valid_inputs() {
         let result = LevelSetSolver::try_new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
-        assert!(result.is_ok(), "valid grid and config must succeed");
+        result.as_ref().expect("valid grid and config must succeed");
     }
 
     #[test]
