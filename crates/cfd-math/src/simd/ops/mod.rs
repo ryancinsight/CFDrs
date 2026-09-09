@@ -80,6 +80,24 @@ impl SimdOps {
         f32::dot(a, b).map_err(simd_err)
     }
 
+    /// In-place scalar multiplication: `data[i] *= scalar`.
+    ///
+    /// Delegates to hermes' in-place scale kernel (broadcast-splat multiply
+    /// with masked tail handling), so stencil kernels can rescale a row
+    /// buffer in place without a third buffer.
+    #[inline]
+    pub fn scale_in_place(&self, data: &mut [f32], scalar: f32) -> Result<()> {
+        f32::scale(data, scalar);
+        Ok(())
+    }
+
+    /// Maximum absolute value of the slice (∞-norm accumulator);
+    /// `0.0` for empty input, matching the convergence-monitor contract.
+    #[inline]
+    pub fn abs_max_f32(&self, input: &[f32]) -> Result<f32> {
+        Ok(f32::abs_max(input))
+    }
+
     // ── f64 operations ──────────────────────────────────────────────────
 
     /// Element-wise addition (f64): `result[i] = a[i] + b[i]`.

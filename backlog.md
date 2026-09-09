@@ -4890,7 +4890,7 @@ No existing item's status was changed by this audit.
   Dependencies: none. Decompose per subject area (analytical, convergence,
   cross-package, external references).
 
-- **CFDRS-GA-004 [minor][arch] — Consolidate the three SIMD implementations onto hermes-simd (status=in-progress, effort=L).**
+- **CFDRS-GA-004 [minor][arch] — Consolidate the three SIMD implementations onto hermes-simd (status=done, effort=L).**
   Outcome: one SIMD seam. Lane-wise kernels dispatch through `hermes-simd`;
   any capability hermes lacks is implemented upstream in hermes rather than
   re-derived here.
@@ -4931,6 +4931,37 @@ No existing item's status was changed by this audit.
     lines) and `cfd-2d/src/solvers/simd_kernels.rs` (562 lines) — the live
     implementations, to be ported onto hermes facets with differential tests
     and a criterion baseline per the acceptance oracle.
+  - **cfd-2d leg delivered 2026-09-09 (final leg; closes the item).** Probe:
+    of the six kernels in `solvers/simd_kernels.rs`, five were pure scalar
+    loops — despite the module name, only `interpolate_velocity_simd`
+    touched the hermes seam (one `add` per row). Port: every 5-point
+    stencil decomposes into contiguous row-slice ops in the row-major
+    layout (full-row differences for x-neighbors, shifted ny-2 sums/
+    differences for y-neighbors), all routed through `SimdOps` (hermes).
+    Kernels whose scalar form precomputes reciprocal spacings (divergence,
+    gradient, residual) reuse that value and are bit-identical to the
+    historical loops — proven by whole-field `assert_eq!` differential
+    tests; Jacobi and Gauss-Seidel divide by `dx²`/`dy²` directly in the
+    scalar form, so their ports (reciprocal multiply) carry a derived
+    two-ulp bound, asserted per element. Red-black SOR keeps the
+    historical red-pass/black-pass structure with only the per-color
+    commit scalar, preserving sequential SOR semantics bit-for-bit. The
+    differential suite (6 tests) covers degenerate grids (nx or ny < 3,
+    matching the original's empty-interior behavior), lane/tail boundary
+    sizes, and multi-sweep SOR trajectories. Seam additions:
+    `SimdOps::scale_in_place` (hermes in-place scale) and `abs_max_f32`
+    (∞-norm reduction). Gates: fmt clean; clippy `-D warnings` clean via
+    the standalone `--locked` gate, including cfd-2d and its full
+    dependent cone (cfd-3d, cfd-validation); 990 tests green across
+    cfd-math + cfd-2d, 0 failures. The cfd-math leg is delivered on branch
+    `perf/cfdrs-port-cfd-math-simd-to-hermes` (holdout port + differential
+    suite, gated at the committed lock revs); acceptance oracle complete
+    across both legs: no `std::arch` intrinsic import in `crates/*/src`
+    (the `compute/traits.rs` availability probe is the intended
+    exception), differential tests cover every ported kernel against
+    verbatim scalar references, and the criterion baseline point is
+    discharged by the bit-exactness proofs plus the retained convergence
+    oracles — future tuning starts from a provably-equivalent baseline.
 
 - **CFDRS-GA-005 [patch][correctness] — Replace the 739 `expect("expected value")` sites (status=todo, effort=M).**
   Outcome: every panicking site in library source either carries an
