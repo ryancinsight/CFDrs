@@ -144,6 +144,22 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Remove `cfd-core`'s `compute::simd` modules
+  (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six
+  `pub unsafe fn` kernels they exposed (`advection_avx2`, `advection_sse41`,
+  `diffusion_avx2`, `advection_neon`, `diffusion_neon`, `dot_product_neon`)
+  had zero callers anywhere in the workspace — tests, benches, examples, and
+  docs included — so the modules were dead hand-rolled `std::arch` surface
+  beside the hermes-simd provider the workspace already binds (CFDRS-GA-004,
+  gap audit F-4). Deleting them leaves `crates/*/src` free of `std::arch`
+  intrinsic imports, GA-004's acceptance oracle for `cfd-core`: SIMD capability
+  detection stays in `compute::traits` via `std::arch::is_*_feature_detected!`,
+  and the `ComputeBackend::Simd` dispatch path is untouched — it checks
+  availability and delegates to the kernel, never to these modules. The
+  workspace's remaining SIMD homes (`cfd-math/src/simd`, `cfd-2d/src/solvers/
+  simd_kernels.rs`) are the next GA-004 legs and route lane-wise work through
+  hermes-simd there.
+
 - **Breaking:** `ElasticSolid` composes `proteus::IsotropicSolid` instead of
   storing elastic constants itself, so no material constant is hardcoded in
   `cfd-core` any more. The struct still stores thermal conductivity, specific
