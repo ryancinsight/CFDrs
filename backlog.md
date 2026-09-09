@@ -5263,6 +5263,28 @@ No existing item's status was changed by this audit.
   Dependencies: verify every Atlas provider in the graph resolves under
   resolver 3 before landing.
 
+- **CFDRS-GA-018 [patch][ci] — Decide the pull-request affected-scope filter (status=todo, effort=S).**
+  Outcome: pull-request verification runs the jobs the changed paths reach
+  instead of the whole matrix, at the policy's two-runs-per-item CI budget,
+  with no path a change can take that leaves a required check unrun.
+  Provenance: the unique half of an abandoned CI draft, preserved on
+  `origin/rescue/cfdrs-stale-ci-draft` (`ec977ca8`). Its other two hunks are
+  rejected there and stay rejected — the concurrency change reverts
+  `aab1f22a`, and its `paths:` filter on `pull_request` would leave a
+  docs-only pull request with no `ci` run at all, which is unmergeable
+  where that check is required.
+  Scope: `.github/workflows/ci.yml` triggers only. Non-goals: the
+  concurrency group, the job set, and any change to what a job runs.
+  Mechanic: map changed paths to packages through `cargo metadata` rather
+  than a hand-maintained glob table, so a new crate cannot silently fall
+  outside the filter; a docs-or-board-only change must still satisfy every
+  required check, by a filtered job that reports success rather than by no
+  job at all.
+  Acceptance oracle: a source-only, a docs-only and a mixed pull request
+  each reach a mergeable state, and the source-only case runs strictly
+  fewer jobs than today's matrix.
+  Dependencies: none.
+
 - **CFDRS-GA-017 [patch][correctness] — Retire the 56 stringly-typed error returns (status=todo, effort=M).**
   Outcome: every fallible public API returns the crate's typed error
   (`cfd_core::error::Error` through the crate `Result` alias), so callers
