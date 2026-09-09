@@ -4962,6 +4962,34 @@ No existing item's status was changed by this audit.
     verbatim scalar references, and the criterion baseline point is
     discharged by the bit-exactness proofs plus the retained convergence
     oracles — future tuning starts from a provably-equivalent baseline.
+  - **cfd-math leg delivered 2026-09-09 (holdout port + differential suite).**
+    Survey showed the dispatcher and vectorization layers were already
+    hermes-backed (earlier peer port): `SimdOps` routed elementwise
+    add/sub/mul/div, dot, sum, and max through hermes' sealed runtime
+    dispatch, and the generic `T: RealField` helpers route through moirai's
+    adaptive parallel iteration. The residual scalar loops were `fma`/
+    `fma_f64` and `scale`/`scale_f64`; both are now hermes kernels. FMA
+    delegates to the fused `axpy_mul` with exact unit alpha (masked FMADD,
+    no temporaries; single-rounding matches `f32/f64::mul_add` on FMA
+    hardware), and scale copies then applies hermes' in-place masked
+    `scale`. `add_u32` remains the one documented scalar exception — hermes'
+    sealed set covers f32/f64, i8/i16/i32, and the eunomia scalars, but no
+    unsigned integer — with its `wrapping_add` overflow contract stated.
+    The differential suite (7 tests) sweeps 27 lengths covering every
+    dispatch regime (empty, sub-lane tails, lane and unrolled-chunk
+    boundaries, large arrays) and asserts bit-exact vector-vs-scalar
+    agreement for the same-rounding elementwise kernels, one-ulp FMA
+    agreement against `mul_add`, and f64-oracle/tolerance contracts for
+    the order-sensitive reductions (`dot`, `sum`). Acceptance-oracle
+    status: no `std::arch` intrinsic import in `crates/*/src` holds;
+    differential tests cover the shipped hermes-sealed scalars (f32/f64);
+    the criterion baseline is this leg's remaining open point. Gates:
+    fmt clean; clippy `-D warnings` clean via a standalone `--locked`
+    gate at the committed lock revs (hermes b51e8732, mnemosyne 3ebc4da1)
+    — in-tree clippy is blocked by the path-patched mnemosyne tip's
+    mid-refactor break (E0277 in `mnemosyne-memory`, independent of this
+    change); 217 unit + 33 integration + 6 doc tests green, 0 failures;
+    dependents cfd-1d and cfd-io clippy green.
 
 - **CFDRS-GA-005 [patch][correctness] — Replace the 739 `expect("expected value")` sites (status=todo, effort=M).**
   Outcome: every panicking site in library source either carries an
