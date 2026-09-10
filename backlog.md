@@ -5167,7 +5167,7 @@ No existing item's status was changed by this audit.
   Dependencies: none. Promote crate by crate, smallest first (`cfd-io` at
   1807 lines, `cfd-schematic-mesh` at 3590).
 
-- **CFDRS-GA-012 [patch][arch] — Consolidate the duplicate Richardson extrapolation (status=todo, effort=S).**
+- **CFDRS-GA-012 [patch][arch] — Consolidate the duplicate Richardson extrapolation (status=done, effort=S).**
   Outcome: one Richardson implementation in `cfd-validation`, returning typed
   errors.
   Scope: `crates/cfd-validation/src/convergence/richardson.rs` (224 lines) and
@@ -5180,6 +5180,30 @@ No existing item's status was changed by this audit.
   `cfd-core` error variant; the published three-grid worked example from
   Roache (1998) is asserted value-semantically against it.
   Dependencies: none.
+  Delivered 2026-09-09: the stringly-typed duplicate in
+  `manufactured/richardson/core.rs` is retired — `estimate_order`/
+  `extrapolate` are thin typed adapters over the canonical
+  `convergence::RichardsonExtrapolation` (path-compatible re-export keeps
+  `core::RichardsonExtrapolation` resolving), and `is_asymptotic` survives as
+  a free function since its monotone-error contract differs from the
+  canonical ratio-band method (documented on both). The canonical
+  implementation absorbed the duplicate's stability guards: signed
+  convergence-ratio rejection and order bounds (0.1..15) in `estimate_order`,
+  `r^p ≈ 1` denominator checks returning `Result` from
+  `extrapolate`/`grid_convergence_index` (`Error::Numerical(DivisionByZero)`).
+  `MmsRichardsonStudy::compute_richardson_extrapolation` now estimates the
+  order once (was: two stringly calls, both `map_err`ed). Oracle met: single
+  public entry point returning `cfd-core` errors; Roache (1998) three-grid
+  worked example (NASA GRC tutorial, f = 0.97050/0.96854/0.96178, r = 2)
+  asserted value-semantically with exact anchors — 2^p = 169/49 (exact
+  rational for this data), f_h→0 = 0.97050 + 0.00196·49/120, fractional
+  GCI_12 = 0.103083%, GCI_23 = 0.356244%, asymptotic ratio ≈ 1.002 — all
+  matching NASA's published hand calculation and VERIFY output. Gates via the
+  standalone `--locked` route (in-tree blocked by the standing apollo-fft/leto
+  overlay break, dependency-side): fmt clean, clippy `-D warnings` clean
+  through the cfd-validation dependency cone, 441 tests + doctests, 0
+  failures. Unique MMS machinery (`DataDrivenOrderEstimation`,
+  `MmsRichardsonStudy`) and the GCI reporting layer (non-goal) untouched.
 
 - **CFDRS-GA-013 [patch][verification] — Resolve the five capability-admitting `#[ignore]`s (status=todo, effort=M).**
   Outcome: each ignored test either passes against corrected production code or
@@ -5285,19 +5309,20 @@ No existing item's status was changed by this audit.
   fewer jobs than today's matrix.
   Dependencies: none.
 
-- **CFDRS-GA-017 [patch][correctness] — Retire the 56 stringly-typed error returns (status=todo, effort=M).**
+- **CFDRS-GA-017 [patch][correctness] — Retire the remaining 54 stringly-typed error returns (status=todo, effort=M).**
   Outcome: every fallible public API returns the crate's typed error
   (`cfd_core::error::Error` through the crate `Result` alias), so callers
   match on variants instead of parsing strings and `?` composes across the
   stack; the gap audit's conformance-floor section named this surface while
   filing CFDRS-GA-012, and this item owns the workspace-wide remainder.
-  Scope (grep-measured 2026-09-09, `Result<…String>` in `crates/*/src`, 56
-  sites): cfd-schematics 19 (`topology/factory/validation.rs` 3,
+  Scope (re-counted 2026-09-09 post-CFDRS-GA-012, `Result<…String>` in
+  `crates/*/src`, 54 sites): cfd-schematics 19 (`topology/factory/validation.rs` 3,
   `topology/factory/core/mutation_impl.rs` 3, remainder across the topology
-  and visualization modules), cfd-validation 16
+  and visualization modules), cfd-validation 14
   (`manufactured/richardson/analysis.rs` 7, `reporting/data.rs` 2), cfd-core
   13 (`physics/boundary/manager.rs` 5, `physics/boundary/applicators.rs` 3),
-  cfd-io 4, cfd-2d 3, cfd-optim 1.
+  cfd-io 4, cfd-2d 3, cfd-optim 1. GA-012's consolidation removed the 2
+  stringly signatures in `manufactured/richardson/core.rs` (56 → 54).
   Mechanic: replace `Result<T, String>` with the crate `Result<T>` alias and
   `Err(format!(…))`/`Err(String::from(…))` with the nearest typed variant
   (`InvalidInput`, `InvalidConfiguration`, `Numerical`), preserving the
@@ -5307,7 +5332,7 @@ No existing item's status was changed by this audit.
   the audited sense.
   Acceptance oracle: `grep -rn "Result<[^>]*String>" crates/*/src` returns
   nothing.
-  Dependencies: none for the cfd-io/cfd-2d/cfd-optim/cfd-core sites; the
-  cfd-validation and cfd-schematics sites overlap CFDRS-GA-012 (that
-  consolidation deletes some of them) — land either first and re-count
-  before claiming the oracle.
+  Dependencies: none. The CFDRS-GA-012 overlap is resolved (delivered
+  2026-09-09, removing 2 cfd-validation sites; the remaining
+  `analysis.rs` sites are its declared GCI-reporting non-goal); the count
+  above is current as of that delivery.

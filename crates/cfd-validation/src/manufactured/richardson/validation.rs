@@ -5,7 +5,8 @@ use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use std::collections::HashMap;
 
-use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
+use super::core::{extrapolate, DataDrivenOrderEstimation};
+use super::core::is_asymptotic as monotone_asymptotic;
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
 use crate::geometry::Geometry2D;
@@ -407,13 +408,12 @@ impl<T: RealField + Copy + FloatElement> MmsRichardsonStudy<T> {
 
             // refinement ratio between medium and fine (> 1)
             let r = h_medium / h_fine;
-            let order = RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)
-                .map_err(Error::InvalidInput)?;
 
-            // Extrapolate using fine and medium solutions
-            let extrapolator = RichardsonExtrapolation::extrapolate(f_coarse, f_medium, f_fine, r)
-                .map_err(Error::InvalidInput)?;
-            let extrapolated = extrapolator.0;
+            // Single consolidated call (CFDRS-GA-012): estimates the order
+            // once, then extrapolates using the fine and medium solutions.
+            // Previously this estimated the order twice through two separate
+            // stringly-typed calls that were mapped onto typed errors.
+            let (extrapolated, order) = extrapolate(f_coarse, f_medium, f_fine, r)?;
 
             results.push((extrapolated, order));
         }
@@ -496,7 +496,7 @@ impl<T: RealField + Copy + FloatElement> MmsRichardsonStudy<T> {
             let f_medium = l2_errors[i + 1];
             let f_fine = l2_errors[i + 2];
 
-            let asymptotic = RichardsonExtrapolation::is_asymptotic(f_coarse, f_medium, f_fine);
+            let asymptotic = monotone_asymptotic(f_coarse, f_medium, f_fine);
 
             is_asymptotic.push(asymptotic);
         }
