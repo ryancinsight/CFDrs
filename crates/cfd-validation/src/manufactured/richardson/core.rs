@@ -37,12 +37,7 @@ where
 /// Estimates the order from the three solutions, then extrapolates the
 /// continuum value using the fine and medium solutions. Returns
 /// `(extrapolated, order)` on success.
-pub fn extrapolate<T>(
-    f_coarse: T,
-    f_medium: T,
-    f_fine: T,
-    r: T,
-) -> Result<(T, T)>
+pub fn extrapolate<T>(f_coarse: T, f_medium: T, f_fine: T, r: T) -> Result<(T, T)>
 where
     T: RealField + Copy + FloatElement,
 {
@@ -241,8 +236,7 @@ mod tests {
 
         let r = 2.0; // refinement ratio
 
-        let (extrapolated, order) =
-            extrapolate(phi1, phi2, phi3, r).expect("expected value");
+        let (extrapolated, order) = extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Should extrapolate to very close to exact solution (1.0)
         assert!(
@@ -299,23 +293,12 @@ mod tests {
         // Test edge cases that could cause numerical issues
 
         // Case 1: Very small differences (near convergence) - below eps=1e-12
-        let result = estimate_order(
-            1.0 + 1e-13,
-            1.0 + 0.5e-13,
-            1.0 + 0.25e-13,
-            2.0,
-        );
-        assert_rejects(
-            &result,
-            "Solutions too close to estimate order",
-        );
+        let result = estimate_order(1.0 + 1e-13, 1.0 + 0.5e-13, 1.0 + 0.25e-13, 2.0);
+        assert_rejects(&result, "Solutions too close to estimate order");
 
         // Case 2: Zero differences (exact solution)
         let result = estimate_order(1.0, 1.0, 1.0, 2.0);
-        assert_rejects(
-            &result,
-            "Solutions too close to estimate order",
-        );
+        assert_rejects(&result, "Solutions too close to estimate order");
 
         // Case 3: Invalid refinement ratio
         let result = estimate_order(2.0, 1.5, 1.25, 0.0);

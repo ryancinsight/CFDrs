@@ -66,7 +66,9 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
         let r_p = scalar::powf(self.refinement_ratio, self.order);
         let denominator = r_p - scalar::one::<T>();
         if scalar::abs(denominator) < <T as FloatElement>::from_f64(1e-8) {
-            return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::DivisionByZero));
+            return Err(Error::Numerical(
+                cfd_core::error::NumericalErrorKind::DivisionByZero,
+            ));
         }
         Ok((r_p * f_fine - f_coarse) / denominator)
     }
@@ -83,7 +85,9 @@ impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
         let r_p = scalar::powf(self.refinement_ratio, self.order);
         let denominator = r_p - scalar::one::<T>();
         if scalar::abs(denominator) < <T as FloatElement>::from_f64(1e-8) {
-            return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::DivisionByZero));
+            return Err(Error::Numerical(
+                cfd_core::error::NumericalErrorKind::DivisionByZero,
+            ));
         }
         let epsilon = scalar::abs(f_fine - f_coarse);
 
@@ -233,7 +237,9 @@ mod tests {
         let f_fine = 1.0 + 0.01; // h = 0.1
         let f_coarse = 1.0 + 0.04; // h = 0.2
 
-        let extrapolated = extrapolator.extrapolate(f_fine, f_coarse).expect("expected value");
+        let extrapolated = extrapolator
+            .extrapolate(f_fine, f_coarse)
+            .expect("expected value");
         assert_relative_eq!(extrapolated, 1.0, epsilon = 1e-10);
     }
 
@@ -309,7 +315,9 @@ mod tests {
         // anchor is 0.97050 + 0.00196*49/120 = 0.971300333...; NASA's VERIFY
         // program printed 0.971300304 from its slightly rounded order.
         let extrapolator = RichardsonExtrapolation::with_order(p, r).expect("expected value");
-        let f_h0 = extrapolator.extrapolate(f_fine, f_medium).expect("expected value");
+        let f_h0 = extrapolator
+            .extrapolate(f_fine, f_medium)
+            .expect("expected value");
         assert!(
             (f_h0 - 0.97050 - 0.00196 * 49.0 / 120.0).abs() < 1e-9,
             "extrapolated value {f_h0} must match exact anchor 0.971300333"
