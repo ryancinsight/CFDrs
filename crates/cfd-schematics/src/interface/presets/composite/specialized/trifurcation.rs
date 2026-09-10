@@ -3,7 +3,7 @@ use super::parallel_lane::{canonical_parallel_venturi_blueprint, parallel_lane};
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::{
-    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+    SelectiveTreeRequest, SelectiveTreeTopology, create_selective_tree_geometry,
 };
 use aequitas::systems::si::quantities::Length;
 

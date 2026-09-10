@@ -215,7 +215,7 @@ impl<T: EunomiaRealField> TurbulenceValidator<T> {
                     passed: false,
                     metric: "Unknown model".to_string(),
                     details: "Model not recognized".to_string(),
-                }
+                };
             }
         };
 

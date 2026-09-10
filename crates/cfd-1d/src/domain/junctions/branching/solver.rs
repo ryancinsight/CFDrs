@@ -4,12 +4,12 @@
 //! two-way branch solutions through the network hierarchy.
 
 use super::physics::{TwoWayBranchJunction, TwoWayBranchSolution};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::constants::physics::thermo::P_ATM;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================

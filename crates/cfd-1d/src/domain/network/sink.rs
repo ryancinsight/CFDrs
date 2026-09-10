@@ -19,10 +19,10 @@
 
 use std::marker::PhantomData;
 
+use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use eunomia::NumericElement;

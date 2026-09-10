@@ -7,8 +7,8 @@
 use super::timing::BenchmarkStats;
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
 use crate::scalar;
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use cfd_math::sparse::SparseMatrix;
 use leto_ops::Scalar as LetoScalar;
 use std::collections::HashMap;
@@ -801,10 +801,12 @@ mod tests {
         assert_eq!(result.measurements.len(), 10);
         assert!(result.stats.mean > 0.0);
         assert_eq!(result.stats.samples, result.measurements.len());
-        assert!(result
-            .measurements
-            .iter()
-            .all(|value| value.is_finite() && *value > 0.0));
+        assert!(
+            result
+                .measurements
+                .iter()
+                .all(|value| value.is_finite() && *value > 0.0)
+        );
     }
 
     #[test]

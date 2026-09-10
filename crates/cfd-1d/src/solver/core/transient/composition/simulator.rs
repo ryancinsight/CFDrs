@@ -3,14 +3,14 @@ use super::events::{
 };
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
-    Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Network,
 };
 use crate::solver::core::NetworkSolver;
 use aequitas::systems::si::quantities::{Dimensionless, Length, Time, VolumetricFlowRate};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;

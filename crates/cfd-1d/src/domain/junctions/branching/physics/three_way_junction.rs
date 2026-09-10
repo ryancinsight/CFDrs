@@ -4,14 +4,14 @@
 //! (one parent to three daughters).
 
 use crate::domain::channel::Channel;
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
-use super::pressure_balance::{bisect_monotone_target, ScalarSolveTolerances};
+use super::pressure_balance::{ScalarSolveTolerances, bisect_monotone_target};
 use super::two_way_junction::TwoWayBranchJunction;
 
 /// Three-way branch junction (one parent to three daughters)

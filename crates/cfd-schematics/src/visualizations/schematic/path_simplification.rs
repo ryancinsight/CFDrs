@@ -69,12 +69,12 @@ fn simplify_polyline_range(
         }
     }
 
-    if max_distance > tolerance_mm {
-        if let Some(idx) = max_idx {
-            keep[idx] = true;
-            simplify_polyline_range(path, start_idx, idx, tolerance_mm, keep);
-            simplify_polyline_range(path, idx, end_idx, tolerance_mm, keep);
-        }
+    if max_distance > tolerance_mm
+        && let Some(idx) = max_idx
+    {
+        keep[idx] = true;
+        simplify_polyline_range(path, start_idx, idx, tolerance_mm, keep);
+        simplify_polyline_range(path, idx, end_idx, tolerance_mm, keep);
     }
 }
 

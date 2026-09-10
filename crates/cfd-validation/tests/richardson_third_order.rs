@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use cfd_validation::geometry::RectangularDomain;
-use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::manufactured::ManufacturedDiffusion;
+use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 
 #[test]
 fn richardson_estimates_third_order_uniform_ratio() -> anyhow::Result<()> {

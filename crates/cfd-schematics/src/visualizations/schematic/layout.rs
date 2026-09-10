@@ -1,6 +1,6 @@
 use crate::domain::model::{ChannelSpec, NodeSpec};
-use crate::geometry::metadata::NodeLayoutMetadata;
 use crate::geometry::Point2D;
+use crate::geometry::metadata::NodeLayoutMetadata;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 

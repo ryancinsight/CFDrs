@@ -148,10 +148,10 @@ impl BlueprintTopologyFactory {
         if let Some(first_parallel) = spec.parallel_channels.first() {
             return first_parallel.route.width_m.into_base();
         }
-        if let Some(first_stage) = spec.split_stages.first() {
-            if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.width_m.into_base();
-            }
+        if let Some(first_stage) = spec.split_stages.first()
+            && let Some(first_branch) = first_stage.branches.first()
+        {
+            return first_branch.route.width_m.into_base();
         }
         1.0e-3 // Default 1mm
     }
@@ -164,10 +164,10 @@ impl BlueprintTopologyFactory {
         if let Some(first_parallel) = spec.parallel_channels.first() {
             return first_parallel.route.height_m.into_base();
         }
-        if let Some(first_stage) = spec.split_stages.first() {
-            if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.height_m.into_base();
-            }
+        if let Some(first_stage) = spec.split_stages.first()
+            && let Some(first_branch) = first_stage.branches.first()
+        {
+            return first_branch.route.height_m.into_base();
         }
         0.5e-3 // Default 0.5mm
     }

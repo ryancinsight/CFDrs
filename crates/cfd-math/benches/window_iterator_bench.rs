@@ -1,7 +1,7 @@
 #![allow(missing_docs, clippy::cast_lossless)]
 
 use cfd_math::iterators::StridedWindowIterator;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_strided_window(c: &mut Criterion) {
     let mut group = c.benchmark_group("strided_window");

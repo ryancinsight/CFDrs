@@ -93,11 +93,7 @@ fn exact_solution_advection(
 
     let x_rel = dx_wrapped / width;
 
-    if x_rel.abs() < 0.5 {
-        amplitude
-    } else {
-        0.0
-    }
+    if x_rel.abs() < 0.5 { amplitude } else { 0.0 }
 }
 
 #[test]

@@ -243,7 +243,9 @@ fn default_stage_branch_specs(
                 .collect()
         }
         SplitKind::NFurcation(other) => {
-            panic!("Milestone 12 primitive selective tree only supports Bi/Tri/Quad/Penta, got N={other}");
+            panic!(
+                "Milestone 12 primitive selective tree only supports Bi/Tri/Quad/Penta, got N={other}"
+            );
         }
     }
 }

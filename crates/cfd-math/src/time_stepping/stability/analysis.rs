@@ -4,8 +4,8 @@
 //! $R(z) = 1 + z\,b^T (I - z\,A)^{-1} \mathbf{1}$ (Hairer et al. 1993, §IV.2).
 
 use super::{
-    abs, matrix_from_row_slice, one, vector_from_vec, zero, ComplexPoint, MethodInfo,
-    NumericalScheme, StabilityAnalyzer, StabilityRegion, StabilityType, VonNeumannAnalysis,
+    ComplexPoint, MethodInfo, NumericalScheme, StabilityAnalyzer, StabilityRegion, StabilityType,
+    VonNeumannAnalysis, abs, matrix_from_row_slice, one, vector_from_vec, zero,
 };
 use cfd_core::error::{Error, Result};
 use eunomia::Complex as AtlasComplex;

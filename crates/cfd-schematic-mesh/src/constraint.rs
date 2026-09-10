@@ -198,8 +198,8 @@ impl WallClearanceConstraint {
 #[cfg(test)]
 mod tests {
     use aequitas::systems::si::units::Millimeter;
-    use cfd_schematics::interface::presets::{serpentine_chain, venturi_chain};
     use cfd_schematics::NetworkBlueprint;
+    use cfd_schematics::interface::presets::{serpentine_chain, venturi_chain};
 
     use super::*;
 

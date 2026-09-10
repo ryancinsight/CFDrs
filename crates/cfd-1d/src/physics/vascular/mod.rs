@@ -35,8 +35,8 @@ pub mod structured_tree;
 pub mod womersley;
 
 pub use bifurcation::{Bifurcation, BifurcationNetwork, JunctionType};
-pub use murrays_law::{non_newtonian_flow_split_exponent, MurraysLaw, OptimalBifurcation};
+pub use murrays_law::{MurraysLaw, OptimalBifurcation, non_newtonian_flow_split_exponent};
 pub use structured_tree::OlufsenParameters;
 pub use womersley::{
-    womersley_pulsatility_index, WomersleyFlow, WomersleyNumber, WomersleyProfile,
+    WomersleyFlow, WomersleyNumber, WomersleyProfile, womersley_pulsatility_index,
 };

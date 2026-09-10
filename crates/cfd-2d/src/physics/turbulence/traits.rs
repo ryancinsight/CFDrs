@@ -11,7 +11,7 @@
 //! formulations, ensuring physical realizability and numerical stability.
 
 use eunomia::RealField;
-use leto::{geometry::Vector2, Array2};
+use leto::{Array2, geometry::Vector2};
 
 /// Trait for RANS turbulence models (k-ε, k-ω, SA)
 pub trait TurbulenceModel<T: RealField> {

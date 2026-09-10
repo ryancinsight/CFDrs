@@ -1,5 +1,5 @@
-use super::super::basis::{BasisType, DGBasis};
 use super::super::FluxType;
+use super::super::basis::{BasisType, DGBasis};
 use super::super::{
     column_vector, matrix_solve, matrix_sub, matrix_zeros, row_vector, set_column, set_row,
     vector_add, vector_add_assign_scaled, vector_len, vector_scale, vector_sub, vector_sum,
@@ -303,11 +303,7 @@ impl DGOperator {
                 } else {
                     a
                 };
-                if a >= 0.0 {
-                    f.clone()
-                } else {
-                    f_ext
-                }
+                if a >= 0.0 { f.clone() } else { f_ext }
             }
             FluxType::LaxFriedrichs => {
                 let alpha = self.params.alpha;

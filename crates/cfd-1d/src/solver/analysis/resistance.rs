@@ -15,8 +15,8 @@
 //! These inequalities are strict when `n > 1` and all `R_i` are finite and positive. ∎
 
 use aequitas::systems::si::quantities::HydraulicResistance;
-use cfd_core::conversion::SafeFromUsize;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
 

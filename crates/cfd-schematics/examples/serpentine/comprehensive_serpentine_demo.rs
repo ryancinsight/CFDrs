@@ -14,8 +14,8 @@
 //! - Gaussian envelope improvements
 
 use cfd_schematics::{
-    config::{presets, ChannelTypeConfig, GeometryConfig, SerpentineConfig},
-    geometry::{generator::create_geometry, SplitType},
+    config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig, presets},
+    geometry::{SplitType, generator::create_geometry},
 };
 #[path = "../shared/mod.rs"]
 mod shared;

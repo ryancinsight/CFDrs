@@ -18,7 +18,7 @@ use cfd_3d::vof::{
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use cfd_core::physics::fluid::BloodModel;
-use leto::{geometry::Vector3, Array2};
+use leto::{Array2, geometry::Vector3};
 
 fn length(value: f64) -> Length<f64> {
     Length::from_base(value)

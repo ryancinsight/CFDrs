@@ -23,7 +23,7 @@
 )]
 
 use cfd_math::linear_solver::SimplePreconditioner;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
 use leto_ops::CsrMatrix;
 
@@ -64,8 +64,8 @@ impl JaggedSimplePreconditioner {
                 .col_indices()
                 .iter()
                 .zip(row.values())
-                .filter(|(&c, _)| c < n_velocity)
-                .map(|(&c, &v)| (c, v))
+                .filter(|&(c, _)| *c < n_velocity)
+                .map(|(c, v)| (*c, *v))
                 .collect();
             divergence_rows.push(entries);
         }

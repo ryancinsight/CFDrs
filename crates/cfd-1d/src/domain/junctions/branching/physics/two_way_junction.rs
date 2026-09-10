@@ -4,13 +4,13 @@
 //! at a bifurcation point.
 
 use crate::domain::channel::{Channel, CrossSection};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
-use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
+use super::pressure_balance::{ScalarSolveTolerances, bisect_root};
 use super::two_way_solution::TwoWayBranchSolution;
 
 /// Two-way branch junction connecting parent channel to two daughter channels

@@ -1,14 +1,14 @@
 #![allow(missing_docs)]
 use cfd_2d::{
     grid::StructuredGrid2D,
-    network::{solve_reference_trace, Network2dBuilderSink},
+    network::{Network2dBuilderSink, solve_reference_trace},
     solvers::lbm::{LbmConfig, LbmSolver},
 };
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::geometry::generator::PrimitiveSelectiveSplitKind;
 use cfd_schematics::interface::presets::{primitive_selective_split_tree_rect, venturi_rect};
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::geometry::Vector2;
 use std::collections::HashMap;
 

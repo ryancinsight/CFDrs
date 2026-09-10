@@ -7,10 +7,10 @@ use crate::pressure_velocity::boundary::{
     pressure_neighbor_for_side,
 };
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use std::collections::HashMap;

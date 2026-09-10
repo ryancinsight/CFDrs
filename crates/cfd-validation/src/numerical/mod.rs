@@ -11,6 +11,6 @@ pub mod validation_result;
 pub mod venturi_cross_fidelity;
 
 // Re-export main types
-pub use error_metrics::{compute_error_metrics, ErrorMetrics};
+pub use error_metrics::{ErrorMetrics, compute_error_metrics};
 pub use linear_solver::LinearSolverValidator;
 pub use validation_result::{ConvergenceInfo, ValidationResult};

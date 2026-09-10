@@ -30,11 +30,7 @@ pub trait Geometry<T: RealField + Copy>: Send + Sync {
 /// Helper function to order two values
 #[inline]
 pub fn order<T: RealField>(v1: T, v2: T) -> (T, T) {
-    if v1 <= v2 {
-        (v1, v2)
-    } else {
-        (v2, v1)
-    }
+    if v1 <= v2 { (v1, v2) } else { (v2, v1) }
 }
 
 /// Trait for computational domains

@@ -46,7 +46,7 @@
 //! - **Cache-aware implementations**: Optimize memory layout for CFD data structures
 
 use super::traits::{
-    add_scaled_in_place, assign_base_plus_scaled, state_len, state_zeros, TimeState, TimeStepper,
+    TimeState, TimeStepper, add_scaled_in_place, assign_base_plus_scaled, state_len, state_zeros,
 };
 use cfd_core::error::Result;
 use eunomia::FloatElement;

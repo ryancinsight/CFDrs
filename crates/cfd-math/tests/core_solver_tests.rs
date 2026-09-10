@@ -9,7 +9,7 @@
 
 use athena_core::{Identity, Preconditioner};
 use athena_leto::{Jacobi, LetoBackend};
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use cfd_math::sparse;
 use leto::Array1;
 use leto_ops::CsrMatrix;

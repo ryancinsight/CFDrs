@@ -7,9 +7,9 @@ use crate::solver::analysis::FlowAnalysis;
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, ReciprocalTime, Velocity, VolumetricFlowRate,
 };
+use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;

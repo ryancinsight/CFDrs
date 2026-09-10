@@ -5247,21 +5247,24 @@ No existing item's status was changed by this audit.
   `allow_sites` counts strictly decrease each increment and never increase.
   Dependencies: none. Burn down per crate.
 
-- **CFDRS-GA-016 [patch][arch] — Move the workspace to edition 2024 / resolver 3 (status=todo, effort=M).**
-  Outcome: the workspace builds on the current edition, so `unsafe_op_in_unsafe_fn`,
-  `unsafe extern`, and let-chains are available and enforced.
-  Scope: `Cargo.toml` (`edition = "2021"`, `resolver = "2"`) and all 12
-  packages; the unsafe surface named here was re-measured 2026-09-09 after
-  CFDRS-GA-004 deleted the `compute/simd` modules: 10 `unsafe fn`/`unsafe {}`
-  sites remain, across `cfd-core/src/physics/fluid_dynamics/operations.rs`
-  and `cfd-validation/src/benchmarking/memory.rs`, and library source now
-  carries 19 `// SAFETY:` comments — the per-operation block + comment
-  discipline below applies to whatever remains at execution time.
-  Non-goals: raising the toolchain pin beyond what edition 2024 requires.
-  Acceptance oracle: `cargo check --workspace --all-targets` and `cargo clippy
-  --workspace --all-targets -- -D warnings` green at edition 2024.
-  Dependencies: verify every Atlas provider in the graph resolves under
-  resolver 3 before landing.
+- **CFDRS-GA-016 [patch][arch] — Move the workspace to edition 2024 / resolver 3 (status=done, effort=M).**
+  Delivered 2026-09-10 on `refactor/cfdrs-ga016-edition-2024`: single flip in the
+  workspace manifest (all 12 packages inherit; `resolver = "3"` + `edition = "2024"`).
+  Unsafe surface: the 10 remaining `unsafe fn`/`unsafe {}` sites (cfd-core
+  operations.rs, cfd-validation memory.rs) were already in the per-operation
+  block + `// SAFETY:` style, so the edition's stricter `unsafe_op_in_unsafe_fn`
+  default enforces with zero code change. Fallout census, all fixed: `gen`
+  reserved keyword (7 sites → `r#gen`/renames), pattern binding-mode strictness
+  (~10 tuple/ref sites → field-access closures or adjusted patterns), let-chain
+  adoption where clippy demanded it (19 collapsible-if sites), one
+  `unwrap_err()` → `expect_err()` (cfd-io hdf5 test, under the `unwrap_used`
+  deny floor), and rustfmt style-edition-2024 import reordering (~500 files,
+  mechanical). Gates: in-tree fmt clean, clippy `--workspace --all-targets
+  --all-features -D warnings` green, nextest 3287 main + 14 fidelity (serial)
+  + doctests green; standalone worktree at fresh HEAD `2ca6daf1` re-gated
+  `--locked` with identical results (also proves composition with PR #429's
+  apollo-fft lock advance). Resolver 3 verified over the full Atlas provider
+  cone (apollo/leto/coeus/moirai 0.6 local trees).
 
 - **CFDRS-GA-018 [patch][ci] — Decide the pull-request affected-scope filter (status=todo, effort=S).**
   Outcome: pull-request verification runs the jobs the changed paths reach

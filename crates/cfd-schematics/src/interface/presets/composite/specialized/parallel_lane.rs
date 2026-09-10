@@ -1,5 +1,6 @@
 //! Internal parallel-lane geometry helpers.
 use super::super::super::finalize_preset_blueprint;
+use crate::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::CenterSerpentinePathSpec;
@@ -8,7 +9,6 @@ use crate::topology::{
     ChannelRouteSpec, ParallelChannelSpec, SerpentineSpec, ThroatGeometrySpec,
     TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
 };
-use crate::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::{Angle, Length};
 
 /// Optional serpentine geometry applied only to center treatment lanes.

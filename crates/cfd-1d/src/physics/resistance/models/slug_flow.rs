@@ -44,9 +44,9 @@
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 

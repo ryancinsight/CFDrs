@@ -4,9 +4,9 @@
 //! [`Network`] with physically refined resistance coefficients.
 
 use super::super::{
+    Edge, EdgeProperties, Node, ResistanceUpdatePolicy,
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
-    ResistanceUpdatePolicy,
+    junction_losses::apply_blueprint_junction_losses,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
@@ -14,9 +14,9 @@ use crate::physics::resistance::models::BendType;
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
+use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
-use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
 use eunomia::NumericElement;
 use petgraph::graph::NodeIndex;
@@ -24,8 +24,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 
 use crate::domain::network::wrapper::{
-    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
-    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    blood_microchannel_apparent_viscosity,
 };
 use cfd_core::physics::fluid::FluidTrait;
 

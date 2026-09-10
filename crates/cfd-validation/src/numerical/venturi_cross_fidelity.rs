@@ -37,9 +37,9 @@ use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_2d::solvers::venturi_flow::{VenturiGeometry as VenturiGeom2D, VenturiSolver2D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_mesh::VenturiMeshBuilder;
 use leto::geometry::Vector3;
 
@@ -836,7 +836,7 @@ pub fn validate_venturi_batch(
 
 #[cfg(test)]
 mod tests {
-    use super::{run_2d, should_use_collocated_fallback, VenturiValidationInput};
+    use super::{VenturiValidationInput, run_2d, should_use_collocated_fallback};
 
     #[test]
     fn microventuri_fallback_case_produces_converged_informative_2d_result() {

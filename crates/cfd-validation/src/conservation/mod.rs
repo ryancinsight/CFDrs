@@ -8,8 +8,8 @@ use cfd_core::physics::constants::physics::thermo::P_ATM;
 use eunomia::FloatElement;
 use eunomia::NumericElement;
 use eunomia::RealField;
-use leto::geometry::Vector2;
 use leto::Array2;
+use leto::geometry::Vector2;
 
 mod angular_momentum;
 mod energy;

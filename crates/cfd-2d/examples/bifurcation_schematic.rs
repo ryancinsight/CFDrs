@@ -22,7 +22,7 @@ use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
-    create_plotters_renderer, AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer,
+    AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer, create_plotters_renderer,
 };
 use iris::color::NamedColorMap;
 use std::fs;

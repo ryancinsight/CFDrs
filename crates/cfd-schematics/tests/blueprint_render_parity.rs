@@ -4,8 +4,8 @@ use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::model::{ChannelShape, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::JunctionFamily;
 use cfd_schematics::interface::presets::{
-    cascade_center_trifurcation_rect, double_trifurcation_cif_venturi_rect,
-    incremental_filtration_tri_bi_rect_staged_remerge, CenterSerpentineSpec,
+    CenterSerpentineSpec, cascade_center_trifurcation_rect, double_trifurcation_cif_venturi_rect,
+    incremental_filtration_tri_bi_rect_staged_remerge,
 };
 use cfd_schematics::visualizations::throat_count_from_blueprint_metadata;
 use cfd_schematics::{
@@ -378,8 +378,9 @@ fn dtcv_acoustic_render_keeps_full_tree_without_frusta() {
 
     assert!(node_has_point(&bp, "split2_upper"));
     assert!(channel_path(&bp, "upper_L").len() >= 2);
-    assert!(!bp
-        .channels
-        .iter()
-        .any(|channel| channel.venturi_geometry.is_some()));
+    assert!(
+        !bp.channels
+            .iter()
+            .any(|channel| channel.venturi_geometry.is_some())
+    );
 }

@@ -1,13 +1,13 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
-use crate::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
 use crate::geometry::Point2D;
+use crate::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
 use petgraph::algo::astar;
 use petgraph::{Directed, Graph};
 use std::collections::HashMap;
 
-use super::lane_paths::{channel_centroid_y, treatment_lane_paths, x_span};
 use super::MarkerRole;
+use super::lane_paths::{channel_centroid_y, treatment_lane_paths, x_span};
 
 /// Infer inlet/outlet terminals from graph-degree-1 nodes at extreme X.
 #[must_use]

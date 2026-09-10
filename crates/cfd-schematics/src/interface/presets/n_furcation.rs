@@ -1,8 +1,8 @@
 use super::finalize_preset_blueprint;
 use crate::domain::model::NetworkBlueprint;
-use crate::topology::presets;
 use crate::topology::BlueprintTopologyFactory;
 use crate::topology::BlueprintTopologySpec;
+use crate::topology::presets;
 
 /// Generates a blueprint for a symmetric n-furcation.
 #[must_use]

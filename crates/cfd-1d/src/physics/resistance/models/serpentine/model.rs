@@ -6,9 +6,9 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use super::{BendType, SerpentineCrossSection};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -200,11 +200,7 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::ZERO {
-                q
-            } else {
-                -q
-            }
+            if q >= T::ZERO { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let area = <T as FloatElement>::from_f64(self.cross_section.area());
             let v_abs = if v >= T::ZERO { v } else { -v };

@@ -18,12 +18,12 @@
 //! **Reference:** Brezzi & Fortin, "Mixed and Hybrid Finite Element Methods",
 //! Springer, 1991, Chapter II.
 
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
-use cfd_mesh::domain::core::index::FaceId;
 use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::index::FaceId;
 use leto::geometry::Vector3;
 use std::collections::HashMap;
 
@@ -163,8 +163,8 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar> StokesFlowProblem<T> {
 mod tests {
     use super::*;
     use cfd_core::test_support::assert_rejects;
-    use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
+    use cfd_mesh::domain::topology::Cell;
     use leto::Point3;
 
     /// Create a simple tetrahedral mesh for testing

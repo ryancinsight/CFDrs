@@ -84,9 +84,9 @@
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -144,11 +144,7 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::ZERO {
-                q
-            } else {
-                -q
-            }
+            if q >= T::ZERO { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.area

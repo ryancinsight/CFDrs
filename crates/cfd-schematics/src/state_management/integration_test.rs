@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::{adaptive::ChannelGenerationContext, ParameterManager, ParameterRegistry};
+    use super::super::{ParameterManager, ParameterRegistry, adaptive::ChannelGenerationContext};
     use crate::config::GeometryConfig;
     use std::any::Any;
 

@@ -8,11 +8,11 @@
 //! - Spalart-Allmaras model
 //! - Reynolds stress transport
 
+use cfd_validation::manufactured::ManufacturedSolution;
 use cfd_validation::manufactured::turbulent::{
     ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress,
     ManufacturedSpalartAllmaras,
 };
-use cfd_validation::manufactured::ManufacturedSolution;
 
 /// Test k-ε turbulence model MMS
 #[test]

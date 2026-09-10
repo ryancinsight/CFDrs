@@ -2,9 +2,9 @@
 //! Basic GMRES solver tests to validate core functionality
 
 use athena_core::Identity;
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use leto::Array1;
-use leto_ops::{spmv_into, CsrMatrix};
+use leto_ops::{CsrMatrix, spmv_into};
 
 fn array(values: Vec<f64>) -> Array1<f64> {
     Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")

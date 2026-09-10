@@ -36,9 +36,9 @@
 
 use crate::scalar::{one, zero};
 use crate::solvers::lbm::lattice::D2Q9;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
@@ -649,6 +649,9 @@ mod tests {
             [0.2, 0.0],
         );
 
-        assert_rejects(&result, "Invalid configuration: LBM velocity boundary violates Ma <= 0.1 low-Mach incompressible limit");
+        assert_rejects(
+            &result,
+            "Invalid configuration: LBM velocity boundary violates Ma <= 0.1 low-Mach incompressible limit",
+        );
     }
 }

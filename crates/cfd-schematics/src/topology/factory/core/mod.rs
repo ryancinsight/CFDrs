@@ -269,9 +269,11 @@ mod tests {
         )
         .expect("venturi mutation");
 
-        assert!(mutated
-            .topology_spec()
-            .is_some_and(BlueprintTopologySpec::has_venturi));
+        assert!(
+            mutated
+                .topology_spec()
+                .is_some_and(BlueprintTopologySpec::has_venturi)
+        );
         assert!(mutated.channels.iter().any(|channel| channel.therapy_zone
             == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)));
     }
@@ -323,13 +325,17 @@ mod tests {
         let topology = mutated.topology_spec().expect("mutated topology");
         assert!(topology.split_stages.len() >= 2);
         assert!(
-            topology.venturi_placements.iter().all(|placement| mutated.channels.iter().any(
-                |channel| {
+            topology
+                .venturi_placements
+                .iter()
+                .all(|placement| mutated.channels.iter().any(|channel| {
                     (channel.id.as_str() == placement.target_channel_id
-                        || channel.id.as_str().starts_with(&placement.target_channel_id))
+                        || channel
+                            .id
+                            .as_str()
+                            .starts_with(&placement.target_channel_id))
                         && channel.venturi_geometry.is_some()
-                }
-            )),
+                })),
             "every declared venturi placement must materialize venturi geometry on a matching channel"
         );
     }

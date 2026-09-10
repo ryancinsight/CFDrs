@@ -216,7 +216,7 @@ mod tests {
 mod cfd_integration_tests {
     use super::*;
     use leto::Array1;
-    use leto_ops::{spmv, CsrMatrix};
+    use leto_ops::{CsrMatrix, spmv};
 
     /// Test SIMD in CFD-like momentum update (v_new = v_old + dt * rhs)
     #[test]

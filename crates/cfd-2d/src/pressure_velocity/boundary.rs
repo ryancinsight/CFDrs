@@ -1,5 +1,5 @@
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use std::collections::HashMap;
 
 pub(crate) fn has_pressure_anchor<T: CfdScalar + Copy>(

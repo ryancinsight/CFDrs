@@ -1,7 +1,7 @@
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, Velocity,
 };
-use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput, VenturiSelectiveScreeningRegime};
+use cfd_1d::{VenturiScreeningInput, VenturiSelectiveScreeningRegime, evaluate_venturi_screening};
 use cfd_core::physics::cavitation::{
     CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
     SelectiveCavitationInput, SelectiveCavitationPopulation,
@@ -418,7 +418,7 @@ mod tests {
     use aequitas::systems::si::quantities::{
         DynamicViscosity, Length, MassDensity, Pressure, Velocity,
     };
-    use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
+    use cfd_1d::{VenturiScreeningInput, evaluate_venturi_screening};
     use cfd_schematics::VenturiPlacementMode;
 
     use crate::constraints::{

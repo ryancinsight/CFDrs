@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_3d::blueprint_integration::{
-    process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
+    Blueprint3dProcessingConfig, process_blueprint_with_reference_trace,
 };
 use cfd_schematics::interface::presets::{
     bifurcation_serpentine_rect, double_bifurcation_serpentine_rect, serpentine_chain,
@@ -75,16 +75,19 @@ fn blueprint_trace_captures_mesh_and_reference_contract() {
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
     assert_eq!(trace.node_traces.len(), blueprint.nodes.len());
     assert!(trace.volume_trace.fluid_mesh_volume.into_base() > 0.0);
-    assert!(trace
-        .channel_traces
-        .iter()
-        .all(|channel| channel.schematic_volume.into_base() > 0.0
-            && channel.meshed_volume.into_base() > 0.0));
-    assert!(trace.channel_traces.iter().all(|channel| channel
-        .reference_flow_rate
-        .into_base()
-        .abs()
-        > 0.0));
+    assert!(
+        trace
+            .channel_traces
+            .iter()
+            .all(|channel| channel.schematic_volume.into_base() > 0.0
+                && channel.meshed_volume.into_base() > 0.0)
+    );
+    assert!(
+        trace
+            .channel_traces
+            .iter()
+            .all(|channel| channel.reference_flow_rate.into_base().abs() > 0.0)
+    );
 }
 
 #[test]
@@ -106,19 +109,24 @@ fn blueprint_trace_tracks_serpentine_connectors_and_node_continuity() {
         .expect("3D blueprint trace should preserve serpentine connector diagnostics");
 
     assert_eq!(trace.channel_traces.len(), blueprint.channels.len());
-    assert!(trace
-        .layout_segments
-        .iter()
-        .any(|segment| segment.is_synthetic_connector));
+    assert!(
+        trace
+            .layout_segments
+            .iter()
+            .any(|segment| segment.is_synthetic_connector)
+    );
     assert!(trace.volume_trace.synthetic_connector_volume.into_base() > 0.0);
-    assert!(trace
-        .layout_segments
-        .iter()
-        .all(|segment| { !segment.is_synthetic_connector || segment.source_channel_id.is_none() }));
-    assert!(trace
-        .node_traces
-        .iter()
-        .all(|node| node.continuity_residual.into_base().abs() < flow_rate * 1.0e-6));
+    assert!(
+        trace.layout_segments.iter().all(|segment| {
+            !segment.is_synthetic_connector || segment.source_channel_id.is_none()
+        })
+    );
+    assert!(
+        trace
+            .node_traces
+            .iter()
+            .all(|node| node.continuity_residual.into_base().abs() < flow_rate * 1.0e-6)
+    );
 }
 
 #[test]

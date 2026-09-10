@@ -8,11 +8,11 @@
 //! - Magnetohydrodynamics
 //! - Multi-phase flows
 
+use cfd_validation::manufactured::ManufacturedSolution;
 use cfd_validation::manufactured::multi_physics::{
     ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase,
     ManufacturedSpeciesTransport,
 };
-use cfd_validation::manufactured::ManufacturedSolution;
 
 /// Test conjugate heat transfer validation
 #[test]

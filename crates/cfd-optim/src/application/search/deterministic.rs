@@ -1,4 +1,4 @@
-use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation};
+use crate::application::objectives::{BlueprintObjectiveEvaluation, evaluate_goal};
 use crate::domain::{BlueprintCandidate, OperatingPoint, OptimizationGoal};
 use crate::error::OptimError;
 use cfd_schematics::BlueprintTopologySpec;

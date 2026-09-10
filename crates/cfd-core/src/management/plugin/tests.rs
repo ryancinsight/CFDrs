@@ -95,17 +95,23 @@ fn test_circular_dependency_detection() {
     let mut resolver = DependencyResolver::new();
 
     // Create circular dependency: A -> B -> C -> A
-    assert!(resolver
-        .add_plugin("A".to_string(), vec!["B".to_string()])
-        .is_ok());
-    assert!(resolver
-        .add_plugin("B".to_string(), vec!["C".to_string()])
-        .is_ok());
+    assert!(
+        resolver
+            .add_plugin("A".to_string(), vec!["B".to_string()])
+            .is_ok()
+    );
+    assert!(
+        resolver
+            .add_plugin("B".to_string(), vec!["C".to_string()])
+            .is_ok()
+    );
 
     // This should fail due to circular dependency
-    assert!(resolver
-        .add_plugin("C".to_string(), vec!["A".to_string()])
-        .is_err());
+    assert!(
+        resolver
+            .add_plugin("C".to_string(), vec!["A".to_string()])
+            .is_err()
+    );
 }
 
 #[test]

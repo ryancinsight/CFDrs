@@ -4,7 +4,7 @@
 //! integration for spectral element methods.
 
 use super::{
-    compute_lgl_nodes, compute_lgl_weights, mat_vec_mul, vector_from_vec, SpectralElement,
+    SpectralElement, compute_lgl_nodes, compute_lgl_weights, mat_vec_mul, vector_from_vec,
 };
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};

@@ -33,12 +33,12 @@ pub use multi_level::{
 pub use n_furcation::{n_furcation_serpentine_rect, n_furcation_venturi_rect};
 pub use series::{serial_double_venturi_rect, venturi_serpentine_rect};
 pub use specialized::{
-    asymmetric_bifurcation_serpentine_rect, asymmetric_trifurcation_venturi_rect,
-    cascade_center_trifurcation_rect, cascade_tri_bi_tri_selective_rect, cell_separation_rect,
-    constriction_expansion_array_rect, double_trifurcation_cif_venturi_rect,
-    incremental_filtration_tri_bi_rect, incremental_filtration_tri_bi_rect_staged,
-    incremental_filtration_tri_bi_rect_staged_remerge, parallel_microchannel_array_rect,
-    primitive_selective_split_tree_rect, spiral_channel_rect, CenterSerpentineSpec,
+    CenterSerpentineSpec, asymmetric_bifurcation_serpentine_rect,
+    asymmetric_trifurcation_venturi_rect, cascade_center_trifurcation_rect,
+    cascade_tri_bi_tri_selective_rect, cell_separation_rect, constriction_expansion_array_rect,
+    double_trifurcation_cif_venturi_rect, incremental_filtration_tri_bi_rect,
+    incremental_filtration_tri_bi_rect_staged, incremental_filtration_tri_bi_rect_staged_remerge,
+    parallel_microchannel_array_rect, primitive_selective_split_tree_rect, spiral_channel_rect,
 };
 pub use trifurcation::{trifurcation_serpentine_rect, trifurcation_venturi_rect};
 

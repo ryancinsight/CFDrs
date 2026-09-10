@@ -25,12 +25,12 @@
 //! before accepting the solution. If the residual check fails, the solver
 //! falls through to the dense LU/QR tier regardless of system size.
 
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use cfd_math::linear_solver::krylov::{self, SolverKind};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
-use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
+use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar, lu_decompose, qr_decompose};
 use serde::{Deserialize, Serialize};
 
 /// Linear solver method selection

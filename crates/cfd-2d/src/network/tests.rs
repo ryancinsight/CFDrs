@@ -16,8 +16,8 @@ use cfd_schematics::interface::presets::{
 
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 
-use super::postprocess::extract_field_wall_shear;
 use super::Network2dBuilderSink;
+use super::postprocess::extract_field_wall_shear;
 
 fn circular_blueprint() -> NetworkBlueprint {
     let mut blueprint = NetworkBlueprint::new_with_explicit_positions("circular_trace");
@@ -262,16 +262,20 @@ fn coupled_multi_channel_solve_converges_on_junction_network() {
         coupled.result.channels.len(),
         coupled.projection.channel_count()
     );
-    assert!(coupled
-        .result
-        .channels
-        .iter()
-        .all(|channel| channel.solve_result.converged));
-    assert!(coupled
-        .result
-        .channels
-        .iter()
-        .all(|channel| channel.field_effective_resistance_pa_s_per_m3 > 0.0));
+    assert!(
+        coupled
+            .result
+            .channels
+            .iter()
+            .all(|channel| channel.solve_result.converged)
+    );
+    assert!(
+        coupled
+            .result
+            .channels
+            .iter()
+            .all(|channel| channel.field_effective_resistance_pa_s_per_m3 > 0.0)
+    );
     assert!(
         (coupled.result.reference_trace.total_inlet_flow_m3_s - q_total).abs() < q_total * 1e-6
     );
@@ -664,10 +668,12 @@ fn separation_tracking_is_disabled_by_default() {
     let mut network = sink.build(&blueprint).expect("build should succeed");
     let result = network.solve_all(1e-6).expect("solve should succeed");
 
-    assert!(result
-        .channels
-        .iter()
-        .all(|channel| channel.field_separation_efficiency_pct.is_none()));
+    assert!(
+        result
+            .channels
+            .iter()
+            .all(|channel| channel.field_separation_efficiency_pct.is_none())
+    );
 }
 
 #[test]

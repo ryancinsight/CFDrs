@@ -1,13 +1,13 @@
 //! Factory for creating microfluidic components
 
 use super::{
-    constants, try_real_from_f64, CircularChannel, Component, HashMap, Micropump, Microvalve,
-    OrganCompartment, PorousMembrane, RectangularChannel,
+    CircularChannel, Component, HashMap, Micropump, Microvalve, OrganCompartment, PorousMembrane,
+    RectangularChannel, constants, try_real_from_f64,
 };
 use aequitas::systems::si::quantities::Length;
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
-use cfd_core::CfdScalar;
 
 /// Factory for creating microfluidic components
 pub struct ComponentFactory;

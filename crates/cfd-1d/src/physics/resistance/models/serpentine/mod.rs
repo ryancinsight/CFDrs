@@ -47,6 +47,6 @@ use super::traits;
 
 // ── Re-exports ──────────────────────────────────────────────────────────────
 
-pub use analysis::{bayat_rezai_enhancement, SerpentineAnalysis};
+pub use analysis::{SerpentineAnalysis, bayat_rezai_enhancement};
 pub use model::SerpentineModel;
 pub use types::{BendType, SerpentineCrossSection};

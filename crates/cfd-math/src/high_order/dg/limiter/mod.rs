@@ -7,8 +7,8 @@ mod weno;
 
 pub use weno::WENOLimiter;
 
-use super::matrix_cols;
 use super::DGSolution;
+use super::matrix_cols;
 use crate::error::Result;
 
 /// Type of slope limiter

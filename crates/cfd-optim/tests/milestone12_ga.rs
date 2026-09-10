@@ -14,13 +14,13 @@
 
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_optim::{
-    build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
-    generate_ga_mutations, promote_option1_candidate_to_ga_seed, BlueprintCandidate,
-    BlueprintEvaluationStatus, BlueprintGeneticOptimizer, OperatingPoint, OptimizationGoal,
+    BlueprintCandidate, BlueprintEvaluationStatus, BlueprintGeneticOptimizer, OperatingPoint,
+    OptimizationGoal, build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
+    generate_ga_mutations, promote_option1_candidate_to_ga_seed,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
-    TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+    SplitKind, TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+    build_milestone12_blueprint, enumerate_milestone12_topologies,
 };
 
 // ---------------------------------------------------------------------------

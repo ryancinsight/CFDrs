@@ -3,7 +3,7 @@
 //! Provides Ruge-Stüben, aggregation, Falgout (CLJP), PMIS, HMIS, and hybrid
 //! coarsening strategies.
 
-use super::super::{csr_from_parts, SparseMatrix};
+use super::super::{SparseMatrix, csr_from_parts};
 use super::CoarseningResult;
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
@@ -322,7 +322,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     let mut status = vec![0; n];
 
     let mut rng = rand::thread_rng();
-    let priorities: Vec<f64> = (0..n).map(|_| rng.gen()).collect();
+    let priorities: Vec<f64> = (0..n).map(|_| rng.r#gen()).collect();
 
     let mut sorted_indices: Vec<usize> = (0..n).collect();
     sorted_indices.sort_by(|&a, &b| priorities[b].total_cmp(&priorities[a]));

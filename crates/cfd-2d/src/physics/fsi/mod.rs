@@ -6,4 +6,4 @@
 
 mod traction;
 
-pub use traction::{interface_traction, FaceTraction, InterfaceFace};
+pub use traction::{FaceTraction, InterfaceFace, interface_traction};

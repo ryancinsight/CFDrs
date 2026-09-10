@@ -6,8 +6,9 @@ mod venturi;
 use crate::domain::model::NetworkBlueprint;
 
 pub use composite::{
-    asymmetric_bifurcation_serpentine_rect, asymmetric_trifurcation_venturi_rect,
-    bifurcation_serpentine_rect, bifurcation_trifurcation_venturi_rect, bifurcation_venturi_rect,
+    CenterSerpentineSpec, asymmetric_bifurcation_serpentine_rect,
+    asymmetric_trifurcation_venturi_rect, bifurcation_serpentine_rect,
+    bifurcation_trifurcation_venturi_rect, bifurcation_venturi_rect,
     cascade_center_trifurcation_rect, cascade_tri_bi_tri_selective_rect, cell_separation_rect,
     constriction_expansion_array_rect, double_bifurcation_serpentine_rect,
     double_bifurcation_venturi_rect, double_trifurcation_cif_venturi_rect,
@@ -18,7 +19,7 @@ pub use composite::{
     serial_double_venturi_rect, spiral_channel_rect,
     trifurcation_bifurcation_bifurcation_venturi_rect, trifurcation_bifurcation_venturi_rect,
     trifurcation_serpentine_rect, trifurcation_venturi_rect, triple_bifurcation_venturi_rect,
-    triple_trifurcation_venturi_rect, venturi_serpentine_rect, CenterSerpentineSpec,
+    triple_trifurcation_venturi_rect, venturi_serpentine_rect,
 };
 pub use n_furcation::{
     bifurcation_rect, n_furcation_rect, pentafurcation_rect, quadfurcation_rect,

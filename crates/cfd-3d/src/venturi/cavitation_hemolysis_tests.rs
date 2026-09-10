@@ -149,7 +149,7 @@ mod tests {
 
         // Wall shear stress estimate
         let shear_stress = 4.0 * mu * velocity / d_throat; // Factor of 4 for parabolic profile
-                                                           // τ ≈ 2800 Pa - extreme shear!
+        // τ ≈ 2800 Pa - extreme shear!
 
         // Exposure time: residence time in throat
         let throat_length = 200e-6; // 200 μm

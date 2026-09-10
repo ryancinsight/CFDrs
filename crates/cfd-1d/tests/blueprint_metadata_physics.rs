@@ -10,8 +10,8 @@ use cfd_schematics::domain::model::{
     ChannelShape, ChannelSpec, CrossSectionSpec, NetworkBlueprint, NodeKind, NodeSpec,
 };
 use cfd_schematics::geometry::generator::{
-    create_selective_tree_geometry, CenterSerpentinePathSpec, SelectiveTreeRequest,
-    SelectiveTreeTopology,
+    CenterSerpentinePathSpec, SelectiveTreeRequest, SelectiveTreeTopology,
+    create_selective_tree_geometry,
 };
 use cfd_schematics::geometry::metadata::{
     JunctionFamily, JunctionGeometryMetadata, VenturiGeometryMetadata,

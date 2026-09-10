@@ -5,7 +5,7 @@
 
 use tracing;
 
-use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
+use crate::linalg::{Matrix3, matrix3x4_from_columns, symmetric_part, vector3_from_indexed};
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use eunomia::FloatElement;

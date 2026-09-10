@@ -412,11 +412,13 @@ mod tests {
         assert_eq!(report.history.probe_checkpoints.len(), 12);
         assert!(report.result.metrics["max_probe_error"] <= 1e-8);
         assert!(report.result.metrics["force_balance_linf"] <= 1e-8);
-        assert!(report
-            .history
-            .probe_checkpoints
-            .iter()
-            .all(|checkpoint| checkpoint.absolute_error.is_finite()));
+        assert!(
+            report
+                .history
+                .probe_checkpoints
+                .iter()
+                .all(|checkpoint| checkpoint.absolute_error.is_finite())
+        );
     }
 
     #[test]
@@ -425,8 +427,10 @@ mod tests {
         let runtime = BenchmarkConfig::default();
         let result = benchmark.run(&runtime).expect("benchmark should run");
 
-        assert!(benchmark
-            .validate(&result)
-            .expect("validation should succeed"));
+        assert!(
+            benchmark
+                .validate(&result)
+                .expect("validation should succeed")
+        );
     }
 }

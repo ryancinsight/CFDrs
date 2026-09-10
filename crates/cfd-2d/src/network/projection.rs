@@ -5,8 +5,8 @@
 //! per-channel occupancy summaries. This keeps the 2D solver aligned with the
 //! topology authority instead of assuming rectangular channels.
 
-use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result as CfdResult};
 use eunomia::{FloatElement, NumericElement};
 
 use cfd_schematics::domain::model::{ChannelSpec, CrossSectionSpec};

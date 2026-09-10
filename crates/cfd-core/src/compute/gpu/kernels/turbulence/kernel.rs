@@ -1,7 +1,7 @@
 //! Validated turbulence grids and Hephaestus dispatch.
 
-use crate::compute::gpu::kernels::{validate_field_len, validate_finite_field};
 use crate::compute::gpu::GpuContext;
+use crate::compute::gpu::kernels::{validate_field_len, validate_finite_field};
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
 use hephaestus_wgpu::{

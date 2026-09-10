@@ -28,8 +28,8 @@ use eunomia::{FloatElement, NumericElement};
 
 use super::constants::DEARDORFF_ONE_THIRD;
 use super::field_ops::{
-    linear_index, strain_components, strain_magnitude, symmetric_contract,
-    velocity_gradient_tensor, SymmetricTensor6,
+    SymmetricTensor6, linear_index, strain_components, strain_magnitude, symmetric_contract,
+    velocity_gradient_tensor,
 };
 use super::filter_ops::{box_filter_moments_at, box_filter_velocity_at, resolved_stress_tensor};
 use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
@@ -267,8 +267,10 @@ mod tests {
         let flow = FlowField::<f64>::new(3, 3, 3);
         let model = DynamicSmagorinskyModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
         let viscosity = model.turbulent_viscosity(&flow);
-        assert!(viscosity
-            .iter()
-            .all(|value| value.into_base().abs() < 1e-15));
+        assert!(
+            viscosity
+                .iter()
+                .all(|value| value.into_base().abs() < 1e-15)
+        );
     }
 }

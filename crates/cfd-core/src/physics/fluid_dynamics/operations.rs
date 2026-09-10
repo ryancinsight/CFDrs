@@ -12,8 +12,8 @@
 use eunomia::{NumericElement, RealField};
 use leto::geometry::Vector3;
 use melinoe::MelinoeCell;
-use moirai::melinoe_ext::par_partition_for_each;
 use moirai::ParallelSlice;
+use moirai::melinoe_ext::par_partition_for_each;
 
 use super::fields::VelocityField;
 

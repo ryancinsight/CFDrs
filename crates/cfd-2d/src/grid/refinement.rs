@@ -268,11 +268,7 @@ mod tests {
     fn test_gradient_marking_refines_above_threshold() {
         let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
         grid.mark_for_refinement(RefinementCriterion::Gradient(0.5), |i, _j| {
-            if i > 4 {
-                1.0
-            } else {
-                0.0
-            }
+            if i > 4 { 1.0 } else { 0.0 }
         })
         .expect("expected value");
 

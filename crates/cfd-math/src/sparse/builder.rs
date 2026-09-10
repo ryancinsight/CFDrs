@@ -43,7 +43,7 @@ use cfd_core::error::{Error, Result};
 use eunomia::RealField;
 use leto::Array1;
 use leto_ops::{CsrMatrix, Scalar as LetoScalar};
-use moirai::{fold_reduce_with, Adaptive};
+use moirai::{Adaptive, fold_reduce_with};
 use std::collections::{BTreeMap, HashMap};
 
 /// Entry for sparse matrix assembly

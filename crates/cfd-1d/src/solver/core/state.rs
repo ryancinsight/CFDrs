@@ -16,8 +16,8 @@
 
 use crate::domain::network::Network;
 use aequitas::systems::si::quantities::{Pressure, Time, VolumetricFlowRate};
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::CfdScalar;
+use cfd_core::physics::fluid::FluidTrait;
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
 pub struct NetworkState<T: CfdScalar + Copy> {

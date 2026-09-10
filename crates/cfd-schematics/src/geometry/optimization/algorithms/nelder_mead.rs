@@ -12,8 +12,8 @@ use crate::geometry::types::Point2D;
 use super::super::constants;
 use super::super::serpentine_eval::generate_optimization_serpentine_path;
 use super::super::{
-    calculate_min_neighbor_distance, calculate_min_wall_distance, calculate_path_length,
-    OptimizationParams, OptimizationResult,
+    OptimizationParams, OptimizationResult, calculate_min_neighbor_distance,
+    calculate_min_wall_distance, calculate_path_length,
 };
 use super::evaluate_objective_function;
 

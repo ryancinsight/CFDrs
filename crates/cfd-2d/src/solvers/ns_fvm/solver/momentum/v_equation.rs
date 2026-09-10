@@ -3,8 +3,8 @@
 use crate::scalar;
 use crate::solvers::ns_fvm::boundary::BoundaryCondition;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use cfd_core::error::Error;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {

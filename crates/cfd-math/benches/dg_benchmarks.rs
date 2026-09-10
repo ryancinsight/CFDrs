@@ -3,7 +3,7 @@
 
 use cfd_math::error::Result;
 use cfd_math::high_order::dg::*;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use leto::{Array1, Array2};
 
 fn dg_advection_benchmark(c: &mut Criterion) {

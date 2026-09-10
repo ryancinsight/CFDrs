@@ -239,18 +239,18 @@ impl BlueprintTopologyFactory {
         if let Some(existing_lineage) = blueprint.lineage.clone() {
             result.lineage = Some(existing_lineage);
         }
-        if let Some(source_hints) = blueprint.render_hints() {
-            if source_hints.mirror_x || source_hints.mirror_y {
-                Self::mirror_blueprint_geometry(
-                    &mut result,
-                    new_spec.box_dims_mm(),
-                    source_hints.mirror_x,
-                    source_hints.mirror_y,
-                );
-                if let Some(render_hints) = result.render_hints.as_mut() {
-                    render_hints.mirror_x = source_hints.mirror_x;
-                    render_hints.mirror_y = source_hints.mirror_y;
-                }
+        if let Some(source_hints) = blueprint.render_hints()
+            && (source_hints.mirror_x || source_hints.mirror_y)
+        {
+            Self::mirror_blueprint_geometry(
+                &mut result,
+                new_spec.box_dims_mm(),
+                source_hints.mirror_x,
+                source_hints.mirror_y,
+            );
+            if let Some(render_hints) = result.render_hints.as_mut() {
+                render_hints.mirror_x = source_hints.mirror_x;
+                render_hints.mirror_y = source_hints.mirror_y;
             }
         }
         if let Some(ref mut lineage) = result.lineage {

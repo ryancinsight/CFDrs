@@ -4,16 +4,16 @@ use athena_leto::IncompleteLu;
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{
-    config::{AlgorithmType, SimplecPimpleConfig},
     SimplecPimpleSolver,
+    config::{AlgorithmType, SimplecPimpleConfig},
 };
 use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use eunomia::assert_relative_eq;
-use leto::{geometry::Vector3, Array1};
+use leto::{Array1, geometry::Vector3};
 
 /// Step 1: 1D Linear Convection
 /// Equation: du/dt + c*du/dx = 0
@@ -100,7 +100,7 @@ fn test_step_1_linear_convection() {
     // Let's check mass conservation as a strict metric first.
 
     let _initial_mass: f64 = (0.5 * 2.0) + (1.5 * 1.0); // (width 0.5 * height 2) + (rest 1.5 * bg 1) = 1.0 + 1.5 = 2.5
-                                                        // Actually sum of discrete cells
+    // Actually sum of discrete cells
     let mut final_mass = 0.0;
     for i in 0..nx {
         final_mass += u.at(i, 0) * dx;
@@ -365,9 +365,9 @@ fn test_step_4_burgers() {
             } else {
                 u.at(i - 1, 0)
             }; // Re-get for consistency
-               // Wait, I have u_west. Need u_west_west for face west?
-               // Face West (i-1/2): Same logic.
-               // u_{i-1/2} = 0.5*(u_west + u_curr).
+            // Wait, I have u_west. Need u_west_west for face west?
+            // Face West (i-1/2): Same logic.
+            // u_{i-1/2} = 0.5*(u_west + u_curr).
             let u_face_w = 0.5 * (u_west + u_curr);
             let f_c_w = if u_face_w >= 0.0 {
                 0.5 * u_west * u_west

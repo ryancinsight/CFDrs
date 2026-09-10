@@ -4,8 +4,8 @@ use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{EdgeId, NetworkBlueprint};
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::{
-    create_parallel_geometry_from_spec, create_primitive_selective_tree_geometry_from_spec,
-    create_series_geometry_from_spec, GeometryGeneratorBuilder,
+    GeometryGeneratorBuilder, create_parallel_geometry_from_spec,
+    create_primitive_selective_tree_geometry_from_spec, create_series_geometry_from_spec,
 };
 use crate::geometry::metadata::ChannelVisualRole;
 use crate::topology::model::{

@@ -257,7 +257,7 @@ fn expected_geometry_or_data(spec: &NarrativeFigureSpec) -> String {
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{write_asset_review_manifest, ReviewStatus};
+    use super::{ReviewStatus, write_asset_review_manifest};
     use crate::reporting::figures::NarrativeFigureSpec;
 
     #[test]

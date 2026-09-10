@@ -6,8 +6,8 @@
 use super::rotating::apply_rotating_wall_bc;
 use crate::physics::momentum::solver::MomentumComponent;
 use crate::scalar;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use leto::Array1;
 

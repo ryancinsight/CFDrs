@@ -12,11 +12,11 @@ use aequitas::systems::si::quantities::{
     ReciprocalTime, Time,
 };
 use cfd_1d::{
+    Network, NetworkBuilder, NetworkProblem, NetworkSolver,
+    domain::components::Component,
     domain::components::channels::CircularChannel,
     domain::components::membranes::PorousMembrane,
-    domain::components::Component,
     physics::vascular::womersley::{WomersleyFlow, WomersleyNumber},
-    Network, NetworkBuilder, NetworkProblem, NetworkSolver,
 };
 use cfd_core::physics::fluid::database::water_20c;
 use cfd_core::test_support::assert_rejects;

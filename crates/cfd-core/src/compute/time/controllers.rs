@@ -102,11 +102,7 @@ fn integration_order_denominator<T: FloatElement>(order: usize, offset: usize) -
 }
 
 fn min_value<T: PartialOrd + Copy>(left: T, right: T) -> T {
-    if left <= right {
-        left
-    } else {
-        right
-    }
+    if left <= right { left } else { right }
 }
 
 fn clamp<T: PartialOrd + Copy>(value: T, min: T, max: T) -> T {

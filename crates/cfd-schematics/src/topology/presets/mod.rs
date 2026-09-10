@@ -26,16 +26,16 @@ mod series;
 mod tree;
 
 pub use milestone12::{
-    build_milestone12_blueprint, build_milestone12_topology_spec, enumerate_milestone12_topologies,
-    milestone12_default_stage_layouts, milestone12_primitive_selective_tree_spec,
-    promote_milestone12_option1_to_option2, Milestone12PrimitiveSelectiveSpec,
-    Milestone12StageBranchSpec, Milestone12StageLayout, Milestone12TopologyRequest,
+    Milestone12PrimitiveSelectiveSpec, Milestone12StageBranchSpec, Milestone12StageLayout,
+    Milestone12TopologyRequest, build_milestone12_blueprint, build_milestone12_topology_spec,
+    enumerate_milestone12_topologies, milestone12_default_stage_layouts,
+    milestone12_primitive_selective_tree_spec, promote_milestone12_option1_to_option2,
 };
 pub use modifiers::{
     with_branch_serpentine, with_dean_venturi_placement, with_venturi, with_venturi_placements,
 };
 pub use parallel::{parallel_microchannel_array_spec, parallel_path_spec};
-pub use sequence::{PrimitiveSplitSequence, ALL_SELECTIVE_SEQUENCES, TRI_FIRST_SEQUENCES};
+pub use sequence::{ALL_SELECTIVE_SEQUENCES, PrimitiveSplitSequence, TRI_FIRST_SEQUENCES};
 pub use series::{
     constriction_expansion_series_spec, serial_double_venturi_series_spec, series_path_spec,
     serpentine_bend_venturi_series_spec, serpentine_series_spec, single_venturi_series_spec,

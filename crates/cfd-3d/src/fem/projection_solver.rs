@@ -696,9 +696,10 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> ProjectionSol
         let mut applied_bcs = HashSet::new();
 
         let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
-        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+        sorted_bcs.sort_unstable_by_key(|entry| *entry.0);
 
-        for (&node_idx, bc) in sorted_bcs {
+        for (node_idx, bc) in sorted_bcs {
+            let node_idx = *node_idx;
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
                     for d in 0..3 {
@@ -762,9 +763,10 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> ProjectionSol
         velocity: &mut Array1<T>,
     ) -> Result<()> {
         let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
-        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+        sorted_bcs.sort_unstable_by_key(|entry| *entry.0);
 
-        for (&node_idx, bc) in sorted_bcs {
+        for (node_idx, bc) in sorted_bcs {
+            let node_idx = *node_idx;
             match bc {
                 BoundaryCondition::VelocityInlet {
                     velocity: inlet_vel,

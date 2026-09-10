@@ -1,7 +1,7 @@
 //! GPU turbulence operations through the Hephaestus provider.
 
-use super::kernels::turbulence::{TurbulenceGrid, TurbulenceKernels};
 use super::GpuContext;
+use super::kernels::turbulence::{TurbulenceGrid, TurbulenceKernels};
 use crate::error::Result;
 use std::sync::Arc;
 

@@ -9,9 +9,9 @@ use crate::solver::core::transient::composition::{
     TransientCompositionSimulator,
 };
 use aequitas::systems::si::quantities::{Dimensionless, Time, Volume, VolumetricFlowRate};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -305,11 +305,7 @@ impl TransientDropletSimulator {
         let one = T::ONE;
         network.properties.get(&edge).map_or(one, |p| {
             let area = p.area.into_base();
-            if area > T::ZERO {
-                area
-            } else {
-                one
-            }
+            if area > T::ZERO { area } else { one }
         })
     }
 
@@ -320,11 +316,7 @@ impl TransientDropletSimulator {
         let one = T::ONE;
         network.properties.get(&edge).map_or(one, |p| {
             let length = p.length.into_base();
-            if length > T::ZERO {
-                length
-            } else {
-                one
-            }
+            if length > T::ZERO { length } else { one }
         })
     }
 

@@ -528,7 +528,7 @@ mod tests {
     use cfd_schematics::topology::VenturiPlacementMode;
 
     use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
-    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+    use crate::reporting::{Milestone12ReportDesign, compute_blueprint_report_metrics};
 
     use super::write_treatment_lane_zoom_figure;
 

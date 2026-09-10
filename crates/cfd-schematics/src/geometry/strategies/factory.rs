@@ -1,7 +1,7 @@
 //! Factory for creating channel type strategies based on configuration.
 
 use crate::config::{
-    constants, ArcConfig, ChannelTypeConfig, ConstantsRegistry, FrustumConfig, SerpentineConfig,
+    ArcConfig, ChannelTypeConfig, ConstantsRegistry, FrustumConfig, SerpentineConfig, constants,
 };
 use crate::geometry::Point2D;
 

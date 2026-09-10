@@ -74,7 +74,7 @@ mod solver;
 pub use bubble_dynamics::BubbleDynamicsConfig;
 pub use cavitation_solver::CavitationVofSolver;
 pub use cavitation_types::{CavitationStatistics, CavitationVofConfig};
-pub use config::{constants, VofConfig};
+pub use config::{VofConfig, constants};
 pub use solver::VofSolver;
 
 // Re-export key types for convenience

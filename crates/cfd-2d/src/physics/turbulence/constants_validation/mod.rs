@@ -25,8 +25,8 @@ mod dns_database;
 mod sensitivity;
 
 pub use calibration::{
-    calibrate_log_law, kappa_from_k_epsilon_constants, standard_kappa, KepsilonCalibrationReport,
-    LogLawCalibration, LogLawProblem,
+    KepsilonCalibrationReport, LogLawCalibration, LogLawProblem, calibrate_log_law,
+    kappa_from_k_epsilon_constants, standard_kappa,
 };
 pub use dns_database::DnsChannelFlowDatabase;
 

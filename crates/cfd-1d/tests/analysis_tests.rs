@@ -239,10 +239,14 @@ fn test_blood_damage_violation_respects_residence_time() {
     let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);
     assert_eq!(violations.len(), 1);
     assert_eq!(violations[0].component_id, "edge_damage");
-    assert!(violations[0]
-        .giersiepen_exceedance_ratio
-        .is_some_and(|ratio| ratio.into_base() > 1.0));
-    assert!(violations[0]
-        .taskin_exceedance_ratio
-        .is_some_and(|ratio| ratio.into_base() > 1.0));
+    assert!(
+        violations[0]
+            .giersiepen_exceedance_ratio
+            .is_some_and(|ratio| ratio.into_base() > 1.0)
+    );
+    assert!(
+        violations[0]
+            .taskin_exceedance_ratio
+            .is_some_and(|ratio| ratio.into_base() > 1.0)
+    );
 }

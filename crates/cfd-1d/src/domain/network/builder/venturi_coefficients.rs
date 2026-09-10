@@ -8,10 +8,10 @@
 //! model into its zero-flow fallback and suppresses the angle-dependent inertial
 //! loss coefficient.
 
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 
 /// Compute venturi (R, K) pair from schematics geometry metadata.
 ///

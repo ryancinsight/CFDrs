@@ -38,9 +38,9 @@
 use crate::domain::channel::cross_section::CrossSection;
 use crate::domain::channel::geometry::{ChannelGeometry, ChannelType};
 use aequitas::systems::si::quantities::{Area, Length};
-use cfd_core::conversion::SafeFromF64;
-use cfd_core::physics::constants::mathematical::{numeric, PI};
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
+use cfd_core::physics::constants::mathematical::{PI, numeric};
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: CfdScalar + Copy + FloatElement> ChannelGeometry<T> {

@@ -144,6 +144,18 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Move the workspace to **edition 2024 / resolver 3**
+  (CFDRS-GA-016). Single-source flip in the workspace manifest; all 12
+  packages inherit. The edition's stricter defaults land with zero unsafe
+  churn (all 10 remaining `unsafe` sites already use per-operation blocks +
+  `// SAFETY:` comments, so `unsafe_op_in_unsafe_fn` enforces directly).
+  Mechanical fallout fixed: `gen` reserved keyword (7 sites), pattern
+  binding-mode strictness (~10 sites), 19 collapsible-`if` sites collapsed
+  into let-chains, one `unwrap_err()` → `expect_err()`, and rustfmt's
+  style-edition-2024 import reordering across the tree. Verified by the full
+  CI-surface gate in-tree and standalone `--locked` at current HEAD
+  (fmt, clippy `-D warnings`, 3287 main + 14 fidelity tests, doctests).
+
 - **Breaking:** Remove `cfd-core`'s `compute::simd` modules
   (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six
   `pub unsafe fn` kernels they exposed (`advection_avx2`, `advection_sse41`,

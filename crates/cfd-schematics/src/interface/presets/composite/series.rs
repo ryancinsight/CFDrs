@@ -1,6 +1,6 @@
 use super::finalize_preset_blueprint;
-use crate::topology::presets::{serial_double_venturi_series_spec, venturi_serpentine_series_spec};
 use crate::BlueprintTopologyFactory;
+use crate::topology::presets::{serial_double_venturi_series_spec, venturi_serpentine_series_spec};
 
 /// Venturi throat upstream of a serpentine residence segment in series.
 #[must_use]
@@ -69,10 +69,12 @@ mod tests {
         assert_eq!(topology.parallel_venturi_count(), 1);
         assert_eq!(topology.serial_venturi_stages(), 1);
         assert!(topology.has_serpentine());
-        assert!(topology
-            .treatment_channel_ids()
-            .iter()
-            .any(|channel_id| channel_id == "throat_section"));
+        assert!(
+            topology
+                .treatment_channel_ids()
+                .iter()
+                .any(|channel_id| channel_id == "throat_section")
+        );
     }
 
     #[test]

@@ -170,12 +170,11 @@ impl CheckpointManager {
             let entry = entry?;
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("bin") {
-                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    if name.starts_with("checkpoint_") {
-                        checkpoints.push(path);
-                    }
-                }
+            if path.extension().and_then(|s| s.to_str()) == Some("bin")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+                && name.starts_with("checkpoint_")
+            {
+                checkpoints.push(path);
             }
         }
 
@@ -191,12 +190,11 @@ impl CheckpointManager {
             let entry = entry?;
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("bin") {
-                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    if name.starts_with("checkpoint_") {
-                        checkpoints.push(path);
-                    }
-                }
+            if path.extension().and_then(|s| s.to_str()) == Some("bin")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+                && name.starts_with("checkpoint_")
+            {
+                checkpoints.push(path);
             }
         }
 

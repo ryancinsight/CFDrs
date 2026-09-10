@@ -9,12 +9,12 @@ use crate::scalar;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
+use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::P_ATM;
-use cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE_K;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE_K;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 

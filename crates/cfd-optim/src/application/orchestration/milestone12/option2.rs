@@ -4,26 +4,26 @@ use std::sync::{Arc, Mutex};
 
 use moirai::ParallelSlice;
 
-use crate::analysis::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTURBATIONS};
+use crate::analysis::{RobustnessReport, STANDARD_PERTURBATIONS, robustness_sweep_blueprint};
 use crate::application::objectives::{
     score_selective_acoustic_residence_separation, score_selective_venturi_cavitation,
 };
 use crate::application::orchestration::{
-    blueprint_lineage_key, ensure_release_reports, fast_env, fast_mode, init_tracing,
-    milestone12_ranked_pool_size, resolve_output_directories, save_figure, ScanProgress,
+    ScanProgress, blueprint_lineage_key, ensure_release_reports, fast_env, fast_mode, init_tracing,
+    milestone12_ranked_pool_size, resolve_output_directories, save_figure,
 };
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
-use crate::design::{build_milestone12_candidate_params, CandidateParams};
+use crate::design::{CandidateParams, build_milestone12_candidate_params};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::metrics::evaluate_blueprint_candidate;
 use crate::metrics::healthy_cell_protection_index as compute_healthy_cell_protection_index;
 use crate::reporting::{
+    Milestone12LineageKey, Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
     audit_goal_candidates, sort_pareto_points, validate_milestone12_candidate,
-    write_goal_audit_report, Milestone12LineageKey, Milestone12ReportDesign, Milestone12Stage,
-    ParetoPoint, ParetoTag,
+    write_goal_audit_report,
 };
 
-use super::report::{write_stage_summary, Milestone12Option2Summary, OPTION2_SUMMARY_PATH};
+use super::report::{Milestone12Option2Summary, OPTION2_SUMMARY_PATH, write_stage_summary};
 use super::types::{Milestone12Option2Run, Milestone12StageArtifact};
 
 fn fill_to_eval_cap(

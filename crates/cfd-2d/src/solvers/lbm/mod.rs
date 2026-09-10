@@ -34,10 +34,10 @@ pub use boundary::{BoundaryHandler, BoundaryType};
 pub use collision::{
     BgkCollision, CarreauYasudaBgk, CollisionOperator, MrtCollision, RelaxationMatrix,
 };
-pub use lattice::{LatticeModel, D2Q9};
+pub use lattice::{D2Q9, LatticeModel};
 pub use macroscopic::{
-    compute_density, compute_kinetic_energy, compute_stress_tensor, compute_velocity,
-    compute_vorticity, MacroscopicQuantities,
+    MacroscopicQuantities, compute_density, compute_kinetic_energy, compute_stress_tensor,
+    compute_velocity, compute_vorticity,
 };
 pub use multiphase::ShanChenMultiphase;
 pub use solver::{LbmConfig, LbmSolver};

@@ -14,8 +14,8 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use cfd_core::compute::solver::SolverConfig;
 use cfd_core::CfdScalar;
+use cfd_core::compute::solver::SolverConfig;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use serde::{Deserialize, Serialize};
 

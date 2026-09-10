@@ -2,8 +2,8 @@ use crate::domain::{BlueprintCandidate, OperatingPoint};
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::topology::presets::{
-    build_milestone12_blueprint, Milestone12StageBranchSpec, Milestone12StageLayout,
-    Milestone12TopologyRequest,
+    Milestone12StageBranchSpec, Milestone12StageLayout, Milestone12TopologyRequest,
+    build_milestone12_blueprint,
 };
 use cfd_schematics::{
     BlueprintTopologySpec, BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode,

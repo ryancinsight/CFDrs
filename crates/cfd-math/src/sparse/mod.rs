@@ -45,7 +45,7 @@ mod patterns;
 pub use assembly::ParallelAssembly;
 pub use builder::{MatrixEntry, SparseMatrixBuilder};
 pub use operations::{
-    sparse_sparse_mul, spmv, try_sparse_sparse_mul, try_sparse_transpose, try_spmv, SparseMatrixExt,
+    SparseMatrixExt, sparse_sparse_mul, spmv, try_sparse_sparse_mul, try_sparse_transpose, try_spmv,
 };
 pub use patterns::SparsePatterns;
 

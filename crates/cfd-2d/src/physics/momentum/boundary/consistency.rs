@@ -1,8 +1,8 @@
 use super::super::solver::MomentumComponent;
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::{BoundaryErrorKind, Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 use std::hash::BuildHasher;

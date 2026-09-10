@@ -6,8 +6,8 @@ mod laplacian;
 #[cfg(test)]
 mod tests;
 
-use crate::compute::gpu::kernels::Laplacian2DKernel;
 use crate::compute::gpu::GpuContext;
+use crate::compute::gpu::kernels::Laplacian2DKernel;
 use crate::error::Result;
 use std::sync::Arc;
 

@@ -202,11 +202,7 @@ impl<T: CfdScalar + Copy> TvdLimiter<T> for Minmod {
         let zero = T::ZERO;
         let one = T::ONE;
 
-        if r <= zero {
-            zero
-        } else {
-            r.min(one)
-        }
+        if r <= zero { zero } else { r.min(one) }
     }
 
     fn name(&self) -> &'static str {

@@ -11,7 +11,7 @@ mod validator;
 pub use compression::CompressionStrategy;
 pub use data::Checkpoint;
 pub use manager::CheckpointManager;
-pub use metadata::{CheckpointMetadata, CHECKPOINT_VERSION};
+pub use metadata::{CHECKPOINT_VERSION, CheckpointMetadata};
 pub use validator::CheckpointValidator;
 
 // Convenience functions removed - users must explicitly create CheckpointManager

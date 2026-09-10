@@ -66,11 +66,7 @@ impl<T: RealField + Copy + FloatElement> Geometry2D<T> for RectangularDomain<T> 
         } else {
             dy_top
         };
-        if min_x < min_y {
-            min_x
-        } else {
-            min_y
-        }
+        if min_x < min_y { min_x } else { min_y }
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {

@@ -5,8 +5,8 @@ mod routing;
 
 use builder::SelectiveTreeBuilder;
 pub use primitive::{
-    create_primitive_selective_tree_geometry, create_primitive_selective_tree_geometry_from_spec,
     PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    create_primitive_selective_tree_geometry, create_primitive_selective_tree_geometry_from_spec,
 };
 
 use super::super::types::Point2D;
@@ -212,8 +212,8 @@ mod tests {
     use super::path_geometry::{path_intersects_any, polyline_length_mm};
     use super::routing::route_monotone_treatment_path;
     use super::{
-        create_primitive_selective_tree_geometry, CenterSerpentinePathSpec,
-        PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+        CenterSerpentinePathSpec, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+        create_primitive_selective_tree_geometry,
     };
     use aequitas::systems::si::quantities::Length;
 
@@ -330,17 +330,17 @@ mod tests {
             .expect("venturi treatment paths must remain planar");
 
         for channel in blueprint.venturi_channels() {
-            if let (Some(start), Some(end)) = (channel.path.first(), channel.path.last()) {
-                if (start.1 - end.1).abs() < 1e-9 {
-                    assert!(
-                        channel
-                            .path
-                            .iter()
-                            .all(|point| (point.1 - start.1).abs() < 1e-9),
-                        "equal-y treatment channel {} must stay on its own lane",
-                        channel.id.as_str()
-                    );
-                }
+            if let (Some(start), Some(end)) = (channel.path.first(), channel.path.last())
+                && (start.1 - end.1).abs() < 1e-9
+            {
+                assert!(
+                    channel
+                        .path
+                        .iter()
+                        .all(|point| (point.1 - start.1).abs() < 1e-9),
+                    "equal-y treatment channel {} must stay on its own lane",
+                    channel.id.as_str()
+                );
             }
         }
     }

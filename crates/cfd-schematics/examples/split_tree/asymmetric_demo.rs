@@ -1,7 +1,7 @@
 #![expect(clippy::print_stdout, reason = "test/validation output")]
 #![allow(missing_docs)]
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-use cfd_schematics::geometry::{create_geometry, SplitType};
+use cfd_schematics::geometry::{SplitType, create_geometry};
 
 #[path = "../shared/mod.rs"]
 mod shared;

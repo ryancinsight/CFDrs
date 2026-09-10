@@ -27,9 +27,9 @@
 //! a review. *Journal of Micromechanics and Microengineering*, 3(4), 168–182.
 
 use super::Component;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -19,8 +19,8 @@
 //! or when the channel is nanoscale.
 
 use super::geometry::ChannelGeometry;
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Minimum Knudsen number for slip-flow regime (Schaaf-Chambre 1961)
 pub const KN_SLIP_MIN: f64 = 0.001;

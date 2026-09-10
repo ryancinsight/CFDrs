@@ -9,7 +9,7 @@ use super::super::metadata::{
     OptimizationMetadata, PerformanceMetadata,
 };
 use super::super::strategies::ChannelTypeFactory;
-use super::super::types::{polyline_length, ChannelType, Point2D};
+use super::super::types::{ChannelType, Point2D, polyline_length};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::topology::{BlueprintTopologySpec, TopologyLineageMetadata};
@@ -177,15 +177,15 @@ impl GeometryGenerator {
         let node = if let Some(ref metadata_config) = self.metadata_config {
             let mut node_builder = NodeBuilder::new(id, p);
 
-            if metadata_config.track_performance {
-                if let Some(start_time) = self.generation_start_time {
-                    let perf_metadata = PerformanceMetadata {
-                        generation_time_us: start_time.elapsed().as_micros() as u64,
-                        memory_usage_bytes: std::mem::size_of::<NodeSpec>(),
-                        path_points_count: 1,
-                    };
-                    node_builder = node_builder.with_metadata(perf_metadata);
-                }
+            if metadata_config.track_performance
+                && let Some(start_time) = self.generation_start_time
+            {
+                let perf_metadata = PerformanceMetadata {
+                    generation_time_us: start_time.elapsed().as_micros() as u64,
+                    memory_usage_bytes: std::mem::size_of::<NodeSpec>(),
+                    path_points_count: 1,
+                };
+                node_builder = node_builder.with_metadata(perf_metadata);
             }
 
             node_builder.build()
@@ -282,16 +282,16 @@ impl GeometryGenerator {
                 .with_physical_dims_m(channel_width * 1e-3, self.config.channel_height_mm() * 1e-3)
                 .with_physical_shape(physical_shape);
 
-            if metadata_config.track_performance {
-                if let Some(start_time) = self.generation_start_time {
-                    let perf_metadata = PerformanceMetadata {
-                        generation_time_us: start_time.elapsed().as_micros() as u64,
-                        memory_usage_bytes: std::mem::size_of::<ChannelSpec>()
-                            + path_points * std::mem::size_of::<Point2D>(),
-                        path_points_count: path_points,
-                    };
-                    channel_builder = channel_builder.with_metadata(perf_metadata);
-                }
+            if metadata_config.track_performance
+                && let Some(start_time) = self.generation_start_time
+            {
+                let perf_metadata = PerformanceMetadata {
+                    generation_time_us: start_time.elapsed().as_micros() as u64,
+                    memory_usage_bytes: std::mem::size_of::<ChannelSpec>()
+                        + path_points * std::mem::size_of::<Point2D>(),
+                    path_points_count: path_points,
+                };
+                channel_builder = channel_builder.with_metadata(perf_metadata);
             }
 
             if metadata_config.track_optimization && is_serpentine {

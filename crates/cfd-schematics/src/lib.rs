@@ -119,8 +119,8 @@ pub use error::{
 };
 pub use geometry::generator::GeometryGeneratorBuilder;
 pub use geometry::metadata::BlueprintRenderHints;
-pub use heatmap::{write_well_plate_diagram_svg, CandidateZoneData};
-pub use infrastructure::adapters::{build_design_graph, DesignGraph, PetgraphGraphSink};
+pub use heatmap::{CandidateZoneData, write_well_plate_diagram_svg};
+pub use infrastructure::adapters::{DesignGraph, PetgraphGraphSink, build_design_graph};
 pub use interface::presets::{
     bifurcation_rect, n_furcation_rect, serpentine_chain, serpentine_rect, serpentine_venturi_rect,
     symmetric_bifurcation, symmetric_n_furcation, symmetric_trifurcation, trifurcation_rect,
@@ -131,8 +131,8 @@ pub use state_management::{
     ParameterRegistry, StateManagementError, StateManagementResult,
 };
 pub use topology::presets::{
-    build_milestone12_blueprint, build_milestone12_topology_spec, enumerate_milestone12_topologies,
-    promote_milestone12_option1_to_option2, Milestone12TopologyRequest,
+    Milestone12TopologyRequest, build_milestone12_blueprint, build_milestone12_topology_spec,
+    enumerate_milestone12_topologies, promote_milestone12_option1_to_option2,
 };
 pub use topology::{
     BlueprintTopologyFactory, BlueprintTopologyMutation, BlueprintTopologySpec, BranchRole,

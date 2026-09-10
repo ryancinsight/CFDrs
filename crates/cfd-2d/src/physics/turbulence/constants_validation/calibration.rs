@@ -23,12 +23,12 @@
 //! per-constant fit that the equilibrium data cannot support.
 
 use coeus_optim::{
-    levenberg_marquardt, LeastSquaresProblem, LeastSquaresReport, LevenbergMarquardtConfig,
-    ProblemError, Termination,
+    LeastSquaresProblem, LeastSquaresReport, LevenbergMarquardtConfig, ProblemError, Termination,
+    levenberg_marquardt,
 };
 
 use super::dns_database::DnsChannelFlowDatabase;
-use crate::physics::turbulence::constants::{C1_EPSILON, C2_EPSILON, C_MU, SIGMA_EPSILON};
+use crate::physics::turbulence::constants::{C_MU, C1_EPSILON, C2_EPSILON, SIGMA_EPSILON};
 
 /// Lower bound of the equilibrium log-law region in wall units.
 const LOG_LAW_Y_MIN: f64 = 30.0;

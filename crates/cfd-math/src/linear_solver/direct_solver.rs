@@ -158,7 +158,7 @@ mod tests {
     use super::*;
     use crate::sparse::SparseMatrixBuilder;
     use leto::Array1;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
 
     #[test]
     fn direct_solver_solves_small_system() {

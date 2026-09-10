@@ -20,8 +20,8 @@ pub fn init_tracing() {
 /// Resolve workspace root and create `report/milestone12/` + `report/figures/`.
 ///
 /// Returns `(workspace_root, out_dir, figures_dir)`.
-pub fn resolve_output_directories(
-) -> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
+pub fn resolve_output_directories()
+-> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("cfd-optim crate has a parent")

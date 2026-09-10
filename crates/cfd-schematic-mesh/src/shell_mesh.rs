@@ -8,15 +8,15 @@
 //! and `build_tpms_box_graded`. Co-planar CSG unions seamlessly integrate the
 //! port connection pipes into the bounded cavity.
 
-use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
-use cfd_mesh::domain::core::scalar::Vector3r;
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean, csg_boolean_nary};
 use cfd_mesh::domain::core::MeshError;
 use cfd_mesh::domain::core::MeshResult;
-use cfd_mesh::domain::geometry::primitives::cube::Cube;
+use cfd_mesh::domain::core::scalar::Vector3r;
 use cfd_mesh::domain::geometry::primitives::PrimitiveMesh;
+use cfd_mesh::domain::geometry::primitives::cube::Cube;
 use cfd_mesh::domain::geometry::tpms::{
-    build_tpms_box, build_tpms_box_graded, FischerKochCY, Frd, Gyroid, Iwp, Lidinoid, Neovius,
-    SchwarzD, SchwarzP, SplitP, TpmsBoxParams,
+    FischerKochCY, Frd, Gyroid, Iwp, Lidinoid, Neovius, SchwarzD, SchwarzP, SplitP, TpmsBoxParams,
+    build_tpms_box, build_tpms_box_graded,
 };
 use cfd_mesh::domain::mesh::IndexedMesh;
 use hashbrown::HashMap;

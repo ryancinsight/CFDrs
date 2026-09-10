@@ -23,8 +23,8 @@ use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto::LetoError;
 use leto_ops::{
-    factor_symbolic, CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar, Scalar as LetoScalar,
-    SparseLuSolver, SymbolicLu,
+    CscMatrix, OwnedNumericLu, RealScalar as LetoRealScalar, Scalar as LetoScalar, SparseLuSolver,
+    SymbolicLu, factor_symbolic,
 };
 
 use crate::sparse::SparseMatrixBuilder;
@@ -461,8 +461,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
                 .col_indices()
                 .iter()
                 .zip(row.values())
-                .filter(|(&c, _)| c < n_velocity)
-                .map(|(&c, &v)| (c, v))
+                .filter(|&(c, _)| *c < n_velocity)
+                .map(|(c, v)| (*c, *v))
                 .collect();
             divergence_rows.push(entries);
         }

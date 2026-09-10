@@ -123,6 +123,7 @@ fn cross_fidelity_trifurcation_dominance() {
     assert!(
         q_center_3d > avg_lateral_3d,
         "Violation of Strict Geometric Dominance: Center Branch ({:.3e}) <= Lateral Branches ({:.3e})",
-        q_center_3d, avg_lateral_3d
+        q_center_3d,
+        avg_lateral_3d
     );
 }

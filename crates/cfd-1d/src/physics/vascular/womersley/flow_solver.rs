@@ -3,8 +3,8 @@
 //! Provides time-varying flow solutions for vessel segments with
 //! given inlet conditions and geometry.
 
-use super::profile::WomersleyProfile;
 use super::WomersleyNumber;
+use super::profile::WomersleyProfile;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, HydraulicResistance, Length, MassDensity, Pressure, PressureGradient,
     ReciprocalTime, Time, Velocity,

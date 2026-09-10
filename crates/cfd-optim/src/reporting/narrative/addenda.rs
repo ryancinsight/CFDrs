@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::figures::NarrativeFigureSpec;
-use crate::reporting::report_math::{ga_convergence_trend, GaConvergenceTrend};
+use crate::reporting::report_math::{GaConvergenceTrend, ga_convergence_trend};
 use crate::reporting::{Milestone12GaRankingAuditEntry, Milestone12ReportDesign};
 
 fn parse_lineage_operator(metadata: &str) -> Option<&str> {
@@ -100,9 +100,13 @@ fn geometry_displacement_threshold(
 
 fn cavitation_regime_summary(sigma: f64) -> String {
     if sigma < 0.0 {
-        format!("σ = {sigma:.4} < 0 confirms sub-vapor-pressure throat operation with active hydrodynamic cavitation")
+        format!(
+            "σ = {sigma:.4} < 0 confirms sub-vapor-pressure throat operation with active hydrodynamic cavitation"
+        )
     } else if sigma < 1.0 {
-        format!("σ = {sigma:.4} remains in the inception-capable window (0 < σ < 1), so the throat is cavitation-eligible without yet dropping below vapor pressure")
+        format!(
+            "σ = {sigma:.4} remains in the inception-capable window (0 < σ < 1), so the throat is cavitation-eligible without yet dropping below vapor pressure"
+        )
     } else {
         format!("σ = {sigma:.4} is above the hydrodynamic cavitation threshold")
     }
@@ -205,8 +209,7 @@ score = {:.3}; WBC recovery {:.1}%; HI/pass = {:.4}%; throat viscous heating ΔT
     // §4 — Safety and FDA compliance
     if let Some(option1) = option1 {
         let m1 = &option1.metrics;
-        let _ =
-            writeln!(
+        let _ = writeln!(
             s,
             "**Safety and FDA Compliance:** Both designs pass all five hard eligibility gates. \
 Max P95 wall shear: Option 1 = {:.1} Pa, Option 2 = {:.1} Pa (FDA 150 Pa sustained limit). \
@@ -217,13 +220,33 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m1.wall_shear_p95_pa,
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
-            if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
-            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
+            if m2.throat_transit_time_s < 5e-3 {
+                "<"
+            } else {
+                "≥"
+            },
+            if m2.throat_transit_time_s < 5e-3 {
+                "transient 300 Pa"
+            } else {
+                "sustained 150 Pa"
+            },
             m2.clotting_risk_index,
-            if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
-            if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
+            if m2.clotting_flow_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
+            if m2.clotting_flow_compliant_10ml_s {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             m2.total_ecv_ml,
-            if m2.fda_thermal_compliant { "PASS" } else { "FAIL" },
+            if m2.fda_thermal_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             temp_fmt(m2.throat_temperature_rise_k),
         );
     } else {
@@ -232,13 +255,33 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             "**Safety and FDA Compliance:** The selected Option 2 design passes all five hard eligibility gates. Option 1 produced no eligible shortlist under the current physics regime, so no acoustic selected-design safety row exists for this run. Option 2 P95 wall shear = {:.1} Pa (FDA 150 Pa sustained limit). Venturi-channel transit time: {:.2e} s ({} 5 ms transient threshold, so {} shear limit applies). Clotting risk index = {:.4} at nominal flow; flow caution flags are `Q>=200={}` and `Q>=600={}` for this selected operating point. ECV = {:.3} mL within pediatric circuit targets. FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
-            if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
-            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
+            if m2.throat_transit_time_s < 5e-3 {
+                "<"
+            } else {
+                "≥"
+            },
+            if m2.throat_transit_time_s < 5e-3 {
+                "transient 300 Pa"
+            } else {
+                "sustained 150 Pa"
+            },
             m2.clotting_risk_index,
-            if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
-            if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
+            if m2.clotting_flow_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
+            if m2.clotting_flow_compliant_10ml_s {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             m2.total_ecv_ml,
-            if m2.fda_thermal_compliant { "PASS" } else { "FAIL" },
+            if m2.fda_thermal_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             temp_fmt(m2.throat_temperature_rise_k),
         );
     }

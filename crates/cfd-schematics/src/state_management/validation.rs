@@ -15,7 +15,7 @@ pub type ValidationFunction = fn(&HashMap<String, Box<dyn std::any::Any>>) -> Re
 pub trait ValidationRule: Debug + Send + Sync {
     /// Validate parameters and return any errors
     fn validate(&self, parameters: &HashMap<String, Box<dyn std::any::Any>>)
-        -> ParameterResult<()>;
+    -> ParameterResult<()>;
 
     /// Get the name of this validation rule
     fn name(&self) -> &str;
@@ -166,19 +166,18 @@ impl ValidationRule for RangeValidationRule {
         &self,
         parameters: &HashMap<String, Box<dyn std::any::Any>>,
     ) -> ParameterResult<()> {
-        if let Some(param) = parameters.get(&self.parameter_name) {
-            if let Some(value) = param.downcast_ref::<f64>() {
-                if *value < self.min_value || *value > self.max_value {
-                    return Err(ValidationError::rule_failed(
-                        &self.parameter_name,
-                        &format!(
-                            "Value {} is outside range [{}, {}]",
-                            value, self.min_value, self.max_value
-                        ),
-                    )
-                    .into());
-                }
-            }
+        if let Some(param) = parameters.get(&self.parameter_name)
+            && let Some(value) = param.downcast_ref::<f64>()
+            && (*value < self.min_value || *value > self.max_value)
+        {
+            return Err(ValidationError::rule_failed(
+                &self.parameter_name,
+                &format!(
+                    "Value {} is outside range [{}, {}]",
+                    value, self.min_value, self.max_value
+                ),
+            )
+            .into());
         }
         Ok(())
     }
@@ -276,14 +275,14 @@ impl ValidationRule for RelationshipValidationRule {
             .get(&self.dependent_param)
             .and_then(|p| p.downcast_ref::<f64>());
 
-        if let (Some(&primary), Some(&dependent)) = (primary_value, dependent_value) {
-            if !(self.validator)(primary, dependent) {
-                return Err(ValidationError::rule_failed(
-                    &format!("{}+{}", self.primary_param, self.dependent_param),
-                    &self.error_message,
-                )
-                .into());
-            }
+        if let (Some(&primary), Some(&dependent)) = (primary_value, dependent_value)
+            && !(self.validator)(primary, dependent)
+        {
+            return Err(ValidationError::rule_failed(
+                &format!("{}+{}", self.primary_param, self.dependent_param),
+                &self.error_message,
+            )
+            .into());
         }
 
         Ok(())

@@ -1389,7 +1389,9 @@ impl BenchmarkExporter {
 
     /// Convert benchmark results to CSV format
     fn results_to_csv(results: &[BenchmarkResult]) -> String {
-        let mut csv = String::from("benchmark_name,problem_size,duration_ms,memory_usage_mb,throughput_ops_per_sec,status,regression_detected\n");
+        let mut csv = String::from(
+            "benchmark_name,problem_size,duration_ms,memory_usage_mb,throughput_ops_per_sec,status,regression_detected\n",
+        );
 
         for result in results {
             let throughput = if result.duration.as_secs_f64() > 0.0 {

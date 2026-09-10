@@ -1,7 +1,7 @@
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::hemolysis::HemolysisModel;
-use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::CrossSectionSpec;
 use eunomia::{FloatElement, NumericElement};
 
@@ -10,11 +10,11 @@ use crate::solvers::cell_tracking::physics::{CellTrackerConfig, VelocityFieldInt
 use crate::solvers::cell_tracking::population::{CellPopulation, TrackedCell};
 use crate::solvers::cell_tracking::tracker::CellTracker;
 
+use super::ChannelReferenceTrace;
 use super::postprocess::{
     extract_field_inlet_outlet_pressure, extract_field_outlet_flow_rate, extract_field_wall_shear,
 };
 use super::types::{Channel2dEntry, Channel2dResult};
-use super::ChannelReferenceTrace;
 
 const MIN_CROSS_SECTION_AREA_M2: f64 = 1e-18;
 const MIN_FLOW_RATE_M3_S: f64 = 1e-30;

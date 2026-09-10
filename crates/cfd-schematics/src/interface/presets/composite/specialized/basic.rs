@@ -1,21 +1,21 @@
 //! Basic composite preset factory functions.
 use super::super::super::finalize_preset_blueprint;
 use super::parallel_lane::{
-    canonical_parallel_blueprint, canonical_parallel_venturi_blueprint,
-    generator_center_serpentine, parallel_lane, CenterSerpentineSpec,
+    CenterSerpentineSpec, canonical_parallel_blueprint, canonical_parallel_venturi_blueprint,
+    generator_center_serpentine, parallel_lane,
 };
+use crate::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::{
-    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
-    PrimitiveSelectiveTreeRequest,
+    PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    create_primitive_selective_tree_geometry,
 };
 use crate::topology::presets::{
     constriction_expansion_series_spec, parallel_microchannel_array_spec,
     spiral_serpentine_series_spec,
 };
 use crate::topology::{SerpentineSpec, TreatmentActuationMode};
-use crate::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::Length;
 
 /// Rectangular primitive selective split-tree blueprint with venturi treatment.

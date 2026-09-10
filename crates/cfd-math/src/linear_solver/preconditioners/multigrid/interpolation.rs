@@ -1,9 +1,9 @@
 //! Interpolation operators for AMG multigrid methods
 
-use super::{csr_from_parts, csr_value, SparseMatrix};
+use super::{SparseMatrix, csr_from_parts, csr_value};
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
-use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, spmv as leto_spmv};
 
 #[inline]
 fn usize_to_f64(value: usize) -> f64 {

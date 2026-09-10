@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
+use cfd_schematics::BlueprintRenderHints;
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeId, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnnotationMarker, MarkerRole, RenderConfig, SchematicAnnotations,
 };
-use cfd_schematics::BlueprintRenderHints;
 use cfd_schematics::{plot_geometry, plot_geometry_with_annotations, plot_geometry_with_config};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};

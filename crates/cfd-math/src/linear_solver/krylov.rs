@@ -430,7 +430,7 @@ impl<T> SolveOutcome<T> {
 #[cfg(test)]
 mod tests {
     use super::{
-        gmres_preconditioned_with_workspace, IterativeSolverConfig, KrylovWorkspace, RestartWidth,
+        IterativeSolverConfig, KrylovWorkspace, RestartWidth, gmres_preconditioned_with_workspace,
     };
     use athena_core::Identity;
     use leto::{Array1, Storage};

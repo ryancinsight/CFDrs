@@ -9,8 +9,8 @@ use crate::scalar;
 use cfd_core::error::Result;
 use eunomia::FloatElement;
 use eunomia::RealField;
-use leto::geometry::Vector2;
 use leto::Array2;
+use leto::geometry::Vector2;
 
 /// Angular momentum conservation checker
 pub struct AngularMomentumChecker<T: RealField + Copy> {

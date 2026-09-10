@@ -21,10 +21,10 @@ use aequitas::systems::si::quantities::{
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::application::delaunay::dim3::sdf::{FiniteCylinderSdf, Sdf3D};
 use cfd_mesh::application::delaunay::dim3::SdfMesher;
-use leto::geometry::Vector3 as LetoVector3;
+use cfd_mesh::application::delaunay::dim3::sdf::{FiniteCylinderSdf, Sdf3D};
 use leto::Point3;
+use leto::geometry::Vector3 as LetoVector3;
 use std::collections::HashMap;
 
 #[test]
