@@ -5,6 +5,7 @@
 //! and composite constraints that can be combined for complex validation logic.
 
 use crate::state_management::errors::{ConstraintError, ParameterResult};
+use cfd_core::error::{Error as CoreError, Result as CoreResult};
 use std::fmt::Debug;
 
 /// Trait for types that can be used in constraints
@@ -34,7 +35,7 @@ where
         /// Name of the custom constraint.
         name: String,
         /// Validation function returning a violation message on failure.
-        validator: fn(&T) -> Result<(), String>,
+        validator: fn(&T) -> CoreResult<()>,
     },
 
     /// Length range constraint for strings
@@ -77,7 +78,7 @@ where
     }
 
     /// Create a custom constraint
-    pub fn custom(name: &str, validator: fn(&T) -> Result<(), String>) -> Self {
+    pub fn custom(name: &str, validator: fn(&T) -> CoreResult<()>) -> Self {
         Self::Custom {
             name: name.to_string(),
             validator,
@@ -225,7 +226,7 @@ impl ParameterConstraints<f64> {
             if *v > 0.0 {
                 Ok(())
             } else {
-                Err("must be positive".to_string())
+                Err(CoreError::InvalidInput("must be positive".to_string()))
             }
         })
     }
@@ -237,7 +238,7 @@ impl ParameterConstraints<f64> {
             if *v >= 0.0 {
                 Ok(())
             } else {
-                Err("must be non-negative".to_string())
+                Err(CoreError::InvalidInput("must be non-negative".to_string()))
             }
         })
     }
@@ -249,7 +250,7 @@ impl ParameterConstraints<f64> {
             if v.abs() > f64::EPSILON {
                 Ok(())
             } else {
-                Err("must be non-zero".to_string())
+                Err(CoreError::InvalidInput("must be non-zero".to_string()))
             }
         })
     }
@@ -276,7 +277,7 @@ impl ParameterConstraints<usize> {
             if *v > 0 {
                 Ok(())
             } else {
-                Err("must be positive".to_string())
+                Err(CoreError::InvalidInput("must be positive".to_string()))
             }
         })
     }
@@ -291,7 +292,7 @@ impl ParameterConstraints<u32> {
             if *v > 0 {
                 Ok(())
             } else {
-                Err("must be positive".to_string())
+                Err(CoreError::InvalidInput("must be positive".to_string()))
             }
         })
     }
@@ -309,7 +310,9 @@ impl ParameterConstraints<u32> {
             if *v > 0 && (*v).is_power_of_two() {
                 Ok(())
             } else {
-                Err("must be a power of two".to_string())
+                Err(CoreError::InvalidInput(
+                    "must be a power of two".to_string(),
+                ))
             }
         })
     }
@@ -322,7 +325,7 @@ impl ParameterConstraints<String> {
     pub fn non_empty() -> Self {
         Self::custom("non-empty", |v| {
             if v.is_empty() {
-                Err("must not be empty".to_string())
+                Err(CoreError::InvalidInput("must not be empty".to_string()))
             } else {
                 Ok(())
             }

@@ -1,6 +1,7 @@
 use aequitas::systems::si::quantities::Length;
 
 use super::{ChannelOverlapAnalysis, NetworkBlueprint};
+use crate::error::{Error, Result, ValidationErrorKind};
 use crate::topology::BlueprintTopologyFactory;
 
 impl NetworkBlueprint {
@@ -165,48 +166,60 @@ impl NetworkBlueprint {
     /// human-readable description of the first failure encountered.
     ///
     /// # Errors
-    /// Returns a non-empty `String` describing the first structural defect
-    /// found, in the order above.
-    pub fn validate(&self) -> Result<(), String> {
+    /// Returns the first structural defect found, in the order above, as a
+    /// typed validation error.
+    pub fn validate(&self) -> Result<()> {
         if self.nodes.is_empty() {
-            return Err("NetworkBlueprint has no nodes".to_string());
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation("NetworkBlueprint has no nodes"),
+            ));
         }
         if self.channels.is_empty() {
-            return Err("NetworkBlueprint has no channels".to_string());
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation("NetworkBlueprint has no channels"),
+            ));
         }
         let mut node_ids = std::collections::HashSet::with_capacity(self.nodes.len());
         node_ids.extend(self.nodes.iter().map(|node| node.id.as_str()));
         for channel in &self.channels {
             if !node_ids.contains(channel.from.as_str()) {
-                return Err(format!(
-                    "Channel '{}' references unknown from-node '{}'",
-                    channel.id.as_str(),
-                    channel.from.as_str()
+                return Err(Error::Validation(
+                    ValidationErrorKind::constraint_violation(&format!(
+                        "Channel '{}' references unknown from-node '{}'",
+                        channel.id.as_str(),
+                        channel.from.as_str()
+                    )),
                 ));
             }
             if !node_ids.contains(channel.to.as_str()) {
-                return Err(format!(
-                    "Channel '{}' references unknown to-node '{}'",
-                    channel.id.as_str(),
-                    channel.to.as_str()
+                return Err(Error::Validation(
+                    ValidationErrorKind::constraint_violation(&format!(
+                        "Channel '{}' references unknown to-node '{}'",
+                        channel.id.as_str(),
+                        channel.to.as_str()
+                    )),
                 ));
             }
         }
         let overlap_count = self.unresolved_channel_overlap_count();
         if overlap_count > 0 {
-            return Err(format!(
-                "NetworkBlueprint '{}' contains {overlap_count} unresolved interior channel crossing(s)",
-                self.name
-            ));
+            return Err(Error::Validation(ValidationErrorKind::constraint_violation(
+                &format!(
+                    "NetworkBlueprint '{}' contains {overlap_count} unresolved interior channel crossing(s)",
+                    self.name
+                ),
+            )));
         }
         if let Some(topology) = &self.topology {
             BlueprintTopologyFactory::validate_spec(topology)?;
             if topology.is_selective_routing() && !self.is_geometry_authored() {
-                return Err(format!(
-                    "NetworkBlueprint '{}' carries selective split-tree topology '{}' but was not authored through create_geometry()",
-                    self.name,
-                    topology.stage_sequence_label()
-                ));
+                return Err(Error::Validation(ValidationErrorKind::constraint_violation(
+                    &format!(
+                        "NetworkBlueprint '{}' carries selective split-tree topology '{}' but was not authored through create_geometry()",
+                        self.name,
+                        topology.stage_sequence_label()
+                    ),
+                )));
             }
         }
         Ok(())

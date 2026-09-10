@@ -1,6 +1,7 @@
 //! Straight and smooth-straight channel strategies.
 
 use crate::config::{ConstantsRegistry, GeometryConfig};
+use crate::error::{Error, Result};
 use crate::geometry::{ChannelType, Point2D};
 
 use super::ChannelTypeStrategy;
@@ -87,7 +88,7 @@ impl SmoothTransitionConfig {
         transition_amplitude_factor: f64,
         transition_smoothness: usize,
         wave_multiplier: f64,
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         let config = Self {
             transition_length_factor,
             transition_amplitude_factor,
@@ -103,21 +104,29 @@ impl SmoothTransitionConfig {
     /// # Errors
     ///
     /// Returns an error if any parameter is outside its valid range.
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<()> {
         if self.transition_length_factor < 0.0 || self.transition_length_factor > 0.5 {
-            return Err("transition_length_factor must be between 0.0 and 0.5".to_string());
+            return Err(Error::InvalidConfiguration(
+                "transition_length_factor must be between 0.0 and 0.5".to_string(),
+            ));
         }
 
         if self.transition_amplitude_factor < 0.0 || self.transition_amplitude_factor > 1.0 {
-            return Err("transition_amplitude_factor must be between 0.0 and 1.0".to_string());
+            return Err(Error::InvalidConfiguration(
+                "transition_amplitude_factor must be between 0.0 and 1.0".to_string(),
+            ));
         }
 
         if self.transition_smoothness < 5 || self.transition_smoothness > 100 {
-            return Err("transition_smoothness must be between 5 and 100".to_string());
+            return Err(Error::InvalidConfiguration(
+                "transition_smoothness must be between 5 and 100".to_string(),
+            ));
         }
 
         if self.wave_multiplier < 0.5 || self.wave_multiplier > 10.0 {
-            return Err("wave_multiplier must be between 0.5 and 10.0".to_string());
+            return Err(Error::InvalidConfiguration(
+                "wave_multiplier must be between 0.5 and 10.0".to_string(),
+            ));
         }
 
         Ok(())

@@ -7,6 +7,7 @@
 //! pipeline via [`GeometryGeneratorBuilder`].
 
 use crate::domain::model::NetworkBlueprint;
+use crate::error::Result;
 use crate::topology::model::{
     BlueprintTopologySpec, SerpentineSpec, SplitKind, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiPlacementMode, VenturiPlacementSpec,
@@ -122,7 +123,7 @@ impl BlueprintTopologyFactory {
     ///
     /// Returns a descriptive error string if the spec violates any geometric
     /// or structural constraint.
-    pub fn build(spec: &BlueprintTopologySpec) -> Result<NetworkBlueprint, String> {
+    pub fn build(spec: &BlueprintTopologySpec) -> Result<NetworkBlueprint> {
         super::validation::validate_spec(spec)?;
 
         let lineage = Self::lineage_for_spec(spec);

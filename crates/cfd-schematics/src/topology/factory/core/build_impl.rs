@@ -3,6 +3,7 @@ use super::BlueprintTopologyFactory;
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{EdgeId, NetworkBlueprint};
 use crate::domain::therapy_metadata::TherapyZone;
+use crate::error::Result;
 use crate::geometry::generator::{
     create_parallel_geometry_from_spec, create_primitive_selective_tree_geometry_from_spec,
     create_series_geometry_from_spec, GeometryGeneratorBuilder,
@@ -38,7 +39,7 @@ impl BlueprintTopologyFactory {
     pub(super) fn build_split_tree(
         spec: &BlueprintTopologySpec,
         lineage: TopologyLineageMetadata,
-    ) -> Result<NetworkBlueprint, String> {
+    ) -> Result<NetworkBlueprint> {
         if let Some(mut blueprint) = create_primitive_selective_tree_geometry_from_spec(spec)? {
             blueprint.lineage = Some(lineage);
             return Ok(blueprint);

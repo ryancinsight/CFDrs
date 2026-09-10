@@ -165,6 +165,26 @@ All notable changes to this project will be documented in this file.
   positives (`String` success type on an already-typed alias), so the true
   workspace remainder after this delivery is cfd-schematics 19 +
   cfd-validation 14 = 33.
+- **cfd-schematics, cfd-validation, cfd-1d, cfd-2d (CFDRS-GA-017 closure
+  legs):** the remaining true stringly-typed error signatures are retired
+  and the item is closed. cfd-schematics' state-management constraints and
+  validators (including the stored fn-pointer signatures
+  `fn(&T) -> Result<(), Error>` and the `ValidationFunction` alias), the
+  topology factory build/mutation/spec-analysis and validation trio, the
+  milestone12 presets, geometry strategies, and visualization annotations
+  now return `cfd_core::error::Result` with `Error::Validation`,
+  `InvalidConfiguration`, `InvalidInput`, or `Visualization` payloads;
+  cfd-validation's full-suite runner and its benchmark benchmarks return
+  typed errors instead of strings. A multi-line signature audit (the
+  original single-line grep is blind to nested generics) surfaced 7
+  additional true sites never counted — cfd-1d's branching validation
+  (5) and cfd-2d's solver validation helpers (2) — all retired, bringing
+  the workspace to zero true stringly error signatures. Ripple updates:
+  5 cfd-optim `map_err` sites close over `e.to_string()` (its
+  `From<OptimError>` accepts `String`), one `render_core.rs` caller checks
+  the typed variant, and two schematics test assertions moved from string
+  `.contains` to variant matching. Message texts preserved verbatim;
+  display output changes only by the variant prefix.
 - cfd-io: fixed a pre-existing `unwrap_err` clippy regression in the hdf5
   shape-mismatch test (`expect_err` with context message).
 

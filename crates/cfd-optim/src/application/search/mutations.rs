@@ -121,7 +121,7 @@ fn apply_labeled_mutation(
     metadata: impl Into<String>,
 ) -> Result<NetworkBlueprint, OptimError> {
     let mutated = BlueprintTopologyFactory::mutate(blueprint, mutation, stage)
-        .map_err(OptimError::InvalidParameter)?;
+        .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
     Ok(stamp_lineage_metadata(mutated, metadata))
 }
 
@@ -719,7 +719,7 @@ pub fn promote_option1_candidate_to_ga_seed(
         1,
         VenturiPlacementMode::CurvaturePeakDeanNumber,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     let promoted_seed = BlueprintCandidate::new(
         format!("{}-ga-promoted", seed.id),
@@ -751,7 +751,7 @@ pub fn promote_option1_candidate_to_ga_seed(
         },
         TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     Ok(BlueprintCandidate::new(
         format!("{}-ga-promoted", seed.id),
@@ -775,8 +775,8 @@ pub fn promote_option2_candidate_to_ga_seed(
     for placement in &mut promoted.venturi_placements {
         placement.placement_mode = VenturiPlacementMode::CurvaturePeakDeanNumber;
     }
-    let promoted_blueprint =
-        BlueprintTopologyFactory::build(&promoted).map_err(OptimError::InvalidParameter)?;
+    let promoted_blueprint = BlueprintTopologyFactory::build(&promoted)
+        .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
     let promoted_seed = BlueprintCandidate::new(
         format!("{}-ga-dean-seed", seed.id),
         promoted_blueprint,
@@ -809,7 +809,7 @@ pub fn promote_option2_candidate_to_ga_seed(
         },
         TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     Ok(BlueprintCandidate::new(
         format!("{}-ga-dean-seed", seed.id),
