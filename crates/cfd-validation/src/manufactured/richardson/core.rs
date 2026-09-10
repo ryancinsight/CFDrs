@@ -1,124 +1,79 @@
-//! Core Richardson extrapolation algorithms
+//! Core Richardson machinery for MMS studies
+//!
+//! CFDRS-GA-012: the duplicate Richardson implementation that lived here was
+//! retired in favor of the single consolidated one in
+//! [`crate::convergence::RichardsonExtrapolation`], which returns typed
+//! `cfd-core` errors and carries the absorbed numerical-stability guards
+//! (signed convergence-ratio rejection, order bounds, `r^p ≈ 1` checks).
+//! The struct is re-exported below so existing
+//! `manufactured::richardson::core::RichardsonExtrapolation` paths keep
+//! resolving against the consolidated implementation.
 
 use crate::scalar;
-use eunomia::{FloatElement, NumericElement, RealField};
+use cfd_core::error::Result;
+use eunomia::{FloatElement, RealField};
 
-/// Core Richardson extrapolation implementation
-pub struct RichardsonExtrapolation;
+pub use crate::convergence::RichardsonExtrapolation;
 
-impl RichardsonExtrapolation {
-    /// Estimate convergence order using Richardson extrapolation formula
-    ///
-    /// ## Richardson Extrapolation Order Estimation Theorem
-    ///
-    /// **Statement**: For solutions φ₁, φ₂, φ₃ on three consecutive grids with refinement ratio r,
-    /// where the grids are in the asymptotic convergence range, the convergence order p can be
-    /// estimated using the three-point Richardson extrapolation formula:
-    ///
-    /// p = ln[(φ₁ - φ₂) / (φ₂ - φ₃)] / ln(r)
-    ///
-    /// **Assumptions**:
-    /// 1. **Asymptotic convergence**: Solutions must be in the asymptotic range where φ(h) = φ_exact + C h^p + O(h^q) with q > p
-    /// 2. **Grid ordering**: φ₁, φ₂, φ₃ correspond to coarse, medium, and fine grids with h₁ > h₂ > h₃
-    /// 3. **Refinement ratio**: r = h₁/h₂ = h₂/h₃ > 1 (consistent grid refinement)
-    /// 4. **Monotonic convergence**: |φ₂ - φ₁| > |φ₃ - φ₂| (errors decreasing with grid refinement)
-    /// 5. **Sufficient accuracy**: Solutions have sufficient variation to avoid numerical cancellation
-    /// 6. **Numerical stability**: r^p ≠ 1 (avoid division by near-zero in extrapolation)
-    ///
-    /// **Validity conditions**: The formula is valid when 0.5 ≤ p ≤ 6.0 (typical CFD convergence orders)
-    /// and when Richardson extrapolation provides stable, bounded results.
-    ///
-    /// **References**:
-    /// - Richardson, L.F. (1910): "The deferred approach to the limit"
-    /// - Roache, P.J. (1998): Verification and Validation in Computational Science and Engineering
-    /// - ASME V&V 20-2009: Standard for Verification and Validation in CFD
-    pub fn estimate_order<T>(f1: T, f2: T, f3: T, r: T) -> Result<T, String>
-    where
-        T: RealField + Copy + FloatElement,
-    {
-        let eps = <T as FloatElement>::from_f64(1e-12);
+/// Estimate the observed convergence order from three coarsely-to-finely
+/// ordered solutions and the refinement ratio between consecutive grids.
+///
+/// Thin adapter over
+/// [`RichardsonExtrapolation::estimate_order`][canonical-estimate]; kept so
+/// call sites that read `(f_coarse, f_medium, f_fine, r)` in that order
+/// retain their argument order.
+///
+/// [canonical-estimate]: crate::convergence::RichardsonExtrapolation::estimate_order
+pub fn estimate_order<T>(f_coarse: T, f_medium: T, f_fine: T, r: T) -> Result<T>
+where
+    T: RealField + Copy + FloatElement,
+{
+    RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)
+}
 
-        // Check for sufficient variation
-        let diff12 = f1 - f2;
-        let diff23 = f2 - f3;
+/// Perform Richardson extrapolation with automatic order estimation from
+/// three coarsely-to-finely ordered solutions.
+///
+/// Estimates the order from the three solutions, then extrapolates the
+/// continuum value using the fine and medium solutions. Returns
+/// `(extrapolated, order)` on success.
+pub fn extrapolate<T>(
+    f_coarse: T,
+    f_medium: T,
+    f_fine: T,
+    r: T,
+) -> Result<(T, T)>
+where
+    T: RealField + Copy + FloatElement,
+{
+    let order = RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, r)?;
+    let extrapolator = RichardsonExtrapolation::with_order(order, r)?;
+    let extrapolated = extrapolator.extrapolate(f_fine, f_medium)?;
+    Ok((extrapolated, order))
+}
 
-        if scalar::abs(diff12) < eps || scalar::abs(diff23) < eps {
-            return Err("Insufficient solution variation for order estimation".to_string());
-        }
+/// Check that solution differences decrease monotonically toward the fine
+/// grid, the minimal signal of asymptotic convergence.
+///
+/// Distinct contract from
+/// [`RichardsonExtrapolation::is_asymptotic`][canonical-asymptotic], which
+/// checks the observed ratio against the expected `r^order` band: this check
+/// only requires monotone error decrease with sufficient variation, which is
+/// what the MMS study's per-triple reporting has always asserted.
+///
+/// [canonical-asymptotic]: crate::convergence::RichardsonExtrapolation::is_asymptotic
+pub fn is_asymptotic<T>(f_coarse: T, f_medium: T, f_fine: T) -> bool
+where
+    T: RealField + Copy + FloatElement,
+{
+    let eps = <T as FloatElement>::from_f64(1e-12);
 
-        let ratio = scalar::abs(diff12 / diff23);
-        if ratio <= scalar::zero::<T>() || !NumericElement::is_finite(ratio) {
-            return Err("Invalid convergence ratio".to_string());
-        }
+    // |f_medium - f_coarse| > |f_fine - f_medium| > eps: errors shrink as the
+    // grid is refined, with sufficient variation to be meaningful.
+    let diff_coarse = scalar::abs(f_medium - f_coarse);
+    let diff_fine = scalar::abs(f_fine - f_medium);
 
-        let order = scalar::ln(ratio) / scalar::ln(r);
-        if !NumericElement::is_finite(order)
-            || order < <T as FloatElement>::from_f64(0.1)
-            || order > <T as FloatElement>::from_f64(15.0)
-        {
-            return Err(format!(
-                "Richardson extrapolation numerically unstable: order {} out of bounds",
-                <T as NumericElement>::to_f64(order)
-            ));
-        }
-
-        Ok(order)
-    }
-
-    /// Check if solutions are in asymptotic range
-    pub fn is_asymptotic<T>(f1: T, f2: T, f3: T) -> bool
-    where
-        T: RealField + Copy + FloatElement,
-    {
-        let eps = <T as FloatElement>::from_f64(1e-12);
-
-        // Simple asymptotic check: |f2 - f1| > |f3 - f2|
-        // This ensures we're seeing convergence behavior
-        let diff1 = scalar::abs(f2 - f1);
-        let diff2 = scalar::abs(f3 - f2);
-
-        diff1 > eps && diff2 > eps && diff1 > diff2
-    }
-
-    /// Perform Richardson extrapolation with order estimation
-    ///
-    /// ## Richardson Extrapolation Theorem
-    ///
-    /// **Statement**: If a numerical method has asymptotic convergence φ(h) = φ_exact + C h^p + O(h^q)
-    /// with q > p, then the exact solution can be extrapolated from three solutions on grids
-    /// with refinement ratio r using:
-    ///
-    /// φ_exact = φ₁ + (φ₁ - φ₂) / (r^p - 1)
-    ///
-    /// **Assumptions** (same as estimate_order plus):
-    /// 7. **Error expansion**: Solutions follow the asymptotic error expansion
-    /// 8. **Leading error dominance**: The p-th order term dominates the error expansion
-    /// 9. **Consistent discretization**: All solutions use the same numerical method
-    ///
-    /// **Stability condition**: |r^p - 1| > ε (numerical stability threshold)
-    ///
-    /// **References**:
-    /// - Richardson, L.F. (1910): "The deferred approach to the limit"
-    /// - Roache, P.J. (1998): Chapter 4 - Richardson Extrapolation
-    pub fn extrapolate<T>(coarse: T, medium: T, fine: T, r: T) -> Result<(T, T), String>
-    where
-        T: RealField + Copy + FloatElement,
-    {
-        // First estimate the order
-        let order = Self::estimate_order(coarse, medium, fine, r)?;
-
-        // Then perform extrapolation
-        let r_pow_p = scalar::powf(r, order);
-        let denominator = r_pow_p - scalar::one::<T>();
-
-        if scalar::abs(denominator) < <T as FloatElement>::from_f64(1e-8) {
-            return Err("Richardson extrapolation numerically unstable (r^p ≈ 1)".to_string());
-        }
-
-        let extrapolated = fine + (fine - medium) / denominator;
-
-        Ok((extrapolated, order))
-    }
+    diff_coarse > eps && diff_fine > eps && diff_coarse > diff_fine
 }
 
 /// Data-driven order estimation using multiple grid levels
@@ -269,6 +224,7 @@ impl DataDrivenOrderEstimation {
 mod tests {
     use super::*;
     use cfd_core::test_support::assert_rejects;
+    use eunomia::NumericElement;
 
     #[test]
     fn test_richardson_extrapolation_basic() {
@@ -286,7 +242,7 @@ mod tests {
         let r = 2.0; // refinement ratio
 
         let (extrapolated, order) =
-            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).expect("expected value");
+            extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Should extrapolate to very close to exact solution (1.0)
         assert!(
@@ -312,13 +268,13 @@ mod tests {
         let r = 1.0001; // Very small refinement ratio
 
         // This should either succeed with reasonable bounds or fail gracefully
-        let result = RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r);
+        let result = extrapolate(phi1, phi2, phi3, r);
 
         match result {
             Ok((extrapolated, order)) => {
                 // If it succeeds, results should be reasonable
                 assert!(
-                    extrapolated.is_finite(),
+                    NumericElement::is_finite(extrapolated),
                     "Extrapolated value should be finite"
                 );
                 assert!(
@@ -326,8 +282,10 @@ mod tests {
                     "Order should be reasonable: {order}"
                 );
             }
-            Err(msg) => {
-                // If it fails, should be due to numerical instability
+            Err(e) => {
+                // If it fails, should be due to numerical instability or
+                // insufficient variation, reported through the typed error.
+                let msg = e.to_string();
                 assert!(
                     msg.contains("unstable") || msg.contains("Insufficient"),
                     "Should fail for numerical reasons: {msg}"
@@ -341,7 +299,7 @@ mod tests {
         // Test edge cases that could cause numerical issues
 
         // Case 1: Very small differences (near convergence) - below eps=1e-12
-        let result = RichardsonExtrapolation::estimate_order(
+        let result = estimate_order(
             1.0 + 1e-13,
             1.0 + 0.5e-13,
             1.0 + 0.25e-13,
@@ -349,25 +307,25 @@ mod tests {
         );
         assert_rejects(
             &result,
-            "Insufficient solution variation for order estimation",
+            "Solutions too close to estimate order",
         );
 
         // Case 2: Zero differences (exact solution)
-        let result = RichardsonExtrapolation::estimate_order(1.0, 1.0, 1.0, 2.0);
+        let result = estimate_order(1.0, 1.0, 1.0, 2.0);
         assert_rejects(
             &result,
-            "Insufficient solution variation for order estimation",
+            "Solutions too close to estimate order",
         );
 
         // Case 3: Invalid refinement ratio
-        let result = RichardsonExtrapolation::estimate_order(2.0, 1.5, 1.25, 0.0);
+        let result = estimate_order(2.0, 1.5, 1.25, 0.0);
         assert_rejects(
             &result,
             "Richardson extrapolation numerically unstable: order -0 out of bounds",
         );
 
         // Case 4: Negative refinement ratio
-        let result = RichardsonExtrapolation::estimate_order(2.0, 1.5, 1.25, -2.0);
+        let result = estimate_order(2.0, 1.5, 1.25, -2.0);
         assert_rejects(
             &result,
             "Richardson extrapolation numerically unstable: order NaN out of bounds",
@@ -468,32 +426,32 @@ mod tests {
 
     #[test]
     fn test_asymptotic_range_detection() {
-        // Test asymptotic range detection
+        // Test asymptotic range detection (monotone-error contract)
 
         // Case 1: Proper asymptotic convergence (error decreasing with ratio > 1)
         // For r=2, p=1: phi(h) = 1.0 + h
         // phi(1.0)=2.0, phi(0.5)=1.5, phi(0.25)=1.25
-        // d1 = 0.5, d2 = 0.25, ratio = 2.0 > 1.0
+        // d1 = 0.5, d2 = 0.25
         assert!(
-            RichardsonExtrapolation::is_asymptotic(2.0, 1.5, 1.25),
+            is_asymptotic(2.0, 1.5, 1.25),
             "Should detect asymptotic convergence"
         );
 
         // Case 2: Not asymptotic (error increasing/diverging)
         assert!(
-            !RichardsonExtrapolation::is_asymptotic(1.0, 1.2, 1.5),
+            !is_asymptotic(1.0, 1.2, 1.5),
             "Should detect non-asymptotic behavior"
         );
 
         // Case 3: Insufficient variation (below threshold 1e-12)
         assert!(
-            !RichardsonExtrapolation::is_asymptotic(1.0, 1.0 + 1e-13, 1.0 + 0.5e-13),
+            !is_asymptotic(1.0, 1.0 + 1e-13, 1.0 + 0.5e-13),
             "Should detect insufficient variation"
         );
 
         // Case 4: Zero differences
         assert!(
-            !RichardsonExtrapolation::is_asymptotic(1.0, 1.0, 1.0),
+            !is_asymptotic(1.0, 1.0, 1.0),
             "Should detect zero variation"
         );
     }
@@ -507,14 +465,12 @@ mod tests {
         let phi3 = 1.25;
         let r = 2.0;
 
-        let (extrapolated1, order1) =
-            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).expect("expected value");
+        let (extrapolated1, order1) = extrapolate(phi1, phi2, phi3, r).expect("expected value");
 
         // Scale all values by constant factor
         let scale = std::f64::consts::PI;
         let (extrapolated2, order2) =
-            RichardsonExtrapolation::extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r)
-                .expect("expected value");
+            extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r).expect("expected value");
 
         // Extrapolated value should scale, order should be invariant
         assert!(

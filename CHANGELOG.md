@@ -144,6 +144,28 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** Consolidate the duplicate Richardson extrapolation
+  implementation into `cfd-validation`'s `convergence::RichardsonExtrapolation`
+  (CFDRS-GA-012, gap audit F-4 lineage). The stringly-typed duplicate in
+  `manufactured::richardson::core` — a unit struct exposing `estimate_order`,
+  `extrapolate`, and `is_asymptotic` returning `Result<_, String>` — is
+  retired: the first two names are now thin adapters over the canonical typed
+  implementation (same argument order), and `is_asymptotic` survives as a
+  free function because its monotone-error contract differs from the
+  canonical ratio-band method. `manufactured::richardson::core::
+  RichardsonExtrapolation` re-exports the canonical struct so existing paths
+  keep resolving. Typed-error migration for those call sites removes 2 of the
+  56 workspace stringly-typed returns (now 54; recount pending per
+  CFDRS-GA-017's dependency note). Consolidation also hardened the canonical
+  implementation with the duplicate's stability guards (signed
+  convergence-ratio rejection and order bounds in `estimate_order`, `r^p ≈ 1`
+  denominator checks in `extrapolate`/`grid_convergence_index`, now returning
+  `Result`), removed a double order-estimation in
+  `MmsRichardsonStudy::compute_richardson_extrapolation`, and added the
+  Roache (1998) three-grid worked example (NASA GRC tutorial pressure-recovery
+  data; exact anchors 2^p = 169/49, f_h→0 = 0.97050 + 0.00196·49/120) as a
+  value-semantic oracle test.
+
 - **Breaking:** Remove `cfd-core`'s `compute::simd` modules
   (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six
   `pub unsafe fn` kernels they exposed (`advection_avx2`, `advection_sse41`,
