@@ -34,8 +34,8 @@ impl BlueprintCandidate {
         topology: &BlueprintTopologySpec,
         operating_point: OperatingPoint,
     ) -> Result<Self, OptimError> {
-        let blueprint =
-            BlueprintTopologyFactory::build(topology).map_err(OptimError::InvalidParameter)?;
+        let blueprint = BlueprintTopologyFactory::build(topology)
+            .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
         Ok(Self::new(id, blueprint, operating_point))
     }
 

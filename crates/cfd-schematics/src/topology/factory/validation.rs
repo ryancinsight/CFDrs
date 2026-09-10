@@ -1,41 +1,56 @@
 //! Validation logic for [`BlueprintTopologySpec`] and venturi throat geometry.
 
+use crate::error::{Error, Result, ValidationErrorKind};
 use crate::topology::model::{BlueprintTopologySpec, ChannelRouteSpec, ThroatGeometrySpec};
 
 /// Validate an entire topology spec before building.
 ///
 /// Called by [`BlueprintTopologyFactory::build`] and
 /// [`NetworkBlueprint::validate`].
-pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
+pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<()> {
     if spec.design_name.is_empty() {
-        return Err("BlueprintTopologySpec.design_name is empty".into());
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation("BlueprintTopologySpec.design_name is empty"),
+        ));
     }
     let (bw, bh) = spec.box_dims_mm();
     if bw <= 0.0 || bh <= 0.0 {
-        return Err(format!("Box dimensions must be positive: ({bw}, {bh})"));
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Box dimensions must be positive: ({bw}, {bh})"
+            )),
+        ));
     }
     if spec.inlet_width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "inlet_width_m must be positive: {}",
-            spec.inlet_width_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "inlet_width_m must be positive: {}",
+                spec.inlet_width_m.into_base()
+            )),
         ));
     }
     if spec.outlet_width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "outlet_width_m must be positive: {}",
-            spec.outlet_width_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "outlet_width_m must be positive: {}",
+                spec.outlet_width_m.into_base()
+            )),
         ));
     }
     if spec.trunk_length_m.into_base() <= 0.0 {
-        return Err(format!(
-            "trunk_length_m must be positive: {}",
-            spec.trunk_length_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "trunk_length_m must be positive: {}",
+                spec.trunk_length_m.into_base()
+            )),
         ));
     }
     if spec.outlet_tail_length_m.into_base() <= 0.0 {
-        return Err(format!(
-            "outlet_tail_length_m must be positive: {}",
-            spec.outlet_tail_length_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "outlet_tail_length_m must be positive: {}",
+                spec.outlet_tail_length_m.into_base()
+            )),
         ));
     }
 
@@ -52,16 +67,23 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     // Validate split stages
     for stage in &spec.split_stages {
         if stage.branches.is_empty() {
-            return Err(format!("Split stage '{}' has no branches", stage.stage_id));
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "Split stage '{}' has no branches",
+                    stage.stage_id
+                )),
+            ));
         }
         let expected = stage.split_kind.branch_count();
         if stage.branches.len() != expected {
-            return Err(format!(
-                "Split stage '{}' expects {} branches for {:?}, found {}",
-                stage.stage_id,
-                expected,
-                stage.split_kind,
-                stage.branches.len()
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "Split stage '{}' expects {} branches for {:?}, found {}",
+                    stage.stage_id,
+                    expected,
+                    stage.split_kind,
+                    stage.branches.len()
+                )),
             ));
         }
         for branch in &stage.branches {
@@ -75,9 +97,11 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
     // Validate venturi placements
     for vp in &spec.venturi_placements {
         if vp.serial_throat_count == 0 {
-            return Err(format!(
-                "Venturi placement '{}' has zero serial_throat_count",
-                vp.placement_id
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "Venturi placement '{}' has zero serial_throat_count",
+                    vp.placement_id
+                )),
             ));
         }
         validate_throat_geometry(&vp.throat_geometry, &vp.placement_id)?;
@@ -87,37 +111,51 @@ pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
 }
 
 /// Validate a single channel route specification.
-pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), String> {
+pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<()> {
     if route.length_m.into_base() <= 0.0 {
-        return Err(format!(
-            "{label}: length_m must be positive: {}",
-            route.length_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "{label}: length_m must be positive: {}",
+                route.length_m.into_base()
+            )),
         ));
     }
     if route.width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "{label}: width_m must be positive: {}",
-            route.width_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "{label}: width_m must be positive: {}",
+                route.width_m.into_base()
+            )),
         ));
     }
     if route.height_m.into_base() <= 0.0 {
-        return Err(format!(
-            "{label}: height_m must be positive: {}",
-            route.height_m.into_base()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "{label}: height_m must be positive: {}",
+                route.height_m.into_base()
+            )),
         ));
     }
     if let Some(ref serp) = route.serpentine {
         if serp.segments == 0 {
-            return Err(format!("{label}: serpentine segments must be > 0"));
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "{label}: serpentine segments must be > 0"
+                )),
+            ));
         }
         if serp.bend_radius_m.into_base() <= 0.0 {
-            return Err(format!(
-                "{label}: serpentine bend_radius_m must be positive"
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "{label}: serpentine bend_radius_m must be positive"
+                )),
             ));
         }
         if serp.segment_length_m.into_base() <= 0.0 {
-            return Err(format!(
-                "{label}: serpentine segment_length_m must be positive"
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
+                    "{label}: serpentine segment_length_m must be positive"
+                )),
             ));
         }
     }
@@ -125,51 +163,62 @@ pub fn validate_route(label: &str, route: &ChannelRouteSpec) -> Result<(), Strin
 }
 
 /// Validate venturi throat geometry constraints.
-pub fn validate_throat_geometry(
-    geometry: &ThroatGeometrySpec,
-    placement_id: &str,
-) -> Result<(), String> {
+pub fn validate_throat_geometry(geometry: &ThroatGeometrySpec, placement_id: &str) -> Result<()> {
     if geometry.throat_width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "Venturi '{placement_id}': throat_width_m must be positive"
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{placement_id}': throat_width_m must be positive"
+            )),
         ));
     }
     if geometry.throat_height_m.into_base() <= 0.0 {
-        return Err(format!(
-            "Venturi '{placement_id}': throat_height_m must be positive"
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{placement_id}': throat_height_m must be positive"
+            )),
         ));
     }
     if geometry.throat_length_m.into_base() <= 0.0 {
-        return Err(format!(
-            "Venturi '{placement_id}': throat_length_m must be positive"
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{placement_id}': throat_length_m must be positive"
+            )),
         ));
     }
     if geometry.inlet_width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "Venturi '{placement_id}': inlet_width_m must be positive"
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{placement_id}': inlet_width_m must be positive"
+            )),
         ));
     }
     if geometry.outlet_width_m.into_base() <= 0.0 {
-        return Err(format!(
-            "Venturi '{placement_id}': outlet_width_m must be positive"
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{placement_id}': outlet_width_m must be positive"
+            )),
         ));
     }
     if geometry.convergent_half_angle.into_base() <= 0.0
         || geometry.convergent_half_angle.into_base() >= 90.0_f64.to_radians()
     {
-        return Err(format!(
-            "Venturi '{}': convergent_half_angle must be in (0, 90): {} degrees",
-            placement_id,
-            geometry.convergent_half_angle.into_base().to_degrees()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{}': convergent_half_angle must be in (0, 90): {} degrees",
+                placement_id,
+                geometry.convergent_half_angle.into_base().to_degrees()
+            )),
         ));
     }
     if geometry.divergent_half_angle.into_base() <= 0.0
         || geometry.divergent_half_angle.into_base() >= 90.0_f64.to_radians()
     {
-        return Err(format!(
-            "Venturi '{}': divergent_half_angle must be in (0, 90): {} degrees",
-            placement_id,
-            geometry.divergent_half_angle.into_base().to_degrees()
+        return Err(Error::Validation(
+            ValidationErrorKind::constraint_violation(&format!(
+                "Venturi '{}': divergent_half_angle must be in (0, 90): {} degrees",
+                placement_id,
+                geometry.divergent_half_angle.into_base().to_degrees()
+            )),
         ));
     }
     Ok(())

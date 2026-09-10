@@ -98,7 +98,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run complete validation suite
-    pub fn run_full_validation_suite(&mut self) -> Result<(), String> {
+    pub fn run_full_validation_suite(&mut self) -> cfd_core::error::Result<()> {
         // Run MMS validation
         self.run_mms_validation()?;
 
@@ -210,7 +210,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run MMS validation
-    fn run_mms_validation(&mut self) -> Result<(), String> {
+    fn run_mms_validation(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running comprehensive MMS validation suite...");
 
         // Add sample stability region data for testing
@@ -259,7 +259,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run boundary condition validation
-    fn run_boundary_validation(&mut self) -> Result<(), String> {
+    fn run_boundary_validation(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running boundary condition validation...");
 
         // Add sample boundary validation results
@@ -278,7 +278,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run performance profiling
-    fn run_performance_profiling(&mut self) -> Result<(), String> {
+    fn run_performance_profiling(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running performance profiling...");
         self.update_performance_profile();
         tracing::info!("Performance profiling completed");
@@ -286,7 +286,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run numerical stability analysis
-    fn run_numerical_stability_analysis(&mut self) -> Result<(), String> {
+    fn run_numerical_stability_analysis(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running numerical stability analysis...");
         self.update_numerical_stability_analysis();
         tracing::info!("Numerical stability analysis completed");
@@ -294,7 +294,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run conservation analysis
-    fn run_conservation_analysis(&mut self) -> Result<(), String> {
+    fn run_conservation_analysis(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running conservation property analysis...");
         self.update_conservation_analysis();
         tracing::info!("Conservation analysis completed");
@@ -302,7 +302,7 @@ impl<T: RealField + Copy + FloatElement> ComprehensiveCFDValidationSuite<T> {
     }
 
     /// Run edge case testing
-    fn run_edge_case_testing(&mut self) -> Result<(), String> {
+    fn run_edge_case_testing(&mut self) -> cfd_core::error::Result<()> {
         tracing::info!("Running edge case testing...");
         self.update_edge_case_testing();
         tracing::info!("Edge case testing completed");

@@ -1,3 +1,4 @@
+use crate::error::OptimError;
 use crate::BlueprintCandidate;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 
@@ -59,49 +60,63 @@ impl Milestone12LineageKey {
 pub fn validate_milestone12_candidate(
     candidate: &BlueprintCandidate,
     stage: Milestone12Stage,
-) -> Result<(), String> {
-    let spec = candidate
-        .topology_spec()
-        .map_err(|error| error.to_string())?;
+) -> Result<(), OptimError> {
+    let spec = candidate.topology_spec()?;
 
     if !is_milestone12_lineage_topology(candidate) {
-        return Err(format!(
-            "{stage:?} must use a canonical asymmetric split scaffold rooted in Bi/Tri/Quad/Penta, got {}",
-            spec.short_code()
-        ));
+        return Err(OptimError::CandidateRejected {
+            id: candidate.id.clone(),
+            reason: format!(
+                "{stage:?} must use a canonical asymmetric split scaffold rooted in Bi/Tri/Quad/Penta, got {}",
+                spec.short_code()
+            ),
+        });
     }
     if candidate.id.ends_with("-ACS") {
-        return Err(format!(
-            "{stage:?} candidate {} uses deprecated report-time acoustic clone suffix -ACS",
-            candidate.id
-        ));
+        return Err(OptimError::CandidateRejected {
+            id: candidate.id.clone(),
+            reason: format!(
+                "{stage:?} candidate {} uses deprecated report-time acoustic clone suffix -ACS",
+                candidate.id
+            ),
+        });
     }
 
     match stage {
         Milestone12Stage::Option1Base => {
             if !spec.venturi_placements.is_empty() {
-                return Err(format!(
-                    "Option1Base candidate {} must be ultrasound-only",
-                    candidate.id
-                ));
+                return Err(OptimError::CandidateRejected {
+                    id: candidate.id.clone(),
+                    reason: format!(
+                        "Option1Base candidate {} must be ultrasound-only",
+                        candidate.id
+                    ),
+                });
             }
         }
         Milestone12Stage::Option2Derived | Milestone12Stage::GaRefined => {
             if spec.venturi_placements.is_empty() {
-                return Err(format!(
-                    "{stage:?} candidate {} must use venturi treatment",
-                    candidate.id
-                ));
+                return Err(OptimError::CandidateRejected {
+                    id: candidate.id.clone(),
+                    reason: format!(
+                        "{stage:?} candidate {} must use venturi treatment",
+                        candidate.id
+                    ),
+                });
             }
         }
     }
 
-    candidate.blueprint().validate().map_err(|error| {
-        format!(
-            "{stage:?} candidate {} produced invalid blueprint: {error}",
-            candidate.id
-        )
-    })?;
+    candidate
+        .blueprint()
+        .validate()
+        .map_err(|error| OptimError::CandidateRejected {
+            id: candidate.id.clone(),
+            reason: format!(
+                "{stage:?} candidate {} produced invalid blueprint: {error}",
+                candidate.id
+            ),
+        })?;
 
     let treatment_lane_count = candidate
         .blueprint()
@@ -110,12 +125,15 @@ pub fn validate_milestone12_candidate(
         .filter(|channel| channel.therapy_zone == Some(TherapyZone::CancerTarget))
         .count();
     if treatment_lane_count < spec.treatment_channel_ids().len() {
-        return Err(format!(
-            "{stage:?} candidate {} collapsed treatment-window lanes: expected at least {}, got {}",
-            candidate.id,
-            spec.treatment_channel_ids().len(),
-            treatment_lane_count
-        ));
+        return Err(OptimError::CandidateRejected {
+            id: candidate.id.clone(),
+            reason: format!(
+                "{stage:?} candidate {} collapsed treatment-window lanes: expected at least {}, got {}",
+                candidate.id,
+                spec.treatment_channel_ids().len(),
+                treatment_lane_count
+            ),
+        });
     }
 
     Ok(())

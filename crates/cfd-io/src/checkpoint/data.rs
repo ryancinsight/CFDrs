@@ -1,6 +1,7 @@
 //! Checkpoint data structures
 
 use crate::checkpoint::metadata::CheckpointMetadata;
+use crate::error::{Error, Result};
 use crate::leto_arrays::{row_major_values, try_for_each_row_major};
 use eunomia::RealField;
 use leto::Array2;
@@ -48,26 +49,30 @@ impl<T: RealField> Checkpoint<T> {
     }
 
     /// Validate checkpoint data consistency
-    pub fn validate(&self) -> Result<(), String> {
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] when a field's shape disagrees with
+    /// the metadata's grid dimensions.
+    pub fn validate(&self) -> Result<()> {
         // Check dimensions consistency
         let (nx, ny) = self.metadata.dimensions;
         let [u_rows, u_cols] = self.u_velocity.shape();
         if u_cols != nx || u_rows != ny {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "U velocity dimensions mismatch: expected {ny}x{nx}, got {u_rows}x{u_cols}"
-            ));
+            )));
         }
         let [v_rows, v_cols] = self.v_velocity.shape();
         if v_cols != nx || v_rows != ny {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "V velocity dimensions mismatch: expected {ny}x{nx}, got {v_rows}x{v_cols}"
-            ));
+            )));
         }
         let [p_rows, p_cols] = self.pressure.shape();
         if p_cols != nx || p_rows != ny {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "Pressure dimensions mismatch: expected {ny}x{nx}, got {p_rows}x{p_cols}"
-            ));
+            )));
         }
 
         Ok(())
@@ -93,9 +98,10 @@ impl<T: RealField> MatrixPayload<T> {
         }
     }
 
-    fn into_array(self) -> Result<Array2<T>, String> {
-        Array2::from_shape_vec(self.shape, self.values)
-            .map_err(|error| format!("invalid Leto checkpoint field payload: {error}"))
+    fn into_array(self) -> Result<Array2<T>> {
+        Array2::from_shape_vec(self.shape, self.values).map_err(|error| {
+            Error::InvalidInput(format!("invalid Leto checkpoint field payload: {error}"))
+        })
     }
 }
 
@@ -114,7 +120,7 @@ impl<T> Serialize for Checkpoint<T>
 where
     T: RealField + Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -138,7 +144,7 @@ impl<'de, T> Deserialize<'de> for Checkpoint<T>
 where
     T: RealField + Deserialize<'de>,
 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {

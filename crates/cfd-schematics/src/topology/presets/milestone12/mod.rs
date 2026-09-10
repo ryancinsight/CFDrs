@@ -381,6 +381,8 @@ mod tests {
             TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
         )
         .expect_err("non-canonical selective mutation must fail");
-        assert!(error.contains("create_geometry-authored provenance"));
+        assert!(error
+            .to_string()
+            .contains("create_geometry-authored provenance"));
     }
 }

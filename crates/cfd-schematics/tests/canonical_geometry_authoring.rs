@@ -175,5 +175,5 @@ fn milestone12_blueprints_reject_missing_geometry_provenance() {
     let error = blueprint
         .validate()
         .expect_err("manual provenance stripping must fail validation");
-    assert!(error.contains("create_geometry"));
+    assert!(error.to_string().contains("create_geometry"));
 }

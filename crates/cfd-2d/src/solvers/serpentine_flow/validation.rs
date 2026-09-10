@@ -25,7 +25,7 @@ impl<T: CfdScalar + Copy + FloatElement> SerpentineValidator<T> {
     pub fn validate_mixing(
         &self,
         solution: &SerpentineMixingSolution<T>,
-    ) -> Result<SerpentineValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<SerpentineValidationResult<T>> {
         let total_length = self.geometry.total_length();
         let l_mix = solution.l_mix_90;
 

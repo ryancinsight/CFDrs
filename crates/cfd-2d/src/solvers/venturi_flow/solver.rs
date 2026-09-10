@@ -328,7 +328,7 @@ impl<T: CfdScalar + Copy + FloatElement> VenturiValidator<T> {
         u_inlet: T,
         p_inlet: T,
         rho: T,
-    ) -> Result<VenturiValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<VenturiValidationResult<T>> {
         let bernoulli = BernoulliVenturi::new(self.geometry.clone(), u_inlet, p_inlet, rho);
 
         let u_throat_analytical = bernoulli.velocity_throat();

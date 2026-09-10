@@ -21,6 +21,10 @@ pub enum OptimError {
     /// A parameter value was outside the valid physical range.
     #[error("invalid parameter: {0}")]
     InvalidParameter(String),
+
+    /// A candidate failed a milestone12 structural guardrail.
+    #[error("candidate '{id}' rejected: {reason}")]
+    CandidateRejected { id: String, reason: String },
 }
 
 impl From<OptimError> for cfd_core::error::Error {
@@ -29,7 +33,8 @@ impl From<OptimError> for cfd_core::error::Error {
         match err {
             OptimError::EmptyCandidates
             | OptimError::InsufficientCandidates { .. }
-            | OptimError::InvalidParameter(_) => Self::InvalidInput(msg),
+            | OptimError::InvalidParameter(_)
+            | OptimError::CandidateRejected { .. } => Self::InvalidInput(msg),
             OptimError::PhysicsError { .. } => Self::Solver(msg),
         }
     }

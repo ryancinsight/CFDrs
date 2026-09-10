@@ -3,6 +3,7 @@
 mod geometry;
 mod lane_paths;
 
+use crate::error::{Error, Result, VisualizationErrorKind};
 use crate::geometry::Point2D;
 use crate::visualizations::traits::Color;
 use std::collections::BTreeMap;
@@ -187,16 +188,34 @@ impl SchematicAnnotations {
     }
 
     /// Validate annotation coordinates.
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<()> {
         if self.style.dot_radius_px <= 0 {
-            return Err("dot radius must be positive".to_string());
+            return Err(Error::Visualization(
+                VisualizationErrorKind::InvalidParameters {
+                    parameter: "dot_radius_px".to_string(),
+                    value: self.style.dot_radius_px.to_string(),
+                    constraint: "must be positive".to_string(),
+                },
+            ));
         }
         if self.style.label_font_size_pt <= 0 {
-            return Err("label font size must be positive".to_string());
+            return Err(Error::Visualization(
+                VisualizationErrorKind::InvalidParameters {
+                    parameter: "label_font_size_pt".to_string(),
+                    value: self.style.label_font_size_pt.to_string(),
+                    constraint: "must be positive".to_string(),
+                },
+            ));
         }
         for marker in &self.markers {
             if !marker.point.0.is_finite() || !marker.point.1.is_finite() {
-                return Err("annotation marker coordinates must be finite".to_string());
+                return Err(Error::Visualization(
+                    VisualizationErrorKind::InvalidParameters {
+                        parameter: "marker.point".to_string(),
+                        value: format!("({}, {})", marker.point.0, marker.point.1),
+                        constraint: "coordinates must be finite".to_string(),
+                    },
+                ));
             }
         }
         Ok(())

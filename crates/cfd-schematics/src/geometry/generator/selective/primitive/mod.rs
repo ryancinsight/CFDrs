@@ -5,6 +5,7 @@
 use super::super::super::types::{Point2D, SplitType};
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::NetworkBlueprint;
+use crate::error::Result;
 use crate::geometry::metadata::BlueprintRenderHints;
 use crate::topology::{
     BlueprintTopologyFactory, BlueprintTopologySpec, SplitKind, TreatmentActuationMode,
@@ -173,7 +174,7 @@ fn scale_blueprint_geometry(blueprint: &mut NetworkBlueprint, target_dims: (f64,
 /// when the spec matches the canonical selective-routing contract.
 pub fn create_primitive_selective_tree_geometry_from_spec(
     spec: &BlueprintTopologySpec,
-) -> Result<Option<NetworkBlueprint>, String> {
+) -> Result<Option<NetworkBlueprint>> {
     if spec.split_stages.is_empty() || spec.has_series_path() || spec.has_parallel_paths() {
         return Ok(None);
     }

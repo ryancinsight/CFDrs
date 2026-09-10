@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 /// Type alias for complex validation function signatures
-pub type ValidationFunction = fn(&HashMap<String, Box<dyn std::any::Any>>) -> Result<(), String>;
+pub type ValidationFunction =
+    fn(&HashMap<String, Box<dyn std::any::Any>>) -> cfd_core::error::Result<()>;
 
 /// Validation rule for parameter relationships
 pub trait ValidationRule: Debug + Send + Sync {

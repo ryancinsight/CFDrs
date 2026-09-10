@@ -1,6 +1,7 @@
 //! Post-processing pass: insert venturi throat geometry into existing channels.
 
 use crate::domain::model::NetworkBlueprint;
+use crate::error::Result;
 use crate::topology::model::{BlueprintTopologySpec, VenturiConfig};
 
 /// Applies venturi placements to matching channels in the built blueprint.
@@ -10,7 +11,7 @@ use crate::topology::model::{BlueprintTopologySpec, VenturiConfig};
 pub fn apply_venturi_placements(
     blueprint: &mut NetworkBlueprint,
     spec: &BlueprintTopologySpec,
-) -> Result<(), String> {
+) -> Result<()> {
     for vp in &spec.venturi_placements {
         blueprint.add_venturi(&VenturiConfig {
             target_channel_ids: vec![vp.target_channel_id.clone()],

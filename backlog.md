@@ -5309,7 +5309,7 @@ No existing item's status was changed by this audit.
   fewer jobs than today's matrix.
   Dependencies: none.
 
-- **CFDRS-GA-017 [patch][correctness] — Retire the remaining 54 stringly-typed error returns (status=todo, effort=M).**
+- **CFDRS-GA-017 [patch][correctness] — Retire the remaining stringly-typed error returns (status=done, effort=M).**
   Outcome: every fallible public API returns the crate's typed error
   (`cfd_core::error::Error` through the crate `Result` alias), so callers
   match on variants instead of parsing strings and `?` composes across the
@@ -5321,8 +5321,54 @@ No existing item's status was changed by this audit.
   and visualization modules), cfd-validation 14
   (`manufactured/richardson/analysis.rs` 7, `reporting/data.rs` 2), cfd-core
   13 (`physics/boundary/manager.rs` 5, `physics/boundary/applicators.rs` 3),
-  cfd-io 4, cfd-2d 3, cfd-optim 1. GA-012's consolidation removed the 2
-  stringly signatures in `manufactured/richardson/core.rs` (56 → 54).
+  cfd-io 4, cfd-2d 3, cfd-optim 1.
+  Delivered 2026-09-09 (the four clean legs, branch
+  `refactor/cfdrs-ga017-typed-errors-clean-legs`): cfd-core, cfd-io, cfd-2d,
+  and cfd-optim are fully retired — 18 signatures. Census corrections: 4 of
+  the counted hits are false positives (`String` as the *success* type of an
+  already-typed `Result` alias: cfd-core `management/plugin/traits.rs` 2,
+  `management/plugin/dependency.rs` 1, cfd-io `csv/reader.rs` 1), so cfd-core
+  contributes 10 not 13; the nested `MatrixPayload::into_array ->
+  Result<Array2<T>, String>` in cfd-io `checkpoint/data.rs` is invisible to
+  the `Result<[^>]*String>` regex but was retired too. Payload mapping:
+  boundary to `Error::Boundary(BoundaryErrorKind::InvalidRegion(…))`,
+  checkpoint/validation to `Error::InvalidInput`, solver non-convergence to
+  `Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded)`,
+  milestone12 guardrails to a new typed `OptimError::CandidateRejected`
+  (message texts preserved verbatim). Caller updates: serpentine scalar-solve
+  `map_err` dropped (the typed error now composes through `?`); guardrails
+  call sites unchanged (`?` into `Box<dyn Error>` and `.ok()?` coerce). One
+  pre-existing main-branch clippy regression fixed en passant (`unwrap_err`
+  → `expect_err`, cfd-io hdf5 test). Gates: standalone `--locked` fmt clean,
+  clippy `-D warnings` green, 1156 tests / 0 failures. Remaining true
+  surface: cfd-schematics 19, cfd-validation 14 (post-CFDRS-GA-012).
+  Delivered 2026-09-09 (closure legs, same branch, includes an oracle
+  correction): the item's original oracle regex was **blind to nested
+  generics** — a full multi-line signature audit surfaced 7 more true sites
+  never counted (cfd-1d branching validation 5, cfd-2d solver validation
+  helpers 2), all retired (branching to `Error::Solver`, cfd-2d sites are
+  vestigial Err channels over structured result fields). cfd-schematics and
+  cfd-validation legs retired their full true surfaces: schematics payloads
+  to `Error::Validation` / `InvalidConfiguration` / `InvalidInput` /
+  `Visualization` (incl. the fn-pointer signatures
+  `fn(&T) -> Result<(), Error>` and the `ValidationFunction` alias, plus
+  regex-blind `Result<Vec<SplitType>, String>` / `Result<SplitStageSpec,
+  String>`), validation's suite runner to `Error::Validation` and benchmark
+  benchmarks to `InvalidConfiguration`; message texts preserved verbatim.
+  Ripple updates: 5 cfd-optim `map_err` sites now close over
+  `e.to_string()` (its `From<OptimError>` accepts `String`), one
+  `render_core.rs` caller checks the typed variant, two schematics test
+  assertions moved from string `.contains` to variant matching, and the
+  cfd-1d branching solve call chain composes through `?`. Gates: standalone
+  `--locked` fmt clean, clippy `-D warnings` green across
+  cfd-schematics/cfd-validation/cfd-1d/cfd-2d/cfd-optim, 810 tests / 0
+  failures on the integrated composition (GA-012 branch overlaid),
+  straggler suites green (677+511 in cfd-1d/cfd-2d targets). Final oracle
+  (multi-line audit + nested-generic sweep): zero true stringly error
+  signatures remain in `crates/*/src` — the only surviving
+  `Result<…String…>` hits are String-as-success types (reporting renderers,
+  `serde_json::Error` serializers, label-data tuples) and test modules'
+  `Box<dyn Error>`, both out of scope by the item's definition.
   Mechanic: replace `Result<T, String>` with the crate `Result<T>` alias and
   `Err(format!(…))`/`Err(String::from(…))` with the nearest typed variant
   (`InvalidInput`, `InvalidConfiguration`, `Numerical`), preserving the
@@ -5330,9 +5376,13 @@ No existing item's status was changed by this audit.
   Non-goals: redesigning `cfd_core::error::Error`'s variant set; test
   modules' `Result<(), Box<dyn Error>>` returns, which are not stringly in
   the audited sense.
-  Acceptance oracle: `grep -rn "Result<[^>]*String>" crates/*/src` returns
-  nothing.
-  Dependencies: none. The CFDRS-GA-012 overlap is resolved (delivered
-  2026-09-09, removing 2 cfd-validation sites; the remaining
-  `analysis.rs` sites are its declared GCI-reporting non-goal); the count
-  above is current as of that delivery.
+  Acceptance oracle (corrected): a single-line `Result<[^>]*String>` grep is
+  the discovery tool, not proof — it misses nested generics
+  (`Result<Vec<SplitType>, String>`) and flags String-as-success types. The
+  closing oracle is the multi-line signature audit (every `-> …String…`
+  signature ending in `;`/`{` containing `Result<`) plus a nested-generic
+  sweep, both run empty of true stringly error returns 2026-09-09.
+  Dependencies: none for the cfd-io/cfd-2d/cfd-optim/cfd-core sites; the
+  cfd-validation and cfd-schematics sites overlap CFDRS-GA-012 (that
+  consolidation deletes some of them) — land either first and re-count
+  before claiming the oracle.
