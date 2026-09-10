@@ -88,21 +88,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FemCon
                 "FemConfig::try_new: tau (stabilization parameter) must be finite and non-negative, got {tau:?}"
             )));
         }
-        if let Some(dt_value) = dt {
-            if !<T as NumericElement>::is_finite(dt_value)
-                || dt_value <= <T as NumericElement>::ZERO
-            {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemConfig::try_new: dt must be finite and positive when provided, got {dt_value:?}"
-                )));
-            }
+        if let Some(dt_value) = dt
+            && (!<T as NumericElement>::is_finite(dt_value)
+                || dt_value <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemConfig::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+            )));
         }
-        if let Some(re) = reynolds {
-            if !<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemConfig::try_new: reynolds must be finite and positive when provided, got {re:?}"
-                )));
-            }
+        if let Some(re) = reynolds
+            && (!<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemConfig::try_new: reynolds must be finite and positive when provided, got {re:?}"
+            )));
         }
         if quadrature_order == 0 {
             return Err(Error::InvalidConfiguration(

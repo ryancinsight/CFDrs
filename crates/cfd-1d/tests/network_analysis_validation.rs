@@ -194,20 +194,20 @@ fn test_parallel_conductance_addition() -> Result<()> {
 
     // Set resistance directly on graph edges
     let mut edge_iter = graph.edge_indices();
-    if let Some(e_in) = edge_iter.next() {
-        if let Some(edge_data) = graph.edge_weight_mut(e_in) {
-            edge_data.resistance = HydraulicResistance::from_base(r_in);
-        }
+    if let Some(e_in) = edge_iter.next()
+        && let Some(edge_data) = graph.edge_weight_mut(e_in)
+    {
+        edge_data.resistance = HydraulicResistance::from_base(r_in);
     }
-    if let Some(e_branch1) = edge_iter.next() {
-        if let Some(edge_data) = graph.edge_weight_mut(e_branch1) {
-            edge_data.resistance = HydraulicResistance::from_base(r1);
-        }
+    if let Some(e_branch1) = edge_iter.next()
+        && let Some(edge_data) = graph.edge_weight_mut(e_branch1)
+    {
+        edge_data.resistance = HydraulicResistance::from_base(r1);
     }
-    if let Some(e_branch2) = edge_iter.next() {
-        if let Some(edge_data) = graph.edge_weight_mut(e_branch2) {
-            edge_data.resistance = HydraulicResistance::from_base(r2);
-        }
+    if let Some(e_branch2) = edge_iter.next()
+        && let Some(edge_data) = graph.edge_weight_mut(e_branch2)
+    {
+        edge_data.resistance = HydraulicResistance::from_base(r2);
     }
 
     let mut network = Network::new(graph, fluid.clone());

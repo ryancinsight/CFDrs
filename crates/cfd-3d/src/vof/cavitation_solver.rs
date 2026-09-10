@@ -148,12 +148,12 @@ impl CavitationVofSolver {
                 "cavitation damage requires bubble dynamics to provide a physically grounded bubble radius".to_string(),
             ));
         }
-        if let Some(nuclei) = &config.nuclei_transport {
-            if nuclei.diffusion_coefficient.into_base() < 0.0 {
-                return Err(cfd_core::error::Error::InvalidConfiguration(
-                    "nuclei diffusion coefficient must be nonnegative".to_string(),
-                ));
-            }
+        if let Some(nuclei) = &config.nuclei_transport
+            && nuclei.diffusion_coefficient.into_base() < 0.0
+        {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "nuclei diffusion coefficient must be nonnegative".to_string(),
+            ));
         }
 
         let vof_solver = VofSolver::create(

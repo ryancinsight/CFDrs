@@ -385,47 +385,46 @@ rather than a purely local last-step tweak.\n"
                 .total_cmp(&right.score)
                 .then_with(|| left.rank.cmp(&right.rank))
         });
-        if let Some(displaced) = displaced_raw_winner {
-            if displaced.candidate_id != selected.candidate_id
-                || (displaced.score - selected.score).abs() > 1.0e-12
-            {
-                let _ = writeln!(
-                    s,
-                    "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \
+        if let Some(displaced) = displaced_raw_winner
+            && (displaced.candidate_id != selected.candidate_id
+                || (displaced.score - selected.score).abs() > 1.0e-12)
+        {
+            let _ = writeln!(
+                s,
+                "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \
 (raw {:.4}; geometry penalty {:.3}; operating-point penalty {:.3}) over the highest raw-score \
 finalist `{}` (raw {:.4}; adjusted {:.4}) because the displaced design carried a larger geometry \
 concentration penalty of {:.3}{}.\n",
-                    selected.candidate_id,
-                    selected.adjusted_selection_score,
-                    selected.score,
-                    selected.geometry_concentration_penalty,
-                    selected.operating_point_diversity_penalty,
-                    displaced.candidate_id,
-                    displaced.score,
-                    displaced.adjusted_selection_score,
-                    displaced.geometry_concentration_penalty,
-                    if displaced.operating_point_diversity_penalty > 0.0 {
-                        format!(
-                            " and operating-point monoculture penalty {:.3}",
-                            displaced.operating_point_diversity_penalty
-                        )
-                    } else {
-                        String::new()
-                    },
-                );
+                selected.candidate_id,
+                selected.adjusted_selection_score,
+                selected.score,
+                selected.geometry_concentration_penalty,
+                selected.operating_point_diversity_penalty,
+                displaced.candidate_id,
+                displaced.score,
+                displaced.adjusted_selection_score,
+                displaced.geometry_concentration_penalty,
+                if displaced.operating_point_diversity_penalty > 0.0 {
+                    format!(
+                        " and operating-point monoculture penalty {:.3}",
+                        displaced.operating_point_diversity_penalty
+                    )
+                } else {
+                    String::new()
+                },
+            );
+            let _ = writeln!(
+                s,
+                "The direct ranking tradeoff is summarized below.\n\n{}",
+                build_ga_ranking_tradeoff_table(selected, displaced, tradeoff_table_number)
+            );
+            if let Some(threshold) = geometry_displacement_threshold(selected, displaced) {
                 let _ = writeln!(
                     s,
-                    "The direct ranking tradeoff is summarized below.\n\n{}",
-                    build_ga_ranking_tradeoff_table(selected, displaced, tradeoff_table_number)
+                    "At the current operating-point coefficient (0.00020), any geometry penalty coefficient above {:.6} is sufficient to let this lower-concentration finalist displace the higher raw-score design; this run used {:.6}.\n",
+                    threshold,
+                    current_geometry_penalty_weight(),
                 );
-                if let Some(threshold) = geometry_displacement_threshold(selected, displaced) {
-                    let _ = writeln!(
-                        s,
-                        "At the current operating-point coefficient (0.00020), any geometry penalty coefficient above {:.6} is sufficient to let this lower-concentration finalist displace the higher raw-score design; this run used {:.6}.\n",
-                        threshold,
-                        current_geometry_penalty_weight(),
-                    );
-                }
             }
         }
     }

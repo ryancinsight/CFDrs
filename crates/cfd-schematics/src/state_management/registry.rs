@@ -273,17 +273,16 @@ impl ParameterRegistry {
         }
 
         // Validate that serpentine parameters are reasonable
-        if let Ok(wavelength_any) = self.serpentine_manager.get_parameter("wavelength_factor") {
-            if let Some(wavelength) = wavelength_any.downcast_ref::<f64>() {
-                if *wavelength <= 0.0 {
-                    return Err(StateManagementError::Validation(
-                        crate::state_management::errors::ValidationError::rule_failed(
-                            "wavelength_factor",
-                            "Wavelength factor must be positive",
-                        ),
-                    ));
-                }
-            }
+        if let Ok(wavelength_any) = self.serpentine_manager.get_parameter("wavelength_factor")
+            && let Some(wavelength) = wavelength_any.downcast_ref::<f64>()
+            && *wavelength <= 0.0
+        {
+            return Err(StateManagementError::Validation(
+                crate::state_management::errors::ValidationError::rule_failed(
+                    "wavelength_factor",
+                    "Wavelength factor must be positive",
+                ),
+            ));
         }
 
         Ok(())

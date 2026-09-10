@@ -52,45 +52,44 @@ impl AutomatedReporter {
                 for part in clean_line.split(';') {
                     let part = part.trim();
                     if part.contains("passed") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                passed_tests = num;
-                            }
+                        if let Some(num_str) = part.split_whitespace().next()
+                            && let Ok(num) = num_str.parse::<usize>()
+                        {
+                            passed_tests = num;
                         }
                     } else if part.contains("failed") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                failed_tests = num;
-                            }
+                        if let Some(num_str) = part.split_whitespace().next()
+                            && let Ok(num) = num_str.parse::<usize>()
+                        {
+                            failed_tests = num;
                         }
                     } else if part.contains("ignored") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                ignored_tests = num;
-                            }
+                        if let Some(num_str) = part.split_whitespace().next()
+                            && let Ok(num) = num_str.parse::<usize>()
+                        {
+                            ignored_tests = num;
                         }
                     } else if part.contains("measured") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                measured_tests = num;
-                            }
+                        if let Some(num_str) = part.split_whitespace().next()
+                            && let Ok(num) = num_str.parse::<usize>()
+                        {
+                            measured_tests = num;
                         }
-                    } else if part.contains("filtered") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                filtered_tests = num;
-                            }
-                        }
+                    } else if part.contains("filtered")
+                        && let Some(num_str) = part.split_whitespace().next()
+                        && let Ok(num) = num_str.parse::<usize>()
+                    {
+                        filtered_tests = num;
                     }
                 }
             }
 
             if (line.contains(" ok ") || line.contains(" FAILED ")) && line.contains('s') {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                if let Some(last_part) = parts.last() {
-                    if let Ok(duration) = last_part.trim_end_matches('s').parse::<f64>() {
-                        total_duration_secs += duration;
-                    }
+                if let Some(last_part) = parts.last()
+                    && let Ok(duration) = last_part.trim_end_matches('s').parse::<f64>()
+                {
+                    total_duration_secs += duration;
                 }
             }
         }
@@ -228,15 +227,13 @@ impl AutomatedReporter {
         let mut total_duration = 0.0;
 
         for line in test_output.lines() {
-            if line.contains("test result:") {
-                if let Some(duration_str) = line.split("finished in ").nth(1) {
-                    if let Some(duration) = duration_str.split_whitespace().next() {
-                        if let Ok(duration) = duration.trim_end_matches('s').parse::<f64>() {
-                            total_duration = duration;
-                            break;
-                        }
-                    }
-                }
+            if line.contains("test result:")
+                && let Some(duration_str) = line.split("finished in ").nth(1)
+                && let Some(duration) = duration_str.split_whitespace().next()
+                && let Ok(duration) = duration.trim_end_matches('s').parse::<f64>()
+            {
+                total_duration = duration;
+                break;
             }
         }
 
@@ -258,17 +255,16 @@ impl AutomatedReporter {
                 for part in clean_line.split(';') {
                     let part = part.trim();
                     if part.contains("passed") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                passed_tests = num;
-                            }
+                        if let Some(num_str) = part.split_whitespace().next()
+                            && let Ok(num) = num_str.parse::<usize>()
+                        {
+                            passed_tests = num;
                         }
-                    } else if part.contains("failed") {
-                        if let Some(num_str) = part.split_whitespace().next() {
-                            if let Ok(num) = num_str.parse::<usize>() {
-                                total_tests += num;
-                            }
-                        }
+                    } else if part.contains("failed")
+                        && let Some(num_str) = part.split_whitespace().next()
+                        && let Ok(num) = num_str.parse::<usize>()
+                    {
+                        total_tests += num;
                     }
                 }
 

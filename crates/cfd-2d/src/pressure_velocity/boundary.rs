@@ -34,10 +34,10 @@ pub(crate) fn pressure_neighbor_for_side<T: CfdScalar + Copy>(
     ny: usize,
     boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
 ) -> usize {
-    if let Some(BoundaryCondition::Periodic { partner }) = boundary_conditions.get(side) {
-        if let Some(index) = periodic_partner_index(side, partner, i, j, nx, ny) {
-            return index;
-        }
+    if let Some(BoundaryCondition::Periodic { partner }) = boundary_conditions.get(side)
+        && let Some(index) = periodic_partner_index(side, partner, i, j, nx, ny)
+    {
+        return index;
     }
 
     match side {

@@ -369,12 +369,12 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
             }
         }
 
-        if let BendType::Smooth { radius_to_dh_ratio } = self.bend_type {
-            if radius_to_dh_ratio <= 0.0 {
-                return Err(Error::PhysicsViolation(
-                    "Serpentine bend radius ratio must be positive".into(),
-                ));
-            }
+        if let BendType::Smooth { radius_to_dh_ratio } = self.bend_type
+            && radius_to_dh_ratio <= 0.0
+        {
+            return Err(Error::PhysicsViolation(
+                "Serpentine bend radius ratio must be positive".into(),
+            ));
         }
 
         Ok(())

@@ -134,10 +134,11 @@ impl VorticityStreamCavityConfig {
             resolved.grid_points = (runtime.resolution, runtime.resolution);
         }
 
-        if let Some(time_step) = runtime.time_step {
-            if time_step.is_finite() && time_step > 0.0 {
-                resolved.time_step = time_step;
-            }
+        if let Some(time_step) = runtime.time_step
+            && time_step.is_finite()
+            && time_step > 0.0
+        {
+            resolved.time_step = time_step;
         }
 
         if runtime.tolerance.is_finite() && runtime.tolerance > 0.0 {

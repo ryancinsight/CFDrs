@@ -2145,11 +2145,11 @@ impl TransientCompositionSimulator {
         let mut last_matched_index: Option<usize> = None;
 
         for target_time in target_timepoints {
-            if let Some(last_index) = last_matched_index {
-                if Self::times_close(sampled[last_index].time.into_base(), target_time, tolerance) {
-                    sampled.push(sampled[last_index].clone());
-                    continue;
-                }
+            if let Some(last_index) = last_matched_index
+                && Self::times_close(sampled[last_index].time.into_base(), target_time, tolerance)
+            {
+                sampled.push(sampled[last_index].clone());
+                continue;
             }
 
             while let Some(state) = current_state.as_ref() {
@@ -3091,10 +3091,11 @@ impl TransientCompositionSimulator {
                         if let Some(m) = node_mixtures.get(&incident.source) {
                             incoming.push((m.clone(), q_abs));
                         }
-                    } else if incident.source == node_id && q < T::ZERO {
-                        if let Some(m) = node_mixtures.get(&incident.target) {
-                            incoming.push((m.clone(), q_abs));
-                        }
+                    } else if incident.source == node_id
+                        && q < T::ZERO
+                        && let Some(m) = node_mixtures.get(&incident.target)
+                    {
+                        incoming.push((m.clone(), q_abs));
                     }
                 }
 

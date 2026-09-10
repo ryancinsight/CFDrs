@@ -247,10 +247,10 @@ impl<T: CfdScalar> LinearSystemSolver<T> {
         let dense = a.to_dense();
 
         // Try LU first.
-        if let Ok(lu) = lu_decompose(&dense.view()) {
-            if let Ok(x) = lu.solve(&b.view()) {
-                return Ok(x);
-            }
+        if let Ok(lu) = lu_decompose(&dense.view())
+            && let Ok(x) = lu.solve(&b.view())
+        {
+            return Ok(x);
         }
 
         // QR fallback (rare): recompute dense from sparse.

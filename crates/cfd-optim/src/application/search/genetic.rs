@@ -202,10 +202,10 @@ fn geometry_concentration_penalty(candidate: &BlueprintRankedCandidate) -> f64 {
             if !operator.starts_with("operating_point") {
                 geometry_event_count += 1;
             }
-            if let Some((family, lane)) = parse_lineage_family_lane(&event.mutation) {
-                if family.starts_with("serpentine_") {
-                    *lane_family_counts.entry((lane, family)).or_insert(0) += 1;
-                }
+            if let Some((family, lane)) = parse_lineage_family_lane(&event.mutation)
+                && family.starts_with("serpentine_")
+            {
+                *lane_family_counts.entry((lane, family)).or_insert(0) += 1;
             }
         }
     }

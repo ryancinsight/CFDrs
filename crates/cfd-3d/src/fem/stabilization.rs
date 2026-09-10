@@ -114,12 +114,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
                 )));
             }
         }
-        if let Some(dt_value) = dt {
-            if !<T as NumericElement>::is_finite(dt_value) || dt_value <= scalar::zero::<T>() {
-                return Err(Error::InvalidConfiguration(format!(
-                    "StabilizationParameters::try_new: dt must be finite and positive when provided, got {dt_value:?}"
-                )));
-            }
+        if let Some(dt_value) = dt
+            && (!<T as NumericElement>::is_finite(dt_value) || dt_value <= scalar::zero::<T>())
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "StabilizationParameters::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+            )));
         }
         let u_mag = velocity.norm();
         Ok(Self { h, nu, u_mag, dt })

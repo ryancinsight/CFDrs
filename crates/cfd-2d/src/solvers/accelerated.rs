@@ -40,19 +40,19 @@ impl AcceleratedPoissonSolver {
         // Try GPU first if feature enabled
         #[cfg(feature = "gpu")]
         {
-            if let Ok(gpu_context) = cfd_core::compute::gpu::GpuContext::create() {
-                if let Ok(gpu_solver) = cfd_core::compute::gpu::GpuPoissonSolver::from_context(
+            if let Ok(gpu_context) = cfd_core::compute::gpu::GpuContext::create()
+                && let Ok(gpu_solver) = cfd_core::compute::gpu::GpuPoissonSolver::from_context(
                     &gpu_context,
                     _nx,
                     _ny,
                     _dx,
                     _dy,
-                ) {
-                    return Ok(Self {
-                        backend: Backend::Gpu,
-                        gpu_solver: Some(Arc::new(gpu_solver)),
-                    });
-                }
+                )
+            {
+                return Ok(Self {
+                    backend: Backend::Gpu,
+                    gpu_solver: Some(Arc::new(gpu_solver)),
+                });
             }
         }
 

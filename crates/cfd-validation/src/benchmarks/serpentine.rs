@@ -169,10 +169,10 @@ where
         }
 
         // Basic Dean number sanity check
-        if let Some(&de) = result.metrics.get("dean_number") {
-            if de < <T as FloatElement>::from_f64(0.0) {
-                return Ok(false);
-            }
+        if let Some(&de) = result.metrics.get("dean_number")
+            && de < <T as FloatElement>::from_f64(0.0)
+        {
+            return Ok(false);
         }
 
         Ok(true)

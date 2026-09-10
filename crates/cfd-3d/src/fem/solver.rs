@@ -117,21 +117,20 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
                 config.tau
             )));
         }
-        if let Some(dt_value) = config.dt {
-            if !<T as NumericElement>::is_finite(dt_value)
-                || dt_value <= <T as NumericElement>::ZERO
-            {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemSolver::try_new: dt must be finite and positive when provided, got {dt_value:?}"
-                )));
-            }
+        if let Some(dt_value) = config.dt
+            && (!<T as NumericElement>::is_finite(dt_value)
+                || dt_value <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+            )));
         }
-        if let Some(re) = config.reynolds {
-            if !<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemSolver::try_new: reynolds must be finite and positive when provided, got {re:?}"
-                )));
-            }
+        if let Some(re) = config.reynolds
+            && (!<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: reynolds must be finite and positive when provided, got {re:?}"
+            )));
         }
         if config.quadrature_order == 0 {
             return Err(Error::InvalidConfiguration(
@@ -1249,15 +1248,15 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
                                 vel_dofs.insert(dof);
                             }
                         }
-                        if let Some(Some(p_val)) = comps.get(3) {
-                            if node_idx < problem.n_corner_nodes {
-                                has_pressure_bc = true;
-                                let dof = p_offset + node_idx;
-                                builder.set_dirichlet_row(dof, diag_scale, *p_val);
-                                rhs[dof] = *p_val * diag_scale;
-                                constrained_dofs.push((dof, *p_val));
-                                p_dofs.insert(dof);
-                            }
+                        if let Some(Some(p_val)) = comps.get(3)
+                            && node_idx < problem.n_corner_nodes
+                        {
+                            has_pressure_bc = true;
+                            let dof = p_offset + node_idx;
+                            builder.set_dirichlet_row(dof, diag_scale, *p_val);
+                            rhs[dof] = *p_val * diag_scale;
+                            constrained_dofs.push((dof, *p_val));
+                            p_dofs.insert(dof);
                         }
                     } else {
                         // Scalar Dirichlet: apply to all velocity components (standard wall/inlet)

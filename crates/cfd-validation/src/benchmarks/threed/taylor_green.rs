@@ -140,10 +140,11 @@ impl TaylorGreenBenchmarkConfig {
             resolved.dimensions = (runtime.resolution, runtime.resolution, runtime.resolution);
         }
 
-        if let Some(time_step) = runtime.time_step {
-            if time_step.is_finite() && time_step > 0.0 {
-                resolved.time_step = time_step;
-            }
+        if let Some(time_step) = runtime.time_step
+            && time_step.is_finite()
+            && time_step > 0.0
+        {
+            resolved.time_step = time_step;
         }
 
         if runtime.reynolds_number.is_finite() && runtime.reynolds_number > 0.0 {

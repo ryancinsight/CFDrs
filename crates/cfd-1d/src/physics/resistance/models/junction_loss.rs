@@ -136,11 +136,11 @@ impl JunctionLossModel {
             (JunctionType::Cross, JunctionFlowDirection::Combining) => 1.2,
         };
 
-        if let Some(run_area) = self.run_area_m2 {
-            if run_area > 1e-30 {
-                let ratio = (self.branch_area_m2 / run_area).sqrt();
-                return k_equal * ratio;
-            }
+        if let Some(run_area) = self.run_area_m2
+            && run_area > 1e-30
+        {
+            let ratio = (self.branch_area_m2 / run_area).sqrt();
+            return k_equal * ratio;
         }
         k_equal
     }
@@ -267,12 +267,12 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
                 "junction_length_m must be non-negative".into(),
             ));
         }
-        if let Some(run_area) = self.run_area_m2 {
-            if run_area <= 0.0 {
-                return Err(Error::PhysicsViolation(
-                    "run_area_m2 must be positive if specified".into(),
-                ));
-            }
+        if let Some(run_area) = self.run_area_m2
+            && run_area <= 0.0
+        {
+            return Err(Error::PhysicsViolation(
+                "run_area_m2 must be positive if specified".into(),
+            ));
         }
         Ok(())
     }

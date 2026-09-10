@@ -213,15 +213,14 @@ where
                         <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE),
                     );
                 }
-                if let Some(edge_id) = edge_id.as_deref() {
-                    if let Some((seed_flow, seed_resistance)) =
+                if let Some(edge_id) = edge_id.as_deref()
+                    && let Some((seed_flow, seed_resistance)) =
                         seed_state_by_channel_id.get(edge_id)
-                    {
-                        working_network.flow_rates[edge_idx.index()] =
-                            VolumetricFlowRate::from_base(*seed_flow);
-                        edge.flow_rate = VolumetricFlowRate::from_base(*seed_flow);
-                        edge.resistance = HydraulicResistance::from_base(*seed_resistance);
-                    }
+                {
+                    working_network.flow_rates[edge_idx.index()] =
+                        VolumetricFlowRate::from_base(*seed_flow);
+                    edge.flow_rate = VolumetricFlowRate::from_base(*seed_flow);
+                    edge.resistance = HydraulicResistance::from_base(*seed_resistance);
                 }
                 edge.quad_coeff = QuadraticHydraulicResistance::from_base(scalar::zero());
             }
@@ -233,10 +232,10 @@ where
                         <T as FloatElement>::from_f64(MIN_LINEAR_RESISTANCE),
                     );
                 }
-                if let Some(edge_id) = edge_id.as_deref() {
-                    if let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id) {
-                        props.resistance = HydraulicResistance::from_base(*seed_resistance);
-                    }
+                if let Some(edge_id) = edge_id.as_deref()
+                    && let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id)
+                {
+                    props.resistance = HydraulicResistance::from_base(*seed_resistance);
                 }
                 props.resistance_update_policy =
                     cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant;

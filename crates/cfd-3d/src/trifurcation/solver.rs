@@ -667,10 +667,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                     continue;
                 }
                 let mut face_normal = n_vec.normalize();
-                if let Some(ref_n) = reference_normal {
-                    if face_normal.dot(ref_n) < 0.0_f64 {
-                        face_normal = -face_normal;
-                    }
+                if let Some(ref_n) = reference_normal
+                    && face_normal.dot(ref_n) < 0.0_f64
+                {
+                    face_normal = -face_normal;
                 }
                 let mut u_avg = leto::Vector3::zeros();
                 for &v_idx in &face.vertices {

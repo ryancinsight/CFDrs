@@ -254,13 +254,13 @@ impl<T: CfdScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         let mut u_f = u_bar + d_face * (dp_dx_cells - dp_dx_face);
 
         // Add transient term if time step and old velocity are provided
-        if let Some(dt) = dt {
-            if self.has_old_velocity {
-                let u_bar_old =
-                    (self.u_old_buffer.at(i, j)[0] + self.u_old_buffer.at(i + 1, j)[0]) / two;
-                let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
-                u_f += transient_factor * (u_bar - u_bar_old);
-            }
+        if let Some(dt) = dt
+            && self.has_old_velocity
+        {
+            let u_bar_old =
+                (self.u_old_buffer.at(i, j)[0] + self.u_old_buffer.at(i + 1, j)[0]) / two;
+            let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
+            u_f += transient_factor * (u_bar - u_bar_old);
         }
 
         u_f
@@ -331,13 +331,13 @@ impl<T: CfdScalar + Copy + FloatElement> RhieChowInterpolation<T> {
         let mut v_f = v_bar + d_face * (dp_dy_cells - dp_dy_face);
 
         // Add transient term if time step and old velocity are provided
-        if let Some(dt) = dt {
-            if self.has_old_velocity {
-                let v_bar_old =
-                    (self.u_old_buffer.at(i, j)[1] + self.u_old_buffer.at(i, j + 1)[1]) / two;
-                let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
-                v_f += transient_factor * (v_bar - v_bar_old);
-            }
+        if let Some(dt) = dt
+            && self.has_old_velocity
+        {
+            let v_bar_old =
+                (self.u_old_buffer.at(i, j)[1] + self.u_old_buffer.at(i, j + 1)[1]) / two;
+            let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
+            v_f += transient_factor * (v_bar - v_bar_old);
         }
 
         v_f

@@ -198,15 +198,15 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
         }
 
         let is_dirichlet = |side: &str| -> bool {
-            if let Some(bcs) = boundary_conditions {
-                if let Some(bc) = bcs.get(side) {
-                    return matches!(
-                        bc,
-                        cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { .. }
-                            | cfd_core::physics::boundary::BoundaryCondition::PressureInlet { .. }
-                            | cfd_core::physics::boundary::BoundaryCondition::CharacteristicOutlet { .. }
-                    );
-                }
+            if let Some(bcs) = boundary_conditions
+                && let Some(bc) = bcs.get(side)
+            {
+                return matches!(
+                    bc,
+                    cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { .. }
+                        | cfd_core::physics::boundary::BoundaryCondition::PressureInlet { .. }
+                        | cfd_core::physics::boundary::BoundaryCondition::CharacteristicOutlet { .. }
+                );
             }
             false
         };

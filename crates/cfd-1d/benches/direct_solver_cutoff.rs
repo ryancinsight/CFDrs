@@ -22,10 +22,10 @@ fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
 fn solve_dense_cutoff(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<f64> {
     let dense = matrix.to_dense();
 
-    if let Ok(lu) = lu_decompose(&dense.view()) {
-        if let Ok(x) = lu.solve(&rhs.view()) {
-            return x;
-        }
+    if let Ok(lu) = lu_decompose(&dense.view())
+        && let Ok(x) = lu.solve(&rhs.view())
+    {
+        return x;
     }
 
     qr_decompose(&dense.view())

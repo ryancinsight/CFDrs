@@ -66,46 +66,47 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             // Turbulence model update: solve k and omega transport equations
             // and compute nu_t.  Only runs when turbulence is enabled and
             // at the specified update interval.
-            if let Some(ref mut turb) = self.turbulence {
-                if iteration % turb.update_interval == 0 && iteration > 10 {
-                    // Build velocity vector from staggered u,v fields.
-                    let nx = self.grid.nx;
-                    let ny = self.grid.ny;
-                    let zero: T = scalar::zero();
-                    let mut velocity = vec![Vector2::new(zero, zero); nx * ny];
-                    let half: T = <T as FloatElement>::from_f64(0.5);
-                    for i in 0..nx {
-                        for j in 0..ny {
-                            let u_cc = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
-                            let v_cc = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
-                            velocity[j * nx + i] = Vector2::new(u_cc, v_cc);
-                        }
+            if let Some(ref mut turb) = self.turbulence
+                && iteration % turb.update_interval == 0
+                && iteration > 10
+            {
+                // Build velocity vector from staggered u,v fields.
+                let nx = self.grid.nx;
+                let ny = self.grid.ny;
+                let zero: T = scalar::zero();
+                let mut velocity = vec![Vector2::new(zero, zero); nx * ny];
+                let half: T = <T as FloatElement>::from_f64(0.5);
+                for i in 0..nx {
+                    for j in 0..ny {
+                        let u_cc = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
+                        let v_cc = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
+                        velocity[j * nx + i] = Vector2::new(u_cc, v_cc);
                     }
-                    let mu_mol = self.field.mu[(0, 0)]; // reference molecular viscosity
-                    let dt_pseudo: T = <T as FloatElement>::from_f64(1e-3);
-                    let _ = turb.model.update(
-                        &mut turb.k,
-                        &mut turb.omega,
-                        &velocity,
-                        self.density,
-                        mu_mol / self.density, // kinematic viscosity
-                        dt_pseudo,
-                        self.grid.dx,
-                        self.grid.dy_at(0),
-                    );
-                    // Update nu_t field from k and omega.
-                    use crate::physics::turbulence::TurbulenceModel;
-                    for i in 0..nx {
-                        for j in 0..ny {
-                            let idx = j * nx + i;
-                            let nu_t = turb.model.turbulent_viscosity(
-                                turb.k[idx],
-                                turb.omega[idx],
-                                self.density,
-                            );
-                            let nu_t_val = nu_t / self.density;
-                            self.field.nu_t[(i, j)] = if nu_t_val > zero { nu_t_val } else { zero };
-                        }
+                }
+                let mu_mol = self.field.mu[(0, 0)]; // reference molecular viscosity
+                let dt_pseudo: T = <T as FloatElement>::from_f64(1e-3);
+                let _ = turb.model.update(
+                    &mut turb.k,
+                    &mut turb.omega,
+                    &velocity,
+                    self.density,
+                    mu_mol / self.density, // kinematic viscosity
+                    dt_pseudo,
+                    self.grid.dx,
+                    self.grid.dy_at(0),
+                );
+                // Update nu_t field from k and omega.
+                use crate::physics::turbulence::TurbulenceModel;
+                for i in 0..nx {
+                    for j in 0..ny {
+                        let idx = j * nx + i;
+                        let nu_t = turb.model.turbulent_viscosity(
+                            turb.k[idx],
+                            turb.omega[idx],
+                            self.density,
+                        );
+                        let nu_t_val = nu_t / self.density;
+                        self.field.nu_t[(i, j)] = if nu_t_val > zero { nu_t_val } else { zero };
                     }
                 }
             }

@@ -117,13 +117,12 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             let is_venturi = candidate
                 .topology_spec()
                 .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
-            if is_venturi {
-                if let Some(score) = score_selective_venturi_cavitation(&eval, true) {
-                    if score > best_score {
-                        best_score = score;
-                        winning_family = p.seq_tag();
-                    }
-                }
+            if is_venturi
+                && let Some(score) = score_selective_venturi_cavitation(&eval, true)
+                && score > best_score
+            {
+                best_score = score;
+                winning_family = p.seq_tag();
             }
         }
     }
@@ -144,10 +143,10 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let mut scored_indices: Vec<(usize, f64)> = Vec::with_capacity(phase2_indices.len());
     for &i in &phase2_indices {
         let candidate = family_params[i].materialize();
-        if let Ok(eval) = evaluate_blueprint_candidate(&candidate) {
-            if let Some(score) = score_selective_venturi_cavitation(&eval, true) {
-                scored_indices.push((i, score));
-            }
+        if let Ok(eval) = evaluate_blueprint_candidate(&candidate)
+            && let Some(score) = score_selective_venturi_cavitation(&eval, true)
+        {
+            scored_indices.push((i, score));
         }
     }
     scored_indices.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -306,10 +305,10 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         }
     } else {
         for result in &deferred {
-            if !result.is_venturi {
-                if let Some(ref key) = result.lineage_key {
-                    option1_lineage_keys.insert(key.clone(), true);
-                }
+            if !result.is_venturi
+                && let Some(ref key) = result.lineage_key
+            {
+                option1_lineage_keys.insert(key.clone(), true);
             }
         }
     }

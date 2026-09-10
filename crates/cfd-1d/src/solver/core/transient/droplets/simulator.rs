@@ -227,11 +227,11 @@ impl TransientDropletSimulator {
             }
 
             for injection in &injections_sorted {
-                if let Some(droplet) = active.get_mut(&injection.droplet_id) {
-                    if droplet.state == DropletState::Network {
-                        Self::advance_droplet(&state_network, droplet, dt, &split_policy)?;
-                        Self::merge_branches(&state_network, droplet)?;
-                    }
+                if let Some(droplet) = active.get_mut(&injection.droplet_id)
+                    && droplet.state == DropletState::Network
+                {
+                    Self::advance_droplet(&state_network, droplet, dt, &split_policy)?;
+                    Self::merge_branches(&state_network, droplet)?;
                 }
             }
 

@@ -833,12 +833,12 @@ where
         let mut count_in = 0;
         let mut inlet_nodes = std::collections::HashSet::new();
         for f_idx in problem.mesh.boundary_faces() {
-            if let Some(label) = problem.mesh.boundary_label(f_idx) {
-                if label == "inlet" {
-                    let face = problem.mesh.faces.get(f_idx);
-                    for &v_idx in &face.vertices {
-                        inlet_nodes.insert(v_idx.as_usize());
-                    }
+            if let Some(label) = problem.mesh.boundary_label(f_idx)
+                && label == "inlet"
+            {
+                let face = problem.mesh.faces.get(f_idx);
+                for &v_idx in &face.vertices {
+                    inlet_nodes.insert(v_idx.as_usize());
                 }
             }
         }
@@ -927,12 +927,12 @@ where
         let mut outlet_nodes = std::collections::HashSet::new();
 
         for f_idx in problem.mesh.boundary_faces() {
-            if let Some(label) = problem.mesh.boundary_label(f_idx) {
-                if label == "outlet" {
-                    let face = problem.mesh.faces.get(f_idx);
-                    for &v_idx in &face.vertices {
-                        outlet_nodes.insert(v_idx.as_usize());
-                    }
+            if let Some(label) = problem.mesh.boundary_label(f_idx)
+                && label == "outlet"
+            {
+                let face = problem.mesh.faces.get(f_idx);
+                for &v_idx in &face.vertices {
+                    outlet_nodes.insert(v_idx.as_usize());
                 }
             }
         }

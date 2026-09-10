@@ -716,8 +716,9 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 }
                 let node_hct = next_node_hematocrit[node_idx.index()];
 
-                if inflows.len() == 1 && outflows.len() == 2 {
-                    if let Some((edge_a, hematocrit_a, edge_b, hematocrit_b)) = self
+                if inflows.len() == 1
+                    && outflows.len() == 2
+                    && let Some((edge_a, hematocrit_a, edge_b, hematocrit_b)) = self
                         .bifurcation_hematocrit_split(
                             inflows[0].0,
                             outflows[0],
@@ -725,17 +726,16 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                             node_hct,
                             context.epsilon,
                         )
-                    {
-                        max_change = max_change.max(<T as NumericElement>::abs(
-                            self.edge_hematocrit(edge_a, context.default_hematocrit) - hematocrit_a,
-                        ));
-                        max_change = max_change.max(<T as NumericElement>::abs(
-                            self.edge_hematocrit(edge_b, context.default_hematocrit) - hematocrit_b,
-                        ));
-                        updates.push((edge_a, hematocrit_a));
-                        updates.push((edge_b, hematocrit_b));
-                        continue;
-                    }
+                {
+                    max_change = max_change.max(<T as NumericElement>::abs(
+                        self.edge_hematocrit(edge_a, context.default_hematocrit) - hematocrit_a,
+                    ));
+                    max_change = max_change.max(<T as NumericElement>::abs(
+                        self.edge_hematocrit(edge_b, context.default_hematocrit) - hematocrit_b,
+                    ));
+                    updates.push((edge_a, hematocrit_a));
+                    updates.push((edge_b, hematocrit_b));
+                    continue;
                 }
 
                 for &(edge_idx, _) in &outflows {

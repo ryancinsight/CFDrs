@@ -42,10 +42,10 @@ fn stamp_lineage_metadata(
     mut blueprint: NetworkBlueprint,
     metadata: impl Into<String>,
 ) -> NetworkBlueprint {
-    if let Some(lineage) = blueprint.lineage.as_mut() {
-        if let Some(last) = lineage.mutations.last_mut() {
-            last.mutation = metadata.into();
-        }
+    if let Some(lineage) = blueprint.lineage.as_mut()
+        && let Some(last) = lineage.mutations.last_mut()
+    {
+        last.mutation = metadata.into();
     }
     blueprint
 }
@@ -331,26 +331,26 @@ fn crossover_child(
     let mut child_blueprint = merge_parent_lineages(base.blueprint.clone(), &donor.blueprint);
 
     for (base_channel_id, donor_channel_id) in treatment_pairs {
-        if let Some(donor_route) = donor_topology.channel_route(&donor_channel_id) {
-            if donor_route.serpentine.is_some() {
-                let family = donor_route
-                    .serpentine
-                    .as_ref()
-                    .map_or("serpentine_neutral", |serpentine| {
-                        classify_serpentine_family(donor_route, serpentine)
-                    });
-                child_blueprint = apply_labeled_mutation(
-                    &child_blueprint,
-                    BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
-                        target_channel_id: base_channel_id.clone(),
-                        serpentine: donor_route.serpentine.clone(),
-                    },
-                    TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                    format!(
-                        "family={family};lane={base_channel_id};operator=crossover_serpentine_transfer"
-                    ),
-                )?;
-            }
+        if let Some(donor_route) = donor_topology.channel_route(&donor_channel_id)
+            && donor_route.serpentine.is_some()
+        {
+            let family = donor_route
+                .serpentine
+                .as_ref()
+                .map_or("serpentine_neutral", |serpentine| {
+                    classify_serpentine_family(donor_route, serpentine)
+                });
+            child_blueprint = apply_labeled_mutation(
+                &child_blueprint,
+                BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
+                    target_channel_id: base_channel_id.clone(),
+                    serpentine: donor_route.serpentine.clone(),
+                },
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+                format!(
+                    "family={family};lane={base_channel_id};operator=crossover_serpentine_transfer"
+                ),
+            )?;
         }
         if let Some((serial_throat_count, throat_geometry, placement_mode)) = &donor_venturi {
             child_blueprint = apply_labeled_mutation(

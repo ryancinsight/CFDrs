@@ -142,12 +142,10 @@ impl<'bp> NetworkTopology<'bp> {
                 .iter()
                 .filter(|n| matches!(n.kind, NodeKind::Junction))
                 .all(|n| self.degree(n.id.as_str()) == 2);
-            if all_junc_degree2 {
-                if let Some(path) = self.linear_path_channels() {
-                    return TopologyClass::LinearChain {
-                        n_segments: path.len(),
-                    };
-                }
+            if all_junc_degree2 && let Some(path) = self.linear_path_channels() {
+                return TopologyClass::LinearChain {
+                    n_segments: path.len(),
+                };
             }
         }
 

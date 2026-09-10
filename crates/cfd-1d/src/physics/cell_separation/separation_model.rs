@@ -223,12 +223,12 @@ impl CellSeparationModel {
                 "Cell separation split position must lie in (0, 1)".to_string(),
             ));
         }
-        if let Some(radius) = self.bend_radius {
-            if !radius.into_base().is_finite() || radius.into_base() <= 0.0 {
-                return Err(Error::InvalidConfiguration(
-                    "Cell separation bend radius must be finite and positive".to_string(),
-                ));
-            }
+        if let Some(radius) = self.bend_radius
+            && (!radius.into_base().is_finite() || radius.into_base() <= 0.0)
+        {
+            return Err(Error::InvalidConfiguration(
+                "Cell separation bend radius must be finite and positive".to_string(),
+            ));
         }
         Ok(())
     }

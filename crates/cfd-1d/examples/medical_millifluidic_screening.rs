@@ -167,10 +167,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(node) = solution
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(nidx))
+            && let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>()
         {
-            if let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>() {
-                node_pressure.insert(id, p);
-            }
+            node_pressure.insert(id, p);
         }
     }
 
