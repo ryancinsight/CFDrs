@@ -389,7 +389,7 @@ pub fn calculate_residual_simd(
             ops.sub(&r, &source[row + 1..row + ny - 1], &mut tmp)?;
             residual[row + 1..row + ny - 1].copy_from_slice(&tmp);
 
-            let row_max = ops.abs_max_f32(&tmp)?;
+            let row_max = ops.abs_max(&tmp)?;
             max_residual = max_residual.max(row_max);
         }
     }

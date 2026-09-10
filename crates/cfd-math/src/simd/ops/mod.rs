@@ -97,7 +97,7 @@ impl SimdOps {
     /// Maximum absolute value of the slice (∞-norm accumulator);
     /// `0.0` for empty input, matching the convergence-monitor contract.
     #[inline]
-    pub fn abs_max_f32(&self, input: &[f32]) -> Result<f32> {
+    pub fn abs_max(&self, input: &[f32]) -> Result<f32> {
         Ok(f32::abs_max(input))
     }
 
