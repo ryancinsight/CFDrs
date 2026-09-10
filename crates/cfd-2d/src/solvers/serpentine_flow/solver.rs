@@ -113,14 +113,12 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Out
 
         // 3. Solve Scalar Transport
         // Cells at the inlet (West boundary) with mask=true and u > 0 will use boundary_c.
-        self.scalar_solver
-            .solve(
-                &self.ns_solver.grid,
-                &self.ns_solver.field,
-                &config,
-                &boundary_c,
-            )
-            .map_err(cfd_core::error::Error::Solver)?;
+        self.scalar_solver.solve(
+            &self.ns_solver.grid,
+            &self.ns_solver.field,
+            &config,
+            &boundary_c,
+        )?;
 
         // 4. Extract metrics
         let mixing_model =

@@ -5285,7 +5285,7 @@ No existing item's status was changed by this audit.
   fewer jobs than today's matrix.
   Dependencies: none.
 
-- **CFDRS-GA-017 [patch][correctness] — Retire the 56 stringly-typed error returns (status=todo, effort=M).**
+- **CFDRS-GA-017 [patch][correctness] — Retire the remaining stringly-typed error returns (status=in-progress, effort=M).**
   Outcome: every fallible public API returns the crate's typed error
   (`cfd_core::error::Error` through the crate `Result` alias), so callers
   match on variants instead of parsing strings and `?` composes across the
@@ -5298,6 +5298,26 @@ No existing item's status was changed by this audit.
   (`manufactured/richardson/analysis.rs` 7, `reporting/data.rs` 2), cfd-core
   13 (`physics/boundary/manager.rs` 5, `physics/boundary/applicators.rs` 3),
   cfd-io 4, cfd-2d 3, cfd-optim 1.
+  Delivered 2026-09-09 (the four clean legs, branch
+  `refactor/cfdrs-ga017-typed-errors-clean-legs`): cfd-core, cfd-io, cfd-2d,
+  and cfd-optim are fully retired — 18 signatures. Census corrections: 4 of
+  the counted hits are false positives (`String` as the *success* type of an
+  already-typed `Result` alias: cfd-core `management/plugin/traits.rs` 2,
+  `management/plugin/dependency.rs` 1, cfd-io `csv/reader.rs` 1), so cfd-core
+  contributes 10 not 13; the nested `MatrixPayload::into_array ->
+  Result<Array2<T>, String>` in cfd-io `checkpoint/data.rs` is invisible to
+  the `Result<[^>]*String>` regex but was retired too. Payload mapping:
+  boundary to `Error::Boundary(BoundaryErrorKind::InvalidRegion(…))`,
+  checkpoint/validation to `Error::InvalidInput`, solver non-convergence to
+  `Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded)`,
+  milestone12 guardrails to a new typed `OptimError::CandidateRejected`
+  (message texts preserved verbatim). Caller updates: serpentine scalar-solve
+  `map_err` dropped (the typed error now composes through `?`); guardrails
+  call sites unchanged (`?` into `Box<dyn Error>` and `.ok()?` coerce). One
+  pre-existing main-branch clippy regression fixed en passant (`unwrap_err`
+  → `expect_err`, cfd-io hdf5 test). Gates: standalone `--locked` fmt clean,
+  clippy `-D warnings` green, 1156 tests / 0 failures. Remaining true
+  surface: cfd-schematics 19, cfd-validation 14 (post-CFDRS-GA-012).
   Mechanic: replace `Result<T, String>` with the crate `Result<T>` alias and
   `Err(format!(…))`/`Err(String::from(…))` with the nearest typed variant
   (`InvalidInput`, `InvalidConfiguration`, `Numerical`), preserving the

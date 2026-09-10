@@ -1,5 +1,6 @@
 //! Checkpoint metadata structures
 
+use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Version for checkpoint format compatibility
@@ -51,20 +52,24 @@ impl CheckpointMetadata {
     }
 
     /// Validate metadata consistency
-    pub fn validate(&self) -> Result<(), String> {
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] when the version is incompatible, the
+    /// grid dimensions are zero, or the domain size is non-positive.
+    pub fn validate(&self) -> Result<()> {
         if !self.is_version_compatible() {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "Incompatible checkpoint version: {} (expected {})",
                 self.version, CHECKPOINT_VERSION
-            ));
+            )));
         }
 
         if self.dimensions.0 == 0 || self.dimensions.1 == 0 {
-            return Err("Invalid grid dimensions".to_string());
+            return Err(Error::InvalidInput("Invalid grid dimensions".to_string()));
         }
 
         if self.domain_size.0 <= 0.0 || self.domain_size.1 <= 0.0 {
-            return Err("Invalid domain size".to_string());
+            return Err(Error::InvalidInput("Invalid domain size".to_string()));
         }
 
         Ok(())

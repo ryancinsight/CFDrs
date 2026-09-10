@@ -3,6 +3,7 @@
 use super::applicator::BoundaryConditionApplicator;
 use super::geometry::BoundaryRegion;
 use super::specification::BoundaryConditionSpec;
+use crate::error::{BoundaryErrorKind, Error, Result};
 use eunomia::FloatElement;
 use eunomia::RealField;
 use std::collections::HashMap;
@@ -29,9 +30,12 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
     ///
     /// # Errors
     /// Returns error if region with same ID already exists
-    pub fn add_region(&mut self, region: BoundaryRegion<T>) -> Result<(), String> {
+    pub fn add_region(&mut self, region: BoundaryRegion<T>) -> Result<()> {
         if self.regions.contains_key(&region.id) {
-            return Err(format!("Region '{}' already exists", region.id));
+            return Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
+                "Region '{}' already exists",
+                region.id
+            ))));
         }
         self.regions.insert(region.id.clone(), region);
         Ok(())
@@ -46,7 +50,7 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
     ///
     /// # Errors
     /// Returns error if any boundary condition application fails
-    pub fn apply_all(&self, field: &mut [T], time: T) -> Result<(), String> {
+    pub fn apply_all(&self, field: &mut [T], time: T) -> Result<()> {
         for region in self.regions.values() {
             if let Some(ref condition_spec) = region.condition {
                 self.apply_condition(field, condition_spec, time)?;
@@ -61,7 +65,7 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
         field: &mut [T],
         spec: &BoundaryConditionSpec<T>,
         time: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let condition = spec.evaluate_at_time(time);
 
         // Find appropriate applicator
@@ -71,10 +75,10 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
             }
         }
 
-        Err(format!(
+        Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
             "No applicator found for condition type: {}",
             spec.condition_type()
-        ))
+        ))))
     }
 
     /// Get a boundary region by ID
@@ -91,13 +95,15 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
         &mut self,
         region_id: &str,
         condition: BoundaryConditionSpec<T>,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         match self.regions.get_mut(region_id) {
             Some(region) => {
                 region.condition = Some(condition);
                 Ok(())
             }
-            None => Err(format!("Region '{region_id}' not found")),
+            None => Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
+                "Region '{region_id}' not found"
+            )))),
         }
     }
 
@@ -105,11 +111,13 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
     ///
     /// # Errors
     /// Returns error if region with specified ID is not found
-    pub fn remove_region(&mut self, id: &str) -> Result<(), String> {
+    pub fn remove_region(&mut self, id: &str) -> Result<()> {
         if self.regions.remove(id).is_some() {
             Ok(())
         } else {
-            Err(format!("Region '{id}' not found"))
+            Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
+                "Region '{id}' not found"
+            ))))
         }
     }
 

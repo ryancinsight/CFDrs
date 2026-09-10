@@ -1,6 +1,7 @@
 //! Boundary condition applicator trait
 
 use super::specification::BoundaryConditionSpec;
+use crate::error::Result;
 use crate::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use eunomia::RealField;
@@ -16,7 +17,7 @@ pub trait BoundaryConditionApplicator<T: RealField + FloatElement + Copy>: Send 
         field: &mut [T],
         boundary_spec: &BoundaryConditionSpec<T>,
         time: T,
-    ) -> Result<(), String>;
+    ) -> Result<()>;
 
     /// Get applicator name
     fn name(&self) -> &str;
@@ -89,6 +90,7 @@ pub trait BoundaryConditionApplicator<T: RealField + FloatElement + Copy>: Send 
 #[cfg(test)]
 mod tests {
     use super::BoundaryConditionApplicator;
+    use crate::error::Result;
     use crate::physics::boundary::{BoundaryCondition, BoundaryConditionSpec};
 
     struct TestApplicator;
@@ -99,7 +101,7 @@ mod tests {
             _field: &mut [f64],
             _boundary_spec: &BoundaryConditionSpec<f64>,
             _time: f64,
-        ) -> Result<(), String> {
+        ) -> Result<()> {
             Ok(())
         }
 

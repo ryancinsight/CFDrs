@@ -31,7 +31,7 @@ use crate::grid::array2d::Array2D;
 use crate::scalar::{max, one, zero};
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::ScalarTransportConfig;
-use cfd_core::error::Error;
+use cfd_core::error::{ConvergenceErrorKind, Error};
 use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
@@ -86,7 +86,7 @@ impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
         drift_field: &FlowField2D<T>,
         config: &ScalarTransportConfig<T>,
         boundary_c: &[T], // Profile at West inlet
-    ) -> Result<usize, String> {
+    ) -> cfd_core::error::Result<usize> {
         let nx = grid.nx;
         let ny = grid.ny;
         let dx = grid.dx;
@@ -203,9 +203,10 @@ impl<T: CfdScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
             }
         }
 
-        Err(format!(
-            "Drift-diffusion failed to converge after {} iterations",
-            config.max_iterations
+        Err(Error::Convergence(
+            ConvergenceErrorKind::MaxIterationsExceeded {
+                max: config.max_iterations,
+            },
         ))
     }
 }

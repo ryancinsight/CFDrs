@@ -144,6 +144,30 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **cfd-core, cfd-io, cfd-2d, cfd-optim (CFDRS-GA-017 clean legs):** every
+  remaining stringly-typed error signature in these crates now returns the
+  crate's typed error — 18 signatures retired: cfd-core's
+  `BoundaryConditionApplicator::apply`, `BoundaryConditionManager`
+  (`add_region`/`apply_all`/`apply_condition`/`update_condition`/
+  `remove_region`), and the three concrete applicators now return
+  `cfd_core::error::Result` with `Error::Boundary`
+  (`BoundaryErrorKind::InvalidRegion`) payloads; cfd-io's checkpoint
+  `validate`/`validate_physics` and the nested serde payload decoder return
+  `cfd_io::error::Result` with `Error::InvalidInput`; cfd-2d's
+  `SimulationFields::copy_from` returns `cfd_core::error::Result` and the
+  drift-diffusion/scalar-transport `solve` loops return
+  `Error::Convergence(MaxIterationsExceeded)` instead of an untyped string;
+  cfd-optim's milestone12 guardrails return a new typed
+  `OptimError::CandidateRejected { id, reason }` (message texts preserved;
+  display output changes only by the variant prefix). The serpentine scalar
+  solver drops its now-redundant `map_err`, so the typed error composes
+  through `?`. Census note: 4 of the previously counted hits were false
+  positives (`String` success type on an already-typed alias), so the true
+  workspace remainder after this delivery is cfd-schematics 19 +
+  cfd-validation 14 = 33.
+- cfd-io: fixed a pre-existing `unwrap_err` clippy regression in the hdf5
+  shape-mismatch test (`expect_err` with context message).
+
 - **Breaking:** Remove `cfd-core`'s `compute::simd` modules
   (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six
   `pub unsafe fn` kernels they exposed (`advection_avx2`, `advection_sse41`,
