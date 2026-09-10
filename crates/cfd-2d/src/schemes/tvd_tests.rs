@@ -27,7 +27,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::{
-        tvd::FluxLimiter, tvd::MUSCLOrder, FaceReconstruction, Grid2D, MUSCLScheme,
+        FaceReconstruction, Grid2D, MUSCLScheme, tvd::FluxLimiter, tvd::MUSCLOrder,
     };
     use eunomia::assert_relative_eq;
 

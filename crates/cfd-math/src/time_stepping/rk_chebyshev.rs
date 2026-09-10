@@ -38,7 +38,7 @@
 //! The stability limit is $\beta \approx (w_0 + 1) s^2 / 2 \approx 0.8 s^2$ for damped RKC.
 
 use crate::error::Result;
-use crate::time_stepping::traits::{one, state_len, state_zeros, zero, TimeState};
+use crate::time_stepping::traits::{TimeState, one, state_len, state_zeros, zero};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 

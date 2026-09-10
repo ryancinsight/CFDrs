@@ -12,8 +12,8 @@
 //! is exactly conserved to machine precision.
 
 use super::solver::MomentumSolver;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use std::collections::HashMap;
 

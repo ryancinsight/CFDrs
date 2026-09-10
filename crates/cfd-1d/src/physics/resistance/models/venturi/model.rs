@@ -6,12 +6,12 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use super::{
-    ExpansionType, VenturiGeometry, DURST_ENTRANCE_BLEND_L_OVER_DH, LAMINAR_FRICTION_COEFF,
-    LAMINAR_LIMIT_RE,
+    DURST_ENTRANCE_BLEND_L_OVER_DH, ExpansionType, LAMINAR_FRICTION_COEFF, LAMINAR_LIMIT_RE,
+    VenturiGeometry,
 };
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -235,11 +235,7 @@ impl<T: CfdScalar> VenturiModel<T> {
         let exp = <T as FloatElement>::from_f64(0.3);
         let correction = half + half * <T as FloatElement>::powf(ratio, exp);
         let one = T::ONE;
-        if correction > one {
-            one
-        } else {
-            correction
-        }
+        if correction > one { one } else { correction }
     }
 
     pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
@@ -288,11 +284,7 @@ impl<T: CfdScalar> VenturiModel<T> {
 
     #[inline]
     pub(crate) fn magnitude(value: T) -> T {
-        if value >= T::ZERO {
-            value
-        } else {
-            -value
-        }
+        if value >= T::ZERO { value } else { -value }
     }
 }
 
@@ -306,11 +298,7 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
 
         // Effective resistance: R_eff = R + k|Q|
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::ZERO {
-                q
-            } else {
-                -q
-            }
+            if q >= T::ZERO { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.inlet_area()

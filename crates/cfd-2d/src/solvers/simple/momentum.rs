@@ -1,11 +1,11 @@
-use super::algorithm::SimpleAlgorithm;
 use super::STAGNANT_CELL_AP_THRESHOLD;
+use super::algorithm::SimpleAlgorithm;
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::{MomentumComponent, MomentumSolver};
 use crate::scalar;
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 
 impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {

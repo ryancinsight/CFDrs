@@ -17,8 +17,8 @@
 use std::path::Path;
 
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
-    TreatmentActuationMode,
+    SplitKind, TreatmentActuationMode, build_milestone12_blueprint,
+    enumerate_milestone12_topologies,
 };
 
 use crate::delivery::save_blueprint_schematic_svg;

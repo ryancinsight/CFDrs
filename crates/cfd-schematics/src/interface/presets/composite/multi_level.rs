@@ -1,6 +1,7 @@
 //! Multi-level venturi bundles materialized through canonical topology specs.
 
 use super::finalize_preset_blueprint;
+use crate::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::topology::presets::{parallel_path_spec, with_venturi};
@@ -8,7 +9,6 @@ use crate::topology::{
     ChannelRouteSpec, ParallelChannelSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiConfig, VenturiPlacementMode,
 };
-use crate::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::{Angle, Length};
 
 fn venturi_lane(

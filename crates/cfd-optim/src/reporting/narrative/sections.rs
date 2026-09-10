@@ -8,15 +8,11 @@ use crate::constraints::{
     PEDIATRIC_REFERENCE_WEIGHT_KG, VENTURI_EXPANSION_RATIO_HIGH_RISK,
 };
 use crate::reporting::ranking::oncology_priority_score;
-use crate::reporting::{milestone12_therapy_utility, Milestone12ReportDesign};
+use crate::reporting::{Milestone12ReportDesign, milestone12_therapy_utility};
 
 /// Format a boolean gate as a PASS/FAIL string for markdown tables.
 fn pass_fail(value: bool) -> &'static str {
-    if value {
-        "PASS"
-    } else {
-        "FAIL"
-    }
+    if value { "PASS" } else { "FAIL" }
 }
 
 /// Pediatric 3 kg neonatal ECV as a percentage of the 25.5 mL limit.
@@ -88,7 +84,7 @@ pub(super) fn build_selected_table(
     if let Some(option1) = option1 {
         let _ = writeln!(
             out,
-                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | {:.4} | n/a | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+            "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | {:.4} | n/a | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
             option1.candidate.id,
             option1.topology_display_name(),
             option1.metrics.treatment_zone_mode,
@@ -99,15 +95,15 @@ pub(super) fn build_selected_table(
             option1.metrics.rbc_pass_fraction,
             option1.metrics.hemolysis_index_per_pass,
             option1.metrics.wall_shear_p95_pa,
-                option1.metrics.total_ecv_ml,
-                pediatric_limit_pct(option1.metrics.total_ecv_ml)
+            option1.metrics.total_ecv_ml,
+            pediatric_limit_pct(option1.metrics.total_ecv_ml)
         );
     } else {
         out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
     }
     let _ = writeln!(
         out,
-            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+        "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
@@ -121,8 +117,8 @@ pub(super) fn build_selected_table(
         option2.metrics.rbc_venturi_exposure_fraction,
         option2.metrics.hemolysis_index_per_pass,
         option2.metrics.wall_shear_p95_pa,
-            option2.metrics.total_ecv_ml,
-            pediatric_limit_pct(option2.metrics.total_ecv_ml)
+        option2.metrics.total_ecv_ml,
+        pediatric_limit_pct(option2.metrics.total_ecv_ml)
     );
     out
 }
@@ -908,7 +904,7 @@ placing it {} the hydrodynamic cavitation threshold.{ga_section}",
 #[cfg(test)]
 mod tests {
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
-    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+    use crate::reporting::{Milestone12ReportDesign, compute_blueprint_report_metrics};
 
     use super::{
         build_cavitation_formulas_intro, build_cri_expansion_sensitivity, build_option2_top5_table,
@@ -926,8 +922,11 @@ mod tests {
     fn cri_expansion_sensitivity_renders_centered_html_table() {
         let html = build_cri_expansion_sensitivity(15);
         assert!(html.contains("<div align=\"center\">"));
-        assert!(html
-            .contains("<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."));
+        assert!(
+            html.contains(
+                "<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."
+            )
+        );
         assert!(html.contains("<table style="));
         assert!(html.contains("</table>"));
     }

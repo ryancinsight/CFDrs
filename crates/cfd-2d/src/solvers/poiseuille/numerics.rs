@@ -6,8 +6,8 @@
 
 use super::{BloodModel, PoiseuilleFlow2D};
 use crate::scalar;
-use cfd_core::error::Error;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: CfdScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {

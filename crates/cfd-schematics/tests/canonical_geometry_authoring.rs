@@ -2,12 +2,12 @@
 
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::geometry::generator::{
-    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+    SelectiveTreeRequest, SelectiveTreeTopology, create_selective_tree_geometry,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, build_milestone12_topology_spec, BlueprintTopologyFactory,
-    BlueprintTopologySpec, BranchRole, Milestone12TopologyRequest, SplitKind,
-    TreatmentActuationMode, VenturiPlacementMode,
+    BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, Milestone12TopologyRequest,
+    SplitKind, TreatmentActuationMode, VenturiPlacementMode, build_milestone12_blueprint,
+    build_milestone12_topology_spec,
 };
 
 fn selective_spec() -> BlueprintTopologySpec {
@@ -150,10 +150,12 @@ fn generic_selective_request_quantities_reach_geometry_builder() {
     assert!((blueprint.box_dims.0 - 127.76).abs() <= envelope_bound);
     assert!((blueprint.box_dims.1 - 85.47).abs() <= envelope_bound);
     assert!(blueprint.is_geometry_authored());
-    assert!(blueprint
-        .channels
-        .iter()
-        .all(|channel| channel.length_m.into_base().is_finite()));
+    assert!(
+        blueprint
+            .channels
+            .iter()
+            .all(|channel| channel.length_m.into_base().is_finite())
+    );
 }
 
 #[test]

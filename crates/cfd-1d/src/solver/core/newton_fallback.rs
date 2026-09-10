@@ -63,8 +63,8 @@ use super::linear_system::{LinearSolverMethod, LinearSystemSolver};
 use super::matrix_assembly::MatrixAssembler;
 use super::workspace::SolverWorkspace;
 use crate::domain::network::Network;
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::CfdScalar;
+use cfd_core::physics::fluid::FluidTrait;
 
 /// Configuration for the JFNK fallback.
 ///

@@ -5,9 +5,9 @@
 //! 2. One terminal trifurcation skimming stage,
 //! 3. One terminal asymmetric bifurcation selecting the treatment arm.
 
-use super::cascade_routing::{tri_center_q_frac, tri_center_q_frac_cross_junction};
-use super::routing_probability::{p_center, p_treat_bifurcation, SE_CANCER, SE_RBC, SE_WBC};
 use super::IncrementalFiltrationResult;
+use super::cascade_routing::{tri_center_q_frac, tri_center_q_frac_cross_junction};
+use super::routing_probability::{SE_CANCER, SE_RBC, SE_WBC, p_center, p_treat_bifurcation};
 use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
 

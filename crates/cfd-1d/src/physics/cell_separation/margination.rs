@@ -640,11 +640,7 @@ pub fn lateral_equilibrium(
     // If both ends have the same sign, the equilibrium is at the boundary
     let x_eq = if f_lo * f_hi > 0.0 {
         // No zero crossing: equilibrium is at the end with smaller |F|
-        if f_lo.abs() < f_hi.abs() {
-            lo
-        } else {
-            hi
-        }
+        if f_lo.abs() < f_hi.abs() { lo } else { hi }
     } else {
         // Bisection: 60 iterations -> precision < 2^-60.
         let mut mid = 0.5 * (lo + hi);
@@ -740,11 +736,7 @@ pub fn checked_lateral_equilibrium(
     let f_hi = net_force(hi)?;
 
     let x_eq = if f_lo * f_hi > 0.0 {
-        if f_lo.abs() < f_hi.abs() {
-            lo
-        } else {
-            hi
-        }
+        if f_lo.abs() < f_hi.abs() { lo } else { hi }
     } else {
         let mut mid = 0.5 * (lo + hi);
         let mut f_lo_mut = f_lo;

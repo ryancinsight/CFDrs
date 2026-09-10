@@ -52,20 +52,20 @@ use aequitas::systems::si::units::{CubicMillimeter, Millimeter};
 use cfd_mesh::application::channel::path::ChannelPath;
 use cfd_mesh::application::channel::substrate::SubstrateBuilder;
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean, csg_boolean_nary};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::{Point3r, Real};
 use cfd_mesh::domain::mesh::IndexedMesh;
 use cfd_mesh::domain::topology::halfedge::PatchType;
 use cfd_mesh::infrastructure::io::openfoam::write_openfoam_polymesh;
 use cfd_mesh::infrastructure::io::stl::write_stl_binary;
-use cfd_schematic_mesh::scheme_io;
 use cfd_schematic_mesh::PipelineOutput;
+use cfd_schematic_mesh::scheme_io;
 use cfd_schematic_mesh::{BlueprintMeshPipeline, PipelineConfig, PipelineVolumeTrace};
 
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, SerpentineConfig};
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::interface::presets::{
     serpentine_chain, serpentine_rect, symmetric_bifurcation, symmetric_trifurcation,
     venturi_chain, venturi_rect,

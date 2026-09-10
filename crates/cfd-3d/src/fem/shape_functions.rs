@@ -25,7 +25,7 @@
 //!
 //! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
-use crate::linalg::{array2_set_column3, matrix3x4_column, Matrix3x4};
+use crate::linalg::{Matrix3x4, array2_set_column3, matrix3x4_column};
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array2;

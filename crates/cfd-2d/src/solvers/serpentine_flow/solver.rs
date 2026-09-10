@@ -5,8 +5,8 @@ use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSoluti
 use crate::scalar;
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
-use cfd_core::error::Result as CfdResult;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 
 /// Discretized 2D Serpentine Flow Solver

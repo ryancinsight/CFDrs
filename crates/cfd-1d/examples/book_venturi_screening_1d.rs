@@ -5,8 +5,8 @@ use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Pressure, Velocity,
 };
 use cfd_1d::{
-    assess_venturi_screening, evaluate_venturi_screening, venturi_taper_length_m,
-    VenturiScreeningInput,
+    VenturiScreeningInput, assess_venturi_screening, evaluate_venturi_screening,
+    venturi_taper_length_m,
 };
 use std::fs;
 use std::path::PathBuf;

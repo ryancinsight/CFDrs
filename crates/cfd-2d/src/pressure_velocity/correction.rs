@@ -32,7 +32,7 @@ use cfd_math::linear_solver::krylov::{self, KrylovResult};
 use cfd_math::multigrid::AlgebraicMultigrid;
 use eunomia::FloatElement;
 use leto::Array1;
-use leto_ops::{norm_l2, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, norm_l2};
 use std::fmt::Debug;
 
 /// Largest pressure system for which default AMG setup stays within the

@@ -46,8 +46,8 @@
 //!   *ASME J. Heat Transfer*, 124(2), 260–267.
 
 use crate::domain::channel::cross_section::CrossSection;
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Shah-London 5-term polynomial coefficients for `Po(α)`.
 ///

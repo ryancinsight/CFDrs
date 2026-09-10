@@ -208,6 +208,7 @@ All notable changes to this project will be documented in this file.
   display output changes only by the variant prefix.
 - cfd-io: fixed a pre-existing `unwrap_err` clippy regression in the hdf5
   shape-mismatch test (`expect_err` with context message).
+- **Breaking:** Move the workspace to **edition 2024 / resolver 3**
 
 - **Breaking:** Remove `cfd-core`'s `compute::simd` modules
   (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six

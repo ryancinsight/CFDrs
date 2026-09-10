@@ -4,9 +4,9 @@ use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
 use crate::solver::analysis::PressureAnalysis;
 use aequitas::systems::si::quantities::{Pressure, PressureGradient};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
-use cfd_core::CfdScalar;
 use std::iter::Sum;
 
 /// Pressure analyzer for network components

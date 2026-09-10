@@ -1,10 +1,10 @@
 //! Pressure correction Poisson solver.
 
 use crate::scalar;
-use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use crate::solvers::ns_fvm::BloodModel;
-use cfd_core::error::Error;
+use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 // A conservative fixed SOR factor for the masked pressure-correction grid.

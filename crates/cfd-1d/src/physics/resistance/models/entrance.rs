@@ -78,9 +78,9 @@
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -156,11 +156,7 @@ impl<T: CfdScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q_mag = if let Some(q) = conditions.flow_rate {
-            if q >= T::ZERO {
-                q
-            } else {
-                -q
-            }
+            if q >= T::ZERO { q } else { -q }
         } else if let Some(v) = conditions.velocity {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.downstream_area

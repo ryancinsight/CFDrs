@@ -59,7 +59,7 @@
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
 
 use crate::physics::cell_separation::margination::{
-    checked_lateral_equilibrium, checked_lateral_velocity, EquilibriumResult,
+    EquilibriumResult, checked_lateral_equilibrium, checked_lateral_velocity,
 };
 use crate::physics::cell_separation::properties::CellProperties;
 use aequitas::systems::si::quantities::{DynamicViscosity, Force, Length, MassDensity, Velocity};

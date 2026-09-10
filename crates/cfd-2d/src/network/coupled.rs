@@ -6,9 +6,9 @@ use aequitas::systems::si::quantities::{
 
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{NetworkSolver, SolverConfig};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use cfd_math::nonlinear_solver::{AndersonAccelerator, AndersonConfig, AndersonMethod};
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use cfd_schematics::geometry::metadata::{
@@ -17,18 +17,18 @@ use cfd_schematics::geometry::metadata::{
 use eunomia::{FloatElement, NumericElement};
 use harmonia::{AitkenRelaxation, Relaxation};
 use leto::{Array1, Storage, StorageMut};
-use moirai::{map_collect_mut_with, Adaptive};
+use moirai::{Adaptive, map_collect_mut_with};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 
 use crate::scalar;
 
+use super::Network2DSolver;
 use super::channel::solve_channel_entry;
 use super::reference::{
-    build_reference_trace_from_solved_network, reference_fluid, NetworkReferenceTrace,
+    NetworkReferenceTrace, build_reference_trace_from_solved_network, reference_fluid,
 };
 use super::types::{Channel2dEntry, Channel2dResult, CoupledNetwork2dResult, Network2dResult};
-use super::Network2DSolver;
 use cfd_1d::PrimarySolveDiagnostics;
 
 const COUPLING_ANDERSON_DEPTH: usize = 4;

@@ -11,7 +11,7 @@
 //! | Property     | Eulerian forces always finite after spreading                    |
 
 use cfd_3d::ibm::{
-    config::IbmConfig, DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint,
+    DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint, config::IbmConfig,
 };
 use cfd_core::test_support::assert_rejects;
 use leto::Vector3;
@@ -159,7 +159,10 @@ fn test_lagrangian_point_at_max_corner_rejected() {
         Vector3::new(1.0, 1.0, 1.0),
         Vector3::new(0.0, 1.0, 0.0),
     ));
-    assert_rejects(&result, "Invalid configuration: IbmSolver::try_add_lagrangian_point: point position Vector { data: [1.0, 1.0, 1.0] } must lie inside the grid extent [0, 1.0) x [0, 1.0) x [0, 1.0)");
+    assert_rejects(
+        &result,
+        "Invalid configuration: IbmSolver::try_add_lagrangian_point: point position Vector { data: [1.0, 1.0, 1.0] } must lie inside the grid extent [0, 1.0) x [0, 1.0) x [0, 1.0)",
+    );
 }
 
 /// **Boundary**: Multiple points all land in bounds.
@@ -190,7 +193,10 @@ fn test_lagrangian_point_outside_domain_rejected() {
         Vector3::new(5.0, 5.0, 5.0),
         Vector3::new(1.0, 1.0, 1.0),
     ));
-    assert_rejects(&result, "Invalid configuration: IbmSolver::try_add_lagrangian_point: point position Vector { data: [5.0, 5.0, 5.0] } must lie inside the grid extent [0, 1.0) x [0, 1.0) x [0, 1.0)");
+    assert_rejects(
+        &result,
+        "Invalid configuration: IbmSolver::try_add_lagrangian_point: point position Vector { data: [5.0, 5.0, 5.0] } must lie inside the grid extent [0, 1.0) x [0, 1.0) x [0, 1.0)",
+    );
 }
 
 /// **Adversarial**: NaN force on Lagrangian point → no panic.

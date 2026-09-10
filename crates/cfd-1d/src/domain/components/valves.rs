@@ -24,11 +24,11 @@
 //! - `opening ∈ [0, 1]`: clamped on set
 //! - `Cv > 0`: physically required (positive conductance)
 
-use super::{real_from_f64, Component};
+use super::{Component, real_from_f64};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

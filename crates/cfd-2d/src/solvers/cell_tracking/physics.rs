@@ -223,7 +223,7 @@ impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
 mod tests {
     use aequitas::systems::si::quantities::{Length, Velocity};
 
-    use super::{inverse_poiseuille_flow_fraction_above, AsymmetricBifurcationFlow};
+    use super::{AsymmetricBifurcationFlow, inverse_poiseuille_flow_fraction_above};
 
     #[test]
     fn dividing_streamline_inverts_poiseuille_cdf() {

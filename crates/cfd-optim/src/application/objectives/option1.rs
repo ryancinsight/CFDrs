@@ -1,6 +1,6 @@
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
-use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
+use crate::metrics::{BlueprintEvaluation, healthy_cell_protection_index};
 use eunomia::FloatElement;
 
 /// Score for the asymmetric-split residence-separation objective.

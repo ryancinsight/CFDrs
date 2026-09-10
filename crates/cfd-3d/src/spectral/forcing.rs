@@ -20,8 +20,8 @@ use crate::atlas_array::{ifft_3d_array, set, value};
 use apollo_fft::Complex64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use leto::geometry::Vector3;
 use leto::Array3;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Seeded random-phase forcing configuration for periodic DNS.

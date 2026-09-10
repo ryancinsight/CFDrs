@@ -323,9 +323,10 @@ mod tests {
     fn checked_cascade_qfrac_api_rejects_empty_stage_sequence() {
         let err = checked_cascade_junction_separation_from_qfracs(&[])
             .expect_err("checked cascade qfrac API must reject empty stage sequences");
-        assert!(err
-            .to_string()
-            .contains("at least one center-arm flow fraction"));
+        assert!(
+            err.to_string()
+                .contains("at least one center-arm flow fraction")
+        );
     }
 
     #[test]
@@ -430,8 +431,10 @@ mod tests {
         // to peripheral arms, improving RBC peripheral enrichment.
         let q_basic = tri_center_q_frac(0.55);
         let q_cross = tri_center_q_frac_cross_junction(0.55, length(2e-3), length(1e-3));
-        assert!(q_cross <= q_basic + 1e-6,
-            "cross-junction correction should reduce center fraction: basic={q_basic}, cross={q_cross}");
+        assert!(
+            q_cross <= q_basic + 1e-6,
+            "cross-junction correction should reduce center fraction: basic={q_basic}, cross={q_cross}"
+        );
     }
 
     #[test]
@@ -445,9 +448,12 @@ mod tests {
             length(2e-3),
             length(1e-3),
         );
-        assert!(cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
+        assert!(
+            cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
             "cross-junction selective routing should push more RBCs to periphery: basic={}, cross={}",
-            basic.rbc_peripheral_fraction, cross.rbc_peripheral_fraction);
+            basic.rbc_peripheral_fraction,
+            cross.rbc_peripheral_fraction
+        );
     }
 
     #[test]

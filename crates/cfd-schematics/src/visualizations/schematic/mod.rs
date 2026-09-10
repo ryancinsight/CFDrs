@@ -1,7 +1,7 @@
 use crate::domain::model::NetworkBlueprint;
 use crate::error::VisualizationResult;
-use crate::geometry::metadata::NodeLayoutMetadata;
 use crate::geometry::Point2D;
+use crate::geometry::metadata::NodeLayoutMetadata;
 use crate::visualizations::annotations::SchematicAnnotations;
 use crate::visualizations::plotters_backend::PlottersRenderer;
 use crate::visualizations::traits::{RenderConfig, SchematicRenderer};
@@ -156,8 +156,8 @@ mod tests {
     use super::path_generation::generated_serpentine_path;
     use super::path_simplification::render_path_for_display;
     use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-    use crate::geometry::metadata::{ChannelPathMetadata, ChannelVisualRole, NodeLayoutMetadata};
     use crate::geometry::ChannelTypeCategory;
+    use crate::geometry::metadata::{ChannelPathMetadata, ChannelVisualRole, NodeLayoutMetadata};
     use aequitas::systems::si::quantities::Length;
     use std::borrow::Cow;
 
@@ -206,10 +206,12 @@ mod tests {
                 NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)),
                 NodeSpec::new_at("outlet", NodeKind::Outlet, (90.0, 30.0)),
             ],
-            channels: vec![ChannelSpec::new_pipe_rect(
-                "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
-            )
-            .with_path(path.clone())],
+            channels: vec![
+                ChannelSpec::new_pipe_rect(
+                    "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
+                )
+                .with_path(path.clone()),
+            ],
             render_hints: None,
             topology: None,
             lineage: None,
@@ -242,13 +244,15 @@ mod tests {
                 NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)),
                 NodeSpec::new_at("outlet", NodeKind::Outlet, (90.0, 30.0)),
             ],
-            channels: vec![ChannelSpec::new_pipe_rect(
-                "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
-            )
-            .with_metadata(ChannelPathMetadata {
-                polyline_mm: path.clone(),
-                visual_role: ChannelVisualRole::Trunk,
-            })],
+            channels: vec![
+                ChannelSpec::new_pipe_rect(
+                    "channel", "inlet", "outlet", 1.0, 1.0e-3, 1.0e-3, 0.0, 0.0,
+                )
+                .with_metadata(ChannelPathMetadata {
+                    polyline_mm: path.clone(),
+                    visual_role: ChannelVisualRole::Trunk,
+                }),
+            ],
             render_hints: None,
             topology: None,
             lineage: None,

@@ -1,8 +1,8 @@
 use super::super::solver::MomentumComponent;
 use super::MatrixUpdater;
 use crate::scalar;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use leto::Array1;
 use std::collections::HashMap;

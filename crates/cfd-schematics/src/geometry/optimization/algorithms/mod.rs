@@ -11,8 +11,8 @@ use crate::geometry::types::Point2D;
 use super::constants;
 use super::serpentine_eval::generate_optimization_serpentine_path;
 use super::{
-    calculate_constraint_penalty, calculate_min_neighbor_distance, calculate_min_wall_distance,
-    calculate_path_length, OptimizationParams, OptimizationResult,
+    OptimizationParams, OptimizationResult, calculate_constraint_penalty,
+    calculate_min_neighbor_distance, calculate_min_wall_distance, calculate_path_length,
 };
 
 /// Optimize serpentine parameters to maximize channel length using advanced algorithms

@@ -26,7 +26,7 @@ use super::sections::{
 use super::template::render_template_strict;
 use crate::analysis::RobustnessReport;
 use crate::constraints::M12_GA_HYDRO_SEED;
-use crate::reporting::figures::{generate_m12_report_figures, FigureGenerationInput};
+use crate::reporting::figures::{FigureGenerationInput, generate_m12_report_figures};
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
 
 /// Metadata for the narrative title page.

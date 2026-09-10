@@ -50,7 +50,7 @@ use athena_leto::{LetoBackend, LetoBackendError};
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::{spgemm, spmv_into as leto_spmv_into, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, spgemm, spmv_into as leto_spmv_into};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 

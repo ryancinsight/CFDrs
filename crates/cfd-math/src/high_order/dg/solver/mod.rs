@@ -8,8 +8,8 @@ mod time_integration;
 pub use time_integration::*;
 
 use super::{
-    matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element, vector_zeros,
-    DGOperator,
+    DGOperator, matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
+    vector_zeros,
 };
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
@@ -199,14 +199,14 @@ impl DGSolver {
         self.step_count += 1;
 
         // Update time step for next iteration
-        if self.params.stepping.adaptive {
-            if let Some(err) = error {
-                // Compute the optimal time step
-                let scale = (self.params.safety_factor * self.params.rtol / (err + f64::EPSILON))
-                    .powf(1.0 / (self.integrator.order() as f64 + 1.0));
+        if self.params.stepping.adaptive
+            && let Some(err) = error
+        {
+            // Compute the optimal time step
+            let scale = (self.params.safety_factor * self.params.rtol / (err + f64::EPSILON))
+                .powf(1.0 / (self.integrator.order() as f64 + 1.0));
 
-                self.dt = (dt * scale).max(self.params.dt_min).min(self.params.dt_max);
-            }
+            self.dt = (dt * scale).max(self.params.dt_min).min(self.params.dt_max);
         }
 
         // Output progress

@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
-use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::BoundaryCondition;
+use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{
     NetworkProblem, NetworkSolver, PrimarySolveDiagnostics, SolvePathStatus, SolverConfig,
 };
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use petgraph::graph::NodeIndex;

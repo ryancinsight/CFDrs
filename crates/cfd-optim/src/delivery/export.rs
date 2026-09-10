@@ -6,8 +6,8 @@ use serde::Serialize;
 
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 use cfd_1d::validate_blueprint_for_1d_solve;
-use cfd_schematics::visualizations::{plot_blueprint_auto_annotated, RenderConfig};
 use cfd_schematics::NetworkBlueprint;
+use cfd_schematics::visualizations::{RenderConfig, plot_blueprint_auto_annotated};
 
 /// Load a previously saved top-5 report JSON from disk.
 ///

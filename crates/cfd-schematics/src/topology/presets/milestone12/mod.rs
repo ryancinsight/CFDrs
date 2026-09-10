@@ -279,33 +279,51 @@ mod tests {
             catalog.len(),
             MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len(),
         );
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "Bi-BASE"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "Quad-Y"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "Penta-XY"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "QuadTriBi-BASE"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "PentaQuadBi-BASE"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "PentaQuadTri-XY"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "PentaTriBi-XY"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "QuadBi-X"));
-        assert!(catalog
-            .iter()
-            .any(|request| request.design_name == "PentaTri-Y"));
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "Bi-BASE")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "Quad-Y")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "Penta-XY")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "QuadTriBi-BASE")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "PentaQuadBi-BASE")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "PentaQuadTri-XY")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "PentaTriBi-XY")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "QuadBi-X")
+        );
+        assert!(
+            catalog
+                .iter()
+                .any(|request| request.design_name == "PentaTri-Y")
+        );
     }
 
     #[test]
@@ -319,9 +337,11 @@ mod tests {
             build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
 
         assert!(blueprint.is_geometry_authored());
-        assert!(blueprint
-            .render_hints()
-            .is_some_and(|hints| hints.mirror_x && hints.mirror_y));
+        assert!(
+            blueprint
+                .render_hints()
+                .is_some_and(|hints| hints.mirror_x && hints.mirror_y)
+        );
         blueprint
             .validate()
             .expect("Milestone 12 blueprint should validate");
@@ -346,12 +366,16 @@ mod tests {
         .expect("promotion should succeed");
 
         assert!(promoted.is_geometry_authored());
-        assert!(promoted
-            .topology_spec()
-            .is_some_and(BlueprintTopologySpec::has_venturi));
-        assert!(promoted
-            .render_hints()
-            .is_some_and(|hints| !hints.mirror_x && hints.mirror_y));
+        assert!(
+            promoted
+                .topology_spec()
+                .is_some_and(BlueprintTopologySpec::has_venturi)
+        );
+        assert!(
+            promoted
+                .render_hints()
+                .is_some_and(|hints| !hints.mirror_x && hints.mirror_y)
+        );
         assert_eq!(
             promoted
                 .lineage()

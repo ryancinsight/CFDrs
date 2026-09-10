@@ -332,9 +332,11 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
 
     let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
         .expect("simulate");
-    assert!(states[0]
-        .average_fluid_concentrations_in_edge(usize::MAX)
-        .is_none());
+    assert!(
+        states[0]
+            .average_fluid_concentrations_in_edge(usize::MAX)
+            .is_none()
+    );
 }
 
 #[test]

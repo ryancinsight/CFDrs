@@ -23,7 +23,7 @@
 
 use cfd_schematics::{
     config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile},
-    geometry::{generator::create_geometry, SplitType},
+    geometry::{SplitType, generator::create_geometry},
 };
 #[path = "../shared/mod.rs"]
 mod shared;

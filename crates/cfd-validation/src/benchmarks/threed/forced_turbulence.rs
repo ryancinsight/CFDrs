@@ -8,10 +8,10 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_3d::spectral::{
-    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
     BandLimitedRandomPhaseForcingConfig, EnstrophySpectrum, KineticEnergySpectrum,
     PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig,
-    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig, enstrophy_spectrum,
+    kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
@@ -753,9 +753,11 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the forced turbulence benchmark");
 
-        assert!(benchmark
-            .validate(&result)
-            .expect("validation should be computable"));
+        assert!(
+            benchmark
+                .validate(&result)
+                .expect("validation should be computable")
+        );
         assert!(result.metrics.contains_key("Final Energy"));
         assert!(result.metrics.contains_key("Peak Energy"));
         assert!(result.metrics.contains_key("Final Enstrophy"));

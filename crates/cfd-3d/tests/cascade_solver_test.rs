@@ -4,8 +4,8 @@
 
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::physics::fluid::blood::CassonBlood;
 
 /// Helper: creates a CIF-like asymmetric bifurcation with a wide outer arm
 /// and a narrow central arm that has a Venturi throat.

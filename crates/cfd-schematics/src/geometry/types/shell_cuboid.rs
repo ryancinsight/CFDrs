@@ -30,8 +30,8 @@ use aequitas::systems::si::units::Millimeter;
 
 use crate::error::{GeometryError, GeometryResult};
 
-use super::tpms_fill::TpmsFillSpec;
 use super::Point2D;
+use super::tpms_fill::TpmsFillSpec;
 
 /// Schema/producer constants — mirror those in `ChannelSystem`.
 const SCHEMA_VERSION: &str = "1.0.0";
@@ -400,7 +400,10 @@ mod tests {
             ),
             Length::from_unit::<Millimeter>(3.0),
         );
-        assert_rejects(&result, "Invalid channel path: shell_thickness_mm (3) is too large for outer_dims (10×4): inner cavity dimensions would be (4×-2)");
+        assert_rejects(
+            &result,
+            "Invalid channel path: shell_thickness_mm (3) is too large for outer_dims (10×4): inner cavity dimensions would be (4×-2)",
+        );
     }
 
     #[test]

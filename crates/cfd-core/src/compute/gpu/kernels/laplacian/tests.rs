@@ -2,8 +2,8 @@
 #![allow(clippy::print_stderr)]
 //! Tests for the 2D Laplacian GPU kernel.
 
-use super::kernel::Laplacian2DKernel;
 use super::BoundaryCondition;
+use super::kernel::Laplacian2DKernel;
 use crate::compute::gpu::GpuContext;
 use aequitas::systems::si::{quantities::Length, units::Meter};
 use leto::{Array1, Laplacian2D};

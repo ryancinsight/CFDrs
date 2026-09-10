@@ -1,7 +1,7 @@
 #![allow(missing_docs, clippy::unnecessary_wraps)]
 
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
-use cfd_schematics::geometry::{generator::create_geometry, SplitType};
+use cfd_schematics::geometry::{SplitType, generator::create_geometry};
 
 #[path = "../shared/mod.rs"]
 mod shared;

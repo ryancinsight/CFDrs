@@ -12,8 +12,8 @@
 //! formulations, ensuring physical realizability and numerical stability.
 
 use super::super::constants::C_MU;
-use super::tensor::ReynoldsStressTensor;
 use super::PressureStrainModel;
+use super::tensor::ReynoldsStressTensor;
 use eunomia::RealField;
 use leto::Array2;
 

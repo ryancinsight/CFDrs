@@ -8,9 +8,9 @@ use crate::geometry::{Geometry2D, Point2D, Trifurcation2D};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
+use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 

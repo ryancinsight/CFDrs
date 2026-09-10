@@ -3,10 +3,10 @@
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig},
     geometry::{
-        builders::ChannelExt,
-        generator::{create_geometry, create_geometry_with_metadata, MetadataConfig},
-        metadata::PerformanceMetadata,
         SplitType,
+        builders::ChannelExt,
+        generator::{MetadataConfig, create_geometry, create_geometry_with_metadata},
+        metadata::PerformanceMetadata,
     },
 };
 

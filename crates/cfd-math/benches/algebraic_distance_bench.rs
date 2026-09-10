@@ -1,7 +1,7 @@
 #![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
 
-use cfd_math::linear_solver::preconditioners::multigrid::{falgout_coarsening, AlgebraicDistances};
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use cfd_math::linear_solver::preconditioners::multigrid::{AlgebraicDistances, falgout_coarsening};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto_ops::CsrMatrix;
 
 fn poisson_matrix(n: usize) -> CsrMatrix<f64> {

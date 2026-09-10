@@ -12,13 +12,13 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use crate::scalar;
-use cfd_core::physics::constants::mathematical::numeric::ONE_HALF;
 use cfd_core::CfdScalar;
+use cfd_core::physics::constants::mathematical::numeric::ONE_HALF;
 use eunomia::FloatElement;
 
 use super::explicit::runge_kutta2;
 use super::implicit::backward_euler;
-use super::vector::{l2_norm, StateVector};
+use super::vector::{StateVector, l2_norm};
 
 /// Adams-Bashforth 2nd order: y_{n+1} = y_n + dt*(3/2*f_n - 1/2*f_{n-1})
 ///

@@ -12,8 +12,8 @@ mod venturi;
 
 #[cfg(test)]
 mod tests {
-    use crate::topology::presets::enumerate_milestone12_topologies;
     use crate::TreatmentActuationMode;
+    use crate::topology::presets::enumerate_milestone12_topologies;
 
     #[test]
     fn display_name_uses_actual_venturi_count_not_leaf_count() {

@@ -1,8 +1,8 @@
 //! Cascade and incremental filtration composite preset functions.
-use super::parallel_lane::{generator_center_serpentine, CenterSerpentineSpec};
+use super::parallel_lane::{CenterSerpentineSpec, generator_center_serpentine};
 use crate::domain::model::NetworkBlueprint;
 use crate::geometry::generator::{
-    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+    SelectiveTreeRequest, SelectiveTreeTopology, create_selective_tree_geometry,
 };
 use aequitas::systems::si::quantities::Length;
 

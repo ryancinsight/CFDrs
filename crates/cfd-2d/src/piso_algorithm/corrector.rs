@@ -3,8 +3,8 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 

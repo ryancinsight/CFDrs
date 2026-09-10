@@ -19,8 +19,8 @@
 use aequitas::systems::si::quantities::Length;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use std::path::Path;
 
 #[path = "../shared/mod.rs"]

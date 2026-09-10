@@ -42,8 +42,8 @@ pub(crate) fn build_milestone12_candidate_space() -> Vec<BlueprintCandidate> {
 ///
 /// **Warning:** eagerly materializes ~500K candidates (~7.5 GB). Prefer
 /// [`build_milestone12_candidate_params`] for memory-constrained pipelines.
-pub fn build_milestone12_blueprint_candidate_space(
-) -> Result<Vec<BlueprintCandidate>, crate::error::OptimError> {
+pub fn build_milestone12_blueprint_candidate_space()
+-> Result<Vec<BlueprintCandidate>, crate::error::OptimError> {
     Ok(build_milestone12_candidate_space())
 }
 
@@ -77,15 +77,21 @@ mod tests {
                 .first()
                 .is_some_and(|split| matches!(split, cfd_schematics::SplitKind::NFurcation(2..=5)))
         }));
-        assert!(candidates
-            .iter()
-            .any(|candidate| root_family_label(candidate) == "Bi"));
-        assert!(candidates
-            .iter()
-            .any(|candidate| root_family_label(candidate) == "Quad"));
-        assert!(candidates
-            .iter()
-            .any(|candidate| root_family_label(candidate) == "Penta"));
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| root_family_label(candidate) == "Bi")
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| root_family_label(candidate) == "Quad")
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| root_family_label(candidate) == "Penta")
+        );
     }
 
     #[test]

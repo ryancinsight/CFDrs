@@ -18,10 +18,10 @@ use cfd_2d::physics::immersed_boundary::{
 };
 use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
-use leto::geometry::{Vector2, Vector3};
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use leto::Array2;
+use leto::geometry::{Vector2, Vector3};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Setup Domain

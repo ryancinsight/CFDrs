@@ -10,10 +10,10 @@
 use super::physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;

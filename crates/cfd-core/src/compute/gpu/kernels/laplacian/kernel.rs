@@ -5,8 +5,8 @@
 //! and forwards to `hephaestus_wgpu::Laplacian2DKernel`.
 
 use super::{BoundaryCondition, LaplacianPolarity};
-use crate::compute::gpu::buffer::GpuBuffer;
 use crate::compute::gpu::GpuContext;
+use crate::compute::gpu::buffer::GpuBuffer;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
 use aequitas::systems::si::quantities::Length;

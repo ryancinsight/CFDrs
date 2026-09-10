@@ -30,13 +30,13 @@
 //! **Proof**: Standard first-order upwind analysis — see LeVeque (2002) "Finite
 //! Volume Methods for Hyperbolic Problems", §4.4.
 
-use super::config::{VofConfig, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
+use super::config::{VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER, VofConfig};
 use super::plic_geometry::plic_volume_fraction_in_prism;
 use super::solver::VofSolver;
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::Error;
 use cfd_core::error::Result;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 use serde::{Deserialize, Serialize};

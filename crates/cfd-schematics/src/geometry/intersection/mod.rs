@@ -70,8 +70,8 @@ mod tests {
     use super::*;
     use crate::config::{ChannelTypeConfig, GeometryConfig};
     use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
-    use crate::geometry::generator::create_geometry;
     use crate::geometry::SplitType;
+    use crate::geometry::generator::create_geometry;
     use std::borrow::Cow;
     use std::collections::HashMap;
 

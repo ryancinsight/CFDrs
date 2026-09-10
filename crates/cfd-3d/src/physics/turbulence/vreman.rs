@@ -227,9 +227,11 @@ mod tests {
         let viscosity = model.turbulent_viscosity(&flow);
         let center = 2 * 4 * 4 + 2 * 4 + 2;
 
-        assert!(viscosity
-            .iter()
-            .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0));
+        assert!(
+            viscosity
+                .iter()
+                .all(|value| value.into_base().is_finite() && value.into_base() >= 0.0)
+        );
         assert!(viscosity[center].into_base() > 0.0);
     }
 }

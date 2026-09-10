@@ -5,7 +5,7 @@ use cfd_1d::{NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_schematics::geometry::generator::PrimitiveSelectiveSplitKind;
 use cfd_schematics::interface::presets::primitive_selective_split_tree_rect;
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 #[derive(Debug, Clone)]
 struct PrimitiveSolveCase {

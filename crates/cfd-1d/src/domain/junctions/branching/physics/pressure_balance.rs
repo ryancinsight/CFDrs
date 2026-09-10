@@ -1,7 +1,7 @@
 //! Shared scalar pressure-balance utilities for branching junction solvers.
 
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 use eunomia::NumericElement;
 
 /// Scalar tolerances used by bracketed bisection solves.

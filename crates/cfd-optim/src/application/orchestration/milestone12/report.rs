@@ -8,9 +8,9 @@ use crate::application::orchestration::{
 };
 use crate::delivery::{load_pareto_points, load_top5_report_json};
 use crate::reporting::{
+    Milestone12GaRankingAuditEntry, Milestone12NarrativeInput, ParetoTag, ValidationRow,
     pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs,
-    write_milestone12_narrative_report, write_milestone12_results, Milestone12GaRankingAuditEntry,
-    Milestone12NarrativeInput, ParetoTag, ValidationRow,
+    write_milestone12_narrative_report, write_milestone12_results,
 };
 
 use super::ga::run_milestone12_ga;
@@ -420,7 +420,7 @@ pub fn run_milestone12_report(
 
 #[cfg(test)]
 mod tests {
-    use super::{classify_run, Milestone12RequestedStage, Milestone12RunClass};
+    use super::{Milestone12RequestedStage, Milestone12RunClass, classify_run};
 
     #[test]
     fn refresh_only_runs_are_non_authoritative() {

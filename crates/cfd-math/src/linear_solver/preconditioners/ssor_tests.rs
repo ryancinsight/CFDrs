@@ -106,10 +106,12 @@ mod tests {
         let mut relaxed_output = Array1::zeros([4]);
         apply(&unit, &input, &mut unit_output).expect("matching lengths");
         apply(&relaxed, &input, &mut relaxed_output).expect("matching lengths");
-        assert!(unit_output
-            .iter()
-            .zip(relaxed_output.iter())
-            .any(|(unit, relaxed)| (unit - relaxed).abs() > 1.0e-12));
+        assert!(
+            unit_output
+                .iter()
+                .zip(relaxed_output.iter())
+                .any(|(unit, relaxed)| (unit - relaxed).abs() > 1.0e-12)
+        );
 
         // Forward substitution over (D/1.5 + L) with r = 1; the scaled pivot
         // is 2/1.5 = 4/3, so each step multiplies by 3/4:

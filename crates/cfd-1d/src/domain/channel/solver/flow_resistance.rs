@@ -42,13 +42,13 @@ use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::dimensionless::reynolds::{
     PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
 };
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
@@ -105,11 +105,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
             let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
             let lam = fluid.dynamic_viscosity().into_base() * sqrt_half_pi
                 / (fluid.density().into_base() * fluid.speed_of_sound().into_base());
-            if lam > T::ZERO {
-                Some(lam / dh)
-            } else {
-                None
-            }
+            if lam > T::ZERO { Some(lam / dh) } else { None }
         } else {
             None
         };

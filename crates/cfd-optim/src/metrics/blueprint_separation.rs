@@ -1,8 +1,8 @@
 use aequitas::systems::si::quantities::{Length, Velocity};
 use cfd_1d::{
+    CascadeStage, KAPPA_CTC, KAPPA_PLASMA, PeripheralRecovery, RHO_CTC, RHO_PLASMA,
     acoustic_contrast_factor, mixed_cascade_separation_kappa_aware,
-    parallel_channel_flow_fractions, CascadeStage, PeripheralRecovery, KAPPA_CTC, KAPPA_PLASMA,
-    RHO_CTC, RHO_PLASMA,
+    parallel_channel_flow_fractions,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use serde::{Deserialize, Serialize};

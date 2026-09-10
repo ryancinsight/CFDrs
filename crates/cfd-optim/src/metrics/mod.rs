@@ -9,19 +9,19 @@ mod safety;
 mod sdt_metrics;
 mod venturi;
 
-pub use blueprint_eval::{evaluate_blueprint_candidate, BlueprintEvaluation};
-pub use blueprint_graph::{solve_blueprint_candidate, BlueprintSolveSample, BlueprintSolveSummary};
+pub use blueprint_eval::{BlueprintEvaluation, evaluate_blueprint_candidate};
+pub use blueprint_graph::{BlueprintSolveSample, BlueprintSolveSummary, solve_blueprint_candidate};
 pub use blueprint_separation::{
-    compute_blueprint_separation_metrics, BlueprintSeparationMetrics,
-    StageBlueprintSeparationSummary,
+    BlueprintSeparationMetrics, StageBlueprintSeparationSummary,
+    compute_blueprint_separation_metrics,
 };
 pub use cfd_1d::physics::hemolysis::giersiepen_hi;
 pub use healthy_cell_protection::healthy_cell_protection_index;
 pub(crate) use residence::compute_typed_residence_metrics;
-pub use residence::{compute_residence_metrics, ResidenceMetrics};
+pub use residence::{ResidenceMetrics, compute_residence_metrics};
 pub(crate) use safety::compute_typed_blueprint_safety_metrics;
-pub use safety::{compute_blueprint_safety_metrics, BlueprintSafetyMetrics};
+pub use safety::{BlueprintSafetyMetrics, compute_blueprint_safety_metrics};
 pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};
 pub use venturi::{
-    compute_blueprint_venturi_metrics, BlueprintVenturiMetrics, VenturiPlacementMetrics,
+    BlueprintVenturiMetrics, VenturiPlacementMetrics, compute_blueprint_venturi_metrics,
 };

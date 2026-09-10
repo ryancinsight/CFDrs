@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use aequitas::systems::si::quantities::{HydraulicResistance, Length, Pressure};
-use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;
+use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::database::water_20c;
 use proptest::prelude::*;

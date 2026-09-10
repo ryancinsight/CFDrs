@@ -7,9 +7,9 @@
 
 use super::wrapper::Network;
 use aequitas::systems::si::quantities::QuadraticHydraulicResistance;
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::geometry::metadata::{
     JunctionFamily, JunctionGeometryMetadata, MetadataContainer,

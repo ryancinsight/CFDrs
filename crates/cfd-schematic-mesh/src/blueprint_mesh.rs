@@ -1515,8 +1515,8 @@ fn label_boundaries(
             nodes
                 .iter()
                 .zip(node_deg.iter())
-                .filter(|(&n, &d)| d == 1 && (n - inlet_pos).norm() > tol)
-                .map(|(&n, _)| n)
+                .filter(|&(n, d)| *d == 1 && ((*n) - inlet_pos).norm() > tol)
+                .map(|(n, _)| *n)
                 .collect()
         }
     };
@@ -1945,7 +1945,7 @@ mod tests {
     use aequitas::systems::si::quantities::Length;
     use cfd_schematics::interface::presets::venturi_chain;
     use cfd_schematics::topology::presets::{
-        build_milestone12_blueprint, build_milestone12_topology_spec, Milestone12TopologyRequest,
+        Milestone12TopologyRequest, build_milestone12_blueprint, build_milestone12_topology_spec,
     };
 
     use super::*;
@@ -2025,15 +2025,19 @@ mod tests {
                 .in_unit::<CubicMillimeter>()
                 > 0.0
         );
-        assert!(result
-            .volume_trace
-            .channel_traces
-            .iter()
-            .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0));
-        assert!(result
-            .layout_segments
-            .iter()
-            .all(|segment| segment.diameter.in_unit::<Millimeter>() > 0.0));
+        assert!(
+            result
+                .volume_trace
+                .channel_traces
+                .iter()
+                .all(|trace| trace.schematic_volume.in_unit::<CubicMillimeter>() > 0.0)
+        );
+        assert!(
+            result
+                .layout_segments
+                .iter()
+                .all(|segment| segment.diameter.in_unit::<Millimeter>() > 0.0)
+        );
     }
 
     #[test]

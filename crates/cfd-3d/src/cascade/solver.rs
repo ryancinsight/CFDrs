@@ -27,7 +27,7 @@ use super::types::{CascadeChannelSpec, CascadeConfig3D, CascadeResult3D, Channel
 /// difference between the two channels.
 fn hematocrit_viscosity_ratio(hct_local: f64, hct_reference: f64) -> f64 {
     let k = 2.5_f64; // Intrinsic viscosity coefficient (Quemada 1978)
-                     // Lower-bound at zero so plasma-dominant lanes are not artificially floored.
+    // Lower-bound at zero so plasma-dominant lanes are not artificially floored.
     let h_local = hct_local.clamp(0.0, 0.70);
     let h_ref = hct_reference.clamp(0.0, 0.70);
     let exponent = k * (h_local / (1.0 - h_local) - h_ref / (1.0 - h_ref));
@@ -414,8 +414,9 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         // Build set of all boundary vertex indices (all vertices on any boundary face).
         let boundary_verts: HashSet<usize> = face_cell_count
             .iter()
-            .filter(|(_, &c)| c == 1)
-            .flat_map(|(&fi, _)| {
+            .filter(|entry| *entry.1 == 1)
+            .flat_map(|entry| {
+                let fi = *entry.0;
                 if fi < mesh.face_count() {
                     mesh.faces
                         .get(FaceId::from_usize(fi))

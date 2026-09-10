@@ -10,8 +10,8 @@
 //! - Edge cases and numerical stability
 
 use cfd_3d::spectral::fourier::{FourierTransform, SpectralDerivative};
-use eunomia::assert_relative_eq;
 use eunomia::Complex;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 use std::f64::consts::PI;
 

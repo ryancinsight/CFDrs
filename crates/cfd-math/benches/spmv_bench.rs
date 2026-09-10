@@ -4,9 +4,9 @@
     clippy::many_single_char_names
 )]
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
-use leto_ops::{spmv_into, CsrMatrix};
+use leto_ops::{CsrMatrix, spmv_into};
 
 fn bench_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_leto_provider");

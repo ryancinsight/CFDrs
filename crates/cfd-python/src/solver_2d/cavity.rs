@@ -73,11 +73,7 @@ impl PyCavitySolver2D {
             let &(coordinate, velocity) = reference
                 .get(i)
                 .expect("invariant: array shape matches canonical Ghia data");
-            if j == 0 {
-                coordinate
-            } else {
-                velocity
-            }
+            if j == 0 { coordinate } else { velocity }
         });
         pyarray2_from_leto(py, array)
     }
@@ -95,11 +91,7 @@ impl PyCavitySolver2D {
             let &(coordinate, velocity) = reference
                 .get(i)
                 .expect("invariant: array shape matches canonical Ghia data");
-            if j == 0 {
-                coordinate
-            } else {
-                velocity
-            }
+            if j == 0 { coordinate } else { velocity }
         });
         pyarray2_from_leto(py, array)
     }

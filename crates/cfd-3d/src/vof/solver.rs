@@ -88,8 +88,8 @@
 //! - Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
 
 use crate::scalar;
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 

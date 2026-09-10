@@ -7,8 +7,8 @@
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
-use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::CfdScalar;
+use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_mesh::SerpentineMeshBuilder;
 use eunomia::NumericElement;
 

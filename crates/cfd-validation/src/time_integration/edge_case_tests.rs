@@ -10,8 +10,8 @@
 #[cfg(test)]
 mod time_integration_edge_tests {
     use crate::time_integration::integrators::{
-        state_from_elem, state_from_vec, state_len, state_zeros, ForwardEuler, RungeKutta2, State,
-        TimeIntegratorTrait,
+        ForwardEuler, RungeKutta2, State, TimeIntegratorTrait, state_from_elem, state_from_vec,
+        state_len, state_zeros,
     };
     use eunomia::assert_relative_eq;
 

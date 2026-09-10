@@ -1,8 +1,8 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
-use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation};
+use crate::application::objectives::{BlueprintObjectiveEvaluation, evaluate_goal};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::healthy_cell_protection_index;
@@ -1084,7 +1084,7 @@ fn candidate_key(candidate: &BlueprintCandidate) -> Result<CandidateFingerprint,
 mod tests {
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
 
-    use super::{generate_ga_mutations, BlueprintGeneticOptimizer};
+    use super::{BlueprintGeneticOptimizer, generate_ga_mutations};
     use crate::application::search::mutations::seed_option2_candidates;
 
     #[test]

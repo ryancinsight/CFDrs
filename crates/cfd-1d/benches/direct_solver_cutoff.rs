@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 use cfd_math::linear_solver::DirectSparseSolver;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
-use leto_ops::{lu_decompose, qr_decompose, CooMatrix, CsrMatrix as LetoCsrMatrix};
+use leto_ops::{CooMatrix, CsrMatrix as LetoCsrMatrix, lu_decompose, qr_decompose};
 
 fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
     let mut coo = CooMatrix::new(n, n);

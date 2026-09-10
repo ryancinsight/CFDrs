@@ -9,8 +9,8 @@
 //! - Smart mixed channel configurations
 
 use cfd_schematics::{
-    config::{presets, ArcConfig, ChannelTypeConfig, GeometryConfig},
-    geometry::{generator::create_geometry, SplitType},
+    config::{ArcConfig, ChannelTypeConfig, GeometryConfig, presets},
+    geometry::{SplitType, generator::create_geometry},
 };
 #[path = "../shared/mod.rs"]
 mod shared;
@@ -264,12 +264,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("   • Curvature Control: From subtle (0.1) to maximum (2.0) curvature factors");
     tracing::info!("   • Smoothness Options: 10-100+ points for different resolution needs");
     tracing::info!("   • Directional Control: Auto, inward, and outward curvature directions");
-    tracing::info!("   • Enhanced Bilateral Mirror Symmetry: Perfect symmetry across vertical and horizontal centerlines");
+    tracing::info!(
+        "   • Enhanced Bilateral Mirror Symmetry: Perfect symmetry across vertical and horizontal centerlines"
+    );
     tracing::info!(
         "   • Straight Inlet/Outlet Channels: Inlet and outlet channels are automatically straight"
     );
-    tracing::info!("   • Figure-8 Center Channels: Center channels in trifurcations use figure-8 style weave curvature without unresolved planar crossings");
-    tracing::info!("   • Peripheral vs Internal Curvature: Peripheral arcs curve toward walls, internal arcs toward center");
+    tracing::info!(
+        "   • Figure-8 Center Channels: Center channels in trifurcations use figure-8 style weave curvature without unresolved planar crossings"
+    );
+    tracing::info!(
+        "   • Peripheral vs Internal Curvature: Peripheral arcs curve toward walls, internal arcs toward center"
+    );
     tracing::info!("   • Smart Selection: Automatic channel type selection based on geometry");
     tracing::info!("   • Mixed Configurations: Combine arcs and serpentines intelligently");
     tracing::info!("   • Performance Optimized: Efficient generation for all smoothness levels");

@@ -6,4 +6,4 @@
 
 pub mod pareto;
 
-pub use pareto::{crowding_distances, pareto_front, ObjectiveSense};
+pub use pareto::{ObjectiveSense, crowding_distances, pareto_front};

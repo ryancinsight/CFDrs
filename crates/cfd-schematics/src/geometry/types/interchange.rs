@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::tpms_fill::TpmsFillSpec;
-use super::{hydraulic_diameter, polyline_length, Point2D};
+use super::{Point2D, hydraulic_diameter, polyline_length};
 use crate::domain::model::NetworkBlueprint;
 
 const INTERCHANGE_SCHEMA_VERSION: &str = "1.0.0";

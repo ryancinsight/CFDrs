@@ -154,10 +154,7 @@ fn representative_case_search_with_failure_detail(
                                     last_failure = format!(
                                         "reason={:?}, detail={}, residual={:?}, delta={:?}, iterations={}",
                                         err.reason,
-                                        err.diagnostics
-                                            .failure_detail
-                                            .as_deref()
-                                            .unwrap_or("n/a"),
+                                        err.diagnostics.failure_detail.as_deref().unwrap_or("n/a"),
                                         err.diagnostics.last_residual_norm,
                                         err.diagnostics.last_solution_change_norm,
                                         err.diagnostics.picard_iterations,
@@ -201,8 +198,7 @@ fn representative_primitive_selective_trees_primary_converge() {
         let Some((case, network, diagnostics)) = found else {
             panic!(
                 "failed to find a primary-converged representative case for primitive sequence {:?}; last failure: {}",
-                sequence,
-                failure_detail,
+                sequence, failure_detail,
             );
         };
 

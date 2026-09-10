@@ -18,8 +18,8 @@ use crate::atlas_array::{fft_3d_array, ifft_3d_array, set, value};
 use apollo_fft::{Complex64, Shape3D};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use leto::geometry::Vector3;
 use leto::Array3;
+use leto::geometry::Vector3;
 
 /// Configuration for a periodic pseudospectral DNS stepper.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -457,8 +457,8 @@ mod tests {
     use crate::spectral::{BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig};
     use apollo_fft::Complex64;
     use cfd_core::physics::fluid_dynamics::VelocityField;
-    use leto::geometry::Vector3;
     use leto::Array3;
+    use leto::geometry::Vector3;
 
     fn constant_velocity_field(
         dimensions: (usize, usize, usize),

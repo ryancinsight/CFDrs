@@ -11,8 +11,8 @@
 //! ```
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, BlueprintObjectiveEvaluation, EvaluatedPool,
-    OptimizationGoal,
+    BlueprintObjectiveEvaluation, EvaluatedPool, OptimizationGoal,
+    build_milestone12_blueprint_candidate_space,
 };
 use std::time::Instant;
 

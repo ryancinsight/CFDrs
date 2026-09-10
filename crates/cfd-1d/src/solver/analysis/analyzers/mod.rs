@@ -13,8 +13,8 @@ pub use resistance::ResistanceAnalyzer;
 pub use traits::NetworkAnalyzer;
 
 use super::{FlowAnalysis, PerformanceMetrics, PressureAnalysis, ResistanceAnalysis};
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use std::iter::Sum;
 
 /// Complete network analysis results

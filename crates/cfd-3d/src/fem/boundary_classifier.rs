@@ -46,7 +46,7 @@
 //! - Elman, H., Silvester, D. & Wathen, A. (2014). *Finite Elements and
 //!   Fast Iterative Solvers.* Oxford University Press, §3.4.
 
-use cfd_mesh::{domain::core::index::FaceId, domain::core::Scalar, IndexedMesh};
+use cfd_mesh::{IndexedMesh, domain::core::Scalar, domain::core::index::FaceId};
 use eunomia::{FloatElement, NumericElement};
 use std::collections::{HashMap, HashSet};
 

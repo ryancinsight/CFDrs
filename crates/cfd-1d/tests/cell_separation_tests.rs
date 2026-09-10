@@ -9,8 +9,8 @@
 
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
-    dean_drag_force, dean_number, inertial_lift_force, lateral_equilibrium, CellProperties,
-    CellSeparationModel,
+    CellProperties, CellSeparationModel, dean_drag_force, dean_number, inertial_lift_force,
+    lateral_equilibrium,
 };
 use eunomia::assert_relative_eq;
 

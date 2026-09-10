@@ -1,8 +1,8 @@
 //! Normalized and relative error metrics
 
 use super::{
-    norms::{L1Norm, L2Norm},
     ErrorMetric,
+    norms::{L1Norm, L2Norm},
 };
 use crate::scalar;
 use cfd_core::error::{Error, Result};

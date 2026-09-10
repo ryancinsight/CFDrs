@@ -7,9 +7,9 @@
 
 use crate::scalar;
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, SolveResult};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::geometry::StaggeredGrid2D;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, RealField};
 
 /// Physical dimensions of a backward-facing-step channel.
@@ -241,8 +241,8 @@ fn interpolate_reattachment<T: CfdScalar + Copy + FloatElement>(
 #[cfg(test)]
 mod tests {
     use super::{
-        interpolate_reattachment, BackwardFacingStepGeometry, BackwardFacingStepSolver,
-        WallShearSample,
+        BackwardFacingStepGeometry, BackwardFacingStepSolver, WallShearSample,
+        interpolate_reattachment,
     };
     use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig};
     use cfd_core::geometry::StaggeredGrid2D;
@@ -286,9 +286,11 @@ mod tests {
     fn geometry_validation_rejects_step_taller_than_channel() {
         let error = BackwardFacingStepGeometry::new(2.0_f64, 1.0, 1.0, 1.0, 1.0)
             .expect_err("invalid expansion geometry");
-        assert!(error
-            .to_string()
-            .contains("channel height must exceed step height"));
+        assert!(
+            error
+                .to_string()
+                .contains("channel height must exceed step height")
+        );
     }
 
     #[test]

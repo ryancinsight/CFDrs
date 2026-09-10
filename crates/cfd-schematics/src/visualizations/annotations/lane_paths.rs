@@ -1,7 +1,7 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::TherapyZone;
-use crate::geometry::metadata::ChannelVisualRole;
 use crate::geometry::Point2D;
+use crate::geometry::metadata::ChannelVisualRole;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 

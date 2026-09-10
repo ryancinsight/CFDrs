@@ -2,7 +2,7 @@
 
 use cfd_math::time_stepping::runge_kutta::RungeKutta4;
 use cfd_math::time_stepping::traits::{TimeState, TimeStepper};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
 
 fn state_from_value(len: usize, value: f64) -> TimeState<f64> {

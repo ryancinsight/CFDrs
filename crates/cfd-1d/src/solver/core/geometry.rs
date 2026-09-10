@@ -16,8 +16,8 @@
 //! This discrete 1D formulation reduces the Navier-Stokes equations to systems of ordinary
 //! differential equations or algebraic equations, neglecting purely transverse momentum transport.
 
-use cfd_core::geometry::Domain;
 use cfd_core::CfdScalar;
+use cfd_core::geometry::Domain;
 use leto::geometry::Point1;
 
 /// 1D Network domain for the Problem trait

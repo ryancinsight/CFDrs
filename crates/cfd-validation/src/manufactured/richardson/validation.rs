@@ -207,7 +207,9 @@ where
             } else {
                 // Fallback: use simple average when r^p ≈ 1 (unreliable convergence)
                 // This indicates numerical instability or poor grid refinement
-                tracing::warn!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
+                tracing::warn!(
+                    "Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging."
+                );
                 (phi_coarse + phi_fine) / <T as FloatElement>::from_f64(2.0)
             };
 

@@ -369,8 +369,8 @@ mod tests {
     }
 
     #[test]
-    fn venturi_coefficients_are_orientation_invariant_for_symmetric_geometry(
-    ) -> cfd_core::error::Result<()> {
+    fn venturi_coefficients_are_orientation_invariant_for_symmetric_geometry()
+    -> cfd_core::error::Result<()> {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 

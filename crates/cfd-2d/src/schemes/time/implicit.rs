@@ -12,11 +12,11 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use crate::scalar;
-use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, TWO};
 use cfd_core::CfdScalar;
+use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, TWO};
 use eunomia::FloatElement;
 
-use super::vector::{l2_norm, StateVector};
+use super::vector::{StateVector, l2_norm};
 
 /// Backward Euler step: y_{n+1} = y_n + dt*f(t_{n+1}, y_{n+1})
 ///

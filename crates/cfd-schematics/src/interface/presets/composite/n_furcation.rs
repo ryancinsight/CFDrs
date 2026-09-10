@@ -1,11 +1,11 @@
 use super::finalize_preset_blueprint;
+use crate::BlueprintTopologyFactory;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::topology::presets::{parallel_path_spec, with_venturi_placements};
 use crate::topology::{
     ChannelRouteSpec, ParallelChannelSpec, SerpentineSpec, TreatmentActuationMode,
     VenturiPlacementMode,
 };
-use crate::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::Length;
 
 fn parallel_channels_for_n_furcation(

@@ -416,7 +416,7 @@ mod tests {
     use crate::domain::fixtures::{
         canonical_option1_candidate, canonical_option2_candidate, operating_point,
     };
-    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+    use crate::reporting::{Milestone12ReportDesign, compute_blueprint_report_metrics};
 
     use super::write_milestone12_results;
 

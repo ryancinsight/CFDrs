@@ -19,8 +19,8 @@
 //!
 //! **Reference**: Zienkiewicz & Taylor (2005), *The Finite Element Method*, Vol. 1, §8.4.
 
-use cfd_mesh::domain::core::Scalar;
 use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::core::Scalar;
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;

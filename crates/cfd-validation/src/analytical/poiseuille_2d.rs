@@ -34,8 +34,8 @@ use aequitas::systems::si::quantities::{
     AreaPerTime, Dimensionless, DynamicViscosity, Length, MassDensity, Pressure, PressureGradient,
     ReciprocalTime, Velocity,
 };
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::CfdScalar;
+use cfd_core::physics::fluid::blood::CassonBlood;
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::geometry::Vector3;

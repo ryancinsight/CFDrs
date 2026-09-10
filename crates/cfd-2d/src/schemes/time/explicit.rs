@@ -11,8 +11,8 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
 use cfd_core::CfdScalar;
+use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
 use eunomia::FloatElement;
 
 use super::vector::StateVector;

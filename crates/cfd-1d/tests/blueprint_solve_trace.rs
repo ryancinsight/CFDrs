@@ -10,7 +10,7 @@
 
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::{
-    domain::network::network_from_blueprint, Network, NetworkProblem, NetworkSolver, SolverConfig,
+    Network, NetworkProblem, NetworkSolver, SolverConfig, domain::network::network_from_blueprint,
 };
 use cfd_core::physics::fluid::database::water_20c;
 use cfd_schematics::domain::model::{
@@ -339,7 +339,8 @@ fn asymmetric_bifurcation_flow_ratio_matches_resistance_ratio() {
     let ratio_err = ((r_ratio - expected_ratio) / expected_ratio).abs();
     assert!(
         ratio_err < 0.01,
-        "R_narr/R_wide = {r_ratio:.4}, expected (D_wide/D_narrow)^4 = {expected_ratio:.1}, err = {:.2}%", ratio_err * 100.0
+        "R_narr/R_wide = {r_ratio:.4}, expected (D_wide/D_narrow)^4 = {expected_ratio:.1}, err = {:.2}%",
+        ratio_err * 100.0
     );
 
     // Flow ratio is inverse of resistance ratio.
@@ -494,8 +495,8 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
     // NetworkGraph is a directed graph: edges(node) returns OUTGOING only.
     // Use edges_directed to get both incoming and outgoing, then compute
     // net_outflow = Σ_outgoing Q - Σ_incoming Q = 0 at junctions.
-    use petgraph::visit::EdgeRef;
     use petgraph::Direction;
+    use petgraph::visit::EdgeRef;
     for node_idx in network.graph.node_indices() {
         let node = match network.graph.node_weight(node_idx) {
             Some(n) => n,

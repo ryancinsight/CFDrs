@@ -1,7 +1,7 @@
 #![allow(missing_docs, clippy::semicolon_if_nothing_returned)]
 
 use cfd_math::simd::SimdOps;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_simd_add_f64(c: &mut Criterion) {
     let ops = SimdOps::new();

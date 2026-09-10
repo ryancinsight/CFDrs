@@ -1,7 +1,7 @@
 use crate::domain::model::NetworkBlueprint;
 use crate::error::{VisualizationError, VisualizationResult};
 use crate::visualizations::annotations::{
-    should_render_label, AnnotationMarker, MarkerRole, SchematicAnnotations,
+    AnnotationMarker, MarkerRole, SchematicAnnotations, should_render_label,
 };
 use plotters::coord::types::RangedCoordf64;
 use plotters::prelude::*;

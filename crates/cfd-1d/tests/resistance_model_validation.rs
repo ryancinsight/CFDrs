@@ -116,9 +116,9 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
     let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
-                                     // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
-                                     // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
-                                     // R_eff = f ρ L V / (2 A D)
+    // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
+    // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
+    // R_eff = f ρ L V / (2 A D)
     let v: f64 = conditions_turbulent.velocity.expect("test invariant");
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
@@ -193,7 +193,10 @@ fn test_mach_number_violation() -> Result<()> {
 
     let result = model.validate_invariants(&fluid, &conditions);
 
-    assert_rejects(&result, "Physical invariant violation: Mach number violation: Ma > 0.3. Incompressibility assumption invalid for model 'Darcy-Weisbach'");
+    assert_rejects(
+        &result,
+        "Physical invariant violation: Mach number violation: Ma > 0.3. Incompressibility assumption invalid for model 'Darcy-Weisbach'",
+    );
     if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
         assert!(msg.contains("Mach number violation"));
     } else {
@@ -218,7 +221,10 @@ fn test_entrance_length_violation() -> Result<()> {
 
     let result = model.validate_invariants(&fluid, &conditions);
 
-    assert_rejects(&result, "Physical invariant violation: Entrance length violation: L/Dh = 5.00 < 10. Flow may not be fully developed for model 'Rectangular Channel (Exact)'");
+    assert_rejects(
+        &result,
+        "Physical invariant violation: Entrance length violation: L/Dh = 5.00 < 10. Flow may not be fully developed for model 'Rectangular Channel (Exact)'",
+    );
     if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
         assert!(msg.contains("Entrance length violation"));
     } else {

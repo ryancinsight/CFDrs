@@ -16,7 +16,7 @@ use crate::error::Result;
 use crate::simd::SimdOps;
 use eunomia::{NumericElement, RealField};
 use moirai::prelude::ParallelSliceMut;
-use moirai::{reduce_index_with, Adaptive};
+use moirai::{Adaptive, reduce_index_with};
 
 /// Vectorized operations for CFD computations with SIMD support
 pub struct VectorizedOps {

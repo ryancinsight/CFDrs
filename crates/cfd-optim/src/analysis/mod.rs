@@ -1,2 +1,2 @@
 mod robustness;
-pub use robustness::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTURBATIONS};
+pub use robustness::{RobustnessReport, STANDARD_PERTURBATIONS, robustness_sweep_blueprint};

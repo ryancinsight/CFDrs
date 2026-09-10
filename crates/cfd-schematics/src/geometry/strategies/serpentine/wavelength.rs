@@ -2,7 +2,7 @@
 
 use super::super::ChannelGenerationContext;
 use super::SerpentineChannelStrategy;
-use crate::config::{constants, ConstantsRegistry};
+use crate::config::{ConstantsRegistry, constants};
 
 impl SerpentineChannelStrategy {
     /// Calculate wavelength-aware scaling factor with adaptive thresholds

@@ -10,7 +10,7 @@ use crate::{
     config::ConstantsRegistry,
     error::SchemeResult,
     geometry::Point2D,
-    state_management::{adaptive::ChannelGenerationContext, ParameterRegistry},
+    state_management::{ParameterRegistry, adaptive::ChannelGenerationContext},
 };
 
 /// Enhanced collision detection context that integrates with adaptive parameter system

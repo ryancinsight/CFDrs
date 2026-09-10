@@ -6,8 +6,8 @@ use super::geometry::VenturiGeometry;
 use super::solution::VenturiFlowSolution;
 use crate::scalar::{self};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
-use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result as CfdResult};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 

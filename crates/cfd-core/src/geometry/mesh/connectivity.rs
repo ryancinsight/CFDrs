@@ -206,11 +206,7 @@ impl<T: RealField + Copy> Mesh<T> {
 }
 
 fn order_edge(u: usize, v: usize) -> (usize, usize) {
-    if u < v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    if u < v { (u, v) } else { (v, u) }
 }
 
 #[cfg(test)]

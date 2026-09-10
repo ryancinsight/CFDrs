@@ -65,12 +65,11 @@ impl FlowClassifier {
     /// Classify based on multiple dimensionless numbers
     pub fn classify<T: RealField>(reynolds: T, mach: Option<T>, _froude: Option<T>) -> FlowRegime {
         // Priority: Mach number for compressibility, then Reynolds for turbulence
-        if let Some(ma) = mach {
-            if <T as NumericElement>::to_f64(ma)
+        if let Some(ma) = mach
+            && <T as NumericElement>::to_f64(ma)
                 >= crate::physics::constants::physics::dimensionless::mach::HYPERSONIC
-            {
-                return FlowRegime::Hypersonic;
-            }
+        {
+            return FlowRegime::Hypersonic;
         }
 
         // Use Reynolds number for flow regime classification

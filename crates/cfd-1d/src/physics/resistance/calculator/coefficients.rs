@@ -3,9 +3,9 @@ use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
     ResistanceModel, SerpentineModel, VenturiModel,
 };
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 
 /// Calculate linear (R) and quadratic (k) coefficients with automatic model selection
 pub fn calculate_coefficients_auto<T, F>(

@@ -3,8 +3,8 @@
 use aequitas::systems::si::quantities::Length;
 use cfd_1d::validate_blueprint_for_1d_solve;
 use cfd_schematics::geometry::generator::{
-    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
-    PrimitiveSelectiveTreeRequest,
+    PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
+    create_primitive_selective_tree_geometry,
 };
 fn selective_blueprint() -> cfd_schematics::NetworkBlueprint {
     create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {

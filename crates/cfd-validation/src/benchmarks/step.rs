@@ -5,8 +5,8 @@
 //! and result types onto that provider contract.
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, RealField};
 
 /// Backward-facing-step benchmark geometry.

@@ -100,8 +100,8 @@ pub use higher_order::apply_higher_order_wall_boundaries;
 pub use updater::MatrixUpdater;
 
 use super::solver::MomentumComponent;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use directional::{
     apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary,
 };

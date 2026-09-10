@@ -1,11 +1,11 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
-use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
+use crate::physics::momentum::{MomentumSolver, validate_boundary_consistency};
 use crate::scalar;
 use crate::solvers::fdm::PoissonSolver;
+use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
 use cfd_math::sparse::SparseMatrix;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::Array1;
@@ -269,6 +269,9 @@ mod tests {
             &boundary_conditions,
         );
 
-        assert_rejects(&result, "Invalid configuration: Boundary error: Invalid boundary region: Missing required boundary: east");
+        assert_rejects(
+            &result,
+            "Invalid configuration: Boundary error: Invalid boundary region: Missing required boundary: east",
+        );
     }
 }

@@ -1,7 +1,7 @@
 //! Region and boundary-label mapping for the blueprint pipeline.
 
-use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::NodeKind;
+use cfd_schematics::domain::therapy_metadata::TherapyZone;
 
 use cfd_mesh::domain::core::index::{FaceId, RegionId};
 use cfd_mesh::domain::mesh::IndexedMesh;

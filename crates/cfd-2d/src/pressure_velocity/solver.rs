@@ -10,12 +10,12 @@
 
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
 use crate::scalar;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto::geometry::Vector2;
 use std::fmt::LowerExp;

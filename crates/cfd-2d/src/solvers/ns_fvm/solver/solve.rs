@@ -1,10 +1,10 @@
 use crate::scalar;
 use crate::solvers::ns_fvm::boundary::{BloodModel, BoundaryCondition};
 use crate::solvers::ns_fvm::config::SolveResult;
-use crate::solvers::ns_fvm::solver::types::InletProfile;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use cfd_core::error::Error;
+use crate::solvers::ns_fvm::solver::types::InletProfile;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 

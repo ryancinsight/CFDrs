@@ -1,7 +1,7 @@
 //! Solution type for two-way branch junction problems.
 
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::fmt;

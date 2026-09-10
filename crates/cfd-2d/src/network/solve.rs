@@ -1,5 +1,5 @@
-use cfd_core::error::Result as CfdResult;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 
 use super::channel::solve_channel_entry;
@@ -12,7 +12,7 @@ where
 {
     /// Solve every channel domain in parallel and return per-channel results.
     pub fn solve_all(&mut self, tolerance: f64) -> CfdResult<Network2dResult<T>> {
-        use moirai::{map_collect_mut_with, Adaptive};
+        use moirai::{Adaptive, map_collect_mut_with};
 
         let reference_trace = self.reference_trace.clone();
         let separation_tracking_enabled = self.separation_tracking_enabled;

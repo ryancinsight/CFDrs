@@ -4,8 +4,8 @@
 //! may exceed blood-handling shear thresholds used during device risk screening.
 
 use aequitas::systems::si::quantities::{Dimensionless, Pressure, ReciprocalTime, Time};
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Configurable blood shear limits used to flag potentially unsafe conditions.
 #[derive(Debug, Clone)]

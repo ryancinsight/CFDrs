@@ -10,13 +10,13 @@
 //! a machine-checked proof of the Padé approximation inside `leto-ops`.
 
 use super::traits::{
-    add_scaled_in_place, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState,
+    TimeMatrix, TimeState, add_scaled_in_place, state_len, state_norm, state_zeros, zero,
 };
 use crate::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error};
 use eunomia::FloatElement;
 use eunomia::RealField;
-use leto_ops::{matexp, RealScalar};
+use leto_ops::{RealScalar, matexp};
 
 /// Configuration for exponential integrators.
 #[derive(Debug, Clone)]

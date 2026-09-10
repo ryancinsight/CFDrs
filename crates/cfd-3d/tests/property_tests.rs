@@ -41,8 +41,8 @@ proptest! {
 
 #[test]
 fn spectral_poisson_error_is_finite() {
-    use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use cfd_3d::spectral::PoissonBoundaryCondition;
+    use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use leto::Array1;
 
     let n = 4;
@@ -76,8 +76,8 @@ fn spectral_poisson_error_is_finite() {
 
 #[test]
 fn spectral_poisson_solution_dimensions() {
-    use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use cfd_3d::spectral::PoissonBoundaryCondition;
+    use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use leto::Array1;
 
     let nx = 4;

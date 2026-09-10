@@ -5,8 +5,8 @@
 
 use eunomia::NumericElement;
 use leto::Array1;
-use leto_ops::{spmv, CsrMatrix, Scalar};
-use moirai::{map_collect_index_with, reduce_index_with, Adaptive};
+use leto_ops::{CsrMatrix, Scalar, spmv};
+use moirai::{Adaptive, map_collect_index_with, reduce_index_with};
 
 /// Trait for SIMD-optimized vector operations
 pub trait SimdVectorOps<T: NumericElement + Send + Sync> {

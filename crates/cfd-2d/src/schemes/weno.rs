@@ -74,7 +74,7 @@
 //! imposing a hard TVD guarantee.
 
 use super::weno_helpers::{weno5_candidate_fluxes, weno5_js_weights, weno5_smoothness_indicators};
-use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
+use super::{Grid2D, SpatialDiscretization, constants, weno_constants};
 use crate::scalar;
 use cfd_core::CfdScalar;
 use eunomia::FloatElement;

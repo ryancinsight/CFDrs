@@ -24,8 +24,8 @@ use super::{
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement};
 
 /// Minimum time step threshold to avoid numerical issues

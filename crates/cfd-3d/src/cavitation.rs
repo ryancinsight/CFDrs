@@ -253,7 +253,7 @@ pub fn damage_step(rate: MassDensityRate<f64>, dt: Time<f64>) -> Result<MassDens
 
 #[cfg(test)]
 mod tests {
-    use super::{damage_step, Cavitation, EulerianEulerian, RayleighPlesset};
+    use super::{Cavitation, EulerianEulerian, RayleighPlesset, damage_step};
     use aequitas::systems::si::quantities::{MassDensityRate, Pressure, Time};
 
     #[test]
