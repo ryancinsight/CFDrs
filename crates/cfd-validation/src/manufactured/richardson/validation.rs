@@ -6,7 +6,7 @@ use eunomia::{FloatElement, RealField};
 use std::collections::HashMap;
 
 use super::core::is_asymptotic as monotone_asymptotic;
-use super::core::{extrapolate, DataDrivenOrderEstimation};
+use super::core::{DataDrivenOrderEstimation, extrapolate};
 use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
 use crate::geometry::Geometry2D;

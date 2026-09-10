@@ -1,10 +1,10 @@
 use crate::domain::model::NetworkBlueprint;
 use crate::error::{Error, Result};
+use crate::topology::BlueprintTopologyFactory;
 use crate::topology::model::{
     BlueprintTopologySpec, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiConfig, VenturiPlacementMode,
 };
-use crate::topology::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::{Angle, Length};
 
 use super::super::modifiers::with_venturi;

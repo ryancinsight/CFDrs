@@ -1,5 +1,5 @@
-use crate::error::OptimError;
 use crate::BlueprintCandidate;
+use crate::error::OptimError;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

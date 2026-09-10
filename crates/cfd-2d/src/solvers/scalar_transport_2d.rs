@@ -27,8 +27,8 @@
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
-use cfd_core::error::{ConvergenceErrorKind, Error};
 use cfd_core::CfdScalar;
+use cfd_core::error::{ConvergenceErrorKind, Error};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 

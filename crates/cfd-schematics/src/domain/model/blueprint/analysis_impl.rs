@@ -203,23 +203,23 @@ impl NetworkBlueprint {
         }
         let overlap_count = self.unresolved_channel_overlap_count();
         if overlap_count > 0 {
-            return Err(Error::Validation(ValidationErrorKind::constraint_violation(
-                &format!(
+            return Err(Error::Validation(
+                ValidationErrorKind::constraint_violation(&format!(
                     "NetworkBlueprint '{}' contains {overlap_count} unresolved interior channel crossing(s)",
                     self.name
-                ),
-            )));
+                )),
+            ));
         }
         if let Some(topology) = &self.topology {
             BlueprintTopologyFactory::validate_spec(topology)?;
             if topology.is_selective_routing() && !self.is_geometry_authored() {
-                return Err(Error::Validation(ValidationErrorKind::constraint_violation(
-                    &format!(
+                return Err(Error::Validation(
+                    ValidationErrorKind::constraint_violation(&format!(
                         "NetworkBlueprint '{}' carries selective split-tree topology '{}' but was not authored through create_geometry()",
                         self.name,
                         topology.stage_sequence_label()
-                    ),
-                )));
+                    )),
+                ));
             }
         }
         Ok(())

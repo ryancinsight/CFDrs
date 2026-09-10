@@ -21,9 +21,9 @@
 //! | `set(i, j, v)` | **debug-assert** only | `()` |
 
 use crate::{grid::array2d::Array2D, scalar};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use std::ops::{Index, IndexMut};
