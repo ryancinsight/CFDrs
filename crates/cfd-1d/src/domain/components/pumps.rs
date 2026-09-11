@@ -28,6 +28,11 @@
 //! At the stall point `ΔP = ΔP_max`, Q = 0. At free delivery `ΔP = 0`, Q = Q_max.
 //! The hydraulic power delivered is `P_hyd = ΔP · Q`.
 //! Pump efficiency: `η = P_hyd / P_input`, typical range 0.1–0.7.
+//!
+//! # Invariants
+//!
+//! - `efficiency ∈ [0, 1]`: clamped on set
+//! - `operating_point ∈ [0, 1]`: clamped on set (0 = stall, 1 = free delivery)
 
 use super::{Component, constants, real_from_f64};
 use cfd_core::CfdScalar;
@@ -103,8 +108,27 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for Micropump<T> {
         match key {
             "max_flow_rate" => self.max_flow_rate = value,
             "max_pressure" => self.max_pressure = value,
-            "efficiency" => self.efficiency = value,
-            "operating_point" => self.operating_point = value,
+            // η and the operating point are bounded fractions: clamp to
+            // [0, 1] so an out-of-range set cannot corrupt the pump-curve
+            // power/efficiency relations (mirrors `Microvalve::opening`).
+            "efficiency" => {
+                self.efficiency = if value < T::ZERO {
+                    T::ZERO
+                } else if value > T::ONE {
+                    T::ONE
+                } else {
+                    value
+                };
+            }
+            "operating_point" => {
+                self.operating_point = if value < T::ZERO {
+                    T::ZERO
+                } else if value > T::ONE {
+                    T::ONE
+                } else {
+                    value
+                };
+            }
             _ => {
                 self.parameters.insert(key.to_string(), value);
             }
