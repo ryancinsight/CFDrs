@@ -144,6 +144,17 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Fixed:** Retire the last in-crate `#[global_allocator]` — the
+  `#[cfg(test)]` `TrackingAllocator` installed inside `cfd-validation`'s
+  `benchmarking::memory` unit-test module (CFDRS-GA-001 close-out, after
+  the mainline opt-in rework). The two allocator-dependent tests moved to
+  a dedicated `tests/tracking_allocator.rs` harness binary that installs
+  the allocator explicitly, so no library-test binary carries
+  process-global instrumentation it did not request. Allocation tracking
+  remains strictly opt-in via the `memory_profiling` bench and the two
+  test harnesses; `tests/allocator_compat.rs` continues to prove a
+  consumer-selected allocator coexists with the library.
+
 - **Breaking:** Consolidate the duplicate Richardson extrapolation
   implementation into `cfd-validation`'s `convergence::RichardsonExtrapolation`
   (CFDRS-GA-012, gap audit F-4 lineage). The stringly-typed duplicate in
