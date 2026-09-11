@@ -144,6 +144,16 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Fixed:** Resolve the five capability-admitting `#[ignore]`d tests
+  (CFDRS-GA-013). The two AMG coarsening stubs became real tests against
+  cfd-math's coarsening suite (C/F totality, disconnected-component
+  independence); the cfd-1d valve and FlowSensor expectations were
+  rewritten to the documented contracts of the evolved production code;
+  `Micropump::set_parameter` now clamps its bounded parameters (the real
+  gap the pump test named); FlowSensor is registered in the component
+  factory, closing the reachability gap. All remaining `#[ignore]`s are
+  runtime-motivated.
+
 - **Fixed:** Retire the last in-crate `#[global_allocator]` — the
   `#[cfg(test)]` `TrackingAllocator` installed inside `cfd-validation`'s
   `benchmarking::memory` unit-test module (CFDRS-GA-001 close-out, after

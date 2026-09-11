@@ -175,14 +175,10 @@ fn test_component_resistance_diameter_scaling() -> Result<()> {
 
 /// Test micropump parameter bounds and validation.
 ///
-/// Validates that micropump enforces physical constraints on parameters.
-///
-/// **Note**: This test is currently ignored because the implementation does not
-/// clamp parameter values to physical bounds [0, 1]. The set_parameter method
-/// accepts any value without validation. This should be considered for future
-/// enhancement to ensure physical validity.
+/// Validates that micropump enforces physical constraints on parameters:
+/// `efficiency` and `operating_point` are bounded fractions clamped to
+/// [0, 1] on set (documented invariant, mirroring `Microvalve::opening`).
 #[test]
-#[ignore = "Implementation does not clamp parameters to physical bounds"]
 fn test_micropump_parameter_validation() -> Result<()> {
     let mut pump = Micropump::<f64>::new(1e-9, 10000.0);
 
@@ -221,40 +217,43 @@ fn test_micropump_parameter_validation() -> Result<()> {
 
 /// Test microvalve opening mechanics.
 ///
-/// Validates valve resistance changes with opening state following
-/// expected relationships.
+/// Validates the documented valve model: with opening fraction `f`, the
+/// quadratic loss coefficient follows `k = 1 / (Cv·f)²` (strictly
+/// increasing as the valve closes), the linear resistance is zero while
+/// open, and the closed state carries the documented 10¹² Pa·s/m³
+/// conditioning resistance with the opening clamped to [0, 1].
 ///
 /// # Reference
 /// Kirby (2010), Section 4.5: "Valves and flow control"
-///
-/// **Note**: This test is currently ignored because the valve resistance
-/// does not always increase monotonically as the valve closes. The
-/// implementation behavior differs from the expected model.
 #[test]
-#[ignore = "Valve resistance behavior does not follow expected monotonic relationship"]
 fn test_microvalve_opening_mechanics() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
-    let mut valve = Microvalve::<f64>::new(1e-9);
+    let mut valve = Microvalve::<f64>::new(0.1);
 
-    // Collect resistances at different openings
-    let openings = [1.0, 0.75, 0.5, 0.25, 0.0];
-    let mut resistances = Vec::new();
-
-    for &opening in &openings {
+    // Quadratic coefficient k = 1 / (Cv·f)²: strictly increasing as the
+    // valve closes, matching the documented model at every opening.
+    let mut k_prev = 0.0;
+    for &opening in &[1.0, 0.75, 0.5, 0.25] {
         valve.set_parameter("opening", opening)?;
-        resistances.push(valve.resistance(&fluid));
+        let (r, k) = valve.coefficients(&fluid);
+        assert_relative_eq!(r, 0.0, epsilon = 1e-30);
+        assert!(k > k_prev, "k must increase as the valve closes");
+        assert_relative_eq!(k, 1.0 / (0.1f64 * opening).powi(2), epsilon = 1e-6);
+        k_prev = k;
     }
 
-    // Verify monotonic increase as valve closes
-    for i in 1..resistances.len() {
-        assert!(
-            resistances[i] >= resistances[i - 1],
-            "Resistance should increase as valve closes"
-        );
-    }
+    // Halving the opening quadruples the quadratic coefficient.
+    valve.set_parameter("opening", 0.5)?;
+    let k_half = valve.coefficients(&fluid).1;
+    valve.set_parameter("opening", 0.25)?;
+    let k_quarter = valve.coefficients(&fluid).1;
+    assert_relative_eq!(k_quarter, 4.0 * k_half, epsilon = 1e-6);
 
-    // Closed valve should have very high resistance
-    assert!(resistances[4] > resistances[0] * 100.0);
+    // Closed state: opening clamped to [0, 1], linear resistance is the
+    // documented 10¹² Pa·s/m³ conditioning value.
+    valve.set_parameter("opening", -0.2)?;
+    assert_relative_eq!(valve.opening, 0.0, epsilon = 1e-30);
+    assert_relative_eq!(valve.resistance(&fluid), 1e12, epsilon = 1.0);
 
     Ok(())
 }
@@ -452,36 +451,46 @@ fn test_series_resistance_additivity() -> Result<()> {
 
 /// Test flow sensor component properties.
 ///
-/// Validates that flow sensor behaves as expected (minimal resistance).
-///
-/// **Note**: This test is currently ignored because the FlowSensor component
-/// may not be implemented or accessible through the ComponentFactory with
-/// the expected parameters. Requires investigation of actual API.
+/// Validates the documented insertion-resistance model (Gravesen,
+/// Branebjerg & Jensen 1993): the factory honours the explicit
+/// `resistance` parameter, an ideal (zero-insertion) sensor contributes
+/// zero hydraulic resistance, and unknown component types fail with a
+/// typed configuration error.
 #[test]
-#[ignore = "FlowSensor component API differs from expected"]
 fn test_flow_sensor_properties() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
 
+    // Ideal sensor: zero insertion resistance.
     let mut params = HashMap::new();
     params.insert("diameter".to_string(), 1e-3);
-    params.insert("accuracy".to_string(), 0.01); // 1% accuracy
+    params.insert("resistance".to_string(), 0.0);
+    params.insert("range".to_string(), 1e-6);
     let sensor = ComponentFactory::create::<f64>("FlowSensor", &params)?;
+    assert_relative_eq!(sensor.resistance(&fluid), 0.0, epsilon = 1e-30);
 
-    // Sensor should have very low resistance (near zero)
-    let resistance = sensor.resistance(&fluid);
+    // Insertion resistance passes through unchanged.
+    let mut params_lossy = HashMap::new();
+    params_lossy.insert("diameter".to_string(), 1e-3);
+    params_lossy.insert("resistance".to_string(), 12.5);
+    params_lossy.insert("range".to_string(), 1e-6);
+    let sensor_lossy = ComponentFactory::create::<f64>("FlowSensor", &params_lossy)?;
+    assert_relative_eq!(sensor_lossy.resistance(&fluid), 12.5, epsilon = 1e-12);
 
-    // Create reference channel
+    // An ideal sensor's insertion resistance stays far below any
+    // realistic channel resistance (even a 1 mm reference channel).
     let mut params_ref = HashMap::new();
-    params_ref.insert("length".to_string(), 0.001); // 1 mm
+    params_ref.insert("length".to_string(), 0.001);
     params_ref.insert("diameter".to_string(), 1e-3);
     let channel_ref = ComponentFactory::create::<f64>("CircularChannel", &params_ref)?;
-    let r_ref = channel_ref.resistance(&fluid);
-
-    // Sensor resistance should be much smaller than a short channel
     assert!(
-        resistance < r_ref * 0.01,
-        "Sensor should have minimal resistance"
+        sensor.resistance(&fluid) < channel_ref.resistance(&fluid) * 0.01,
+        "ideal sensor should have minimal resistance"
     );
+
+    // A missing required parameter (measurement range) is a typed error,
+    // not a panic.
+    let missing = ComponentFactory::create::<f64>("FlowSensor", &HashMap::new());
+    assert!(missing.is_err());
 
     Ok(())
 }
