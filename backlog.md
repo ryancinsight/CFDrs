@@ -4839,20 +4839,26 @@ Filed by the Atlas gap audit (evidence: `gap_audit.md` §"Finding 2026-08-20:
 CFDrs scope-vs-delivery audit"). Every item below is `status=todo`, unclaimed.
 No existing item's status was changed by this audit.
 
-- **CFDRS-GA-001 [major][arch] — Remove the library-crate global allocator (status=todo, effort=M).**
-  Outcome: `cfd-validation` no longer installs a process-wide allocator, so no
-  test, bench, example, or downstream binary in its link graph inherits
-  allocation instrumentation it did not request, and a consumer may declare its
-  own `#[global_allocator]`.
-  Scope: `crates/cfd-validation/src/benchmarking/memory.rs` (`#[global_allocator]`
-  at :93, `unsafe impl GlobalAlloc` at :315-345) and its callers.
-  Non-goals: removing the memory-statistics API itself — only its unconditional
-  global installation; the tracking facility may return through an opt-in
-  harness the benchmark explicitly constructs.
-  Acceptance oracle: no `#[global_allocator]` outside an explicitly opted-in
-  bench/bin target; a test binary asserts allocation counts only where the
-  harness is installed; `cargo check --workspace --all-targets` green.
-  Dependencies: none. Risk: public behaviour change of a published crate.
+- **CFDRS-GA-001 [major][arch] — Remove the library-crate global allocator (status=done, effort=M).**
+  Delivered in two stages. Stage 1 (peer mainline `d1305ee2`, "Make allocation
+  tracking opt-in") removed the audit's headline site — the unconditional
+  `#[global_allocator]` at the then-`memory.rs:93` — by reworking
+  `TrackingAllocator` to carry its own `MemoryStats` counter so installation is
+  always an explicit, per-process choice, and adding the `memory_profiling`
+  bench plus the `tests/allocator_compat.rs` consumer-coexistence proof.
+  Stage 2 (close-out, 2026-09-10): the oracle's letter still failed on one
+  residual installation — the `#[cfg(test)]` allocator inside the library's
+  unit-test module — moved to a dedicated
+  `crates/cfd-validation/tests/tracking_allocator.rs` harness binary that
+  installs `TrackingAllocator` explicitly (same process-global-instrument
+  isolation rationale as asclepius PR #44). Oracle, all verified: workspace
+  census `grep -rn global_allocator crates/*/src/` returns zero hits;
+  every remaining installation sits in an explicitly opted-in target
+  (`benches/memory_profiling.rs`, `tests/allocator_compat.rs`,
+  `tests/tracking_allocator.rs`); allocation-count assertions exist only
+  where the harness is installed; clippy `--workspace --all-targets
+  --all-features -D warnings` green, fmt clean, nextest 3294 main + 14
+  fidelity (serial) + doctests green on merged main.
 
 - **CFDRS-GA-002 [patch][verification] — Bring root `examples/`, `benches/`, `tests/` under a cargo target (status=todo, effort=M).**
   Outcome: the 54 files / 10 543 lines under the repository-root `examples/`,
