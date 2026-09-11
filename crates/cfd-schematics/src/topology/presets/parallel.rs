@@ -3,7 +3,7 @@
 use crate::domain::therapy_metadata::TherapyZone;
 
 use super::super::model::{BlueprintTopologySpec, ParallelChannelSpec, TreatmentActuationMode};
-use super::plate_presets::{parallel_channel, PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM, parallel_channel};
 use aequitas::systems::si::quantities::Length;
 
 /// Create a canonical parallel-channel topology spec.

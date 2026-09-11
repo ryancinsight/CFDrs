@@ -5,8 +5,8 @@ use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSoluti
 use crate::scalar;
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
-use cfd_core::error::Result as CfdResult;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 
 /// Discretized 2D Serpentine Flow Solver
@@ -113,14 +113,12 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Out
 
         // 3. Solve Scalar Transport
         // Cells at the inlet (West boundary) with mask=true and u > 0 will use boundary_c.
-        self.scalar_solver
-            .solve(
-                &self.ns_solver.grid,
-                &self.ns_solver.field,
-                &config,
-                &boundary_c,
-            )
-            .map_err(cfd_core::error::Error::Solver)?;
+        self.scalar_solver.solve(
+            &self.ns_solver.grid,
+            &self.ns_solver.field,
+            &config,
+            &boundary_c,
+        )?;
 
         // 4. Extract metrics
         let mixing_model =

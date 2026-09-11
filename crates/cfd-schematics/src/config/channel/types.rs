@@ -2,8 +2,8 @@ use crate::config::channel::arc::ArcConfig;
 use crate::config::channel::frustum::FrustumConfig;
 use crate::config::channel::serpentine::SerpentineConfig;
 use crate::config::constants::primitives as constants;
-use crate::geometry::strategies::SmoothTransitionConfig;
 use crate::geometry::ChannelType;
+use crate::geometry::strategies::SmoothTransitionConfig;
 
 /// Configuration for selecting channel types in microfluidic schematics
 ///

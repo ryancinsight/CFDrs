@@ -2,7 +2,7 @@
 
 use super::{MultigridSmoother, MultigridVector, SparseMatrix};
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
-use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, spmv as leto_spmv};
 
 #[inline]
 fn diagonal_epsilon<T: FloatElement>() -> T {

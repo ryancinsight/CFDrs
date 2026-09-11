@@ -2,8 +2,8 @@
 
 use super::{Edge, Node};
 use cfd_core::CfdScalar;
-use petgraph::graph::{EdgeIndex, Graph, NodeIndex};
 use petgraph::Directed;
+use petgraph::graph::{EdgeIndex, Graph, NodeIndex};
 
 /// Type alias for the network graph
 pub type NetworkGraph<T> = Graph<Node<T>, Edge<T>, Directed>;

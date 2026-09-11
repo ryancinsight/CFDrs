@@ -144,6 +144,83 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Fixed:** Retire the last in-crate `#[global_allocator]` — the
+  `#[cfg(test)]` `TrackingAllocator` installed inside `cfd-validation`'s
+  `benchmarking::memory` unit-test module (CFDRS-GA-001 close-out, after
+  the mainline opt-in rework). The two allocator-dependent tests moved to
+  a dedicated `tests/tracking_allocator.rs` harness binary that installs
+  the allocator explicitly, so no library-test binary carries
+  process-global instrumentation it did not request. Allocation tracking
+  remains strictly opt-in via the `memory_profiling` bench and the two
+  test harnesses; `tests/allocator_compat.rs` continues to prove a
+  consumer-selected allocator coexists with the library.
+
+- **Breaking:** Consolidate the duplicate Richardson extrapolation
+  implementation into `cfd-validation`'s `convergence::RichardsonExtrapolation`
+  (CFDRS-GA-012, gap audit F-4 lineage). The stringly-typed duplicate in
+  `manufactured::richardson::core` — a unit struct exposing `estimate_order`,
+  `extrapolate`, and `is_asymptotic` returning `Result<_, String>` — is
+  retired: the first two names are now thin adapters over the canonical typed
+  implementation (same argument order), and `is_asymptotic` survives as a
+  free function because its monotone-error contract differs from the
+  canonical ratio-band method. `manufactured::richardson::core::
+  RichardsonExtrapolation` re-exports the canonical struct so existing paths
+  keep resolving. Typed-error migration for those call sites removes 2 of the
+  56 workspace stringly-typed returns (now 54; recount pending per
+  CFDRS-GA-017's dependency note). Consolidation also hardened the canonical
+  implementation with the duplicate's stability guards (signed
+  convergence-ratio rejection and order bounds in `estimate_order`, `r^p ≈ 1`
+  denominator checks in `extrapolate`/`grid_convergence_index`, now returning
+  `Result`), removed a double order-estimation in
+  `MmsRichardsonStudy::compute_richardson_extrapolation`, and added the
+  Roache (1998) three-grid worked example (NASA GRC tutorial pressure-recovery
+  data; exact anchors 2^p = 169/49, f_h→0 = 0.97050 + 0.00196·49/120) as a
+  value-semantic oracle test.
+- **cfd-core, cfd-io, cfd-2d, cfd-optim (CFDRS-GA-017 clean legs):** every
+  remaining stringly-typed error signature in these crates now returns the
+  crate's typed error — 18 signatures retired: cfd-core's
+  `BoundaryConditionApplicator::apply`, `BoundaryConditionManager`
+  (`add_region`/`apply_all`/`apply_condition`/`update_condition`/
+  `remove_region`), and the three concrete applicators now return
+  `cfd_core::error::Result` with `Error::Boundary`
+  (`BoundaryErrorKind::InvalidRegion`) payloads; cfd-io's checkpoint
+  `validate`/`validate_physics` and the nested serde payload decoder return
+  `cfd_io::error::Result` with `Error::InvalidInput`; cfd-2d's
+  `SimulationFields::copy_from` returns `cfd_core::error::Result` and the
+  drift-diffusion/scalar-transport `solve` loops return
+  `Error::Convergence(MaxIterationsExceeded)` instead of an untyped string;
+  cfd-optim's milestone12 guardrails return a new typed
+  `OptimError::CandidateRejected { id, reason }` (message texts preserved;
+  display output changes only by the variant prefix). The serpentine scalar
+  solver drops its now-redundant `map_err`, so the typed error composes
+  through `?`. Census note: 4 of the previously counted hits were false
+  positives (`String` success type on an already-typed alias), so the true
+  workspace remainder after this delivery is cfd-schematics 19 +
+  cfd-validation 14 = 33.
+- **cfd-schematics, cfd-validation, cfd-1d, cfd-2d (CFDRS-GA-017 closure
+  legs):** the remaining true stringly-typed error signatures are retired
+  and the item is closed. cfd-schematics' state-management constraints and
+  validators (including the stored fn-pointer signatures
+  `fn(&T) -> Result<(), Error>` and the `ValidationFunction` alias), the
+  topology factory build/mutation/spec-analysis and validation trio, the
+  milestone12 presets, geometry strategies, and visualization annotations
+  now return `cfd_core::error::Result` with `Error::Validation`,
+  `InvalidConfiguration`, `InvalidInput`, or `Visualization` payloads;
+  cfd-validation's full-suite runner and its benchmark benchmarks return
+  typed errors instead of strings. A multi-line signature audit (the
+  original single-line grep is blind to nested generics) surfaced 7
+  additional true sites never counted — cfd-1d's branching validation
+  (5) and cfd-2d's solver validation helpers (2) — all retired, bringing
+  the workspace to zero true stringly error signatures. Ripple updates:
+  5 cfd-optim `map_err` sites close over `e.to_string()` (its
+  `From<OptimError>` accepts `String`), one `render_core.rs` caller checks
+  the typed variant, and two schematics test assertions moved from string
+  `.contains` to variant matching. Message texts preserved verbatim;
+  display output changes only by the variant prefix.
+- cfd-io: fixed a pre-existing `unwrap_err` clippy regression in the hdf5
+  shape-mismatch test (`expect_err` with context message).
+- **Breaking:** Move the workspace to **edition 2024 / resolver 3**
+
 - **Breaking:** Remove `cfd-core`'s `compute::simd` modules
   (`compute/simd.rs` and `compute/simd/{x86,aarch64}.rs`, 483 lines). The six
   `pub unsafe fn` kernels they exposed (`advection_avx2`, `advection_sse41`,

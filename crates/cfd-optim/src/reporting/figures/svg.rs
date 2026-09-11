@@ -4,9 +4,9 @@ use std::fmt::Write as _;
 use std::io::Write as IoWrite;
 use std::path::Path;
 
-use super::super::report_math::{ga_convergence_trend, GaConvergenceTrend};
+use super::super::report_math::{GaConvergenceTrend, ga_convergence_trend};
 use super::primitives::{axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned};
-use crate::reporting::{milestone12_therapy_utility, Milestone12ReportDesign, ParetoPoint};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint, milestone12_therapy_utility};
 
 /// Adapter that bridges `std::io::Write` → `std::fmt::Write`, enabling
 /// `write!()` macros (which use `fmt::Write`) to stream directly to a
@@ -936,7 +936,7 @@ pub(super) fn write_dean_venturi_placement_figure(
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{write_dean_venturi_placement_figure, DeanVenturiPoint};
+    use super::{DeanVenturiPoint, write_dean_venturi_placement_figure};
 
     #[test]
     fn dean_venturi_figure_uses_decimal_pressure_labels_for_narrow_ranges() {

@@ -31,8 +31,8 @@ use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Bifurcation3D;
 use crate::scalar;
 use cfd_3d::bifurcation::{BifurcationConfig3D, BifurcationGeometry3D, BifurcationSolver3D};
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::CfdScalar;
+use cfd_core::physics::fluid::blood::CassonBlood;
 use eunomia::FloatElement;
 
 /// 3D Bifurcation Flow benchmark

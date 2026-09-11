@@ -2,7 +2,7 @@
 //! Explicit allocation-instrumentation benchmark for CFD validation workloads.
 
 use cfd_validation::benchmarking::{CfdMemoryProfiler, TrackingAllocator};
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator::new();

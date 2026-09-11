@@ -1,8 +1,9 @@
 use crate::domain::model::NetworkBlueprint;
 use crate::geometry::metadata::BlueprintRenderHints;
 use crate::visualizations::annotations::{
-    classify_node_roles, project_markers_along_path, throat_count_from_blueprint_metadata,
-    venturi_marker_points_from_blueprint, AnnotationMarker, MarkerRole, SchematicAnnotations,
+    AnnotationMarker, MarkerRole, SchematicAnnotations, classify_node_roles,
+    project_markers_along_path, throat_count_from_blueprint_metadata,
+    venturi_marker_points_from_blueprint,
 };
 
 pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicAnnotations {
@@ -85,10 +86,10 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
 
     let hints: Option<&BlueprintRenderHints> = blueprint.render_hints();
     let mut throat_count = throat_count_from_blueprint_metadata(blueprint);
-    if throat_count == 0 {
-        if let Some(h) = hints {
-            throat_count = h.throat_count_hint;
-        }
+    if throat_count == 0
+        && let Some(h) = hints
+    {
+        throat_count = h.throat_count_hint;
     }
 
     if throat_count > 0 {

@@ -72,14 +72,16 @@ mod tests {
 
     #[test]
     fn create_shell_cuboid_rejects_impossible_thickness() {
-        assert!(create_shell_cuboid(
-            (
-                Length::from_unit::<Millimeter>(10.0),
-                Length::from_unit::<Millimeter>(4.0),
-            ),
-            Length::from_unit::<Millimeter>(3.0),
-        )
-        .is_err());
+        assert!(
+            create_shell_cuboid(
+                (
+                    Length::from_unit::<Millimeter>(10.0),
+                    Length::from_unit::<Millimeter>(4.0),
+                ),
+                Length::from_unit::<Millimeter>(3.0),
+            )
+            .is_err()
+        );
     }
 
     #[test]

@@ -1,8 +1,8 @@
 //! Time integration validation tests.
 
 use super::integrators::{
-    state_from_elem, state_from_vec, state_len, ForwardEuler, RungeKutta2, RungeKutta4, State,
-    TimeIntegratorTrait,
+    ForwardEuler, RungeKutta2, RungeKutta4, State, TimeIntegratorTrait, state_from_elem,
+    state_from_vec, state_len,
 };
 use super::results::TimeIntegrationResult;
 use crate::scalar;
@@ -22,8 +22,8 @@ pub struct TimeIntegrationValidator;
 
 impl TimeIntegrationValidator {
     /// Run all validation tests
-    pub fn validate_all<T: RealField + Copy + FloatElement>(
-    ) -> Result<Vec<TimeIntegrationResult<T>>> {
+    pub fn validate_all<T: RealField + Copy + FloatElement>()
+    -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
         // Test exponential decay
@@ -36,8 +36,8 @@ impl TimeIntegrationValidator {
     }
 
     /// Validate exponential decay: dy/dt = -λy
-    fn validate_exponential_decay<T: RealField + Copy + FloatElement>(
-    ) -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn validate_exponential_decay<T: RealField + Copy + FloatElement>()
+    -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
         let lambda = <T as FloatElement>::from_f64(DECAY_LAMBDA);
@@ -117,8 +117,8 @@ impl TimeIntegrationValidator {
     }
 
     /// Validate harmonic oscillator: d²y/dt² + ω²y = 0
-    fn validate_harmonic_oscillator<T: RealField + Copy + FloatElement>(
-    ) -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn validate_harmonic_oscillator<T: RealField + Copy + FloatElement>()
+    -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
         let omega = <T as FloatElement>::from_f64(OSCILLATOR_OMEGA);

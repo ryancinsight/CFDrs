@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use cfd_schematics::topology::presets::enumerate_milestone12_topologies;
 use cfd_schematics::TreatmentActuationMode;
+use cfd_schematics::topology::presets::enumerate_milestone12_topologies;
 
 use super::parameters::CandidateParams;
 use crate::constraints::THROAT_LENGTH_FACTORS;
-use crate::design::space::dimensions::{pst_frac_slices, Milestone12Dimensions};
+use crate::design::space::dimensions::{Milestone12Dimensions, pst_frac_slices};
 
 #[cfg(any(test, debug_assertions))]
 const MILESTONE12_CAPACITY: usize = 8_192;

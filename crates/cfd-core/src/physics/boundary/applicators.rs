@@ -2,6 +2,7 @@
 
 use super::applicator::BoundaryConditionApplicator;
 use super::specification::BoundaryConditionSpec;
+use crate::error::{BoundaryErrorKind, Error, Result};
 use crate::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use eunomia::RealField;
@@ -33,7 +34,7 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Diri
         field: &mut [T],
         boundary_spec: &BoundaryConditionSpec<T>,
         time: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let condition = boundary_spec.evaluate_at_time(time);
 
         if let BoundaryCondition::Dirichlet { value, .. } = condition.as_ref() {
@@ -70,7 +71,9 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Diri
             }
             Ok(())
         } else {
-            Err("Not a Dirichlet condition".to_string())
+            Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(
+                "Not a Dirichlet condition".to_string(),
+            )))
         }
     }
 
@@ -110,7 +113,7 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Neum
         field: &mut [T],
         boundary_spec: &BoundaryConditionSpec<T>,
         time: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let condition = boundary_spec.evaluate_at_time(time);
 
         if let BoundaryCondition::Neumann { gradient } = condition.as_ref() {
@@ -143,7 +146,9 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Neum
             }
             Ok(())
         } else {
-            Err("Not a Neumann condition".to_string())
+            Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(
+                "Not a Neumann condition".to_string(),
+            )))
         }
     }
 
@@ -187,7 +192,7 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Robi
         field: &mut [T],
         boundary_spec: &BoundaryConditionSpec<T>,
         time: T,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let condition = boundary_spec.evaluate_at_time(time);
 
         if let BoundaryCondition::Robin { alpha, beta, gamma } = condition.as_ref() {
@@ -223,7 +228,9 @@ impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for Robi
             }
             Ok(())
         } else {
-            Err("Not a Robin condition".to_string())
+            Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(
+                "Not a Robin condition".to_string(),
+            )))
         }
     }
 

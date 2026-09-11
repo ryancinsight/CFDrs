@@ -1,7 +1,7 @@
 //! Validated advection configuration and provider dispatch.
 
-use crate::compute::gpu::kernels::{dispatch_grid_3d, validate_field_len};
 use crate::compute::gpu::GpuContext;
+use crate::compute::gpu::kernels::{dispatch_grid_3d, validate_field_len};
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
 use hephaestus_wgpu::{

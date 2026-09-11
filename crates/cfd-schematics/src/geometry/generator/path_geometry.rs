@@ -103,7 +103,7 @@ pub(super) fn infer_serpentine_shape(
 
 #[cfg(test)]
 mod tests {
-    use super::{infer_serpentine_shape, ChannelShape};
+    use super::{ChannelShape, infer_serpentine_shape};
 
     #[test]
     fn rolling_offset_scan_counts_opposing_turns() {

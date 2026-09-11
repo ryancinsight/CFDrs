@@ -4,10 +4,10 @@ use aequitas::systems::si::quantities::{
 };
 use aequitas::systems::si::units::{JoulePerCubicMeter, JoulePerMilliliter, Kelvin};
 use cfd_1d::{
-    acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
-    cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
     KAPPA_CTC, KAPPA_PLASMA, KAPPA_RBC, RHO_CTC, RHO_PLASMA, RHO_RBC,
-    SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+    SENSITIZER_K_ACT_HEMATOPORPHYRIN, acoustic_contrast_factor, acoustic_energy_density,
+    cavitation_amplified_hi, cavitation_hemolysis_amplification, giersiepen_hi,
+    sonosensitizer_activation_efficiency,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use hyperion::{
@@ -21,24 +21,25 @@ use super::report_math::{
 };
 use crate::constraints::{
     BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
-    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
     CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
     CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
-    CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
-    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
-    FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
-    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
+    CLOTTING_SHEAR_LOW_RISK_INV_S, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
+    FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K, FDA_TRANSIENT_SHEAR_PA,
+    FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN, P_ATM_PA, PATIENT_BLOOD_VOLUME_ML,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
     PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
-    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
-    VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
+    PLATE_WIDTH_MM, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, VENTURI_EXPANSION_RATIO_HIGH_RISK,
+    VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 use crate::metrics::{
-    compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
-    compute_typed_blueprint_safety_metrics, compute_typed_residence_metrics,
+    ChannelHemolysis, SdtMetrics, compute_blueprint_separation_metrics,
+    compute_blueprint_venturi_metrics, compute_typed_blueprint_safety_metrics,
+    compute_typed_residence_metrics,
     healthy_cell_protection_index as compute_healthy_cell_protection_index,
-    solve_blueprint_candidate, ChannelHemolysis, SdtMetrics,
+    solve_blueprint_candidate,
 };
 
 const MILLIMETRES_PER_METRE: f64 = 1_000.0;

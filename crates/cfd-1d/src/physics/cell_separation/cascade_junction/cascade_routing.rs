@@ -5,8 +5,8 @@
 //! routing law to further enrich stiff cells in the center arm.
 
 use super::routing_probability::{
-    beta_kappa_adjusted, fahrae_beta_correction, p_arm_general, p_center, p_treat_bifurcation,
-    D_CANCER_M, D_RBC_M, D_WBC_M, SE_CANCER, SE_RBC, SE_WBC,
+    D_CANCER_M, D_RBC_M, D_WBC_M, SE_CANCER, SE_RBC, SE_WBC, beta_kappa_adjusted,
+    fahrae_beta_correction, p_arm_general, p_center, p_treat_bifurcation,
 };
 use super::{CascadeJunctionResult, CascadeStage};
 use crate::physics::resistance::parallel_channel_flow_fractions;

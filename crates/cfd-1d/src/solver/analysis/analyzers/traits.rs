@@ -1,7 +1,7 @@
 //! Core traits for network analysis
 
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 
 /// Trait for domain-specific network analyzers
 pub trait NetworkAnalyzer<T: CfdScalar + Copy> {

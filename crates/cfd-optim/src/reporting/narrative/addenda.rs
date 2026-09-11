@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::figures::NarrativeFigureSpec;
-use crate::reporting::report_math::{ga_convergence_trend, GaConvergenceTrend};
+use crate::reporting::report_math::{GaConvergenceTrend, ga_convergence_trend};
 use crate::reporting::{Milestone12GaRankingAuditEntry, Milestone12ReportDesign};
 
 fn parse_lineage_operator(metadata: &str) -> Option<&str> {
@@ -100,9 +100,13 @@ fn geometry_displacement_threshold(
 
 fn cavitation_regime_summary(sigma: f64) -> String {
     if sigma < 0.0 {
-        format!("σ = {sigma:.4} < 0 confirms sub-vapor-pressure throat operation with active hydrodynamic cavitation")
+        format!(
+            "σ = {sigma:.4} < 0 confirms sub-vapor-pressure throat operation with active hydrodynamic cavitation"
+        )
     } else if sigma < 1.0 {
-        format!("σ = {sigma:.4} remains in the inception-capable window (0 < σ < 1), so the throat is cavitation-eligible without yet dropping below vapor pressure")
+        format!(
+            "σ = {sigma:.4} remains in the inception-capable window (0 < σ < 1), so the throat is cavitation-eligible without yet dropping below vapor pressure"
+        )
     } else {
         format!("σ = {sigma:.4} is above the hydrodynamic cavitation threshold")
     }
@@ -205,8 +209,7 @@ score = {:.3}; WBC recovery {:.1}%; HI/pass = {:.4}%; throat viscous heating ΔT
     // §4 — Safety and FDA compliance
     if let Some(option1) = option1 {
         let m1 = &option1.metrics;
-        let _ =
-            writeln!(
+        let _ = writeln!(
             s,
             "**Safety and FDA Compliance:** Both designs pass all five hard eligibility gates. \
 Max P95 wall shear: Option 1 = {:.1} Pa, Option 2 = {:.1} Pa (FDA 150 Pa sustained limit). \
@@ -217,13 +220,33 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m1.wall_shear_p95_pa,
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
-            if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
-            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
+            if m2.throat_transit_time_s < 5e-3 {
+                "<"
+            } else {
+                "≥"
+            },
+            if m2.throat_transit_time_s < 5e-3 {
+                "transient 300 Pa"
+            } else {
+                "sustained 150 Pa"
+            },
             m2.clotting_risk_index,
-            if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
-            if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
+            if m2.clotting_flow_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
+            if m2.clotting_flow_compliant_10ml_s {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             m2.total_ecv_ml,
-            if m2.fda_thermal_compliant { "PASS" } else { "FAIL" },
+            if m2.fda_thermal_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             temp_fmt(m2.throat_temperature_rise_k),
         );
     } else {
@@ -232,13 +255,33 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             "**Safety and FDA Compliance:** The selected Option 2 design passes all five hard eligibility gates. Option 1 produced no eligible shortlist under the current physics regime, so no acoustic selected-design safety row exists for this run. Option 2 P95 wall shear = {:.1} Pa (FDA 150 Pa sustained limit). Venturi-channel transit time: {:.2e} s ({} 5 ms transient threshold, so {} shear limit applies). Clotting risk index = {:.4} at nominal flow; flow caution flags are `Q>=200={}` and `Q>=600={}` for this selected operating point. ECV = {:.3} mL within pediatric circuit targets. FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
-            if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
-            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
+            if m2.throat_transit_time_s < 5e-3 {
+                "<"
+            } else {
+                "≥"
+            },
+            if m2.throat_transit_time_s < 5e-3 {
+                "transient 300 Pa"
+            } else {
+                "sustained 150 Pa"
+            },
             m2.clotting_risk_index,
-            if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
-            if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
+            if m2.clotting_flow_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
+            if m2.clotting_flow_compliant_10ml_s {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             m2.total_ecv_ml,
-            if m2.fda_thermal_compliant { "PASS" } else { "FAIL" },
+            if m2.fda_thermal_compliant {
+                "PASS"
+            } else {
+                "FAIL"
+            },
             temp_fmt(m2.throat_temperature_rise_k),
         );
     }
@@ -342,47 +385,46 @@ rather than a purely local last-step tweak.\n"
                 .total_cmp(&right.score)
                 .then_with(|| left.rank.cmp(&right.rank))
         });
-        if let Some(displaced) = displaced_raw_winner {
-            if displaced.candidate_id != selected.candidate_id
-                || (displaced.score - selected.score).abs() > 1.0e-12
-            {
-                let _ = writeln!(
-                    s,
-                    "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \
+        if let Some(displaced) = displaced_raw_winner
+            && (displaced.candidate_id != selected.candidate_id
+                || (displaced.score - selected.score).abs() > 1.0e-12)
+        {
+            let _ = writeln!(
+                s,
+                "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \
 (raw {:.4}; geometry penalty {:.3}; operating-point penalty {:.3}) over the highest raw-score \
 finalist `{}` (raw {:.4}; adjusted {:.4}) because the displaced design carried a larger geometry \
 concentration penalty of {:.3}{}.\n",
-                    selected.candidate_id,
-                    selected.adjusted_selection_score,
-                    selected.score,
-                    selected.geometry_concentration_penalty,
-                    selected.operating_point_diversity_penalty,
-                    displaced.candidate_id,
-                    displaced.score,
-                    displaced.adjusted_selection_score,
-                    displaced.geometry_concentration_penalty,
-                    if displaced.operating_point_diversity_penalty > 0.0 {
-                        format!(
-                            " and operating-point monoculture penalty {:.3}",
-                            displaced.operating_point_diversity_penalty
-                        )
-                    } else {
-                        String::new()
-                    },
-                );
+                selected.candidate_id,
+                selected.adjusted_selection_score,
+                selected.score,
+                selected.geometry_concentration_penalty,
+                selected.operating_point_diversity_penalty,
+                displaced.candidate_id,
+                displaced.score,
+                displaced.adjusted_selection_score,
+                displaced.geometry_concentration_penalty,
+                if displaced.operating_point_diversity_penalty > 0.0 {
+                    format!(
+                        " and operating-point monoculture penalty {:.3}",
+                        displaced.operating_point_diversity_penalty
+                    )
+                } else {
+                    String::new()
+                },
+            );
+            let _ = writeln!(
+                s,
+                "The direct ranking tradeoff is summarized below.\n\n{}",
+                build_ga_ranking_tradeoff_table(selected, displaced, tradeoff_table_number)
+            );
+            if let Some(threshold) = geometry_displacement_threshold(selected, displaced) {
                 let _ = writeln!(
                     s,
-                    "The direct ranking tradeoff is summarized below.\n\n{}",
-                    build_ga_ranking_tradeoff_table(selected, displaced, tradeoff_table_number)
+                    "At the current operating-point coefficient (0.00020), any geometry penalty coefficient above {:.6} is sufficient to let this lower-concentration finalist displace the higher raw-score design; this run used {:.6}.\n",
+                    threshold,
+                    current_geometry_penalty_weight(),
                 );
-                if let Some(threshold) = geometry_displacement_threshold(selected, displaced) {
-                    let _ = writeln!(
-                        s,
-                        "At the current operating-point coefficient (0.00020), any geometry penalty coefficient above {:.6} is sufficient to let this lower-concentration finalist displace the higher raw-score design; this run used {:.6}.\n",
-                        threshold,
-                        current_geometry_penalty_weight(),
-                    );
-                }
             }
         }
     }

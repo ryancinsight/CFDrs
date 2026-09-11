@@ -366,11 +366,7 @@ pub fn upwind_flux(
     _u_r: &Array1<f64>,
     a: f64,
 ) -> Array1<f64> {
-    if a >= 0.0 {
-        f_l.clone()
-    } else {
-        f_r.clone()
-    }
+    if a >= 0.0 { f_l.clone() } else { f_r.clone() }
 }
 
 /// Compute the HLLC flux for the Euler equations

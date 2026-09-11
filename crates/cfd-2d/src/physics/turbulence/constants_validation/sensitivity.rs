@@ -1,10 +1,10 @@
 //! Sensitivity analysis: validates turbulence constants against DNS channel flow.
 
 use super::{
-    scalar, zero, ConstantsValidationResult, SensitivityResult, TurbulenceConstantsValidator,
+    ConstantsValidationResult, SensitivityResult, TurbulenceConstantsValidator, scalar, zero,
 };
 use crate::physics::turbulence::constants::{
-    C1_EPSILON, C2_EPSILON, C_MU, SA_CB1, SA_CB2, SA_SIGMA, SIGMA_EPSILON, SIGMA_K, SST_ALPHA_1,
+    C_MU, C1_EPSILON, C2_EPSILON, SA_CB1, SA_CB2, SA_SIGMA, SIGMA_EPSILON, SIGMA_K, SST_ALPHA_1,
     SST_BETA_1, SST_BETA_STAR, SST_SIGMA_K1, SST_SIGMA_OMEGA1,
 };
 use eunomia::{NumericElement, RealField};

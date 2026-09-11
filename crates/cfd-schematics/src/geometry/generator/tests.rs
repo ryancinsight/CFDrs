@@ -1,10 +1,10 @@
 use super::*;
 use crate::config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig};
 use crate::domain::model::ChannelShape;
+use crate::geometry::SplitType;
 use crate::geometry::builders::{ChannelExt, NodeExt};
 use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
-use crate::geometry::types::{polyline_length, ChannelType};
-use crate::geometry::SplitType;
+use crate::geometry::types::{ChannelType, polyline_length};
 use crate::topology::presets::single_venturi_series_spec;
 use aequitas::systems::si::quantities::Length;
 

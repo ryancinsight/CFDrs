@@ -36,12 +36,12 @@ use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
-    array1_l2_norm, array1_len, array1_subarray, matrix3_determinant, matrix3_from_columns,
-    matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed, Matrix3x4,
+    Matrix3x4, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
+    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
 };
 use crate::scalar;
 use cfd_core::CfdScalar;
-use moirai::{fold_reduce_with, Adaptive};
+use moirai::{Adaptive, fold_reduce_with};
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.
@@ -117,21 +117,20 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
                 config.tau
             )));
         }
-        if let Some(dt_value) = config.dt {
-            if !<T as NumericElement>::is_finite(dt_value)
-                || dt_value <= <T as NumericElement>::ZERO
-            {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemSolver::try_new: dt must be finite and positive when provided, got {dt_value:?}"
-                )));
-            }
+        if let Some(dt_value) = config.dt
+            && (!<T as NumericElement>::is_finite(dt_value)
+                || dt_value <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: dt must be finite and positive when provided, got {dt_value:?}"
+            )));
         }
-        if let Some(re) = config.reynolds {
-            if !<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO {
-                return Err(Error::InvalidConfiguration(format!(
-                    "FemSolver::try_new: reynolds must be finite and positive when provided, got {re:?}"
-                )));
-            }
+        if let Some(re) = config.reynolds
+            && (!<T as NumericElement>::is_finite(re) || re <= <T as NumericElement>::ZERO)
+        {
+            return Err(Error::InvalidConfiguration(format!(
+                "FemSolver::try_new: reynolds must be finite and positive when provided, got {re:?}"
+            )));
         }
         if config.quadrature_order == 0 {
             return Err(Error::InvalidConfiguration(
@@ -1197,9 +1196,10 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
         // Extract and uniquely sort boundary conditions to guarantee exact deterministic linear matrix
         // assembly across identical geometries on multi-threaded parallel executors with randomized `HashMap`s.
         let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
-        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+        sorted_bcs.sort_unstable_by_key(|entry| *entry.0);
 
-        for (&node_idx, bc) in sorted_bcs {
+        for (node_idx, bc) in sorted_bcs {
+            let node_idx = *node_idx;
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
                     inlet_nodes += 1;
@@ -1248,15 +1248,15 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
                                 vel_dofs.insert(dof);
                             }
                         }
-                        if let Some(Some(p_val)) = comps.get(3) {
-                            if node_idx < problem.n_corner_nodes {
-                                has_pressure_bc = true;
-                                let dof = p_offset + node_idx;
-                                builder.set_dirichlet_row(dof, diag_scale, *p_val);
-                                rhs[dof] = *p_val * diag_scale;
-                                constrained_dofs.push((dof, *p_val));
-                                p_dofs.insert(dof);
-                            }
+                        if let Some(Some(p_val)) = comps.get(3)
+                            && node_idx < problem.n_corner_nodes
+                        {
+                            has_pressure_bc = true;
+                            let dof = p_offset + node_idx;
+                            builder.set_dirichlet_row(dof, diag_scale, *p_val);
+                            rhs[dof] = *p_val * diag_scale;
+                            constrained_dofs.push((dof, *p_val));
+                            p_dofs.insert(dof);
                         }
                     } else {
                         // Scalar Dirichlet: apply to all velocity components (standard wall/inlet)

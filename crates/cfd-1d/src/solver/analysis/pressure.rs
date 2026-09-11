@@ -16,8 +16,8 @@
 //! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
 
 use aequitas::systems::si::quantities::{Pressure, PressureGradient};
-use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::CfdScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use std::collections::HashMap;
 use std::iter::Sum;
 

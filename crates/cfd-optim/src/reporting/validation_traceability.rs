@@ -59,11 +59,7 @@ fn validation_summary(validation_rows: &[ValidationRow]) -> Option<ValidationSum
 }
 
 fn pass_fail(value: bool) -> &'static str {
-    if value {
-        "PASS"
-    } else {
-        "FAIL"
-    }
+    if value { "PASS" } else { "FAIL" }
 }
 
 /// Render the traceability note for the cross-fidelity validation section.
@@ -82,7 +78,9 @@ pub(crate) fn build_validation_traceability_intro(
     };
 
     let figure_manifest_clause = match figure_count {
-        Some(count) => format!("The current figure manifest at `{figure_manifest_path}` enumerates **{count}** figures."),
+        Some(count) => format!(
+            "The current figure manifest at `{figure_manifest_path}` enumerates **{count}** figures."
+        ),
         None => format!(
             "The current figure manifest at `{figure_manifest_path}` enumerates the report figures."
         ),

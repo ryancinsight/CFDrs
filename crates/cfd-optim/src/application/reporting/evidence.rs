@@ -4,9 +4,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::application::objectives::BlueprintObjectiveEvaluation;
-use crate::application::reporting::figures::{missing_required_figures, FigureManifestEntry};
+use crate::application::reporting::figures::{FigureManifestEntry, missing_required_figures};
 use crate::application::reporting::narrative::{
-    build_component_audit, render_goal_narrative, ComponentAuditEntry,
+    ComponentAuditEntry, build_component_audit, render_goal_narrative,
 };
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
@@ -180,7 +180,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::application::objectives::BlueprintObjectiveEvaluation;
-    use crate::application::reporting::figures::{required_figure_ids, FigureManifestEntry};
+    use crate::application::reporting::figures::{FigureManifestEntry, required_figure_ids};
     use crate::domain::fixtures::{
         canonical_option1_candidate, canonical_option2_candidate, operating_point,
     };
@@ -191,8 +191,8 @@ mod tests {
     };
 
     use super::{
-        build_goal_evidence, render_canonical_report, validate_canonical_manifest,
-        EvidenceRunManifest, ValidationEvidence,
+        EvidenceRunManifest, ValidationEvidence, build_goal_evidence, render_canonical_report,
+        validate_canonical_manifest,
     };
 
     fn sample_candidate(goal: OptimizationGoal) -> BlueprintCandidate {

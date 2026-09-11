@@ -375,7 +375,7 @@ impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
             parent_radius: T,
             parent_length: T,
             length_ratio: T,
-            gen: usize,
+            generation: usize,
             max_gen: usize,
             inlet_node: usize,
         ) -> usize {
@@ -391,7 +391,7 @@ impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
             );
             network.vessels.push(vessel);
 
-            if gen >= max_gen {
+            if generation >= max_gen {
                 return outlet_node;
             }
 
@@ -413,7 +413,7 @@ impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
                 daughter_radius,
                 daughter_length,
                 length_ratio,
-                gen + 1,
+                generation + 1,
                 max_gen,
                 outlet_node,
             );
@@ -426,7 +426,7 @@ impl<T: CfdScalar + FloatElement + Copy> BifurcationNetwork<T> {
                 daughter_radius,
                 daughter_length,
                 length_ratio,
-                gen + 1,
+                generation + 1,
                 max_gen,
                 outlet_node,
             );

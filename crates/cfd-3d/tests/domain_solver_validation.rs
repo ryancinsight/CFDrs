@@ -14,10 +14,10 @@ use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
 use cfd_3d::trifurcation::{TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::error::Error;
-use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;
+use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_mesh::VenturiMeshBuilder;
+use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;
 use leto::Array1;
 use std::f64::consts::PI;
 

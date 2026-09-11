@@ -1,8 +1,8 @@
 use crate::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::geometry::Point2D;
 
-use super::detection::detect_crossings;
 use super::IntersectionResult;
+use super::detection::detect_crossings;
 
 struct SplitInfo {
     junction_node_id: String,

@@ -9,8 +9,8 @@
 use crate::scalar::zero;
 use crate::solvers::lbm::lattice::D2Q9;
 use crate::solvers::lbm::streaming::f_idx;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 

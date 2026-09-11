@@ -27,9 +27,9 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 
 pub(crate) fn populate_shear_aware_conditions<T, F>(
@@ -376,8 +376,8 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
-    use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use cfd_core::physics::fluid::ConstantFluid;
+    use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use eunomia::assert_relative_eq;
 
     #[test]

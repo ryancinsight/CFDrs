@@ -9,9 +9,9 @@ use leto_ops::CsrMatrix as LetoCsrMatrix;
 
 use super::{LinearSolverMethod, NetworkSolver};
 use crate::domain::network::Network;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 
 impl<T: CfdScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Detect whether the network has only linear (flow-independent) resistances.

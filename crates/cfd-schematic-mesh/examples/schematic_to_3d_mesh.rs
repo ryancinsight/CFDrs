@@ -35,7 +35,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use cfd_mesh::application::channel::sweep::SweepMesher;
-use cfd_mesh::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
+use cfd_mesh::application::csg::boolean::{BooleanOp, csg_boolean, csg_boolean_nary};
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::core::scalar::Point3r;
 use cfd_mesh::domain::geometry::primitives::{Cube, PrimitiveMesh};

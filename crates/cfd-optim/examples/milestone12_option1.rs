@@ -19,7 +19,7 @@
 //! Scoring uses a hybrid additive + geometric-mean synergy formula clamped
 //! to \[0.001, 1.0\], ensuring no valid design collapses to zero.
 
-use cfd_optim::{refresh_milestone12_reports, run_milestone12_option1, Milestone12RequestedStage};
+use cfd_optim::{Milestone12RequestedStage, refresh_milestone12_reports, run_milestone12_option1};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_milestone12_option1()?;

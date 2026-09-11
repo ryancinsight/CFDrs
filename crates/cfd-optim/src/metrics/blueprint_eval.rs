@@ -5,11 +5,11 @@ use crate::error::OptimError;
 
 use super::blueprint_graph::solve_blueprint_candidate;
 use super::blueprint_separation::{
-    compute_blueprint_separation_metrics, BlueprintSeparationMetrics,
+    BlueprintSeparationMetrics, compute_blueprint_separation_metrics,
 };
-use super::residence::{compute_residence_metrics, ResidenceMetrics};
-use super::safety::{compute_blueprint_safety_metrics, BlueprintSafetyMetrics};
-use super::venturi::{compute_blueprint_venturi_metrics, BlueprintVenturiMetrics};
+use super::residence::{ResidenceMetrics, compute_residence_metrics};
+use super::safety::{BlueprintSafetyMetrics, compute_blueprint_safety_metrics};
+use super::venturi::{BlueprintVenturiMetrics, compute_blueprint_venturi_metrics};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlueprintEvaluation {

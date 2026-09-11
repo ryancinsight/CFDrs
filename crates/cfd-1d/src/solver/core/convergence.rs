@@ -57,8 +57,8 @@
 //! - Kelley, C. T. (1995). *Iterative Methods for Linear and Nonlinear Equations.*
 //!   SIAM. Ch. 1.
 
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
 
@@ -307,20 +307,26 @@ mod tests {
         let previous = vector(vec![10.0, 20.0]);
 
         // Both change=0 and residual tiny => converged
-        assert!(checker
-            .has_converged_dual(&current, &previous, 1e-8, 1.0)
-            .expect("expected value"));
+        assert!(
+            checker
+                .has_converged_dual(&current, &previous, 1e-8, 1.0)
+                .expect("expected value")
+        );
 
         // Change converged but residual large => not converged
-        assert!(!checker
-            .has_converged_dual(&current, &previous, 10.0, 1.0)
-            .expect("expected value"));
+        assert!(
+            !checker
+                .has_converged_dual(&current, &previous, 10.0, 1.0)
+                .expect("expected value")
+        );
 
         // Residual converged but change large => not converged
         let far_previous = vector(vec![0.0, 0.0]);
-        assert!(!checker
-            .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
-            .expect("expected value"));
+        assert!(
+            !checker
+                .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
+                .expect("expected value")
+        );
     }
 
     #[test]

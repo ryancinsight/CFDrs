@@ -15,8 +15,8 @@
 
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
-use leto::geometry::Vector3;
 use leto::Array1;
+use leto::geometry::Vector3;
 use leto_ops::{FiniteDifference, FiniteDifferenceScheme};
 
 /// Compute the first derivative of a 1-D slice using central differences.

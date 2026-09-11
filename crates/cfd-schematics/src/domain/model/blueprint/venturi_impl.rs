@@ -1,5 +1,6 @@
 use super::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
+use crate::error::{Error, Result};
 use crate::geometry::metadata::{ChannelVenturiSpec, MetadataContainer, VenturiGeometryMetadata};
 use crate::topology::{
     TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
@@ -13,14 +14,16 @@ impl NetworkBlueprint {
     ///
     /// Returns an error when no target channel is given, a target channel does
     /// not exist, or a throat geometry cannot be resolved.
-    pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<(), String> {
+    pub fn add_venturi(&mut self, config: &VenturiConfig) -> Result<()> {
         let target_channel_ids = if config.target_channel_ids.is_empty() {
             self.treatment_channel_ids()
         } else {
             config.target_channel_ids.clone()
         };
         if target_channel_ids.is_empty() {
-            return Err("venturi augmentation requires at least one target channel".to_string());
+            return Err(Error::InvalidInput(
+                "venturi augmentation requires at least one target channel".to_string(),
+            ));
         }
 
         let mut placements = Vec::with_capacity(target_channel_ids.len());
@@ -30,10 +33,10 @@ impl NetworkBlueprint {
                 .iter_mut()
                 .find(|channel| channel.id.as_str() == channel_id)
                 .ok_or_else(|| {
-                    format!(
+                    Error::InvalidInput(format!(
                         "venturi augmentation target '{}' does not exist in blueprint '{}'",
                         channel_id, self.name
-                    )
+                    ))
                 })?;
 
             let resolved_inlet_width_m = if config.throat_geometry.inlet_width_m.into_base() > 0.0 {

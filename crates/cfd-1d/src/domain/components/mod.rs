@@ -5,10 +5,10 @@
 //! hydraulic properties and behaviors.
 
 use aequitas::systems::si::quantities::Volume;
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use std::collections::HashMap;
 

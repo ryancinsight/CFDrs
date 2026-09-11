@@ -66,12 +66,12 @@ pub use cfd_core::physics::hemolysis::CAVITATION_HI_SLOPE;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 pub use dynamics::{
-    cavitation_hemolysis_amplification, collapse_jet_velocity, rayleigh_collapse_time,
-    HemolysisExposure, P_REF_ATMOSPHERIC, RAYLEIGH_ALPHA,
+    HemolysisExposure, P_REF_ATMOSPHERIC, RAYLEIGH_ALPHA, cavitation_hemolysis_amplification,
+    collapse_jet_velocity, rayleigh_collapse_time,
 };
 pub use models::{
-    cavitation_amplified_hi, giersiepen_hi, sonosensitizer_activation_efficiency, taskin_hi,
     SENSITIZER_K_ACT_CHLORIN_E6, SENSITIZER_K_ACT_HEMATOPORPHYRIN, TASKIN_BETA, TASKIN_C,
+    cavitation_amplified_hi, giersiepen_hi, sonosensitizer_activation_efficiency, taskin_hi,
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

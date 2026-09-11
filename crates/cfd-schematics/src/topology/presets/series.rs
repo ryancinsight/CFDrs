@@ -6,7 +6,7 @@ use super::super::model::{
     BlueprintTopologySpec, SeriesChannelSpec, SerpentineSpec, TreatmentActuationMode,
     VenturiPlacementMode, VenturiPlacementSpec,
 };
-use super::plate_presets::{series_channel, throat_geometry, PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
+use super::plate_presets::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM, series_channel, throat_geometry};
 use aequitas::systems::si::quantities::Length;
 
 /// Create a canonical linear series-path topology spec.

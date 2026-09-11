@@ -440,11 +440,13 @@ mod tests {
 
         assert!((spectrum.total_energy - expected_energy).abs() < 1e-10);
         assert!((spectrum.shell_energy[0] - expected_energy).abs() < 1e-10);
-        assert!(spectrum
-            .shell_energy
-            .iter()
-            .skip(1)
-            .all(|energy| energy.abs() < 1e-10));
+        assert!(
+            spectrum
+                .shell_energy
+                .iter()
+                .skip(1)
+                .all(|energy| energy.abs() < 1e-10)
+        );
 
         // Ensure the input is left untouched.
         velocity.components[0] = Vector3::new(0.0, 0.0, 0.0);
@@ -501,10 +503,12 @@ mod tests {
             .expect("enstrophy spectrum should compute");
 
         assert!(spectrum.total_enstrophy.abs() < 1e-10);
-        assert!(spectrum
-            .shell_enstrophy
-            .iter()
-            .all(|value| value.abs() < 1e-10));
+        assert!(
+            spectrum
+                .shell_enstrophy
+                .iter()
+                .all(|value| value.abs() < 1e-10)
+        );
     }
 
     #[test]

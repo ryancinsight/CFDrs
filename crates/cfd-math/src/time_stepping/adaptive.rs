@@ -5,8 +5,8 @@
 //! accuracy while optimizing computational efficiency.
 
 use super::traits::{
-    one, state_len, state_norm, state_zeros, zero, EmbeddedMethod, TimeState, TimeStepController,
-    TimeStepper,
+    EmbeddedMethod, TimeState, TimeStepController, TimeStepper, one, state_len, state_norm,
+    state_zeros, zero,
 };
 use cfd_core::error::Result;
 use eunomia::{FloatElement, RealField};

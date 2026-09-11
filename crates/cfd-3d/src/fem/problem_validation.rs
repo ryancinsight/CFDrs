@@ -2,9 +2,9 @@
 
 use super::problem::StokesFlowProblem;
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use leto::geometry::Vector3;
 

@@ -9,8 +9,8 @@ use std::collections::HashMap;
 
 use super::super::super::types::Point2D;
 use super::super::path_geometry::infer_serpentine_shape;
-use super::path_geometry::{build_serpentine_lobe_path, polyline_length_mm};
 use super::CenterSerpentinePathSpec;
+use super::path_geometry::{build_serpentine_lobe_path, polyline_length_mm};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::geometry::metadata::{
     ChannelVisualRole, GeometryAuthoringProvenance, JunctionFamily, VenturiGeometryMetadata,

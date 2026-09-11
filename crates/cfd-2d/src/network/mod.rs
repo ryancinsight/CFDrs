@@ -28,7 +28,7 @@ mod validation;
 pub use build::Network2dBuilderSink;
 pub use projection::NetworkProjectionSummary;
 pub use reference::{
-    solve_reference_trace, ChannelReferenceTrace, NetworkReferenceTrace, NodeReferenceTrace,
+    ChannelReferenceTrace, NetworkReferenceTrace, NodeReferenceTrace, solve_reference_trace,
 };
 pub use types::{
     Channel2dResult, ChannelProjectionSummary, CoupledNetwork2dResult, Network2DSolver,

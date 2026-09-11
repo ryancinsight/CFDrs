@@ -16,15 +16,15 @@
 
 use super::config::PressureLinearSolver;
 use crate::fields::Field2D;
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::scalar;
 use cfd_core::CfdScalar;
 use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::multigrid::AlgebraicMultigrid;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;
-use leto::{geometry::Vector2, Array1};
+use leto::{Array1, geometry::Vector2};
 use std::fmt::Debug;
 
 /// Pressure correction solver supporting multiple linear solver backends

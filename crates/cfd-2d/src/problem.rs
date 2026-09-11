@@ -13,12 +13,12 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use leto::geometry::Vector2;
 use std::collections::HashMap;

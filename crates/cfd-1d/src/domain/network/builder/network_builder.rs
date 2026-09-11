@@ -4,8 +4,8 @@
 //! for any network derived from a [`cfd_schematics`] topology.
 
 use super::super::{Edge, EdgeType, NetworkGraph, Node, NodeType};
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 

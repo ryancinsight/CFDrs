@@ -6,8 +6,8 @@ use super::geometry::VenturiGeometry;
 use super::solution::VenturiFlowSolution;
 use crate::scalar::{self};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
-use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result as CfdResult};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -328,7 +328,7 @@ impl<T: CfdScalar + Copy + FloatElement> VenturiValidator<T> {
         u_inlet: T,
         p_inlet: T,
         rho: T,
-    ) -> Result<VenturiValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<VenturiValidationResult<T>> {
         let bernoulli = BernoulliVenturi::new(self.geometry.clone(), u_inlet, p_inlet, rho);
 
         let u_throat_analytical = bernoulli.velocity_throat();

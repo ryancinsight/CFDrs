@@ -63,9 +63,9 @@
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
@@ -296,13 +296,17 @@ mod tests {
         assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());
 
         let zero_diam = HagenPoiseuilleModel::new(0.0_f64, 0.01_f64);
-        assert!(zero_diam
-            .validate_invariants(&water(), &conditions)
-            .is_err());
+        assert!(
+            zero_diam
+                .validate_invariants(&water(), &conditions)
+                .is_err()
+        );
 
         let neg_length = HagenPoiseuilleModel::new(0.001_f64, -0.01_f64);
-        assert!(neg_length
-            .validate_invariants(&water(), &conditions)
-            .is_err());
+        assert!(
+            neg_length
+                .validate_invariants(&water(), &conditions)
+                .is_err()
+        );
     }
 }

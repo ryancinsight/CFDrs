@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use cfd_math::linear_solver::preconditioners::multigrid::falgout_coarsening;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto_ops::CsrMatrix;
 
 fn poisson_matrix(n: usize) -> CsrMatrix<f64> {

@@ -31,13 +31,13 @@ pub mod types;
 
 pub use self::{
     generator::{
-        create_blueprint_geometry, create_blueprint_geometry_with_metadata, create_geometry,
-        create_geometry_with_metadata, create_shell_cuboid, GeometryGeneratorBuilder,
-        MetadataConfig,
+        GeometryGeneratorBuilder, MetadataConfig, create_blueprint_geometry,
+        create_blueprint_geometry_with_metadata, create_geometry, create_geometry_with_metadata,
+        create_shell_cuboid,
     },
     intersection::{
-        adaptive_box_dims, has_unresolved_intersections, insert_intersection_nodes,
-        unresolved_intersection_count, IntersectionResult,
+        IntersectionResult, adaptive_box_dims, has_unresolved_intersections,
+        insert_intersection_nodes, unresolved_intersection_count,
     },
     types::{
         AdaptiveGradient, ChannelFluidVolumeSummary, ChannelType, ChannelTypeCategory,

@@ -53,29 +53,29 @@ mod scoring;
 
 // ── Top-level re-exports ─────────────────────────────────────────────────────
 
-pub use analysis::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTURBATIONS};
+pub use analysis::{RobustnessReport, STANDARD_PERTURBATIONS, robustness_sweep_blueprint};
 pub use application::objectives::{
-    evaluate_blueprint_genetic_refinement, evaluate_goal,
-    evaluate_selective_acoustic_residence_separation, evaluate_selective_venturi_cavitation,
-    BlueprintEvaluationStatus, BlueprintObjectiveEvaluation,
+    BlueprintEvaluationStatus, BlueprintObjectiveEvaluation, evaluate_blueprint_genetic_refinement,
+    evaluate_goal, evaluate_selective_acoustic_residence_separation,
+    evaluate_selective_venturi_cavitation,
 };
 pub use application::orchestration::{
+    Milestone12GaRun, Milestone12Option1Run, Milestone12Option2Run, Milestone12RequestedStage,
+    Milestone12StageArtifact, Milestone12ValidationRun, ScanProgress,
     blueprint_lineage_key as orchestration_lineage_key, fast_env, fast_mode,
     ga_matches_lineage_sequence, init_tracing, is_selective_report_topology, option2_mode,
     refresh_milestone12_reports, report_eligible_venturi_oncology, resolve_output_directories,
     run_milestone12_ga, run_milestone12_option1, run_milestone12_option2, run_milestone12_report,
-    run_milestone12_validation, save_figure, Milestone12GaRun, Milestone12Option1Run,
-    Milestone12Option2Run, Milestone12RequestedStage, Milestone12StageArtifact,
-    Milestone12ValidationRun, ScanProgress,
+    run_milestone12_validation, save_figure,
 };
 pub use application::reporting::evidence::{
-    build_goal_evidence, render_canonical_report, render_exploratory_report,
-    validate_canonical_manifest, write_canonical_report, write_exploratory_report,
-    EvidenceRunManifest, GoalEvidence, ValidationEvidence,
+    EvidenceRunManifest, GoalEvidence, ValidationEvidence, build_goal_evidence,
+    render_canonical_report, render_exploratory_report, validate_canonical_manifest,
+    write_canonical_report, write_exploratory_report,
 };
-pub use application::reporting::figures::{required_figure_ids, FigureManifestEntry};
+pub use application::reporting::figures::{FigureManifestEntry, required_figure_ids};
 pub use application::reporting::narrative::{
-    build_component_audit, render_goal_narrative, ComponentAuditEntry,
+    ComponentAuditEntry, build_component_audit, render_goal_narrative,
 };
 pub use application::search::deterministic::{
     build_blueprint_candidates_from_specs, rank_blueprint_candidates,
@@ -98,20 +98,20 @@ pub use design::{generate_milestone12_lhs_params, generate_milestone12_lhs_param
 pub use domain::{BlueprintCandidate, OperatingPoint, OptimizationGoal, PatientContext};
 pub use error::OptimError;
 pub use metrics::{
-    compute_blueprint_safety_metrics, compute_blueprint_separation_metrics,
-    compute_blueprint_venturi_metrics, compute_residence_metrics, evaluate_blueprint_candidate,
-    giersiepen_hi, solve_blueprint_candidate, BlueprintEvaluation, BlueprintSafetyMetrics,
-    BlueprintSeparationMetrics, BlueprintSolveSample, BlueprintSolveSummary,
-    BlueprintVenturiMetrics, ChannelHemolysis, ResidenceMetrics, SdtMetrics,
-    StageBlueprintSeparationSummary, VenturiPlacementMetrics,
+    BlueprintEvaluation, BlueprintSafetyMetrics, BlueprintSeparationMetrics, BlueprintSolveSample,
+    BlueprintSolveSummary, BlueprintVenturiMetrics, ChannelHemolysis, ResidenceMetrics, SdtMetrics,
+    StageBlueprintSeparationSummary, VenturiPlacementMetrics, compute_blueprint_safety_metrics,
+    compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
+    compute_residence_metrics, evaluate_blueprint_candidate, giersiepen_hi,
+    solve_blueprint_candidate,
 };
 pub use reporting::{
-    audit_goal_candidates, compute_blueprint_report_metrics, is_milestone12_lineage_topology,
-    milestone12_lineage_key, pct_diff,
+    GoalAuditArtifacts, GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey,
+    Milestone12NarrativeInput, Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
+    ValidationRow, audit_goal_candidates, compute_blueprint_report_metrics,
+    is_milestone12_lineage_topology, milestone12_lineage_key, pct_diff,
     run_milestone12_validation as run_milestone12_validation_solver, shortlist_report_designs,
     sort_report_designs, validate_milestone12_candidate, write_goal_audit_report,
-    write_milestone12_narrative_report, write_milestone12_results, GoalAuditArtifacts,
-    GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey, Milestone12NarrativeInput,
-    Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag, ValidationRow,
+    write_milestone12_narrative_report, write_milestone12_results,
 };
-pub use scoring::{score_candidate, score_description, OptimMode, SdtWeights};
+pub use scoring::{OptimMode, SdtWeights, score_candidate, score_description};

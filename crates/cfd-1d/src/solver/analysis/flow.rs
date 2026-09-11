@@ -6,8 +6,8 @@ use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, ReciprocalTime, Time, Velocity, VolumetricFlowRate,
 };
-use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::CfdScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use eunomia::NumericElement;
 use std::collections::HashMap;
 use std::iter::Sum;
@@ -306,11 +306,15 @@ mod tests {
 
         assert_eq!(violations.len(), 1);
         assert_eq!(violations[0].component_id, "edge_3");
-        assert!(violations[0]
-            .giersiepen_exceedance_ratio
-            .is_some_and(|ratio| ratio.into_base() > 1.0));
-        assert!(violations[0]
-            .taskin_exceedance_ratio
-            .is_some_and(|ratio| ratio.into_base() > 1.0));
+        assert!(
+            violations[0]
+                .giersiepen_exceedance_ratio
+                .is_some_and(|ratio| ratio.into_base() > 1.0)
+        );
+        assert!(
+            violations[0]
+                .taskin_exceedance_ratio
+                .is_some_and(|ratio| ratio.into_base() > 1.0)
+        );
     }
 }

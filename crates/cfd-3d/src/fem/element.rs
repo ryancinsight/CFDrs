@@ -31,7 +31,7 @@
 //! **Reference:** Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed., §7.3.
 
 use crate::fem::constants;
-use crate::linalg::{array2_set_column3, symmetric_part, Matrix3};
+use crate::linalg::{Matrix3, array2_set_column3, symmetric_part};
 use crate::scalar;
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};

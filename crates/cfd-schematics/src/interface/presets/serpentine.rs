@@ -1,6 +1,6 @@
 use super::finalize_preset_blueprint;
-use crate::topology::presets::{serpentine_bend_venturi_series_spec, serpentine_series_spec};
 use crate::BlueprintTopologyFactory;
+use crate::topology::presets::{serpentine_bend_venturi_series_spec, serpentine_series_spec};
 
 #[must_use]
 /// Build a serpentine chain blueprint with the given segment count.

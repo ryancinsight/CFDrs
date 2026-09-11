@@ -21,7 +21,7 @@
 //!   baseline for shock-capturing finite-difference and finite-volume schemes.
 
 use super::weno_helpers::{weno5_candidate_fluxes, weno5_smoothness_indicators, weno5_z_weights};
-use super::{constants, Grid2D, SpatialDiscretization};
+use super::{Grid2D, SpatialDiscretization, constants};
 use cfd_core::CfdScalar;
 use eunomia::FloatElement;
 

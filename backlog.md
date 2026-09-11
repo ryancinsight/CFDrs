@@ -4839,20 +4839,26 @@ Filed by the Atlas gap audit (evidence: `gap_audit.md` §"Finding 2026-08-20:
 CFDrs scope-vs-delivery audit"). Every item below is `status=todo`, unclaimed.
 No existing item's status was changed by this audit.
 
-- **CFDRS-GA-001 [major][arch] — Remove the library-crate global allocator (status=todo, effort=M).**
-  Outcome: `cfd-validation` no longer installs a process-wide allocator, so no
-  test, bench, example, or downstream binary in its link graph inherits
-  allocation instrumentation it did not request, and a consumer may declare its
-  own `#[global_allocator]`.
-  Scope: `crates/cfd-validation/src/benchmarking/memory.rs` (`#[global_allocator]`
-  at :93, `unsafe impl GlobalAlloc` at :315-345) and its callers.
-  Non-goals: removing the memory-statistics API itself — only its unconditional
-  global installation; the tracking facility may return through an opt-in
-  harness the benchmark explicitly constructs.
-  Acceptance oracle: no `#[global_allocator]` outside an explicitly opted-in
-  bench/bin target; a test binary asserts allocation counts only where the
-  harness is installed; `cargo check --workspace --all-targets` green.
-  Dependencies: none. Risk: public behaviour change of a published crate.
+- **CFDRS-GA-001 [major][arch] — Remove the library-crate global allocator (status=done, effort=M).**
+  Delivered in two stages. Stage 1 (peer mainline `d1305ee2`, "Make allocation
+  tracking opt-in") removed the audit's headline site — the unconditional
+  `#[global_allocator]` at the then-`memory.rs:93` — by reworking
+  `TrackingAllocator` to carry its own `MemoryStats` counter so installation is
+  always an explicit, per-process choice, and adding the `memory_profiling`
+  bench plus the `tests/allocator_compat.rs` consumer-coexistence proof.
+  Stage 2 (close-out, 2026-09-10): the oracle's letter still failed on one
+  residual installation — the `#[cfg(test)]` allocator inside the library's
+  unit-test module — moved to a dedicated
+  `crates/cfd-validation/tests/tracking_allocator.rs` harness binary that
+  installs `TrackingAllocator` explicitly (same process-global-instrument
+  isolation rationale as asclepius PR #44). Oracle, all verified: workspace
+  census `grep -rn global_allocator crates/*/src/` returns zero hits;
+  every remaining installation sits in an explicitly opted-in target
+  (`benches/memory_profiling.rs`, `tests/allocator_compat.rs`,
+  `tests/tracking_allocator.rs`); allocation-count assertions exist only
+  where the harness is installed; clippy `--workspace --all-targets
+  --all-features -D warnings` green, fmt clean, nextest 3294 main + 14
+  fidelity (serial) + doctests green on merged main.
 
 - **CFDRS-GA-002 [patch][verification] — Bring root `examples/`, `benches/`, `tests/` under a cargo target (status=todo, effort=M).**
   Outcome: the 54 files / 10 543 lines under the repository-root `examples/`,
@@ -5167,7 +5173,7 @@ No existing item's status was changed by this audit.
   Dependencies: none. Promote crate by crate, smallest first (`cfd-io` at
   1807 lines, `cfd-schematic-mesh` at 3590).
 
-- **CFDRS-GA-012 [patch][arch] — Consolidate the duplicate Richardson extrapolation (status=todo, effort=S).**
+- **CFDRS-GA-012 [patch][arch] — Consolidate the duplicate Richardson extrapolation (status=done, effort=S).**
   Outcome: one Richardson implementation in `cfd-validation`, returning typed
   errors.
   Scope: `crates/cfd-validation/src/convergence/richardson.rs` (224 lines) and
@@ -5180,6 +5186,30 @@ No existing item's status was changed by this audit.
   `cfd-core` error variant; the published three-grid worked example from
   Roache (1998) is asserted value-semantically against it.
   Dependencies: none.
+  Delivered 2026-09-09: the stringly-typed duplicate in
+  `manufactured/richardson/core.rs` is retired — `estimate_order`/
+  `extrapolate` are thin typed adapters over the canonical
+  `convergence::RichardsonExtrapolation` (path-compatible re-export keeps
+  `core::RichardsonExtrapolation` resolving), and `is_asymptotic` survives as
+  a free function since its monotone-error contract differs from the
+  canonical ratio-band method (documented on both). The canonical
+  implementation absorbed the duplicate's stability guards: signed
+  convergence-ratio rejection and order bounds (0.1..15) in `estimate_order`,
+  `r^p ≈ 1` denominator checks returning `Result` from
+  `extrapolate`/`grid_convergence_index` (`Error::Numerical(DivisionByZero)`).
+  `MmsRichardsonStudy::compute_richardson_extrapolation` now estimates the
+  order once (was: two stringly calls, both `map_err`ed). Oracle met: single
+  public entry point returning `cfd-core` errors; Roache (1998) three-grid
+  worked example (NASA GRC tutorial, f = 0.97050/0.96854/0.96178, r = 2)
+  asserted value-semantically with exact anchors — 2^p = 169/49 (exact
+  rational for this data), f_h→0 = 0.97050 + 0.00196·49/120, fractional
+  GCI_12 = 0.103083%, GCI_23 = 0.356244%, asymptotic ratio ≈ 1.002 — all
+  matching NASA's published hand calculation and VERIFY output. Gates via the
+  standalone `--locked` route (in-tree blocked by the standing apollo-fft/leto
+  overlay break, dependency-side): fmt clean, clippy `-D warnings` clean
+  through the cfd-validation dependency cone, 441 tests + doctests, 0
+  failures. Unique MMS machinery (`DataDrivenOrderEstimation`,
+  `MmsRichardsonStudy`) and the GCI reporting layer (non-goal) untouched.
 
 - **CFDRS-GA-013 [patch][verification] — Resolve the five capability-admitting `#[ignore]`s (status=todo, effort=M).**
   Outcome: each ignored test either passes against corrected production code or
@@ -5247,21 +5277,24 @@ No existing item's status was changed by this audit.
   `allow_sites` counts strictly decrease each increment and never increase.
   Dependencies: none. Burn down per crate.
 
-- **CFDRS-GA-016 [patch][arch] — Move the workspace to edition 2024 / resolver 3 (status=todo, effort=M).**
-  Outcome: the workspace builds on the current edition, so `unsafe_op_in_unsafe_fn`,
-  `unsafe extern`, and let-chains are available and enforced.
-  Scope: `Cargo.toml` (`edition = "2021"`, `resolver = "2"`) and all 12
-  packages; the unsafe surface named here was re-measured 2026-09-09 after
-  CFDRS-GA-004 deleted the `compute/simd` modules: 10 `unsafe fn`/`unsafe {}`
-  sites remain, across `cfd-core/src/physics/fluid_dynamics/operations.rs`
-  and `cfd-validation/src/benchmarking/memory.rs`, and library source now
-  carries 19 `// SAFETY:` comments — the per-operation block + comment
-  discipline below applies to whatever remains at execution time.
-  Non-goals: raising the toolchain pin beyond what edition 2024 requires.
-  Acceptance oracle: `cargo check --workspace --all-targets` and `cargo clippy
-  --workspace --all-targets -- -D warnings` green at edition 2024.
-  Dependencies: verify every Atlas provider in the graph resolves under
-  resolver 3 before landing.
+- **CFDRS-GA-016 [patch][arch] — Move the workspace to edition 2024 / resolver 3 (status=done, effort=M).**
+  Delivered 2026-09-10 on `refactor/cfdrs-ga016-edition-2024`: single flip in the
+  workspace manifest (all 12 packages inherit; `resolver = "3"` + `edition = "2024"`).
+  Unsafe surface: the 10 remaining `unsafe fn`/`unsafe {}` sites (cfd-core
+  operations.rs, cfd-validation memory.rs) were already in the per-operation
+  block + `// SAFETY:` style, so the edition's stricter `unsafe_op_in_unsafe_fn`
+  default enforces with zero code change. Fallout census, all fixed: `gen`
+  reserved keyword (7 sites → `r#gen`/renames), pattern binding-mode strictness
+  (~10 tuple/ref sites → field-access closures or adjusted patterns), let-chain
+  adoption where clippy demanded it (19 collapsible-if sites), one
+  `unwrap_err()` → `expect_err()` (cfd-io hdf5 test, under the `unwrap_used`
+  deny floor), and rustfmt style-edition-2024 import reordering (~500 files,
+  mechanical). Gates: in-tree fmt clean, clippy `--workspace --all-targets
+  --all-features -D warnings` green, nextest 3287 main + 14 fidelity (serial)
+  + doctests green; standalone worktree at fresh HEAD `2ca6daf1` re-gated
+  `--locked` with identical results (also proves composition with PR #429's
+  apollo-fft lock advance). Resolver 3 verified over the full Atlas provider
+  cone (apollo/leto/coeus/moirai 0.6 local trees).
 
 - **CFDRS-GA-018 [patch][ci] — Decide the pull-request affected-scope filter (status=todo, effort=S).**
   Outcome: pull-request verification runs the jobs the changed paths reach
@@ -5285,19 +5318,66 @@ No existing item's status was changed by this audit.
   fewer jobs than today's matrix.
   Dependencies: none.
 
-- **CFDRS-GA-017 [patch][correctness] — Retire the 56 stringly-typed error returns (status=todo, effort=M).**
+- **CFDRS-GA-017 [patch][correctness] — Retire the remaining stringly-typed error returns (status=done, effort=M).**
   Outcome: every fallible public API returns the crate's typed error
   (`cfd_core::error::Error` through the crate `Result` alias), so callers
   match on variants instead of parsing strings and `?` composes across the
   stack; the gap audit's conformance-floor section named this surface while
   filing CFDRS-GA-012, and this item owns the workspace-wide remainder.
-  Scope (grep-measured 2026-09-09, `Result<…String>` in `crates/*/src`, 56
-  sites): cfd-schematics 19 (`topology/factory/validation.rs` 3,
+  Scope (re-counted 2026-09-09 post-CFDRS-GA-012, `Result<…String>` in
+  `crates/*/src`, 54 sites): cfd-schematics 19 (`topology/factory/validation.rs` 3,
   `topology/factory/core/mutation_impl.rs` 3, remainder across the topology
-  and visualization modules), cfd-validation 16
+  and visualization modules), cfd-validation 14
   (`manufactured/richardson/analysis.rs` 7, `reporting/data.rs` 2), cfd-core
   13 (`physics/boundary/manager.rs` 5, `physics/boundary/applicators.rs` 3),
   cfd-io 4, cfd-2d 3, cfd-optim 1.
+  Delivered 2026-09-09 (the four clean legs, branch
+  `refactor/cfdrs-ga017-typed-errors-clean-legs`): cfd-core, cfd-io, cfd-2d,
+  and cfd-optim are fully retired — 18 signatures. Census corrections: 4 of
+  the counted hits are false positives (`String` as the *success* type of an
+  already-typed `Result` alias: cfd-core `management/plugin/traits.rs` 2,
+  `management/plugin/dependency.rs` 1, cfd-io `csv/reader.rs` 1), so cfd-core
+  contributes 10 not 13; the nested `MatrixPayload::into_array ->
+  Result<Array2<T>, String>` in cfd-io `checkpoint/data.rs` is invisible to
+  the `Result<[^>]*String>` regex but was retired too. Payload mapping:
+  boundary to `Error::Boundary(BoundaryErrorKind::InvalidRegion(…))`,
+  checkpoint/validation to `Error::InvalidInput`, solver non-convergence to
+  `Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded)`,
+  milestone12 guardrails to a new typed `OptimError::CandidateRejected`
+  (message texts preserved verbatim). Caller updates: serpentine scalar-solve
+  `map_err` dropped (the typed error now composes through `?`); guardrails
+  call sites unchanged (`?` into `Box<dyn Error>` and `.ok()?` coerce). One
+  pre-existing main-branch clippy regression fixed en passant (`unwrap_err`
+  → `expect_err`, cfd-io hdf5 test). Gates: standalone `--locked` fmt clean,
+  clippy `-D warnings` green, 1156 tests / 0 failures. Remaining true
+  surface: cfd-schematics 19, cfd-validation 14 (post-CFDRS-GA-012).
+  Delivered 2026-09-09 (closure legs, same branch, includes an oracle
+  correction): the item's original oracle regex was **blind to nested
+  generics** — a full multi-line signature audit surfaced 7 more true sites
+  never counted (cfd-1d branching validation 5, cfd-2d solver validation
+  helpers 2), all retired (branching to `Error::Solver`, cfd-2d sites are
+  vestigial Err channels over structured result fields). cfd-schematics and
+  cfd-validation legs retired their full true surfaces: schematics payloads
+  to `Error::Validation` / `InvalidConfiguration` / `InvalidInput` /
+  `Visualization` (incl. the fn-pointer signatures
+  `fn(&T) -> Result<(), Error>` and the `ValidationFunction` alias, plus
+  regex-blind `Result<Vec<SplitType>, String>` / `Result<SplitStageSpec,
+  String>`), validation's suite runner to `Error::Validation` and benchmark
+  benchmarks to `InvalidConfiguration`; message texts preserved verbatim.
+  Ripple updates: 5 cfd-optim `map_err` sites now close over
+  `e.to_string()` (its `From<OptimError>` accepts `String`), one
+  `render_core.rs` caller checks the typed variant, two schematics test
+  assertions moved from string `.contains` to variant matching, and the
+  cfd-1d branching solve call chain composes through `?`. Gates: standalone
+  `--locked` fmt clean, clippy `-D warnings` green across
+  cfd-schematics/cfd-validation/cfd-1d/cfd-2d/cfd-optim, 810 tests / 0
+  failures on the integrated composition (GA-012 branch overlaid),
+  straggler suites green (677+511 in cfd-1d/cfd-2d targets). Final oracle
+  (multi-line audit + nested-generic sweep): zero true stringly error
+  signatures remain in `crates/*/src` — the only surviving
+  `Result<…String…>` hits are String-as-success types (reporting renderers,
+  `serde_json::Error` serializers, label-data tuples) and test modules'
+  `Box<dyn Error>`, both out of scope by the item's definition.
   Mechanic: replace `Result<T, String>` with the crate `Result<T>` alias and
   `Err(format!(…))`/`Err(String::from(…))` with the nearest typed variant
   (`InvalidInput`, `InvalidConfiguration`, `Numerical`), preserving the
@@ -5305,8 +5385,12 @@ No existing item's status was changed by this audit.
   Non-goals: redesigning `cfd_core::error::Error`'s variant set; test
   modules' `Result<(), Box<dyn Error>>` returns, which are not stringly in
   the audited sense.
-  Acceptance oracle: `grep -rn "Result<[^>]*String>" crates/*/src` returns
-  nothing.
+  Acceptance oracle (corrected): a single-line `Result<[^>]*String>` grep is
+  the discovery tool, not proof — it misses nested generics
+  (`Result<Vec<SplitType>, String>`) and flags String-as-success types. The
+  closing oracle is the multi-line signature audit (every `-> …String…`
+  signature ending in `;`/`{` containing `Result<`) plus a nested-generic
+  sweep, both run empty of true stringly error returns 2026-09-09.
   Dependencies: none for the cfd-io/cfd-2d/cfd-optim/cfd-core sites; the
   cfd-validation and cfd-schematics sites overlap CFDRS-GA-012 (that
   consolidation deletes some of them) — land either first and re-count

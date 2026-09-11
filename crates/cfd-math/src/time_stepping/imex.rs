@@ -50,12 +50,12 @@
 //!   for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
 
 use super::traits::{
-    one, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState, TimeStepper,
+    TimeMatrix, TimeState, TimeStepper, one, state_len, state_norm, state_zeros, zero,
 };
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use eunomia::FloatElement;
 use eunomia::{NumericElement, RealField};
-use leto_ops::{solve, RealScalar};
+use leto_ops::{RealScalar, solve};
 
 /// IMEX Runge-Kutta method for systems with mixed stiffness
 ///

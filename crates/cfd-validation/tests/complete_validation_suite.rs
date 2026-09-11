@@ -11,15 +11,15 @@
 //! - Integration testing across all components
 
 use cfd_validation::benchmarking::{
-    analysis::{PerformanceAnalyzer, RegressionConfig},
     BenchmarkConfig, BenchmarkStatus, BenchmarkSuite,
+    analysis::{PerformanceAnalyzer, RegressionConfig},
 };
 use cfd_validation::geometry::{CircularDomain, RectangularDomain};
 use cfd_validation::manufactured::{
-    richardson::MmsRichardsonStudy, ManufacturedBurgers, ManufacturedCompressibleEuler,
-    ManufacturedConjugateHeatTransfer, ManufacturedDiffusion, ManufacturedHypersonic,
-    ManufacturedKEpsilon, ManufacturedNavierStokes, ManufacturedShockCapturing,
-    ManufacturedSolution, ManufacturedSpeciesTransport, ManufacturedTaylorGreen,
+    ManufacturedBurgers, ManufacturedCompressibleEuler, ManufacturedConjugateHeatTransfer,
+    ManufacturedDiffusion, ManufacturedHypersonic, ManufacturedKEpsilon, ManufacturedNavierStokes,
+    ManufacturedShockCapturing, ManufacturedSolution, ManufacturedSpeciesTransport,
+    ManufacturedTaylorGreen, richardson::MmsRichardsonStudy,
 };
 use cfd_validation::reporting::ValidationSummary;
 
@@ -310,8 +310,8 @@ fn test_convergence_studies() -> Vec<bool> {
 }
 
 /// Test performance benchmarking suite
-fn test_performance_benchmarking(
-) -> Result<Vec<cfd_validation::benchmarking::suite::BenchmarkResult>, Box<dyn std::error::Error>> {
+fn test_performance_benchmarking()
+-> Result<Vec<cfd_validation::benchmarking::suite::BenchmarkResult>, Box<dyn std::error::Error>> {
     let config = BenchmarkConfig {
         iterations: 1, // Quick test
         enable_memory: true,

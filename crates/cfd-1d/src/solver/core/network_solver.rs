@@ -1,17 +1,18 @@
 use crate::domain::network::Network;
+use cfd_core::CfdScalar;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};
 use cfd_core::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind};
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use cfd_core::CfdScalar;
 use cfd_math::nonlinear_solver::{AndersonAccelerator, AndersonConfig, AndersonMethod};
 use eunomia::{FloatElement, NumericElement};
 
 use super::vector_bridge::{array_l2_norm, copy_array};
 use super::{
-    newton_fallback::{jfnk_fallback, FallbackBudget},
-    workspace, ConvergenceChecker, LinearSolverMethod, LinearSystemSolver, MatrixAssembler,
-    NetworkProblem, PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason, SolverConfig,
+    ConvergenceChecker, LinearSolverMethod, LinearSystemSolver, MatrixAssembler, NetworkProblem,
+    PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason, SolverConfig,
+    newton_fallback::{FallbackBudget, jfnk_fallback},
+    workspace,
 };
 
 /// Main network solver implementing the core CFD suite trait system

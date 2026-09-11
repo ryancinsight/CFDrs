@@ -23,7 +23,7 @@
 //! GA score is **not comparable** to Option 1 or Option 2 scores — different
 //! objective functions weight different physics.
 
-use cfd_optim::{refresh_milestone12_reports, run_milestone12_ga, Milestone12RequestedStage};
+use cfd_optim::{Milestone12RequestedStage, refresh_milestone12_reports, run_milestone12_ga};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_milestone12_ga()?;

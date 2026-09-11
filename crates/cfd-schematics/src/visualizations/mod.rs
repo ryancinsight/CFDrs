@@ -25,14 +25,14 @@ pub mod plotters_backend;
 pub mod schematic;
 pub mod traits;
 
-pub use analysis_field::{colorize, AnalysisField, AnalysisOverlay};
+pub use analysis_field::{AnalysisField, AnalysisOverlay, colorize};
 pub use annotations::{
+    AnnotationMarker, AnnotationStyle, LabelDensity, MarkerRole, SchematicAnnotations,
     center_biased_main_path, classify_node_roles, infer_terminal_nodes_by_x,
     project_markers_along_path, should_render_label, therapy_zone_presence,
-    throat_count_from_blueprint_metadata, venturi_marker_points_from_blueprint, AnnotationMarker,
-    AnnotationStyle, LabelDensity, MarkerRole, SchematicAnnotations,
+    throat_count_from_blueprint_metadata, venturi_marker_points_from_blueprint,
 };
-pub use plotters_backend::{create_plotters_renderer, plot_shell_cuboid, PlottersRenderer};
+pub use plotters_backend::{PlottersRenderer, create_plotters_renderer, plot_shell_cuboid};
 pub use schematic::{
     centerline_vertices, plot_blueprint, plot_blueprint_auto_annotated,
     plot_blueprint_with_annotations, plot_geometry, plot_geometry_with_annotations,

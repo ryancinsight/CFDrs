@@ -2,6 +2,7 @@
 use super::{BlueprintTopologyFactory, BlueprintTopologyMutation};
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
+use crate::error::{Error, Result};
 use crate::topology::model::{
     BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, SerpentineSpec, SplitKind,
     SplitStageSpec, TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
@@ -10,7 +11,7 @@ use aequitas::systems::si::quantities::Length;
 
 impl BlueprintTopologyFactory {
     /// Validate a spec without building (called by `NetworkBlueprint::validate`).
-    pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<(), String> {
+    pub fn validate_spec(spec: &BlueprintTopologySpec) -> Result<()> {
         super::super::validation::validate_spec(spec)
     }
 
@@ -19,16 +20,15 @@ impl BlueprintTopologyFactory {
         blueprint: &NetworkBlueprint,
         mutation: BlueprintTopologyMutation,
         next_stage: TopologyOptimizationStage,
-    ) -> Result<NetworkBlueprint, String> {
-        let spec = blueprint
-            .topology
-            .as_ref()
-            .ok_or("Blueprint has no topology spec to mutate")?;
+    ) -> Result<NetworkBlueprint> {
+        let spec = blueprint.topology.as_ref().ok_or_else(|| {
+            Error::InvalidInput("Blueprint has no topology spec to mutate".to_string())
+        })?;
         if spec.is_selective_routing() && !blueprint.is_geometry_authored() {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "selective-routing mutation requires create_geometry-authored provenance on blueprint '{}'",
                 blueprint.name
-            ));
+            )));
         }
 
         let mut new_spec = spec.clone();
@@ -116,10 +116,10 @@ impl BlueprintTopologyFactory {
                     .channel_route(&target_channel_id)
                     .ok_or_else(|| format!("Treatment channel '{target_channel_id}' not found"))?;
                 if route.therapy_zone != TherapyZone::CancerTarget {
-                    return Err(format!(
+                    return Err(Error::InvalidInput(format!(
                         "venturi mutation requires a CancerTarget channel, but '{}' is {:?}",
                         target_channel_id, route.therapy_zone
-                    ));
+                    )));
                 }
                 let placement_id = format!("mut_vt_{}", new_spec.venturi_placements.len());
                 let serial_throat_count = serial_throat_count.max(1);
@@ -193,9 +193,9 @@ impl BlueprintTopologyFactory {
                 if !parent_branch.treatment_path
                     || parent_branch.route.therapy_zone != TherapyZone::CancerTarget
                 {
-                    return Err(format!(
+                    return Err(Error::InvalidInput(format!(
                         "split-merge insertion requires CancerTarget treatment channel '{target_channel_id}'"
-                    ));
+                    )));
                 }
 
                 let inserted_stage_id = format!("stage_{}", stage_index + 1);
@@ -239,18 +239,18 @@ impl BlueprintTopologyFactory {
         if let Some(existing_lineage) = blueprint.lineage.clone() {
             result.lineage = Some(existing_lineage);
         }
-        if let Some(source_hints) = blueprint.render_hints() {
-            if source_hints.mirror_x || source_hints.mirror_y {
-                Self::mirror_blueprint_geometry(
-                    &mut result,
-                    new_spec.box_dims_mm(),
-                    source_hints.mirror_x,
-                    source_hints.mirror_y,
-                );
-                if let Some(render_hints) = result.render_hints.as_mut() {
-                    render_hints.mirror_x = source_hints.mirror_x;
-                    render_hints.mirror_y = source_hints.mirror_y;
-                }
+        if let Some(source_hints) = blueprint.render_hints()
+            && (source_hints.mirror_x || source_hints.mirror_y)
+        {
+            Self::mirror_blueprint_geometry(
+                &mut result,
+                new_spec.box_dims_mm(),
+                source_hints.mirror_x,
+                source_hints.mirror_y,
+            );
+            if let Some(render_hints) = result.render_hints.as_mut() {
+                render_hints.mirror_x = source_hints.mirror_x;
+                render_hints.mirror_y = source_hints.mirror_y;
             }
         }
         if let Some(ref mut lineage) = result.lineage {
@@ -286,7 +286,7 @@ fn build_inserted_treatment_stage(
     split_kind: SplitKind,
     parent_route: &ChannelRouteSpec,
     treatment_serpentine: Option<SerpentineSpec>,
-) -> Result<SplitStageSpec, String> {
+) -> Result<SplitStageSpec> {
     let parent_width_m = parent_route.width_m.into_base();
     let height_m = parent_route.height_m.into_base();
     let length_m = parent_route.length_m.into_base().max(1.0e-3);
@@ -421,7 +421,9 @@ fn build_inserted_treatment_stage(
             ]
         }
         SplitKind::NFurcation(other) => {
-            return Err(format!("unsupported split-merge insertion N={other}"));
+            return Err(Error::InvalidInput(format!(
+                "unsupported split-merge insertion N={other}"
+            )));
         }
     };
 

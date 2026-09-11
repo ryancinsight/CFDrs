@@ -20,11 +20,11 @@
 use super::geometry::NetworkDomain;
 use super::state::NetworkState;
 use crate::domain::network::Network;
+use cfd_core::CfdScalar;
 use cfd_core::abstractions::problem::Problem;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryConditionSet;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use cfd_core::CfdScalar;
 
 /// Problem definition for 1D network flow analysis
 ///

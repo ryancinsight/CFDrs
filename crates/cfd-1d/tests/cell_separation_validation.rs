@@ -24,8 +24,8 @@
 
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
-    margination::{dean_number, lateral_equilibrium},
     CellProperties, CellSeparationModel,
+    margination::{dean_number, lateral_equilibrium},
 };
 use cfd_1d::physics::resistance::{FlowConditions, VenturiModel};
 use eunomia::assert_relative_eq;

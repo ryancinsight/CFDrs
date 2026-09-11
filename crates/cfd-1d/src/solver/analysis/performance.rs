@@ -23,8 +23,8 @@
 //! into moving fluid through the channel resistances.
 
 use aequitas::systems::si::quantities::{Dimensionless, Power, Pressure, Time, VolumetricFlowRate};
-use cfd_core::conversion::SafeFromUsize;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
 

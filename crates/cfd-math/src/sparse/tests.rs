@@ -173,16 +173,20 @@ fn test_sparse_extension_scaling_and_condition_use_leto_provider() -> Result<()>
     assert_eq!(matrix.row_ptr(), &[0, 2, 3, 6]);
     assert_eq!(matrix.col_indices(), &[0, 2, 1, 0, 1, 2]);
 
-    assert!(SparseMatrixExt::scale_rows(
-        &mut matrix,
-        &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
-    )
-    .is_err());
-    assert!(SparseMatrixExt::scale_columns(
-        &mut matrix,
-        &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
-    )
-    .is_err());
+    assert!(
+        SparseMatrixExt::scale_rows(
+            &mut matrix,
+            &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
+        )
+        .is_err()
+    );
+    assert!(
+        SparseMatrixExt::scale_columns(
+            &mut matrix,
+            &Array1::from_shape_vec([2], vec![1.0, 2.0]).expect("expected value"),
+        )
+        .is_err()
+    );
 
     let rectangular = CsrMatrix::from_parts(vec![1.0f64, 2.0], vec![0, 2], vec![0, 1, 2], 2, 3)
         .expect("expected value");

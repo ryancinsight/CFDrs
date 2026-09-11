@@ -4,8 +4,8 @@
 //! for positive Jacobian determinant, and bounding-box mesh scale computation.
 
 use cfd_core::error::Result;
-use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::topology::Cell;
 use eunomia::RealField;
 use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
@@ -444,8 +444,8 @@ where
 mod tests {
     use super::*;
     use crate::fem::mid_node_cache::MidNodeCache;
-    use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
+    use cfd_mesh::domain::topology::Cell;
     use leto::Point3;
 
     /// Build a minimal P1 tet mesh: 4 vertices, 4 triangular faces, 1 cell.

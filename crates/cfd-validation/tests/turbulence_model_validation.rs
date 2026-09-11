@@ -13,7 +13,7 @@
 //!   engineering applications". AIAA Journal, 32(8), 1598-1605.
 
 use cfd_2d::physics::turbulence::{k_epsilon::KEpsilonModel, traits::TurbulenceModel};
-use eunomia::{assert_relative_eq, FloatElement};
+use eunomia::{FloatElement, assert_relative_eq};
 
 /// Flat plate boundary layer test case per White (2006)
 ///

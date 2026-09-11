@@ -61,7 +61,7 @@
 //! "A continuum method for modeling surface tension".
 //! J. Comput. Phys. 100:335–354.
 
-use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
+use super::config::{VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER, VofConfig, constants};
 use super::plic_geometry::volume_under_plane_3d;
 use super::solver::VofSolver;
 use crate::scalar;

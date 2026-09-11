@@ -1,5 +1,5 @@
-use cfd_schematics::topology::presets::Milestone12TopologyRequest;
 use cfd_schematics::TreatmentActuationMode;
+use cfd_schematics::topology::presets::Milestone12TopologyRequest;
 use std::sync::Arc;
 
 /// Lightweight parameter structure defining a Milestone 12 candidate without

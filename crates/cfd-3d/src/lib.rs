@@ -118,18 +118,18 @@ pub use fem::{FemConfig, FemSolver, StokesFlowProblem};
 
 // Export blueprint integration functionality
 pub use blueprint_integration::{
-    process_blueprint_with_reference_trace, Blueprint3dProcessingConfig, Blueprint3dTrace,
-    ChannelCrossFidelityTrace, NodeCrossFidelityTrace,
+    Blueprint3dProcessingConfig, Blueprint3dTrace, ChannelCrossFidelityTrace,
+    NodeCrossFidelityTrace, process_blueprint_with_reference_trace,
 };
 
 // Export spectral functionality
 pub use spectral::{
-    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
     BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig, BasisFunction,
     ChebyshevPolynomial, EnstrophySpectrum, FourierTransform, KineticEnergySpectrum,
     PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig, ProbeSignalSpectrum,
     SpectralBasis, SpectralConfig, SpectralSolution, SpectralSolver, TemporalAutocorrelation,
-    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig, enstrophy_spectrum,
+    kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
 };
 
 // Export IBM functionality

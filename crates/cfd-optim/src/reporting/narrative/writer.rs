@@ -26,7 +26,7 @@ use super::sections::{
 use super::template::render_template_strict;
 use crate::analysis::RobustnessReport;
 use crate::constraints::M12_GA_HYDRO_SEED;
-use crate::reporting::figures::{generate_m12_report_figures, FigureGenerationInput};
+use crate::reporting::figures::{FigureGenerationInput, generate_m12_report_figures};
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
 
 /// Metadata for the narrative title page.
@@ -574,23 +574,25 @@ fn render_table_cell_inline_markdown(text: &str) -> String {
     let mut out = String::new();
     let mut idx = 0;
     while idx < bytes.len() {
-        if idx + 1 < bytes.len() && bytes[idx] == b'*' && bytes[idx + 1] == b'*' {
-            if let Some(end) = text[idx + 2..].find("**") {
-                out.push_str("<strong>");
-                out.push_str(&html_escape(&text[idx + 2..idx + 2 + end]));
-                out.push_str("</strong>");
-                idx += 2 + end + 2;
-                continue;
-            }
+        if idx + 1 < bytes.len()
+            && bytes[idx] == b'*'
+            && bytes[idx + 1] == b'*'
+            && let Some(end) = text[idx + 2..].find("**")
+        {
+            out.push_str("<strong>");
+            out.push_str(&html_escape(&text[idx + 2..idx + 2 + end]));
+            out.push_str("</strong>");
+            idx += 2 + end + 2;
+            continue;
         }
-        if bytes[idx] == b'`' {
-            if let Some(end) = text[idx + 1..].find('`') {
-                out.push_str("<code>");
-                out.push_str(&html_escape(&text[idx + 1..idx + 1 + end]));
-                out.push_str("</code>");
-                idx += 1 + end + 1;
-                continue;
-            }
+        if bytes[idx] == b'`'
+            && let Some(end) = text[idx + 1..].find('`')
+        {
+            out.push_str("<code>");
+            out.push_str(&html_escape(&text[idx + 1..idx + 1 + end]));
+            out.push_str("</code>");
+            idx += 1 + end + 1;
+            continue;
         }
         let ch = text[idx..].chars().next().expect("valid char boundary");
         match ch {

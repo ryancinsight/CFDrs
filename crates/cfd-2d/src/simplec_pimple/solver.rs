@@ -35,13 +35,13 @@
 
 use super::config::{AlgorithmType, SimplecPimpleConfig};
 use crate::fields::Field2D;
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
 use crate::scalar;
-use cfd_core::error::Error;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 

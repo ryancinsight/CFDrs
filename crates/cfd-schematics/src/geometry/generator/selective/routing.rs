@@ -6,10 +6,10 @@
 use std::collections::{HashMap, HashSet};
 
 use super::super::super::types::Point2D;
+use super::PendingVenturiPath;
 use super::path_geometry::{
     monotone_dogleg_path, path_intersects_any, polyline_length_mm, simplify_polyline_points,
 };
-use super::PendingVenturiPath;
 use crate::domain::model::{ChannelSpec, NodeId};
 use aequitas::systems::si::quantities::Length;
 
@@ -264,7 +264,7 @@ fn dfs_channel_path(
 
 #[cfg(test)]
 mod tests {
-    use super::{sort_pending_paths, PendingVenturiPath};
+    use super::{PendingVenturiPath, sort_pending_paths};
 
     #[test]
     fn pending_paths_sort_by_descending_lane_then_channel() {

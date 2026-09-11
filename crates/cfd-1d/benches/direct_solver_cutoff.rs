@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 use cfd_math::linear_solver::DirectSparseSolver;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
-use leto_ops::{lu_decompose, qr_decompose, CooMatrix, CsrMatrix as LetoCsrMatrix};
+use leto_ops::{CooMatrix, CsrMatrix as LetoCsrMatrix, lu_decompose, qr_decompose};
 
 fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
     let mut coo = CooMatrix::new(n, n);
@@ -22,10 +22,10 @@ fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
 fn solve_dense_cutoff(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<f64> {
     let dense = matrix.to_dense();
 
-    if let Ok(lu) = lu_decompose(&dense.view()) {
-        if let Ok(x) = lu.solve(&rhs.view()) {
-            return x;
-        }
+    if let Ok(lu) = lu_decompose(&dense.view())
+        && let Ok(x) = lu.solve(&rhs.view())
+    {
+        return x;
     }
 
     qr_decompose(&dense.view())

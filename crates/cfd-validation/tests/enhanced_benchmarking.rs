@@ -10,8 +10,8 @@
 
 use cfd_core::test_support::assert_rejects;
 use cfd_validation::benchmarking::{
-    analysis::{PerformanceAnalyzer, RegressionConfig, TrendType},
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
+    analysis::{PerformanceAnalyzer, RegressionConfig, TrendType},
 };
 use cfd_validation::reporting::PerformanceMetrics;
 use std::time::Duration;

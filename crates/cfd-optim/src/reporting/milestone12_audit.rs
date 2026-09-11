@@ -180,9 +180,9 @@ pub fn write_goal_audit_report(
 
 #[cfg(test)]
 mod tests {
-    use super::{audit_goal_candidates, write_goal_audit_report, GoalAuditStatus};
-    use crate::domain::fixtures::{canonical_option1_candidate, operating_point};
+    use super::{GoalAuditStatus, audit_goal_candidates, write_goal_audit_report};
     use crate::OptimizationGoal;
+    use crate::domain::fixtures::{canonical_option1_candidate, operating_point};
 
     #[test]
     fn audit_report_writes_machine_readable_ledgers() {

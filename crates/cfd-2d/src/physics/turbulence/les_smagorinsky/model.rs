@@ -362,10 +362,10 @@ impl SmagorinskyLES {
             compute_strain_rate_magnitude(velocity_u, velocity_v, self.dx, self.dy);
 
         // Update dynamic constant if using dynamic procedure
-        if self.config.dynamic_procedure {
-            if let Some(dynamic_constant) = &mut self.dynamic_constant {
-                update_dynamic_constant(dynamic_constant, velocity_u, velocity_v, self.dx, self.dy);
-            }
+        if self.config.dynamic_procedure
+            && let Some(dynamic_constant) = &mut self.dynamic_constant
+        {
+            update_dynamic_constant(dynamic_constant, velocity_u, velocity_v, self.dx, self.dy);
         }
 
         // Compute SGS viscosity
@@ -644,9 +644,11 @@ mod tests {
 
         let constants = les.get_model_constants();
         assert!(!constants.is_empty());
-        assert!(constants
-            .iter()
-            .any(|(name, _)| *name == "Smagorinsky Constant"));
+        assert!(
+            constants
+                .iter()
+                .any(|(name, _)| *name == "Smagorinsky Constant")
+        );
     }
 
     #[test]

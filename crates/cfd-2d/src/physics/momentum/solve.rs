@@ -3,7 +3,7 @@ use crate::fields::SimulationFields;
 use crate::scalar;
 use athena_leto::SuccessiveOverRelaxation;
 use cfd_core::CfdScalar;
-use cfd_math::linear_solver::{krylov, KrylovWorkspace};
+use cfd_math::linear_solver::{KrylovWorkspace, krylov};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;
 #[cfg(debug_assertions)]

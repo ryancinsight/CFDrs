@@ -3,8 +3,8 @@
 use crate::scalar;
 use crate::solvers::ns_fvm::boundary::BoundaryCondition;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use cfd_core::error::Error;
 use cfd_core::CfdScalar;
+use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
@@ -158,11 +158,11 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
             for i in 0..nx {
                 self.field.v[(i, 0)] = zero;
             }
-        } else if bc_south.is_neumann() {
-            if let BoundaryCondition::Symmetry = bc_south {
-                for i in 0..nx {
-                    self.field.v[(i, 0)] = zero;
-                }
+        } else if bc_south.is_neumann()
+            && let BoundaryCondition::Symmetry = bc_south
+        {
+            for i in 0..nx {
+                self.field.v[(i, 0)] = zero;
             }
         }
 

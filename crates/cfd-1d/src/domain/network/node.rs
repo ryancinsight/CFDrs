@@ -1,8 +1,8 @@
 //! Network node definitions
 
 use aequitas::systems::si::quantities::{Pressure, ThermodynamicTemperature};
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::CfdScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_schematics::domain::model::NodeKind;
 use serde::{Deserialize, Serialize};
 

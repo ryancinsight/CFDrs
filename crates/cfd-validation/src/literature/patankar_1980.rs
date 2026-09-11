@@ -197,9 +197,11 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLid
             max_error,
             avg_error,
             passed: max_error < tolerance_threshold,
-            details: format!("Stream function validation against Patankar (1980) reference data. Max error: {:.6}, Avg error: {:.6}", 
-                           <T as NumericElement>::to_f64(max_error),
-                           <T as NumericElement>::to_f64(avg_error)),
+            details: format!(
+                "Stream function validation against Patankar (1980) reference data. Max error: {:.6}, Avg error: {:.6}",
+                <T as NumericElement>::to_f64(max_error),
+                <T as NumericElement>::to_f64(avg_error)
+            ),
         })
     }
 

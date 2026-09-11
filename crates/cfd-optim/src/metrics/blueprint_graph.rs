@@ -121,15 +121,14 @@ pub fn solve_blueprint_candidate(
             }
 
             let fallback_problem = NetworkProblem::new(linear_network);
-            let mut fallback_solved =
-                solver
-                    .solve_network(&fallback_problem)
-                    .map_err(|fallback_error| OptimError::PhysicsError {
-                        id: candidate.id.clone(),
-                        reason: format!(
+            let mut fallback_solved = solver.solve_network(&fallback_problem).map_err(
+                |fallback_error| OptimError::PhysicsError {
+                    id: candidate.id.clone(),
+                    reason: format!(
                         "NetworkSolver failed: {primary_error}; fallback failed: {fallback_error}"
                     ),
-                    })?;
+                },
+            )?;
 
             let mut inlet_flow_unit = 0.0_f64;
             for edge_ref in fallback_solved.graph.edge_references() {

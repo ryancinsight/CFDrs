@@ -4,7 +4,7 @@ use super::builder::{MatrixEntry, SparseMatrixBuilder};
 use cfd_core::error::Result;
 use eunomia::RealField;
 use leto_ops::{CsrMatrix, Scalar as LetoScalar};
-use moirai::{fold_reduce_with, Adaptive};
+use moirai::{Adaptive, fold_reduce_with};
 
 /// Parallel assembly utilities
 pub struct ParallelAssembly;

@@ -103,9 +103,9 @@
 mod numerics;
 
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -469,7 +469,9 @@ mod tests {
         println!("Maximum relative error: {max_error:.2e}");
         let numerical_center = solver.velocity[solver.velocity.len() / 2];
         let analytical_center = analytical[analytical.len() / 2];
-        println!("Velocity at center: numerical={numerical_center:.6e}, analytical={analytical_center:.6e}");
+        println!(
+            "Velocity at center: numerical={numerical_center:.6e}, analytical={analytical_center:.6e}"
+        );
 
         // With high-shear viscosity, non-Newtonian blood should approach Newtonian behavior
         // Error comes from shear-thinning effects away from centerline

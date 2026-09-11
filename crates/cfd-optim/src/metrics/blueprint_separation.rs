@@ -1,8 +1,8 @@
 use aequitas::systems::si::quantities::{Length, Velocity};
 use cfd_1d::{
+    CascadeStage, KAPPA_CTC, KAPPA_PLASMA, PeripheralRecovery, RHO_CTC, RHO_PLASMA,
     acoustic_contrast_factor, mixed_cascade_separation_kappa_aware,
-    parallel_channel_flow_fractions, CascadeStage, PeripheralRecovery, KAPPA_CTC, KAPPA_PLASMA,
-    RHO_CTC, RHO_PLASMA,
+    parallel_channel_flow_fractions,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use serde::{Deserialize, Serialize};
@@ -108,53 +108,54 @@ pub fn compute_blueprint_separation_metrics(
                 continue;
             }
             recovery_arm_idx += 1;
-            if let Some(ref sub_split) = branch.recovery_sub_split {
-                if n_recoveries < 4 && !sub_split.sub_branches.is_empty() {
-                    let sub_widths: Vec<f64> = sub_split
-                        .sub_branches
-                        .iter()
-                        .map(|sub_branch| sub_branch.width_m.into_base())
-                        .collect();
-                    let sub_dimensions: Vec<(f64, f64)> = sub_split
-                        .sub_branches
-                        .iter()
-                        .map(|sub_branch| {
-                            (
-                                sub_branch.width_m.into_base(),
-                                sub_branch.height_m.into_base(),
-                            )
-                        })
-                        .collect();
-                    let sub_height = sub_dimensions
-                        .first()
-                        .map_or(branch.route.height_m.into_base(), |(_, height_m)| *height_m);
-                    let sub_q = conductance_flow_fractions(&sub_dimensions);
-                    let mut sub_arm_q_fracs = [0.0_f64; 5];
-                    for (i, &q) in sub_q.iter().enumerate().take(5) {
-                        sub_arm_q_fracs[i] = q;
-                    }
-                    let recovery_w = sub_split
-                        .sub_branches
-                        .get(sub_split.recovery_arm_index)
-                        .map_or(sub_widths[0], |sub_branch| sub_branch.width_m.into_base());
-                    let recovery_dh_m = Length::from_base(
-                        2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18),
-                    );
-                    // source_arm_idx uses the same index as in arm_q_fracs
-                    let source_idx = if branch_idx == 0 {
-                        0
-                    } else {
-                        recovery_arm_idx.min(4)
-                    };
-                    peripheral_recoveries[n_recoveries as usize] = Some(PeripheralRecovery {
-                        source_arm_idx: source_idx,
-                        sub_arm_q_fracs,
-                        n_sub_arms: sub_q.len().clamp(2, 5) as u8,
-                        recovery_arm_idx: sub_split.recovery_arm_index,
-                        recovery_dh_m,
-                    });
-                    n_recoveries += 1;
+            if let Some(ref sub_split) = branch.recovery_sub_split
+                && n_recoveries < 4
+                && !sub_split.sub_branches.is_empty()
+            {
+                let sub_widths: Vec<f64> = sub_split
+                    .sub_branches
+                    .iter()
+                    .map(|sub_branch| sub_branch.width_m.into_base())
+                    .collect();
+                let sub_dimensions: Vec<(f64, f64)> = sub_split
+                    .sub_branches
+                    .iter()
+                    .map(|sub_branch| {
+                        (
+                            sub_branch.width_m.into_base(),
+                            sub_branch.height_m.into_base(),
+                        )
+                    })
+                    .collect();
+                let sub_height = sub_dimensions
+                    .first()
+                    .map_or(branch.route.height_m.into_base(), |(_, height_m)| *height_m);
+                let sub_q = conductance_flow_fractions(&sub_dimensions);
+                let mut sub_arm_q_fracs = [0.0_f64; 5];
+                for (i, &q) in sub_q.iter().enumerate().take(5) {
+                    sub_arm_q_fracs[i] = q;
                 }
+                let recovery_w = sub_split
+                    .sub_branches
+                    .get(sub_split.recovery_arm_index)
+                    .map_or(sub_widths[0], |sub_branch| sub_branch.width_m.into_base());
+                let recovery_dh_m = Length::from_base(
+                    2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18),
+                );
+                // source_arm_idx uses the same index as in arm_q_fracs
+                let source_idx = if branch_idx == 0 {
+                    0
+                } else {
+                    recovery_arm_idx.min(4)
+                };
+                peripheral_recoveries[n_recoveries as usize] = Some(PeripheralRecovery {
+                    source_arm_idx: source_idx,
+                    sub_arm_q_fracs,
+                    n_sub_arms: sub_q.len().clamp(2, 5) as u8,
+                    recovery_arm_idx: sub_split.recovery_arm_index,
+                    recovery_dh_m,
+                });
+                n_recoveries += 1;
             }
         }
 

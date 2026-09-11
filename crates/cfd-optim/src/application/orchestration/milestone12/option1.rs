@@ -7,16 +7,16 @@ use crate::application::orchestration::{
 };
 use crate::application::search::pool::EvaluatedPool;
 use crate::delivery::{save_json_pretty, save_top5_report_json};
-use crate::design::{build_milestone12_candidate_params, CandidateParams};
+use crate::design::{CandidateParams, build_milestone12_candidate_params};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::reporting::{
-    audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report, GoalAuditEntry,
-    GoalAuditStatus, Milestone12ReportDesign, Milestone12Stage,
+    GoalAuditEntry, GoalAuditStatus, Milestone12ReportDesign, Milestone12Stage,
+    audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report,
 };
 
 use super::report::{
-    write_stage_summary, Milestone12Option1Summary, Milestone12SequenceCoverage,
-    OPTION1_SUMMARY_PATH,
+    Milestone12Option1Summary, Milestone12SequenceCoverage, OPTION1_SUMMARY_PATH,
+    write_stage_summary,
 };
 use super::types::{Milestone12Option1Run, Milestone12StageArtifact};
 

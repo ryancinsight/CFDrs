@@ -1,9 +1,10 @@
 use crate::domain::model::NetworkBlueprint;
+use crate::error::{Error, Result};
+use crate::topology::BlueprintTopologyFactory;
 use crate::topology::model::{
     BlueprintTopologySpec, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiConfig, VenturiPlacementMode,
 };
-use crate::topology::BlueprintTopologyFactory;
 use aequitas::systems::si::quantities::{Angle, Length};
 
 use super::super::modifiers::with_venturi;
@@ -159,7 +160,7 @@ pub fn build_milestone12_topology_spec(
 /// Returns an error if the request yields an invalid topology or geometry.
 pub fn build_milestone12_blueprint(
     request: &Milestone12TopologyRequest,
-) -> Result<NetworkBlueprint, String> {
+) -> Result<NetworkBlueprint> {
     let mut blueprint = BlueprintTopologyFactory::build(&build_milestone12_topology_spec(request))?;
     apply_request_mirror(&mut blueprint, request);
     Ok(blueprint)
@@ -180,45 +181,45 @@ pub fn promote_milestone12_option1_to_option2(
     blueprint: &NetworkBlueprint,
     serial_throat_count: u8,
     placement_mode: VenturiPlacementMode,
-) -> Result<NetworkBlueprint, String> {
+) -> Result<NetworkBlueprint> {
     let topology = blueprint
         .topology_spec()
         .ok_or_else(|| {
-            format!(
+            Error::InvalidInput(format!(
                 "Milestone 12 promotion requires topology metadata on blueprint '{}'",
                 blueprint.name
-            )
+            ))
         })?
         .clone();
     if !topology.is_selective_routing() {
-        return Err(format!(
+        return Err(Error::InvalidInput(format!(
             "Milestone 12 promotion requires selective-routing topology, but '{}' is '{}'",
             blueprint.name,
             topology.stage_sequence_label()
-        ));
+        )));
     }
     if !blueprint.is_geometry_authored() {
-        return Err(format!(
+        return Err(Error::InvalidInput(format!(
             "Milestone 12 promotion requires create_geometry provenance; '{}' is not geometry-authored",
             blueprint.name
-        ));
+        )));
     }
 
     let treatment_channel_ids = topology.treatment_channel_ids();
     let representative_id = treatment_channel_ids
         .first()
         .ok_or_else(|| {
-            format!(
+            Error::InvalidInput(format!(
                 "Milestone 12 promotion requires at least one treatment channel in '{}'",
                 blueprint.name
-            )
+            ))
         })?
         .clone();
     let representative_route = topology.channel_route(&representative_id).ok_or_else(|| {
-        format!(
+        Error::InvalidInput(format!(
             "Milestone 12 promotion could not resolve treatment channel '{}' in '{}'",
             representative_id, blueprint.name
-        )
+        ))
     })?;
 
     let representative_width_m = representative_route.width_m.into_base();

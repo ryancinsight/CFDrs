@@ -3,10 +3,9 @@ use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use aequitas::systems::si::quantities::{Angle, Length, Pressure, VolumetricFlowRate};
 use cfd_schematics::{
-    domain::model::NetworkBlueprint, promote_milestone12_option1_to_option2,
     BlueprintTopologyFactory, BlueprintTopologyMutation, SerpentineSpec, SplitKind,
     ThroatGeometrySpec, TopologyLineageEvent, TopologyLineageMetadata, TopologyOptimizationStage,
-    VenturiPlacementMode,
+    VenturiPlacementMode, domain::model::NetworkBlueprint, promote_milestone12_option1_to_option2,
 };
 
 fn route_serpentine(route: &cfd_schematics::ChannelRouteSpec) -> SerpentineSpec {
@@ -43,10 +42,10 @@ fn stamp_lineage_metadata(
     mut blueprint: NetworkBlueprint,
     metadata: impl Into<String>,
 ) -> NetworkBlueprint {
-    if let Some(lineage) = blueprint.lineage.as_mut() {
-        if let Some(last) = lineage.mutations.last_mut() {
-            last.mutation = metadata.into();
-        }
+    if let Some(lineage) = blueprint.lineage.as_mut()
+        && let Some(last) = lineage.mutations.last_mut()
+    {
+        last.mutation = metadata.into();
     }
     blueprint
 }
@@ -121,7 +120,7 @@ fn apply_labeled_mutation(
     metadata: impl Into<String>,
 ) -> Result<NetworkBlueprint, OptimError> {
     let mutated = BlueprintTopologyFactory::mutate(blueprint, mutation, stage)
-        .map_err(OptimError::InvalidParameter)?;
+        .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
     Ok(stamp_lineage_metadata(mutated, metadata))
 }
 
@@ -332,25 +331,26 @@ fn crossover_child(
     let mut child_blueprint = merge_parent_lineages(base.blueprint.clone(), &donor.blueprint);
 
     for (base_channel_id, donor_channel_id) in treatment_pairs {
-        if let Some(donor_route) = donor_topology.channel_route(&donor_channel_id) {
-            if donor_route.serpentine.is_some() {
-                let family = donor_route
-                    .serpentine
-                    .as_ref()
-                    .map_or("serpentine_neutral", |serpentine| {
-                        classify_serpentine_family(donor_route, serpentine)
-                    });
-                child_blueprint = apply_labeled_mutation(
-                    &child_blueprint,
-                    BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
-                        target_channel_id: base_channel_id.clone(),
-                        serpentine: donor_route.serpentine.clone(),
-                    },
-                    TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                    format!("family={family};lane={base_channel_id};operator=crossover_serpentine_transfer"),
-                )
-                ?;
-            }
+        if let Some(donor_route) = donor_topology.channel_route(&donor_channel_id)
+            && donor_route.serpentine.is_some()
+        {
+            let family = donor_route
+                .serpentine
+                .as_ref()
+                .map_or("serpentine_neutral", |serpentine| {
+                    classify_serpentine_family(donor_route, serpentine)
+                });
+            child_blueprint = apply_labeled_mutation(
+                &child_blueprint,
+                BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
+                    target_channel_id: base_channel_id.clone(),
+                    serpentine: donor_route.serpentine.clone(),
+                },
+                TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+                format!(
+                    "family={family};lane={base_channel_id};operator=crossover_serpentine_transfer"
+                ),
+            )?;
         }
         if let Some((serial_throat_count, throat_geometry, placement_mode)) = &donor_venturi {
             child_blueprint = apply_labeled_mutation(
@@ -365,8 +365,7 @@ fn crossover_child(
                 format!(
                     "family=venturi_transfer;lane={donor_channel_id};operator=crossover_venturi_transfer"
                 ),
-            )
-            ?;
+            )?;
         }
     }
 
@@ -564,9 +563,10 @@ pub fn generate_ga_mutations(
                     venturi_placement_mode: VenturiPlacementMode::StraightSegment,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_{split_kind:?};lane={target_channel_id};operator=split_merge"),
-            )
-            ?;
+                format!(
+                    "family=split_merge_{split_kind:?};lane={target_channel_id};operator=split_merge"
+                ),
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-sm-{}-{:?}", seed.id, target_channel_id, split_kind),
                 split_merge,
@@ -584,9 +584,10 @@ pub fn generate_ga_mutations(
                     venturi_placement_mode: VenturiPlacementMode::StraightSegment,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_serpentine_{split_kind:?};lane={target_channel_id};operator=split_merge_serpentine"),
-            )
-            ?;
+                format!(
+                    "family=split_merge_serpentine_{split_kind:?};lane={target_channel_id};operator=split_merge_serpentine"
+                ),
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-sms-{}-{:?}", seed.id, target_channel_id, split_kind),
                 split_merge_serpentine,
@@ -598,15 +599,19 @@ pub fn generate_ga_mutations(
                 BlueprintTopologyMutation::InsertTreatmentSplitMerge {
                     target_channel_id: target_channel_id.clone(),
                     split_kind,
-                    treatment_serpentine: serpentine_variants.get(1).map(|(_, spec)| spec.clone()).or_else(|| serpentine_variants.first().map(|(_, spec)| spec.clone())),
+                    treatment_serpentine: serpentine_variants
+                        .get(1)
+                        .map(|(_, spec)| spec.clone())
+                        .or_else(|| serpentine_variants.first().map(|(_, spec)| spec.clone())),
                     venturi_serial_throat_count: Some(2),
                     venturi_throat_geometry: Some(venturi_geometry.clone()),
                     venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_venturi_{split_kind:?};lane={target_channel_id};operator=split_merge_venturi"),
-            )
-            ?;
+                format!(
+                    "family=split_merge_venturi_{split_kind:?};lane={target_channel_id};operator=split_merge_venturi"
+                ),
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-smv-{}-{:?}", seed.id, target_channel_id, split_kind),
                 split_merge_venturi,
@@ -719,7 +724,7 @@ pub fn promote_option1_candidate_to_ga_seed(
         1,
         VenturiPlacementMode::CurvaturePeakDeanNumber,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     let promoted_seed = BlueprintCandidate::new(
         format!("{}-ga-promoted", seed.id),
@@ -751,7 +756,7 @@ pub fn promote_option1_candidate_to_ga_seed(
         },
         TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     Ok(BlueprintCandidate::new(
         format!("{}-ga-promoted", seed.id),
@@ -775,8 +780,8 @@ pub fn promote_option2_candidate_to_ga_seed(
     for placement in &mut promoted.venturi_placements {
         placement.placement_mode = VenturiPlacementMode::CurvaturePeakDeanNumber;
     }
-    let promoted_blueprint =
-        BlueprintTopologyFactory::build(&promoted).map_err(OptimError::InvalidParameter)?;
+    let promoted_blueprint = BlueprintTopologyFactory::build(&promoted)
+        .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
     let promoted_seed = BlueprintCandidate::new(
         format!("{}-ga-dean-seed", seed.id),
         promoted_blueprint,
@@ -809,7 +814,7 @@ pub fn promote_option2_candidate_to_ga_seed(
         },
         TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
     )
-    .map_err(OptimError::InvalidParameter)?;
+    .map_err(|e| OptimError::InvalidParameter(e.to_string()))?;
 
     Ok(BlueprintCandidate::new(
         format!("{}-ga-dean-seed", seed.id),

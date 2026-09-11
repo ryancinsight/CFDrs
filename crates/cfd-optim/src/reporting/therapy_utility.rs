@@ -27,8 +27,8 @@
 //! generating objective, while ultrasound-only designs are not misclassified as
 //! non-cavitating merely because they have no venturi throat.
 
-use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::SdtMetrics;
+use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use eunomia::FloatElement;
 
 const RESIDENCE_REFERENCE_S: f64 = 0.020;
@@ -154,7 +154,7 @@ fn pediatric_ecv_margin(ecv_ml: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{milestone12_therapy_utility, therapy_utility_components, SEPARATION_SUPPORT_CAP};
+    use super::{SEPARATION_SUPPORT_CAP, milestone12_therapy_utility, therapy_utility_components};
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
     use crate::reporting::compute_blueprint_report_metrics;
 

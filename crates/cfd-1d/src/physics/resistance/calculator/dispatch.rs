@@ -10,9 +10,9 @@ use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
     RectangularChannelModel, ResistanceModel, VenturiModel,
 };
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 
 /// Calculate resistance with automatic model selection
 pub fn calculate_auto<T, F>(

@@ -7,8 +7,8 @@ use super::Mesh;
 use eunomia::FloatElement;
 use eunomia::RealField;
 use leto::{
-    geometry::{Point3, Vector3},
     FixedMatrix, FixedVector,
+    geometry::{Point3, Vector3},
 };
 
 /// Trait for geometric operations on meshes

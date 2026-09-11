@@ -1,6 +1,7 @@
 //! Spec analysis, Dean number estimation, and query methods for BlueprintTopologyFactory.
 use super::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
+use crate::error::{Error, Result};
 use crate::geometry::metadata::BlueprintRenderHints;
 use crate::geometry::types::SplitType;
 use crate::topology::model::{
@@ -122,9 +123,7 @@ impl BlueprintTopologyFactory {
     ///
     /// For specs with no split stages (series/parallel), returns an empty
     /// split array so that `create_geometry` generates a linear channel.
-    pub(super) fn spec_to_split_types(
-        spec: &BlueprintTopologySpec,
-    ) -> Result<Vec<SplitType>, String> {
+    pub(super) fn spec_to_split_types(spec: &BlueprintTopologySpec) -> Result<Vec<SplitType>> {
         spec.split_stages
             .iter()
             .map(|stage| match stage.split_kind {
@@ -132,10 +131,10 @@ impl BlueprintTopologyFactory {
                 SplitKind::NFurcation(3) => Ok(SplitType::Trifurcation),
                 SplitKind::NFurcation(4) => Ok(SplitType::Quadfurcation),
                 SplitKind::NFurcation(5) => Ok(SplitType::Pentafurcation),
-                SplitKind::NFurcation(other) => Err(format!(
+                SplitKind::NFurcation(other) => Err(Error::InvalidInput(format!(
                     "split-tree geometry generation supports only N=2,3,4,5; stage '{}' requested N={other}",
                     stage.stage_id
-                )),
+                ))),
             })
             .collect()
     }
@@ -148,10 +147,10 @@ impl BlueprintTopologyFactory {
         if let Some(first_parallel) = spec.parallel_channels.first() {
             return first_parallel.route.width_m.into_base();
         }
-        if let Some(first_stage) = spec.split_stages.first() {
-            if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.width_m.into_base();
-            }
+        if let Some(first_stage) = spec.split_stages.first()
+            && let Some(first_branch) = first_stage.branches.first()
+        {
+            return first_branch.route.width_m.into_base();
         }
         1.0e-3 // Default 1mm
     }
@@ -164,10 +163,10 @@ impl BlueprintTopologyFactory {
         if let Some(first_parallel) = spec.parallel_channels.first() {
             return first_parallel.route.height_m.into_base();
         }
-        if let Some(first_stage) = spec.split_stages.first() {
-            if let Some(first_branch) = first_stage.branches.first() {
-                return first_branch.route.height_m.into_base();
-            }
+        if let Some(first_stage) = spec.split_stages.first()
+            && let Some(first_branch) = first_stage.branches.first()
+        {
+            return first_branch.route.height_m.into_base();
         }
         0.5e-3 // Default 0.5mm
     }

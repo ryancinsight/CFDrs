@@ -177,7 +177,7 @@ impl<T: RealField + Copy + FloatElement> BifurcationConfig2D<T> {
 pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
     config: &BifurcationConfig2D<T>,
     blood_casson: &CassonBlood<T>,
-) -> Result<BifurcationSolution2D<T>, String> {
+) -> cfd_core::error::Result<BifurcationSolution2D<T>> {
     // Step 1: Solve 1D network to get flow rates and pressure drops
     // This is already validated to 0.00% error
     let junction_1d = BifurcationJunction::new(
@@ -195,7 +195,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
 
     let solution_1d = junction_1d
         .solve(config.flow_rate, config.inlet_pressure, &blood_1d)
-        .map_err(|e| format!("1D solution failed: {:?}", e))?;
+        .map_err(|e| cfd_core::error::Error::Solver(format!("1D solution failed: {:?}", e)))?;
 
     // Extract 1D results
     let q_p = solution_1d.flow_rate_parent;
@@ -221,7 +221,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
 
     let iter_parent = solver_parent
         .solve()
-        .map_err(|e| format!("Parent segment failed: {:?}", e))?;
+        .map_err(|e| cfd_core::error::Error::Solver(format!("Parent segment failed: {:?}", e)))?;
 
     // Step 3: Solve 2D Poiseuille in daughter 1
     let mut config_d1 = PoiseuilleConfig::<T>::default();
@@ -237,7 +237,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
 
     let iter_d1 = solver_d1
         .solve()
-        .map_err(|e| format!("Daughter 1 segment failed: {:?}", e))?;
+        .map_err(|e| cfd_core::error::Error::Solver(format!("Daughter 1 segment failed: {:?}", e)))?;
 
     // Step 4: Solve 2D Poiseuille in daughter 2
     let mut config_d2 = PoiseuilleConfig::<T>::default();
@@ -253,7 +253,7 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
 
     let iter_d2 = solver_d2
         .solve()
-        .map_err(|e| format!("Daughter 2 segment failed: {:?}", e))?;
+        .map_err(|e| cfd_core::error::Error::Solver(format!("Daughter 2 segment failed: {:?}", e)))?;
 
     // Step 5: Extract results
     Ok(BifurcationSolution2D {

@@ -178,8 +178,8 @@ pub mod quadrature_rules {
 pub mod prelude {
     pub use crate::{
         fd::{FiniteDifference, FiniteDifferenceScheme},
-        fd_extensions::{compute_gradient_2d, compute_gradient_3d, Gradient},
-        linear_solver::{krylov, IterativeSolverConfig},
+        fd_extensions::{Gradient, compute_gradient_2d, compute_gradient_3d},
+        linear_solver::{IterativeSolverConfig, krylov},
         sparse::{SparseMatrix, SparseMatrixBuilder},
     };
 }

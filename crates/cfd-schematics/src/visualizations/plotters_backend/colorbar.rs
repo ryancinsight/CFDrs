@@ -3,7 +3,7 @@ use plotters::prelude::*;
 
 use crate::domain::model::NetworkBlueprint;
 use crate::error::VisualizationResult;
-use crate::visualizations::analysis_field::{colorize, AnalysisOverlay};
+use crate::visualizations::analysis_field::{AnalysisOverlay, colorize};
 
 use super::convert_color;
 

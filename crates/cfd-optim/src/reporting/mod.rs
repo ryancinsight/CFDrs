@@ -22,21 +22,21 @@ mod validation_runner;
 mod validation_traceability;
 
 pub use design_record::{
-    compute_blueprint_report_metrics, is_hydrosdt_venturi_report_candidate,
-    pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs, sort_pareto_points,
-    Milestone12ReportDesign, ParetoPoint, ParetoTag,
+    Milestone12ReportDesign, ParetoPoint, ParetoTag, compute_blueprint_report_metrics,
+    is_hydrosdt_venturi_report_candidate, pareto_pool_from_report_designs,
+    rank_ga_hydrosdt_report_designs, sort_pareto_points,
 };
 pub use guardrails::{
-    is_milestone12_lineage_topology, milestone12_lineage_key, validate_milestone12_candidate,
-    Milestone12LineageKey, Milestone12Stage,
+    Milestone12LineageKey, Milestone12Stage, is_milestone12_lineage_topology,
+    milestone12_lineage_key, validate_milestone12_candidate,
 };
-pub use markdown::{write_milestone12_results, ValidationRow};
+pub use markdown::{ValidationRow, write_milestone12_results};
 pub use milestone12_audit::{
-    audit_goal_candidates, write_goal_audit_report, GoalAuditArtifacts, GoalAuditEntry,
-    GoalAuditStatus,
+    GoalAuditArtifacts, GoalAuditEntry, GoalAuditStatus, audit_goal_candidates,
+    write_goal_audit_report,
 };
 pub use narrative::{
-    write_milestone12_narrative_report, Milestone12GaRankingAuditEntry, Milestone12NarrativeInput,
+    Milestone12GaRankingAuditEntry, Milestone12NarrativeInput, write_milestone12_narrative_report,
 };
 pub use ranking::{pct_diff, shortlist_report_designs, sort_report_designs};
 pub use therapy_utility::milestone12_therapy_utility;

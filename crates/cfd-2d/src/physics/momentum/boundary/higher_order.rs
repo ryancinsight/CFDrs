@@ -1,8 +1,8 @@
 use super::super::solver::MomentumComponent;
 use super::MatrixUpdater;
 use crate::scalar;
-use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::CfdScalar;
+use cfd_core::physics::boundary::BoundaryCondition;
 use eunomia::FloatElement;
 use leto::Array1;
 use std::collections::HashMap;
@@ -25,37 +25,33 @@ where
     let nx = grid.nx;
     let ny = grid.ny;
 
-    if matches!(component, MomentumComponent::V) {
-        if let Some(BoundaryCondition::Wall {
+    if matches!(component, MomentumComponent::V)
+        && let Some(BoundaryCondition::Wall {
             wall_type: cfd_core::physics::boundary::WallType::NoSlip,
         }) = boundaries.get("west")
-        {
-            apply_higher_order_west_wall(matrix, rhs, nx, ny)?;
-        }
+    {
+        apply_higher_order_west_wall(matrix, rhs, nx, ny)?;
     }
-    if matches!(component, MomentumComponent::V) {
-        if let Some(BoundaryCondition::Wall {
+    if matches!(component, MomentumComponent::V)
+        && let Some(BoundaryCondition::Wall {
             wall_type: cfd_core::physics::boundary::WallType::NoSlip,
         }) = boundaries.get("east")
-        {
-            apply_higher_order_east_wall(matrix, rhs, nx, ny)?;
-        }
+    {
+        apply_higher_order_east_wall(matrix, rhs, nx, ny)?;
     }
-    if matches!(component, MomentumComponent::U) {
-        if let Some(BoundaryCondition::Wall {
+    if matches!(component, MomentumComponent::U)
+        && let Some(BoundaryCondition::Wall {
             wall_type: cfd_core::physics::boundary::WallType::NoSlip,
         }) = boundaries.get("north")
-        {
-            apply_higher_order_north_wall(matrix, rhs, nx, ny)?;
-        }
+    {
+        apply_higher_order_north_wall(matrix, rhs, nx, ny)?;
     }
-    if matches!(component, MomentumComponent::U) {
-        if let Some(BoundaryCondition::Wall {
+    if matches!(component, MomentumComponent::U)
+        && let Some(BoundaryCondition::Wall {
             wall_type: cfd_core::physics::boundary::WallType::NoSlip,
         }) = boundaries.get("south")
-        {
-            apply_higher_order_south_wall(matrix, rhs, nx)?;
-        }
+    {
+        apply_higher_order_south_wall(matrix, rhs, nx)?;
     }
 
     Ok(())

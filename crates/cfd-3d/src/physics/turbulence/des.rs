@@ -42,10 +42,10 @@
 //!   eddy simulation of an airfoil at high angle of attack." *IUTAM Symp.*
 
 use aequitas::systems::si::quantities::{KinematicViscosity, SpecificEnergy};
+use cfd_core::CfdScalar;
 use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 
 use super::constants::{DES_C_DES, SMAGORINSKY_CS_DEFAULT};

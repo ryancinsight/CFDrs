@@ -1,6 +1,7 @@
 //! Checkpoint validation utilities
 
 use crate::checkpoint::Checkpoint;
+use crate::error::{Error, Result};
 use crate::leto_arrays::all_row_major;
 use eunomia::{FloatElement, RealField};
 use leto::Array2;
@@ -16,54 +17,79 @@ pub struct CheckpointValidator;
 
 impl CheckpointValidator {
     /// Validate checkpoint for physical consistency
-    pub fn validate_physics<T: RealField>(checkpoint: &Checkpoint<T>) -> Result<(), String> {
+    /// Validate checkpoint for physical consistency
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] when the checkpoint's data validation
+    /// fails, any field contains non-finite values, or a physical quantity
+    /// violates its sign contract (positive temperature/dissipation,
+    /// non-negative turbulent kinetic energy).
+    pub fn validate_physics<T: RealField>(checkpoint: &Checkpoint<T>) -> Result<()> {
         // Check basic data consistency
         checkpoint.validate()?;
 
         // Check for NaN or infinite values
         if !Self::is_field_finite(&checkpoint.u_velocity) {
-            return Err("U velocity contains non-finite values".to_string());
+            return Err(Error::InvalidInput(
+                "U velocity contains non-finite values".to_string(),
+            ));
         }
 
         if !Self::is_field_finite(&checkpoint.v_velocity) {
-            return Err("V velocity contains non-finite values".to_string());
+            return Err(Error::InvalidInput(
+                "V velocity contains non-finite values".to_string(),
+            ));
         }
 
         if !Self::is_field_finite(&checkpoint.pressure) {
-            return Err("Pressure contains non-finite values".to_string());
+            return Err(Error::InvalidInput(
+                "Pressure contains non-finite values".to_string(),
+            ));
         }
 
         // Check optional fields
         if let Some(ref temp) = checkpoint.temperature {
             if !Self::is_field_finite(temp) {
-                return Err("Temperature contains non-finite values".to_string());
+                return Err(Error::InvalidInput(
+                    "Temperature contains non-finite values".to_string(),
+                ));
             }
 
             // Temperature should be positive (in Kelvin)
             if !all_row_major(temp, |value| value > T::ZERO) {
-                return Err("Temperature contains non-positive values".to_string());
+                return Err(Error::InvalidInput(
+                    "Temperature contains non-positive values".to_string(),
+                ));
             }
         }
 
         if let Some(ref k) = checkpoint.turbulence_k {
             if !Self::is_field_finite(k) {
-                return Err("Turbulence k contains non-finite values".to_string());
+                return Err(Error::InvalidInput(
+                    "Turbulence k contains non-finite values".to_string(),
+                ));
             }
 
             // Turbulent kinetic energy should be non-negative
             if !all_row_major(k, |value| value >= T::ZERO) {
-                return Err("Turbulence k contains negative values".to_string());
+                return Err(Error::InvalidInput(
+                    "Turbulence k contains negative values".to_string(),
+                ));
             }
         }
 
         if let Some(ref eps) = checkpoint.turbulence_epsilon {
             if !Self::is_field_finite(eps) {
-                return Err("Turbulence epsilon contains non-finite values".to_string());
+                return Err(Error::InvalidInput(
+                    "Turbulence epsilon contains non-finite values".to_string(),
+                ));
             }
 
             // Dissipation rate should be positive
             if !all_row_major(eps, |value| value > T::ZERO) {
-                return Err("Turbulence epsilon contains non-positive values".to_string());
+                return Err(Error::InvalidInput(
+                    "Turbulence epsilon contains non-positive values".to_string(),
+                ));
             }
         }
 

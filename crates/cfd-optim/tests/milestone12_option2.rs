@@ -16,12 +16,13 @@ use std::collections::HashSet;
 
 use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_optim::{
+    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
     evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
-    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
+    orchestration_lineage_key,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
-    TreatmentActuationMode, VenturiPlacementMode,
+    SplitKind, TreatmentActuationMode, VenturiPlacementMode, build_milestone12_blueprint,
+    enumerate_milestone12_topologies,
 };
 
 // ---------------------------------------------------------------------------
@@ -241,7 +242,10 @@ fn option2_rejects_non_venturi_candidates() {
 
     let eval = evaluate_blueprint_candidate(&acoustic).expect("evaluation succeeds");
     let result = evaluate_selective_venturi_cavitation(&acoustic, eval);
-    assert_rejects(&result, "invalid parameter: Option 2 requires venturi treatment geometry, but candidate 'test-acoustic' has no venturi placements");
+    assert_rejects(
+        &result,
+        "invalid parameter: Option 2 requires venturi treatment geometry, but candidate 'test-acoustic' has no venturi placements",
+    );
 }
 
 #[test]

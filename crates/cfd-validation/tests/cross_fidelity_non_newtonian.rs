@@ -184,6 +184,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
     assert!(
         dp_2d_shear < dp_2d_newt,
         "2D Shear thinning must strictly lower the overall venturi pressure drop. Shear: {}, Newt: {}",
-        dp_2d_shear, dp_2d_newt
+        dp_2d_shear,
+        dp_2d_newt
     );
 }

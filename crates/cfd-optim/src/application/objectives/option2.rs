@@ -1,7 +1,7 @@
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
+use crate::metrics::{BlueprintEvaluation, healthy_cell_protection_index};
 
 /// Score for the asymmetric-split venturi-cavitation selectivity objective.
 ///

@@ -1,8 +1,8 @@
 #![allow(missing_docs, clippy::match_wildcard_for_single_variants)]
 
 use cfd_schematics::{
-    config::{presets, ChannelTypeConfig, GeometryConfig, OptimizationProfile, SerpentineConfig},
-    geometry::{generator::create_geometry, optimization::calculate_path_length, SplitType},
+    config::{ChannelTypeConfig, GeometryConfig, OptimizationProfile, SerpentineConfig, presets},
+    geometry::{SplitType, generator::create_geometry, optimization::calculate_path_length},
 };
 #[path = "../shared/mod.rs"]
 mod shared;
@@ -195,7 +195,9 @@ fn main() {
     tracing::info!("• Balanced Profile: Good general-purpose optimization for most use cases");
     tracing::info!("• Thorough Profile: Use for final designs where maximum length is needed");
     tracing::info!("• Custom Config:    Fine-tune parameters for specific requirements");
-    tracing::info!("All profile comparison files generated in output/examples/optimization_profile_comparison/");
+    tracing::info!(
+        "All profile comparison files generated in output/examples/optimization_profile_comparison/"
+    );
 }
 
 fn calculate_total_length(system: &cfd_schematics::NetworkBlueprint) -> f64 {

@@ -73,7 +73,7 @@ use aequitas::systems::si::quantities::{
 };
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
-use leto::{geometry::Vector3, Array2};
+use leto::{Array2, geometry::Vector3};
 
 /// Dense row-major cavitation scalar field with logical shape `[nx, ny * nz]`.
 pub type CavitationField = Array2<f64>;
@@ -148,12 +148,12 @@ impl CavitationVofSolver {
                 "cavitation damage requires bubble dynamics to provide a physically grounded bubble radius".to_string(),
             ));
         }
-        if let Some(nuclei) = &config.nuclei_transport {
-            if nuclei.diffusion_coefficient.into_base() < 0.0 {
-                return Err(cfd_core::error::Error::InvalidConfiguration(
-                    "nuclei diffusion coefficient must be nonnegative".to_string(),
-                ));
-            }
+        if let Some(nuclei) = &config.nuclei_transport
+            && nuclei.diffusion_coefficient.into_base() < 0.0
+        {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "nuclei diffusion coefficient must be nonnegative".to_string(),
+            ));
         }
 
         let vof_solver = VofSolver::create(
@@ -938,8 +938,8 @@ impl CavitationVofSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vof::config::VofConfig;
     use crate::vof::BubbleDynamicsConfig;
+    use crate::vof::config::VofConfig;
     use aequitas::systems::si::quantities::{
         Length, MassDensity, NumberDensity, Pressure, SurfaceTension, ThermalDiffusivity, Time,
         Velocity,

@@ -9,11 +9,11 @@ use aequitas::systems::si::quantities::{Angle, Length, MassDensity, Pressure, Ve
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
+use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::VenturiCavitation;
 use cfd_core::physics::constants::physics::thermo::P_ATM;
 use cfd_core::physics::fluid::blood::CassonBlood;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
 use std::collections::HashMap;

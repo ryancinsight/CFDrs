@@ -10,13 +10,13 @@ use crate::application::search::mutations::{
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
 use crate::domain::OptimizationGoal;
 use crate::reporting::{
-    is_hydrosdt_venturi_report_candidate, milestone12_lineage_key, pareto_pool_from_report_designs,
-    rank_ga_hydrosdt_report_designs, sort_pareto_points, validate_milestone12_candidate,
-    write_goal_audit_report, GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey,
-    Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
+    GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey, Milestone12ReportDesign,
+    Milestone12Stage, ParetoPoint, ParetoTag, is_hydrosdt_venturi_report_candidate,
+    milestone12_lineage_key, pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs,
+    sort_pareto_points, validate_milestone12_candidate, write_goal_audit_report,
 };
 
-use super::report::{write_stage_summary, Milestone12GaSummary, GA_SUMMARY_PATH};
+use super::report::{GA_SUMMARY_PATH, Milestone12GaSummary, write_stage_summary};
 use super::types::{Milestone12GaRun, Milestone12StageArtifact};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -129,10 +129,10 @@ fn serpentine_repeat_penalty(design: &Milestone12ReportDesign) -> f64 {
             if !operator.starts_with("operating_point") {
                 geometry_event_count += 1;
             }
-            if let Some((family, lane)) = parse_lineage_family_lane(&event.mutation) {
-                if family.starts_with("serpentine_") {
-                    *lane_family_counts.entry((lane, family)).or_insert(0) += 1;
-                }
+            if let Some((family, lane)) = parse_lineage_family_lane(&event.mutation)
+                && family.starts_with("serpentine_")
+            {
+                *lane_family_counts.entry((lane, family)).or_insert(0) += 1;
             }
         }
     }

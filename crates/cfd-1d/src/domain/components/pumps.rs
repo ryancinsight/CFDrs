@@ -29,11 +29,11 @@
 //! The hydraulic power delivered is `P_hyd = ΔP · Q`.
 //! Pump efficiency: `η = P_hyd / P_input`, typical range 0.1–0.7.
 
-use super::{constants, real_from_f64, Component};
+use super::{Component, constants, real_from_f64};
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_core::CfdScalar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

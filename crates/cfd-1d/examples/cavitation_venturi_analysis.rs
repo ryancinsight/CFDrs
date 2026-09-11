@@ -32,10 +32,10 @@ use cfd_schematics::geometry::generator::create_geometry;
 
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
+use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
-use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -153,10 +153,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(node) = solution
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(nidx))
+            && let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>()
         {
-            if let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>() {
-                node_pressure_data.insert(id, p);
-            }
+            node_pressure_data.insert(id, p);
         }
     }
 

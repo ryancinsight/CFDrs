@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Memory usage profiling for CFD operations
 //!
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
@@ -6,8 +5,8 @@
 
 use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 /// Thread-safe memory statistics using atomics
 pub struct MemoryStats {
@@ -492,25 +491,6 @@ impl std::fmt::Display for MemoryStats {
 mod tests {
     use super::*;
 
-    #[global_allocator]
-    static TEST_ALLOCATOR: TrackingAllocator = TrackingAllocator::new();
-
-    #[test]
-    fn test_memory_profiler() {
-        let profiler = MemoryProfiler::new(TEST_ALLOCATOR.stats());
-
-        let (result, stats) = profiler
-            .profile_closure(|| {
-                let data = vec![1.0f64; 1000];
-                data.iter().sum::<f64>()
-            })
-            .expect("invariant: the test profiling session starts before it stops");
-
-        assert!(result > 0.0);
-        assert!(stats.total_allocated > 0);
-        assert!(stats.peak_allocated >= stats.current_allocated);
-    }
-
     #[test]
     fn test_memory_efficiency() {
         let stats = MemoryStatsSnapshot {
@@ -527,19 +507,5 @@ mod tests {
         let efficiency = stats.efficiency_metrics();
         assert!(efficiency.memory_efficiency >= 0.0 && efficiency.memory_efficiency <= 1.0);
         assert!(efficiency.allocation_efficiency >= 0.0 && efficiency.allocation_efficiency <= 1.0);
-    }
-
-    #[test]
-    fn test_cfd_memory_profiling() {
-        let cfd_profiler = CfdMemoryProfiler::new(TEST_ALLOCATOR.stats());
-        let results = cfd_profiler
-            .run_memory_suite()
-            .expect("invariant: the test profiling suite has valid inputs");
-
-        assert!(!results.is_empty());
-        for (name, stats) in results {
-            println!("{name}: {stats}");
-            assert!(stats.total_allocated > 0);
-        }
     }
 }

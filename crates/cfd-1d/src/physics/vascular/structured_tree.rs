@@ -37,8 +37,8 @@
 //!   larger systemic arteries". *American Journal of Physiology*.
 
 use aequitas::systems::si::quantities::{DynamicViscosity, HydraulicResistance, Length};
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 

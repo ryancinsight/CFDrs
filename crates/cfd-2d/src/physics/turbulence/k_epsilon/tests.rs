@@ -1,7 +1,7 @@
 use super::kato_launder;
 use super::model::KEpsilonModel;
 use crate::physics::turbulence::constants::{
-    C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, REALIZABLE_A0, SIGMA_EPSILON, SIGMA_K,
+    C_MU, C1_EPSILON, C2_EPSILON, EPSILON_MIN, REALIZABLE_A0, SIGMA_EPSILON, SIGMA_K,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use eunomia::assert_relative_eq;

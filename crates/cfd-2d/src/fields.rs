@@ -21,8 +21,9 @@
 //! | `set(i, j, v)` | **debug-assert** only | `()` |
 
 use crate::{grid::array2d::Array2D, scalar};
-use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 use std::ops::{Index, IndexMut};
@@ -339,13 +340,13 @@ impl<T: CfdScalar + Copy> SimulationFields<T> {
     ///
     /// # Errors
     /// Returns an error if grid dimensions don't match
-    pub fn copy_from(&mut self, other: &SimulationFields<T>) -> Result<(), String> {
+    pub fn copy_from(&mut self, other: &SimulationFields<T>) -> Result<()> {
         // Ensure dimensions match
         if self.nx != other.nx || self.ny != other.ny {
-            return Err(format!(
+            return Err(Error::InvalidInput(format!(
                 "Grid dimension mismatch: ({}, {}) vs ({}, {})",
                 self.nx, self.ny, other.nx, other.ny
-            ));
+            )));
         }
 
         // Copy field data using slices (efficient memcpy)

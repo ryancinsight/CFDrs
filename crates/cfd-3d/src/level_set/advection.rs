@@ -7,8 +7,8 @@
 
 use super::{config::LevelSetConfig, weno::weno5_derivative};
 use crate::scalar;
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 

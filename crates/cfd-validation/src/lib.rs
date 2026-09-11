@@ -87,8 +87,8 @@ pub mod time_integration;
 /// let report = run_performance_profiling().expect("Performance profiling failed");
 /// tracing::info!("Total performance: {:.2} GFLOPS", report.summary.total_gflops);
 /// ```
-pub fn run_performance_profiling(
-) -> cfd_core::error::Result<benchmarking::production::PerformanceReport> {
+pub fn run_performance_profiling()
+-> cfd_core::error::Result<benchmarking::production::PerformanceReport> {
     use benchmarking::production::PerformanceProfiler;
 
     let profiler = PerformanceProfiler::new();
@@ -113,8 +113,8 @@ pub fn run_performance_profiling(
 /// let report = run_stability_analysis().expect("Stability analysis failed");
 /// tracing::info!("Overall stability score: {:.1}%", report.overall_assessment.overall_score * 100.0);
 /// ```
-pub fn run_stability_analysis(
-) -> cfd_core::error::Result<time_integration::stability_analysis::StabilityAnalysisReport<f64>> {
+pub fn run_stability_analysis()
+-> cfd_core::error::Result<time_integration::stability_analysis::StabilityAnalysisReport<f64>> {
     use time_integration::stability_analysis::StabilityAnalysisRunner;
 
     let analyzer = StabilityAnalysisRunner::<f64>::new();

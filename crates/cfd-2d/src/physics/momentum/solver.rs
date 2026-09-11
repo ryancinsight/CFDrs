@@ -285,76 +285,76 @@ impl<T: CfdScalar + Copy + FloatElement> MomentumSolver<T> {
         component: MomentumComponent,
     ) -> bool {
         // South boundary
-        if j == 0 {
-            if let Some(bc) = self.boundary_conditions.get("south") {
-                return match bc {
-                    BoundaryCondition::Dirichlet { .. }
-                    | BoundaryCondition::VelocityInlet { .. }
-                    | BoundaryCondition::CharacteristicInlet { .. } => true,
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            matches!(component, MomentumComponent::V)
-                        }
-                        _ => true,
-                    },
-                    BoundaryCondition::Symmetry => matches!(component, MomentumComponent::V),
-                    _ => false,
-                };
-            }
+        if j == 0
+            && let Some(bc) = self.boundary_conditions.get("south")
+        {
+            return match bc {
+                BoundaryCondition::Dirichlet { .. }
+                | BoundaryCondition::VelocityInlet { .. }
+                | BoundaryCondition::CharacteristicInlet { .. } => true,
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    cfd_core::physics::boundary::WallType::Slip => {
+                        matches!(component, MomentumComponent::V)
+                    }
+                    _ => true,
+                },
+                BoundaryCondition::Symmetry => matches!(component, MomentumComponent::V),
+                _ => false,
+            };
         }
         // North boundary
-        if j == self.grid.ny - 1 {
-            if let Some(bc) = self.boundary_conditions.get("north") {
-                return match bc {
-                    BoundaryCondition::Dirichlet { .. }
-                    | BoundaryCondition::VelocityInlet { .. }
-                    | BoundaryCondition::CharacteristicInlet { .. } => true,
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            matches!(component, MomentumComponent::V)
-                        }
-                        _ => true,
-                    },
-                    BoundaryCondition::Symmetry => matches!(component, MomentumComponent::V),
-                    _ => false,
-                };
-            }
+        if j == self.grid.ny - 1
+            && let Some(bc) = self.boundary_conditions.get("north")
+        {
+            return match bc {
+                BoundaryCondition::Dirichlet { .. }
+                | BoundaryCondition::VelocityInlet { .. }
+                | BoundaryCondition::CharacteristicInlet { .. } => true,
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    cfd_core::physics::boundary::WallType::Slip => {
+                        matches!(component, MomentumComponent::V)
+                    }
+                    _ => true,
+                },
+                BoundaryCondition::Symmetry => matches!(component, MomentumComponent::V),
+                _ => false,
+            };
         }
         // West boundary
-        if i == 0 {
-            if let Some(bc) = self.boundary_conditions.get("west") {
-                return match bc {
-                    BoundaryCondition::Dirichlet { .. }
-                    | BoundaryCondition::VelocityInlet { .. }
-                    | BoundaryCondition::CharacteristicInlet { .. } => true,
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            matches!(component, MomentumComponent::U)
-                        }
-                        _ => true,
-                    },
-                    BoundaryCondition::Symmetry => matches!(component, MomentumComponent::U),
-                    _ => false,
-                };
-            }
+        if i == 0
+            && let Some(bc) = self.boundary_conditions.get("west")
+        {
+            return match bc {
+                BoundaryCondition::Dirichlet { .. }
+                | BoundaryCondition::VelocityInlet { .. }
+                | BoundaryCondition::CharacteristicInlet { .. } => true,
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    cfd_core::physics::boundary::WallType::Slip => {
+                        matches!(component, MomentumComponent::U)
+                    }
+                    _ => true,
+                },
+                BoundaryCondition::Symmetry => matches!(component, MomentumComponent::U),
+                _ => false,
+            };
         }
         // East boundary
-        if i == self.grid.nx - 1 {
-            if let Some(bc) = self.boundary_conditions.get("east") {
-                return match bc {
-                    BoundaryCondition::Dirichlet { .. }
-                    | BoundaryCondition::VelocityInlet { .. }
-                    | BoundaryCondition::CharacteristicInlet { .. } => true,
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            matches!(component, MomentumComponent::U)
-                        }
-                        _ => true,
-                    },
-                    BoundaryCondition::Symmetry => matches!(component, MomentumComponent::U),
-                    _ => false,
-                };
-            }
+        if i == self.grid.nx - 1
+            && let Some(bc) = self.boundary_conditions.get("east")
+        {
+            return match bc {
+                BoundaryCondition::Dirichlet { .. }
+                | BoundaryCondition::VelocityInlet { .. }
+                | BoundaryCondition::CharacteristicInlet { .. } => true,
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    cfd_core::physics::boundary::WallType::Slip => {
+                        matches!(component, MomentumComponent::U)
+                    }
+                    _ => true,
+                },
+                BoundaryCondition::Symmetry => matches!(component, MomentumComponent::U),
+                _ => false,
+            };
         }
         false
     }
@@ -366,8 +366,8 @@ mod tests {
     use crate::fields::SimulationFields;
     use crate::grid::StructuredGrid2D;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-    use leto::geometry::Vector3;
     use leto::Array1;
+    use leto::geometry::Vector3;
 
     #[test]
     fn moving_north_wall_assembles_nonzero_coupling_to_interior() {

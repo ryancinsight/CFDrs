@@ -19,7 +19,7 @@
 //!
 //! Run with: `cargo run -p cfd-math --example matrix_free_demo`
 
-use cfd_math::linear_solver::{krylov::cg, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov::cg};
 use cfd_math::sparse::SparseMatrixBuilder;
 use leto::Array1;
 use leto_ops::CsrMatrix;

@@ -7,8 +7,8 @@ use std::sync::Arc;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::{
-    evaluate_blueprint_candidate, BlueprintEvaluation, BlueprintSafetyMetrics,
-    BlueprintSeparationMetrics, BlueprintVenturiMetrics, ResidenceMetrics,
+    BlueprintEvaluation, BlueprintSafetyMetrics, BlueprintSeparationMetrics,
+    BlueprintVenturiMetrics, ResidenceMetrics, evaluate_blueprint_candidate,
 };
 use serde::{Deserialize, Serialize};
 

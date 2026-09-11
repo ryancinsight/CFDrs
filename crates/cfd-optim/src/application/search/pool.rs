@@ -30,14 +30,14 @@
 use std::sync::Arc;
 
 use eunomia::FloatElement;
-use moirai::{fold_reduce_with, Adaptive};
+use moirai::{Adaptive, fold_reduce_with};
 
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::application::orchestration::ScanProgress;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::{
-    evaluate_blueprint_candidate, healthy_cell_protection_index, BlueprintEvaluation,
+    BlueprintEvaluation, evaluate_blueprint_candidate, healthy_cell_protection_index,
 };
 
 // ---------------------------------------------------------------------------

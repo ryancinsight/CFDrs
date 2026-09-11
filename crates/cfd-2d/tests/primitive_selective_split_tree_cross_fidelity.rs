@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
+use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};

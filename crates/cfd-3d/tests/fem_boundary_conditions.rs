@@ -2,8 +2,8 @@
 use cfd_3d::fem::{FemConfig, FemSolver, StokesFlowProblem};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
+use cfd_mesh::domain::topology::Cell;
 use leto::Point3;
 use std::collections::HashMap;
 

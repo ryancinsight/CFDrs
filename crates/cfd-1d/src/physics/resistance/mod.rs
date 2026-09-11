@@ -83,12 +83,12 @@ pub use factory::ResistanceModelFactory;
 pub use geometry::ChannelGeometry;
 pub use models::CombinationMethod;
 pub use models::{
+    BendType, DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions,
+    HagenPoiseuilleModel, JunctionFlowDirection, JunctionLossModel, JunctionType,
+    MembranePoreModel, RectangularChannelModel, ResistanceModel, SerpentineAnalysis,
+    SerpentineCrossSection, SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
     bayat_rezai_enhancement, cascade_treatment_flow_fractions, durst_entrance_k,
-    durst_entrance_length, durst_resistance_multiplier, parallel_channel_flow_fractions, BendType,
-    DarcyWeisbachModel, EntranceEffectsModel, ExpansionType, FlowConditions, HagenPoiseuilleModel,
-    JunctionFlowDirection, JunctionLossModel, JunctionType, MembranePoreModel,
-    RectangularChannelModel, ResistanceModel, SerpentineAnalysis, SerpentineCrossSection,
-    SerpentineModel, VenturiAnalysis, VenturiGeometry, VenturiModel,
+    durst_entrance_length, durst_resistance_multiplier, parallel_channel_flow_fractions,
 };
 
 // Convenience re-export of the traits facade

@@ -9,7 +9,7 @@ mod render_shell;
 use crate::visualizations::traits::Color;
 use plotters::prelude::RGBColor;
 
-pub use drawer::{create_plotters_renderer, PlottersDrawer, PlottersVisualizationEngine};
+pub use drawer::{PlottersDrawer, PlottersVisualizationEngine, create_plotters_renderer};
 pub use render_core::PlottersRenderer;
 pub use render_shell::plot_shell_cuboid;
 

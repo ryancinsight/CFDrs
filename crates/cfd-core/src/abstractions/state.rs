@@ -2,7 +2,7 @@
 
 use eunomia::{FloatElement, RealField};
 use indexmap::IndexMap;
-use leto::{geometry::Vector3, Array1};
+use leto::{Array1, geometry::Vector3};
 use serde::{Deserialize, Serialize};
 
 /// Trait for simulation states

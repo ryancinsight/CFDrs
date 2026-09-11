@@ -76,6 +76,7 @@ use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Velocity, VolumetricFlowRate,
 };
 pub use cascade_junction::{
+    CascadeJunctionResult, CascadeStage, IncrementalFiltrationResult, PeripheralRecovery,
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs, checked_mixed_cascade_separation_kappa_aware,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
@@ -83,8 +84,7 @@ pub use cascade_junction::{
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
     mixed_cascade_separation, mixed_cascade_separation_kappa_aware,
     treatment_bifurcation_separation, tri_asymmetric_q_fracs, tri_center_q_frac,
-    tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
-    IncrementalFiltrationResult, PeripheralRecovery,
+    tri_center_q_frac_cross_junction,
 };
 pub use cell_free_layer::{cfl_width_fedosov, cfl_width_sharan_popel, two_layer_viscosity};
 pub use cell_interaction::checked_enhanced_lateral_equilibrium;
@@ -95,14 +95,14 @@ pub use fahraeus_lindqvist::{
     fahraeus_lindqvist_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
 };
 pub use margination::{
-    amini_confinement_correction, checked_amini_confinement_correction,
-    checked_inertial_lift_force, checked_lateral_equilibrium, checked_lateral_velocity,
-    dean_drag_force, dean_number, inertial_lift_force, lateral_equilibrium, EquilibriumResult,
-    AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF,
+    AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF, EquilibriumResult, amini_confinement_correction,
+    checked_amini_confinement_correction, checked_inertial_lift_force, checked_lateral_equilibrium,
+    checked_lateral_velocity, dean_drag_force, dean_number, inertial_lift_force,
+    lateral_equilibrium,
 };
 pub use plasma_skimming::{
-    checked_plasma_skimming_hematocrit, checked_pries_phase_separation, plasma_skimming_hematocrit,
-    pries_phase_separation, PhaseSeparationResult,
+    PhaseSeparationResult, checked_plasma_skimming_hematocrit, checked_pries_phase_separation,
+    plasma_skimming_hematocrit, pries_phase_separation,
 };
 pub use properties::CellProperties;
 pub use rouleaux_aggregation::{checked_quemada_viscosity, quemada_viscosity};

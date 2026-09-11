@@ -10,10 +10,10 @@
 use super::physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
+use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use cfd_core::CfdScalar;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -181,7 +181,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
         branch_fine: &TwoWayBranchJunction<T>,
         fluid: F,
         expected_order: T,
-    ) -> Result<BranchingValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<BranchingValidationResult<T>> {
         // Solve on coarse grid
         let solution_coarse = branch_coarse
             .solve(
@@ -191,7 +191,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Coarse solution failed: {e}"))?;
+            .map_err(|e| cfd_core::error::Error::Solver(format!("Coarse solution failed: {e}")))?;
 
         // Solve on fine grid
         let solution_fine = branch_fine
@@ -202,7 +202,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Fine solution failed: {e}"))?;
+            .map_err(|e| cfd_core::error::Error::Solver(format!("Fine solution failed: {e}")))?;
 
         // Approximate relative error (using Q_1 as representative variable)
         let error_coarse = <T as NumericElement>::abs(solution_coarse.q_1 - solution_fine.q_1)
@@ -256,7 +256,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
         &self,
         branch_junction: &TwoWayBranchJunction<T>,
         fluid: F,
-    ) -> Result<BranchingValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<BranchingValidationResult<T>> {
         // Solve two-way branch junction
         let solution = branch_junction
             .solve(
@@ -266,7 +266,9 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Two-way branch solve failed: {e}"))?;
+            .map_err(|e| {
+                cfd_core::error::Error::Solver(format!("Two-way branch solve failed: {e}"))
+            })?;
 
         // For symmetric two-way branch, Q_1 should equal Q_2
         let q_analytical_1 = self.config.q_parent / T::from_f64_or_one(2.0);
@@ -315,7 +317,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
         &self,
         branch_junction: &TwoWayBranchJunction<T>,
         blood: F,
-    ) -> Result<BranchingValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<BranchingValidationResult<T>> {
         let solution = branch_junction
             .solve(
                 blood,
@@ -324,7 +326,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Blood flow solve failed: {e}"))?;
+            .map_err(|e| cfd_core::error::Error::Solver(format!("Blood flow solve failed: {e}")))?;
 
         // Verify shear rates are physiological
         let gamma_min = T::from_f64_or_one(1.0);
@@ -373,7 +375,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
         &self,
         branch_junction: &ThreeWayBranchJunction<T>,
         fluid: F,
-    ) -> Result<BranchingValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<BranchingValidationResult<T>> {
         let solution = branch_junction
             .solve(
                 fluid,
@@ -382,7 +384,9 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Three-way branch solve failed: {e}"))?;
+            .map_err(|e| {
+                cfd_core::error::Error::Solver(format!("Three-way branch solve failed: {e}"))
+            })?;
 
         let q_expected = self.config.q_parent / T::from_f64_or_one(3.0);
         let q_err_1 = <T as NumericElement>::abs(solution.q_1 - q_expected)
@@ -430,7 +434,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
         &self,
         branch_junction: &ThreeWayBranchJunction<T>,
         blood: F,
-    ) -> Result<BranchingValidationResult<T>, String> {
+    ) -> cfd_core::error::Result<BranchingValidationResult<T>> {
         let solution = branch_junction
             .solve(
                 blood,
@@ -439,7 +443,9 @@ impl<T: CfdScalar + Copy + SafeFromF64> BranchingValidator<T> {
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
                 T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::P_ATM),
             )
-            .map_err(|e| format!("Three-way blood solve failed: {e}"))?;
+            .map_err(|e| {
+                cfd_core::error::Error::Solver(format!("Three-way blood solve failed: {e}"))
+            })?;
 
         let gamma_min = T::from_f64_or_one(1.0);
         let gamma_max = T::from_f64_or_one(100000.0);

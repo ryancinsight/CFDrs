@@ -175,7 +175,7 @@ impl<'s> GeometryGeneratorBuilder<'s> {
             .product::<usize>()
             .max(1);
 
-        let mut gen = if let Some(metadata_config) = self.metadata_config {
+        let mut generator = if let Some(metadata_config) = self.metadata_config {
             GeometryGenerator::new_with_metadata(
                 self.box_dims,
                 self.config,
@@ -193,18 +193,18 @@ impl<'s> GeometryGeneratorBuilder<'s> {
         };
 
         if let Some(hints) = self.render_hints {
-            gen = gen.with_render_hints(hints);
+            generator = generator.with_render_hints(hints);
         }
         if let Some(spec) = self.topology {
-            gen = gen.with_topology_spec(spec);
+            generator = generator.with_topology_spec(spec);
         }
         if let Some(lineage) = self.lineage {
-            gen = gen.with_lineage(lineage);
+            generator = generator.with_lineage(lineage);
         }
         if let Some(metadata) = self.blueprint_metadata {
-            gen = gen.with_blueprint_metadata(metadata);
+            generator = generator.with_blueprint_metadata(metadata);
         }
 
-        gen.generate(self.splits)
+        generator.generate(self.splits)
     }
 }

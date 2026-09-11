@@ -46,8 +46,8 @@
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::scalar;
-use cfd_core::error::Result as CfdResult;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 

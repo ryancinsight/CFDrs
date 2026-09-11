@@ -9,6 +9,7 @@
 pub(crate) mod space;
 
 pub use space::{
-    build_milestone12_blueprint_candidate_space, build_milestone12_candidate_params,
-    generate_milestone12_lhs_params, generate_milestone12_lhs_params_seeded, CandidateParams,
+    CandidateParams, build_milestone12_blueprint_candidate_space,
+    build_milestone12_candidate_params, generate_milestone12_lhs_params,
+    generate_milestone12_lhs_params_seeded,
 };

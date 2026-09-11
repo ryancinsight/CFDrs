@@ -6,10 +6,10 @@
 
 use super::cavity::LidDrivenCavity;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_2d::grid::array2d::Array2D;
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::physics::vorticity_stream::VorticityStreamConfig;
+use cfd_2d::grid::array2d::Array2D;
 use cfd_2d::physics::VorticityStreamSolver;
+use cfd_2d::physics::vorticity_stream::VorticityStreamConfig;
 use cfd_core::compute::solver::SolverConfig;
 use cfd_core::error::{Error, Result};
 use leto::geometry::Vector2;
@@ -134,10 +134,11 @@ impl VorticityStreamCavityConfig {
             resolved.grid_points = (runtime.resolution, runtime.resolution);
         }
 
-        if let Some(time_step) = runtime.time_step {
-            if time_step.is_finite() && time_step > 0.0 {
-                resolved.time_step = time_step;
-            }
+        if let Some(time_step) = runtime.time_step
+            && time_step.is_finite()
+            && time_step > 0.0
+        {
+            resolved.time_step = time_step;
         }
 
         if runtime.tolerance.is_finite() && runtime.tolerance > 0.0 {
@@ -770,9 +771,11 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the vorticity-stream cavity benchmark");
 
-        assert!(benchmark
-            .validate(&result)
-            .expect("validation should be computable"));
+        assert!(
+            benchmark
+                .validate(&result)
+                .expect("validation should be computable")
+        );
         assert!(result.metrics.contains_key("Final Residual"));
         assert!(result.metrics.contains_key("Final Enstrophy"));
         assert!(result.metrics.contains_key("Final Max Speed"));

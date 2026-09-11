@@ -12,7 +12,7 @@ pub use analysis::{ConvergenceAnalysis, ConvergenceOrder};
 pub use criteria::{
     ConvergenceCriterion, ConvergenceMonitor, ConvergenceStatus, GridConvergenceIndex,
 };
-pub use richardson::{richardson_extrapolate, RichardsonExtrapolation};
+pub use richardson::{RichardsonExtrapolation, richardson_extrapolate};
 pub use study::ConvergenceStudy;
 
 // Re-export core functionality

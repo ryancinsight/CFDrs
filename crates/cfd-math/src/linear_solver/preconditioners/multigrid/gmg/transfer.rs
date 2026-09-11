@@ -4,8 +4,8 @@
 //! bilinear prolongation operators.
 
 use super::{
-    ops::{l2_norm, matrix_vector_product},
     GeometricMultigrid, GmgMatrix, GmgVector,
+    ops::{l2_norm, matrix_vector_product},
 };
 use eunomia::{FloatElement, NumericElement, RealField};
 

@@ -7,7 +7,7 @@
 
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig},
-    geometry::{generator::create_geometry, SplitType},
+    geometry::{SplitType, generator::create_geometry},
 };
 
 #[path = "../shared/mod.rs"]

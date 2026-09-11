@@ -261,29 +261,28 @@ impl ParameterRegistry {
             .ok()
             .and_then(|value| value.downcast_ref::<f64>().copied());
 
-        if let (Some(wall_clearance), Some(channel_width)) = (wall_clearance, channel_width) {
-            if wall_clearance >= channel_width {
-                return Err(StateManagementError::Validation(
-                    crate::state_management::errors::ValidationError::rule_failed(
-                        "wall_clearance+channel_width",
-                        "wall_clearance must be less than channel_width",
-                    ),
-                ));
-            }
+        if let (Some(wall_clearance), Some(channel_width)) = (wall_clearance, channel_width)
+            && wall_clearance >= channel_width
+        {
+            return Err(StateManagementError::Validation(
+                crate::state_management::errors::ValidationError::rule_failed(
+                    "wall_clearance+channel_width",
+                    "wall_clearance must be less than channel_width",
+                ),
+            ));
         }
 
         // Validate that serpentine parameters are reasonable
-        if let Ok(wavelength_any) = self.serpentine_manager.get_parameter("wavelength_factor") {
-            if let Some(wavelength) = wavelength_any.downcast_ref::<f64>() {
-                if *wavelength <= 0.0 {
-                    return Err(StateManagementError::Validation(
-                        crate::state_management::errors::ValidationError::rule_failed(
-                            "wavelength_factor",
-                            "Wavelength factor must be positive",
-                        ),
-                    ));
-                }
-            }
+        if let Ok(wavelength_any) = self.serpentine_manager.get_parameter("wavelength_factor")
+            && let Some(wavelength) = wavelength_any.downcast_ref::<f64>()
+            && *wavelength <= 0.0
+        {
+            return Err(StateManagementError::Validation(
+                crate::state_management::errors::ValidationError::rule_failed(
+                    "wavelength_factor",
+                    "Wavelength factor must be positive",
+                ),
+            ));
         }
 
         Ok(())

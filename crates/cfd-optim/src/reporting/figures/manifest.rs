@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 use super::context::{write_context_concept_figures, write_selected_schematic_figure};
 use super::process::write_creation_optimization_process_figure;
 use super::svg::{
-    write_cavitation_distribution_figure, write_cross_mode_figure,
+    DeanVenturiPoint, write_cavitation_distribution_figure, write_cross_mode_figure,
     write_dean_venturi_placement_figure, write_ga_convergence_figure, write_head_to_head_figure,
-    write_pareto_figure, write_pediatric_ecv_figure, DeanVenturiPoint,
+    write_pareto_figure, write_pediatric_ecv_figure,
 };
 use super::treatment_lane::write_treatment_lane_zoom_figure;
 use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
-use crate::reporting::{rank_ga_hydrosdt_report_designs, Milestone12ReportDesign, ParetoPoint};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint, rank_ga_hydrosdt_report_designs};
 
 /// Figure metadata used for dynamic table-of-contents and section rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -420,7 +420,7 @@ fn extract_dean_venturi_points(
 mod tests {
     use super::*;
     use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
-    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+    use crate::reporting::{Milestone12ReportDesign, compute_blueprint_report_metrics};
     use cfd_schematics::topology::VenturiPlacementMode;
 
     #[test]

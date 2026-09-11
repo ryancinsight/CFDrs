@@ -211,14 +211,12 @@ impl SerpentineChannelStrategy {
             amplitude_cap = amplitude_cap.min((wall_available / normal_y_factor).max(0.0));
         }
 
-        if self.config.adaptive_config.enable_neighbor_avoidance {
-            if let Some(min_neighbor_distance) =
+        if self.config.adaptive_config.enable_neighbor_avoidance
+            && let Some(min_neighbor_distance) =
                 self.min_neighbor_distance_at_y(base_y, context.neighbor_info)
-            {
-                let neighbor_available =
-                    ((min_neighbor_distance - channel_diameter) * 0.5).max(0.0);
-                amplitude_cap = amplitude_cap.min(neighbor_available / normal_y_factor);
-            }
+        {
+            let neighbor_available = ((min_neighbor_distance - channel_diameter) * 0.5).max(0.0);
+            amplitude_cap = amplitude_cap.min(neighbor_available / normal_y_factor);
         }
 
         amplitude_cap

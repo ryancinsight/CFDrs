@@ -62,8 +62,8 @@ use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::VenturiMeshBuilder;
+use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use eunomia::FloatElement;
 use eunomia::NumericElement;
 use leto::geometry::Vector3;
@@ -833,12 +833,12 @@ where
         let mut count_in = 0;
         let mut inlet_nodes = std::collections::HashSet::new();
         for f_idx in problem.mesh.boundary_faces() {
-            if let Some(label) = problem.mesh.boundary_label(f_idx) {
-                if label == "inlet" {
-                    let face = problem.mesh.faces.get(f_idx);
-                    for &v_idx in &face.vertices {
-                        inlet_nodes.insert(v_idx.as_usize());
-                    }
+            if let Some(label) = problem.mesh.boundary_label(f_idx)
+                && label == "inlet"
+            {
+                let face = problem.mesh.faces.get(f_idx);
+                for &v_idx in &face.vertices {
+                    inlet_nodes.insert(v_idx.as_usize());
                 }
             }
         }
@@ -927,12 +927,12 @@ where
         let mut outlet_nodes = std::collections::HashSet::new();
 
         for f_idx in problem.mesh.boundary_faces() {
-            if let Some(label) = problem.mesh.boundary_label(f_idx) {
-                if label == "outlet" {
-                    let face = problem.mesh.faces.get(f_idx);
-                    for &v_idx in &face.vertices {
-                        outlet_nodes.insert(v_idx.as_usize());
-                    }
+            if let Some(label) = problem.mesh.boundary_label(f_idx)
+                && label == "outlet"
+            {
+                let face = problem.mesh.faces.get(f_idx);
+                for &v_idx in &face.vertices {
+                    outlet_nodes.insert(v_idx.as_usize());
                 }
             }
         }
@@ -1164,8 +1164,9 @@ mod tests {
             pressure_coefficients_from_throat_flux(1_000.0_f64, 0.0_f64, 1.0e-6_f64, 1.0, -0.2)
                 .expect_err("zero flow rate has no dynamic pressure scale");
 
-        assert!(err
-            .to_string()
-            .contains("positive throat area and flow rate"));
+        assert!(
+            err.to_string()
+                .contains("positive throat area and flow rate")
+        );
     }
 }

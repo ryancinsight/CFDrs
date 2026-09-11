@@ -7,10 +7,10 @@ use crate::pressure_velocity::boundary::{
     pressure_neighbor_for_side,
 };
 use crate::scalar;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_core::CfdScalar;
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use std::collections::HashMap;
@@ -150,76 +150,76 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                     let idx = j * nx + i;
                     let mut neighbor_indices = Vec::with_capacity(2);
 
-                    if i == 0 {
-                        if let Some(bc) = boundary_conditions.get("west") {
-                            if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "west",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if i == 0
+                        && let Some(bc) = boundary_conditions.get("west")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "west",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if i == nx - 1 {
-                        if let Some(bc) = boundary_conditions.get("east") {
-                            if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "east",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if i == nx - 1
+                        && let Some(bc) = boundary_conditions.get("east")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "east",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if j == 0 {
-                        if let Some(bc) = boundary_conditions.get("south") {
-                            if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "south",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if j == 0
+                        && let Some(bc) = boundary_conditions.get("south")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "south",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if j == ny - 1 {
-                        if let Some(bc) = boundary_conditions.get("north") {
-                            if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "north",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if j == ny - 1
+                        && let Some(bc) = boundary_conditions.get("north")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "north",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
                     // The anchor cell and any cell with no neighbours both get
@@ -359,76 +359,76 @@ impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> Si
                     let idx = j * nx + i;
                     let mut neighbor_indices = Vec::with_capacity(2);
 
-                    if i == 0 {
-                        if let Some(bc) = boundary_conditions.get("west") {
-                            if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, scalar::one::<T>());
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "west",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if i == 0
+                        && let Some(bc) = boundary_conditions.get("west")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            update_entry(idx, idx, scalar::one::<T>());
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "west",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if i == nx - 1 {
-                        if let Some(bc) = boundary_conditions.get("east") {
-                            if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, scalar::one::<T>());
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "east",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if i == nx - 1
+                        && let Some(bc) = boundary_conditions.get("east")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            update_entry(idx, idx, scalar::one::<T>());
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "east",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if j == 0 {
-                        if let Some(bc) = boundary_conditions.get("south") {
-                            if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, scalar::one::<T>());
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "south",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if j == 0
+                        && let Some(bc) = boundary_conditions.get("south")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            update_entry(idx, idx, scalar::one::<T>());
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "south",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
-                    if j == ny - 1 {
-                        if let Some(bc) = boundary_conditions.get("north") {
-                            if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, scalar::one::<T>());
-                                rhs[idx] = scalar::zero::<T>();
-                                continue;
-                            }
-                            neighbor_indices.push(pressure_neighbor_for_side(
-                                "north",
-                                i,
-                                j,
-                                nx,
-                                ny,
-                                boundary_conditions,
-                            ));
+                    if j == ny - 1
+                        && let Some(bc) = boundary_conditions.get("north")
+                    {
+                        if is_pressure_anchor_boundary(bc) {
+                            update_entry(idx, idx, scalar::one::<T>());
+                            rhs[idx] = scalar::zero::<T>();
+                            continue;
                         }
+                        neighbor_indices.push(pressure_neighbor_for_side(
+                            "north",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
                     }
 
                     // Same two reasons, same pinned row, as in the builder above.

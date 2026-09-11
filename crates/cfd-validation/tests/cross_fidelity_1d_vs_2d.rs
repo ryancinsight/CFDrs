@@ -132,9 +132,9 @@ fn cross_fidelity_asymmetric_bifurcation() {
     let parent_l = 10.0e-3;
     let d1_w = 1.5e-3; // wider → more flow
     let d2_w = 0.75e-3; // narrower
-                        // Long daughters ensure L/D_h > 20 → fully-developed flow.
-                        // D_h(d1) ≈ 2×1.5×2/(1.5+2) = 1.71 mm → L/D_h = 20/1.71 ≈ 11.7
-                        // D_h(d2) ≈ 2×0.75×2/(0.75+2) = 1.09 mm → L/D_h = 20/1.09 ≈ 18.3
+    // Long daughters ensure L/D_h > 20 → fully-developed flow.
+    // D_h(d1) ≈ 2×1.5×2/(1.5+2) = 1.71 mm → L/D_h = 20/1.71 ≈ 11.7
+    // D_h(d2) ≈ 2×0.75×2/(0.75+2) = 1.09 mm → L/D_h = 20/1.09 ≈ 18.3
     let daughter_l = 20.0e-3;
     let angle = 0.2; // shallow angle reduces junction losses
 

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::layout::{blueprint_node_positions, save_auto_layout_json, BlueprintNodeLayout};
+use super::layout::{BlueprintNodeLayout, blueprint_node_positions, save_auto_layout_json};
 use super::path_generation::{
     generated_parallel_path, generated_serpentine_path, path_has_visible_serpentine_curvature,
 };
@@ -24,10 +24,10 @@ pub(crate) fn channel_system_from_blueprint(
 ) -> RenderChannelSystem {
     let box_dims = box_dims_hint.unwrap_or(blueprint.box_dims);
     let node_layout = blueprint_node_positions(&blueprint.nodes, &blueprint.channels, box_dims);
-    if !node_layout.auto_layout_indices().is_empty() {
-        if let Some(path) = output_path {
-            save_auto_layout_json(&node_layout, box_dims, path);
-        }
+    if !node_layout.auto_layout_indices().is_empty()
+        && let Some(path) = output_path
+    {
+        save_auto_layout_json(&node_layout, box_dims, path);
     }
     let mut channel_paths = Vec::with_capacity(blueprint.channels.len());
     let mut channel_categories = Vec::with_capacity(blueprint.channels.len());
@@ -144,22 +144,21 @@ fn explicit_or_generated_path(
         bend_radius_m,
         ..
     } = channel_spec.channel_shape
+        && !channel_spec.path.is_empty()
     {
-        if !channel_spec.path.is_empty() {
-            return if path_has_visible_serpentine_curvature(
-                &channel_spec.path,
+        return if path_has_visible_serpentine_curvature(
+            &channel_spec.path,
+            bend_radius_m.into_base() * 1.0e3,
+        ) {
+            Cow::Borrowed(channel_spec.path.as_slice())
+        } else {
+            Cow::Owned(generated_serpentine_path(
+                from,
+                to,
+                segments,
                 bend_radius_m.into_base() * 1.0e3,
-            ) {
-                Cow::Borrowed(channel_spec.path.as_slice())
-            } else {
-                Cow::Owned(generated_serpentine_path(
-                    from,
-                    to,
-                    segments,
-                    bend_radius_m.into_base() * 1.0e3,
-                ))
-            };
-        }
+            ))
+        };
     }
 
     if !channel_spec.path.is_empty() {

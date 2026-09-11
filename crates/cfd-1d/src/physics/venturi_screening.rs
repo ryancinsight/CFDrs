@@ -35,8 +35,8 @@ use aequitas::systems::si::quantities::{
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::{
-    evaluate_selective_cavitation_thresholds, CellPopulationIdentity,
-    PopulationCavitationThreshold, SelectiveCavitationInput, SelectiveCavitationResult,
+    CellPopulationIdentity, PopulationCavitationThreshold, SelectiveCavitationInput,
+    SelectiveCavitationResult, evaluate_selective_cavitation_thresholds,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -636,10 +636,10 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
 #[cfg(test)]
 mod tests {
     use super::{
+        VenturiScreeningInput, VenturiScreeningRisk, VenturiSelectiveScreeningRegime,
         assess_venturi_screening, classify_venturi_screening,
         discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
-        venturi_taper_length_m, VenturiScreeningInput, VenturiScreeningRisk,
-        VenturiSelectiveScreeningRegime,
+        venturi_taper_length_m,
     };
     use crate::physics::resistance::models::VenturiModel;
     use aequitas::systems::si::quantities::{

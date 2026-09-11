@@ -7,8 +7,8 @@ use crate::physics::turbulence::{
     DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES,
 };
 use eunomia::{FloatElement, RealField as EunomiaRealField};
-use leto::geometry::Vector2;
 use leto::Array2;
+use leto::geometry::Vector2;
 
 use super::TurbulenceValidator;
 

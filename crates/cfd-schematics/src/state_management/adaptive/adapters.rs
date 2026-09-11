@@ -53,19 +53,19 @@ impl AdaptiveParameter<f64, ChannelGenerationContext> for DistanceBasedAmplitude
         let mut scale_factor: f64 = 1.0;
 
         // Apply neighbor-based scaling
-        if self.neighbor_scaling {
-            if let Some(min_neighbor_dist) = context.min_neighbor_distance() {
-                if min_neighbor_dist <= 0.0 {
-                    return Err(AdaptationError::CalculationFailed {
-                        parameter: "amplitude".to_string(),
-                        reason: "Invalid neighbor distance".to_string(),
-                    });
-                }
-
-                let neighbor_constraint = (min_neighbor_dist / 2.0) * self.neighbor_scale_factor;
-                let neighbor_ratio = neighbor_constraint / base_value;
-                scale_factor = scale_factor.min(neighbor_ratio);
+        if self.neighbor_scaling
+            && let Some(min_neighbor_dist) = context.min_neighbor_distance()
+        {
+            if min_neighbor_dist <= 0.0 {
+                return Err(AdaptationError::CalculationFailed {
+                    parameter: "amplitude".to_string(),
+                    reason: "Invalid neighbor distance".to_string(),
+                });
             }
+
+            let neighbor_constraint = (min_neighbor_dist / 2.0) * self.neighbor_scale_factor;
+            let neighbor_ratio = neighbor_constraint / base_value;
+            scale_factor = scale_factor.min(neighbor_ratio);
         }
 
         // Apply wall-based scaling

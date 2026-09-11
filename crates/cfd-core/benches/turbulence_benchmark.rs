@@ -1,7 +1,7 @@
 #![expect(clippy::print_stdout, reason = "test/validation output")]
 #![allow(missing_docs)]
 use cfd_core::compute::gpu::{GpuTurbulenceCompute, TurbulenceGrid};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_compute_des(c: &mut Criterion) {
     // Initialize GPU compute

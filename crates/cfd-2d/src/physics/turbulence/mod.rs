@@ -38,7 +38,7 @@ pub mod wall_functions;
 pub use boundary_conditions::{TurbulenceBoundaryCondition, TurbulenceBoundaryManager};
 pub use constants::*;
 pub use constants_validation::{
-    run_turbulence_constants_validation, ConstantsValidationResult, TurbulenceConstantsValidator,
+    ConstantsValidationResult, TurbulenceConstantsValidator, run_turbulence_constants_validation,
 };
 pub use des::DetachedEddySimulation;
 pub use k_epsilon::KEpsilonModel;
@@ -48,8 +48,8 @@ pub use reynolds_stress::{PressureStrainModel, ReynoldsStressModel, ReynoldsStre
 pub use spalart_allmaras::SpalartAllmaras;
 pub use traits::{LESTurbulenceModel, TurbulenceModel};
 pub use validation::{
-    run_les_benchmark_suite, run_rans_benchmark_suite, run_turbulence_validation,
-    TurbulenceValidator, ValidationResult,
+    TurbulenceValidator, ValidationResult, run_les_benchmark_suite, run_rans_benchmark_suite,
+    run_turbulence_validation,
 };
 pub use wall_functions::{WallFunction, WallTreatment};
 

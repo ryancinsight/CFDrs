@@ -739,7 +739,7 @@ fn test_level_set_sphere_reinit_preserves_zero() {
         .phi()
         .iter()
         .enumerate()
-        .filter(|(_, &p)| p.abs() < tol)
+        .filter(|&(_, p)| p.abs() < tol)
         .map(|(i, _)| i)
         .collect();
 

@@ -1,8 +1,8 @@
 #![allow(missing_docs, clippy::explicit_iter_loop)]
 
 use athena_core::Identity;
-use cfd_math::linear_solver::{krylov, IterativeSolverConfig};
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
+use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
 use leto_ops::CsrMatrix;
 

@@ -1,13 +1,13 @@
 //! Serpentine path generation and geometric safety.
 
+use super::super::ChannelGenerationContext;
 use super::super::envelope::{
     AdaptiveGaussianEnvelopeCalculator, EnvelopeCalculator, EnvelopeContext,
 };
-use super::super::ChannelGenerationContext;
 use super::SerpentineChannelStrategy;
 use crate::config::{ConstantsRegistry, SerpentineConfig};
-use crate::geometry::optimization::optimize_serpentine_parameters;
 use crate::geometry::Point2D;
+use crate::geometry::optimization::optimize_serpentine_parameters;
 
 impl SerpentineChannelStrategy {
     /// Estimate local bend radius from three consecutive points.
@@ -40,16 +40,17 @@ impl SerpentineChannelStrategy {
                 let b = path[i];
                 let c = path[i + 1];
 
-                if let Some(radius) = Self::estimate_local_bend_radius(a, b, c) {
-                    if radius.is_finite() && radius < min_radius {
-                        let midpoint = ((a.0 + c.0) * 0.5, (a.1 + c.1) * 0.5);
-                        let blend = (1.0 - radius / min_radius).clamp(0.15, 0.65);
-                        path[i] = (
-                            b.0 + (midpoint.0 - b.0) * blend,
-                            b.1 + (midpoint.1 - b.1) * blend,
-                        );
-                        changed = true;
-                    }
+                if let Some(radius) = Self::estimate_local_bend_radius(a, b, c)
+                    && radius.is_finite()
+                    && radius < min_radius
+                {
+                    let midpoint = ((a.0 + c.0) * 0.5, (a.1 + c.1) * 0.5);
+                    let blend = (1.0 - radius / min_radius).clamp(0.15, 0.65);
+                    path[i] = (
+                        b.0 + (midpoint.0 - b.0) * blend,
+                        b.1 + (midpoint.1 - b.1) * blend,
+                    );
+                    changed = true;
                 }
             }
 

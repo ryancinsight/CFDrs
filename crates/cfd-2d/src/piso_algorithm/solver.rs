@@ -24,8 +24,8 @@ use super::{
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::scalar;
-use cfd_core::error::Result;
 use cfd_core::CfdScalar;
+use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement};
 
 /// Minimum time step threshold to avoid numerical issues
@@ -135,13 +135,14 @@ impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> PisoSolver<T> {
             self.advance_one_step(fields, grid, state)?;
 
             // Optional: Log progress based on configuration
-            if let Some(freq) = self.config.log_frequency {
-                if freq > 0 && step % freq == 0 && step > 0 {
-                    if let Some(vel_res) = state.monitor.velocity_residuals.last() {
-                        let vel_res_f64 = <T as NumericElement>::to_f64(*vel_res);
-                        tracing::info!("Step {}: velocity residual = {:e}", step, vel_res_f64);
-                    }
-                }
+            if let Some(freq) = self.config.log_frequency
+                && freq > 0
+                && step % freq == 0
+                && step > 0
+                && let Some(vel_res) = state.monitor.velocity_residuals.last()
+            {
+                let vel_res_f64 = <T as NumericElement>::to_f64(*vel_res);
+                tracing::info!("Step {}: velocity residual = {:e}", step, vel_res_f64);
             }
 
             // Call user-provided callback
@@ -193,18 +194,19 @@ impl<T: CfdScalar + Copy + FloatElement + std::iter::Sum> PisoSolver<T> {
             step += 1;
 
             // Optional: Log progress based on configuration
-            if let Some(freq) = self.config.log_frequency {
-                if freq > 0 && step % freq == 0 {
-                    let percent_factor = <T as FloatElement>::from_f64(PERCENTAGE_FACTOR);
-                    let progress = current_time / total_duration * percent_factor;
-                    let progress_f64 = <T as NumericElement>::to_f64(progress);
-                    let time_f64 = <T as NumericElement>::to_f64(current_time);
-                    tracing::info!(
-                        "Simulation progress: {:.1}% (t = {:.3})",
-                        progress_f64,
-                        time_f64
-                    );
-                }
+            if let Some(freq) = self.config.log_frequency
+                && freq > 0
+                && step % freq == 0
+            {
+                let percent_factor = <T as FloatElement>::from_f64(PERCENTAGE_FACTOR);
+                let progress = current_time / total_duration * percent_factor;
+                let progress_f64 = <T as NumericElement>::to_f64(progress);
+                let time_f64 = <T as NumericElement>::to_f64(current_time);
+                tracing::info!(
+                    "Simulation progress: {:.1}% (t = {:.3})",
+                    progress_f64,
+                    time_f64
+                );
             }
         }
 

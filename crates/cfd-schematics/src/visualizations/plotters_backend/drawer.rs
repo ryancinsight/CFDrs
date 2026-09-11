@@ -1,4 +1,4 @@
-use plotters::coord::{types::RangedCoordf64, Shift};
+use plotters::coord::{Shift, types::RangedCoordf64};
 use plotters::prelude::*;
 
 use crate::domain::model::NetworkBlueprint;

@@ -32,8 +32,8 @@
 
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
-use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::grid::array2d::Array2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::PressureCorrectionSolver;
 use crate::pressure_velocity::RhieChowInterpolation;
@@ -397,8 +397,8 @@ impl<T: CfdScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolve
 mod tests {
     use super::*;
     use crate::fields::SimulationFields;
-    use crate::grid::array2d::Array2D;
     use crate::grid::StructuredGrid2D;
+    use crate::grid::array2d::Array2D;
     use cfd_core::physics::boundary::WallType;
     use leto::geometry::{Vector2, Vector3};
 

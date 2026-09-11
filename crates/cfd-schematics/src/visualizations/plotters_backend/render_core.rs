@@ -323,7 +323,7 @@ impl PlottersRenderer {
                 return Err(VisualizationError::InvalidParameters {
                     parameter: "annotations".to_string(),
                     value: "invalid annotation payload".to_string(),
-                    constraint: message,
+                    constraint: message.to_string(),
                 });
             }
             draw_annotation_overlay(&mut chart, system, annotations)?;

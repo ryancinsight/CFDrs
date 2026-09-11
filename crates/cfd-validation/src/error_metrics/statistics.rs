@@ -1,9 +1,9 @@
 //! Statistical error metrics and comprehensive error analysis
 
 use super::{
+    ErrorMetric,
     normalized::{MeanAbsoluteError, RelativeError, RootMeanSquareError},
     norms::{L1Norm, L2Norm, LInfNorm},
-    ErrorMetric,
 };
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, RealField};

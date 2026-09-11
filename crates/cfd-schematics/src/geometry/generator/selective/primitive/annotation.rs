@@ -3,12 +3,12 @@ use std::collections::{HashMap, HashSet};
 
 use super::super::super::super::types::Point2D;
 use super::super::super::path_geometry::infer_serpentine_shape;
+use super::super::PendingVenturiPath;
 use super::super::path_geometry::serpentine_overlay_path;
 use super::super::routing::{
     channel_length_from_points_or_endpoints, channel_path_between, preferred_treatment_lane_y,
     primitive_treatment_leaf_indices, route_pending_venturi_paths,
 };
-use super::super::PendingVenturiPath;
 use super::{PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest};
 use crate::domain::model::{NetworkBlueprint, NodeId, NodeKind};
 use crate::domain::therapy_metadata::TherapyZone;
@@ -226,34 +226,32 @@ pub(super) fn annotate_primitive_tree(
             && request.center_serpentine.is_some()
             && (!request.treatment_branch_venturi_enabled || !is_treatment_window_channel);
 
-        if should_overlay_serpentine {
-            if let Some(spec) = request.center_serpentine {
-                let source_points: Cow<'_, [Point2D]> = if channel.path.is_empty() {
-                    Cow::Owned([start_point, end_point].into_iter().flatten().collect())
+        if should_overlay_serpentine && let Some(spec) = request.center_serpentine {
+            let source_points: Cow<'_, [Point2D]> = if channel.path.is_empty() {
+                Cow::Owned([start_point, end_point].into_iter().flatten().collect())
+            } else {
+                Cow::Borrowed(channel.path.as_slice())
+            };
+            let serpentine_path = serpentine_overlay_path(
+                source_points.as_ref(),
+                physical_width,
+                spec,
+                if request.treatment_branch_venturi_enabled {
+                    1.1
                 } else {
-                    Cow::Borrowed(channel.path.as_slice())
-                };
-                let serpentine_path = serpentine_overlay_path(
-                    source_points.as_ref(),
-                    physical_width,
-                    spec,
-                    if request.treatment_branch_venturi_enabled {
-                        1.1
-                    } else {
-                        1.5
-                    },
-                );
-                channel.path = serpentine_path;
-                channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
-                    &channel.path,
-                    start_point,
-                    end_point,
-                    channel.length_m.into_base(),
-                ));
-                if let Some((start, end)) = channel.path.first().zip(channel.path.last()) {
-                    channel.channel_shape =
-                        infer_serpentine_shape(&channel.path, *start, *end, physical_width * 1.0e3);
-                }
+                    1.5
+                },
+            );
+            channel.path = serpentine_path;
+            channel.length_m = Length::from_base(channel_length_from_points_or_endpoints(
+                &channel.path,
+                start_point,
+                end_point,
+                channel.length_m.into_base(),
+            ));
+            if let Some((start, end)) = channel.path.first().zip(channel.path.last()) {
+                channel.channel_shape =
+                    infer_serpentine_shape(&channel.path, *start, *end, physical_width * 1.0e3);
             }
         }
 

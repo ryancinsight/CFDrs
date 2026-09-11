@@ -4,7 +4,7 @@
 //! These benchmarks measure performance of convergence detection algorithms.
 
 use cfd_validation::convergence::{ConvergenceMonitor, GridConvergenceIndex};
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
 fn benchmark_convergence_monitor(c: &mut Criterion) {
     let mut group = c.benchmark_group("convergence_monitor");

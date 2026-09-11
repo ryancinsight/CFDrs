@@ -377,15 +377,15 @@ impl<T: CfdScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
         }
 
         let is_dirichlet = |side: &str| -> bool {
-            if let Some(bcs) = boundary_conditions {
-                if let Some(bc) = bcs.get(side) {
-                    return matches!(
-                        bc,
-                        cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { .. }
-                            | cfd_core::physics::boundary::BoundaryCondition::PressureInlet { .. }
-                            | cfd_core::physics::boundary::BoundaryCondition::CharacteristicOutlet { .. }
-                    );
-                }
+            if let Some(bcs) = boundary_conditions
+                && let Some(bc) = bcs.get(side)
+            {
+                return matches!(
+                    bc,
+                    cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { .. }
+                        | cfd_core::physics::boundary::BoundaryCondition::PressureInlet { .. }
+                        | cfd_core::physics::boundary::BoundaryCondition::CharacteristicOutlet { .. }
+                );
             }
             false
         };
@@ -454,8 +454,8 @@ impl<T: CfdScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
 mod tests {
     use super::*;
     use crate::fields::SimulationFields;
-    use crate::grid::array2d::Array2D;
     use crate::grid::StructuredGrid2D;
+    use crate::grid::array2d::Array2D;
     use crate::pressure_velocity::config::PressureLinearSolver;
     use cfd_core::physics::boundary::BoundaryCondition;
     use std::collections::HashMap;

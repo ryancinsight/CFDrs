@@ -2,7 +2,7 @@
 //! Milestone 12 multi-fidelity venturi validation.
 
 use cfd_optim::{
-    refresh_milestone12_reports, run_milestone12_validation, Milestone12RequestedStage,
+    Milestone12RequestedStage, refresh_milestone12_reports, run_milestone12_validation,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

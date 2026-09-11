@@ -5,7 +5,7 @@ use std::{borrow::Cow, collections::HashMap, ptr};
 
 use iris::color::NamedColorMap;
 
-use super::{colorize, AnalysisField, AnalysisOverlay};
+use super::{AnalysisField, AnalysisOverlay, colorize};
 use crate::visualizations::traits::Color;
 
 #[test]

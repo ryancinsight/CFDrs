@@ -47,7 +47,7 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
     // Test relaxation factor setting (should be within valid range)
     solver_with_bc.set_velocity_relaxation(0.7); // Valid range 0 < α ≤ 1
     solver_with_bc.set_velocity_relaxation(0.5); // More stable but slower
-                                                 //solver_with_bc.set_velocity_relaxation(1.1); // This would be invalid, but not tested here
+    //solver_with_bc.set_velocity_relaxation(1.1); // This would be invalid, but not tested here
 
     Ok(())
 }

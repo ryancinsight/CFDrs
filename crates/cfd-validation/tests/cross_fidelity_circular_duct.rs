@@ -9,7 +9,7 @@
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
-use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
+use cfd_2d::network::{Network2dBuilderSink, solve_reference_trace};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
 use cfd_mesh::VenturiMeshBuilder;

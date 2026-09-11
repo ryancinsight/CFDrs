@@ -33,9 +33,9 @@ pub use status::{PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason,
 pub use workspace::SolverWorkspace;
 
 pub use transient::composition::{
-    BloodEdgeTransportConfig, CompositionState, EdgeFlowEvent, InletCompositionEvent,
-    InletHematocritEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
-    TransientCompositionSimulator, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID,
+    BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID, BloodEdgeTransportConfig, CompositionState,
+    EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent, MixtureComposition,
+    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
 };
 pub use transient::droplets::{
     ChannelOccupancy, DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot,

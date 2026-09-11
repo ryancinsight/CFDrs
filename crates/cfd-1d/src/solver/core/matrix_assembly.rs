@@ -56,9 +56,9 @@
 //! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
 
 use crate::domain::network::Network;
+use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use cfd_core::CfdScalar;
 use eunomia::NumericElement;
 use leto::Array1;
 use leto_ops::{CooMatrix, CsrMatrix};

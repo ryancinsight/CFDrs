@@ -7,8 +7,8 @@ use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use leto_ops::{
-    spgemm, spmv_into as leto_spmv_into, CsrMatrix, RealScalar as LetoRealScalar,
-    Scalar as LetoScalar,
+    CsrMatrix, RealScalar as LetoRealScalar, Scalar as LetoScalar, spgemm,
+    spmv_into as leto_spmv_into,
 };
 
 /// Sparse matrix-vector multiplication (SpMV): y = A * x

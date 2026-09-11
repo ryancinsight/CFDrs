@@ -110,7 +110,7 @@ pub use cross_junction_flow::{CrossJunctionGeometry, CrossJunctionSolver2D};
 pub use drift_diffusion_2d::DriftDiffusionSolver2D;
 pub use fdm::{AdvectionDiffusionSolver, DiffusionSolver, FdmConfig, PoissonSolver};
 pub use fvm::{FluxScheme, FvmConfig, FvmSolver};
-pub use lbm::{LbmConfig, LbmSolver, D2Q9};
+pub use lbm::{D2Q9, LbmConfig, LbmSolver};
 pub use n_furcation_flow::{
     BranchGeometry, NFurcationGeometry, NFurcationSolution, NFurcationSolver2D,
 };

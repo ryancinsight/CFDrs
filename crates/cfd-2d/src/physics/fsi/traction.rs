@@ -50,8 +50,8 @@
 //! stress semantics marker so traction cannot be filled from a pressure.
 
 use crate::fields::{Field2D, SimulationFields};
-use cfd_core::error::{Error, Result};
 use cfd_core::CfdScalar;
+use cfd_core::error::{Error, Result};
 use eunomia::NumericElement;
 
 /// Validated structured-grid cell spacing.
@@ -292,7 +292,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{interface_traction, GridSpacing, InterfaceFace};
+    use super::{GridSpacing, InterfaceFace, interface_traction};
     use crate::fields::SimulationFields;
 
     fn unit_spacing() -> GridSpacing<f64> {
