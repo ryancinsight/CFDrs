@@ -5245,8 +5245,9 @@ No existing item's status was changed by this audit.
   fidelity (serial), doctests green.
 
 - **CFDRS-GHIA-V-CENTERLINE-HALF-2026-09-03 [minor][correctness] — Table II
-  still stops at Re=100 while Table I now reaches Re=1000 (status=todo,
-  unclaimed).**
+  still stops at Re=100 while Table I now reaches Re=1000 (status=done
+  2026-09-17 at CFDrs `6b280daa` + verification commit; delivered on a local
+  unpushed main; lease: none).**
   `CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02` canonicalized the u-centerline
   and added the genuine Table I Re=400 and Re=1000 columns
   (`benchmarks/cavity.rs`, `GHIA_REYNOLDS`). `ghia_v_centerline` was not
