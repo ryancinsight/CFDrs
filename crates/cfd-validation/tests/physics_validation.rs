@@ -216,3 +216,49 @@ fn validate_lid_driven_cavity_benchmark() {
     assert!(cavity.ghia_v_centerline(250.0).is_empty());
     assert!(cavity.ghia_u_centerline(250.0).is_empty());
 }
+
+#[test]
+fn ghia_reference_selection_respects_column_boundaries() {
+    fn check<T: eunomia::RealField + eunomia::FloatElement + Copy + std::fmt::Debug>() {
+        let scalar = <T as eunomia::FloatElement>::from_f64;
+        let cavity = LidDrivenCavity::new(scalar(1.0), scalar(1.0), scalar(100.0));
+
+        for reynolds in [100.0, 400.0, 1000.0] {
+            let vertical = cavity.ghia_u_centerline(scalar(reynolds));
+            let horizontal = cavity.ghia_v_centerline(scalar(reynolds));
+            assert_eq!(vertical.len(), 17);
+            assert_eq!(horizontal.len(), 17);
+
+            for offset in [-0.5, 0.0, 0.5] {
+                let requested = scalar(reynolds + offset);
+                assert!(LidDrivenCavity::<T>::has_ghia_reference(requested));
+                assert_eq!(cavity.ghia_u_centerline(requested), vertical);
+                assert_eq!(cavity.ghia_v_centerline(requested), horizontal);
+            }
+
+            for offset in [-1.0, 1.0] {
+                let requested = scalar(reynolds + offset);
+                assert!(!LidDrivenCavity::<T>::has_ghia_reference(requested));
+                assert_eq!(cavity.ghia_u_centerline(requested), Vec::new());
+                assert_eq!(cavity.ghia_v_centerline(requested), Vec::new());
+            }
+        }
+
+        for reynolds in [
+            0.0,
+            -100.0,
+            250.0,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
+            let requested = scalar(reynolds);
+            assert!(!LidDrivenCavity::<T>::has_ghia_reference(requested));
+            assert_eq!(cavity.ghia_u_centerline(requested), Vec::new());
+            assert_eq!(cavity.ghia_v_centerline(requested), Vec::new());
+        }
+    }
+
+    check::<f32>();
+    check::<f64>();
+}
