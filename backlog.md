@@ -5273,15 +5273,12 @@ No existing item's status was changed by this audit.
   Table I; and the vorticity-stream validation no longer skips at Re=400/1000.
   Dependencies: none.
 
-- **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python` (status=todo, effort=S).**
-  Outcome: the PyO3 binding is visible to mypy and IDEs.
-  Scope: `crates/cfd-python` — add `py.typed` and `.pyi` stubs (generated where
-  feasible), and remove the committed `casson_rheology_validation.png` run
-  output from the crate directory.
-  Non-goals: expanding the binding surface.
-  Acceptance oracle: a mypy run over the installed wheel resolves every
-  exported symbol; no image artifact tracked under `crates/cfd-python`.
-  Dependencies: none.
+- **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python`
+  (status=done 2026-09-17; delivered by commit `e7a1c9e8`, on origin/main).**
+  Acceptance oracle met: `py.typed` and `cfd_python.pyi` present under
+  `crates/cfd-python`, the stub covers all 38 exported `#[pyclass]` names, and
+  no image artifact is tracked in the crate directory. Stale entry closed on
+  re-verification; no new work was required.
 
 - **CFDRS-GA-015 [patch][arch] — Restore the pedantic floor erased by crate-level allows (status=todo, effort=L).**
   Outcome: crate-level blanket `#![allow]` gives way to per-site
