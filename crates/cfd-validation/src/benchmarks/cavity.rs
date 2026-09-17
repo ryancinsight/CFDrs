@@ -45,7 +45,49 @@ const GHIA_U_CENTERLINE_TABLE: &[(f64, [f64; 3])] = &[
     (0.0000, [0.00000, 0.00000, 0.00000]),
 ];
 
+// Ghia et al. (1982), Table II, p. 398: v/U along y/L = 0.5.
+// Each row is [x/L, Re=100, Re=400, Re=1000].
+//
+// Two cells are published exactly as printed in the paper and are kept as
+// such: (0.9063, Re=400) = -0.23827 carries the table's own footnote
+// ("probably wrong" — it breaks the monotone approach to the -0.44993
+// neighbor), and (0.9063, Re=1000) = -0.51550, which the paper's own
+// printing and independent reproductions (Roache's FVV deck) give as
+// -0.51550 while some secondary transcriptions carry -0.51500.
+const GHIA_V_CENTERLINE_TABLE: &[(f64, [f64; 3])] = &[
+    (1.0000, [0.00000, 0.00000, 0.00000]),
+    (0.9688, [-0.05906, -0.12146, -0.21388]),
+    (0.9609, [-0.07391, -0.15663, -0.27669]),
+    (0.9531, [-0.08864, -0.19254, -0.33714]),
+    (0.9453, [-0.10313, -0.22847, -0.39188]),
+    (0.9063, [-0.16914, -0.23827, -0.51550]),
+    (0.8594, [-0.22445, -0.44993, -0.42665]),
+    (0.8047, [-0.24533, -0.38598, -0.31966]),
+    (0.5000, [0.05454, 0.05186, 0.02526]),
+    (0.2344, [0.17527, 0.30174, 0.32235]),
+    (0.2266, [0.17507, 0.30203, 0.33075]),
+    (0.1563, [0.16077, 0.28124, 0.37095]),
+    (0.0938, [0.12317, 0.22965, 0.32627]),
+    (0.0781, [0.10890, 0.20920, 0.30353]),
+    (0.0703, [0.10091, 0.19713, 0.29012]),
+    (0.0625, [0.09233, 0.18360, 0.27485]),
+    (0.0000, [0.00000, 0.00000, 0.00000]),
+];
+
 impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
+    /// Column index into the canonical Ghia tables for `re`, if supported.
+    fn ghia_column(re_f64: f64) -> Option<usize> {
+        GHIA_REYNOLDS
+            .iter()
+            .position(|reference| (re_f64 - reference).abs() < 1.0)
+    }
+
+    /// Whether `re` matches one of the tabulated Ghia Reynolds numbers
+    /// (100, 400, 1000), using the same tolerance as the centerline lookups.
+    pub fn has_ghia_reference(re: T) -> bool {
+        Self::ghia_column(<T as NumericElement>::to_f64(re)).is_some()
+    }
+
     /// Create a new lid-driven cavity benchmark
     pub fn new(size: T, lid_velocity: T, reynolds: T) -> Self {
         Self {
@@ -62,10 +104,7 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
     /// from the moving lid toward the stationary wall.
     pub fn ghia_u_centerline(&self, re: T) -> Vec<(T, T)> {
         let re_f64 = <T as NumericElement>::to_f64(re);
-        let Some(column) = GHIA_REYNOLDS
-            .iter()
-            .position(|reference| (re_f64 - reference).abs() < 1.0)
-        else {
+        let Some(column) = Self::ghia_column(re_f64) else {
             return Vec::new();
         };
 
@@ -84,43 +123,30 @@ impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
             .collect()
     }
 
-    /// Get Ghia et al. (1982) reference data for v-velocity along horizontal centerline (y=0.5)
+    /// Get Ghia et al. (1982) Table II data for v-velocity along y/L = 0.5.
+    ///
+    /// The supported Reynolds numbers are 100, 400, and 1000. The returned
+    /// stations are the non-uniform x/L values published in Table II, ordered
+    /// from the moving lid toward the stationary wall.
     pub fn ghia_v_centerline(&self, re: T) -> Vec<(T, T)> {
         let re_f64 = <T as NumericElement>::to_f64(re);
+        let Some(column) = Self::ghia_column(re_f64) else {
+            return Vec::new();
+        };
 
-        // Tabulated data from Ghia et al. (1982) Table II, p. 398
-        // Re = 100 column
-        if (re_f64 - 100.0).abs() < 1.0 {
-            vec![
-                (1.0000, 0.00000),
-                (0.9688, -0.05906),
-                (0.9609, -0.07390),
-                (0.9531, -0.08864),
-                (0.9453, -0.10313),
-                (0.9063, -0.16914),
-                (0.8047, -0.24533),
-                (0.5000, 0.05454),
-                (0.2344, 0.17527),
-                (0.2266, 0.17507),
-                (0.1563, 0.16077),
-                (0.0938, 0.12317),
-                (0.0781, 0.10890),
-                (0.0703, 0.10091),
-                (0.0625, 0.09233),
-                (0.0313, 0.04933),
-                (0.0000, 0.00000),
-            ]
-            .into_iter()
-            .map(|(x, v)| {
+        GHIA_V_CENTERLINE_TABLE
+            .iter()
+            .map(|(x, values)| {
+                let v = values
+                    .get(column)
+                    .copied()
+                    .expect("invariant: every supported Ghia column has a value");
                 (
-                    <T as FloatElement>::from_f64(x),
+                    <T as FloatElement>::from_f64(*x),
                     <T as FloatElement>::from_f64(v),
                 )
             })
             .collect()
-        } else {
-            vec![]
-        }
     }
 
     /// DEPRECATED: use ghia_u_centerline or ghia_v_centerline

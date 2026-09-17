@@ -184,4 +184,35 @@ fn validate_lid_driven_cavity_benchmark() {
     assert_eq!(re100.get(9), Some(&(0.4531, -0.21090)));
     assert_eq!(re400.get(10), Some(&(0.2813, -0.32726)));
     assert_eq!(re1000.get(11), Some(&(0.1719, -0.38289)));
+
+    // Table II (v-velocity along y/L = 0.5): 17 published stations at each
+    // supported Reynolds number, boundaries and interior extrema pinned.
+    let v100 = cavity.ghia_v_centerline(100.0);
+    let v400 = cavity.ghia_v_centerline(400.0);
+    let v1000 = cavity.ghia_v_centerline(1000.0);
+
+    assert_eq!(v100.len(), 17);
+    assert_eq!(v400.len(), 17);
+    assert_eq!(v1000.len(), 17);
+
+    assert_eq!(v100.first(), Some(&(1.0, 0.0)));
+    assert_eq!(v100.last(), Some(&(0.0, 0.0)));
+
+    // Per-column extrema: the most negative v (primary-vortex side of the
+    // centerline) and the most positive v (downstream recirculation side).
+    assert_eq!(v100.get(7), Some(&(0.8047, -0.24533)));
+    assert_eq!(v100.get(9), Some(&(0.2344, 0.17527)));
+    assert_eq!(v400.get(6), Some(&(0.8594, -0.44993)));
+    assert_eq!(v400.get(10), Some(&(0.2266, 0.30203)));
+    assert_eq!(v1000.get(5), Some(&(0.9063, -0.51550)));
+    assert_eq!(v1000.get(11), Some(&(0.1563, 0.37095)));
+
+    // The (0.9063, Re=400) cell is published as -0.23827 with the table's
+    // own "probably wrong" footnote; it is pinned as printed, not corrected.
+    assert_eq!(v400.get(5), Some(&(0.9063, -0.23827)));
+
+    // Unsupported Reynolds numbers return no reference rather than a wrong
+    // column (the u path's established contract).
+    assert!(cavity.ghia_v_centerline(250.0).is_empty());
+    assert!(cavity.ghia_u_centerline(250.0).is_empty());
 }
