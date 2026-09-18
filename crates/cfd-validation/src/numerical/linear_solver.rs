@@ -185,7 +185,6 @@ impl LinearSolverValidator {
 
     /// Test ill-conditioned system
     /// Literature: Higham (2002), "Accuracy and Stability of Numerical Algorithms"
-    #[allow(clippy::print_stderr)]
     fn test_ill_conditioned_system<T: CfdScalar>() -> Result<Vec<ValidationResult<T>>> {
         let n = 50;
         let mut results = Vec::new();

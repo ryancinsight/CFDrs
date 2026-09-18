@@ -1,5 +1,5 @@
-#![allow(clippy::print_stdout)]
-#![allow(clippy::print_stderr)]
+#![expect(clippy::print_stdout, reason = "test/validation output")]
+#![expect(clippy::print_stderr, reason = "test/skip diagnostics")]
 //! Tests for the 2D Laplacian GPU kernel.
 
 use super::BoundaryCondition;

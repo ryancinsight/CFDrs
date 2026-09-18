@@ -48,7 +48,6 @@ impl<T: RealField + Copy + FloatElement> MomentumConservationChecker<T> {
         dy: T,
         gravity: Vector2<T>,
     ) -> Result<ConservationReport<T>> {
-        #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
         {
             assert_eq!(u.shape()[0], self.nx);
             assert_eq!(u.shape()[1], self.ny);
@@ -66,8 +65,6 @@ impl<T: RealField + Copy + FloatElement> MomentumConservationChecker<T> {
                     let dvdt = self.density * (v[[i, j]] - v_prev[[i, j]]) / dt;
 
                     // Convective term: ∇·(ρuu) using central differences
-                    let _u_center = u[[i, j]];
-                    let _v_center = v[[i, j]];
 
                     // x-momentum convection
                     let u_east = u[[i + 1, j]];

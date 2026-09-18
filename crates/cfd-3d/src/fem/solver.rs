@@ -1325,7 +1325,6 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
 }
 
 #[cfg(test)]
-#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
     use crate::fem::config::FemConfig;
@@ -1348,8 +1347,10 @@ mod tests {
     /// **Adversarial**: `FemSolver::try_new` rejects invalid configs.
     #[test]
     fn fem_solver_try_new_rejects_negative_tau() {
-        let mut config = FemConfig::<f64>::default();
-        config.tau = -1.0;
+        let config = FemConfig::<f64> {
+            tau: -1.0,
+            ..Default::default()
+        };
         match FemSolver::try_new(config) {
             Err(e) => assert!(e.to_string().contains("tau"), "error must mention tau: {e}"),
             Ok(_) => panic!("negative tau must be rejected"),
@@ -1359,8 +1360,10 @@ mod tests {
     /// **Adversarial**: `FemSolver::try_new` rejects invalid `dt` (when Some).
     #[test]
     fn fem_solver_try_new_rejects_invalid_dt() {
-        let mut config = FemConfig::<f64>::default();
-        config.dt = Some(0.0);
+        let config = FemConfig::<f64> {
+            dt: Some(0.0),
+            ..Default::default()
+        };
         match FemSolver::try_new(config) {
             Err(e) => assert!(e.to_string().contains("dt"), "error must mention dt: {e}"),
             Ok(_) => panic!("zero dt must be rejected"),
@@ -1370,8 +1373,10 @@ mod tests {
     /// **Adversarial**: `FemSolver::try_new` rejects invalid `reynolds` (when Some).
     #[test]
     fn fem_solver_try_new_rejects_invalid_reynolds() {
-        let mut config = FemConfig::<f64>::default();
-        config.reynolds = Some(-1.0);
+        let config = FemConfig::<f64> {
+            reynolds: Some(-1.0),
+            ..Default::default()
+        };
         match FemSolver::try_new(config) {
             Err(e) => assert!(
                 e.to_string().contains("reynolds"),
@@ -1384,8 +1389,10 @@ mod tests {
     /// **Adversarial**: `FemSolver::try_new` rejects zero quadrature_order.
     #[test]
     fn fem_solver_try_new_rejects_zero_quadrature_order() {
-        let mut config = FemConfig::<f64>::default();
-        config.quadrature_order = 0;
+        let config = FemConfig::<f64> {
+            quadrature_order: 0,
+            ..Default::default()
+        };
         match FemSolver::try_new(config) {
             Err(e) => assert!(
                 e.to_string().contains("quadrature_order"),
@@ -1399,8 +1406,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "tau")]
     fn fem_solver_new_panics_on_invalid_tau() {
-        let mut config = FemConfig::<f64>::default();
-        config.tau = f64::NAN;
+        let config = FemConfig::<f64> {
+            tau: f64::NAN,
+            ..Default::default()
+        };
         let _ = FemSolver::new(config);
     }
 
