@@ -1,8 +1,8 @@
 //! Factory for creating microfluidic components
 
 use super::{
-    CircularChannel, Component, HashMap, Micropump, Microvalve, OrganCompartment, PorousMembrane,
-    RectangularChannel, constants, try_real_from_f64,
+    CircularChannel, Component, FlowSensor, HashMap, Micropump, Microvalve, OrganCompartment,
+    PorousMembrane, RectangularChannel, constants, try_real_from_f64,
 };
 use aequitas::systems::si::quantities::Length;
 use cfd_core::CfdScalar;
@@ -87,6 +87,19 @@ impl ComponentFactory {
                     "default valve cv",
                 )?;
                 Ok(Box::new(Microvalve::new(cv)))
+            }
+            "FlowSensor" => {
+                // Insertion resistance defaults to the ideal (non-intrusive)
+                // sensor; the measurement range must be stated by the caller.
+                // `FlowSensor::new` validates resistance >= 0 and range > 0.
+                let resistance = Self::optional_param(
+                    params,
+                    "resistance",
+                    0.0,
+                    "default sensor insertion resistance",
+                )?;
+                let range = Self::required_param(params, "range")?;
+                Ok(Box::new(FlowSensor::new(resistance, range)?))
             }
             "PorousMembrane" => {
                 let thickness = Self::required_param(params, "thickness")?;

@@ -157,7 +157,7 @@ impl VorticityStreamCavityConfig {
     }
 
     fn has_ghia_reference(&self) -> bool {
-        (self.reynolds - 100.0).abs() <= 1e-9
+        LidDrivenCavity::<f64>::has_ghia_reference(self.reynolds)
     }
 }
 
@@ -754,6 +754,55 @@ mod tests {
         assert!(report.result.metrics.contains_key("Final Divergence Max"));
         assert!(report.result.metrics.contains_key("Centerline U RMSE"));
         assert!(report.result.metrics.contains_key("Centerline V RMSE"));
+    }
+
+    #[test]
+    fn ghia_reference_activates_at_table_reynolds_numbers() {
+        // The reference gate was hard-coded to Re=100, so the Ghia Table I/II
+        // comparisons silently skipped at Re=400/1000 (the Re=1000 u-column
+        // and the Re=400/1000 v-columns were inert where they were added to
+        // help). Both tabled Reynolds numbers must now produce reference
+        // metrics.
+        for re in [400.0, 1000.0] {
+            let benchmark = VorticityStreamCavityBenchmark::default();
+            let runtime = BenchmarkConfig {
+                resolution: 17,
+                tolerance: 0.01,
+                max_iterations: 16,
+                reynolds_number: re,
+                time_step: Some(0.001),
+                parallel: false,
+            };
+
+            let report = benchmark.run_with_report(&runtime).unwrap_or_else(|error| {
+                panic!("vorticity-stream cavity benchmark should run at Re={re}: {error}")
+            });
+
+            let cavity = LidDrivenCavity::new(1.0, 1.0, re);
+            let vertical = cavity.ghia_u_centerline(re);
+            let horizontal = cavity.ghia_v_centerline(re);
+            assert_eq!(
+                report.result.values.len(),
+                vertical.len() + horizontal.len()
+            );
+            let expected_errors: Vec<_> = report
+                .result
+                .values
+                .iter()
+                .zip(vertical.iter().chain(&horizontal))
+                .map(|(sample, (_, expected))| (sample - expected).abs())
+                .collect();
+            assert_eq!(report.result.errors, expected_errors);
+
+            for (metric, errors) in [
+                ("Centerline U RMSE", &expected_errors[..vertical.len()]),
+                ("Centerline V RMSE", &expected_errors[vertical.len()..]),
+            ] {
+                let mean_square = errors.iter().map(|error| error * error).sum::<f64>()
+                    / f64::from(u32::try_from(errors.len()).expect("17 Ghia stations fit in u32"));
+                assert_eq!(report.result.metrics.get(metric), Some(&mean_square.sqrt()));
+            }
+        }
     }
 
     #[test]

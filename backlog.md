@@ -5211,7 +5211,7 @@ No existing item's status was changed by this audit.
   failures. Unique MMS machinery (`DataDrivenOrderEstimation`,
   `MmsRichardsonStudy`) and the GCI reporting layer (non-goal) untouched.
 
-- **CFDRS-GA-013 [patch][verification] — Resolve the five capability-admitting `#[ignore]`s (status=todo, effort=M).**
+- **CFDRS-GA-013 [patch][verification] — Resolve the five capability-admitting `#[ignore]`s (status=done, effort=M).**
   Outcome: each ignored test either passes against corrected production code or
   its requirement is explicitly withdrawn with a recorded reason.
   Scope: `crates/cfd-1d/tests/component_validation.rs:185` ("Implementation does
@@ -5223,10 +5223,31 @@ No existing item's status was changed by this audit.
   Acceptance oracle: zero `#[ignore]` whose reason describes missing or
   incorrect behaviour rather than runtime.
   Dependencies: the two AMG ignores depend on leto-ops coarsening coverage.
+  Delivered 2026-09-11: all five resolved. The AMG stubs' premise is complete
+  — cfd-math owns the coarsening suite (Ruge-Stüben, aggregation, hybrid,
+  falgout, PMIS, HMIS) on leto traits — so they became real tests:
+  `test_undecided_points` asserts first-pass C/F totality
+  (`fine_to_coarse_map[c] == Some(c)` for C-points, every F-point mapped,
+  ≥1 C-point per component), `test_island_points` asserts disconnected
+  components coarsen independently (both islands yield C-points, no
+  representative shared across components). In cfd-1d: the valve
+  monotonicity and FlowSensor API expectations were stale against evolved
+  production code — rewritten to assert documented contracts (quadratic
+  resistance coefficients `k = 1/(Cv·f)²`, the validated
+  `FlowSensor::new(range)` path). The pump-clamping test named a real gap:
+  `Micropump::set_parameter` now clamps the two bounded parameters,
+  mirroring the valve's established pattern. FlowSensor was also
+  unreachable through the component factory — registered. Oracle: workspace
+  census — all 27 remaining `#[ignore]`s carry runtime-only reasons
+  (slow/steady-state marches), zero capability-class; the 27 appear as
+  nextest skips. Gates: fmt clean, clippy `-D warnings` through
+  `--workspace --all-targets --all-features`, nextest 3310 main + 14
+  fidelity (serial), doctests green.
 
 - **CFDRS-GHIA-V-CENTERLINE-HALF-2026-09-03 [minor][correctness] — Table II
-  still stops at Re=100 while Table I now reaches Re=1000 (status=todo,
-  unclaimed).**
+  still stops at Re=100 while Table I now reaches Re=1000 (status=done
+  2026-09-17 at CFDrs `6b280daa` + verification commit; delivered on a local
+  unpushed main; lease: none).**
   `CFDRS-GHIA-REFERENCE-FABRICATED-2026-09-02` canonicalized the u-centerline
   and added the genuine Table I Re=400 and Re=1000 columns
   (`benchmarks/cavity.rs`, `GHIA_REYNOLDS`). `ghia_v_centerline` was not
@@ -5252,15 +5273,12 @@ No existing item's status was changed by this audit.
   Table I; and the vorticity-stream validation no longer skips at Re=400/1000.
   Dependencies: none.
 
-- **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python` (status=todo, effort=S).**
-  Outcome: the PyO3 binding is visible to mypy and IDEs.
-  Scope: `crates/cfd-python` — add `py.typed` and `.pyi` stubs (generated where
-  feasible), and remove the committed `casson_rheology_validation.png` run
-  output from the crate directory.
-  Non-goals: expanding the binding surface.
-  Acceptance oracle: a mypy run over the installed wheel resolves every
-  exported symbol; no image artifact tracked under `crates/cfd-python`.
-  Dependencies: none.
+- **CFDRS-GA-014 [patch][docs] — Ship a typed Python surface for `cfd-python`
+  (status=done 2026-09-17; delivered by commit `e7a1c9e8`, on origin/main).**
+  Acceptance oracle met: `py.typed` and `cfd_python.pyi` present under
+  `crates/cfd-python`, the stub covers all 38 exported `#[pyclass]` names, and
+  no image artifact is tracked in the crate directory. Stale entry closed on
+  re-verification; no new work was required.
 
 - **CFDRS-GA-015 [patch][arch] — Restore the pedantic floor erased by crate-level allows (status=todo, effort=L).**
   Outcome: crate-level blanket `#![allow]` gives way to per-site
