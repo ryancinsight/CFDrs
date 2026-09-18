@@ -141,16 +141,22 @@ impl PyBifurcation3DSolver {
 #[pyclass(name = "Bifurcation3DResult", skip_from_py_object)]
 pub struct PyBifurcation3DResult {
     #[pyo3(get)]
+    /// Maximum branch wall shear stress in Pa.
     pub max_wss: f64,
     #[pyo3(get)]
+    /// Minimum branch wall shear stress in Pa.
     pub min_wss: f64,
     #[pyo3(get)]
+    /// Mean branch wall shear stress in Pa.
     pub mean_wss: f64,
     #[pyo3(get)]
+    /// Daughter-to-parent wall-shear ratio (dimensionless).
     pub wss_ratio: f64,
     #[pyo3(get)]
+    /// Daughter-1 flow fraction (dimensionless).
     pub flow_split_ratio: f64,
     #[pyo3(get)]
+    /// Relative mass-conservation residual (dimensionless).
     pub mass_conservation_error: f64,
 }
 
@@ -232,15 +238,20 @@ impl PyTrifurcation3DSolver {
     }
 }
 
+/// Result from 3D trifurcation simulation
 #[pyclass(name = "Trifurcation3DResult", skip_from_py_object)]
 pub struct PyTrifurcation3DResult {
     #[pyo3(get)]
+    /// Maximum branch wall shear stress in Pa.
     pub max_wss: f64,
     #[pyo3(get)]
+    /// Minimum branch wall shear stress in Pa.
     pub min_wss: f64,
     #[pyo3(get)]
+    /// Branch flow rates in m³/s: inlet first, then one per daughter.
     pub flow_rates: [f64; 4],
     #[pyo3(get)]
+    /// Relative mass-conservation residual (dimensionless).
     pub mass_conservation_error: f64,
 }
 

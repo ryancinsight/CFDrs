@@ -112,25 +112,35 @@ impl PyVenturi3DSolver {
     }
 }
 
+/// Result from 3D Venturi flow simulation
 #[pyclass(name = "Venturi3DResult", skip_from_py_object)]
 pub struct PyVenturi3DResult {
     #[pyo3(get)]
+    /// Inlet velocity in m/s.
     pub u_inlet: f64,
     #[pyo3(get)]
+    /// Throat velocity in m/s.
     pub u_throat: f64,
     #[pyo3(get)]
+    /// Inlet pressure in Pa.
     pub p_inlet: f64,
     #[pyo3(get)]
+    /// Throat pressure in Pa.
     pub p_throat: f64,
     #[pyo3(get)]
+    /// Outlet pressure in Pa.
     pub p_outlet: f64,
     #[pyo3(get)]
+    /// Inlet-to-throat pressure drop in Pa.
     pub dp_throat: f64,
     #[pyo3(get)]
+    /// Throat-to-outlet pressure recovery in Pa.
     pub dp_recovery: f64,
     #[pyo3(get)]
+    /// Throat pressure coefficient (dimensionless).
     pub cp_throat: f64,
     #[pyo3(get)]
+    /// Recovery pressure coefficient (dimensionless).
     pub cp_recovery: f64,
 }
 
@@ -196,14 +206,19 @@ impl PySerpentine3DSolver {
     }
 }
 
+/// Result from 3D serpentine flow simulation
 #[pyclass(name = "Serpentine3DResult", skip_from_py_object)]
 pub struct PySerpentine3DResult {
     #[pyo3(get)]
+    /// Inlet velocity in m/s.
     pub u_inlet: f64,
     #[pyo3(get)]
+    /// Inlet pressure in Pa.
     pub p_inlet: f64,
     #[pyo3(get)]
+    /// Total pressure drop in Pa.
     pub dp_total: f64,
     #[pyo3(get)]
+    /// Bend Dean number (dimensionless).
     pub dean_number: f64,
 }

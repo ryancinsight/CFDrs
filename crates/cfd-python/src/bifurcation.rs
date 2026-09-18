@@ -325,17 +325,23 @@ impl PyTrifurcationSolver {
     }
 }
 
+/// Result from the 1D trifurcation solve: branch flow rates, pressures, and the mass residual.
 #[pyclass(name = "TrifurcationResult", skip_from_py_object)]
 pub struct PyTrifurcationResult {
     #[pyo3(get)]
+    /// Parent-branch flow rate in m³/s.
     pub q_parent: f64,
     #[pyo3(get)]
+    /// Daughter-branch flow rates in m³/s, one per branch.
     pub q_daughters: [f64; 3],
     #[pyo3(get)]
+    /// Parent-branch pressure in Pa.
     pub p_parent: f64,
     #[pyo3(get)]
+    /// Daughter-branch pressures in Pa, one per branch.
     pub p_daughters: [f64; 3],
     #[pyo3(get)]
+    /// Relative mass-conservation residual (dimensionless).
     pub mass_conservation_error: f64,
 }
 

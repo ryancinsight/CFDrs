@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 //! `PyO3` Python bindings for CFD-rs solvers
 //!
 //! This crate exposes the Rust CFD solvers to Python for easy validation,

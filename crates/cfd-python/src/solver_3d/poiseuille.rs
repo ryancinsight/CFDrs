@@ -115,15 +115,20 @@ impl PyPoiseuille3DSolver {
     }
 }
 
+/// Result from 3D pipe-flow simulation
 #[pyclass(name = "Poiseuille3DResult", skip_from_py_object)]
 pub struct PyPoiseuille3DResult {
     #[pyo3(get)]
+    /// Centreline peak velocity in m/s.
     pub max_velocity: f64,
     #[pyo3(get)]
+    /// Volume flow rate in m³/s.
     pub flow_rate: f64,
     #[pyo3(get)]
+    /// Pipe Reynolds number (dimensionless).
     pub reynolds_number: f64,
     #[pyo3(get)]
+    /// Wall shear stress in Pa.
     pub wall_shear_stress: f64,
 }
 

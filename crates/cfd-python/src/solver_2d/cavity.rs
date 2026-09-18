@@ -184,16 +184,22 @@ impl PyCavitySolver2D {
 #[derive(Debug, Clone)]
 pub struct PyCavityResult2D {
     #[pyo3(get)]
+    /// Root-mean-square deviation of the computed u-centerline against the Ghia Table I column.
     pub l2_error: f64,
     #[pyo3(get)]
+    /// Streamwise velocity along the vertical centerline in m/s.
     pub u_centerline: Vec<f64>,
     #[pyo3(get)]
+    /// Transverse velocity along the horizontal centerline in m/s.
     pub v_centerline: Vec<f64>,
     #[pyo3(get)]
+    /// Vertical coordinates of the u-centerline samples in metres.
     pub y_coords: Vec<f64>,
     #[pyo3(get)]
+    /// Horizontal coordinates of the v-centerline samples in metres.
     pub x_coords: Vec<f64>,
     #[pyo3(get)]
+    /// Whether the solver satisfied its convergence criteria.
     pub converged: bool,
 }
 

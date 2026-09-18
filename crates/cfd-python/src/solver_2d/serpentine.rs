@@ -144,14 +144,19 @@ impl PySerpentineSolver1D {
 #[derive(Debug, Clone, Copy)]
 pub struct PySerpentineResult1D {
     #[pyo3(get)]
+    /// Total pressure drop in Pa.
     pub pressure_drop: f64,
     #[pyo3(get)]
+    /// Hydraulic resistance in Pa·s/m³.
     pub resistance: f64,
     #[pyo3(get)]
+    /// Bend Dean number (dimensionless).
     pub dean_number: f64,
     #[pyo3(get)]
+    /// Channel Reynolds number (dimensionless).
     pub reynolds_number: f64,
     #[pyo3(get)]
+    /// Shear-dependent apparent viscosity in Pa·s.
     pub apparent_viscosity: f64,
 }
 

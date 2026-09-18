@@ -160,18 +160,25 @@ impl PyPoiseuille2DSolver {
 #[pyclass(name = "Poiseuille2DResult", skip_from_py_object)]
 pub struct PyPoiseuille2DResult {
     #[pyo3(get)]
+    /// Centreline peak velocity in m/s.
     pub max_velocity: f64,
     #[pyo3(get)]
+    /// Volume flow rate in m³/s.
     pub flow_rate: f64,
     #[pyo3(get)]
+    /// Channel Reynolds number (dimensionless).
     pub reynolds_number: f64,
     #[pyo3(get)]
+    /// Imposed pressure drop in Pa.
     pub pressure_drop: f64,
     #[pyo3(get)]
+    /// Wall shear stress in Pa.
     pub wall_shear_stress: f64,
     #[pyo3(get)]
+    /// Streamwise velocity profile across the channel in m/s.
     pub u_centerline: Vec<f64>,
     #[pyo3(get)]
+    /// Wall-normal coordinates of the profile samples in metres.
     pub y_coords: Vec<f64>,
 }
 
