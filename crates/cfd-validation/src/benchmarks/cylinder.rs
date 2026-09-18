@@ -156,7 +156,6 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
         })
     }
 
-    #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Validate against Schäfer & Turek reference drag and lift coefficients
         if result.values.len() < 2 {
@@ -166,10 +165,10 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
         let computed_cd = result.values[0];
         let computed_cl = result.values[1];
 
-        // Get reference solution
+        // Get reference solution. Reference lift is near-zero for Re=20,
+        // so only drag is validated against it.
         if let Some(reference) = self.reference_solution() {
             let reference_cd = reference.values[0];
-            let _reference_cl = reference.values[1]; // Near-zero for Re=20, used for context
 
             // Validation criteria based on Schäfer & Turek benchmark tolerances
             // Allow 5% error for drag coefficient (robust for different numerical schemes)

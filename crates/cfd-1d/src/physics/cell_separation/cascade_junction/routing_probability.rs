@@ -155,8 +155,8 @@ pub(crate) fn beta_kappa_adjusted(beta_base: f64, kappa: f64, v_in: f64, is_rbc:
     let vel_multiplier = pmc5114676_velocity_inversion(beta_base, v_in, is_rbc);
     let base_eff = if is_rbc { 1.0 * vel_multiplier } else { 1.0 };
 
-    #[allow(clippy::manual_clamp)]
-    (base_eff + excess * amplification).min(3.0).max(0.1) // Lower bound ensures numeric stability
+    // Lower bound ensures numeric stability
+    (base_eff + excess * amplification).clamp(0.1, 3.0)
 }
 
 /// Routing probability into a single arm of an N-arm junction.

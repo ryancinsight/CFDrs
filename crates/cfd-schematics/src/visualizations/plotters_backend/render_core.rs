@@ -176,6 +176,7 @@ impl PlottersRenderer {
         overlay: &AnalysisOverlay<'_>,
         annotations: Option<&SchematicAnnotations>,
     ) -> VisualizationResult<()> {
+        const MAX_STROKE_MULT: u32 = 6;
         let renderable =
             channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
         let box_outline = renderable.box_outline;
@@ -220,8 +221,6 @@ impl PlottersRenderer {
             }))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        #[allow(clippy::items_after_statements)]
-        const MAX_STROKE_MULT: u32 = 6;
         let (min_width, max_width) = {
             let mut lo = f64::INFINITY;
             let mut hi = f64::NEG_INFINITY;

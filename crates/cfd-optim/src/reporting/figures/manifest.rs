@@ -466,7 +466,7 @@ mod tests {
                 i + 1,
                 pt.total_loss_coefficient
             );
-            #[allow(clippy::print_stderr)]
+            #[expect(clippy::print_stderr, reason = "test/validation output")]
             {
                 eprintln!(
                     "  Bend {}: De={:.1}, sigma={:.4}, v_throat={:.2} m/s, K={:.3}",
