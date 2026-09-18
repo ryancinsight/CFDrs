@@ -143,12 +143,16 @@ impl PyVenturiSolver2D {
 #[pyclass(name = "VenturiResult2D", skip_from_py_object)]
 pub struct PyVenturiResult2D {
     #[pyo3(get)]
+    /// Throat pressure coefficient (dimensionless).
     pub cp_throat: f64,
     #[pyo3(get)]
+    /// Pressure-recovery coefficient as a fraction (dimensionless).
     pub pressure_recovery: f64,
     #[pyo3(get)]
+    /// Throat-to-inlet velocity ratio (dimensionless).
     pub velocity_ratio: f64,
     #[pyo3(get)]
+    /// Relative inlet/outlet mass-conservation residual (dimensionless).
     pub mass_conservation_error: f64,
 }
 
@@ -291,16 +295,22 @@ impl PyVenturiSolver1D {
 #[derive(Debug, Clone, Copy)]
 pub struct PyVenturiResult1D {
     #[pyo3(get)]
+    /// Total pressure drop in Pa.
     pub pressure_drop: f64,
     #[pyo3(get)]
+    /// Hydraulic resistance in Pa·s/m³.
     pub resistance: f64,
     #[pyo3(get)]
+    /// Inviscid Bernoulli pressure drop in Pa.
     pub dp_bernoulli: f64,
     #[pyo3(get)]
+    /// Inlet Reynolds number (dimensionless).
     pub reynolds_number: f64,
     #[pyo3(get)]
+    /// Throat-to-inlet diameter ratio (dimensionless).
     pub beta: f64,
     #[pyo3(get)]
+    /// Shear-dependent apparent viscosity in Pa·s.
     pub apparent_viscosity: f64,
 }
 

@@ -5280,7 +5280,9 @@ No existing item's status was changed by this audit.
   no image artifact is tracked in the crate directory. Stale entry closed on
   re-verification; no new work was required.
 
-- **CFDRS-GA-015 [patch][arch] — Restore the pedantic floor erased by crate-level allows (status=todo, effort=L).**
+- **CFDRS-GA-015 [patch][arch] — Restore the pedantic floor erased by crate-level allows (status=in-progress, integrator=current session; lease: `crates/cfd-optim/src/lib.rs`, `crates/cfd-python/src/lib.rs`).**
+  Re-census 2026-09-18 at `056d9cb6`: 2 crate-level `#![allow]` remain (both `missing_docs`, added by #352 to close the workspace gate), not 292 lines across 10 files — the `print_stdout`/`print_stderr` cancels named in the original scope are already gone. Per-site `#[allow(` stands at 96. Slice 1 (this increment, lease narrowed to `crates/cfd-python/src/**`): remove the `cfd-python` allow and document its 76 `missing_docs` warns (result structs + fields, units included — these docs ship as Python `__doc__`).   `cfd-optim` keeps its allow until its 336 warns are sliced per module; its removal was reverted to avoid a 336-warning flood.
+  Slice 1 evidence: all 76 `cfd-python` warns resolved with unit-carrying field docs (verified against solver bodies and `__str__` unit displays); `cargo doc -p cfd-python` emits 0 warnings, fmt/diff-check clean, `clippy -p cfd-python --all-targets -- -D warnings` clean. Crate-level 2→1, per-site steady at 96. No API change (docs-only), so the `.pyi` stub needs no sync.
   Outcome: crate-level blanket `#![allow]` gives way to per-site
   `#[expect(lint, reason = "ratchet <id>")]`, so the ratchet signal the
   workspace comment at `Cargo.toml:137-141` describes actually survives.

@@ -12,12 +12,16 @@ use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, TrifurcationFlow};
 #[pyclass(name = "TrifurcationSolver2D", skip_from_py_object)]
 pub struct PyTrifurcationSolver2D {
     #[pyo3(get)]
+    /// Channel width in metres.
     pub width: f64,
     #[pyo3(get)]
+    /// Channel length in metres.
     pub length: f64,
     #[pyo3(get)]
+    /// Branch angle in radians.
     pub angle: f64,
     #[pyo3(get)]
+    /// Grid cell count along the channel.
     pub nx: usize,
 }
 
@@ -59,8 +63,10 @@ impl PyTrifurcationSolver2D {
 #[derive(Debug, Clone, Copy)]
 pub struct PyTrifurcationResult2D {
     #[pyo3(get)]
+    /// Wall-clock solve time in seconds.
     pub execution_time: f64,
     #[pyo3(get)]
+    /// Relative mass-conservation residual (dimensionless).
     pub mass_conservation_error: f64,
 }
 
@@ -206,14 +212,19 @@ impl PyBifurcationSolver2D {
 #[derive(Debug, Clone, Copy)]
 pub struct PyBifurcationResult2D {
     #[pyo3(get)]
+    /// Parent-branch flow rate in m³/s.
     pub q_parent: f64,
     #[pyo3(get)]
+    /// First daughter-branch flow rate in m³/s.
     pub q_daughter1: f64,
     #[pyo3(get)]
+    /// Second daughter-branch flow rate in m³/s.
     pub q_daughter2: f64,
     #[pyo3(get)]
+    /// Relative mass-balance residual (dimensionless).
     pub mass_balance_error: f64,
     #[pyo3(get)]
+    /// First-daughter flow fraction `Q_d1 / Q_p` (dimensionless).
     pub flow_split_ratio: f64,
 }
 
