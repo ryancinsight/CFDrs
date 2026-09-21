@@ -1,3 +1,22 @@
+## CFDRS-DG-WAVE-SPEED-ALLOC — three heap allocations per element interface per timestep [perf] — in-progress
+
+- integrator: claude-opus-5; branch: `perf/cfdrs-dg-wave-speed-allocation`; updated: 2026-09-21.
+- finding: `DgSolver::compute_max_wave_speed` runs once per timestep for CFL
+  control and scans every element interface. Each iteration builds two
+  length-1 `Array1` states with `vector_from_element`, and
+  `LaxFriedrichsFlux::max_wave_speed` then builds a third by scaling the
+  normal to unit length — three heap allocations per interface per timestep,
+  to compare two scalars.
+- outcome: the scan allocates a bounded number of buffers once, not per
+  interface; the wave-speed estimate keeps its contract and its values.
+- oracle: the per-interface allocation count is zero by signature (no owned
+  array is constructed inside the loop); a differential test pins the
+  estimate against the current implementation within a derived tolerance;
+  the criterion flux bench runs both arms in one process so host drift
+  cannot decide the comparison.
+- non-goals: the flux evaluation itself, the other flux families, and the
+  1,368-site stack-wide dyn survey ATLAS-ARCH-005 already scopes.
+
 ## CFDRS-SCHEMATICS-PENDING-ROUTE-SORT — sort pending routes in place [perf] — done 2026-09-03
 
 | ID | Outcome | Class | Status | Owner | Scope |
