@@ -2,8 +2,8 @@ use super::super::FluxType;
 use super::super::basis::{BasisType, DGBasis};
 use super::super::{
     column_vector, matrix_solve, matrix_sub, matrix_zeros, row_vector, set_column, set_row,
-    vector_add, vector_add_assign_scaled_column, vector_len, vector_scale, vector_sub, vector_sum,
-    vector_zeros,
+    vector_add, vector_add_assign_scaled_column, vector_fill, vector_len, vector_scale, vector_sub,
+    vector_sum, vector_zeros,
 };
 use super::params::DGOperatorParams;
 use crate::error::Result;
@@ -116,9 +116,13 @@ impl DGOperator {
 
             // Compute the flux at all quadrature points
             let mut f_quad = matrix_zeros(self.num_components, num_quad);
+            // The accumulator's shape does not vary with the quadrature
+            // point, so it is a buffer rather than a result: allocating it
+            // inside the loop rebuilt it once per point.
+            let mut u_q = vector_zeros(self.num_components);
             for q in 0..num_quad {
                 // Evaluate the solution at the quadrature point
-                let mut u_q = vector_zeros(self.num_components);
+                vector_fill(&mut u_q, 0.0);
                 for i in 0..num_basis {
                     vector_add_assign_scaled_column(&mut u_q, u, i, self.basis.phi[[i, q]]);
                 }
@@ -182,9 +186,13 @@ impl DGOperator {
 
             // Compute the flux at all quadrature points
             let mut f_quad = matrix_zeros(self.num_components, num_quad);
+            // The accumulator's shape does not vary with the quadrature
+            // point, so it is a buffer rather than a result: allocating it
+            // inside the loop rebuilt it once per point.
+            let mut u_q = vector_zeros(self.num_components);
             for q in 0..num_quad {
                 // Evaluate the solution at the quadrature point
-                let mut u_q = vector_zeros(self.num_components);
+                vector_fill(&mut u_q, 0.0);
                 for i in 0..num_basis {
                     vector_add_assign_scaled_column(&mut u_q, u, i, self.basis.phi[[i, q]]);
                 }
