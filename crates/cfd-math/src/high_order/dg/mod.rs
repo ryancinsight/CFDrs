@@ -106,6 +106,16 @@ pub(crate) fn vector_zeros(len: usize) -> Array1<f64> {
     Array1::zeros([len])
 }
 
+/// Overwrite every element of `vector` with `value`.
+///
+/// Reusing an accumulator across loop iterations needs its previous state
+/// cleared; this is what the discarded fresh allocation used to provide.
+pub(crate) fn vector_fill(vector: &mut Array1<f64>, value: f64) {
+    for index in 0..vector.shape()[0] {
+        vector[index] = value;
+    }
+}
+
 pub(crate) fn vector_len(vector: &Array1<f64>) -> usize {
     vector.shape()[0]
 }
