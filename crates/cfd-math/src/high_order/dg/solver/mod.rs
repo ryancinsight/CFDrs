@@ -133,11 +133,18 @@ impl DGSolver {
 
         let mut max_speed: f64 = f64::EPSILON;
 
+        // The interface states are one scalar each and the same shape every
+        // iteration, so they are buffers, not results: allocating them inside
+        // the loop put two heap allocations per element interface on a path
+        // that only reduces to a maximum.
+        let mut u_l = vector_from_element(1, 0.0);
+        let mut u_r = vector_from_element(1, 0.0);
+
         for e in 0..n_elem.saturating_sub(1) {
             // Right boundary of element e
-            let u_l = vector_from_element(1, self.u[[n_dof - 1, e]]);
+            u_l[[0]] = self.u[[n_dof - 1, e]];
             // Left boundary of element e+1
-            let u_r = vector_from_element(1, self.u[[0, e + 1]]);
+            u_r[[0]] = self.u[[0, e + 1]];
             let speed = flux.max_wave_speed(&u_l, &u_r, &n);
             if speed > max_speed {
                 max_speed = speed;

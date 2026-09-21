@@ -159,9 +159,12 @@ impl NumericalFlux for LaxFriedrichsFlux {
             return vector_amax(u_l).max(vector_amax(u_r));
         }
         if vector_len(u_l) == vector_len(n) {
-            let n_hat = vector_scale(n, 1.0 / n_norm);
-            let lambda_l = vector_dot(u_l, &n_hat).abs();
-            let lambda_r = vector_dot(u_r, &n_hat).abs();
+            // |u . n_hat| = |u . n| / ||n||: dividing the dot product by the
+            // norm is the same projection without materialising n_hat, which
+            // this function is called often enough to notice -- once per
+            // element interface per timestep from the CFL scan alone.
+            let lambda_l = vector_dot(u_l, n).abs() / n_norm;
+            let lambda_r = vector_dot(u_r, n).abs() / n_norm;
             lambda_l.max(lambda_r)
         } else {
             // General systems: conservative upper bound
@@ -449,6 +452,85 @@ mod tests {
     use super::super::vector_from_vec;
     use super::*;
     use eunomia::assert_relative_eq;
+
+    /// The reference form this function used to compute, kept as the
+    /// differential oracle for the projection identity.
+    fn max_wave_speed_via_unit_normal(
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        n: &Array1<f64>,
+    ) -> f64 {
+        let n_norm = vector_norm(n);
+        let n_hat = vector_scale(n, 1.0 / n_norm);
+        vector_dot(u_l, &n_hat)
+            .abs()
+            .max(vector_dot(u_r, &n_hat).abs())
+    }
+
+    #[test]
+    fn wave_speed_matches_the_unit_normal_form_it_replaced() {
+        // Tolerance: both forms evaluate the same projection, differing by
+        // moving one division across the dot product. The dot product over k
+        // terms carries O(k eps) and the division adds one more rounding, so
+        // 8 eps relative is a bound with room at k = 3, not a fitted number.
+        let bound = 8.0 * f64::EPSILON;
+        let cases = [
+            (
+                vec![1.0, 2.0, 3.0],
+                vec![0.5, -1.5, 2.0],
+                vec![3.0, 4.0, 0.0],
+            ),
+            (
+                vec![-7.25, 0.125, 19.5],
+                vec![2.0, 2.0, 2.0],
+                vec![1.0, 1.0, 1.0],
+            ),
+            (
+                vec![1e8, -1e-8, 1.0],
+                vec![0.0, 0.0, 1.0],
+                vec![0.0, 0.0, 5.0],
+            ),
+        ];
+        for (left, right, normal) in cases {
+            let u_l = vector_from_vec(left);
+            let u_r = vector_from_vec(right);
+            let n = vector_from_vec(normal);
+            let expected = max_wave_speed_via_unit_normal(&u_l, &u_r, &n);
+            let actual = LaxFriedrichsFlux.max_wave_speed(&u_l, &u_r, &n);
+            assert!(
+                (actual - expected).abs() <= bound * expected.abs().max(1.0),
+                "projection drifted: {actual} vs {expected}",
+            );
+        }
+    }
+
+    #[test]
+    fn wave_speed_is_the_projection_magnitude_not_the_raw_dot() {
+        // A normal that is not unit length is what separates the two: with
+        // ||n|| = 5 the raw dot product is five times the wave speed, so a
+        // regression that forgets the division fails here rather than
+        // silently inflating every CFL estimate.
+        let u_l = vector_from_vec(vec![0.0, 0.0, 3.0]);
+        let u_r = vector_from_vec(vec![0.0, 0.0, -1.0]);
+        let n = vector_from_vec(vec![0.0, 0.0, 5.0]);
+        assert_relative_eq!(
+            LaxFriedrichsFlux.max_wave_speed(&u_l, &u_r, &n),
+            3.0,
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    fn wave_speed_falls_back_to_the_infinity_norm_bound_on_a_degenerate_normal() {
+        let u_l = vector_from_vec(vec![2.0, -9.0, 1.0]);
+        let u_r = vector_from_vec(vec![0.0, 0.5, 0.0]);
+        let n = vector_from_vec(vec![0.0, 0.0, 0.0]);
+        assert_relative_eq!(
+            LaxFriedrichsFlux.max_wave_speed(&u_l, &u_r, &n),
+            9.0,
+            epsilon = 1e-12
+        );
+    }
 
     #[test]
     fn test_central_flux() {
