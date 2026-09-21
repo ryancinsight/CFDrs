@@ -1,4 +1,3 @@
-#![cfg_attr(test, expect(clippy::print_stdout, reason = "test/validation output"))]
 //! Discretized Venturi solver and validation against analytical solutions.
 
 use super::analytical::BernoulliVenturi;
@@ -407,9 +406,7 @@ mod tests {
         let mut solver = VenturiSolver2D::new(geom, blood, density, 40, 20);
         let result = solver.solve(0.1); // 100 mm/s
 
-        assert!(result.is_ok(), "Solver failed: {:?}", result.err());
-        let sol = result.expect("Solver failed to converge");
-        println!("Venturi Solution: {sol:?}");
+        let sol = result.expect("the ISO 5167 venturi solve must converge");
 
         // Qualification checks
         assert!(

@@ -442,11 +442,23 @@ mod tests {
     }
 
     #[test]
-    fn write_to_file_creates_file() {
-        let tmp = std::env::temp_dir().join("test_well_plate.svg");
-        let result = write_well_plate_diagram_svg(&sample_candidates(), &tmp);
-        assert!(result.is_ok(), "write should succeed: {:?}", result.err());
-        assert!(tmp.exists(), "output file should exist");
-        let _ = std::fs::remove_file(&tmp); // cleanup
+    fn write_to_file_writes_a_closed_svg_document() {
+        // Unique per process: nextest runs tests in parallel processes, and a
+        // fixed name under the shared temp directory is shared mutable state
+        // between them -- one process' cleanup deletes another's output.
+        let tmp = std::env::temp_dir().join(format!("cfd-well-plate-{}.svg", std::process::id()));
+        write_well_plate_diagram_svg(&sample_candidates(), &tmp)
+            .expect("the well-plate diagram must be written");
+        let svg = std::fs::read_to_string(&tmp).expect("the written diagram must be readable");
+        assert!(
+            svg.starts_with("<?xml") || svg.starts_with("<svg"),
+            "the diagram must be an SVG document, got: {:?}",
+            &svg[..svg.len().min(40)]
+        );
+        assert!(
+            svg.contains("</svg>"),
+            "the diagram must be a closed SVG document"
+        );
+        std::fs::remove_file(&tmp).expect("the temporary diagram must be removable");
     }
 }

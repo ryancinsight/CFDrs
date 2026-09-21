@@ -490,7 +490,14 @@ fn test_flow_sensor_properties() -> Result<()> {
     // A missing required parameter (measurement range) is a typed error,
     // not a panic.
     let missing = ComponentFactory::create::<f64>("FlowSensor", &HashMap::new());
-    assert!(missing.is_err());
+    let error = match missing {
+        Ok(_) => panic!("a sensor with no measurement range must be refused"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        error.contains("Missing range parameter"),
+        "the refusal must name the missing parameter, got: {error}"
+    );
 
     Ok(())
 }
