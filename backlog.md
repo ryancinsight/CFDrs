@@ -1,21 +1,19 @@
-## CFDRS-DG-WAVE-SPEED-ALLOC — three heap allocations per element interface per timestep [perf] — in-progress
+## CFDRS-DG-COLUMN-TEMPORARIES — a matrix column copied to the heap per basis function [perf] — in-progress
 
-- integrator: claude-opus-5; branch: `perf/cfdrs-dg-wave-speed-allocation`; updated: 2026-09-21.
-- finding: `DgSolver::compute_max_wave_speed` runs once per timestep for CFL
-  control and scans every element interface. Each iteration builds two
-  length-1 `Array1` states with `vector_from_element`, and
-  `LaxFriedrichsFlux::max_wave_speed` then builds a third by scaling the
-  normal to unit length — three heap allocations per interface per timestep,
-  to compare two scalars.
-- outcome: the scan allocates a bounded number of buffers once, not per
-  interface; the wave-speed estimate keeps its contract and its values.
-- oracle: the per-interface allocation count is zero by signature (no owned
-  array is constructed inside the loop); a differential test pins the
-  estimate against the current implementation within a derived tolerance;
-  the criterion flux bench runs both arms in one process so host drift
-  cannot decide the comparison.
-- non-goals: the flux evaluation itself, the other flux families, and the
-  1,368-site stack-wide dyn survey ATLAS-ARCH-005 already scopes.
+- integrator: claude-opus-5; branch: `perf/cfdrs-dg-column-temporaries`; updated: 2026-09-21.
+- finding: `DGOperator`'s right-hand-side evaluation reads solution columns
+  through `column_vector`, which copies the column into a fresh `Array1`. Six
+  call sites sit inside basis loops, one of them nested inside the quadrature
+  loop, so the same columns are re-materialised for every quadrature point:
+  `num_quad * num_basis + 2 * num_basis` heap allocations per element, per
+  right-hand-side evaluation, per Runge-Kutta stage, per timestep.
+- outcome: the accumulation reads the matrix in place; no column temporary is
+  constructed in any of the six sites.
+- oracle: results are bitwise identical, since the replacement performs the
+  same `target[r] += scale * source[r]` over the same values in the same
+  order; a test asserts that against the composition it replaces.
+- non-goals: the flux evaluation's own temporaries, and `column_vector`'s two
+  legitimate uses that bind a column as a value.
 
 ## Hosted evidence checkpoint — 2026-08-19
 

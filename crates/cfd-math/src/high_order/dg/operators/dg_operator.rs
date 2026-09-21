@@ -2,7 +2,7 @@ use super::super::FluxType;
 use super::super::basis::{BasisType, DGBasis};
 use super::super::{
     column_vector, matrix_solve, matrix_sub, matrix_zeros, row_vector, set_column, set_row,
-    vector_add, vector_add_assign_scaled, vector_len, vector_scale, vector_sub, vector_sum,
+    vector_add, vector_add_assign_scaled_column, vector_len, vector_scale, vector_sub, vector_sum,
     vector_zeros,
 };
 use super::params::DGOperatorParams;
@@ -120,11 +120,7 @@ impl DGOperator {
                 // Evaluate the solution at the quadrature point
                 let mut u_q = vector_zeros(self.num_components);
                 for i in 0..num_basis {
-                    vector_add_assign_scaled(
-                        &mut u_q,
-                        &column_vector(u, i),
-                        self.basis.phi[[i, q]],
-                    );
+                    vector_add_assign_scaled_column(&mut u_q, u, i, self.basis.phi[[i, q]]);
                 }
 
                 // Compute the flux
@@ -150,16 +146,8 @@ impl DGOperator {
             let mut u_l = vector_zeros(self.num_components);
             let mut u_r = vector_zeros(self.num_components);
             for i in 0..num_basis {
-                vector_add_assign_scaled(
-                    &mut u_l,
-                    &column_vector(u, i),
-                    self.basis.evaluate_basis(i, -1.0),
-                );
-                vector_add_assign_scaled(
-                    &mut u_r,
-                    &column_vector(u, i),
-                    self.basis.evaluate_basis(i, 1.0),
-                );
+                vector_add_assign_scaled_column(&mut u_l, u, i, self.basis.evaluate_basis(i, -1.0));
+                vector_add_assign_scaled_column(&mut u_r, u, i, self.basis.evaluate_basis(i, 1.0));
             }
 
             // Apply boundary conditions
@@ -198,11 +186,7 @@ impl DGOperator {
                 // Evaluate the solution at the quadrature point
                 let mut u_q = vector_zeros(self.num_components);
                 for i in 0..num_basis {
-                    vector_add_assign_scaled(
-                        &mut u_q,
-                        &column_vector(u, i),
-                        self.basis.phi[[i, q]],
-                    );
+                    vector_add_assign_scaled_column(&mut u_q, u, i, self.basis.phi[[i, q]]);
                 }
 
                 // Compute the flux
@@ -227,16 +211,8 @@ impl DGOperator {
             let mut u_l = vector_zeros(self.num_components);
             let mut u_r = vector_zeros(self.num_components);
             for i in 0..num_basis {
-                vector_add_assign_scaled(
-                    &mut u_l,
-                    &column_vector(u, i),
-                    self.basis.evaluate_basis(i, -1.0),
-                );
-                vector_add_assign_scaled(
-                    &mut u_r,
-                    &column_vector(u, i),
-                    self.basis.evaluate_basis(i, 1.0),
-                );
+                vector_add_assign_scaled_column(&mut u_l, u, i, self.basis.evaluate_basis(i, -1.0));
+                vector_add_assign_scaled_column(&mut u_r, u, i, self.basis.evaluate_basis(i, 1.0));
             }
 
             // Apply boundary conditions
