@@ -1,13 +1,11 @@
-## CFDRS-DG-QUADRATURE-BUFFER — the quadrature accumulator rebuilt per point [perf] — in-progress
+## CFDRS-EXISTENCE-ONLY-ASSERTIONS — four assertions no defect can fail [patch] — in-progress
 
-- integrator: claude-opus-5; branch: `perf/cfdrs-dg-quadrature-buffer`; updated: 2026-09-21.
-- finding: both right-hand-side branches allocate `u_q` inside
-  `for q in 0..num_quad`, so the solution accumulator is rebuilt once per
-  quadrature point for a buffer whose shape never changes.
-- outcome: one accumulator per call, cleared per point; the accumulation is
-  unchanged value for value.
-- oracle: `cfd-math` nextest green, and no `vector_zeros` call remains inside
-  either quadrature loop.
+- integrator: claude-opus-5; branch: `test/cfdrs-existence-only-assertions`.
+- finding: four sites assert only which `Result` variant came back, so each
+  passes against an implementation returning the right shape and the wrong
+  answer. The atlas debt gate caught them on the pin advance: 0 -> 2.
+- outcome: each asserts the value instead.
+- oracle: zero matches for the scan's existence-only pattern in `crates/`.
 
 ## Hosted evidence checkpoint — 2026-08-19
 

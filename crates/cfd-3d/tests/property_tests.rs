@@ -14,8 +14,11 @@ proptest! {
     #[test]
     fn spectral_config_valid_sizes(n in 2usize..=16) {
         use cfd_3d::SpectralConfig;
-        let result = SpectralConfig::<f64>::new(n, n, n);
-        prop_assert!(result.is_ok(), "SpectralConfig::new({n},{n},{n}) must succeed");
+        let config = SpectralConfig::<f64>::new(n, n, n)
+            .map_err(|error| TestCaseError::fail(error.to_string()))?;
+        prop_assert_eq!(config.nx_modes, n);
+        prop_assert_eq!(config.ny_modes, n);
+        prop_assert_eq!(config.nz_modes, n);
     }
 }
 
