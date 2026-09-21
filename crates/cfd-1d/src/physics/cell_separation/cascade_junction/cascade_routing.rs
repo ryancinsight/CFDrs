@@ -566,13 +566,13 @@ pub fn checked_cascade_junction_separation_cross_junction(
 /// bifurcation junctions.
 ///
 /// Each level is specified as a `(q_frac, is_trifurcation)` pair:
-/// - **Trifurcation** levels use the 3-arm Zweifach-Fung model ([`p_center`])
+/// - **Trifurcation** levels use the 3-arm Zweifach-Fung model (`p_center`)
 ///   where `q_frac` is the center-arm volumetric flow fraction.
-/// - **Bifurcation** levels use the 2-arm model ([`p_treat_bifurcation`])
+/// - **Bifurcation** levels use the 2-arm model (`p_treat_bifurcation`)
 ///   where `q_frac` is the treatment-arm volumetric flow fraction.
 ///
-/// This generalises [`cascade_from_q_fractions`] (all-tri) and
-/// [`incremental_from_q_fractions`](super::incremental_filtration::incremental_from_q_fractions)
+/// This generalises `cascade_from_q_fractions` (all-tri) and
+/// `incremental_from_q_fractions`
 /// (tri + terminal bi) to arbitrary Bi/Tri orderings, as required by
 /// `PrimitiveSplitSequence` topologies.
 ///

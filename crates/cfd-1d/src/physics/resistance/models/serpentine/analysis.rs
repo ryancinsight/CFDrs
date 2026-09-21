@@ -44,7 +44,7 @@ pub struct SerpentineAnalysis<T> {
 impl<T: CfdScalar> SerpentineModel<T> {
     /// Curvature enhancement using Bayat & Rezai (2017) millifluidic correlation.
     ///
-    /// This is recommended over [`curvature_enhancement`](Self::curvature_enhancement)
+    /// This is recommended over `curvature_enhancement`
     /// (Ito 1959) for rectangular microchannels at Re < 500, where secondary
     /// flow vortices are weaker than in circular tubes.
     ///

@@ -122,7 +122,7 @@ pub struct JunctionLossModel {
 impl JunctionLossModel {
     /// Retrieve the K-factor for this junction configuration.
     ///
-    /// When [`run_area_m2`] is set, the equal-area K is corrected by the
+    /// When `run_area_m2` is set, the equal-area K is corrected by the
     /// area ratio `(A_branch / A_run)^0.5` (Idelchik 2007, §7.12).
     /// This captures the additional recirculation loss when a narrow
     /// branch intersects a wide run channel, or the reduced loss when
