@@ -157,17 +157,6 @@ pub(crate) fn vector_scale(vector: &Array1<f64>, scale: f64) -> Array1<f64> {
     Array1::from_shape_fn(vector.shape(), |idx| vector[idx] * scale)
 }
 
-pub(crate) fn vector_add_assign_scaled(target: &mut Array1<f64>, source: &Array1<f64>, scale: f64) {
-    assert_eq!(
-        target.shape(),
-        source.shape(),
-        "invariant: vector add-assign operands must have equal length"
-    );
-    for i in 0..target.shape()[0] {
-        target[i] += scale * source[i];
-    }
-}
-
 pub(crate) fn matrix_zeros(rows: usize, cols: usize) -> Array2<f64> {
     Array2::zeros([rows, cols])
 }
@@ -329,6 +318,31 @@ pub(crate) fn set_column(matrix: &mut Array2<f64>, col: usize, values: &Array1<f
     );
     for row in 0..rows {
         matrix[[row, col]] = values[row];
+    }
+}
+
+/// Accumulate `scale` times `matrix`'s column `col` into `target`.
+///
+/// This replaced a pair that copied the column first: reading it in place
+/// performs the same additions over the same values in the same order, so the
+/// result is bitwise identical, and the callers -- inside basis and
+/// quadrature loops -- stop allocating a vector per call to read values they
+/// drop immediately.
+pub(crate) fn vector_add_assign_scaled_column(
+    target: &mut Array1<f64>,
+    matrix: &Array2<f64>,
+    col: usize,
+    scale: f64,
+) {
+    let [rows, cols] = matrix.shape();
+    assert!(col < cols, "invariant: requested column is in bounds");
+    assert_eq!(
+        target.shape()[0],
+        rows,
+        "invariant: add-assign operands must have equal length"
+    );
+    for row in 0..rows {
+        target[row] += scale * matrix[[row, col]];
     }
 }
 
@@ -499,6 +513,62 @@ pub trait DGMethod {
 
 #[cfg(test)]
 mod tests {
+
+    /// The copy-then-accumulate pair this replaced, as the differential
+    /// oracle: allocate the column, then add it scaled.
+    fn add_assign_scaled_via_column_copy(
+        target: &mut Array1<f64>,
+        matrix: &Array2<f64>,
+        col: usize,
+        scale: f64,
+    ) {
+        let source = column_vector(matrix, col);
+        for row in 0..target.shape()[0] {
+            target[row] += scale * source[row];
+        }
+    }
+
+    #[test]
+    fn column_accumulate_is_bitwise_identical_to_copying_the_column() {
+        // Values chosen so the products are not exactly representable and a
+        // reordered sum would show: a tolerance-based assertion here would
+        // pass for a reordering that breaks the claim.
+        let matrix = Array2::from_shape_fn([4, 3], |[r, c]| {
+            0.1 * (r as f64 + 1.0) + 1e-17 * (c as f64 + 1.0)
+        });
+        let scales = [0.3, -7.125, 1e12, f64::MIN_POSITIVE];
+
+        for (col, scale) in (0..3).zip(scales) {
+            let mut in_place = Array1::from_shape_fn([4], |[r]| 1.0 / (r as f64 + 3.0));
+            let mut via_copy = in_place.clone();
+            vector_add_assign_scaled_column(&mut in_place, &matrix, col, scale);
+            add_assign_scaled_via_column_copy(&mut via_copy, &matrix, col, scale);
+            for row in 0..4 {
+                assert_eq!(
+                    in_place[row].to_bits(),
+                    via_copy[row].to_bits(),
+                    "column {col} row {row} drifted from the copying form",
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "requested column is in bounds")]
+    fn column_accumulate_rejects_a_column_past_the_matrix() {
+        let matrix = Array2::zeros([2, 2]);
+        let mut target = Array1::zeros([2]);
+        vector_add_assign_scaled_column(&mut target, &matrix, 2, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "equal length")]
+    fn column_accumulate_rejects_a_target_of_the_wrong_length() {
+        let matrix = Array2::zeros([3, 2]);
+        let mut target = Array1::zeros([2]);
+        vector_add_assign_scaled_column(&mut target, &matrix, 0, 1.0);
+    }
+
     use super::*;
     use eunomia::assert_relative_eq;
 
