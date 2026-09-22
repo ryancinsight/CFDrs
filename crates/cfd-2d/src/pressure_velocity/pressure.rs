@@ -12,7 +12,7 @@
 //! p = p  + α_p · p'           (pressure correction)
 //! ```
 //!
-//! See [`correction`](super::correction) for the matrix assembly and solve details.
+//! See the correction module for the matrix assembly and solve details.
 
 use super::config::PressureLinearSolver;
 use crate::fields::Field2D;

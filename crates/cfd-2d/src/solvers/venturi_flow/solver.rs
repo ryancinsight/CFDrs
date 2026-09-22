@@ -48,7 +48,7 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<T>
     /// ```
     ///
     /// The parameter `beta` ∈ (0, 1) controls the centre-clustering intensity:
-    /// - `beta = 0.0` → uniform grid (same as [`new`])
+    /// - `beta = 0.0` → uniform grid (same as [`Self::new`])
     /// - `beta = 0.5` → 3× ratio (centre cells 3× finer than boundary)
     /// - `beta = 0.9` → 19× ratio (aggressive, for CR > 20)
     ///
@@ -91,7 +91,7 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<T>
         Self::new_stretched(geometry, blood, density, nx, ny, beta)
     }
 
-    /// Like [`new_stretched`] but accepts a custom [`SIMPLEConfig`], allowing
+    /// Like [`Self::new_stretched`] but accepts a custom [`SIMPLEConfig`], allowing
     /// callers to tune under-relaxation and iteration count for high-Re flows.
     pub fn new_stretched_with_config(
         geometry: VenturiGeometry<T>,

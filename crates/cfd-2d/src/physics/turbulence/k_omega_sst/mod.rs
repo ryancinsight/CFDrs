@@ -12,7 +12,7 @@
 //! |--------|---------------|
 //! | [`blending`] | F1/F2 blending functions, cross-diffusion, coefficient blending |
 //! | [`limiter`] | Menter (2003) SST production limiter |
-//! | [`model`] | `KOmegaSSTModel` struct and `TurbulenceModel` trait impl |
+//! | [`KOmegaSSTModel`] | `KOmegaSSTModel` struct and `TurbulenceModel` trait impl |
 //!
 //! ## Governing Equations
 //!
