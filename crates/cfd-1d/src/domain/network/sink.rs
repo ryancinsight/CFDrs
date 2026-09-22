@@ -35,7 +35,7 @@ use crate::domain::network::wrapper::Network;
 /// resistance models.
 ///
 /// Construct with `NetworkBuilderSink::new(fluid)` and pass to
-/// [`NetworkGenerationService`](cfd_schematics::application::use_cases::generate_network::NetworkGenerationService).
+/// [`NetworkGenerationService`](cfd_schematics::NetworkGenerationService).
 pub struct NetworkBuilderSink<T, F> {
     fluid: F,
     _t: PhantomData<T>,

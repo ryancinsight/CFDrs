@@ -33,8 +33,8 @@ use cfd_core::physics::fluid::FluidTrait;
 /// [`NetworkBlueprint`].
 ///
 /// This is the **canonical entry-point** for constructing a `cfd-1d` network.
-/// Callers obtain a blueprint from [`cfd_schematics::geometry::types::ChannelSystem::to_blueprint`]
-/// or from the `cfd_schematics::interface::presets` factory functions.
+/// Callers obtain a blueprint from the [`cfd_schematics::geometry::generator::create_geometry`]
+/// entry point or from the `cfd_schematics::interface::presets` factory functions.
 ///
 /// Fidelity boundary: the 1D solve consumes blueprint lengths, cross-sections,
 /// serpentine bend metadata, venturi throat metadata, and junction-angle
@@ -516,7 +516,7 @@ where
 
 /// Apply schematics-authored branch boundary metadata to a solver network.
 ///
-/// Explicit [`BranchBoundaryMetadata`] overrides the legacy inlet/outlet
+/// Explicit [`BranchBoundaryMetadata`](cfd_schematics::geometry::metadata::BranchBoundaryMetadata) overrides the legacy inlet/outlet
 /// defaults derived from [`cfd_schematics::domain::model::NodeKind`].
 pub fn apply_blueprint_boundary_conditions<T, F, S>(
     network: &mut crate::domain::network::wrapper::Network<T, F>,

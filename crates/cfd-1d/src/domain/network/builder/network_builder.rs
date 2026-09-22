@@ -11,7 +11,7 @@ use petgraph::visit::EdgeRef;
 
 /// Builder for constructing network graphs directly (internal / advanced use).
 ///
-/// Prefer [`network_from_blueprint`] for any network derived from a
+/// Prefer [`network_from_blueprint`](crate::domain::network::network_from_blueprint) for any network derived from a
 /// [`cfd_schematics`] topology. This builder is retained for low-level
 /// graph construction in blood-vessel models and other domain-specific
 /// applications that build the graph programmatically.
