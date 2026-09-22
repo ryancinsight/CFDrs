@@ -2,7 +2,7 @@
 //!
 //! This module owns the phase-fraction interpolation boundary. Field-level
 //! volume-of-fluid transport and interface reconstruction live under [`vof`],
-//! while the [`MomentumCoupling`] selector records the pressure/velocity grid
+//! while the momentum-coupling selector records the pressure/velocity grid
 //! arrangement used by a caller. See
 //! `repos/CFDrs/docs/book/turbulence_multiphase.md` for the integration
 //! contract.

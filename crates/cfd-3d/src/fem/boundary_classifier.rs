@@ -76,8 +76,8 @@ pub struct BoundaryFaceSets {
     pub inlet_nodes: HashSet<usize>,
     /// Vertex indices whose faces were labelled / classified as "outlet" or "outlet_*".
     ///
-    /// This is the union of all outlet labels; use [`outlet_nodes_by_label`] when
-    /// per-outlet pressure assignment is needed (e.g., trifurcation).
+    /// This is the union of all outlet labels; use the per-label outlet sets
+    /// when per-outlet pressure assignment is needed (e.g., trifurcation).
     pub outlet_nodes: HashSet<usize>,
     /// Per-label outlet node sets.
     ///

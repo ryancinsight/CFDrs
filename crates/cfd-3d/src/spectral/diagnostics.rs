@@ -90,8 +90,8 @@ pub struct ProbeSignalSpectrum {
 ///
 /// The spectrum is a diagnostic, not a simulation state: the FFT backend
 /// (`apollo_fft`) and every field of [`KineticEnergySpectrum`] are `f64`. The
-/// field samples are therefore lowered to `f64` once, at
-/// [`component_samples_as_f64`], and the transform runs entirely in double
+/// field samples are therefore lowered to `f64` once, at the top of this
+/// routine, and the transform runs entirely in double
 /// precision regardless of `T`. Nothing is narrowed back into `T`.
 ///
 /// Fourier coefficients are grouped into integer shells using
@@ -170,7 +170,7 @@ pub fn kinetic_energy_spectrum<T: NumericElement>(
 /// # Precision boundary
 ///
 /// Same as [`kinetic_energy_spectrum`]: the samples are lowered to `f64` once
-/// at [`component_samples_as_f64`] and the whole transform is `f64`.
+/// at the top of this routine and the whole transform is `f64`.
 ///
 /// The vorticity is evaluated spectrally via `ω̂ = i k × û`, then grouped into
 /// integer shells using the same radial shell indexing as the kinetic-energy
