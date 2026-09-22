@@ -1,6 +1,6 @@
 //! Full-network 2D solving driven by authoritative `cfd-schematics` blueprints.
 //!
-//! The network builder validates a [`NetworkBlueprint`], computes a normalized
+//! The network builder validates a [`cfd_schematics::NetworkBlueprint`], computes a normalized
 //! `cfd-1d` reference solve, and then configures one 2D Navier-Stokes solve per
 //! blueprint channel using that trace as the inlet/outlet contract.
 //!

@@ -18,13 +18,13 @@
 //! On colocated grids with positive momentum diagonals, face velocities must be
 //! interpolated consistently with the momentum equation stencil to suppress
 //! checkerboard pressure modes.
-//! See [`interpolation`] for the complete proof.
+//! See interpolation for the complete proof.
 //!
 //! # Theorem (SIMPLEC Convergence — Van Doormaal & Raithby 1984)
 //!
 //! Under diagonal dominance of the momentum matrix and a solved pressure
 //! correction, SIMPLEC converges linearly at a rate controlled by `α_u` and
-//! `α_p`. See [`algorithms`] for the full derivation.
+//! `α_p`. See algorithms for the full derivation.
 //!
 //! ## References
 //! - Patankar & Spalding (1972). *Int. J. Heat Mass Transfer*, 15(10), 1787–1806.
