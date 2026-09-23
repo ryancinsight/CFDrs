@@ -144,6 +144,23 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` blueprint-topology factory root into
+  concern leaves (CFDRS-SRP-006, `cfd-schematics/src/topology/factory/core`).
+  The 523-line `mod.rs` held the GA mutation vocabulary, the
+  `BlueprintTopologyFactory` declaration, the `build` entry point, the three
+  `*_impl` submodule declarations, and a 362-line inline test module. It is now
+  the file-plus-directory parent `core.rs` — a 20-line passthrough facade — over
+  `mutations.rs` (`BlueprintTopologyMutation`), `orchestrator.rs` (the factory
+  type and its `build` entry point), and `tests.rs`; the three `*_impl` leaves
+  are untouched. The facade re-exports both public types, so `factory/mod.rs`'s
+  `pub use core::{…}` and the three `*_impl` files' `super::…` imports are
+  unchanged. Two call paths in `build` gain a level, because `super` meant
+  `factory` while the code sat one level shallower: `super::validation` and
+  `super::modifiers`. Pure code motion otherwise: all 12 `fn` definitions
+  preserved, and the cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `oversized_files` and one `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-schematics` selective-tree generator root into
   concern leaves (CFDRS-SRP-005, `cfd-schematics/src/geometry/generator/selective`).
   The 630-line `mod.rs` held three public request types, two module-private DTOs
