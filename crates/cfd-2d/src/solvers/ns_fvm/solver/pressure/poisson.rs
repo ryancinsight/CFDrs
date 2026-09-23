@@ -254,10 +254,13 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
             }
         }
 
+        let masked_faces = self.masked_face_treatment;
         for i in 1..=nx {
             for j in 0..ny {
                 if i < nx {
-                    if !self.field.mask[(i, j)] && !self.field.mask[(i - 1, j)] {
+                    if masked_faces
+                        .skips_correction(self.field.mask[(i, j)], self.field.mask[(i - 1, j)])
+                    {
                         continue;
                     }
                 } else if !self.field.mask[(nx - 1, j)] {
@@ -277,7 +280,9 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
         for i in 0..nx {
             for j in 1..=ny {
                 if j < ny {
-                    if !self.field.mask[(i, j)] && !self.field.mask[(i, j - 1)] {
+                    if masked_faces
+                        .skips_correction(self.field.mask[(i, j)], self.field.mask[(i, j - 1)])
+                    {
                         continue;
                     }
                 } else if !self.field.mask[(i, ny - 1)] {
@@ -301,5 +306,50 @@ impl<T: CfdScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig};
+    use cfd_core::geometry::StaggeredGrid2D;
+
+    #[test]
+    fn no_penetration_preserves_vertical_solid_interface_velocity() {
+        let mut solver = NavierStokesSolver2D::new(
+            StaggeredGrid2D::new(2, 1, 2.0, 1.0),
+            BloodModel::Newtonian(1.0),
+            1.0,
+            SIMPLEConfig::default(),
+        );
+        solver.field.mask[(0, 0)] = false;
+        solver.field.u[(1, 0)] = 1.0;
+        solver.enforce_no_penetration_at_masked_faces();
+
+        solver
+            .solve_pressure_correction()
+            .expect("pressure correction accepts a masked cell");
+
+        assert_eq!(solver.field.u[(1, 0)], 1.0);
+    }
+
+    #[test]
+    fn no_penetration_preserves_horizontal_solid_interface_velocity() {
+        let mut solver = NavierStokesSolver2D::new(
+            StaggeredGrid2D::new(2, 2, 2.0, 2.0),
+            BloodModel::Newtonian(1.0),
+            1.0,
+            SIMPLEConfig::default(),
+        );
+        solver.field.mask[(0, 0)] = false;
+        solver.field.mask[(1, 0)] = false;
+        solver.field.v[(0, 1)] = 1.0;
+        solver.enforce_no_penetration_at_masked_faces();
+
+        solver
+            .solve_pressure_correction()
+            .expect("pressure correction accepts a masked cell");
+
+        assert_eq!(solver.field.v[(0, 1)], 1.0);
     }
 }

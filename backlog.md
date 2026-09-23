@@ -123,6 +123,12 @@ gap and the debug 30-second termination remain open. A 96-cell probe exceeded
 the slow budget and did not close the reference gap; neither the mesh nor the
 budget is changed here.
 
+2026-09-22: the step's fluid-solid faces are now no-penetration walls in the
+pressure correction, and reattachment closes the longest negative-shear
+excursion rather than the first. Against the Re=100 reference of 2.84, the
+release default solve moved from `x_r/h = 1.993` to `2.206` (relative error
+29.8% to 22.3%). The remaining gap stays open.
+
 ## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
 
 **Owner:** Atlas session; scope is `cfd-2d` adaptive SIMPLEC/PIMPLE
