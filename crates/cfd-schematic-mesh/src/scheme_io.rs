@@ -100,15 +100,10 @@ fn parse_substrate(value: &serde_json::Value) -> MeshResult<SubstrateDef> {
         .ok_or_else(|| MeshError::Other("missing substrate height".to_string()))?
         as Real;
 
-    let origin = if let Some(o) = sub.get("origin") {
-        Point3r::new(
-            o[0].as_f64().unwrap_or(0.0) as Real,
-            o[1].as_f64().unwrap_or(0.0) as Real,
-            o[2].as_f64().unwrap_or(0.0) as Real,
-        )
-    } else {
-        Point3r::origin()
-    };
+    let origin = sub.get("origin").map_or_else(
+        || Ok(Point3r::origin()),
+        |o| parse_point(o, "substrate origin"),
+    )?;
 
     Ok(SubstrateDef {
         width,
@@ -116,6 +111,31 @@ fn parse_substrate(value: &serde_json::Value) -> MeshResult<SubstrateDef> {
         height,
         origin,
     })
+}
+
+/// Parse a `[x, y, z]` array into a point.
+///
+/// Every coordinate is required: a missing or non-numeric component is an
+/// error, never a silent zero, since a defaulted coordinate relocates the
+/// geometry without any signal to the caller.
+fn parse_point(value: &serde_json::Value, what: &str) -> MeshResult<Point3r> {
+    let components = value
+        .as_array()
+        .ok_or_else(|| MeshError::Other(format!("{what} must be an array")))?;
+    let coordinate = |index: usize| {
+        components
+            .get(index)
+            .and_then(serde_json::Value::as_f64)
+            .map(|component| component as Real)
+            .ok_or_else(|| MeshError::Other(format!("{what} coordinate {index} must be numeric")))
+    };
+    if components.len() != 3 {
+        return Err(MeshError::Other(format!(
+            "{what} must have exactly 3 coordinates, found {}",
+            components.len()
+        )));
+    }
+    Ok(Point3r::new(coordinate(0)?, coordinate(1)?, coordinate(2)?))
 }
 
 fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
@@ -133,7 +153,10 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
             .as_f64()
             .ok_or_else(|| MeshError::Other("missing channel diameter".to_string()))?
             as Real;
-        let segments = ch["segments"].as_u64().unwrap_or(16) as usize;
+        let segments = ch["segments"]
+            .as_u64()
+            .map_or(Ok(16), usize::try_from)
+            .map_err(|_| MeshError::Other("channel segments exceed platform limits".to_string()))?;
 
         let path_arr = ch["path"]
             .as_array()
@@ -141,22 +164,14 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 
         let points: Vec<Point3r> = path_arr
             .iter()
-            .map(|p| {
-                let arr = p
-                    .as_array()
-                    .ok_or_else(|| MeshError::Other("path point must be array".to_string()))?;
-                Ok(Point3r::new(
-                    arr[0].as_f64().unwrap_or(0.0) as Real,
-                    arr[1].as_f64().unwrap_or(0.0) as Real,
-                    arr[2].as_f64().unwrap_or(0.0) as Real,
-                ))
-            })
+            .map(|p| parse_point(p, "path point"))
             .collect::<MeshResult<Vec<_>>>()?;
 
         defs.push(ChannelDef {
             id,
-            path: ChannelPath::new(points)
-                .expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
+                message: format!("invalid schematic channel path: {error}"),
+            })?,
             profile: ChannelProfile::Circular {
                 radius: diameter / 2.0,
                 segments,
@@ -183,12 +198,9 @@ fn parse_channels(value: &serde_json::Value) -> MeshResult<Vec<ChannelDef>> {
 /// - `channel_segments` — number of cross-section segments per channel
 ///
 /// # Errors
-/// Returns `Err` if a channel references an unknown node or has an
-/// unsupported cross-section type.
-///
-/// # Panics
-/// Panics if a channel's point sequence is empty or otherwise invalid
-/// (invariant violation from the schematic model).
+/// Returns `Err` if a channel references an unknown node, has an
+/// unsupported cross-section type, or has a centerline that is not a valid
+/// channel path (non-finite or coincident consecutive points).
 pub fn from_blueprint(
     blueprint: &cfd_schematics::domain::model::NetworkBlueprint,
     height: Real,
@@ -296,8 +308,12 @@ pub fn from_blueprint(
 
         channels.push(ChannelDef {
             id: ch.id.as_str().to_string(),
-            path: ChannelPath::new(points)
-                .expect("invariant: channel path from schematic points is valid"),
+            path: ChannelPath::new(points).map_err(|error| MeshError::ChannelError {
+                message: format!(
+                    "invalid blueprint channel path `{}`: {error}",
+                    ch.id.as_str()
+                ),
+            })?,
             profile,
             width_scales,
         });
@@ -313,4 +329,82 @@ pub fn from_blueprint(
         substrate,
         channels,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::import_schematic;
+    use cfd_mesh::domain::core::error::MeshError;
+
+    fn schematic_json(origin: &str, path: &str) -> String {
+        format!(
+            r#"{{"substrate": {{"width": 30.0, "depth": 20.0, "height": 10.0{origin}}},
+                "channels": [{{"id": "ch1", "diameter": 1.0, "segments": 8, "path": {path}}}]}}"#
+        )
+    }
+
+    fn import_error(json: &str) -> String {
+        match import_schematic(json.as_bytes()) {
+            Ok(_) => panic!("schematic must be rejected: {json}"),
+            Err(error) => error.to_string(),
+        }
+    }
+
+    #[test]
+    fn imports_every_coordinate_as_written() {
+        let json = schematic_json(
+            r#", "origin": [1.0, 2.0, 3.0]"#,
+            "[[0, 0, 5], [10, 0, 5], [20, 4, 5]]",
+        );
+        let schematic = import_schematic(json.as_bytes()).expect("well-formed schematic imports");
+        let origin = schematic.substrate.origin;
+        assert_eq!((origin.x, origin.y, origin.z), (1.0, 2.0, 3.0));
+        let points: Vec<_> = schematic.channels[0]
+            .path
+            .points()
+            .iter()
+            .map(|point| (point.x, point.y, point.z))
+            .collect();
+        assert_eq!(
+            points,
+            [(0.0, 0.0, 5.0), (10.0, 0.0, 5.0), (20.0, 4.0, 5.0)]
+        );
+    }
+
+    #[test]
+    fn rejects_a_path_point_missing_a_coordinate() {
+        let message = import_error(&schematic_json("", "[[0, 0, 5], [10, 0]]"));
+        assert_eq!(
+            message,
+            "path point must have exactly 3 coordinates, found 2"
+        );
+    }
+
+    #[test]
+    fn rejects_a_non_numeric_path_coordinate() {
+        let message = import_error(&schematic_json("", r#"[[0, 0, 5], [10, "x", 5]]"#));
+        assert_eq!(message, "path point coordinate 1 must be numeric");
+    }
+
+    #[test]
+    fn rejects_a_short_substrate_origin() {
+        let message = import_error(&schematic_json(
+            r#", "origin": [1.0, 2.0]"#,
+            "[[0, 0, 5], [10, 0, 5]]",
+        ));
+        assert_eq!(
+            message,
+            "substrate origin must have exactly 3 coordinates, found 2"
+        );
+    }
+
+    #[test]
+    fn reports_a_degenerate_path_instead_of_panicking() {
+        let json = schematic_json("", "[[0, 0, 5], [0, 0, 5]]");
+        let error = import_schematic(json.as_bytes()).err();
+        assert!(
+            matches!(&error, Some(MeshError::ChannelError { message }) if message.starts_with("invalid schematic channel path")),
+            "coincident points must surface as a channel error, got {error:?}"
+        );
+    }
 }
