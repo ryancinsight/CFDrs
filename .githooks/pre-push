@@ -80,6 +80,10 @@ default_branch_base() {
 # worse than the base already found acceptable.
 touches_dependency_state=unknown
 pushed_tip=""
+# The range this push carries, for the local gate far below. Recorded here
+# because stdin reads once: the gate cannot re-read it.
+gate_tip=""
+gate_range_base=""
 if [ ! -t 0 ]; then
   touches_dependency_state=no
   zero="$(printf '0%.0s' $(seq 40))"
@@ -96,6 +100,10 @@ if [ ! -t 0 ]; then
       [ -z "$base" ] && { touches_dependency_state=unknown; break; }
     else
       base="$remote_sha"
+    fi
+    if [ -z "$gate_tip" ]; then
+      gate_tip="$local_sha"
+      gate_range_base="$base"
     fi
     if ! changed="$(git diff --name-only "$base" "$local_sha" 2>/dev/null)"; then
       touches_dependency_state=unknown
@@ -130,7 +138,13 @@ fi
 python_bin="${PYTHON:-}"
 if [ -z "$python_bin" ]; then
   for candidate in python3 python; do
-    if command -v "$candidate" >/dev/null 2>&1; then
+    # Probe the candidate, not just its presence on PATH: the WindowsApps
+    # python3.exe Store stub passes `command -v` and then fails to execute
+    # (rc 127), and selecting it makes every `"$python_bin" -c ...` below
+    # fail -- the workspace-membership pipeline in particular, which under
+    # `set -o pipefail` blocks the push with a diagnostic about cargo that
+    # the interpreter caused. Same probe as `.githooks/pre-commit`.
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys' >/dev/null 2>&1; then
       python_bin="$candidate"
       break
     fi
@@ -140,40 +154,41 @@ fi
 # The skips above fall through to the code gate, so this whole section runs
 # only when the lock still wants verifying.
 if [ "$skip_lockfile" = "0" ]; then
-if [ -n "$pushed_tip" ] && ! git diff --quiet "$pushed_tip" -- Cargo.lock '*Cargo.toml' 2>/dev/null; then
-  cat >&2 <<MESSAGE
-
-pre-push: the working tree's Cargo.lock or manifests differ from the revision
-being pushed, so a check of this tree says nothing about that push.
-
-  pushed revision: $pushed_tip
-
-Commit the dependency state you verified, or check out the pushed revision and
-push from there. To push anyway: SKIP_LOCKFILE_CHECK=1 git push
-MESSAGE
+# The lock is checked on an export of the pushed revision, with that
+# revision's own checker, outside the stack: the working tree is neither the
+# push (a peer's branch, a plumbing push) nor stable (any cargo command inside
+# the stack flattens its lock), so a verdict on it was evidence about the
+# wrong state either way. The dependency-source check below reads the same
+# export.
+lock_rev="${pushed_tip:-${gate_tip:-HEAD}}"
+lock_export="$(mktemp -d "${TMPDIR:-/tmp}/pre-push-lock.XXXXXX")"
+if ! git archive "$lock_rev" | tar -x -C "$lock_export"; then
+  rm -rf "$lock_export"
+  echo "pre-push: could not export $lock_rev for the lockfile check" >&2
   exit 1
 fi
-
-checker="$repo_root/scripts/lockfile.py"
-
+checker="$lock_export/scripts/lockfile.py"
 
 if [ ! -f "$checker" ]; then
   # A guard that reports its own absence and lets the push through is the
   # absence. The code gate below would still have run, but the lock is what
   # this section is for, and an unverified lock is the failure it exists to
   # stop -- so refuse here and name the one deliberate way through.
+  rm -rf "$lock_export"
   echo "pre-push: scripts/lockfile.py not present; lockfile not verified" >&2
   echo "pre-push: push anyway with SKIP_LOCKFILE_CHECK=1 git push" >&2
   exit 1
 elif [ -z "$python_bin" ]; then
+  rm -rf "$lock_export"
   echo "pre-push: no python interpreter found; lockfile not verified" >&2
   echo "pre-push: push anyway with SKIP_LOCKFILE_CHECK=1 git push" >&2
   exit 1
-elif ! "$python_bin" "$checker" --check; then
-  cat >&2 <<'MESSAGE'
+elif ! (cd "$lock_export" && "$python_bin" "$checker" --check); then
+  rm -rf "$lock_export"
+  cat >&2 <<MESSAGE
 
-pre-push: Cargo.lock does not resolve under --locked, so every CI job that
-passes --locked would fail on this push.
+pre-push: the Cargo.lock in $lock_rev does not resolve under --locked, so
+every CI job that passes --locked would fail on this push.
 
 The usual cause is a cargo command run from inside the Atlas stack, which
 strips the lock's git sources. Repair it with:
@@ -196,19 +211,14 @@ fi
 # never touched.
 if [ -f "$repo_root/deny.toml" ]; then
   if ! cargo deny --version >/dev/null 2>&1; then
+    rm -rf "$lock_export"
     echo "pre-push: cargo-deny is not installed, so the dependency sources of this" >&2
     echo "lock change are unverified. Install it (cargo install --locked cargo-deny)," >&2
     echo "or push anyway with SKIP_LOCKFILE_CHECK=1 git push" >&2
     exit 1
   fi
-  deny_export="$(mktemp -d "${TMPDIR:-/tmp}/pre-push-deny.XXXXXX")"
-  if ! git archive "$pushed_tip" | tar -x -C "$deny_export"; then
-    rm -rf "$deny_export"
-    echo "pre-push: could not export $pushed_tip for the dependency-source check" >&2
-    exit 1
-  fi
-  if ! (cd "$deny_export" && cargo deny --locked check sources >&2); then
-    rm -rf "$deny_export"
+  if ! (cd "$lock_export" && cargo deny --locked check sources >&2); then
+    rm -rf "$lock_export"
     cat >&2 <<MESSAGE
 
 pre-push: the pushed Cargo.lock resolves a source deny.toml does not allow,
@@ -218,8 +228,8 @@ the dependency. To push anyway: SKIP_LOCKFILE_CHECK=1 git push
 MESSAGE
     exit 1
   fi
-  rm -rf "$deny_export"
 fi
+rm -rf "$lock_export"
 fi
 # End of the lockfile section; the code gate below runs unconditionally.
 
@@ -231,19 +241,28 @@ fi
 # one member before anything measured either. The script lives in the stack
 # root; a standalone clone outside the stack reports and continues, since the
 # shared CI workflow (artifact-budget.yml) is the authoritative gate there.
-# The gate judges HEAD, the revision being pushed, never the working tree a
-# peer may hold dirty.
+# The gate judges the pushed tip against the pushed range's base, never the
+# working tree a peer may hold dirty and never `HEAD`: a plumbing push, or a
+# shared tree checked out on a peer's branch, makes `HEAD` a revision this push
+# does not carry, and a peer's over-budget board then refused an unrelated
+# push. `HEAD` against its upstream remains the fallback when git supplied no
+# range (a manual run with no stdin).
 budget_checker="$repo_root/../../scripts/atlas-artifact-budget.py"
 if [ -f "$budget_checker" ] && [ -n "$python_bin" ]; then
+  budget_rev="${gate_tip:-HEAD}"
   budget_base=""
-  if upstream="$(git rev-parse --verify --quiet '@{upstream}' 2>/dev/null)"; then
+  if [ -n "$gate_range_base" ] \
+    && git rev-parse --verify --quiet "$gate_range_base^{commit}" >/dev/null 2>&1; then
+    budget_base="$gate_range_base"
+  elif [ -z "$gate_tip" ] \
+    && upstream="$(git rev-parse --verify --quiet '@{upstream}' 2>/dev/null)"; then
     budget_base="$upstream"
   else
-    budget_base="$(default_branch_base HEAD || true)"
+    budget_base="$(default_branch_base "$budget_rev" || true)"
   fi
   budget_args=()
   [ -n "$budget_base" ] && budget_args=(--base "$budget_base")
-  if ! "$python_bin" "$budget_checker" check --root "$repo_root" --rev HEAD "${budget_args[@]}"; then
+  if ! "$python_bin" "$budget_checker" check --root "$repo_root" --rev "$budget_rev" "${budget_args[@]}"; then
     echo "pre-push: BLOCKED -- a PM board grew past its line budget or a tracked" >&2
     echo "image exceeds the byte budget. Compact the board (done items delete)," >&2
     echo "move evidence captures out of git, and push again." >&2
@@ -302,14 +321,28 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 0
 fi
 
-gate_base="$(default_branch_base HEAD || true)"
+# Select from the pushed range where git supplied one: `HEAD` is the
+# checkout's branch, which a plumbing push or a tree sitting on a peer's branch
+# makes the wrong revision to select from. A base the local repository cannot
+# resolve -- a remote tip never fetched here -- falls back rather than diffing
+# against nothing, which would read as "no Rust in the range" and skip the gate.
+if [ -n "$gate_range_base" ] \
+  && ! git rev-parse --verify --quiet "$gate_range_base^{commit}" >/dev/null 2>&1; then
+  gate_range_base=""
+fi
+gate_tip_rev="${gate_tip:-HEAD}"
+if [ -n "$gate_range_base" ]; then
+  gate_base="$gate_range_base"
+else
+  gate_base="$(default_branch_base "$gate_tip_rev" || true)"
+fi
 
 if [ -z "$gate_base" ]; then
   echo "pre-push: no upstream or remote default branch to diff against; local gate skipped" >&2
   exit 0
 fi
 
-gate_changed="$(git diff --name-only "$gate_base" HEAD 2>/dev/null || true)"
+gate_changed="$(git diff --name-only "$gate_base" "$gate_tip_rev" 2>/dev/null || true)"
 
 # Where cargo runs. A member's main tree runs inside the stack, so the gate
 # builds against the local working trees the overlay provides. A lane (a
