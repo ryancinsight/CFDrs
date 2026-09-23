@@ -144,6 +144,22 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-optim` scoring module root into concern
+  leaves (CFDRS-SRP-003, `cfd-optim/src/scoring`). The 660-line `mod.rs` held
+  the score entry point, its 135-line implementation, the constraint helpers,
+  the description table, and a 430-line inline test module. It is now
+  `scoring.rs` — a 36-line passthrough facade — over `score.rs` (entry point +
+  implementation), `constraints.rs` (`sigmoid_penalty`), `description.rs`
+  (`score_description`), and `tests.rs`. `INFEASIBILITY_SCORE` stays in the
+  facade as the module's scoring contract, and `score_candidate_impl` widens to
+  `pub(super)` so it keeps exactly its pre-split reach (`scoring` and its
+  descendants, including the tests). The `sigmoid_penalty` re-export is kept
+  and consumed through the facade, so `scoring::sigmoid_penalty` still
+  resolves. Pure code motion: all 20 `fn` definitions preserved, and the
+  cfd-optim suite is bit-identical before and after (106 lib + 31 integration +
+  2 doc = 139 passed, 0 failed), with no new warnings. Clears one
+  `oversized_files` and one `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-math` discontinuous-Galerkin cluster into
   concern leaves (CFDRS-SRP-002, `cfd-math/src/high_order/dg`). Three module
   roots carried 1650 lines between them, each mixing several responsibilities
