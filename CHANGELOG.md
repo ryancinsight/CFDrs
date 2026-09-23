@@ -144,6 +144,24 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the Zweifach-Fung cascade-junction module root
+  (CFDRS-SRP-001, `cfd-1d/src/physics/cell_separation/cascade_junction`).
+  The 1174-line `mod.rs` mixed four responsibilities — the shared descriptor
+  types, the routing re-export surface, a 1004-line inline test module, and
+  the module's own documentation — behind a single manifest file. It is now
+  the file-plus-directory parent `cascade_junction.rs` (an 87-line
+  passthrough facade) over four leaves: `types.rs` (the four public
+  descriptors `PeripheralRecovery`, `CascadeStage`, `CascadeJunctionResult`,
+  `IncrementalFiltrationResult`), and a `tests/` tree split by the behaviour
+  families the original already banner-delimited — `cascade_split.rs`,
+  `kappa_aware.rs`, `fahraeus.rs`, `peripheral_recovery.rs`,
+  `core_probability.rs` — so a failure names the physics it broke instead of
+  pointing at a thousand-line file. Pure code motion: all 61 `fn`
+  definitions and all 59 tests are preserved, and the cfd-1d suite is
+  bit-identical before and after (511 lib + 241 integration + 8 doc = 760
+  passed, 0 failed). Clears one `oversized_files` and one
+  `manifest_implementation` site.
+
 - **Fixed:** Resolve the five capability-admitting `#[ignore]`d tests
   (CFDRS-GA-013). The two AMG coarsening stubs became real tests against
   cfd-math's coarsening suite (C/F totality, disconnected-component
