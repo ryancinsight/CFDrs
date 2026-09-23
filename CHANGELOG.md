@@ -144,6 +144,28 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-2d` detached-eddy-simulation module root into
+  concern leaves (CFDRS-SRP-004, `cfd-2d/src/physics/turbulence/des`). The
+  637-line `mod.rs` held the DES variant/config types, the
+  `DetachedEddySimulation` carrier with its 300-line inherent implementation,
+  the `LESTurbulenceModel` trait implementation, and a 238-line inline test
+  module. It is now the file-plus-directory parent `des.rs` — a 54-line
+  passthrough facade keeping the module's DES97/DDES/IDDES documentation — over
+  `config.rs` (`DESVariant`, `DESConfig`), `model.rs` (the carrier and its
+  inherent implementation), `les.rs` (the trait implementation), and
+  `tests.rs`, alongside the pre-existing `length_scale.rs`. Three mechanical
+  adjustments accompany the move and nothing else: `velocity_buffer` widens
+  from private to `pub(super)` so the sibling `les.rs` keeps the reach it had
+  as a same-file field; `boundary_condition_update`'s
+  `super::boundary_conditions` path gains a level, because `super` inside a
+  function body resolves against the enclosing module, which the move deepened;
+  and the test module now names `LESTurbulenceModel` explicitly, since it had
+  been reaching the trait through its parent's private `use` by glob. Pure code
+  motion otherwise: all 28 `fn` definitions preserved, and the cfd-2d suite is
+  bit-identical before and after (677 lib + 64 integration + 2 doc = 743
+  passed, 0 failed), with no new warnings. Clears one `oversized_files` and one
+  `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-math` discontinuous-Galerkin cluster into
   concern leaves (CFDRS-SRP-002, `cfd-math/src/high_order/dg`). Three module
   roots carried 1650 lines between them, each mixing several responsibilities
