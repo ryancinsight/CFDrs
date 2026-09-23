@@ -1,6 +1,7 @@
 //! WENO (Weighted Essentially Non-Oscillatory) limiter for DG methods.
 
-use super::{DGSolution, Limiter, LimiterParams};
+use super::super::DGSolution;
+use super::{Limiter, LimiterParams};
 use crate::error::Result;
 use crate::high_order::dg::matrix_cols;
 
