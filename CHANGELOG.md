@@ -144,6 +144,29 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` selective-tree generator root into
+  concern leaves (CFDRS-SRP-005, `cfd-schematics/src/geometry/generator/selective`).
+  The 630-line `mod.rs` held three public request types, two module-private DTOs
+  that the sibling leaves already reached as `super::…`, the topology dispatch
+  entry point, and a 418-line inline test module. It is now the
+  file-plus-directory parent `selective.rs` — a 25-line facade — over
+  `request.rs` (`CenterSerpentinePathSpec`, `SelectiveTreeTopology`,
+  `SelectiveTreeRequest` and its two accessors), `pending.rs`
+  (`PendingVenturiPath`, the router's scratch record), `geometry.rs`
+  (`SelectiveTreeGeometry`, the mm-flattened DTO the builder consumes), `build.rs`
+  (`create_selective_tree_geometry`), and `tests.rs`. `builder` and `primitive`
+  stay as they were, and the facade keeps private aliases for the two DTOs so
+  `super::PendingVenturiPath` and `super::SelectiveTreeGeometry` still resolve
+  from `routing.rs`, `primitive/annotation.rs`, and the four `builder/*` leaves.
+  The move forces exactly two visibility widenings, both to `pub(super)`: the two
+  DTOs and their fields were private in a module that owned those descendants,
+  and `SelectiveTreeRequest::geometry` is now called across a module boundary.
+  `box_dims_mm` stays private because only `geometry` calls it. Pure code motion
+  otherwise: all 13 `fn` definitions preserved, and the cfd-schematics suite is
+  bit-identical before and after (184 + 0 + 30 + 16 = 230 passed, 0 failed), with
+  no new warnings. Clears one `oversized_files` and one
+  `manifest_implementation` site.
+
 - **Changed:** Decompose the Zweifach-Fung cascade-junction module root
   (CFDRS-SRP-001, `cfd-1d/src/physics/cell_separation/cascade_junction`).
   The 1174-line `mod.rs` mixed four responsibilities — the shared descriptor
