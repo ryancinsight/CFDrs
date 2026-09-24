@@ -144,6 +144,28 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` Milestone-12 preset root into
+  concern leaves (CFDRS-SRP-008, `cfd-schematics/src/topology/presets/milestone12`).
+  The 414-line `mod.rs` held the stage-layout vocabulary, the canonical request
+  type with its constructors, the re-export surface for the three pre-existing
+  `build`/`catalog`/`support` siblings, and a 268-line inline test module. It is
+  now the file-plus-directory parent `milestone12.rs` — an 18-line passthrough
+  facade holding nothing but declarations — over `layout.rs`
+  (`Milestone12StageBranchSpec`, `Milestone12StageLayout`), `spec.rs`
+  (`Milestone12PrimitiveSelectiveSpec`, its `box_dims_mm`/`new` constructors, and
+  the `Milestone12TopologyRequest` alias), and `tests.rs`. The three `*_impl`
+  siblings are untouched, and the facade's re-exports keep their `super::…`
+  imports resolving. Since the facade carries no imports, each leaf takes
+  crate-absolute paths rather than the root's `super::super::…` forms. The inline
+  test module had been reaching `SplitKind`, `BranchRole`, `Length`, and the two
+  mode enums through the root's *private* `use`s by way of `use super::*`; the
+  split moves those imports into leaf preludes, so `tests.rs` now names them
+  (and deliberately omits `SerpentineSpec`, which the tests never used). Pure
+  code motion otherwise: all 9 `fn` definitions preserved, and the
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-schematics` arc-channel strategy root into
   concern leaves (CFDRS-SRP-007, `cfd-schematics/src/geometry/strategies/arc`).
   The 471-line `mod.rs` held the `ArcChannelStrategy` type, its
