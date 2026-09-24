@@ -77,7 +77,7 @@ impl PlottersRenderer {
         let x_buffer = w * config.margin_fraction;
         let y_buffer = h * config.margin_fraction;
 
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let mut chart = ChartBuilder::on(&root)
             .caption(
                 &config.title,

@@ -37,7 +37,7 @@ impl EnvelopeCalculator for SmoothEndpointEnvelopeCalculator {
         // This ensures zero amplitude and zero derivative at endpoints
         let smoothstep = |x: f64| x * x * 2.0f64.mul_add(-x, 3.0);
 
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let start_threshold = constants.get_smooth_endpoint_start_threshold();
         let end_threshold = constants.get_smooth_endpoint_end_threshold();
 

@@ -84,7 +84,7 @@ fn optimize_fast(
     let channel_width = geometry_config.channel_width_mm();
 
     // Get configurable parameter search ranges from constants registry
-    let constants_reg = ConstantsRegistry::new();
+    let constants_reg = ConstantsRegistry::shared();
     let wavelength_factors = constants_reg.get_fast_wavelength_factors();
     let wave_density_factors = constants_reg.get_fast_wave_density_factors();
     let fill_factors = constants_reg.get_fast_fill_factors();
@@ -106,9 +106,9 @@ fn optimize_fast(
     let mut iterations = 0;
 
     // Grid search over parameter combinations
-    for &wavelength_factor in &wavelength_factors {
-        for &wave_density_factor in &wave_density_factors {
-            for &fill_factor in &fill_factors {
+    for &wavelength_factor in wavelength_factors {
+        for &wave_density_factor in wave_density_factors {
+            for &fill_factor in fill_factors {
                 iterations += 1;
 
                 // Create test configuration without cloning the entire config

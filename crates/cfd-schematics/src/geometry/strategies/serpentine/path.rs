@@ -117,7 +117,7 @@ impl SerpentineChannelStrategy {
         let channel_length = dx.hypot(dy);
         let _angle = dy.atan2(dx);
 
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let _branch_factor = (context.total_branches as f64)
             .powf(constants.get_branch_factor_exponent())
             .max(1.0);

@@ -11,7 +11,7 @@ impl ArcChannelStrategy {
         total_branches: usize,
         neighbor_info: Option<&[f64]>,
     ) -> f64 {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         if !self.config.enable_adaptive_curvature {
             return self.config.curvature_factor;
         }

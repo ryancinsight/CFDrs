@@ -18,7 +18,7 @@ impl ArcChannelStrategy {
         let dx = p2.0 - p1.0;
         let dy = p2.1 - p1.1;
         let distance = dx.hypot(dy);
-        if distance <= ConstantsRegistry::new().get_geometric_tolerance() {
+        if distance <= ConstantsRegistry::shared().get_geometric_tolerance() {
             return vec![p1, p2];
         }
 
@@ -59,7 +59,7 @@ impl ArcChannelStrategy {
             up.min(down)
         };
         let arc_height = base_arc_height.min(max_offset * 0.9);
-        if arc_height <= ConstantsRegistry::new().get_geometric_tolerance() {
+        if arc_height <= ConstantsRegistry::shared().get_geometric_tolerance() {
             return vec![p1, p2];
         }
 
