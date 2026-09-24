@@ -144,6 +144,27 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` arc-channel strategy root into
+  concern leaves (CFDRS-SRP-007, `cfd-schematics/src/geometry/strategies/arc`).
+  The 471-line `mod.rs` held the `ArcChannelStrategy` type, its
+  `ChannelTypeStrategy` implementation, and nine private helpers in a single
+  `impl ArcChannelStrategy` block — path dispatch, bilateral-symmetry policy, the
+  quadratic-Bezier arc sampler with its wall/neighbour clearance limit, and the
+  neighbour-proximity curvature adaptation. It is now the file-plus-directory
+  parent `arc.rs` — a 16-line passthrough facade — over `strategy.rs` (the type,
+  `new`, and the trait impl), `path.rs` (dispatch + bilateral entry point),
+  `symmetry.rs` (bow direction + peripheral detection), `geometry.rs` (the
+  Bezier sampler and its clearance limit), and `curvature.rs` (adaptive
+  curvature). Because the helpers shared one `impl` block, each leaf re-opens
+  `impl ArcChannelStrategy { … }` — the shape the pre-existing `figure_eight.rs`
+  sibling already uses. The move forces six `pub(super)` widenings, each exactly
+  the reach the item had while it shared a module with its readers: the `config`
+  field, and the five helpers now called across a leaf boundary. The four
+  helpers whose only caller stayed with them remain private. Pure code motion
+  otherwise: all 11 `fn` definitions preserved, and the cfd-schematics suite is
+  bit-identical before and after (184 + 0 + 30 + 16 = 230 passed, 0 failed), with
+  no new warnings. Clears one `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-schematics` blueprint-topology factory root into
   concern leaves (CFDRS-SRP-006, `cfd-schematics/src/topology/factory/core`).
   The 523-line `mod.rs` held the GA mutation vocabulary, the
