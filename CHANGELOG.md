@@ -144,6 +144,29 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` 96-well plate heatmap root into
+  concern leaves (CFDRS-SRP-009, `cfd-schematics/src/heatmap`). The 464-line
+  `mod.rs` was a single file holding the SBS plate geometry constants and their
+  mm→px projection, a yellow→red colour ramp, a 225-line `build_svg` renderer,
+  the public data type and file-writing entry point, and a 115-line inline test
+  module. It is now the file-plus-directory parent `heatmap.rs` — a 31-line
+  facade keeping the module's SBS-geometry documentation — over `plate.rs` (the
+  layout constants and `mm_to_px`/`px_x`/`px_y`), `palette.rs`
+  (`cancer_cav_color`), `svg.rs` (`build_svg`), `data.rs` (`CandidateZoneData`
+  and `write_well_plate_diagram_svg`), and `tests.rs`. The move forces eighteen
+  `pub(super)` widenings, each exactly the reach the item had while it shared a
+  module with its readers — and deliberately not one more: `SCALE` stays private
+  because only `mm_to_px` reads it, and the five other constants that never leave
+  `plate.rs` stay private with it. The inline test module had been reaching the
+  private `build_svg` and `cancer_cav_color` through `use super::*`, which sees a
+  parent's private items; `tests.rs` now names them, while the public pair still
+  arrives through the facade's re-export. The five top-level section banners are
+  dropped, since they described the structure of one file that no longer exists.
+  Pure code motion otherwise: all 16 `fn` definitions preserved, and the
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `manifest_implementation` site.
+
 - **Changed:** Decompose the `cfd-schematics` Milestone-12 preset root into
   concern leaves (CFDRS-SRP-008, `cfd-schematics/src/topology/presets/milestone12`).
   The 414-line `mod.rs` held the stage-layout vocabulary, the canonical request
