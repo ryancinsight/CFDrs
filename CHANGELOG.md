@@ -144,6 +144,34 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Unify the `cfd-schematics` configuration constants into a single
+  table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module
+  carried two overlapping constant tables — `primitives` and the five group
+  structs. Of the 46 group constants, **16 were read by no accessor at all**,
+  and one of those, `geometry.default_channel_height`, was not merely dead but
+  *wrong*: it held `1.0`, where the live default is
+  `primitives::DEFAULT_CHANNEL_HEIGHT = 0.5`, used by `GeometryConfig::default()`
+  and the config presets. A second and subtler collision: the group's
+  `min_curvature_factor` (0.1) shared a name with
+  `primitives::MIN_CURVATURE_FACTOR` (0.0) while *both* were live, governing
+  different decisions — validation of a configured factor versus the floor
+  applied to the adaptive factor. The 16 dead constants are removed; the 30 that
+  survive now have exactly one definition, in `primitives`, referenced by the
+  group `DEFAULT` aggregates; and the two curvature floors are named apart
+  (`MIN_CURVATURE_FACTOR` for validation, `MIN_ADAPTIVE_CURVATURE_FACTOR` for the
+  adaptive floor) with no value changed. Three further `primitives` entries that
+  no code referenced — `strategy_thresholds::{LONG_HORIZONTAL_THRESHOLD,
+  MIN_ARC_LENGTH_THRESHOLD, HORIZONTAL_ANGLE_THRESHOLD}` — held stale values
+  (0.3 / 0.1 / 0.3) against the live 0.6 / 0.3 / 0.5 the accessors returned;
+  they now carry the live values. `primitives` moves out of `mod.rs` into
+  `constants/primitives.rs` (251 lines), leaving the module root at 276 — both
+  well inside the 500-line ceiling, where inlining the unified table had briefly
+  pushed `mod.rs` to 523. Every constant is now reachable and live: 30 declared,
+  30 read, 0 orphaned. Behaviour is proven unchanged by dumping all 44 accessor
+  values before and after; the outputs are byte-identical. The suite is
+  bit-identical too (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new
+  warnings.
+
 - **Changed:** Collapse the 46 `ConfigurableParameter` wrappers in the
   `cfd-schematics` constants groups to plain values (CFDRS-PERF-002,
   `cfd-schematics/src/config/constants`). The five groups held 46
