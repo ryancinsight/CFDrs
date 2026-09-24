@@ -1,5 +1,8 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
-## CFDRS-EXISTENCE-ONLY-ASSERTIONS — four assertions no defect can fail [patch] — in-progress
+<a id="CFDRS-EXISTENCE-ONLY-ASSERTIONS"></a>
+## CFDRS-EXISTENCE-ONLY-ASSERTIONS — four assertions no defect can fail [patch]
+- Status: todo; priority: P0; integrator: claude-opus-5; last-update: 2026-09-23.
+
 
 - integrator: claude-opus-5; branch: `test/cfdrs-existence-only-assertions`.
 - finding: four sites assert only which `Result` variant came back, so each passes against an implementation returning the right shape and the wrong answer. The atlas debt gate caught them on the pin advance: 0 -> 2.
@@ -74,7 +77,10 @@ anything there is unverified -- do not assume it matches.
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
-## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch] — in progress
+<a id="CFDRS-GA-014A"></a>
+## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch]
+- Status: todo; priority: P1; integrator: Codex; last-update: 2026-09-23.
+
 
 - **Owner:** Codex; scope is `crates/cfd-python` binding methods, package metadata, typed stubs, and binding verification artifacts.
 - **Acceptance:** compute-heavy PyO3 methods release the GIL around Rust-only work; the wheel ships a complete typed stub and PEP 561 marker; installed wheel tests retain value-semantic assertions; no generated image remains in the crate directory.
@@ -82,7 +88,10 @@ anything there is unverified -- do not assume it matches.
 - **Local evidence (2026-08-21):** `maturin build --locked --release` produced an abi3-py38 wheel containing `cfd_python.pyi` and `cfd_python/py.typed`; installed-wheel pytest passes 4/4, strict mypy consumer validation passes, and runtime export coverage finds no public extension name missing from the stub. The selected bifurcation and legacy Poiseuille methods convert Python-owned values before `Python::detach` and perform Rust-only solver work outside the GIL. `cargo nextest` runs 0/0 for the cdylib package, and locked package compilation passes.
 - **Residual:** package Clippy is blocked by the unrelated peer-dirty `cfd-2d/src/solvers/ns_fvm/field.rs:25` unused import; hosted exact-head verification remains open.
 
-## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch] — in progress
+<a id="ATLAS-PUBLISH-001-CFDRS-PYPI"></a>
+## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch]
+- Status: todo; priority: P1; integrator: Atlas coordinator; last-update: 2026-09-23.
+
 
 **Owner:** Atlas coordinator; scope is the `cfd-python` binding release
 caller, its installed-wheel pytest contract, the binding version surface, the
@@ -95,7 +104,13 @@ and exclude generated output directories and Python bytecode from the sdist.
 Registry-side trusted-publisher enforcement and local publishing remain
 outside this item.
 
-## ATLAS-CFDRS-BACKWARD-STEP-108 [fix] — Derive reattachment from wall shear (hosted closure pending 2026-08-19)
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Run the focused provider checks and hosted release dry-run at the exact source head; do not change registry-side trusted-publisher settings.
+<a id="ATLAS-CFDRS-BACKWARD-STEP-108"></a>
+## ATLAS-CFDRS-BACKWARD-STEP-108 — Derive reattachment from wall shear [fix]
+- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
+
 
 **Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
 step geometry, SIMPLE solve, signed wall-shear measurement, and the thin
@@ -129,7 +144,13 @@ excursion rather than the first. Against the Re=100 reference of 2.84, the
 release default solve moved from `x_r/h = 1.993` to `2.206` (relative error
 29.8% to 22.3%). The remaining gap stays open.
 
-## ATLAS-CFDRS-RUNTIME-109 [perf] — Honor problem-scaled SIMPLEC targets (in progress 2026-08-17)
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and close the item only when the unchanged numerical-fidelity filter passes.
+<a id="ATLAS-CFDRS-RUNTIME-109"></a>
+## ATLAS-CFDRS-RUNTIME-109 — Honor problem-scaled SIMPLEC targets [perf]
+- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+
 
 **Owner:** Atlas session; scope is `cfd-2d` adaptive SIMPLEC/PIMPLE
 convergence control and the exact CFDrs fidelity callers. **Acceptance:** keep
@@ -155,7 +176,13 @@ passes locally, including the GA regression, at run
 73.056 s with one pre-existing slow test, and the unchanged hosted budget
 remains the acceptance oracle.
 
-## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 [perf] — Reuse SIMPLEC pressure-solid workspaces (in progress 2026-08-17)
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Push the final source head and pass the exact hosted Rust and Pages gates without changing the committed budget or workloads.
+<a id="ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108"></a>
+## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 — Reuse SIMPLEC pressure-solid workspaces [perf]
+- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+
 
 **Owner:** Atlas session; scope is `cfd-2d` SIMPLEC/PIMPLE pressure-solid
 extrapolation. **Acceptance:** preserve layer-wise pressure values while
@@ -171,7 +198,13 @@ the immutable solid-distance layers. Local locked Nextest passes the exact
 These are not controlled cross-machine performance claims. Hosted exact-head
 verification is the remaining acceptance gate.
 
-## ATLAS-CFDRS-PRESSURE-CACHE-102 [perf] — Remove repeated pressure-matrix clones (in progress 2026-08-17)
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Publish the exact source head and pass the provider hosted Rust and Pages gates. Keep the 30-second test budget and workloads unchanged.
+<a id="ATLAS-CFDRS-PRESSURE-CACHE-102"></a>
+## ATLAS-CFDRS-PRESSURE-CACHE-102 — Remove repeated pressure-matrix clones [perf]
+- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+
 
 **Owner:** Atlas session; scope is the provider-owned cfd-2d pressure
 correction path. **Acceptance:** preserve the pressure operator and output
@@ -224,7 +257,14 @@ that exact shared-workflow commit. The source-correctness head also defines
 NaN propagation for the hemolysis wrapper and adds value-semantic regressions.
 New exact-head CI and Pages runs `32044597678` and `32044597852` are queued.
 
-## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 [arch] — hosted closure pending 2026-08-17
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Run the provider focused gate and publish the exact source head for hosted verification. Do not change the committed test budget or workload. Both exact hosted-timeout scenarios pass locally; hosted confirmation remains the closure gate. At head `6ede137a`, the preceding Rust run `32043533301` failed before checkout on Atlas action-download 503/429 (`95426903063`), while the figure rerun passed (`95427953989`). Retry Pages job `95428903018` in run `32044071732` still failed before checkout on codeload 503/429, so the fontconfig fix has not yet executed hosted. Atlas `bb505e5` adds `libfontconfig1-dev` to that shared workflow; this branch pins the exact fix. The source-correctness head also defines NaN propagation and signed-zero canonicalization for the hemolysis wrapper. New exact-head CI and Pages runs `32046463302` and `32046464094` are queued for source head `c86dc33f`. The preceding exact head `02c2ae80` reached the hosted numerical-fidelity suite: 13/14 tests passed, while `cfd-validation::benchmark_validation::test_benchmark_run_integration` hit the unchanged 30-second budget at 30.003 s.
+- [ ] Verify the Cargo example gate against Apollo's merged default `ed6d6905afda394a9e12570543159ab1b262589e`, which contains provider fix `81583aab8b3eb48c96d138e3980e2c554d9d83fa`; the peer-dirty local overlay remains at `c87a1abe` and is not modified. The current local `cargo check --locked --examples` stops before compilation on the shared overlay/lock mismatch; hosted exact-head package verification remains the reproducible closure gate.
+<a id="ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104"></a>
+## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 — Verify the example gate against Apollo's merged PlanScratch export [arch]
+- Status: blocked; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+
 
 `cargo check --offline --examples` reaches `cfd-3d` and fails because
 `crates/cfd-3d/src/spectral/fourier.rs` imports `apollo_fft::PlanScratch`, but
@@ -244,7 +284,10 @@ is a lock/overlay environment residual, not evidence of a missing Apollo
 `PlanScratch` export; the hosted exact-head package gate is the reproducible
 closure check.
 
-## ATLAS-CFDRS-HEMOLYSIS-107 [fix] — Remove silent model-error fallback (in progress 2026-08-17)
+<a id="ATLAS-CFDRS-HEMOLYSIS-107"></a>
+## ATLAS-CFDRS-HEMOLYSIS-107 — Remove silent model-error fallback [fix]
+- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
+
 
 `crates/cfd-1d/src/physics/hemolysis/models.rs:25-35` now handles the
 documented negative-input behavior before calling the cfd-core model and uses
@@ -258,7 +301,13 @@ remains unchanged for valid and negative inputs.
 currently blocked before compilation by the shared Atlas overlay/lock mismatch
 recorded above. Hosted exact-head verification is required before closure.
 
-## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix] — in progress
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Run the focused locked Nextest and hosted exact-head provider gate; local compilation is currently blocked by the shared overlay/lock mismatch, not by a source diagnostic.
+<a id="ATLAS-CFDRS-JFNK-OPEN-033"></a>
+## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix]
+- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
+
 
 **Owner:** Atlas session; scope is `cfd-1d` nonlinear network recovery and the
 provider-owned `cfd-math` JFNK callback seam. **Acceptance:** the retained
@@ -273,6 +322,9 @@ format and diff checks pass. Locked Cargo verification is currently blocked
 before compilation by the shared Atlas overlay/lock mismatch; hosted exact-head
 verification is the remaining closure gate.
 
+
+Remaining checklist steps (retired from checklist.md):
+- [ ] Run the locked `cfd-1d`/`cfd-math` Nextest filters and the hosted exact-head Rust and book-figure gates; the local Atlas overlay currently blocks Cargo resolution before compilation.
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex session):** wire every workspace package and `xtask` to the canonical Atlas `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and centralize `xtask` CLI output through its checked writer. `cfd-core` library Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the explicit legacy-migration audit pass. Full closure remains open: workspace all-target Clippy still reports pre-existing cfd-math unwrap/output debt, cfd-schematics missing documentation, and test/bench lint debt; the existing all-target format baseline is also red outside this increment.
