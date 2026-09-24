@@ -103,7 +103,7 @@ impl SerpentineChannelStrategy {
         channel_diameter: f64,
         effective_wavelength: f64,
     ) -> f64 {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let base_sharpness = constants.get_square_wave_sharpness();
         let ratio = effective_wavelength / channel_diameter.max(1e-6);
         let max_diameter_safe_sharpness = base_sharpness.min(3.0);

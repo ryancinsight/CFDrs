@@ -13,6 +13,8 @@
 //! - `optimization`: [`OptimizationConstants`] for solver tuning
 //! - `visualization`: [`VisualizationConstants`] for chart rendering
 
+use std::sync::OnceLock;
+
 mod geometry;
 mod optimization;
 mod strategy;
@@ -228,6 +230,11 @@ pub struct ConstantsRegistry {
 
 impl ConstantsRegistry {
     /// Constructs a registry populated with the canonical defaults.
+    ///
+    /// This is a pure function of no inputs, and it is *not* cheap: it builds
+    /// all 46 [`ConfigurableParameter`](crate::state_management::ConfigurableParameter) members, each of which owns a change
+    /// history, a metadata block and a constraint list. Prefer [`Self::shared`]
+    /// on any path that can be executed more than once.
     pub fn new() -> Self {
         Self {
             strategies: StrategyThresholds::default(),
@@ -236,6 +243,18 @@ impl ConstantsRegistry {
             optimization: OptimizationConstants::default(),
             visualization: VisualizationConstants::default(),
         }
+    }
+
+    /// Returns the process-wide canonical registry.
+    ///
+    /// The registry is immutable once constructed and every accessor takes
+    /// `&self`, so a single shared instance is behaviourally identical to a
+    /// per-call [`Self::new`] — but it is built exactly once instead of once
+    /// per call. Callers previously paying for a full 46-parameter rebuild on
+    /// each geometry/render invocation should use this accessor instead.
+    pub fn shared() -> &'static Self {
+        static SHARED: OnceLock<ConstantsRegistry> = OnceLock::new();
+        SHARED.get_or_init(Self::new)
     }
 
     // --- Adaptive Collision ---
@@ -313,22 +332,19 @@ impl ConstantsRegistry {
         *self.optimization.convergence_tolerance.get_raw_value()
     }
     /// Returns the configured fast-path wavelength factors.
-    pub fn get_fast_wavelength_factors(&self) -> Vec<f64> {
-        self.optimization
-            .fast_wavelength_factors
-            .get_raw_value()
-            .clone()
+    ///
+    /// Borrowed rather than cloned: the canonical factor tables are fixed for
+    /// the lifetime of the registry, so callers can iterate the slice in place.
+    pub fn get_fast_wavelength_factors(&self) -> &[f64] {
+        self.optimization.fast_wavelength_factors.get_raw_value()
     }
     /// Returns the configured fast-path wave-density factors.
-    pub fn get_fast_wave_density_factors(&self) -> Vec<f64> {
-        self.optimization
-            .fast_wave_density_factors
-            .get_raw_value()
-            .clone()
+    pub fn get_fast_wave_density_factors(&self) -> &[f64] {
+        self.optimization.fast_wave_density_factors.get_raw_value()
     }
     /// Returns the configured fast-path fill factors.
-    pub fn get_fast_fill_factors(&self) -> Vec<f64> {
-        self.optimization.fast_fill_factors.get_raw_value().clone()
+    pub fn get_fast_fill_factors(&self) -> &[f64] {
+        self.optimization.fast_fill_factors.get_raw_value()
     }
 
     // --- Wave Generation ---

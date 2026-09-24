@@ -15,7 +15,7 @@ impl SerpentineChannelStrategy {
         context: &ChannelGenerationContext,
         wavelength: f64,
     ) -> f64 {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let channel_width = context.geometry_config.channel_width_mm();
 
         let space_metrics = self.analyze_space_metrics(p1, p2, context);

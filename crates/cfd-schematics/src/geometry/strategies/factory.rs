@@ -116,7 +116,7 @@ impl ChannelTypeFactory {
         arc_config: ArcConfig,
         frustum_config: FrustumConfig,
     ) -> Box<dyn ChannelTypeStrategy> {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let dx = to.0 - from.0;
         let dy = to.1 - from.1;
         let length = dx.hypot(dy);
@@ -153,7 +153,7 @@ impl ChannelTypeFactory {
         serpentine_config: SerpentineConfig,
         smooth_straight_config: SmoothTransitionConfig,
     ) -> Box<dyn ChannelTypeStrategy> {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let dx = to.0 - from.0;
         let dy = to.1 - from.1;
         let length = dx.hypot(dy);
@@ -173,7 +173,7 @@ impl ChannelTypeFactory {
 
     /// Check if a channel is significantly angled
     fn is_angled_channel(from: Point2D, to: Point2D) -> bool {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let dx = to.0 - from.0;
         let dy = to.1 - from.1;
 

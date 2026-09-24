@@ -112,7 +112,7 @@ impl ArcChannelStrategy {
         box_dims: (f64, f64),
         neighbor_info: Option<&[f64]>,
     ) -> Vec<Point2D> {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let num_points = self.config.smoothness + 2;
         let mut path = Vec::with_capacity(num_points);
 

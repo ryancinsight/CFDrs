@@ -67,7 +67,7 @@ pub struct SmoothTransitionConfig {
 
 impl Default for SmoothTransitionConfig {
     fn default() -> Self {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         Self {
             transition_length_factor: constants.get_default_transition_length_factor(),
             transition_amplitude_factor: constants.get_default_transition_amplitude_factor(),
@@ -214,7 +214,7 @@ impl SmoothStraightChannelStrategy {
         let dy = p2.1 - p1.1;
         let channel_length = dx.hypot(dy);
 
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         // For very short channels, just return straight line
         if channel_length
             < geometry_config.channel_width_mm() * constants.get_short_channel_width_multiplier()

@@ -144,6 +144,30 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Stop rebuilding the configuration registry on every geometry and
+  rendering call (CFDRS-PERF-001, `cfd-schematics/src/config/constants`).
+  `ConstantsRegistry::new()` constructs all 46 `ConfigurableParameter` members —
+  each owning a change history, a metadata block and a constraint list — for
+  415 heap allocations and 9,928 bytes per call, measured with a counting
+  global allocator. It was called from 20 sites, several of them per generated
+  channel. The registry is a pure function of no inputs and every accessor
+  takes `&self`, so a process-wide `OnceLock`-backed `shared()` accessor now
+  builds it once instead of once per call, and all 20 sites use it. The same
+  instrument measures `shared()` at 0 allocations and 5.5 ns per call after the
+  one-time initialisation, against 415 allocations and 27,682 ns for `new()`.
+  On a real API path — `ChannelTypeFactory::create_strategy`, whose
+  `is_angled_channel` branch was one of the 20 sites — the call falls from 416
+  allocations and 27,139 ns to 1 allocation (the returned `Box`) and 59.2 ns.
+  The three `get_fast_*_factors` accessors also stop cloning: they returned
+  `Vec<f64>` by value, allocating on every call, and now return `&[f64]`, which
+  is all their sole consumer does with them. `new()` is retained for API
+  compatibility and now documents that hot paths should use `shared()`. The
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed) with no new warnings. The
+  catalogue-generation metrics are deliberately reported as unchanged: the
+  Milestone-12 build path never constructed a registry at all, so the win lands
+  on the strategy-selection and rendering paths that did.
+
 - **Changed:** Decompose the `cfd-schematics` 96-well plate heatmap root into
   concern leaves (CFDRS-SRP-009, `cfd-schematics/src/heatmap`). The 464-line
   `mod.rs` was a single file holding the SBS plate geometry constants and their
