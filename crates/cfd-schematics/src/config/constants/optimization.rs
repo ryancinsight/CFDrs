@@ -1,130 +1,49 @@
 //! Optimization algorithm constants for solver tuning
 
-use crate::state_management::{ConfigurableParameter, ParameterConstraints, ParameterMetadata};
-
 /// Optimization algorithm constants previously hardcoded
+///
+/// The three factor tables are borrowed slices rather than owned `Vec`s: they
+/// are fixed for the lifetime of the program, so owning them only forced an
+/// allocation per registry construction and a clone per accessor call.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OptimizationConstants {
     /// Branch factor scaling exponent (was hardcoded as 0.75)
-    pub branch_factor_exponent: ConfigurableParameter<f64>,
+    pub branch_factor_exponent: f64,
 
     /// Fill factor enhancement multiplier (was hardcoded as 1.5)
-    pub fill_factor_enhancement: ConfigurableParameter<f64>,
+    pub fill_factor_enhancement: f64,
 
     /// Maximum optimization iterations
-    pub max_optimization_iterations: ConfigurableParameter<usize>,
+    pub max_optimization_iterations: usize,
 
     /// Convergence tolerance for optimization
-    pub convergence_tolerance: ConfigurableParameter<f64>,
+    pub convergence_tolerance: f64,
 
     /// Fast optimization wavelength factors
-    pub fast_wavelength_factors: ConfigurableParameter<Vec<f64>>,
+    pub fast_wavelength_factors: &'static [f64],
 
     /// Fast optimization wave density factors
-    pub fast_wave_density_factors: ConfigurableParameter<Vec<f64>>,
+    pub fast_wave_density_factors: &'static [f64],
 
     /// Fast optimization fill factors
-    pub fast_fill_factors: ConfigurableParameter<Vec<f64>>,
+    pub fast_fill_factors: &'static [f64],
 }
 
 impl OptimizationConstants {
-    /// Create default optimization constants
-    #[must_use]
-    fn make_default() -> Self {
-        Self {
-            branch_factor_exponent: ConfigurableParameter::new(
-                0.75,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 2.0),
-                ]),
-                ParameterMetadata::new(
-                    "branch_factor_exponent",
-                    "Exponent for branch factor scaling (was hardcoded as 0.75)",
-                    "optimization",
-                )
-                .with_units("exponent"),
-            ),
-
-            fill_factor_enhancement: ConfigurableParameter::new(
-                1.5,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1.0, 3.0),
-                ]),
-                ParameterMetadata::new(
-                    "fill_factor_enhancement",
-                    "Enhancement multiplier for fill factor (was hardcoded as 1.5)",
-                    "optimization",
-                )
-                .with_units("multiplier"),
-            ),
-
-            max_optimization_iterations: ConfigurableParameter::new(
-                100usize,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<usize>::positive(),
-                    ParameterConstraints::range(10, 1000),
-                ]),
-                ParameterMetadata::new(
-                    "max_optimization_iterations",
-                    "Maximum number of iterations for optimization algorithms",
-                    "optimization",
-                )
-                .with_units("iterations"),
-            ),
-
-            convergence_tolerance: ConfigurableParameter::new(
-                1e-6,
-                ParameterConstraints::all(vec![
-                    ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(1e-10, 1e-2),
-                ]),
-                ParameterMetadata::new(
-                    "convergence_tolerance",
-                    "Tolerance for optimization convergence detection",
-                    "optimization",
-                )
-                .with_units("tolerance"),
-            ),
-
-            fast_wavelength_factors: ConfigurableParameter::new(
-                vec![1.0, 2.0, 3.0, 4.0],
-                ParameterConstraints::all(vec![]),
-                ParameterMetadata::new(
-                    "fast_wavelength_factors",
-                    "Wavelength factors for fast optimization (was hardcoded array)",
-                    "optimization",
-                )
-                .with_units("factors"),
-            ),
-
-            fast_wave_density_factors: ConfigurableParameter::new(
-                vec![1.0, 2.0, 3.0],
-                ParameterConstraints::all(vec![]),
-                ParameterMetadata::new(
-                    "fast_wave_density_factors",
-                    "Wave density factors for fast optimization (was hardcoded array)",
-                    "optimization",
-                )
-                .with_units("factors"),
-            ),
-
-            fast_fill_factors: ConfigurableParameter::new(
-                vec![0.7, 0.8, 0.9],
-                ParameterConstraints::all(vec![]),
-                ParameterMetadata::new(
-                    "fast_fill_factors",
-                    "Fill factors for fast optimization (was hardcoded array)",
-                    "optimization",
-                )
-                .with_units("factors"),
-            ),
-        }
-    }
+    /// Canonical default optimization constants.
+    pub const DEFAULT: Self = Self {
+        branch_factor_exponent: 0.75,
+        fill_factor_enhancement: 1.5,
+        max_optimization_iterations: 100,
+        convergence_tolerance: 1e-6,
+        fast_wavelength_factors: &[1.0, 2.0, 3.0, 4.0],
+        fast_wave_density_factors: &[1.0, 2.0, 3.0],
+        fast_fill_factors: &[0.7, 0.8, 0.9],
+    };
 }
 
 impl Default for OptimizationConstants {
     fn default() -> Self {
-        Self::make_default()
+        Self::DEFAULT
     }
 }

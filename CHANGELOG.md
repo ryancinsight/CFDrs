@@ -144,6 +144,30 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Collapse the 46 `ConfigurableParameter` wrappers in the
+  `cfd-schematics` constants groups to plain values (CFDRS-PERF-002,
+  `cfd-schematics/src/config/constants`). The five groups held 46
+  `ConfigurableParameter<T>` fields, each built through a `ParameterConstraints`
+  list and a `ParameterMetadata` block — 876 lines of constructor boilerplate
+  for 46 numbers. None of that apparatus was ever exercised: no field is
+  mutated, no `validate()` is called, no adaptive behaviour is attached, and the
+  group structs are referenced nowhere outside the constants module. They are
+  plain compile-time constants, so they are now declared as such: `f64`/`usize`/
+  `u32` fields, with the three optimization factor tables as `&'static [f64]`,
+  and each group gains `#[derive(Debug, Clone, Copy, PartialEq)]` plus a
+  `pub const DEFAULT`. `ConstantsRegistry::new()` consequently becomes a
+  `const fn` and constructs for free — 0 heap allocations and 14.6 ns per call,
+  down from 415 allocations and 27,682 ns — and
+  `ChannelTypeFactory::create_strategy` falls from 416 allocations to 1 (the
+  returned `Box`). The five group files shrink from 876 to 277 lines and the
+  module from 1,327 to 737. `ConfigurableParameter` survives untouched where it
+  is genuinely used: the five state-management managers mutate and adapt their
+  parameters and still do. The cfd-schematics suite is bit-identical
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed) with no new warnings, and every
+  default value is preserved exactly. `shared()` is retained because it avoids
+  the aggregate copy (5.4 ns against 14.6 ns), but it is now a micro-
+  optimisation rather than the fix.
+
 - **Changed:** Stop rebuilding the configuration registry on every geometry and
   rendering call (CFDRS-PERF-001, `cfd-schematics/src/config/constants`).
   `ConstantsRegistry::new()` constructs all 46 `ConfigurableParameter` members —
