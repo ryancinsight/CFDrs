@@ -1,6 +1,10 @@
 //! Visualization constants for chart rendering
 
+use super::primitives;
+
 /// Visualization constants previously hardcoded
+///
+/// The values themselves live in [`primitives`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VisualizationConstants {
     /// Default margin for chart rendering
@@ -14,19 +18,15 @@ pub struct VisualizationConstants {
 
     /// Default label area size for y-axis
     pub default_y_label_area_size: u32,
-
-    /// Default buffer factor for chart boundaries
-    pub default_boundary_buffer_factor: f64,
 }
 
 impl VisualizationConstants {
     /// Canonical default visualization constants.
     pub const DEFAULT: Self = Self {
-        default_chart_margin: 20,
-        default_chart_right_margin: 150,
-        default_x_label_area_size: 30,
-        default_y_label_area_size: 30,
-        default_boundary_buffer_factor: 0.1,
+        default_chart_margin: primitives::DEFAULT_CHART_MARGIN,
+        default_chart_right_margin: primitives::DEFAULT_CHART_RIGHT_MARGIN,
+        default_x_label_area_size: primitives::DEFAULT_X_LABEL_AREA_SIZE,
+        default_y_label_area_size: primitives::DEFAULT_Y_LABEL_AREA_SIZE,
     };
 }
 

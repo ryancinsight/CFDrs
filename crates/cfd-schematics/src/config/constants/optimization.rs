@@ -1,17 +1,17 @@
 //! Optimization algorithm constants for solver tuning
 
+use super::primitives;
+
 /// Optimization algorithm constants previously hardcoded
 ///
 /// The three factor tables are borrowed slices rather than owned `Vec`s: they
 /// are fixed for the lifetime of the program, so owning them only forced an
-/// allocation per registry construction and a clone per accessor call.
+/// allocation per registry construction and a clone per accessor call. The
+/// values themselves live in [`primitives`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OptimizationConstants {
     /// Branch factor scaling exponent (was hardcoded as 0.75)
     pub branch_factor_exponent: f64,
-
-    /// Fill factor enhancement multiplier (was hardcoded as 1.5)
-    pub fill_factor_enhancement: f64,
 
     /// Maximum optimization iterations
     pub max_optimization_iterations: usize,
@@ -32,13 +32,12 @@ pub struct OptimizationConstants {
 impl OptimizationConstants {
     /// Canonical default optimization constants.
     pub const DEFAULT: Self = Self {
-        branch_factor_exponent: 0.75,
-        fill_factor_enhancement: 1.5,
-        max_optimization_iterations: 100,
-        convergence_tolerance: 1e-6,
-        fast_wavelength_factors: &[1.0, 2.0, 3.0, 4.0],
-        fast_wave_density_factors: &[1.0, 2.0, 3.0],
-        fast_fill_factors: &[0.7, 0.8, 0.9],
+        branch_factor_exponent: primitives::BRANCH_FACTOR_EXPONENT,
+        max_optimization_iterations: primitives::MAX_OPTIMIZATION_ITERATIONS,
+        convergence_tolerance: primitives::CONVERGENCE_TOLERANCE,
+        fast_wavelength_factors: primitives::FAST_WAVELENGTH_FACTORS,
+        fast_wave_density_factors: primitives::FAST_WAVE_DENSITY_FACTORS,
+        fast_fill_factors: primitives::FAST_FILL_FACTORS,
     };
 }
 
