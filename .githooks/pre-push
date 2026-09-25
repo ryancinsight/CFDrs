@@ -530,6 +530,10 @@ if [ -z "$gate_base" ]; then
 fi
 
 gate_changed="$(git diff --name-only "$gate_base" "$gate_tip_rev" 2>/dev/null || true)"
+if [ "$publication_push" -eq 1 ]; then
+  echo "pre-push: hook-only publication; no package gate needed" >&2
+  exit 0
+fi
 
 # Where cargo runs. A member's main tree runs inside the stack, so the gate
 # builds against the local working trees the overlay provides. A lane (a
