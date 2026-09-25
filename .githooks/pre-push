@@ -796,6 +796,12 @@ classify_gate_step() {
     return 0
   fi
 
+  if grep -q 'cargo metadata failed' "$log" \
+    && grep -q -- '--locked' "$log"; then
+    echo environment
+    return 0
+  fi
+
   if ! grep -q 'command failed with exit code' "$log" \
     && grep -q 'atlas-build-identity:' "$log"; then
     echo identity
