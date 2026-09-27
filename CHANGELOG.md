@@ -144,6 +144,112 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-schematics` 96-well plate heatmap root into
+  concern leaves (CFDRS-SRP-009, `cfd-schematics/src/heatmap`). The 464-line
+  `mod.rs` was a single file holding the SBS plate geometry constants and their
+  mm→px projection, a yellow→red colour ramp, a 225-line `build_svg` renderer,
+  the public data type and file-writing entry point, and a 115-line inline test
+  module. It is now the file-plus-directory parent `heatmap.rs` — a 31-line
+  facade keeping the module's SBS-geometry documentation — over `plate.rs` (the
+  layout constants and `mm_to_px`/`px_x`/`px_y`), `palette.rs`
+  (`cancer_cav_color`), `svg.rs` (`build_svg`), `data.rs` (`CandidateZoneData`
+  and `write_well_plate_diagram_svg`), and `tests.rs`. The move forces eighteen
+  `pub(super)` widenings, each exactly the reach the item had while it shared a
+  module with its readers — and deliberately not one more: `SCALE` stays private
+  because only `mm_to_px` reads it, and the five other constants that never leave
+  `plate.rs` stay private with it. The inline test module had been reaching the
+  private `build_svg` and `cancer_cav_color` through `use super::*`, which sees a
+  parent's private items; `tests.rs` now names them, while the public pair still
+  arrives through the facade's re-export. The five top-level section banners are
+  dropped, since they described the structure of one file that no longer exists.
+  Pure code motion otherwise: all 16 `fn` definitions preserved, and the
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `manifest_implementation` site.
+
+- **Changed:** Decompose the `cfd-schematics` Milestone-12 preset root into
+  concern leaves (CFDRS-SRP-008, `cfd-schematics/src/topology/presets/milestone12`).
+  The 414-line `mod.rs` held the stage-layout vocabulary, the canonical request
+  type with its constructors, the re-export surface for the three pre-existing
+  `build`/`catalog`/`support` siblings, and a 268-line inline test module. It is
+  now the file-plus-directory parent `milestone12.rs` — an 18-line passthrough
+  facade holding nothing but declarations — over `layout.rs`
+  (`Milestone12StageBranchSpec`, `Milestone12StageLayout`), `spec.rs`
+  (`Milestone12PrimitiveSelectiveSpec`, its `box_dims_mm`/`new` constructors, and
+  the `Milestone12TopologyRequest` alias), and `tests.rs`. The three `*_impl`
+  siblings are untouched, and the facade's re-exports keep their `super::…`
+  imports resolving. Since the facade carries no imports, each leaf takes
+  crate-absolute paths rather than the root's `super::super::…` forms. The inline
+  test module had been reaching `SplitKind`, `BranchRole`, `Length`, and the two
+  mode enums through the root's *private* `use`s by way of `use super::*`; the
+  split moves those imports into leaf preludes, so `tests.rs` now names them
+  (and deliberately omits `SerpentineSpec`, which the tests never used). Pure
+  code motion otherwise: all 9 `fn` definitions preserved, and the
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `manifest_implementation` site.
+
+- **Changed:** Decompose the `cfd-schematics` arc-channel strategy root into
+  concern leaves (CFDRS-SRP-007, `cfd-schematics/src/geometry/strategies/arc`).
+  The 471-line `mod.rs` held the `ArcChannelStrategy` type, its
+  `ChannelTypeStrategy` implementation, and nine private helpers in a single
+  `impl ArcChannelStrategy` block — path dispatch, bilateral-symmetry policy, the
+  quadratic-Bezier arc sampler with its wall/neighbour clearance limit, and the
+  neighbour-proximity curvature adaptation. It is now the file-plus-directory
+  parent `arc.rs` — a 16-line passthrough facade — over `strategy.rs` (the type,
+  `new`, and the trait impl), `path.rs` (dispatch + bilateral entry point),
+  `symmetry.rs` (bow direction + peripheral detection), `geometry.rs` (the
+  Bezier sampler and its clearance limit), and `curvature.rs` (adaptive
+  curvature). Because the helpers shared one `impl` block, each leaf re-opens
+  `impl ArcChannelStrategy { … }` — the shape the pre-existing `figure_eight.rs`
+  sibling already uses. The move forces six `pub(super)` widenings, each exactly
+  the reach the item had while it shared a module with its readers: the `config`
+  field, and the five helpers now called across a leaf boundary. The four
+  helpers whose only caller stayed with them remain private. Pure code motion
+  otherwise: all 11 `fn` definitions preserved, and the cfd-schematics suite is
+  bit-identical before and after (184 + 0 + 30 + 16 = 230 passed, 0 failed), with
+  no new warnings. Clears one `manifest_implementation` site.
+
+- **Changed:** Decompose the `cfd-schematics` blueprint-topology factory root into
+  concern leaves (CFDRS-SRP-006, `cfd-schematics/src/topology/factory/core`).
+  The 523-line `mod.rs` held the GA mutation vocabulary, the
+  `BlueprintTopologyFactory` declaration, the `build` entry point, the three
+  `*_impl` submodule declarations, and a 362-line inline test module. It is now
+  the file-plus-directory parent `core.rs` — a 20-line passthrough facade — over
+  `mutations.rs` (`BlueprintTopologyMutation`), `orchestrator.rs` (the factory
+  type and its `build` entry point), and `tests.rs`; the three `*_impl` leaves
+  are untouched. The facade re-exports both public types, so `factory/mod.rs`'s
+  `pub use core::{…}` and the three `*_impl` files' `super::…` imports are
+  unchanged. Two call paths in `build` gain a level, because `super` meant
+  `factory` while the code sat one level shallower: `super::validation` and
+  `super::modifiers`. Pure code motion otherwise: all 12 `fn` definitions
+  preserved, and the cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new warnings. Clears one
+  `oversized_files` and one `manifest_implementation` site.
+
+- **Changed:** Decompose the `cfd-schematics` selective-tree generator root into
+  concern leaves (CFDRS-SRP-005, `cfd-schematics/src/geometry/generator/selective`).
+  The 630-line `mod.rs` held three public request types, two module-private DTOs
+  that the sibling leaves already reached as `super::…`, the topology dispatch
+  entry point, and a 418-line inline test module. It is now the
+  file-plus-directory parent `selective.rs` — a 25-line facade — over
+  `request.rs` (`CenterSerpentinePathSpec`, `SelectiveTreeTopology`,
+  `SelectiveTreeRequest` and its two accessors), `pending.rs`
+  (`PendingVenturiPath`, the router's scratch record), `geometry.rs`
+  (`SelectiveTreeGeometry`, the mm-flattened DTO the builder consumes), `build.rs`
+  (`create_selective_tree_geometry`), and `tests.rs`. `builder` and `primitive`
+  stay as they were, and the facade keeps private aliases for the two DTOs so
+  `super::PendingVenturiPath` and `super::SelectiveTreeGeometry` still resolve
+  from `routing.rs`, `primitive/annotation.rs`, and the four `builder/*` leaves.
+  The move forces exactly two visibility widenings, both to `pub(super)`: the two
+  DTOs and their fields were private in a module that owned those descendants,
+  and `SelectiveTreeRequest::geometry` is now called across a module boundary.
+  `box_dims_mm` stays private because only `geometry` calls it. Pure code motion
+  otherwise: all 13 `fn` definitions preserved, and the cfd-schematics suite is
+  bit-identical before and after (184 + 0 + 30 + 16 = 230 passed, 0 failed), with
+  no new warnings. Clears one `oversized_files` and one
+  `manifest_implementation` site.
+
 - **Changed:** Decompose the Zweifach-Fung cascade-junction module root
   (CFDRS-SRP-001, `cfd-1d/src/physics/cell_separation/cascade_junction`).
   The 1174-line `mod.rs` mixed four responsibilities — the shared descriptor
