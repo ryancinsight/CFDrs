@@ -68,10 +68,14 @@ export GIT_CONFIG_VALUE_0="$repo_root"
 # leaked its export (1.5 GB for ritk). Each directory names its owner, so a
 # later push can sweep what a killed one left behind (see below).
 # Git exports GIT_DIR to hooks; a git process aimed at another repository
-# must not inherit it (Stack tools, below).
+# must not inherit it (Stack tools, below). A subshell and `unset`, not
+# `env -u`: the lock export runs this before an interpreter-free PATH has
+# been refused, and such a PATH need not carry `env`.
 outside_checkout() {
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
-    -u GIT_COMMON_DIR "$@"
+  (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
+    "$@"
+  )
 }
 
 tmp_base="${TMPDIR:-/tmp}"
@@ -519,7 +523,7 @@ if [ -n "$stack_baseline" ] && [ -n "$python_bin" ] \
       echo "debt ratchet not run. Run: git -C $stack_root fetch origin" >&2
     else
       set +e
-      outside_checkout ATLAS_STACK_ROOT="$stack_root" "$python_bin" "$conformance_checker" check \
+      ATLAS_STACK_ROOT="$stack_root" outside_checkout "$python_bin" "$conformance_checker" check \
         --repo "$conformance_member" --member-path "$repo_root" \
         --member-revision "$range_rev" --baseline-rev "$stack_baseline" \
         >&2
