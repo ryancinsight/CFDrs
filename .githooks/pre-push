@@ -895,8 +895,15 @@ identity_target="${CARGO_BUILD_TARGET:-host}"
 identity_enabled=0
 identity_manifest_args=(--manifest "$repo_root/Cargo.toml")
 identity_cargo_manifest_args=()
+# The identity metadata must resolve the graph the gated command builds. In
+# place, that command runs under the stack overlay and rewrites the lock, so a
+# `--locked` read refuses the rewrite and every main-tree push failed the
+# identity step; a lane gates outside the overlay, where the committed lock is
+# the graph and `--locked` asserts it.
+identity_lockfile=writable
 if [ -n "$gate_manifest" ]; then
   identity_cargo_manifest_args=(--manifest-path "$repo_root/Cargo.toml")
+  identity_lockfile=locked
 fi
 if [ -f "$identity_checker" ]; then
   if [ -z "$python_bin" ]; then
@@ -937,6 +944,7 @@ run_identity_step() {
     --command-cwd "$gate_cwd"
     --command-key "atlas-pre-push:$package_name"
     --ignore-path "$repo_root/Cargo.lock"
+    --lockfile "$identity_lockfile"
     "${identity_manifest_args[@]}"
     --
     "$@"
