@@ -135,6 +135,45 @@ where
     DiagonalPreconditioner { diag_inv }
 }
 
+/// Copy the sub-block of `matrix` spanning `rows` and the `columns`-wide
+/// column range starting at `column_offset` into its own CSR matrix, with
+/// row and column indices relative to the block.
+///
+/// Column order within each row is inherited from `matrix`, so the block
+/// keeps the strictly increasing column invariant of CSR.
+fn extract_block<T: LetoScalar>(
+    matrix: &SparseMatrix<T>,
+    rows: std::ops::Range<usize>,
+    column_offset: usize,
+    columns: usize,
+) -> Result<SparseMatrix<T>> {
+    let block_rows = rows.len();
+    let mut row_ptr = Vec::with_capacity(block_rows + 1);
+    let mut col_indices = Vec::new();
+    let mut values = Vec::new();
+    row_ptr.push(0);
+    for row in rows {
+        let source = matrix.row(row);
+        for (&column, &value) in source.col_indices().iter().zip(source.values()) {
+            if let Some(local) = column
+                .checked_sub(column_offset)
+                .filter(|&index| index < columns)
+            {
+                col_indices.push(local);
+                values.push(value);
+            }
+        }
+        row_ptr.push(values.len());
+    }
+    Ok(SparseMatrix::from_parts(
+        values,
+        col_indices,
+        row_ptr,
+        block_rows,
+        columns,
+    )?)
+}
+
 /// Extract diagonal element from CSR matrix
 fn get_diagonal<T: RealField + Copy + LetoScalar>(matrix: &SparseMatrix<T>, row: usize) -> T {
     let row_range = matrix.row(row);
@@ -412,12 +451,13 @@ pub struct SimplePreconditioner<T: RealField + FloatElement> {
     momentum_inv: DiagonalPreconditioner<T>,
     /// Inverse diagonal of the Schur complement approximation
     schur_diag_inv: Array1<T>,
-    /// Rows of the divergence block stored as (velocity index, value) pairs
-    /// per pressure row, used for the `D u*` product.
-    divergence_rows: Vec<Vec<(usize, T)>>,
-    /// Columns of the gradient block stored as (velocity index, value) pairs
-    /// per pressure column, used for the `G p` correction.
-    gradient_columns: Vec<Vec<(usize, T)>>,
+    /// Divergence block `D` (pressure rows, velocity columns), used for the
+    /// `D u*` product.
+    divergence: SparseMatrix<T>,
+    /// Gradient block `G` (velocity rows, pressure columns), used for the
+    /// `G p` correction. Stored by velocity row so the correction gathers
+    /// into each velocity entry instead of scattering from pressure columns.
+    gradient: SparseMatrix<T>,
     n_velocity: usize,
     n_pressure: usize,
 }
@@ -453,31 +493,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
 
         // Extract the coupling blocks independently. The continuity row may
         // be scaled by the formulation, so `G` is not reconstructed from `D`.
-        let mut divergence_rows = Vec::with_capacity(n_pressure);
-        for i in 0..n_pressure {
-            let global_row = n_velocity + i;
-            let row = matrix.row(global_row);
-            let entries: Vec<(usize, T)> = row
-                .col_indices()
-                .iter()
-                .zip(row.values())
-                .filter(|&(c, _)| *c < n_velocity)
-                .map(|(c, v)| (*c, *v))
-                .collect();
-            divergence_rows.push(entries);
-        }
-        let mut gradient_columns = vec![Vec::new(); n_pressure];
-        for velocity_row in 0..n_velocity {
-            let row = matrix.row(velocity_row);
-            for (&column, &value) in row.col_indices().iter().zip(row.values()) {
-                if let Some(pressure_column) = column
-                    .checked_sub(n_velocity)
-                    .filter(|&index| index < n_pressure)
-                {
-                    gradient_columns[pressure_column].push((velocity_row, value));
-                }
-            }
-        }
+        let divergence = extract_block(matrix, n_velocity..n_velocity + n_pressure, 0, n_velocity)?;
+        let gradient = extract_block(matrix, 0..n_velocity, n_velocity, n_pressure)?;
 
         // Compute diag(C - D diag(A)^-1 G) for the actual assembled coupling
         // signs. This remains valid when the continuity row is normalized and
@@ -485,11 +502,9 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
         let mut schur_diag_inv = Array1::zeros([n_pressure]);
         for i in 0..n_pressure {
             let mut s_ii = get_diagonal(matrix, n_velocity + i);
-            for &(velocity_index, divergence_value) in &divergence_rows[i] {
-                if let Some(&(_, gradient_value)) = gradient_columns[i]
-                    .iter()
-                    .find(|&&(index, _)| index == velocity_index)
-                {
+            let row = divergence.row(i);
+            for (&velocity_index, &divergence_value) in row.col_indices().iter().zip(row.values()) {
+                if let Some(gradient_value) = gradient.get(velocity_index, i) {
                     s_ii -=
                         divergence_value * momentum_inv.diag_inv[velocity_index] * gradient_value;
                 }
@@ -504,8 +519,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
         Ok(Self {
             momentum_inv,
             schur_diag_inv,
-            divergence_rows,
-            gradient_columns,
+            divergence,
+            gradient,
             n_velocity,
             n_pressure,
         })
@@ -536,7 +551,8 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
         }
         for i in 0..self.n_pressure {
             let mut b_u = <T as NumericElement>::ZERO;
-            for &(velocity_index, divergence_value) in &self.divergence_rows[i] {
+            let row = self.divergence.row(i);
+            for (&velocity_index, &divergence_value) in row.col_indices().iter().zip(row.values()) {
                 b_u += divergence_value * u_star[velocity_index];
             }
             rhs_p[i] -= b_u;
@@ -548,10 +564,11 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SimplePreconditioner<T> {
 
         // Step 3: Velocity correction u = u* - diag(A)^{-1} G p
         let mut u_corrected = u_star;
-        for i in 0..self.n_pressure {
-            for &(velocity_index, gradient_value) in &self.gradient_columns[i] {
+        for velocity_index in 0..self.n_velocity {
+            let row = self.gradient.row(velocity_index);
+            for (&pressure_index, &gradient_value) in row.col_indices().iter().zip(row.values()) {
                 u_corrected[velocity_index] -=
-                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * p[i];
+                    self.momentum_inv.diag_inv[velocity_index] * gradient_value * p[pressure_index];
             }
         }
 
@@ -739,20 +756,20 @@ where
                     pressure_builder.add_entry(pressure_row, pressure_column, value)?;
                 }
             }
-            for &(velocity, divergence_value) in &simple.divergence_rows[pressure_row] {
+            let divergence = simple.divergence.row(pressure_row);
+            for (&velocity, &divergence_value) in
+                divergence.col_indices().iter().zip(divergence.values())
+            {
                 let momentum_inverse = simple.momentum_inv.diag_inv[velocity];
-                for pressure_column in 0..n_pressure {
-                    for &(gradient_velocity, gradient_value) in
-                        &simple.gradient_columns[pressure_column]
-                    {
-                        if gradient_velocity == velocity {
-                            pressure_builder.add_entry(
-                                pressure_row,
-                                pressure_column,
-                                -divergence_value * momentum_inverse * gradient_value,
-                            )?;
-                        }
-                    }
+                let gradient = simple.gradient.row(velocity);
+                for (&pressure_column, &gradient_value) in
+                    gradient.col_indices().iter().zip(gradient.values())
+                {
+                    pressure_builder.add_entry(
+                        pressure_row,
+                        pressure_column,
+                        -divergence_value * momentum_inverse * gradient_value,
+                    )?;
                 }
             }
         }
@@ -803,7 +820,8 @@ where
         for pressure in 0..self.n_pressure {
             rhs_p[pressure] = b[self.n_velocity + pressure];
             let mut divergence_u = <T as NumericElement>::ZERO;
-            for &(velocity, value) in &self.simple.divergence_rows[pressure] {
+            let row = self.simple.divergence.row(pressure);
+            for (&velocity, &value) in row.col_indices().iter().zip(row.values()) {
                 divergence_u += value * u_star[velocity];
             }
             rhs_p[pressure] -= divergence_u;
@@ -814,8 +832,9 @@ where
         };
 
         let mut gradient_pressure = Array1::zeros([self.n_velocity]);
-        for pressure_index in 0..self.n_pressure {
-            for &(velocity, value) in &self.simple.gradient_columns[pressure_index] {
+        for velocity in 0..self.n_velocity {
+            let row = self.simple.gradient.row(velocity);
+            for (&pressure_index, &value) in row.col_indices().iter().zip(row.values()) {
                 gradient_pressure[velocity] += value * pressure[pressure_index];
             }
         }
@@ -883,7 +902,8 @@ where
         let mut pressure_rhs = Array1::zeros([self.n_pressure]);
         for pressure_index in 0..self.n_pressure {
             pressure_rhs[pressure_index] = residual[self.n_velocity + pressure_index];
-            for &(velocity, value) in &self.simple.divergence_rows[pressure_index] {
+            let row = self.simple.divergence.row(pressure_index);
+            for (&velocity, &value) in row.col_indices().iter().zip(row.values()) {
                 pressure_rhs[pressure_index] -= value * output[velocity];
             }
         }
@@ -903,12 +923,10 @@ where
         for (component, factor) in self.momentum_blocks.iter().enumerate() {
             let offset = component * self.component_size;
             block_rhs.fill(<T as NumericElement>::ZERO);
-            for pressure_index in 0..self.n_pressure {
-                let pressure = output[self.n_velocity + pressure_index];
-                for &(velocity, value) in &self.simple.gradient_columns[pressure_index] {
-                    if velocity / self.component_size == component {
-                        block_rhs[velocity - offset] += value * pressure;
-                    }
+            for local in 0..self.component_size {
+                let row = self.simple.gradient.row(offset + local);
+                for (&pressure_index, &value) in row.col_indices().iter().zip(row.values()) {
+                    block_rhs[local] += value * output[self.n_velocity + pressure_index];
                 }
             }
             factor.solve_into(&block_rhs.view(), &mut block_solution.view_mut())?;
@@ -973,6 +991,137 @@ mod tests {
         builder.add_entry(6, 0, -1.0).expect("expected value");
         builder.add_entry(7, 1, -1.0).expect("expected value");
         builder.build().expect("expected value")
+    }
+
+    /// Saddle system with several couplings per pressure row and column.
+    ///
+    /// Six component-major velocity DOFs (component size 2, no cross-component
+    /// momentum entries) and two pressure DOFs. Every pressure row couples
+    /// three or four velocities, pressure columns share velocity 5, and the
+    /// pressure block carries an off-diagonal entry, so the coupling stores
+    /// hold multi-entry rows and columns in both directions. All entries are
+    /// dyadic, so every product and sum before the Schur reciprocals is exact.
+    fn coupled_saddle_point_matrix() -> SparseMatrix<f64> {
+        let mut builder = SparseMatrixBuilder::new(8, 8);
+        let entries = [
+            (0, 0, 4.0),
+            (0, 1, -1.0),
+            (1, 0, -1.0),
+            (1, 1, 4.0),
+            (2, 2, 4.0),
+            (2, 3, -1.0),
+            (3, 2, -0.5),
+            (3, 3, 4.0),
+            (4, 4, 4.0),
+            (5, 5, 4.0),
+            (0, 6, 1.0),
+            (1, 6, -0.5),
+            (2, 7, 1.0),
+            (3, 6, 0.25),
+            (4, 7, -1.0),
+            (5, 6, 2.0),
+            (5, 7, 0.5),
+            (6, 0, 1.0),
+            (6, 1, -1.0),
+            (6, 3, 0.5),
+            (6, 5, 1.0),
+            (7, 2, 1.0),
+            (7, 4, -0.5),
+            (7, 5, 0.25),
+            (6, 6, 2.0),
+            (6, 7, 0.5),
+            (7, 7, 3.0),
+        ];
+        for (row, column, value) in entries {
+            builder
+                .add_entry(row, column, value)
+                .expect("fixture entry lies inside the 8x8 shape");
+        }
+        builder.build().expect("fixture assembles")
+    }
+
+    const COUPLED_RHS: [f64; 8] = [1.0, -2.0, 0.5, 3.0, -1.0, 2.0, 1.5, -0.5];
+
+    #[test]
+    fn simple_preconditioner_matches_dense_saddle_formula() {
+        let matrix = coupled_saddle_point_matrix();
+        let precond = SimplePreconditioner::new(&matrix, 6, 2).expect("consistent block sizes");
+        let b = Array1::from_shape_vec([8], COUPLED_RHS.to_vec()).expect("rhs length 8");
+        let x = precond.apply(&b).expect("rhs length matches");
+
+        // Dense reference: u* = f / diag(A); S_ii = C_ii - sum_v D_iv G_vi / A_vv;
+        // p = (g - D u*) / S_ii; u = u* - diag(A)^-1 G p.
+        let entry = |row: usize, column: usize| matrix.get(row, column).unwrap_or(0.0);
+        let u_star: Vec<f64> = (0..6).map(|v| COUPLED_RHS[v] / entry(v, v)).collect();
+        let p: Vec<f64> = (0..2)
+            .map(|i| {
+                let schur = entry(6 + i, 6 + i)
+                    - (0..6)
+                        .map(|v| entry(6 + i, v) * entry(v, 6 + i) / entry(v, v))
+                        .sum::<f64>();
+                let divergence_u: f64 = (0..6).map(|v| entry(6 + i, v) * u_star[v]).sum();
+                (COUPLED_RHS[6 + i] - divergence_u) / schur
+            })
+            .collect();
+        let expected: Vec<f64> = (0..6)
+            .map(|v| u_star[v] - (0..2).map(|i| entry(v, 6 + i) * p[i]).sum::<f64>() / entry(v, v))
+            .chain(p.iter().copied())
+            .collect();
+
+        // S_66 = 1.09375 and S_77 = 2.59375 are exact; the only inexact steps are
+        // the two reciprocals and the at most three products and sums each
+        // feeds, each rounding by at most eps/2 relative on values bounded
+        // by 4, so both sides lie within 8 eps of the exact result.
+        for (index, reference) in expected.iter().enumerate() {
+            assert!(
+                (x[index] - reference).abs() <= 8.0 * f64::EPSILON * reference.abs().max(1.0),
+                "SIMPLE entry {index}: {} vs dense {reference}",
+                x[index]
+            );
+        }
+    }
+
+    #[test]
+    fn borrowed_view_apply_matches_owned_apply() {
+        let matrix = coupled_saddle_point_matrix();
+        let b = Array1::from_shape_vec([8], COUPLED_RHS.to_vec()).expect("rhs length 8");
+        let backend = athena_leto::LetoBackend::<f64>::default();
+
+        let simple = SimplePreconditioner::new(&matrix, 6, 2).expect("consistent block sizes");
+        let owned = simple.apply(&b).expect("rhs length matches");
+        let mut borrowed = Array1::zeros([8]);
+        athena_core::Preconditioner::apply(&simple, &backend, b.view(), borrowed.view_mut())
+            .expect("view lengths match");
+
+        let component =
+            ComponentBlockPreconditioner::new(&matrix, 6, 2).expect("no cross-component coupling");
+        let component_owned = component.apply(&b).expect("rhs length matches");
+        let mut component_borrowed = Array1::zeros([8]);
+        athena_core::Preconditioner::apply(
+            &component,
+            &backend,
+            b.view(),
+            component_borrowed.view_mut(),
+        )
+        .expect("view lengths match");
+
+        // The two paths differ only in summation grouping of at most four
+        // O(1) terms per pressure row (b - sum vs sequential subtraction),
+        // amplified by one reciprocal and the component solves, so 16 eps
+        // relative bounds the difference.
+        for index in 0..8 {
+            for (lhs, rhs) in [
+                (owned[index], borrowed[index]),
+                (component_owned[index], component_borrowed[index]),
+            ] {
+                assert!(
+                    (lhs - rhs).abs() <= 16.0 * f64::EPSILON * lhs.abs().max(1.0),
+                    "entry {index}: owned {lhs} vs borrowed {rhs}"
+                );
+            }
+        }
+        assert!(owned.iter().any(|value| value.abs() > 0.1));
+        assert!(component_owned.iter().any(|value| value.abs() > 0.1));
     }
 
     #[test]
@@ -1142,15 +1291,17 @@ where
         }
         for pressure_index in 0..self.n_pressure {
             let mut pressure_rhs = residual[self.n_velocity + pressure_index];
-            for &(velocity_index, divergence_value) in &self.divergence_rows[pressure_index] {
+            let row = self.divergence.row(pressure_index);
+            for (&velocity_index, &divergence_value) in row.col_indices().iter().zip(row.values()) {
                 pressure_rhs -= divergence_value * output[velocity_index];
             }
             let pressure_offset = self.n_velocity + pressure_index;
             output[pressure_offset] = pressure_rhs * self.schur_diag_inv[pressure_index];
         }
-        for pressure_index in 0..self.n_pressure {
-            let pressure = output[self.n_velocity + pressure_index];
-            for &(velocity_index, gradient_value) in &self.gradient_columns[pressure_index] {
+        for velocity_index in 0..self.n_velocity {
+            let row = self.gradient.row(velocity_index);
+            for (&pressure_index, &gradient_value) in row.col_indices().iter().zip(row.values()) {
+                let pressure = output[self.n_velocity + pressure_index];
                 output[velocity_index] -=
                     self.momentum_inv.diag_inv[velocity_index] * gradient_value * pressure;
             }

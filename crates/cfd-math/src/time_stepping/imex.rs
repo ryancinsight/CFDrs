@@ -61,21 +61,30 @@ use leto_ops::{RealScalar, solve};
 ///
 /// Splits the RHS into explicit (non-stiff) and implicit (stiff) parts:
 /// du/dt = f_explicit(t,u) + f_implicit(t,u)
+///
+/// The tableau is stored inline as fixed `STAGES`-sized arrays: rows are
+/// zero-padded above the strictly lower part, so the stage loops read one
+/// contiguous block with no per-row heap indirection or length checks.
 pub struct IMEXTimeStepper<T: RealField + Copy> {
-    /// Explicit method coefficients
-    explicit_a: Vec<Vec<T>>,
-    /// Implicit method coefficients (strictly lower triangular)
-    implicit_a: Vec<Vec<T>>,
+    /// Explicit method coefficients, `explicit_a[stage][previous]`
+    explicit_a: [[T; STAGES]; STAGES],
+    /// Implicit method coefficients (strictly lower part), `implicit_a[stage][previous]`
+    implicit_a: [[T; STAGES]; STAGES],
     /// Explicit solution weights
-    explicit_b: Vec<T>,
+    explicit_b: [T; STAGES],
     /// Implicit solution weights
-    implicit_b: Vec<T>,
+    implicit_b: [T; STAGES],
     /// Implicit diagonal coefficients (a_ii)
-    implicit_diagonal: Vec<T>,
+    implicit_diagonal: [T; STAGES],
     /// Time evaluation points
-    c: Vec<T>,
-    _phantom: std::marker::PhantomData<T>,
+    c: [T; STAGES],
 }
+
+/// Stage count of the ARS343 scheme, the only tableau this stepper carries.
+const STAGES: usize = 3;
+
+/// Convergence order of the ARS343 scheme.
+const ORDER: usize = 3;
 
 impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
     /// Default Newton iteration tolerance for implicit stages
@@ -100,19 +109,11 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
         let n = state_len(u);
 
         // Add contributions from previous stages
+        let explicit_row = &self.explicit_a[stage];
+        let implicit_row = &self.implicit_a[stage];
         for prev_stage in 0..stage {
-            let a_exp =
-                if stage < self.explicit_a.len() && prev_stage < self.explicit_a[stage].len() {
-                    self.explicit_a[stage][prev_stage]
-                } else {
-                    zero()
-                };
-            let a_imp =
-                if stage < self.implicit_a.len() && prev_stage < self.implicit_a[stage].len() {
-                    self.implicit_a[stage][prev_stage]
-                } else {
-                    zero()
-                };
+            let a_exp = explicit_row[prev_stage];
+            let a_imp = implicit_row[prev_stage];
 
             for i in 0..n {
                 u_stage[i] +=
@@ -202,31 +203,31 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
         let gamma = (three + <T as NumericElement>::sqrt(three)) / six;
         let delta = one::<T>() - one::<T>() / (two * gamma);
 
-        let c = vec![zero::<T>(), gamma, one::<T>()];
+        let c = [zero::<T>(), gamma, one::<T>()];
 
-        // Explicit tableau (strictly lower)
-        let explicit_a = vec![
-            vec![],                          // Stage 0 (c=0)
-            vec![gamma],                     // Stage 1 (c=gamma)
-            vec![delta, one::<T>() - delta], // Stage 2 (c=1)
+        // Explicit tableau (strictly lower; entries on and above the diagonal are zero)
+        let explicit_a = [
+            [zero(), zero(), zero()],                 // Stage 0 (c=0)
+            [gamma, zero(), zero()],                  // Stage 1 (c=gamma)
+            [delta, one::<T>() - delta, zero::<T>()], // Stage 2 (c=1)
         ];
 
         // Implicit tableau (strictly lower part)
-        let implicit_a = vec![
-            vec![],                                      // Stage 0
-            vec![zero::<T>()],                           // Stage 1
-            vec![zero::<T>(), one::<T>() - two * gamma], // Stage 2
+        let implicit_a = [
+            [zero(), zero(), zero()],                        // Stage 0
+            [zero(), zero(), zero()],                        // Stage 1
+            [zero(), one::<T>() - two * gamma, zero::<T>()], // Stage 2
         ];
 
         // Implicit diagonals
-        let implicit_diagonal = vec![
+        let implicit_diagonal = [
             zero::<T>(), // Stage 0 explicit
             gamma,       // Stage 1
             gamma,       // Stage 2
         ];
 
-        let explicit_b = vec![zero::<T>(), half, half];
-        let implicit_b = vec![zero::<T>(), half, half];
+        let explicit_b = [zero::<T>(), half, half];
+        let implicit_b = [zero::<T>(), half, half];
 
         Self {
             explicit_a,
@@ -235,7 +236,6 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
             implicit_b,
             implicit_diagonal,
             c,
-            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -255,7 +255,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
         J: Fn(T, &TimeState<T>) -> Result<TimeMatrix<T>>,
     {
         let n = state_len(u);
-        let stages = self.c.len();
+        let stages = STAGES;
 
         // Store RHS evaluations at each stage
         let mut k_explicit: Vec<TimeState<T>> = vec![state_zeros(n); stages];
@@ -282,11 +282,7 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
             let mut f_imp_val = f_implicit(t_stage, &u_stage)?;
 
             // For implicit stages, solve nonlinear equation if diagonal element is non-zero
-            let a_ii_imp = if stage < self.implicit_diagonal.len() {
-                self.implicit_diagonal[stage]
-            } else {
-                zero()
-            };
+            let a_ii_imp = self.implicit_diagonal[stage];
 
             if a_ii_imp != zero() {
                 // Solve implicit stage using Newton iteration
@@ -308,16 +304,8 @@ impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
         // Combine RHS evaluations for final solution
         let mut u_new = u.clone();
         for stage in 0..stages {
-            let b_exp = if stage < self.explicit_b.len() {
-                self.explicit_b[stage]
-            } else {
-                zero()
-            };
-            let b_imp = if stage < self.implicit_b.len() {
-                self.implicit_b[stage]
-            } else {
-                zero()
-            };
+            let b_exp = self.explicit_b[stage];
+            let b_imp = self.implicit_b[stage];
 
             for i in 0..n {
                 u_new[i] += dt * (b_exp * k_explicit[stage][i] + b_imp * k_implicit[stage][i]);
@@ -347,11 +335,11 @@ impl<T: RealField + RealScalar + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
     }
 
     fn order(&self) -> usize {
-        3 // ARS343 is 3rd order
+        ORDER
     }
 
     fn stages(&self) -> usize {
-        3 // ARS343 has 3 stages
+        STAGES
     }
 
     fn is_explicit(&self) -> bool {
