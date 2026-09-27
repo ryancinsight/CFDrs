@@ -1,6 +1,7 @@
 use super::events::{
     EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent, PressureBoundaryEvent,
 };
+use super::incidence::NodeIncidence;
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
@@ -22,13 +23,6 @@ type CoupledBloodSnapshot<T, F> = (
     HashMap<usize, T>,
     Network<T, F>,
 );
-
-#[derive(Clone, Copy, Debug)]
-struct IncidentEdge {
-    edge_index: usize,
-    source: usize,
-    target: usize,
-}
 
 #[inline]
 fn scalar<T: FloatElement>(value: f64) -> T {
@@ -246,41 +240,6 @@ impl<T: CfdScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<T>
 }
 
 impl TransientCompositionSimulator {
-    fn build_node_incidence_cache<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
-        network: &Network<T, F>,
-    ) -> Vec<Vec<IncidentEdge>> {
-        let node_count = network.node_count();
-        let mut degree_counts = vec![0usize; node_count];
-
-        for edge_ref in network.graph.edge_references() {
-            let source = edge_ref.source().index();
-            let target = edge_ref.target().index();
-            degree_counts[source] += 1;
-            if source != target {
-                degree_counts[target] += 1;
-            }
-        }
-
-        let mut incidence = degree_counts
-            .into_iter()
-            .map(Vec::with_capacity)
-            .collect::<Vec<_>>();
-
-        for edge_ref in network.graph.edge_references() {
-            let edge = IncidentEdge {
-                edge_index: edge_ref.id().index(),
-                source: edge_ref.source().index(),
-                target: edge_ref.target().index(),
-            };
-            incidence[edge.source].push(edge);
-            if edge.source != edge.target {
-                incidence[edge.target].push(edge);
-            }
-        }
-
-        incidence
-    }
-
     fn fill_edge_flow_rate_map<T: CfdScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge_flow_rates: &mut HashMap<usize, T>,
@@ -2628,7 +2587,7 @@ impl TransientCompositionSimulator {
         let tiny_fraction = 1.0e-15_f64;
         let to_f64 = |value: T| finite_f64(value, "Segmented blood transport Pries f64 bridge");
         let mut edge_inlet_hematocrits = HashMap::with_capacity(network.edge_count());
-        let node_incidence = Self::build_node_incidence_cache(network);
+        let node_incidence = NodeIncidence::from_network(network);
         let mut incoming: Vec<(usize, T)> = Vec::with_capacity(2);
         let mut outgoing: Vec<(usize, T)> = Vec::with_capacity(2);
 
@@ -2806,7 +2765,7 @@ impl TransientCompositionSimulator {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
         let tolerance = scalar::<T>(1e-9);
-        let node_incidence = Self::build_node_incidence_cache(network);
+        let node_incidence = NodeIncidence::from_network(network);
         let mut incoming: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
         for _ in 0..max_iter {
@@ -2897,7 +2856,7 @@ impl TransientCompositionSimulator {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
         let tolerance = scalar::<T>(1e-9);
-        let node_incidence = Self::build_node_incidence_cache(network);
+        let node_incidence = NodeIncidence::from_network(network);
         let mut incoming_owned: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
         for _ in 0..max_iter {
@@ -3061,7 +3020,7 @@ impl TransientCompositionSimulator {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
         let tolerance = scalar::<T>(1e-9);
-        let node_incidence = Self::build_node_incidence_cache(network);
+        let node_incidence = NodeIncidence::from_network(network);
         let mut incoming: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
         for _ in 0..max_iter {

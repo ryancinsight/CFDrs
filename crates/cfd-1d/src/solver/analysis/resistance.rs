@@ -29,7 +29,8 @@ pub struct ResistanceAnalysis<T: CfdScalar + Copy> {
     pub total_resistance: HydraulicResistance<T>,
     /// Resistance contributions by component type
     pub resistance_by_type: HashMap<String, HydraulicResistance<T>>,
-    /// Critical resistance paths
+    /// Critical resistance paths: every simple inlet-to-outlet edge path tied
+    /// at the maximal series resistance, listed once each as edge ids
     pub critical_paths: Vec<Vec<String>>,
 }
 

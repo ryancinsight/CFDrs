@@ -20,6 +20,7 @@
 
 /// Events for flow and boundary changes.
 pub mod events;
+mod incidence;
 /// Main composition simulation engine.
 pub mod simulator;
 /// Mixture state definitions.
