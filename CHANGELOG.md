@@ -144,6 +144,34 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Decompose the `cfd-math` discontinuous-Galerkin cluster into
+  concern leaves (CFDRS-SRP-002, `cfd-math/src/high_order/dg`). Three module
+  roots carried 1650 lines between them, each mixing several responsibilities
+  behind a single manifest file:
+
+  - `dg/mod.rs` (627) held the `leto` array shims — 45 `pub(crate)` `vector_*`
+    / `matrix_*` helpers that every sibling leaf reached as `super::<shim>` —
+    together with the `DGSolution` carrier, the `DGMethod` trait, and the test
+    module. It is now `dg.rs` over `linalg.rs` (the shims), `solution.rs`
+    (carrier + trait), and `tests.rs`. The facade re-exports the shims
+    `pub(crate)` so `dg::<shim>` keeps resolving for in-crate callers.
+  - `dg/limiter/mod.rs` (534) held eight limiters in one file, discriminated
+    at the call site by `LimiterType`. Each now has its own leaf —
+    `params.rs`, `traits.rs`, `none.rs`, `minmod.rs`, `tvb.rs`, `moment.rs`,
+    `factory.rs` — so adding a limiter means adding a file rather than
+    extending one match.
+  - `dg/solver/mod.rs` (489) held the `DGSolver` carrier and its 300-line
+    inherent implementation. It is now `solver.rs` over `model.rs` and
+    `tests.rs`.
+
+  Pure code motion, with the two path adjustments the split forces on moved
+  text: `limiter/weno.rs`'s `super::DGSolution` becomes `super::super::`, and
+  `compute_max_wave_speed`'s function-local `super::flux` import gains a level
+  because the function moved one module deeper. All 84 `fn` definitions are
+  preserved (definition-set oracle), and the cfd-math suite is bit-identical
+  before and after (223 lib + 35 integration + 6 doc = 264 passed, 0 failed).
+  Clears two `oversized_files` and three `manifest_implementation` sites.
+
 - **Changed:** Decompose the `cfd-optim` scoring module root into concern
   leaves (CFDRS-SRP-003, `cfd-optim/src/scoring`). The 660-line `mod.rs` held
   the score entry point, its 135-line implementation, the constraint helpers,
