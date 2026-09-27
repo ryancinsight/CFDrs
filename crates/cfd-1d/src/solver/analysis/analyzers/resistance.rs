@@ -10,8 +10,8 @@ use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationErro
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
 use eunomia::NumericElement;
-use petgraph::algo::all_simple_paths;
-use petgraph::visit::EdgeRef;
+use petgraph::Direction::Outgoing;
+use petgraph::graph::EdgeIndex;
 use std::iter::Sum;
 
 /// Resistance analyzer for network components
@@ -44,8 +44,13 @@ impl<T: CfdScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
         let mut analysis = ResistanceAnalysis::new();
         self.populate_edge_resistances(network, &mut analysis)?;
 
-        for path in self.critical_paths(network, &analysis) {
-            analysis.add_critical_path(path);
+        let critical = self.critical_paths(network, &analysis);
+        for path in critical.paths() {
+            analysis.add_critical_path(
+                path.iter()
+                    .map(|&edge_idx| network.graph[edge_idx].id.clone())
+                    .collect(),
+            );
         }
 
         Ok(analysis)
@@ -92,108 +97,134 @@ impl<T: CfdScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
         Ok(())
     }
 
+    /// Enumerate every simple inlet-to-outlet edge path by depth-first search
+    /// over outgoing edges and keep those tied at the maximal series
+    /// resistance.
+    ///
+    /// Parallel edges are distinct branches, so each edge path is visited
+    /// exactly once. The running sum `prefix` adds resistances from the inlet
+    /// forward, the same left-to-right order as summing each path afresh.
     fn critical_paths(
         &self,
         network: &Network<T>,
         analysis: &ResistanceAnalysis<T>,
-    ) -> Vec<Vec<String>> {
+    ) -> CriticalEdgePaths<T> {
+        let mut critical = CriticalEdgePaths::default();
         let inlet_nodes = network.graph.inlet_nodes();
         let outlet_nodes = network.graph.outlet_nodes();
         if inlet_nodes.is_empty() || outlet_nodes.is_empty() {
-            return Vec::new();
+            return critical;
         }
 
-        let mut best_resistance: Option<T> = None;
-        let mut best_paths: Vec<Vec<String>> = Vec::new();
-        let epsilon = T::default_epsilon();
+        let graph = &network.graph;
+        let edge_resistance: Vec<T> = graph
+            .edge_indices()
+            .map(|edge_idx| {
+                let edge = &graph[edge_idx];
+                analysis
+                    .resistances
+                    .get(&edge.id)
+                    .copied()
+                    .unwrap_or(edge.resistance)
+                    .into_base()
+            })
+            .collect();
+        let edge_target = |edge_idx: EdgeIndex| graph.raw_edges()[edge_idx.index()].target();
 
-        for inlet in inlet_nodes {
-            for outlet in &outlet_nodes {
-                for node_path in
-                    all_simple_paths::<Vec<_>, _>(&network.graph, inlet, *outlet, 0, None)
-                {
-                    let mut edge_candidates: Vec<Vec<_>> = Vec::new();
-                    let mut valid = true;
+        let mut on_path = vec![false; graph.node_count()];
+        let mut path: Vec<EdgeIndex> = Vec::new();
+        let mut prefix: Vec<T> = Vec::new();
+        let mut cursors: Vec<Option<EdgeIndex>> = Vec::new();
 
-                    for window in node_path.windows(2) {
-                        let from = window[0];
-                        let to = window[1];
-                        let edges: Vec<_> = network
-                            .graph
-                            .edges_connecting(from, to)
-                            .map(|edge| edge.id())
-                            .collect();
-                        if edges.is_empty() {
-                            valid = false;
-                            break;
+        for &inlet in &inlet_nodes {
+            for &outlet in &outlet_nodes {
+                on_path.fill(false);
+                on_path[inlet.index()] = true;
+                path.clear();
+                prefix.clear();
+                prefix.push(T::ZERO);
+                cursors.clear();
+                cursors.push(graph.first_edge(inlet, Outgoing));
+
+                while let Some(cursor) = cursors.last_mut() {
+                    let Some(edge_idx) = *cursor else {
+                        cursors.pop();
+                        if let Some(entered) = path.pop() {
+                            prefix.pop();
+                            on_path[edge_target(entered).index()] = false;
                         }
-                        edge_candidates.push(edges);
-                    }
-
-                    if !valid {
                         continue;
-                    }
+                    };
+                    *cursor = graph.next_edge(edge_idx, Outgoing);
 
-                    let mut edge_paths: Vec<Vec<_>> = vec![Vec::new()];
-                    for edges in edge_candidates {
-                        let mut next_paths = Vec::new();
-                        for path in &edge_paths {
-                            for edge_idx in &edges {
-                                let mut extended = path.clone();
-                                extended.push(*edge_idx);
-                                next_paths.push(extended);
-                            }
-                        }
-                        edge_paths = next_paths;
-                    }
-
-                    for edge_path in edge_paths {
-                        let mut resistance_sum = T::ZERO;
-                        let mut edge_ids = Vec::with_capacity(edge_path.len());
-                        let mut edge_valid = true;
-
-                        for edge_idx in edge_path {
-                            if let Some(edge) = network.graph.edge_weight(edge_idx) {
-                                let resistance = analysis
-                                    .resistances
-                                    .get(&edge.id)
-                                    .copied()
-                                    .unwrap_or(edge.resistance)
-                                    .into_base();
-                                resistance_sum += resistance;
-                                edge_ids.push(edge.id.clone());
-                            } else {
-                                edge_valid = false;
-                                break;
-                            }
-                        }
-
-                        if !edge_valid || edge_ids.is_empty() {
-                            continue;
-                        }
-
-                        match best_resistance {
-                            None => {
-                                best_resistance = Some(resistance_sum);
-                                best_paths = vec![edge_ids];
-                            }
-                            Some(best) => {
-                                let diff = <T as NumericElement>::abs(resistance_sum - best);
-                                let scale = <T as NumericElement>::abs(best) + T::ONE;
-                                if resistance_sum > best {
-                                    best_resistance = Some(resistance_sum);
-                                    best_paths = vec![edge_ids];
-                                } else if diff <= epsilon * scale {
-                                    best_paths.push(edge_ids);
-                                }
-                            }
-                        }
+                    let child = edge_target(edge_idx);
+                    let resistance_sum = prefix[path.len()] + edge_resistance[edge_idx.index()];
+                    if child == outlet {
+                        critical.offer(resistance_sum, &path, edge_idx);
+                    } else if !on_path[child.index()] {
+                        on_path[child.index()] = true;
+                        path.push(edge_idx);
+                        prefix.push(resistance_sum);
+                        cursors.push(graph.first_edge(child, Outgoing));
                     }
                 }
             }
         }
 
-        best_paths
+        critical
+    }
+}
+
+/// Edge paths tied at the maximal series resistance, stored contiguously:
+/// path `k` is `edges[offsets[k]..offsets[k + 1]]`.
+struct CriticalEdgePaths<T> {
+    best: Option<T>,
+    edges: Vec<EdgeIndex>,
+    offsets: Vec<usize>,
+}
+
+impl<T> Default for CriticalEdgePaths<T> {
+    fn default() -> Self {
+        Self {
+            best: None,
+            edges: Vec::new(),
+            offsets: vec![0],
+        }
+    }
+}
+
+impl<T: CfdScalar + Copy> CriticalEdgePaths<T> {
+    /// Offer the path `prefix` followed by `last`, of series resistance
+    /// `resistance_sum`: a larger sum replaces the tied set, and a sum within
+    /// `epsilon * (|best| + 1)` of the best joins it.
+    fn offer(&mut self, resistance_sum: T, prefix: &[EdgeIndex], last: EdgeIndex) {
+        let replaces = match self.best {
+            None => true,
+            Some(best) if resistance_sum > best => true,
+            Some(best) => {
+                let diff = <T as NumericElement>::abs(resistance_sum - best);
+                let scale = <T as NumericElement>::abs(best) + T::ONE;
+                if diff <= T::default_epsilon() * scale {
+                    false
+                } else {
+                    return;
+                }
+            }
+        };
+        if replaces {
+            self.best = Some(resistance_sum);
+            self.edges.clear();
+            self.offsets.truncate(1);
+        }
+        self.edges.extend_from_slice(prefix);
+        self.edges.push(last);
+        self.offsets.push(self.edges.len());
+    }
+
+    fn paths(&self) -> impl Iterator<Item = &[EdgeIndex]> {
+        self.offsets
+            .windows(2)
+            .map(|bounds| &self.edges[bounds[0]..bounds[1]])
     }
 }
 
@@ -246,5 +277,93 @@ impl<T: CfdScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         model
             .calculate_resistance(fluid, &conditions)
             .map_err(|e| ResistanceCalculationError::ModelError(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::network::{
+        ComponentType, EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy,
+    };
+    use aequitas::systems::si::quantities::{Area, Length};
+    use cfd_core::physics::fluid::database::water_20c;
+    use std::collections::HashMap;
+
+    fn pipe_properties(id: &str, diameter: f64) -> EdgeProperties<f64> {
+        EdgeProperties {
+            id: id.to_string(),
+            component_type: ComponentType::Pipe,
+            length: Length::from_base(0.01),
+            area: Area::from_base(std::f64::consts::FRAC_PI_4 * diameter * diameter),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
+            resistance: HydraulicResistance::from_base(1.0),
+            geometry: None,
+            resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
+            properties: HashMap::new(),
+        }
+    }
+
+    /// inlet =(a1|a2)=> junction =(b1|b2)=> outlet, plus a direct pipe `d`.
+    /// `a1` and `a2` are identical, `b2` is narrower than `b1`, and `d` is
+    /// wide, so the two maximal paths tie through `b2`. Outgoing edges are
+    /// visited newest first, so `a2` precedes `a1`; each path appears once.
+    fn parallel_hop_network() -> Network<f64> {
+        let mut builder = NetworkBuilder::new();
+        let inlet = builder.add_inlet("inlet".to_string());
+        let junction = builder.add_junction("junction".to_string());
+        let outlet = builder.add_outlet("outlet".to_string());
+        let pipes = [
+            (inlet, junction, "a1", 1.0e-3),
+            (inlet, junction, "a2", 1.0e-3),
+            (junction, outlet, "b1", 1.0e-3),
+            (junction, outlet, "b2", 0.5e-3),
+            (inlet, outlet, "d", 2.0e-3),
+        ];
+        let edges: Vec<_> = pipes
+            .iter()
+            .map(|&(from, to, id, _)| builder.connect_with_pipe(from, to, id.to_string()))
+            .collect();
+        let graph = builder.build().expect("parallel-hop network must validate");
+        let mut network = Network::new(graph, water_20c::<f64>().expect("water properties exist"));
+        for (edge, &(_, _, id, diameter)) in edges.into_iter().zip(&pipes) {
+            network.add_edge_properties(edge, pipe_properties(id, diameter));
+        }
+        network
+    }
+
+    #[test]
+    fn critical_paths_are_the_tied_maximal_series_paths_once_each() -> Result<()> {
+        let analysis = ResistanceAnalyzer::<f64>::new().analyze(&parallel_hop_network())?;
+
+        assert_eq!(
+            analysis.critical_paths,
+            vec![
+                vec!["a2".to_string(), "b2".to_string()],
+                vec!["a1".to_string(), "b2".to_string()],
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn unreachable_outlet_has_no_critical_path() -> Result<()> {
+        let mut builder = NetworkBuilder::new();
+        let inlet = builder.add_inlet("inlet".to_string());
+        let outlet = builder.add_outlet("outlet".to_string());
+        let edge = builder.connect_with_pipe(outlet, inlet, "a".to_string());
+        let mut network = Network::new(
+            builder
+                .build()
+                .expect("reversed two-node network must validate"),
+            water_20c::<f64>().expect("water properties exist"),
+        );
+        network.add_edge_properties(edge, pipe_properties("a", 1.0e-3));
+
+        let analysis = ResistanceAnalyzer::<f64>::new().analyze(&network)?;
+
+        assert!(analysis.critical_paths.is_empty());
+        assert_eq!(analysis.resistances.len(), 1);
+        Ok(())
     }
 }
