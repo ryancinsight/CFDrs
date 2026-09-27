@@ -212,10 +212,10 @@ impl CollisionDetectionSystem {
 
     /// Get collision parameters with adaptive behavior
     fn get_collision_parameters(context: Option<&ChannelGenerationContext>) -> CollisionParameters {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
 
         // Always create fresh parameters to ensure adaptive behavior is applied
-        CollisionParameters::from_constants_registry(&constants, context)
+        CollisionParameters::from_constants_registry(constants, context)
     }
 
     /// Detect collisions for a given path with adaptive parameter behavior

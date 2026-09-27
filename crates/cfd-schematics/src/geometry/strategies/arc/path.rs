@@ -71,7 +71,7 @@ impl ArcChannelStrategy {
         total_branches: usize,
         neighbor_info: Option<&[f64]>,
     ) -> Vec<Point2D> {
-        let constants = ConstantsRegistry::new();
+        let constants = ConstantsRegistry::shared();
         let num_points = self.config.smoothness + 2;
 
         let dx = p2.0 - p1.0;

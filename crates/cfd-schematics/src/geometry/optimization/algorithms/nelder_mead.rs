@@ -71,7 +71,7 @@ pub(super) fn optimize_nelder_mead(
         })
         .collect();
 
-    let constants_reg = crate::config::ConstantsRegistry::new();
+    let constants_reg = crate::config::ConstantsRegistry::shared();
     let max_iterations = constants_reg.get_max_optimization_iterations();
     let tolerance = constants_reg.get_optimization_tolerance();
     let mut iterations = 0;

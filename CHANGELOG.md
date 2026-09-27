@@ -144,6 +144,82 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Changed:** Unify the `cfd-schematics` configuration constants into a single
+  table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module
+  carried two overlapping constant tables — `primitives` and the five group
+  structs. Of the 46 group constants, **16 were read by no accessor at all**,
+  and one of those, `geometry.default_channel_height`, was not merely dead but
+  *wrong*: it held `1.0`, where the live default is
+  `primitives::DEFAULT_CHANNEL_HEIGHT = 0.5`, used by `GeometryConfig::default()`
+  and the config presets. A second and subtler collision: the group's
+  `min_curvature_factor` (0.1) shared a name with
+  `primitives::MIN_CURVATURE_FACTOR` (0.0) while *both* were live, governing
+  different decisions — validation of a configured factor versus the floor
+  applied to the adaptive factor. The 16 dead constants are removed; the 30 that
+  survive now have exactly one definition, in `primitives`, referenced by the
+  group `DEFAULT` aggregates; and the two curvature floors are named apart
+  (`MIN_CURVATURE_FACTOR` for validation, `MIN_ADAPTIVE_CURVATURE_FACTOR` for the
+  adaptive floor) with no value changed. Three further `primitives` entries that
+  no code referenced — `strategy_thresholds::{LONG_HORIZONTAL_THRESHOLD,
+  MIN_ARC_LENGTH_THRESHOLD, HORIZONTAL_ANGLE_THRESHOLD}` — held stale values
+  (0.3 / 0.1 / 0.3) against the live 0.6 / 0.3 / 0.5 the accessors returned;
+  they now carry the live values. `primitives` moves out of `mod.rs` into
+  `constants/primitives.rs` (251 lines), leaving the module root at 276 — both
+  well inside the 500-line ceiling, where inlining the unified table had briefly
+  pushed `mod.rs` to 523. Every constant is now reachable and live: 30 declared,
+  30 read, 0 orphaned. Behaviour is proven unchanged by dumping all 44 accessor
+  values before and after; the outputs are byte-identical. The suite is
+  bit-identical too (184 + 0 + 30 + 16 = 230 passed, 0 failed), with no new
+  warnings.
+
+- **Changed:** Collapse the 46 `ConfigurableParameter` wrappers in the
+  `cfd-schematics` constants groups to plain values (CFDRS-PERF-002,
+  `cfd-schematics/src/config/constants`). The five groups held 46
+  `ConfigurableParameter<T>` fields, each built through a `ParameterConstraints`
+  list and a `ParameterMetadata` block — 876 lines of constructor boilerplate
+  for 46 numbers. None of that apparatus was ever exercised: no field is
+  mutated, no `validate()` is called, no adaptive behaviour is attached, and the
+  group structs are referenced nowhere outside the constants module. They are
+  plain compile-time constants, so they are now declared as such: `f64`/`usize`/
+  `u32` fields, with the three optimization factor tables as `&'static [f64]`,
+  and each group gains `#[derive(Debug, Clone, Copy, PartialEq)]` plus a
+  `pub const DEFAULT`. `ConstantsRegistry::new()` consequently becomes a
+  `const fn` and constructs for free — 0 heap allocations and 14.6 ns per call,
+  down from 415 allocations and 27,682 ns — and
+  `ChannelTypeFactory::create_strategy` falls from 416 allocations to 1 (the
+  returned `Box`). The five group files shrink from 876 to 277 lines and the
+  module from 1,327 to 737. `ConfigurableParameter` survives untouched where it
+  is genuinely used: the five state-management managers mutate and adapt their
+  parameters and still do. The cfd-schematics suite is bit-identical
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed) with no new warnings, and every
+  default value is preserved exactly. `shared()` is retained because it avoids
+  the aggregate copy (5.4 ns against 14.6 ns), but it is now a micro-
+  optimisation rather than the fix.
+
+- **Changed:** Stop rebuilding the configuration registry on every geometry and
+  rendering call (CFDRS-PERF-001, `cfd-schematics/src/config/constants`).
+  `ConstantsRegistry::new()` constructs all 46 `ConfigurableParameter` members —
+  each owning a change history, a metadata block and a constraint list — for
+  415 heap allocations and 9,928 bytes per call, measured with a counting
+  global allocator. It was called from 20 sites, several of them per generated
+  channel. The registry is a pure function of no inputs and every accessor
+  takes `&self`, so a process-wide `OnceLock`-backed `shared()` accessor now
+  builds it once instead of once per call, and all 20 sites use it. The same
+  instrument measures `shared()` at 0 allocations and 5.5 ns per call after the
+  one-time initialisation, against 415 allocations and 27,682 ns for `new()`.
+  On a real API path — `ChannelTypeFactory::create_strategy`, whose
+  `is_angled_channel` branch was one of the 20 sites — the call falls from 416
+  allocations and 27,139 ns to 1 allocation (the returned `Box`) and 59.2 ns.
+  The three `get_fast_*_factors` accessors also stop cloning: they returned
+  `Vec<f64>` by value, allocating on every call, and now return `&[f64]`, which
+  is all their sole consumer does with them. `new()` is retained for API
+  compatibility and now documents that hot paths should use `shared()`. The
+  cfd-schematics suite is bit-identical before and after
+  (184 + 0 + 30 + 16 = 230 passed, 0 failed) with no new warnings. The
+  catalogue-generation metrics are deliberately reported as unchanged: the
+  Milestone-12 build path never constructed a registry at all, so the win lands
+  on the strategy-selection and rendering paths that did.
+
 - **Changed:** Decompose the `cfd-schematics` 96-well plate heatmap root into
   concern leaves (CFDRS-SRP-009, `cfd-schematics/src/heatmap`). The 464-line
   `mod.rs` was a single file holding the SBS plate geometry constants and their

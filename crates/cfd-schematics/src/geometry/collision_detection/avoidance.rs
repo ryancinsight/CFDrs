@@ -99,7 +99,7 @@ impl CollisionDetectionSystem {
             }
 
             // Adjust based on branch count
-            let constants = ConstantsRegistry::new();
+            let constants = ConstantsRegistry::shared();
             let branch_factor =
                 (context.total_branches as f64).powf(constants.get_branch_factor_exponent());
             if branch_factor > 2.0 {
