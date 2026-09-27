@@ -74,5 +74,9 @@ harness = false
 name = "cg_bench"
 harness = false
 
+[[bench]]
+name = "simple_preconditioner_comparison"
+harness = false
+
 [lints]
 workspace = true
