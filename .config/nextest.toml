@@ -29,9 +29,13 @@ filter = 'package(cfd-2d) & test(/accelerated/)'
 test-group = 'gpu-device'
 
 # These cases each fit the 30-second per-test budget in isolation, but their
-# finite-volume/FEM workloads contend for the hosted runner's CPU when they
-# start together.  Serializing only this measured set preserves parallelism
-# for the rest of the workspace without changing the workload or timeout.
+# finite-volume/FEM workloads miss it when any other test shares the hosted
+# runner's CPU.  `threads-required = 'num-test-threads'` runs each one alone:
+# it holds every test slot, so nothing else starts beside it, in CI and
+# locally alike, and the rest of the workspace keeps its parallelism between
+# them.  This filter is the single list of the set; the group names it for
+# `cargo nextest show-config test-groups`.
 [[profile.default.overrides]]
 filter = 'test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) | test(/test_venturi_blood_flow/) | test(/ga_validation_geometry_produces_converged_informative_2d_result/) | test(/microventuri_fallback_case_produces_converged_informative_2d_result/) | test(/microventuri_35um_case_produces_converged_informative_2d_result/) | test(/cross_fidelity_trifurcation_dominance/) | test(/test_benchmark_run_integration/) | test(/test_step_11_lid_driven_cavity/) | test(/cross_fidelity_stenosis_shear_thinning/) | test(/cross_fidelity_venturi_(two_dimensional|three_dimensional)_loss_coefficient/)'
 test-group = 'numerical-fidelity'
+threads-required = 'num-test-threads'
