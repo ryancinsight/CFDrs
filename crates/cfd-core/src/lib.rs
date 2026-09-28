@@ -13,7 +13,7 @@
 //! - Import types via their full paths (e.g., `cfd_core::solver::Solver`)
 //! - Use the local prelude: `use cfd_core::prelude::*;`
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // Field names like field_* common in kernel contexts
 // CFD-specific allows for production numerical code
 

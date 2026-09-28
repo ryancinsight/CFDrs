@@ -131,7 +131,7 @@
 //! convection schemes limit reconstructed interface values so new extrema are not introduced when
 //! their CFL assumptions hold.
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // 2D CFD simulation allows
 
 // Core modules

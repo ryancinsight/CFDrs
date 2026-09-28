@@ -38,7 +38,7 @@
 //!
 //! | Module | Contents |
 //! |--------|----------|
-//! | `types` | Shared cascade descriptors (`CascadeStage`, `PeripheralRecovery`, results) |
+//! | `types` | Shared cascade descriptors ([`CascadeStage`], [`PeripheralRecovery`], results) |
 //! | [`routing_probability`] | Core Zweifach-Fung probability functions and cell constants |
 //! | [`cascade_routing`] | Cascade trifurcation, cross-junction, and mixed Bi/Tri routing |
 //! | [`incremental_filtration`] | CIF staged selective-routing with pre-trifurcation skimming |

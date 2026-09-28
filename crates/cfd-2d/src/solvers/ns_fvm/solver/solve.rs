@@ -54,14 +54,10 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
                 self.solve_pressure_correction()?;
             }
 
-            // Global mass-flux correction: scale outlet face velocities so
-            // that Q_outlet = Q_inlet exactly.  Applied after the initial
-            // development phase (iteration > 50) to avoid interfering with
-            // the pressure field while it's still establishing the flow
-            // pattern (Versteeg & Malalasekera 2007, §11.9).
-            // if iteration > 50 {
-            //     self.apply_mass_flux_correction();
-            // }
+            // Global mass-flux correction is intentionally not applied: forcing
+            // Q_outlet = Q_inlet exactly scales the outlet face velocities and
+            // interferes with the pressure field while the flow is still
+            // establishing (Versteeg & Malalasekera 2007, §11.9).
 
             // Turbulence model update: solve k and omega transport equations
             // and compute nu_t.  Only runs when turbulence is enabled and
