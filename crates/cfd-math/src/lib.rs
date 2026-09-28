@@ -102,7 +102,7 @@
 //! - **WENO Methods**: Shu, C.-W. (1999). *High Order WENO Schemes for Convection Dominated Problems*
 //! - **SIMD Programming**: Fog, A. (2012). *Optimizing software in C++*
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // CFD numerical computation allows
 
 pub mod linear_solver;

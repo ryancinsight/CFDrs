@@ -49,7 +49,7 @@ pub struct FigureSpec {
 /// `cargo run [-p <crate_name>] --example <example_name>`.
 ///
 /// `crate_name == "cfd-suite"` (workspace root) means the example is
-/// declared at the root `Cargo.toml` [[example]] table and is run
+/// declared at the root `Cargo.toml` `[[example]]` table and is run
 /// without `-p`; all other values map 1:1 to a workspace member crate.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct ExampleRef {

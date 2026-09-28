@@ -29,6 +29,8 @@
 // PyO3 bindings require specific patterns that trigger pedantic lints.
 // PyO3 getters/setters don't follow Rust naming conventions.
 
+#![deny(missing_docs)]
+
 use pyo3::prelude::*;
 
 mod bifurcation;

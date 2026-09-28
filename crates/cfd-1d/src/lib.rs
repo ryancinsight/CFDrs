@@ -69,7 +69,7 @@
 //! - **components**: Valves, pumps, filters
 //! - **junctions**: T-junction, Y-junction, bifurcation models
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // 1D CFD network simulation allows
 
 /// Domain modeling: topology, components, and channel geometries
@@ -82,8 +82,9 @@ pub mod solver;
 
 // Export haemolysis models
 pub use physics::hemolysis::{
-    CAVITATION_HI_SLOPE, GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C, HemolysisExposure,
-    TASKIN_BETA, TASKIN_C, cavitation_amplified_hi, giersiepen_hi, taskin_hi,
+    CAVITATION_HI_SLOPE, GIERSIEPEN_MILLIFLUIDIC_C, GIERSIEPEN_MILLIFLUIDIC_STRESS,
+    GIERSIEPEN_MILLIFLUIDIC_TIME, HemolysisExposure, TASKIN_BETA, TASKIN_C,
+    cavitation_amplified_hi, giersiepen_hi, taskin_hi,
 };
 // Export SDT physics models
 pub use physics::hemolysis::acoustic_radiation::{

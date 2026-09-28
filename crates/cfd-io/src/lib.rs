@@ -3,7 +3,7 @@
 //! This crate provides file format support for reading and writing
 //! CFD simulation data.
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // I/O and file format allows
 
 mod leto_arrays;

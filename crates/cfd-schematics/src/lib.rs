@@ -89,6 +89,8 @@
 //! - **infrastructure**: `PetgraphGraphSink`, `DesignGraph` adapters
 //! - **interface**: Preset factories (bifurcation, trifurcation, serpentine, venturi)
 
+#![deny(missing_docs)]
+
 // ── Geometry & visualisation layer (inlined from former `scheme` crate) ──────
 pub mod config;
 pub mod error;

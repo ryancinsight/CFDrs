@@ -42,7 +42,7 @@ pub mod stress;
 pub use boundary_classifier::{AxialBoundaryClassifier, BoundaryFaceSets};
 pub use config::FemConfig;
 pub use element::{ElementMatrices, FluidElement};
-pub use fluid::FluidProperties;
+pub use fluid::ConstantPropertyFluid;
 pub use mid_node_cache::MidNodeCache;
 pub use problem::StokesFlowProblem;
 pub use projection_solver::ProjectionSolver;

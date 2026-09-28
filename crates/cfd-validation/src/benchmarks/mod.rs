@@ -19,7 +19,6 @@ pub mod venturi;
 pub mod vorticity_stream;
 // NOTE: poiseuille_bifurcation module temporarily disabled due to API compatibility.
 // Awaiting alignment with updated cfd-1d/cfd-2d solver interfaces.
-// pub mod poiseuille_bifurcation;
 
 pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
@@ -34,7 +33,6 @@ pub use vorticity_stream::{
     VorticityStreamCavityBenchmark, VorticityStreamCavityConfig, VorticityStreamCavityHistory,
     VorticityStreamCavityReport,
 };
-// pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
 pub trait Benchmark<T: RealField + Copy> {

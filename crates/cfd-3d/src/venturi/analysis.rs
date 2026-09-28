@@ -1,4 +1,3 @@
-#![expect(clippy::print_stdout, reason = "diagnostic output")]
 //! Post-solve analysis helpers for the 3D Venturi solver.
 //!
 //! Contains shear-rate computation, divergence diagnostics, and boundary
@@ -11,6 +10,7 @@ use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::VertexId;
 use eunomia::FloatElement;
 use leto::Vector3;
+use tracing::debug;
 
 use super::solver::VenturiSolver3D;
 
@@ -151,12 +151,12 @@ where
         (2.0_f64 * inner_prod).sqrt()
     }
 
-    /// Print element-wise velocity divergence statistics.
+    /// Log element-wise velocity divergence statistics.
     ///
     /// For an incompressible flow $\nabla \cdot \mathbf{u} = 0$; the
     /// volume-weighted mean of $|\nabla \cdot \mathbf{u}|$ quantifies how
     /// well the discrete solution satisfies incompressibility.
-    pub(crate) fn print_divergence_stats(
+    pub(crate) fn log_divergence_stats(
         &self,
         mesh: &cfd_mesh::IndexedMesh<f64>,
         solution: &crate::fem::StokesFlowSolution<f64>,
@@ -257,7 +257,7 @@ where
             } else {
                 0.0_f64
             };
-            println!(
+            debug!(
                 "Divergence Stats: min={min_div:?}, max={max_div:?}, avg={avg_div:?}, vol_avg={vol_avg_div:?}, net={signed_div_sum:?} (n={count}, vol={total_volume:?})"
             );
         }
@@ -319,7 +319,7 @@ where
             }
         }
 
-        println!("Venturi Flux: label={label}, faces={face_count}, total_q={total_q:?}");
+        debug!("Venturi Flux: label={label}, faces={face_count}, total_q={total_q:?}");
 
         Ok(total_q)
     }
