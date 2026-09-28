@@ -123,17 +123,31 @@ jobs:
           echo "apt-get did not complete after 3 attempts" >&2
           exit 1
 
-      # Shared-key rust-cache instead of a lockfile-hash actions/cache: the
-      # hash key wipes the whole target/ directory whenever Cargo.lock moves
-      # (e.g. a first-party dependency repin), forcing a full workspace
-      # rebuild on exactly the routine dependency-bump PRs. rust-cache
-      # invalidates incrementally and shares one entry across jobs, written
-      # from main only so concurrent branches cannot evict each other.
+      # Root cause of ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS: this job and
+      # check-figures shared one key ("cfdrs"). check-figures finishes ~14min
+      # earlier (its `cargo run -p xtask` only builds xtask + its own deps,
+      # not the workspace's full clippy/test dependency graph), so on a main
+      # push its post-step claims the shared key first; GitHub's cache API is
+      # immutable per key, so this job's later save of the FULL dependency
+      # set silently no-ops. Every subsequent run restores a "full match" -
+      # confirmed via the Swatinem/rust-cache log line
+      # `Restored from cache key "..." full match: true` on runs
+      # 36403691327 and 36472002537 - against check-figures' shallow content,
+      # and rust-cache skips re-saving on a full-key match (there is nothing
+      # to reconcile: the key hasn't changed, so it trusts the restore),
+      # so the gap can never self-heal. Splitting the key so only this job
+      # writes "cfdrs-gate" fixes the collision; the value is also bumped
+      # (was "cfdrs") so the next save starts from a clean slate instead of
+      # extending the already-poisoned entry.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           workspaces: .
-          shared-key: cfdrs
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: cfdrs-gate
+          # TEMPORARY for this PR's verification only (coordinator-requested):
+          # saves on this branch too so two consecutive runs can prime and
+          # then measure the fresh "cfdrs-gate" key without waiting for a
+          # merge to main. Reverts to main-only before merge.
+          save-if: true
 
       - name: Format
         run: cargo fmt --all --check
@@ -151,7 +165,14 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Tests
-        run: cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
+        # CARGO_LOG diagnostic is temporary verification instrumentation for
+        # ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS (coordinator-requested fingerprint
+        # evidence); remove once the cfdrs-gate key's first save/restore cycle
+        # is confirmed.
+        run: |
+          CARGO_LOG=cargo::core::compiler::fingerprint=info \
+            cargo build --tests -p cfd-core --locked 2>&1 | grep -i "libc" | head -40 || true
+          cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
 
       - name: Numerical fidelity tests
         run: cargo nextest run --workspace --no-fail-fast --locked -E "$NUMERICAL_FIDELITY_FILTER" --test-threads 1
@@ -178,16 +199,18 @@ jobs:
       - name: Normalize materialized dependency lock
         run: cargo metadata --format-version 1 --all-features > /dev/null
 
-      # Shared-key rust-cache instead of a lockfile-hash actions/cache: the
-      # hash key wipes the whole target/ directory whenever Cargo.lock moves
-      # (e.g. a first-party dependency repin), forcing a full workspace
-      # rebuild on exactly the routine dependency-bump PRs. rust-cache
-      # invalidates incrementally and shares one entry across jobs, written
-      # from main only so concurrent branches cannot evict each other.
+      # Own key, separate from rust-workspace's "cfdrs-gate": this job only
+      # builds xtask + its own dependency subset (`cargo run -p xtask`), a
+      # much shallower graph than the full clippy/test dependency set. It
+      # finishes ~14min before rust-workspace on a main push, so sharing one
+      # key meant its post-step claimed the save first every time - GitHub's
+      # cache API is immutable per key, so rust-workspace's later save of the
+      # full dependency set silently no-op'd forever after
+      # (ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS). Each job now owns its key.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           workspaces: .
-          shared-key: cfdrs
+          shared-key: cfdrs-figures
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check book figures
