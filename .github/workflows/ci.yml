@@ -188,6 +188,11 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: nextest-archive-cfdrs
+          # upload-artifact flattens a single-file `path:` to the artifact
+          # root (no `target/` prefix survives); restore it under the same
+          # relative location the archive step wrote it to and the run
+          # commands below expect.
+          path: target
 
       - name: Tests
         run: >-
@@ -222,6 +227,11 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: nextest-archive-cfdrs
+          # upload-artifact flattens a single-file `path:` to the artifact
+          # root (no `target/` prefix survives); restore it under the same
+          # relative location the archive step wrote it to and the run
+          # commands below expect.
+          path: target
 
       - name: Numerical fidelity tests
         run: >-
