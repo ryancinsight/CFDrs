@@ -1,6 +1,4 @@
-use crate::topology::model::{
-    BranchRole, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
-};
+use crate::topology::model::{BranchRole, SplitKind, TreatmentActuationMode, VenturiPlacementMode};
 use aequitas::systems::si::quantities::Length;
 
 use super::super::sequence::MILESTONE12_SWEEP_SEQUENCES;
@@ -217,12 +215,9 @@ fn promote_option1_to_option2_rebuilds_geometry_authored_blueprint() {
     let option1 =
         build_milestone12_blueprint(&request).expect("Milestone 12 Option 1 should build");
 
-    let promoted = promote_milestone12_option1_to_option2(
-        &option1,
-        1,
-        VenturiPlacementMode::StraightSegment,
-    )
-    .expect("promotion should succeed");
+    let promoted =
+        promote_milestone12_option1_to_option2(&option1, 1, VenturiPlacementMode::StraightSegment)
+            .expect("promotion should succeed");
 
     assert!(promoted.is_geometry_authored());
     assert!(

@@ -133,5 +133,4 @@ impl ArcChannelStrategy {
 
         wall_limit.min(neighbor_limit).max(0.0)
     }
-
 }

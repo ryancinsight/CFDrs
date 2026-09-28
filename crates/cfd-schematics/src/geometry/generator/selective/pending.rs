@@ -8,4 +8,3 @@ pub(super) struct PendingVenturiPath {
     pub(super) preferred_y: f64,
     pub(super) fallback_length_m: f64,
 }
-

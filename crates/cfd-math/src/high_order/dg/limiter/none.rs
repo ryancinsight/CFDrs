@@ -1,6 +1,6 @@
-use super::traits::Limiter;
-use super::params::LimiterParams;
 use super::super::DGSolution;
+use super::params::LimiterParams;
+use super::traits::Limiter;
 use crate::error::Result;
 
 /// No limiting (identity operator)

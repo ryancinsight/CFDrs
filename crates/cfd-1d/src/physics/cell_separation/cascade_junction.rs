@@ -51,10 +51,10 @@
 //!   the Zweifach-Fung effect. *J. Fluid Mech.*, 674, 359-388.
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038-3046.
 
-mod types;
 pub mod cascade_routing;
 pub mod incremental_filtration;
 pub mod routing_probability;
+mod types;
 
 pub use types::{
     CascadeJunctionResult, CascadeStage, IncrementalFiltrationResult, PeripheralRecovery,

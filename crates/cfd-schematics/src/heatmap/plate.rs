@@ -46,4 +46,3 @@ pub(super) fn px_x(mm: f64) -> f64 {
 pub(super) fn px_y(mm: f64) -> f64 {
     MARGIN_Y + mm_to_px(mm)
 }
-

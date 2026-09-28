@@ -62,4 +62,3 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
     }
     builder.finish()
 }
-

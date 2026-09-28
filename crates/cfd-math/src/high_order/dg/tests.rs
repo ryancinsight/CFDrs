@@ -1,6 +1,5 @@
 use leto::{Array1, Array2};
 
-
 /// The copy-then-accumulate pair this replaced, as the differential
 /// oracle: allocate the column, then add it scaled.
 fn add_assign_scaled_via_column_copy(

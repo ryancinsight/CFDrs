@@ -1,6 +1,6 @@
-use super::traits::Limiter;
-use super::params::LimiterParams;
 use super::super::{DGSolution, matrix_cols};
+use super::params::LimiterParams;
+use super::traits::Limiter;
 use crate::error::Result;
 
 /// Minmod limiter (most diffusive)

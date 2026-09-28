@@ -20,8 +20,7 @@ fn symmetric_split_equal_distribution() {
 #[test]
 fn center_biased_increases_separation() {
     // Center-biased split should increase separation relative to symmetric.
-    let r_sym =
-        cascade_junction_separation(2, 1.0 / 3.0, length(2e-3), length(1e-3), flow(5e-6));
+    let r_sym = cascade_junction_separation(2, 1.0 / 3.0, length(2e-3), length(1e-3), flow(5e-6));
     let r_bias = cascade_junction_separation(2, 0.55, length(2e-3), length(1e-3), flow(5e-6));
     // Biased split: q_center_frac > 1/3 → stronger Zweifach-Fung routing
     assert!(r_bias.cancer_center_fraction >= r_sym.cancer_center_fraction - 1e-10);
@@ -124,16 +123,14 @@ fn incremental_filtration_terminal_tri_center_bias_improves_cancer_center_fracti
 
 #[test]
 fn cascade_qfrac_api_matches_uniform_width_model() {
-    let width_model =
-        cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6));
+    let width_model = cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6));
     let q = tri_center_q_frac(0.45);
     let solved_like = cascade_junction_separation_from_qfracs(&[q, q, q]);
     assert!(
         (width_model.cancer_center_fraction - solved_like.cancer_center_fraction).abs() < 1e-12
     );
     assert!(
-        (width_model.rbc_peripheral_fraction - solved_like.rbc_peripheral_fraction).abs()
-            < 1e-12
+        (width_model.rbc_peripheral_fraction - solved_like.rbc_peripheral_fraction).abs() < 1e-12
     );
 }
 
@@ -343,4 +340,3 @@ fn mixed_cascade_deeper_improves_separation() {
     let r2 = mixed_cascade_separation(&[(q_tri, true), (q_tri, true)]);
     assert!(r2.separation_efficiency >= r1.separation_efficiency - 1e-10);
 }
-

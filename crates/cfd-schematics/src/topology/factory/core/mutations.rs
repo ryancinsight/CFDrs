@@ -1,6 +1,6 @@
 use crate::topology::model::{
-    SerpentineSpec, SplitKind, ThroatGeometrySpec, TreatmentActuationMode,
-    VenturiPlacementMode, VenturiPlacementSpec,
+    SerpentineSpec, SplitKind, ThroatGeometrySpec, TreatmentActuationMode, VenturiPlacementMode,
+    VenturiPlacementSpec,
 };
 
 /// High-level mutations available to the GA optimization engine.
@@ -79,4 +79,3 @@ pub enum BlueprintTopologyMutation {
         venturi_placement_mode: VenturiPlacementMode,
     },
 }
-

@@ -48,4 +48,3 @@ impl ChannelTypeStrategy for ArcChannelStrategy {
         ChannelType::Arc { path }
     }
 }
-

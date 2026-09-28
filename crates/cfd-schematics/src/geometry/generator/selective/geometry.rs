@@ -9,4 +9,3 @@ pub(super) struct SelectiveTreeGeometry {
     pub(super) throat_length_m: f64,
     pub(super) channel_height_m: f64,
 }
-

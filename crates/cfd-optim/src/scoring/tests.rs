@@ -1,7 +1,7 @@
-use crate::constraints::HI_PASS_LIMIT;
-use super::sigmoid_penalty;
-use crate::metrics::SdtMetrics;
 use super::score::score_candidate_impl;
+use super::sigmoid_penalty;
+use crate::constraints::HI_PASS_LIMIT;
+use crate::metrics::SdtMetrics;
 
 use super::*;
 use proptest::prelude::*;

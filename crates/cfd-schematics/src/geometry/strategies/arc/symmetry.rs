@@ -63,5 +63,4 @@ impl ArcChannelStrategy {
 
         distance_from_center > threshold
     }
-
 }

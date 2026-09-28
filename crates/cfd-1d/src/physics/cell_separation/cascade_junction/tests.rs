@@ -5,11 +5,11 @@
 //! thousand-line file. The shared prelude below is re-exported so every leaf
 //! reaches the model through one `use super::*;`.
 
-pub(crate) use aequitas::systems::si::quantities::{Length, Velocity, VolumetricFlowRate};
 pub(crate) use super::cascade_routing::*;
 pub(crate) use super::incremental_filtration::*;
 pub(crate) use super::routing_probability::*;
 pub(crate) use super::*;
+pub(crate) use aequitas::systems::si::quantities::{Length, Velocity, VolumetricFlowRate};
 
 pub(crate) fn length(value: f64) -> Length {
     Length::from_base(value)

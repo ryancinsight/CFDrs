@@ -1,7 +1,5 @@
 use super::basis::{BasisType, DGBasis};
-use super::{
-    Limiter, LimiterParams, matrix_cols, matrix_zeros, vector_len, vector_zeros,
-};
+use super::{Limiter, LimiterParams, matrix_cols, matrix_zeros, vector_len, vector_zeros};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};

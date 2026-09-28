@@ -1,5 +1,5 @@
-use crate::error::Result;
 use super::super::DGOperator;
+use crate::error::Result;
 use leto::Array2;
 
 use super::super::{matrix_from_element, matrix_neg, vector_from_vec};

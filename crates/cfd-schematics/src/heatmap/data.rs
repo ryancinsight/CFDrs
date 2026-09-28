@@ -30,4 +30,3 @@ pub fn write_well_plate_diagram_svg(
     std::fs::write(output_path, svg.as_bytes())?;
     Ok(())
 }
-

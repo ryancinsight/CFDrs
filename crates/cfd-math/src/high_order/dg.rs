@@ -79,13 +79,12 @@
 //! re-exports their public surface, so every path that existed before the split
 //! (`dg::DGSolution`, `dg::matrix_cols`, ...) still resolves.
 
-
 #![warn(missing_docs)]
 
 mod basis;
 mod flux;
-mod linalg;
 mod limiter;
+mod linalg;
 mod operators;
 mod solution;
 mod solver;

@@ -1,6 +1,6 @@
-use super::config::DESVariant;
 use super::super::traits::LESTurbulenceModel;
 use super::DetachedEddySimulation;
+use super::config::DESVariant;
 use leto::geometry::Vector2;
 use leto::{Array2, Storage, StorageMut};
 use std::f64;

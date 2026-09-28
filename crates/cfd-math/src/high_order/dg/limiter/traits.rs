@@ -1,5 +1,5 @@
-use super::params::LimiterParams;
 use super::super::DGSolution;
+use super::params::LimiterParams;
 use crate::error::Result;
 
 /// Trait for slope limiters

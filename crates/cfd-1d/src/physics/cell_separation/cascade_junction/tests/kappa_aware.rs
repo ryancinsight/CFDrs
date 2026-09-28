@@ -83,10 +83,9 @@ fn tri_asymmetric_wider_periph_gets_more_flow() {
 
 #[test]
 fn checked_tri_asymmetric_q_fracs_reject_overfull_width_budget() {
-    let err = checked_tri_asymmetric_q_fracs(0.70, 0.35, length(4e-3), length(1e-3))
-        .expect_err(
-            "checked asymmetric trifurcation flow fractions must reject overfull width budgets",
-        );
+    let err = checked_tri_asymmetric_q_fracs(0.70, 0.35, length(4e-3), length(1e-3)).expect_err(
+        "checked asymmetric trifurcation flow fractions must reject overfull width budgets",
+    );
     assert!(err.to_string().contains("positive right-arm width"));
 }
 
@@ -136,8 +135,7 @@ fn kappa_aware_higher_beta_than_legacy_for_stiff_cells_in_narrow_channel() {
     );
     // RBC routing must be unchanged (deformable, β stays 1.0)
     assert!(
-        (kappa_result.rbc_peripheral_fraction - legacy_result.rbc_peripheral_fraction).abs()
-            < 1e-9,
+        (kappa_result.rbc_peripheral_fraction - legacy_result.rbc_peripheral_fraction).abs() < 1e-9,
         "RBC routing must be unchanged by κ correction"
     );
 }
@@ -207,4 +205,3 @@ fn kappa_aware_deeper_cascade_still_improves_separation() {
         "3-stage TriTriTri should improve separation efficiency"
     );
 }
-

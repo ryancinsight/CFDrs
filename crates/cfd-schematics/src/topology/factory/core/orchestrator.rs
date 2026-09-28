@@ -50,7 +50,10 @@ impl BlueprintTopologyFactory {
         if resolved_spec.has_venturi()
             && !Self::has_materialized_venturi_geometry(&blueprint, &resolved_spec)
         {
-            super::super::modifiers::venturi::apply_venturi_placements(&mut blueprint, &resolved_spec)?;
+            super::super::modifiers::venturi::apply_venturi_placements(
+                &mut blueprint,
+                &resolved_spec,
+            )?;
         }
 
         Ok(blueprint)

@@ -10,8 +10,8 @@ pub use mutations::BlueprintTopologyMutation;
 pub use orchestrator::BlueprintTopologyFactory;
 
 mod build_impl;
-mod mutations;
 mod mutation_impl;
+mod mutations;
 mod orchestrator;
 mod spec_analysis_impl;
 

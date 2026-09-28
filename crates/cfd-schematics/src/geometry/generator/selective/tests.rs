@@ -189,8 +189,7 @@ fn primitive_selective_tri_tri_retains_multiple_treatment_window_lanes() {
     let mid_x = blueprint.box_dims.0 * 0.5;
     let mut lane_keys = std::collections::BTreeSet::new();
     for channel in &blueprint.channels {
-        if channel.therapy_zone
-            != Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+        if channel.therapy_zone != Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
         {
             continue;
         }
@@ -232,26 +231,20 @@ fn primitive_selective_tri_tri_retains_multiple_treatment_window_lanes() {
 
 #[test]
 fn monotone_treatment_routing_preserves_equal_y_lane() {
-    let routed = route_monotone_treatment_path(
-        Some((10.0, 24.0)),
-        Some((40.0, 24.0)),
-        24.0,
-        42.0,
-        |_| false,
-    );
+    let routed =
+        route_monotone_treatment_path(Some((10.0, 24.0)), Some((40.0, 24.0)), 24.0, 42.0, |_| {
+            false
+        });
     assert_eq!(routed, vec![(10.0, 24.0), (40.0, 24.0)]);
 }
 
 #[test]
 fn monotone_treatment_routing_doglegs_around_existing_branch() {
     let existing_paths = vec![vec![(3.0, 0.0), (7.0, 4.0)]];
-    let routed = route_monotone_treatment_path(
-        Some((0.0, 2.0)),
-        Some((10.0, 2.0)),
-        0.0,
-        2.0,
-        |candidate| path_intersects_any(candidate, existing_paths.iter()),
-    );
+    let routed =
+        route_monotone_treatment_path(Some((0.0, 2.0)), Some((10.0, 2.0)), 0.0, 2.0, |candidate| {
+            path_intersects_any(candidate, existing_paths.iter())
+        });
 
     assert!(
         routed.len() > 2,

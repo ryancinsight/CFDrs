@@ -5,4 +5,3 @@ pub(super) fn cancer_cav_color(v: f64) -> String {
     let g = ((1.0 - t) * 215.0) as u8;
     format!("#{r:02X}{g:02X}00")
 }
-

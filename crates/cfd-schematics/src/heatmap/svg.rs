@@ -2,8 +2,8 @@ use super::data::CandidateZoneData;
 use super::palette::cancer_cav_color;
 use super::plate::{
     MARGIN_X, MARGIN_Y, PITCH, PLATE_H_MM, PLATE_W_MM, WELL_A1_X, WELL_A1_Y, WELL_R,
-    ZONE_CENTER_SPAN_MM, ZONE_COL_START, ZONE_ENVELOPE_MM, ZONE_ROW_START, ZONE_WELLS,
-    mm_to_px, px_x, px_y,
+    ZONE_CENTER_SPAN_MM, ZONE_COL_START, ZONE_ENVELOPE_MM, ZONE_ROW_START, ZONE_WELLS, mm_to_px,
+    px_x, px_y,
 };
 use std::fmt::Write;
 
@@ -231,4 +231,3 @@ pub(super) fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
     s.push_str("</svg>\n");
     s
 }
-

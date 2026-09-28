@@ -105,4 +105,3 @@ fn recovery_bounded_by_one() {
         "rbc center must be <= 1.0"
     );
 }
-

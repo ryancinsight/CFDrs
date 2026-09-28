@@ -100,5 +100,4 @@ impl ArcChannelStrategy {
             num_points,
         )
     }
-
 }

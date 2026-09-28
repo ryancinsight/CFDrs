@@ -1,9 +1,9 @@
-use super::config::DESConfig;
 use super::super::boundary_conditions::TurbulenceBoundaryCondition;
 use super::super::spalart_allmaras::SpalartAllmaras;
+use super::config::DESConfig;
 use cfd_core::error::Error;
-use leto::geometry::Vector2;
 use leto::Array2;
+use leto::geometry::Vector2;
 use std::f64;
 
 /// Detached Eddy Simulation model
