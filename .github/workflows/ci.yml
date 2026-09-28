@@ -141,11 +141,16 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Doctests
-        run: cargo test --doc --workspace --locked
-
+      # Archive before doctests: doctests need their own `rustc --test`-style
+      # compilation, distinct from clippy's metadata-only check. Building the
+      # nextest archive first warms the incremental cache doctests reuse -
+      # measured at 6min standalone (PR 490 run 36468532424) vs 5s when it
+      # ran after the equivalent compile in the pre-split single job.
       - name: Archive test binaries
         run: cargo nextest archive --workspace --locked --archive-file "$NEXTEST_ARCHIVE"
+
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
 
       - name: Upload test archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
