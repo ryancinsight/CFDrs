@@ -8,6 +8,23 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_TOOLCHAIN: 1.97.0
+  NEXTEST_VERSION: 0.9.140
+  NEXTEST_ARCHIVE: target/nextest-archive.tar.zst
+  # Keep the measured finite-volume/FEM cases out of the parallel partitions:
+  # each fits its own 30s per-test budget but the group contends for CPU when
+  # several land on one shard together, so it runs alone, single-threaded, in
+  # its own job. Shared by the rust-test and rust-numerical jobs below.
+  NUMERICAL_FIDELITY_FILTER: >-
+    test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) |
+    test(/test_venturi_blood_flow/) |
+    test(/ga_validation_geometry_produces_converged_informative_2d_result/) |
+    test(/microventuri_fallback_case_produces_converged_informative_2d_result/) |
+    test(/microventuri_35um_case_produces_converged_informative_2d_result/) |
+    test(/cross_fidelity_trifurcation_dominance/) |
+    test(/test_benchmark_run_integration/) |
+    test(/test_step_11_lid_driven_cavity/) |
+    test(/cross_fidelity_stenosis_shear_thinning/) |
+    test(/cross_fidelity_venturi_(two_dimensional|three_dimensional)_loss_coefficient/)
 
 permissions:
   contents: read
@@ -49,27 +66,17 @@ jobs:
   lockfile:
     uses: ryancinsight/atlas/.github/workflows/lockfile-guard.yml@886d85b0e4bea20c8e5ec4b4239e6ba9cdbcf74d
 
-  rust-workspace:
-    name: Rust workspace gate
+  # Compiles once (format, clippy, test binaries) and archives the test
+  # binaries for the rust-test/rust-numerical shards below, so the 11.5min
+  # single-job "Tests" step (measured on run 36368805748) never recompiles
+  # per shard. `cargo nextest archive` builds like `cargo nextest run` would;
+  # the archive is a self-contained tarball of test binaries plus metadata.
+  rust-build:
+    name: Rust workspace build
     needs: lockfile
     if: ${{ needs.lockfile.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      # Keep the measured finite-volume/FEM cases out of the parallel suite.
-      # They are run in a second invocation below so unrelated tests cannot
-      # consume the hosted runner while their existing per-test budget holds.
-      NUMERICAL_FIDELITY_FILTER: >-
-        test(/primitive_selective_split_tree_1d_2d_cross_fidelity/) |
-        test(/test_venturi_blood_flow/) |
-        test(/ga_validation_geometry_produces_converged_informative_2d_result/) |
-        test(/microventuri_fallback_case_produces_converged_informative_2d_result/) |
-        test(/microventuri_35um_case_produces_converged_informative_2d_result/) |
-        test(/cross_fidelity_trifurcation_dominance/) |
-        test(/test_benchmark_run_integration/) |
-        test(/test_step_11_lid_driven_cavity/) |
-        test(/cross_fidelity_stenosis_shear_thinning/) |
-        test(/cross_fidelity_venturi_(two_dimensional|three_dimensional)_loss_coefficient/)
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -89,14 +96,14 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
         with:
-          tool: cargo-nextest@0.9.140
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
 
       - name: Install native fontconfig headers
         run: |
           # Each apt call is bounded and retried: an unbounded apt-get can stall
           # on the dpkg lock held by unattended-upgrades early in a runner's
           # life, and without a deadline that silently consumes the whole
-          # 60-minute job budget instead of failing fast.
+          # job budget instead of failing fast.
           for attempt in 1 2 3; do
             if sudo timeout 240 apt-get update               && sudo timeout 240 apt-get install --yes libfontconfig1-dev; then
               exit 0
@@ -134,14 +141,108 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Tests
-        run: cargo nextest run --workspace --no-fail-fast --locked -E "not ($NUMERICAL_FIDELITY_FILTER)"
-
-      - name: Numerical fidelity tests
-        run: cargo nextest run --workspace --no-fail-fast --locked -E "$NUMERICAL_FIDELITY_FILTER" --test-threads 1
-
       - name: Doctests
         run: cargo test --doc --workspace --locked
+
+      - name: Archive test binaries
+        run: cargo nextest archive --workspace --locked --archive-file "$NEXTEST_ARCHIVE"
+
+      - name: Upload test archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nextest-archive-cfdrs
+          path: ${{ env.NEXTEST_ARCHIVE }}
+          retention-days: 1
+
+  # Runs the archived binaries built above, partitioned across independent
+  # runners so wall time drops with shard count instead of scaling with the
+  # whole suite. No recompilation: each shard only downloads and executes.
+  rust-test:
+    name: Rust tests (shard ${{ matrix.partition }}/4)
+    needs: rust-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install nextest
+        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
+        with:
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
+
+      - name: Download test archive
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nextest-archive-cfdrs
+
+      - name: Tests
+        run: >-
+          cargo nextest run --no-fail-fast
+          --archive-file "$NEXTEST_ARCHIVE"
+          --partition count:${{ matrix.partition }}/4
+          -E "not ($NUMERICAL_FIDELITY_FILTER)"
+
+  # Kept off the sharded partitions and single-threaded: these cases contend
+  # for CPU when several start together (measured), so they run alone. A
+  # dedicated job rather than a second invocation inside rust-build, so it
+  # reuses the archive instead of recompiling.
+  rust-numerical:
+    name: Numerical fidelity tests
+    needs: rust-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Install nextest
+        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
+        with:
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
+
+      - name: Download test archive
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: nextest-archive-cfdrs
+
+      - name: Numerical fidelity tests
+        run: >-
+          cargo nextest run --no-fail-fast
+          --archive-file "$NEXTEST_ARCHIVE"
+          -E "$NUMERICAL_FIDELITY_FILTER" --test-threads 1
+
+  # The required status check name predates this split (branch protection
+  # names "Rust workspace gate" literally); this aggregate keeps that name
+  # live while the work underneath it runs as build + sharded/numerical test
+  # jobs. Mirrors the reusable semver-gate's needs-and-fail-on-any shape.
+  rust-workspace:
+    name: Rust workspace gate
+    needs: [rust-build, rust-test, rust-numerical]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every upstream job green
+        run: |
+          for result in "${{ needs.rust-build.result }}" "${{ needs.rust-test.result }}" "${{ needs.rust-numerical.result }}"; do
+            if [ "$result" != "success" ]; then
+              echo "a required rust-workspace job did not succeed: $result" >&2
+              exit 1
+            fi
+          done
 
   check-figures:
     name: Check book figures SSOT
