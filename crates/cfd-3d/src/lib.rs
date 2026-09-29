@@ -141,7 +141,7 @@ pub use level_set::{LevelSetConfig, LevelSetSolver};
 // Export VOF functionality
 pub use vof::{VofConfig, VofSolver};
 
-// CSG integration from cfd-mesh - feature-gated for optional dependency
+// CSG integration from cfd-mesh
 
 #[cfg(test)]
 mod tests {

@@ -18,7 +18,7 @@ aequitas = { workspace = true, features = ["serde"] }
 # and the geometry substrate it writes into. It lives here rather than in the
 # geometry provider so the dependency stays one-way (CFDrs -> gaia).
 cfd-schematics.workspace = true
-cfd-mesh = { workspace = true, features = ["millifluidic"] }
+cfd-mesh = { workspace = true }
 
 # Supplied by gaia while the pipeline lived there; now declared directly.
 hashbrown.workspace = true
