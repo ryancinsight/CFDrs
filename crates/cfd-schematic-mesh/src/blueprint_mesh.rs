@@ -824,17 +824,36 @@ fn synthesize_complex_layout(
         .collect();
     let n_nodes = node_ids.len();
 
-    // Adjacency list: adj[u] = list of (v) for edge u → v.
-    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n_nodes];
+    // Adjacency stored as CSR: node `u`'s successors are
+    // `adj_targets[adj_offsets[u]..adj_offsets[u + 1]]`. Two passes over the
+    // validated edge list (count, then fill by cursor) replace the
+    // `n_nodes` separate per-node `Vec<usize>` allocations of the prior
+    // `Vec<Vec<usize>>` with two contiguous buffers, preserving each node's
+    // successor order exactly (edges land in `bp.channels` iteration order,
+    // same as the original per-node `push`).
     let mut in_degree: Vec<usize> = vec![0; n_nodes];
+    let mut out_degree: Vec<usize> = vec![0; n_nodes];
+    let mut edges: Vec<(usize, usize)> = Vec::with_capacity(bp.channels.len());
     for ch in &bp.channels {
         if let (Some(&u), Some(&v)) = (
             node_index.get(ch.from.as_str()),
             node_index.get(ch.to.as_str()),
         ) {
-            adj[u].push(v);
+            out_degree[u] += 1;
             in_degree[v] += 1;
+            edges.push((u, v));
         }
+    }
+    let mut adj_offsets: Vec<usize> = Vec::with_capacity(n_nodes + 1);
+    adj_offsets.push(0);
+    for &d in &out_degree {
+        adj_offsets.push(adj_offsets[adj_offsets.len() - 1] + d);
+    }
+    let mut adj_targets: Vec<usize> = vec![0; edges.len()];
+    let mut adj_cursor = adj_offsets.clone();
+    for (u, v) in edges {
+        adj_targets[adj_cursor[u]] = v;
+        adj_cursor[u] += 1;
     }
 
     // Kahn's BFS: seed with all zero-in-degree vertices, propagate depths.
@@ -846,7 +865,7 @@ fn synthesize_complex_layout(
         }
     }
     while let Some(u) = queue.pop_front() {
-        for &v in &adj[u] {
+        for &v in &adj_targets[adj_offsets[u]..adj_offsets[u + 1]] {
             // Relax: longest-path distance.
             let new_d = depth_vec[u] + 1;
             if new_d > depth_vec[v] {
@@ -1637,12 +1656,29 @@ fn build_complex_fluid_mesh(
     let mut consumed = vec![false; layout.len()];
     let mut chains: Vec<Vec<usize>> = Vec::new();
 
-    // Build node → segment index adjacency.
-    let mut node_segs: Vec<Vec<usize>> = vec![Vec::new(); n_nodes];
-    for (si, &(s, e)) in seg_nodes.iter().enumerate() {
-        node_segs[s].push(si);
-        node_segs[e].push(si);
+    // Build node → segment index adjacency as CSR, keyed by the node
+    // degrees already computed in Step 2: `node_seg_offsets[n]..
+    // node_seg_offsets[n + 1]` indexes `node_seg_targets` for node `n`.
+    // `sum(degree) == 2 * seg_nodes.len()` exactly (each segment increments
+    // both its endpoints' degree once), matching `node_seg_targets`'s
+    // length; the fill cursor preserves each node's original push order
+    // (`s` before `e`, in `seg_nodes` iteration order), so `find()` below
+    // picks the same "next unconsumed segment" as the prior `Vec<Vec<_>>`.
+    let mut node_seg_offsets: Vec<usize> = Vec::with_capacity(n_nodes + 1);
+    node_seg_offsets.push(0);
+    for &d in &degree {
+        node_seg_offsets.push(node_seg_offsets[node_seg_offsets.len() - 1] + d);
     }
+    let mut node_seg_targets: Vec<usize> = vec![0; 2 * seg_nodes.len()];
+    let mut node_seg_cursor = node_seg_offsets.clone();
+    for (si, &(s, e)) in seg_nodes.iter().enumerate() {
+        node_seg_targets[node_seg_cursor[s]] = si;
+        node_seg_cursor[s] += 1;
+        node_seg_targets[node_seg_cursor[e]] = si;
+        node_seg_cursor[e] += 1;
+    }
+    let node_segs_of =
+        |node: usize| &node_seg_targets[node_seg_offsets[node]..node_seg_offsets[node + 1]];
 
     for start_seg in 0..layout.len() {
         if consumed[start_seg] {
@@ -1657,7 +1693,7 @@ fn build_complex_fluid_mesh(
             if degree[tip] != 2 {
                 break;
             }
-            if let Some(si) = node_segs[tip].iter().find(|&&si| !consumed[si]).copied() {
+            if let Some(si) = node_segs_of(tip).iter().find(|&&si| !consumed[si]).copied() {
                 consumed[si] = true;
                 let (ns, ne) = seg_nodes[si];
                 tip = if ns == tip { ne } else { ns };
@@ -1673,7 +1709,11 @@ fn build_complex_fluid_mesh(
             if degree[head] != 2 {
                 break;
             }
-            if let Some(si) = node_segs[head].iter().find(|&&si| !consumed[si]).copied() {
+            if let Some(si) = node_segs_of(head)
+                .iter()
+                .find(|&&si| !consumed[si])
+                .copied()
+            {
                 consumed[si] = true;
                 let (ns, ne) = seg_nodes[si];
                 head = if ns == head { ne } else { ns };
@@ -1972,9 +2012,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn pipeline_handles_complex_topology() {
-        // Build a blueprint with complex topology manually
+    /// Five-channel blueprint with a degree-4 junction (`j1`: three edges to
+    /// `j2`, one to `outlet`) and an isolated zero-degree node (`j3`) — the
+    /// multi-edge, multi-seed shape `pipeline_handles_complex_topology` and
+    /// the ARCH-008 adjacency-CSR pin below both exercise.
+    fn five_channel_complex_bp() -> (cfd_schematics::NetworkBlueprint, PipelineConfig) {
         use cfd_schematics::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
         let mut bp = NetworkBlueprint {
             name: "complex".to_string(),
@@ -2016,6 +2058,12 @@ mod tests {
             skip_diameter_constraint: true,
             ..Default::default()
         };
+        (bp, cfg)
+    }
+
+    #[test]
+    fn pipeline_handles_complex_topology() {
+        let (bp, cfg) = five_channel_complex_bp();
         let result = BlueprintMeshPipeline::run(&bp, &cfg)
             .expect("complex topology should be supported by graph layout synthesis");
         assert_eq!(result.topology_class, TopologyClass::Complex);
@@ -2040,6 +2088,99 @@ mod tests {
                 .iter()
                 .all(|segment| segment.diameter.in_unit::<Millimeter>() > 0.0)
         );
+    }
+
+    /// ARCH-008 characterization pin for `synthesize_complex_layout`'s
+    /// `adj: Vec<Vec<usize>>` DAG-adjacency traversal (line ~828). `j1` has
+    /// out-degree 4 (three edges to `j2`, one to `outlet`), so Kahn's BFS
+    /// must visit `adj[j1]` in push order for the depth-derived X/Y
+    /// positions below to come out exactly this way; a CSR conversion that
+    /// reorders a node's successors would move these values.
+    #[test]
+    fn complex_topology_pins_synthesized_segment_positions() {
+        let (bp, cfg) = five_channel_complex_bp();
+        let result = BlueprintMeshPipeline::run(&bp, &cfg)
+            .expect("complex topology should be supported by graph layout synthesis");
+        let expected: &[(&str, &str, f64, f64, f64, f64)] = &[
+            ("inlet", "j2", 0.0, 5.0, 127.76, 5.0),
+            ("j1", "j2", 0.0, 42.735, 127.76, 5.0),
+            ("j1", "j2", 0.0, 42.735, 127.76, 5.0),
+            ("j1", "j2", 0.0, 42.735, 127.76, 5.0),
+            ("j1", "outlet", 0.0, 42.735, 127.76, 80.47),
+        ];
+        assert_eq!(result.layout_segments.len(), expected.len());
+        for (segment, &(from, to, x0, y0, x1, y1)) in
+            result.layout_segments.iter().zip(expected.iter())
+        {
+            assert_eq!(segment.from_node_id.as_deref(), Some(from));
+            assert_eq!(segment.to_node_id.as_deref(), Some(to));
+            let eps = 1e-9;
+            assert!(
+                (segment.x0.in_unit::<Millimeter>() - x0).abs() < eps,
+                "x0: {} vs {x0}",
+                segment.x0.in_unit::<Millimeter>()
+            );
+            assert!(
+                (segment.y0.in_unit::<Millimeter>() - y0).abs() < eps,
+                "y0: {} vs {y0}",
+                segment.y0.in_unit::<Millimeter>()
+            );
+            assert!(
+                (segment.x1.in_unit::<Millimeter>() - x1).abs() < eps,
+                "x1: {} vs {x1}",
+                segment.x1.in_unit::<Millimeter>()
+            );
+            assert!(
+                (segment.y1.in_unit::<Millimeter>() - y1).abs() < eps,
+                "y1: {} vs {y1}",
+                segment.y1.in_unit::<Millimeter>()
+            );
+        }
+    }
+
+    /// ARCH-008 characterization pin for `build_complex_fluid_mesh`'s
+    /// `node_segs: Vec<Vec<usize>>` node→segment adjacency (line ~1641).
+    /// `a`–`b`–`c` share the degree-2 node `b` and must merge into one
+    /// two-segment polyline chain; the disjoint `e`–`f` segment stays its
+    /// own single-segment chain. A CSR conversion that mis-orders
+    /// `node_segs[b]` would pick the wrong "next unconsumed segment" during
+    /// chain extension and change which segments merge.
+    #[test]
+    fn complex_fluid_mesh_pins_chain_grouping() {
+        use cfd_schematics::CrossSectionSpec;
+        let cross_section = CrossSectionSpec::Circular {
+            diameter_m: Length::from_unit::<Millimeter>(1.0),
+        };
+        let layout = vec![
+            channel_segment(
+                Point3r::new(0.0, 0.0, 0.0),
+                Point3r::new(4.0, 0.0, 0.0),
+                cross_section,
+                "seg-a-b",
+                "a",
+                "b",
+            ),
+            channel_segment(
+                Point3r::new(4.0, 0.0, 0.0),
+                Point3r::new(8.0, 0.0, 0.0),
+                cross_section,
+                "seg-b-c",
+                "b",
+                "c",
+            ),
+            channel_segment(
+                Point3r::new(20.0, 0.0, 0.0),
+                Point3r::new(24.0, 0.0, 0.0),
+                cross_section,
+                "seg-e-f",
+                "e",
+                "f",
+            ),
+        ];
+        let mesh = build_complex_fluid_mesh(&layout, &PipelineConfig::default())
+            .expect("one degree-2 chain plus one isolated segment should mesh");
+        assert_eq!(mesh.vertex_count(), 84);
+        assert_eq!(mesh.face_count(), 160);
     }
 
     #[test]
