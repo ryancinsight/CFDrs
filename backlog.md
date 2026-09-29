@@ -1,14 +1,4 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
-<a id="CFDRS-EXISTENCE-ONLY-ASSERTIONS"></a>
-## CFDRS-EXISTENCE-ONLY-ASSERTIONS — four assertions no defect can fail [patch]
-- Status: todo; priority: P0; integrator: claude-opus-5; last-update: 2026-09-23.
-
-
-- integrator: claude-opus-5; branch: `test/cfdrs-existence-only-assertions`.
-- finding: four sites assert only which `Result` variant came back, so each passes against an implementation returning the right shape and the wrong answer. The atlas debt gate caught them on the pin advance: 0 -> 2.
-- outcome: each asserts the value instead.
-- oracle: zero matches for the scan's existence-only pattern in `crates/`.
-
 ## Hosted evidence checkpoint — 2026-08-19
 
 Default `931ee3a0130a5238461a1ee9547e12aef11e90bf` passes hosted run
