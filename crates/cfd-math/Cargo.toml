@@ -63,6 +63,10 @@ name = "multigrid_smoother_bench"
 harness = false
 
 [[bench]]
+name = "dg_benchmarks"
+harness = false
+
+[[bench]]
 name = "imex_bench"
 harness = false
 

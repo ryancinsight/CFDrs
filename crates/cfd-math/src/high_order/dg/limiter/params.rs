@@ -5,10 +5,6 @@ pub enum LimiterType {
     None,
     /// Minmod limiter (most diffusive)
     Minmod,
-    /// Monotonized Central (MC) limiter
-    MC,
-    /// Superbee limiter (least diffusive)
-    Superbee,
     /// TVB (Total Variation Bounded) limiter
     TVB,
     /// Moment limiter (for high-order methods)

@@ -24,28 +24,12 @@ pub type JacobianFn<'a> = dyn Fn(f64, &Array2<f64>) -> Result<Array2<f64>> + 'a;
 pub enum TimeIntegration {
     /// Forward Euler (1st order explicit)
     ForwardEuler,
-    /// Runge-Kutta 2nd order (Heun's method)
-    RK2,
-    /// Runge-Kutta 3rd order
-    RK3,
     /// Classic 4th order Runge-Kutta
     RK4,
     /// Strong Stability Preserving RK3 (3rd order)
     SSPRK3,
-    /// Adams-Bashforth 2nd order
-    AB2,
-    /// Adams-Bashforth 3rd order
-    AB3,
     /// Implicit Euler (1st order)
     ImplicitEuler,
-    /// Crank-Nicolson (2nd order)
-    CrankNicolson,
-    /// DIRK2 (2nd order Diagonally Implicit RK)
-    DIRK2,
-    /// IMEX RK2 (2nd order Implicit-Explicit)
-    IMEXRK2,
-    /// IMEX RK3 (3rd order Implicit-Explicit)
-    IMEXRK3,
 }
 
 /// Configuration for time stepping strategy
@@ -238,36 +222,13 @@ impl Default for TimeStepResult {
     }
 }
 
-/// Trait for time integration methods
-pub trait TimeIntegrator: Send + Sync {
-    /// Take a single time step
-    fn step(
-        &self,
-        t: f64,
-        dt: f64,
-        y: &Array2<f64>,
-        f: &RhsFn<'_>,
-        jac: Option<&JacobianFn<'_>>,
-    ) -> Result<(Array2<f64>, Option<f64>)>;
-
-    /// Get the order of the method
-    fn order(&self) -> usize;
-
-    /// Number of right-hand-side evaluations per step
-    fn stages(&self) -> usize;
-
-    /// Whether the method is implicit
-    fn is_implicit(&self) -> bool;
-
-    /// Whether the method is adaptive
-    fn is_adaptive(&self) -> bool;
-}
-
 /// Forward Euler method (1st order explicit)
+#[derive(Clone)]
 pub struct ForwardEuler;
 
-impl TimeIntegrator for ForwardEuler {
-    fn step(
+impl ForwardEuler {
+    /// Take a single time step
+    pub fn step(
         &self,
         t: f64,
         dt: f64,
@@ -289,16 +250,15 @@ impl TimeIntegrator for ForwardEuler {
     fn is_implicit(&self) -> bool {
         false
     }
-    fn is_adaptive(&self) -> bool {
-        false
-    }
 }
 
 /// Classic 4th order Runge-Kutta method
+#[derive(Clone)]
 pub struct RK4;
 
-impl TimeIntegrator for RK4 {
-    fn step(
+impl RK4 {
+    /// Take a single time step
+    pub fn step(
         &self,
         t: f64,
         dt: f64,
@@ -332,9 +292,6 @@ impl TimeIntegrator for RK4 {
     fn is_implicit(&self) -> bool {
         false
     }
-    fn is_adaptive(&self) -> bool {
-        false
-    }
 }
 
 /// Strong Stability Preserving RK3 (3rd order)
@@ -345,10 +302,12 @@ impl TimeIntegrator for RK4 {
 ///
 /// **Proof sketch**: Each stage is a convex combination of forward Euler steps,
 /// and convex combinations preserve TVD stability (Shu & Osher, 1988).
+#[derive(Clone)]
 pub struct SSPRK3;
 
-impl TimeIntegrator for SSPRK3 {
-    fn step(
+impl SSPRK3 {
+    /// Take a single time step
+    pub fn step(
         &self,
         t: f64,
         dt: f64,
@@ -383,9 +342,6 @@ impl TimeIntegrator for SSPRK3 {
     fn is_implicit(&self) -> bool {
         false
     }
-    fn is_adaptive(&self) -> bool {
-        false
-    }
 }
 
 /// Implicit Euler method (1st order, A-stable)
@@ -393,6 +349,7 @@ impl TimeIntegrator for SSPRK3 {
 /// Uses Newton iteration to solve the implicit system at each step.
 /// A-stability allows arbitrarily large time steps for stiff problems,
 /// though accuracy degrades with O(Δt) truncation error.
+#[derive(Clone)]
 pub struct ImplicitEuler {
     /// Tolerance for Newton's method
     tol: f64,
@@ -416,8 +373,9 @@ impl ImplicitEuler {
     }
 }
 
-impl TimeIntegrator for ImplicitEuler {
-    fn step(
+impl ImplicitEuler {
+    /// Take a single time step
+    pub fn step(
         &self,
         t: f64,
         dt: f64,
@@ -487,9 +445,6 @@ impl TimeIntegrator for ImplicitEuler {
     fn is_implicit(&self) -> bool {
         true
     }
-    fn is_adaptive(&self) -> bool {
-        false
-    }
 }
 
 impl ImplicitEuler {
@@ -533,17 +488,84 @@ impl ImplicitEuler {
     }
 }
 
+/// Time integrator carried by the DG solver: one enum variant per closed-set
+/// integrator, dispatched by an exhaustive match on every time step. The
+/// variant carries its concrete integrator, so the solver holds no vtable
+/// and clones by value.
+#[derive(Clone)]
+pub enum Integrator {
+    /// Forward Euler (1st order explicit)
+    ForwardEuler(ForwardEuler),
+    /// Classic 4th order Runge-Kutta
+    Rk4(RK4),
+    /// Strong Stability Preserving RK3 (3rd order)
+    SspRk3(SSPRK3),
+    /// Implicit Euler (1st order, Newton solve)
+    ImplicitEuler(ImplicitEuler),
+}
+
+impl Integrator {
+    /// Take a single time step. The match is exhaustive over the closed
+    /// integrator set: adding a variant is a compile error until this
+    /// dispatch names it.
+    pub fn step(
+        &self,
+        t: f64,
+        dt: f64,
+        y: &Array2<f64>,
+        f: &RhsFn<'_>,
+        jac: Option<&JacobianFn<'_>>,
+    ) -> Result<(Array2<f64>, Option<f64>)> {
+        match self {
+            Self::ForwardEuler(integrator) => integrator.step(t, dt, y, f, jac),
+            Self::Rk4(integrator) => integrator.step(t, dt, y, f, jac),
+            Self::SspRk3(integrator) => integrator.step(t, dt, y, f, jac),
+            Self::ImplicitEuler(integrator) => integrator.step(t, dt, y, f, jac),
+        }
+    }
+
+    /// Get the order of the carried method
+    pub fn order(&self) -> usize {
+        match self {
+            Self::ForwardEuler(integrator) => integrator.order(),
+            Self::Rk4(integrator) => integrator.order(),
+            Self::SspRk3(integrator) => integrator.order(),
+            Self::ImplicitEuler(integrator) => integrator.order(),
+        }
+    }
+
+    /// Number of right-hand-side evaluations per step of the carried method
+    pub fn stages(&self) -> usize {
+        match self {
+            Self::ForwardEuler(integrator) => integrator.stages(),
+            Self::Rk4(integrator) => integrator.stages(),
+            Self::SspRk3(integrator) => integrator.stages(),
+            Self::ImplicitEuler(integrator) => integrator.stages(),
+        }
+    }
+
+    /// Whether the carried method is implicit
+    pub fn is_implicit(&self) -> bool {
+        match self {
+            Self::ForwardEuler(integrator) => integrator.is_implicit(),
+            Self::Rk4(integrator) => integrator.is_implicit(),
+            Self::SspRk3(integrator) => integrator.is_implicit(),
+            Self::ImplicitEuler(integrator) => integrator.is_implicit(),
+        }
+    }
+}
+
 /// Factory for creating time integrators
 pub struct TimeIntegratorFactory;
 
 impl TimeIntegratorFactory {
     /// Create a new time integrator
-    pub fn create(method: TimeIntegration) -> Box<dyn TimeIntegrator> {
+    pub fn create(method: TimeIntegration) -> Integrator {
         match method {
-            TimeIntegration::ForwardEuler => Box::new(ForwardEuler),
-            TimeIntegration::RK4 => Box::new(RK4),
-            TimeIntegration::ImplicitEuler => Box::new(ImplicitEuler::default()),
-            _ => Box::new(SSPRK3), // Default to SSPRK3
+            TimeIntegration::ForwardEuler => Integrator::ForwardEuler(ForwardEuler),
+            TimeIntegration::RK4 => Integrator::Rk4(RK4),
+            TimeIntegration::SSPRK3 => Integrator::SspRk3(SSPRK3),
+            TimeIntegration::ImplicitEuler => Integrator::ImplicitEuler(ImplicitEuler::default()),
         }
     }
 }

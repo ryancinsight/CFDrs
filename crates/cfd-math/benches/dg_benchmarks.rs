@@ -2,7 +2,10 @@
 //! Benchmarks for Discontinuous Galerkin methods
 
 use cfd_math::error::Result;
-use cfd_math::high_order::dg::*;
+use cfd_math::high_order::dg::{
+    DGOperator, DGOperatorParams, DGSolver, FluxType, TimeIntegration, TimeIntegrationParams,
+    TimeIntegratorFactory,
+};
 use criterion::{Criterion, criterion_group, criterion_main};
 use leto::{Array1, Array2};
 
@@ -36,9 +39,14 @@ fn dg_advection_benchmark(c: &mut Criterion) {
                         let f = |_: f64, u: &Array2<f64>| -> Result<Array2<f64>> {
                             Ok(Array2::from_shape_fn(u.shape(), |idx| -u[idx]))
                         };
+                        // One step per iteration: without the reset the
+                        // solver passes t_final after the first few iterations
+                        // and every later call returns the completed
+                        // early-exit, so the bench measured nothing.
+                        solver.t = 0.0;
                         solver
                             .step(&f, None::<&fn(f64, &Array2<f64>) -> Result<Array2<f64>>>)
-                            .expect("expected value");
+                            .expect("expected value")
                     });
                 },
             );
@@ -80,9 +88,12 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
                             let du_dx = dg_op_clone.compute_derivative(u)?;
                             Ok(Array2::from_shape_fn(u.shape(), |idx| -u[idx] * du_dx[idx]))
                         };
+                        // Same reset as the advection bench: measure one real
+                        // step, not the completed early-exit.
+                        solver.t = 0.0;
                         solver
                             .step(&f, None::<&fn(f64, &Array2<f64>) -> Result<Array2<f64>>>)
-                            .expect("expected value");
+                            .expect("expected value")
                     });
                 },
             );
