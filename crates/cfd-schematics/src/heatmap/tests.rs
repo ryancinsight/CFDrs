@@ -97,22 +97,40 @@ fn cancer_cav_color_extremes() {
 }
 
 #[test]
-fn write_to_file_writes_a_closed_svg_document() {
+fn writer_serializes_the_candidate_diagram() {
     // Unique per process: nextest runs tests in parallel processes, and a
     // fixed name under the shared temp directory is shared mutable state
     // between them -- one process' cleanup deletes another's output.
-    let tmp = std::env::temp_dir().join(format!("cfd-well-plate-{}.svg", std::process::id()));
-    write_well_plate_diagram_svg(&sample_candidates(), &tmp)
+    let process_id = std::process::id();
+    let output_path = std::env::temp_dir().join(format!("cfd-well-plate-{process_id}-primary.svg"));
+    let alternate_output_path =
+        std::env::temp_dir().join(format!("cfd-well-plate-{process_id}-alternate.svg"));
+
+    let candidates = sample_candidates();
+    let mut alternate_candidates = candidates.clone();
+    alternate_candidates
+        .first_mut()
+        .expect("invariant: sample_candidates returns at least one candidate")
+        .label = "ALT-1".into();
+
+    write_well_plate_diagram_svg(&candidates, &output_path)
         .expect("the well-plate diagram must be written");
-    let svg = std::fs::read_to_string(&tmp).expect("the written diagram must be readable");
-    assert!(
-        svg.starts_with("<?xml") || svg.starts_with("<svg"),
-        "the diagram must be an SVG document, got: {:?}",
-        &svg[..svg.len().min(40)]
+    write_well_plate_diagram_svg(&alternate_candidates, &alternate_output_path)
+        .expect("the alternate well-plate diagram must be written");
+
+    let written_svg =
+        std::fs::read_to_string(&output_path).expect("the written diagram must be readable");
+    let alternate_written_svg = std::fs::read_to_string(&alternate_output_path)
+        .expect("the alternate written diagram must be readable");
+
+    assert_eq!(written_svg, build_svg(&candidates));
+    assert_eq!(alternate_written_svg, build_svg(&alternate_candidates));
+    assert_ne!(
+        written_svg, alternate_written_svg,
+        "different candidate inputs must produce different serialized diagrams"
     );
-    assert!(
-        svg.contains("</svg>"),
-        "the diagram must be a closed SVG document"
-    );
-    std::fs::remove_file(&tmp).expect("the temporary diagram must be removable");
+
+    std::fs::remove_file(&output_path).expect("the temporary diagram must be removable");
+    std::fs::remove_file(&alternate_output_path)
+        .expect("the alternate temporary diagram must be removable");
 }
