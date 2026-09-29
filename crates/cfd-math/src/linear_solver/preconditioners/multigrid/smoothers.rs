@@ -1,6 +1,6 @@
 //! Multigrid smoothers for AMG preconditioning
 
-use super::{MultigridSmoother, MultigridVector, SparseMatrix};
+use super::{MultigridVector, SparseMatrix};
 use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto_ops::{Scalar as LetoScalar, spmv as leto_spmv};
 
@@ -39,10 +39,9 @@ impl<T: EunomiaRealField + Copy> GaussSeidelSmoother<T> {
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T>
-    for GaussSeidelSmoother<T>
-{
-    fn apply(
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> GaussSeidelSmoother<T> {
+    /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
+    pub fn apply(
         &self,
         matrix: &SparseMatrix<T>,
         x: &mut MultigridVector<T>,
@@ -75,10 +74,6 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
             }
         }
     }
-
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
-        Box::new(self.clone())
-    }
 }
 
 /// Symmetric Gauss-Seidel smoother
@@ -94,10 +89,9 @@ impl<T: EunomiaRealField + Copy> SymmetricGaussSeidelSmoother<T> {
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T>
-    for SymmetricGaussSeidelSmoother<T>
-{
-    fn apply(
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SymmetricGaussSeidelSmoother<T> {
+    /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
+    pub fn apply(
         &self,
         matrix: &SparseMatrix<T>,
         x: &mut MultigridVector<T>,
@@ -135,10 +129,6 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
             }
         }
     }
-
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
-        Box::new(self.clone())
-    }
 }
 
 /// Jacobi smoother
@@ -154,10 +144,9 @@ impl<T: EunomiaRealField + Copy> JacobiSmoother<T> {
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T>
-    for JacobiSmoother<T>
-{
-    fn apply(
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> JacobiSmoother<T> {
+    /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
+    pub fn apply(
         &self,
         matrix: &SparseMatrix<T>,
         x: &mut MultigridVector<T>,
@@ -192,10 +181,6 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
             }
         }
     }
-
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
-        Box::new(self.clone())
-    }
 }
 
 /// SOR (Successive Over-Relaxation) smoother
@@ -211,10 +196,9 @@ impl<T: EunomiaRealField + Copy> SORSmoother<T> {
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T>
-    for SORSmoother<T>
-{
-    fn apply(
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SORSmoother<T> {
+    /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
+    pub fn apply(
         &self,
         matrix: &SparseMatrix<T>,
         x: &mut MultigridVector<T>,
@@ -246,10 +230,6 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
                 }
             }
         }
-    }
-
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
-        Box::new(self.clone())
     }
 }
 
@@ -314,10 +294,9 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T>
-    for ChebyshevSmoother<T>
-{
-    fn apply(
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T> {
+    /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
+    pub fn apply(
         &self,
         matrix: &SparseMatrix<T>,
         x: &mut MultigridVector<T>,
@@ -372,10 +351,6 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> MultigridSmoother<T
             }
             r = residual(matrix, b, x);
         }
-    }
-
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
-        Box::new(self.clone())
     }
 }
 
