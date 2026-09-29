@@ -2,7 +2,10 @@
 //! Benchmarks for Discontinuous Galerkin methods
 
 use cfd_math::error::Result;
-use cfd_math::high_order::dg::*;
+use cfd_math::high_order::dg::{
+    DGOperator, DGOperatorParams, DGSolver, FluxType, TimeIntegration, TimeIntegrationParams,
+    TimeIntegratorFactory,
+};
 use criterion::{Criterion, criterion_group, criterion_main};
 use leto::{Array1, Array2};
 

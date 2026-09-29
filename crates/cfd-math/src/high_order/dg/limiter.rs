@@ -7,7 +7,6 @@
 //! behind the shared [`Limiter`] trait, so adding a limiter means adding a file
 //! rather than editing one thousand-line root.
 
-mod factory;
 mod minmod;
 mod moment;
 mod none;
@@ -16,7 +15,6 @@ mod traits;
 mod tvb;
 mod weno;
 
-pub use factory::LimiterFactory;
 pub use minmod::MinmodLimiter;
 pub use moment::MomentLimiter;
 pub use none::NoLimiter;
