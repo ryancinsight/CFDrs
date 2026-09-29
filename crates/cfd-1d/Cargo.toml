@@ -49,5 +49,9 @@ harness = false
 name = "direct_solver_cutoff"
 harness = false
 
+[[bench]]
+name = "critical_paths"
+harness = false
+
 [lints]
 workspace = true

@@ -95,7 +95,9 @@ pub struct WallShearSample<T> {
 pub struct BackwardFacingStepResult<T> {
     /// SIMPLE convergence result.
     pub solve: SolveResult<T>,
-    /// Distance from the step face to the first negative-to-nonnegative shear crossing.
+    /// Distance from the step face to the end of the primary recirculation
+    /// bubble: the negative-to-nonnegative shear crossing that closes the
+    /// longest contiguous negative-shear excursion.
     pub reattachment_length: T,
     /// Signed lower-wall samples used to derive `reattachment_length`.
     pub wall_shear: Vec<WallShearSample<T>>,
@@ -119,9 +121,12 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStepSolver<T> {
     /// applies a parabolic velocity inlet on the fluid cells, zero normal
     /// velocity and no-slip walls on solid/physical boundaries, and a zero
     /// streamwise-gradient velocity with fixed-pressure outlet through the
-    /// canonical SIMPLE boundary path. Reattachment is not inferred from a
-    /// correlation: it is interpolated from the first downstream lower-wall
-    /// `du/dy` sign change in the solved field.
+    /// canonical SIMPLE boundary path. Fluid-solid faces of the step are
+    /// no-penetration walls in the pressure correction. Reattachment is not
+    /// inferred from a correlation: it is interpolated at the end of the
+    /// longest contiguous negative lower-wall `du/dy` excursion in the solved
+    /// field, so a short secondary corner eddy cannot stand in for the primary
+    /// bubble.
     pub fn solve(
         &self,
         config: &BackwardFacingStepConfig<T>,
@@ -148,6 +153,7 @@ impl<T: CfdScalar + Copy + FloatElement> BackwardFacingStepSolver<T> {
             config.simple.clone(),
         );
         self.apply_geometry_mask(&mut solver);
+        solver.enforce_no_penetration_at_masked_faces();
         let solve = solver.solve_parabolic_inlet(self.geometry.inlet_velocity)?;
         let wall_shear = collect_downstream_wall_shear(&solver, self.geometry.upstream_length)?;
         let reattachment_length = interpolate_reattachment(&wall_shear)?;
@@ -223,19 +229,33 @@ fn interpolate_reattachment<T: CfdScalar + Copy + FloatElement>(
     samples: &[WallShearSample<T>],
 ) -> Result<T> {
     let zero = scalar::zero::<T>();
+    // (excursion span, crossing) of the longest negative-shear run seen so far.
+    let mut primary: Option<(T, T)> = None;
+    let mut excursion_start: Option<T> = None;
     for pair in samples.windows(2) {
         let [previous, current] = pair else {
             continue;
         };
+        if previous.shear_rate < zero && excursion_start.is_none() {
+            excursion_start = Some(previous.x);
+        }
         if previous.shear_rate < zero && current.shear_rate >= zero {
             let fraction =
                 (zero - previous.shear_rate) / (current.shear_rate - previous.shear_rate);
-            return Ok(previous.x + fraction * (current.x - previous.x));
+            let crossing = previous.x + fraction * (current.x - previous.x);
+            let start = excursion_start.take().unwrap_or(previous.x);
+            let span = crossing - start;
+            if primary.is_none_or(|(longest, _)| span > longest) {
+                primary = Some((span, crossing));
+            }
         }
     }
-    Err(Error::InvalidInput(
-        "backward-facing-step field has no downstream wall-shear reattachment crossing".to_string(),
-    ))
+    primary.map(|(_, crossing)| crossing).ok_or_else(|| {
+        Error::InvalidInput(
+            "backward-facing-step field has no downstream wall-shear reattachment crossing"
+                .to_string(),
+        )
+    })
 }
 
 #[cfg(test)]
@@ -280,6 +300,22 @@ mod tests {
             error.to_string(),
             "Invalid input: backward-facing-step field has no downstream wall-shear reattachment crossing"
         );
+    }
+
+    #[test]
+    fn reattachment_closes_the_longest_negative_shear_excursion() {
+        // A short corner eddy on [0, 0.5] precedes the primary bubble on
+        // [2, 3.5]; the primary crossing lies halfway between x = 3 and x = 4.
+        let samples = [
+            (0.0, -0.1),
+            (1.0, 0.1),
+            (2.0, -1.0),
+            (3.0, -1.0),
+            (4.0, 1.0),
+        ]
+        .map(|(x, shear_rate)| WallShearSample::<f64> { x, shear_rate });
+        let reattachment = interpolate_reattachment(&samples).expect("primary crossing exists");
+        assert_eq!(reattachment, 3.5);
     }
 
     #[test]

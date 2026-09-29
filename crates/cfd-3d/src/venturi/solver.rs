@@ -823,7 +823,7 @@ where
             }
         }
 
-        self.print_divergence_stats(&problem.mesh, &fem_solution)?;
+        self.log_divergence_stats(&problem.mesh, &fem_solution)?;
         let mut solution = VenturiSolution3D::new();
         solution.u_inlet = u_inlet;
 

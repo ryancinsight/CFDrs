@@ -2,7 +2,7 @@ use super::super::{
     DGOperator, matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
     vector_zeros,
 };
-use super::*;
+use super::{TimeIntegrationParams, TimeIntegrator, TimeStepResult};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};

@@ -17,10 +17,6 @@
 //!   cargo run -p xtask -- prebook      # regenerate docs/book/figures/MANIFEST.json
 //!   cargo run -p xtask -- check-figures # SSOT drift verification
 
-#![allow(clippy::redundant_pattern_matching)]
-#![allow(clippy::manual_let_else)]
-#![allow(clippy::unnecessary_wraps)]
-
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use std::env;
@@ -250,7 +246,7 @@ fn build_wheel(sh: &Shell, release: bool) -> Result<()> {
     println!("🔨 Building cfd-python wheel...\n");
 
     // First check compilation
-    if let Err(_) = check_compilation(sh) {
+    if check_compilation(sh).is_err() {
         println!("\n⚠️  Fix compilation errors before building wheels.");
         println!("Run: cargo xtask check");
         return Ok(());

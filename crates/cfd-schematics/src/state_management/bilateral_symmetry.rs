@@ -5,11 +5,8 @@
 //! the adaptive parameter system to provide context-aware symmetry adjustments while
 //! following SOLID, CUPID, GRASP, and all other specified design principles.
 
-#![allow(unused_imports)] // Allow unused imports for comprehensive framework
-
-use crate::{
-    geometry::Point2D, // May be used in future symmetry operations
-    state_management::adaptive::{AdaptationError, AdaptiveParameter, ChannelGenerationContext},
+use crate::state_management::adaptive::{
+    AdaptationError, AdaptiveParameter, ChannelGenerationContext,
 };
 use std::collections::HashMap;
 
@@ -337,6 +334,7 @@ impl AdaptiveParameter<f64, SymmetryContext> for BilateralPhaseDirectionCalculat
 mod tests {
     use super::*;
     use crate::config::GeometryConfig;
+    use crate::geometry::Point2D;
 
     fn create_test_context(start: Point2D, end: Point2D) -> SymmetryContext {
         let channel_context = ChannelGenerationContext::new(

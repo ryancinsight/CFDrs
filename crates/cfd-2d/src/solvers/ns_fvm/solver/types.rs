@@ -13,6 +13,33 @@ pub(super) enum InletProfile {
     Parabolic,
 }
 
+/// Pressure-correction treatment of the normal velocity on a face shared by
+/// a fluid cell and a masked (solid) cell.
+#[derive(Clone, Copy, Default)]
+pub(super) enum MaskedFaceTreatment {
+    /// The face velocity receives the pressure correction like a fluid face.
+    #[default]
+    PressureCorrected,
+    /// The face is a no-penetration wall: its normal velocity is never
+    /// corrected, so the pressure field cannot drive flow through the solid.
+    NoPenetration,
+}
+
+impl MaskedFaceTreatment {
+    /// Whether the interior face between two cells with the given fluid flags
+    /// is excluded from the velocity correction.
+    ///
+    /// A face between two solid cells is never corrected. Under
+    /// [`Self::NoPenetration`] a fluid-solid face is a wall and is excluded as
+    /// well, so only faces shared by two fluid cells are corrected.
+    pub(super) const fn skips_correction(self, fluid_a: bool, fluid_b: bool) -> bool {
+        match self {
+            Self::PressureCorrected => !fluid_a && !fluid_b,
+            Self::NoPenetration => !fluid_a || !fluid_b,
+        }
+    }
+}
+
 /// 2D Navier-Stokes FVM solver with SIMPLE pressure-velocity coupling.
 ///
 /// Used as the numerical engine by geometry-specific pass-through solvers
@@ -56,6 +83,8 @@ pub struct NavierStokesSolver2D<T: CfdScalar + Copy + FloatElement> {
     pub(super) pressure_poisson_a_p: Array2D<T>,
     /// Inlet profile selected by the geometry-specific solve wrapper.
     pub(super) inlet_profile: InletProfile,
+    /// Pressure-correction treatment of faces touching masked cells.
+    pub(super) masked_face_treatment: MaskedFaceTreatment,
     /// Normalized parabolic inlet values reused across SIMPLE iterations.
     pub(super) parabolic_inlet: Vec<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
@@ -120,9 +149,16 @@ impl<T: CfdScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_a_s,
             pressure_poisson_a_p,
             inlet_profile: InletProfile::Uniform,
+            masked_face_treatment: MaskedFaceTreatment::default(),
             parabolic_inlet: Vec::new(),
             turbulence: None,
         }
+    }
+
+    /// Treat every fluid-solid face as a no-penetration wall in the pressure
+    /// correction.
+    pub(crate) fn enforce_no_penetration_at_masked_faces(&mut self) {
+        self.masked_face_treatment = MaskedFaceTreatment::NoPenetration;
     }
 
     /// Enable k-omega SST turbulence modeling for high-Re flows.

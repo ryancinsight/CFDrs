@@ -77,7 +77,7 @@
 //! - **VOF**: Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
 //! - **Level Set**: Osher, S. & Fedkiw, R. (2003). *Level Set Methods and Dynamic Implicit Surfaces*
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // 3D CFD simulation allows - strategic configuration for numerical computing
 
 mod atlas_anderson;

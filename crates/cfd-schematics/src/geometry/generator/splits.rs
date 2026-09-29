@@ -365,9 +365,6 @@ impl GeometryGenerator {
             current_widths = next_widths;
         }
 
-        // Sanity check: calculated widths should match passed center_widths
-        // assert_eq!(current_widths, center_widths);
-
         // Now generate the second half by reversing the splits (creating merges)
         let mut current_x = half_l;
         let mut lines = Vec::new();

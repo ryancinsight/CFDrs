@@ -13,6 +13,7 @@
 //! keeps general geometry, and millifluidic chip design stays in `CFDrs`.
 
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 pub mod blueprint_mesh;
 pub mod constraint;

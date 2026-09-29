@@ -28,7 +28,7 @@
 //! $\sigma = \frac{p_\infty - p_v}{\frac{1}{2}\rho v_\infty^2}$
 //! determining the inception of vapor phase transition at the throat.
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 // CFD validation allows
 
 pub mod adaptive_mesh;

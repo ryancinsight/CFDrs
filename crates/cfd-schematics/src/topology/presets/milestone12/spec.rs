@@ -106,6 +106,6 @@ impl Milestone12PrimitiveSelectiveSpec {
 /// Alias of the canonical Milestone 12 topology request shape.
 ///
 /// This is the single-source request shape consumed by
-/// [`build_milestone12_blueprint`] and
-/// [`build_milestone12_topology_spec`].
+/// [`build_milestone12_blueprint`](super::build::build_milestone12_blueprint) and
+/// [`build_milestone12_topology_spec`](super::build::build_milestone12_topology_spec).
 pub type Milestone12TopologyRequest = Milestone12PrimitiveSelectiveSpec;
