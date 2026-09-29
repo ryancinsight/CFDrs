@@ -2,7 +2,7 @@ use super::super::{
     DGOperator, matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
     vector_zeros,
 };
-use super::{TimeIntegrationParams, TimeIntegrator, TimeStepResult};
+use super::{Integrator, TimeIntegrationParams, TimeStepResult};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};
@@ -14,7 +14,7 @@ pub struct DGSolver {
     /// DG operator
     pub dg_op: DGOperator,
     /// Time integrator
-    pub integrator: Box<dyn TimeIntegrator>,
+    pub integrator: Integrator,
     /// Time integration parameters
     pub params: TimeIntegrationParams,
     /// Current time
@@ -39,11 +39,7 @@ pub struct DGSolver {
 
 impl DGSolver {
     /// Create a new DG solver
-    pub fn new(
-        dg_op: DGOperator,
-        integrator: Box<dyn TimeIntegrator>,
-        params: TimeIntegrationParams,
-    ) -> Self {
+    pub fn new(dg_op: DGOperator, integrator: Integrator, params: TimeIntegrationParams) -> Self {
         Self {
             dg_op,
             integrator,
