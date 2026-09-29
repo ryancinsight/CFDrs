@@ -59,6 +59,10 @@ name = "window_iterator_bench"
 harness = false
 
 [[bench]]
+name = "multigrid_smoother_bench"
+harness = false
+
+[[bench]]
 name = "imex_bench"
 harness = false
 

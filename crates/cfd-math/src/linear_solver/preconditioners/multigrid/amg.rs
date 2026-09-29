@@ -41,9 +41,9 @@ use super::interpolation::{
     create_classical_interpolation, create_direct_interpolation, create_standard_interpolation,
 };
 use super::{
-    AMGConfig, AMGHierarchy, AMGStatistics, CoarseningStrategy, GaussSeidelSmoother,
-    InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridSmoother, MultigridVector,
-    SmootherType, SparseMatrix, SymmetricGaussSeidelSmoother,
+    AMGConfig, AMGHierarchy, AMGStatistics, ChebyshevSmoother, CoarseningStrategy,
+    GaussSeidelSmoother, InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridVector,
+    SORSmoother, Smoother, SmootherType, SparseMatrix, SymmetricGaussSeidelSmoother,
 };
 use crate::error::Result;
 use athena_leto::{LetoBackend, LetoBackendError};
@@ -377,15 +377,32 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
         Ok(())
     }
 
-    /// Create smoother for a given matrix
-    fn create_smoother(&self, _matrix: &SparseMatrix<T>) -> Box<dyn MultigridSmoother<T>> {
+    /// Create the level smoother for a given matrix.
+    ///
+    /// The match is exhaustive over [`SmootherType`]: every configured
+    /// smoother builds its own concrete instance, so no configuration can
+    /// silently degrade to a different smoother. Chebyshev bounds come from
+    /// [`ChebyshevSmoother::estimate_eigenvalues`] on the level matrix.
+    fn create_smoother(&self, matrix: &SparseMatrix<T>) -> Smoother<T> {
         let relaxation = <T as FloatElement>::from_f64(self.config.relaxation_factor);
         match self.config.smoother_type {
-            SmootherType::SymmetricGaussSeidel => {
-                Box::new(SymmetricGaussSeidelSmoother::new(relaxation))
+            SmootherType::GaussSeidel => {
+                Smoother::GaussSeidel(GaussSeidelSmoother::new(relaxation))
             }
-            SmootherType::Jacobi => Box::new(JacobiSmoother::new(relaxation)),
-            _ => Box::new(GaussSeidelSmoother::new(relaxation)),
+            SmootherType::SymmetricGaussSeidel => {
+                Smoother::SymmetricGaussSeidel(SymmetricGaussSeidelSmoother::new(relaxation))
+            }
+            SmootherType::Jacobi => Smoother::Jacobi(JacobiSmoother::new(relaxation)),
+            SmootherType::SOR => Smoother::Sor(SORSmoother::new(relaxation)),
+            SmootherType::Chebyshev => {
+                let (eigenvalues_min, eigenvalues_max) =
+                    ChebyshevSmoother::estimate_eigenvalues(matrix);
+                Smoother::Chebyshev(ChebyshevSmoother::new(
+                    eigenvalues_min,
+                    eigenvalues_max,
+                    self.config.chebyshev_degree,
+                ))
+            }
         }
     }
 

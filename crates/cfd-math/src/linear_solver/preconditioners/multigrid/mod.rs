@@ -180,7 +180,7 @@ pub use smoothers::*;
 // Re-export nonlinear operator trait for FAS
 pub use gmg::NonlinearOperator;
 
-use eunomia::RealField as EunomiaRealField;
+use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::Array1;
 use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
 
@@ -235,6 +235,11 @@ pub struct AMGConfig {
     pub post_smooth_iterations: usize,
     /// Relaxation parameter for smoothers
     pub relaxation_factor: f64,
+    /// Chebyshev semi-iteration degree; the spectral bounds are estimated
+    /// from each level's matrix by
+    /// [`ChebyshevSmoother::estimate_eigenvalues`] (Gershgorin). The default
+    /// matches the degree the smoother's tests validate.
+    pub chebyshev_degree: usize,
     /// Strength threshold for coarsening
     pub strength_threshold: f64,
     /// Maximum number of interpolation points
@@ -253,6 +258,7 @@ impl Default for AMGConfig {
             pre_smooth_iterations: 2,
             post_smooth_iterations: 2,
             relaxation_factor: 1.0,
+            chebyshev_degree: 3,
             strength_threshold: 0.25,
             max_interpolation_points: 4,
         }
@@ -302,6 +308,45 @@ pub enum SmootherType {
     Chebyshev,
 }
 
+/// Smoother carried by each multigrid level: one enum variant per closed-set
+/// smoother, dispatched by an exhaustive match on every pre- and
+/// post-smoothing sweep of every cycle. The variant carries its concrete
+/// smoother's parameters, so the level holds no vtable and clones by value.
+#[derive(Clone)]
+pub enum Smoother<T: EunomiaRealField + Copy> {
+    /// Gauss-Seidel relaxation
+    GaussSeidel(GaussSeidelSmoother<T>),
+    /// Symmetric Gauss-Seidel relaxation
+    SymmetricGaussSeidel(SymmetricGaussSeidelSmoother<T>),
+    /// Jacobi relaxation
+    Jacobi(JacobiSmoother<T>),
+    /// Successive over-relaxation
+    Sor(SORSmoother<T>),
+    /// Chebyshev semi-iteration
+    Chebyshev(ChebyshevSmoother<T>),
+}
+
+impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> Smoother<T> {
+    /// Apply the carried smoother to the system `Ax = b` for `iterations`
+    /// sweeps. The match is exhaustive over the closed smoother set: adding a
+    /// variant is a compile error until this dispatch names it.
+    pub fn apply(
+        &self,
+        matrix: &SparseMatrix<T>,
+        x: &mut MultigridVector<T>,
+        b: &MultigridVector<T>,
+        iterations: usize,
+    ) {
+        match self {
+            Self::GaussSeidel(smoother) => smoother.apply(matrix, x, b, iterations),
+            Self::SymmetricGaussSeidel(smoother) => smoother.apply(matrix, x, b, iterations),
+            Self::Jacobi(smoother) => smoother.apply(matrix, x, b, iterations),
+            Self::Sor(smoother) => smoother.apply(matrix, x, b, iterations),
+            Self::Chebyshev(smoother) => smoother.apply(matrix, x, b, iterations),
+        }
+    }
+}
+
 /// Multigrid level representation
 #[derive(Clone)]
 pub struct MultigridLevel<T: EunomiaRealField + Copy + LetoScalar> {
@@ -312,7 +357,7 @@ pub struct MultigridLevel<T: EunomiaRealField + Copy + LetoScalar> {
     /// Interpolation operator from coarse to fine
     pub interpolation: Option<SparseMatrix<T>>,
     /// Smoother for this level
-    pub smoother: Box<dyn MultigridSmoother<T>>,
+    pub smoother: Smoother<T>,
 }
 
 /// A cached AMG hierarchy containing transfer operators
@@ -337,27 +382,6 @@ impl<T: EunomiaRealField + Copy + LetoScalar> AMGHierarchy<T> {
             .collect();
 
         Self { operators }
-    }
-}
-
-/// Trait for multigrid smoothers
-pub trait MultigridSmoother<T: EunomiaRealField + Copy + LetoScalar>: Send + Sync {
-    /// Apply the smoother to the system Ax = b
-    fn apply(
-        &self,
-        matrix: &SparseMatrix<T>,
-        x: &mut MultigridVector<T>,
-        b: &MultigridVector<T>,
-        iterations: usize,
-    );
-
-    /// Clone the smoother into a box
-    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>>;
-}
-
-impl<T: EunomiaRealField + Copy + LetoScalar> Clone for Box<dyn MultigridSmoother<T>> {
-    fn clone(&self) -> Self {
-        self.clone_box()
     }
 }
 

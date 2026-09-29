@@ -426,6 +426,7 @@ fn solve_coarsest_level(
 
 #[cfg(test)]
 mod tests {
+    use super::super::Smoother;
     use super::super::csr_from_parts;
     use super::*;
     use cfd_core::test_support::assert_rejects;
@@ -448,7 +449,7 @@ mod tests {
             matrix,
             restriction: None, // Single level test
             interpolation: None,
-            smoother: Box::new(smoother),
+            smoother: Smoother::GaussSeidel(smoother),
         }
     }
 
