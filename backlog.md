@@ -97,46 +97,6 @@ outside this item.
 
 Remaining checklist steps (retired from checklist.md):
 - [ ] Run the focused provider checks and hosted release dry-run at the exact source head; do not change registry-side trusted-publisher settings.
-<a id="ATLAS-CFDRS-BACKWARD-STEP-108"></a>
-## ATLAS-CFDRS-BACKWARD-STEP-108 — Derive reattachment from wall shear [fix]
-- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
-
-
-**Owner:** Atlas session; scope is the provider-owned `cfd-2d` backward-facing-
-step geometry, SIMPLE solve, signed wall-shear measurement, and the thin
-`cfd-validation` adapter plus focused value-semantic tests. **Acceptance:**
-compute reattachment from the simulated wall-shear sign change, make the
-step/no-slip/inlet/outlet boundary contract explicit in the provider, apply a
-normalized parabolic inlet only on fluid cells, reject fields without a
-downstream sign change, and pass the unchanged focused validation gate plus
-hosted provider verification. No duplicated consumer solver, hardcoded
-correlation in the runtime path, reduced workload, or weakened assertion
-closes this item.
-
-The provider now computes viscosity from the inlet hydraulic diameter
-`D = 2 * (channel_height - step_height)`, matching the Armaly Reynolds
-definition, and the adapter records the configured Reynolds number and
-geometry in the result. The reference is configuration-aware: the supported
-Armaly two-dimensional anchors are `Re=100, x_r/h=2.84` and
-`Re=389, x_r/h=7.83`; unsupported Reynolds/geometry combinations return no
-reference instead of receiving a fabricated interpolation. The release
-locked value-semantic filter passes 14/14 at run
-`314957f4-817b-44bb-bea6-0f1138f7b6c7`, with the default solve completing in
-5.79 s and producing `x_r/h = 2.0016`. The result remains near the edge of
-the existing 30% acceptance band, so the production SIMPLE/grid-fidelity
-gap and the debug 30-second termination remain open. A 96-cell probe exceeded
-the slow budget and did not close the reference gap; neither the mesh nor the
-budget is changed here.
-
-2026-09-22: the step's fluid-solid faces are now no-penetration walls in the
-pressure correction, and reattachment closes the longest negative-shear
-excursion rather than the first. Against the Re=100 reference of 2.84, the
-release default solve moved from `x_r/h = 1.993` to `2.206` (relative error
-29.8% to 22.3%). The remaining gap stays open.
-
-
-Remaining checklist steps (retired from checklist.md):
-- [ ] Run the exact-head hosted Rust and Pages gates after the cache fix and close the item only when the unchanged numerical-fidelity filter passes.
 <a id="ATLAS-CFDRS-RUNTIME-109"></a>
 ## ATLAS-CFDRS-RUNTIME-109 — Honor problem-scaled SIMPLEC targets [perf]
 - Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
