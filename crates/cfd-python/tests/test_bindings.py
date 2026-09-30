@@ -1,4 +1,4 @@
-"""Value-semantic smoke tests for the installed cfd-python wheel."""
+"""Value-semantic smoke tests for the installed cfdrs-python wheel."""
 
 import importlib.metadata
 import math
@@ -8,7 +8,7 @@ import cfd_python
 
 def test_module_version_matches_wheel_metadata() -> None:
     """The Python module reports the version encoded in its wheel."""
-    assert cfd_python.__version__ == importlib.metadata.version("cfd-python")
+    assert cfd_python.__version__ == importlib.metadata.version("cfdrs-python")
 
 
 def test_casson_viscosity_matches_its_constitutive_equation() -> None:

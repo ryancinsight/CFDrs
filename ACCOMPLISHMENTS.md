@@ -158,7 +158,7 @@ plt.plot(result_2d.y_coords, result_2d.viscosity)
 ```bash
 cd crates/cfd-python
 maturin build --release
-pip install ../../target/wheels/cfd-python-0.1.0-*.whl
+pip install ../../target/wheels/cfdrs_python-0.1.0-*.whl
 # ✅ Working on Windows, Linux, macOS
 ```
 
@@ -320,7 +320,7 @@ Example from `poiseuille.rs`:
 ```bash
 conda create -n fenics -c conda-forge fenics matplotlib
 conda activate fenics
-pip install cfd-python-*.whl
+pip install cfdrs_python-*.whl
 python validation/fenics_poiseuille_2d.py
 ```
 
