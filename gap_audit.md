@@ -52,16 +52,6 @@ Its status marker reads "(in progress 2026-07-31; owner=Claude atlas session
 
 ### Completeness
 
-## ATLAS-CFDRS-BACKWARD-STEP-108 — provider-owned geometry and shear (hosted closure pending 2026-08-19)
-
-## Finding 2026-08-19: exact default-head Rust and figure gates pass
-
-separate gates. The local standalone locked package path remains blocked by the
-
-Atlas-locked compilation remains separately blocked by the shared overlay's
-
-## ATLAS-CFDRS-BACKWARD-STEP-108 — field-derived reattachment (in progress 2026-08-17)
-
 ## CFDrs book and example gate — Apollo public-bound dependency
 
 ## Bounded Newton-Krylov recovery integration — CFDrs (2026-08-19)
