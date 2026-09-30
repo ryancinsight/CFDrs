@@ -867,6 +867,27 @@ fi
 # without it the flag joins the subcommand ("--no-deps--manifest-path").
 gate_manifest=" --manifest-path $gate_export/Cargo.toml"
 
+# Packages with no target nextest can run (a `test = false` cdylib such as a
+# PyO3 extension) produce no test artifact, so the source-identity checker would
+# report "no artifact found" for a package the tests stage has nothing to build.
+# Cargo metadata marks each target with `test`; a package none of whose targets
+# has it is skipped by the tests stage only. Its clippy and rustdoc stages stay.
+if ! untestable_packages="$(
+  cd "$gate_export" && cargo metadata --no-deps --format-version 1 $gate_manifest |
+    "$python_bin" -c 'import json, sys
+sys.stdout.reconfigure(newline="\n")
+metadata = json.load(sys.stdin)
+members = set(metadata["workspace_members"])
+for package in metadata["packages"]:
+    targets = package.get("targets")
+    if package["id"] in members and targets and not any(t.get("test", True) for t in targets):
+        print(package["name"])'
+)"; then
+  echo "pre-push: cargo metadata could not establish testable packages" >&2
+  echo "pre-push: push anyway with SKIP_LOCAL_GATE=1 git push" >&2
+  exit 1
+fi
+
 # Cargo is the authority on which package manifests belong to this workspace.
 # A nested standalone manifest (cargo-fuzz is the common case) can legally use
 # the same package name as a member, so names alone cannot establish ownership.
@@ -1309,6 +1330,9 @@ fi
 if command -v cargo-nextest >/dev/null 2>&1; then
   if [ "$identity_enabled" -eq 1 ]; then
     for package_name in $gate_packages; do
+      case $'\n'"$untestable_packages"$'\n' in
+        *$'\n'"$package_name"$'\n'*) continue ;;
+      esac
       run_identity_step "$package_name" tests cargo nextest run "${identity_cargo_manifest_args[@]}" -p "$package_name" --locked --no-tests=pass
     done
   else
