@@ -86,7 +86,10 @@ anything there is unverified -- do not assume it matches.
 **Owner:** Atlas coordinator; scope is the `cfd-python` binding release
 caller, its installed-wheel pytest contract, the binding version surface, the
 shared Atlas release-distribution contract, and source-package exclusion of
-generated outputs. **Acceptance:** release tags build abi3 wheels plus one
+generated outputs. The PyPI distribution is `cfdrs-python` (PyPI `cfd-python`
+belongs to another project) and release tags are `cfdrs-python-v<version>`; the
+Rust crate and import module keep `cfd-python` and `cfd_python`.
+**Acceptance:** release tags build abi3 wheels plus one
 validated source distribution through the shared Atlas workflow, install and
 import `cfd_python`, run the value-semantic binding tests, publish validated
 artifacts through PyPI Trusted Publishing without a long-lived registry token,

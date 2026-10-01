@@ -1,10 +1,13 @@
-# cfd-python
+# cfdrs-python
 
 Python bindings for CFD-rs: High-performance computational fluid dynamics in Rust, exposed via [PyO3](https://pyo3.rs/) and [Maturin](https://www.maturin.rs/).
 
 The wheel includes `cfd_python.pyi` and the PEP 561 `py.typed` marker. The
 long-running 1D bifurcation and legacy 2D Poiseuille calls convert Python
 inputs before releasing the GIL around their Rust solver work.
+
+The PyPI distribution is `cfdrs-python`; the Rust package is `cfd-python` and
+the Python module is `cfd_python`.
 
 ## Installation
 
@@ -14,14 +17,14 @@ pip install maturin
 maturin develop              # Development mode (editable install)
 # or
 maturin build --release      # Production wheel
-pip install target/wheels/cfd_python-*.whl
+pip install target/wheels/cfdrs_python-*.whl
 ```
 
 Optional dependencies:
 
 ```bash
-pip install "cfd-python[dev]"         # pytest, matplotlib, pandas
-pip install "cfd-python[validation]"  # adds scipy and jupyter
+pip install "cfdrs-python[dev]"         # pytest, matplotlib, pandas
+pip install "cfdrs-python[validation]"  # adds scipy and jupyter
 ```
 
 ## Quick Start

@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "cfd-python"
+name = "cfdrs-python"
 # Single source of truth: maturin reads the version from Cargo.toml, which
 # inherits the workspace version.
 dynamic = ["version"]
