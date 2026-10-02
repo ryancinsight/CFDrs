@@ -1,4 +1,4 @@
-use eunomia::{CastFrom, NumericElement};
+use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector3;
 
 use super::field_ops::SymmetricTensor6;
@@ -67,7 +67,7 @@ pub(crate) fn box_filter_velocity_at<T>(
     k: usize,
 ) -> Vector3<T>
 where
-    T: cfd_mesh::domain::core::Scalar + NumericElement,
+    T: cfd_mesh::domain::core::Scalar + FloatElement,
 {
     let mut sum = Vector3::new(T::ZERO, T::ZERO, T::ZERO);
     let mut count = 0usize;
@@ -77,8 +77,7 @@ where
         count += 1;
     });
 
-    let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
-    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
+    let count_t = <T as FloatElement>::from_count(count);
     sum / count_t
 }
 
@@ -93,7 +92,7 @@ pub(crate) fn box_filter_moments_at<T>(
     k: usize,
 ) -> FilterMoments<T>
 where
-    T: cfd_mesh::domain::core::Scalar + NumericElement,
+    T: cfd_mesh::domain::core::Scalar + FloatElement,
 {
     let mut moments = FilterMoments::zero();
     let mut count = 0usize;
@@ -109,8 +108,7 @@ where
         count += 1;
     });
 
-    let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
-    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
+    let count_t = <T as FloatElement>::from_count(count);
     let inv = T::ONE / count_t;
     moments.uu *= inv;
     moments.vv *= inv;
