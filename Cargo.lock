@@ -1239,8 +1239,8 @@ dependencies = [
 
 [[package]]
 name = "eunomia"
-version = "0.8.0"
-source = "git+https://github.com/ryancinsight/eunomia#684de616d51090c80d55d0ca4ead631e89336776"
+version = "0.8.1"
+source = "git+https://github.com/ryancinsight/eunomia#e60108891a82b432b3a215c5b9c31707ae6e5d71"
 dependencies = [
  "bytemuck",
  "eunomia-derive",
@@ -1251,8 +1251,8 @@ dependencies = [
 
 [[package]]
 name = "eunomia-derive"
-version = "0.8.0"
-source = "git+https://github.com/ryancinsight/eunomia#684de616d51090c80d55d0ca4ead631e89336776"
+version = "0.8.1"
+source = "git+https://github.com/ryancinsight/eunomia#e60108891a82b432b3a215c5b9c31707ae6e5d71"
 dependencies = [
  "proc-macro2",
  "quote",
