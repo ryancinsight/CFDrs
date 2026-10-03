@@ -20,11 +20,8 @@
 # same overlay, which is why local verification never sees the problem, and
 # fails every `--locked` job in CI, which has no overlay.
 #
-# The stack's `scripts/lockfile.py --check` runs cargo from outside the overlay
-# and is the same check CI runs (the `lockfile-guard` workflow), so a push that
-# would fail there never reaches a runner. This hook runs it from the stack's
-# fetched default, beside the other stack tools; a member's own copy of the
-# script (counted by `member_lockfile_copies`) is never run.
+# `scripts/lockfile.py --check` runs cargo from outside the overlay and is the
+# same check CI runs, so a push that would fail there never reaches a runner.
 #
 # Single source: this file is owned here and deployed outward to every
 # member's `.githooks/` by `scripts/atlas-lock-form.py sync-hooks`
@@ -41,10 +38,7 @@
 #     SKIP_LOCAL_GATE=1 git push       (fast gate section only)
 #
 # SKIP_LOCKFILE_CHECK is not honoured: a lock check that fails, or cannot
-# run, refuses the push either way. The one arm that lets a push through
-# unchecked is a clone outside any stack: it has no checker to run, says so,
-# and leaves the lock to the `lockfile-guard` CI job that runs the same one.
-# coeus's checker contract (scripts/tests/
+# run, refuses the push either way. coeus's checker contract (scripts/tests/
 # test_hooks.py::test_skip_variable_cannot_hide_checker_failures) requires
 # that no variable can hide a checker failure, and this hook's own skip used
 # to exit 0 on an absent checker or interpreter -- hiding a failure exactly
@@ -381,6 +375,78 @@ for stable in "$tmp_base"/pg-??????????; do
   rm -rf "$stable" "$stable.lock" 2>/dev/null || true
 done
 
+# The skips above fall through to the code gate, so this whole section runs
+# only when the lock still wants verifying.
+if [ "$skip_lockfile" = "0" ]; then
+# The lock is checked on an export of the pushed revision, with that
+# revision's own checker, outside the stack: the working tree is neither the
+# push (a peer's branch, a plumbing push) nor stable (any cargo command inside
+# the stack flattens its lock), so a verdict on it was evidence about the
+# wrong state either way. The dependency-source check below reads the same
+# export.
+lock_rev="${pushed_tip:-${gate_tip:-HEAD}}"
+new_run_temp lock_root pl
+lock_export="$lock_root/tree"
+if ! export_revision "$(git rev-parse --verify "$lock_rev^{commit}")" "$lock_export"; then
+  echo "pre-push: could not export $lock_rev for the lockfile check" >&2
+  exit 1
+fi
+checker="$lock_export/scripts/lockfile.py"
+
+if [ ! -f "$checker" ]; then
+  # A guard that reports its own absence and lets the push through is the
+  # absence. The code gate below would still have run, but the lock is what
+  # this section is for, and an unverified lock is the failure it exists to
+  # stop -- so refuse here; there is no deliberate way through.
+  echo "pre-push: scripts/lockfile.py not present; lockfile not verified" >&2
+  exit 1
+elif [ -z "$python_bin" ]; then
+  echo "pre-push: no python interpreter found; lockfile not verified" >&2
+  exit 1
+elif ! (cd "$lock_export" && "$python_bin" "$checker" --check); then
+  cat >&2 <<MESSAGE
+
+pre-push: the Cargo.lock in $lock_rev does not resolve under --locked, so
+every CI job that passes --locked would fail on this push.
+
+The usual cause is a cargo command run from inside the Atlas stack, which
+strips the lock's git sources. Repair it with:
+
+    python3 scripts/lockfile.py --regenerate
+
+then stage the result and push again.
+MESSAGE
+  exit 1
+fi
+
+# Dependency sources. A lock advance can bring in git sources `deny.toml`
+# does not allow, and nothing above reads them: harmonia#19 merged on a green
+# `--locked` build and left CI red until harmonia#21 allowed three new
+# first-party sources. cargo-deny cannot run in this checkout -- it resolves
+# from the workspace root, so inside the stack the development overlay
+# answers, every git source reads as unencountered, `sources ok` is vacuous,
+# and the lock is rewritten -- so it runs on an export of the pushed revision
+# outside the stack, which is exactly what CI resolves. The working tree is
+# never touched.
+if [ -f "$lock_export/deny.toml" ]; then
+  if ! cargo deny --version >/dev/null 2>&1; then
+    echo "pre-push: cargo-deny is not installed, so the dependency sources of this" >&2
+    echo "lock change are unverified. Install it: cargo install --locked cargo-deny" >&2
+    exit 1
+  fi
+  if ! (cd "$lock_export" && cargo deny --locked check sources >&2); then
+    cat >&2 <<MESSAGE
+
+pre-push: the pushed Cargo.lock resolves a source deny.toml does not allow,
+so the CI supply-chain job would fail on this push. Allow the source in
+deny.toml (a first-party git source goes under [sources] allow-git) or drop
+the dependency.
+MESSAGE
+    exit 1
+  fi
+fi
+fi
+# End of the lockfile section; the code gate below runs unconditionally.
 
 # ---------------------------------------------------------------------------
 # Stack tools: the artifact-budget checker, the secret scanner, the debt
@@ -462,83 +528,6 @@ if [ -n "$stack_baseline" ] \
     stack_scripts="$checker_dir/scripts"
   fi
 fi
-
-# The skips above fall through to the code gate, so this whole section runs
-# only when the lock still wants verifying.
-if [ "$skip_lockfile" = "0" ]; then
-# The lock is checked on an export of the pushed revision, outside the stack,
-# by the stack's own `scripts/lockfile.py` from the fetched default (Stack
-# tools, above): the working tree is neither the push (a peer's branch, a
-# plumbing push) nor stable (any cargo command inside the stack flattens its
-# lock), so a verdict on it was evidence about the wrong state either way. A
-# member carries no copy of the checker, so one that lacks the file pushes
-# exactly as one that has it. The dependency-source check below reads the same
-# export.
-lock_rev="${pushed_tip:-${gate_tip:-HEAD}}"
-new_run_temp lock_root pl
-lock_export="$lock_root/tree"
-if ! export_revision "$(git rev-parse --verify "$lock_rev^{commit}")" "$lock_export"; then
-  echo "pre-push: could not export $lock_rev for the lockfile check" >&2
-  exit 1
-fi
-checker="${stack_scripts:+$stack_scripts/lockfile.py}"
-
-if [ -z "$stack_baseline" ]; then
-  echo "pre-push: no stack checker reachable from this clone; lockfile not verified here, the lockfile-guard CI job enforces it" >&2
-elif [ ! -f "$checker" ]; then
-  # A guard that reports its own absence and lets the push through is the
-  # absence. The stack is reachable here, so its fetched default is what
-  # lacks the checker (or could not be extracted), and the lock is what this
-  # section is for -- refuse; there is no deliberate way through.
-  echo "pre-push: the stack's scripts at ${stack_baseline:0:12} carry no lockfile.py; lockfile not verified" >&2
-  exit 1
-elif [ -z "$python_bin" ]; then
-  echo "pre-push: no python interpreter found; lockfile not verified" >&2
-  exit 1
-elif ! (cd "$lock_export" && "$python_bin" "$checker" --check --manifest-path "$lock_export/Cargo.toml"); then
-  cat >&2 <<MESSAGE
-
-pre-push: the Cargo.lock in $lock_rev does not resolve under --locked, so
-every CI job that passes --locked would fail on this push.
-
-The usual cause is a cargo command run from inside the Atlas stack, which
-strips the lock's git sources. Repair it from the member's root with:
-
-    python3 $stack_root/scripts/lockfile.py --regenerate --manifest-path Cargo.toml
-
-then stage the result and push again.
-MESSAGE
-  exit 1
-fi
-
-# Dependency sources. A lock advance can bring in git sources `deny.toml`
-# does not allow, and nothing above reads them: harmonia#19 merged on a green
-# `--locked` build and left CI red until harmonia#21 allowed three new
-# first-party sources. cargo-deny cannot run in this checkout -- it resolves
-# from the workspace root, so inside the stack the development overlay
-# answers, every git source reads as unencountered, `sources ok` is vacuous,
-# and the lock is rewritten -- so it runs on an export of the pushed revision
-# outside the stack, which is exactly what CI resolves. The working tree is
-# never touched.
-if [ -f "$lock_export/deny.toml" ]; then
-  if ! cargo deny --version >/dev/null 2>&1; then
-    echo "pre-push: cargo-deny is not installed, so the dependency sources of this" >&2
-    echo "lock change are unverified. Install it: cargo install --locked cargo-deny" >&2
-    exit 1
-  fi
-  if ! (cd "$lock_export" && cargo deny --locked check sources >&2); then
-    cat >&2 <<MESSAGE
-
-pre-push: the pushed Cargo.lock resolves a source deny.toml does not allow,
-so the CI supply-chain job would fail on this push. Allow the source in
-deny.toml (a first-party git source goes under [sources] allow-git) or drop
-the dependency.
-MESSAGE
-    exit 1
-  fi
-fi
-fi
-# End of the lockfile section; the code gate below runs unconditionally.
 
 # ---------------------------------------------------------------------------
 # Artifact budgets: PM boards under their line budget, tracked images under
@@ -1194,7 +1183,7 @@ MESSAGE
   grep -m 1 -A 3 -E '^error' "$log" >&2 || true
   cat >&2 <<'MESSAGE'
 
-Check with `python3 <stack>/scripts/lockfile.py --check --manifest-path Cargo.toml` in the member.
+Check with `python scripts/lockfile.py --check` in the member.
 MESSAGE
 }
 

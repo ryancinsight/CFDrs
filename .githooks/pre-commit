@@ -17,21 +17,12 @@
 # with the poisoned version still in the index is precisely the case that would
 # otherwise slip through, and the index is what becomes the commit.
 #
-# The checker is the stack's `scripts/lockfile.py`, extracted from the stack's
-# fetched default branch (`origin/HEAD`, else `origin/main`), the way `pre-push`
-# runs the budget, secret, ratchet and identity tools; a member's own copy of
-# the script is never run. A commit that stages no `Cargo.lock` pays nothing:
-# the staged-path test below runs before the stack is touched.
-#
 # Install (git does not apply tracked hooks on its own):
 #
 #     git config core.hooksPath .githooks
 #
 # SKIP_LOCKFILE_CHECK is not honoured: a checker that fails, or cannot run,
-# refuses the commit either way. The one arm that lets a commit through
-# unchecked is a clone outside any stack: it has no checker to run, says so,
-# and leaves the lock to the `lockfile-guard` CI job that runs the same one.
-# A checker contract (coeus
+# refuses the commit either way. A checker contract (coeus
 # scripts/tests/test_hooks.py::test_skip_variable_cannot_hide_checker_failures)
 # requires that no variable can hide a checker failure, and a skip that exits
 # 0 without running anything hides it as completely as a failure would.
@@ -42,6 +33,7 @@ if [ "${SKIP_LOCKFILE_CHECK:-0}" = "1" ]; then
 fi
 
 repo_root="$(git -c safe.directory="$PWD" rev-parse --show-toplevel)"
+checker="$repo_root/scripts/lockfile.py"
 
 # Git does not propagate command-line configuration into hooks. Re-inject the
 # exact checkout path so the index-only child Git calls remain valid in
@@ -50,25 +42,13 @@ export GIT_CONFIG_COUNT=1
 export GIT_CONFIG_KEY_0=safe.directory
 export GIT_CONFIG_VALUE_0="$repo_root"
 
-# Only a commit that stages the lock is judged. `--check-staged` makes the same
-# test again; this one keeps an ordinary commit from extracting the stack.
-if [ -z "$(git diff --cached --name-only -- Cargo.lock)" ]; then
-  exit 0
+if [ ! -f "$checker" ]; then
+  # A guard that reports its own absence and exits 0 is the absence: the
+  # commit lands unverified and the message scrolls past. Refuse instead;
+  # there is no deliberate way through (see SKIP_LOCKFILE_CHECK above).
+  echo "pre-commit: scripts/lockfile.py not present; lockfile not verified" >&2
+  exit 1
 fi
-
-# Pin MSYS path conversion rather than inherit it (see `pre-push`): the stack
-# is addressed with `git -C`, and a global MSYS_NO_PATHCONV turns that path
-# into one that does not exist.
-unset MSYS_NO_PATHCONV
-
-# Git exports GIT_DIR and GIT_INDEX_FILE to hooks, and a git process aimed at
-# the stack must not inherit them (`pre-push`: Stack tools).
-outside_checkout() {
-  (
-    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR
-    "$@"
-  )
-}
 
 python_bin="${PYTHON:-}"
 if [ -z "$python_bin" ]; then
@@ -77,7 +57,8 @@ if [ -z "$python_bin" ]; then
     # which passes the lookup and then fails at exec (rc 127) — the probe
     # must actually run the candidate before trusting it (same fix as
     # scripts/git-hooks/pre-push, 2026-09-22).
-    if command -v "$candidate" >/dev/null 2>&1       && "$candidate" -c 'import sys' >/dev/null 2>&1; then
+    if command -v "$candidate" >/dev/null 2>&1 \
+      && "$candidate" -c 'import sys' >/dev/null 2>&1; then
       python_bin="$candidate"
       break
     fi
@@ -89,34 +70,6 @@ if [ -z "$python_bin" ]; then
   exit 1
 fi
 
-stack_root="$(cd "$repo_root/../.." && pwd)"
-stack_top="$(outside_checkout git -C "$stack_root" rev-parse --show-toplevel 2>/dev/null || true)"
-stack_baseline=""
-if [ -n "$stack_top" ] && [ "$(cd "$stack_top" && pwd)" = "$stack_root" ]; then
-  for ref in origin/HEAD origin/main; do
-    stack_baseline="$(outside_checkout git -C "$stack_root" rev-parse --verify --quiet "$ref^{commit}" 2>/dev/null || true)"
-    [ -n "$stack_baseline" ] && break
-  done
-fi
-
-if [ -z "$stack_baseline" ]; then
-  # Outside the stack there is no checker to run; the shared `lockfile-guard`
-  # workflow runs the same one in CI, and `pre-push` reports the same absence.
-  echo "pre-commit: no stack checker reachable from this clone; lockfile not verified here, the lockfile-guard CI job enforces it" >&2
-  exit 0
-fi
-
-checker_dir="$(mktemp -d "${TMPDIR:-/tmp}/pre-commit-lock.XXXXXX")"
-trap 'rm -rf "$checker_dir"' EXIT
-if ! outside_checkout git -C "$stack_root" cat-file -e "$stack_baseline:scripts/lockfile.py" 2>/dev/null   || ! outside_checkout git -C "$stack_root" archive "$stack_baseline" scripts/lockfile.py | tar -x -C "$checker_dir"; then
-  # A guard that reports its own absence and exits 0 is the absence: the
-  # commit lands unverified and the message scrolls past. The stack is
-  # reachable here, so its default is what lacks the checker; refuse, with no
-  # deliberate way through (see SKIP_LOCKFILE_CHECK above).
-  echo "pre-commit: the stack's scripts at ${stack_baseline:0:12} carry no lockfile.py; lockfile not verified" >&2
-  exit 1
-fi
-checker="$(cd "$checker_dir" && { pwd -W 2>/dev/null || pwd; })/scripts/lockfile.py"
-
-# --check-staged is index-only and runs no cargo.
-"$python_bin" "$checker" --check-staged
+# --check-staged is index-only and runs no cargo, so an ordinary commit that
+# does not touch Cargo.lock pays nothing for this.
+exec "$python_bin" "$checker" --check-staged
