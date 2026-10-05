@@ -41,7 +41,7 @@ use crate::scalar::{max, one, zero};
 use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
 use crate::solvers::lbm::streaming::f_idx;
 use cfd_core::error::Error;
-use eunomia::{CastFrom, FloatElement, NumericElement};
+use eunomia::{FloatElement, NumericElement};
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$
 const LATTICE_CS2: f64 = 1.0 / 3.0;
@@ -170,8 +170,8 @@ impl<T: FloatElement> CollisionOperator<T> for CarreauYasudaBgk<T> {
 
                 for q in 0..9 {
                     let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
-                    let e_x = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].0);
-                    let e_y = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].1);
+                    let e_x = <T as FloatElement>::from_integer(i64::from(D2Q9::VELOCITIES[q].0));
+                    let e_y = <T as FloatElement>::from_integer(i64::from(D2Q9::VELOCITIES[q].1));
 
                     let f_eq = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
                     f_eq_cache[q] = f_eq;

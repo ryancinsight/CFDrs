@@ -34,7 +34,7 @@
 use crate::scalar::zero;
 use crate::solvers::lbm::lattice::D2Q9;
 use cfd_core::CfdScalar;
-use eunomia::{CastFrom, FloatElement};
+use eunomia::FloatElement;
 
 /// Configuration for Shan-Chen pseudopotential multiphase simulation
 #[derive(Debug, Clone, Copy)]
@@ -92,8 +92,8 @@ impl<T: CfdScalar + Copy + FloatElement> ShanChenMultiphase<T> {
                     let nb_cell = nb_y * nx + nb_x;
 
                     let nb_psi = psi_field[nb_cell];
-                    let e_x_t = <T as CastFrom<i32>>::cast_from(ex);
-                    let e_y_t = <T as CastFrom<i32>>::cast_from(ey);
+                    let e_x_t = <T as FloatElement>::from_integer(i64::from(ex));
+                    let e_y_t = <T as FloatElement>::from_integer(i64::from(ey));
 
                     sum_x += weight * nb_psi * e_x_t;
                     sum_y += weight * nb_psi * e_y_t;
