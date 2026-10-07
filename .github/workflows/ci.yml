@@ -144,7 +144,9 @@ jobs:
         run: sccache --show-stats
 
   rust-tests:
-    name: Rust tests (shard ${{ matrix.shard } of 3)
+    # Static name: the matrix context is unavailable in `name`, and GitHub
+    # appends the shard value itself ("Rust tests (1)" ...).
+    name: Rust tests
     needs: lockfile
     if: ${{ needs.lockfile.result == 'success' }}
     runs-on: ubuntu-latest
