@@ -49,23 +49,26 @@ jobs:
   lockfile:
     uses: ryancinsight/atlas/.github/workflows/lockfile-guard.yml@886d85b0e4bea20c8e5ec4b4239e6ba9cdbcf74d
 
-  # Build-once/shard was measured and reverted here (PR 490, runs
-  # 36468532424/36472002537/36478822432): `cargo nextest archive`
-  # (compile-only, no test execution) took 11m24s-11m33s standalone,
-  # matching the pre-split single job's combined compile+run "Tests" step
-  # (11m32s, run 36368805748) almost exactly. The gate was compile-bound, not
-  # test-execution-bound, so sharding test execution (already a negligible
-  # fraction of the 11+ minutes) added a serial compile stage plus an
-  # archive-upload/download round trip ahead of it for no gain. The actual
-  # cause - a cache-key collision with check-figures - is fixed at the
-  # rust-cache step below (see its comment); this job's env/steps are
-  # otherwise unchanged from before the shard experiment.
-  rust-workspace:
-    name: Rust workspace gate
+  # Wall-time history: the single-job gate was compile-bound (test-profile
+  # build 8m13s, execution 34s for 3330 tests, run 37583055028). A
+  # build-once/shard split was measured and reverted (PR 490) because the
+  # serial archive compile plus upload/download round trip matched the
+  # single job exactly. The missing piece then was shared compilation
+  # caching: rust-cache deliberately excludes workspace crates, so every
+  # shard recompiled all 11 of them from scratch. sccache (GHA backend,
+  # content-keyed, same pattern as Coeus#455) caches those artifacts
+  # across jobs and runs, so each shard compiles with mostly hits and the
+  # partition only divides the ~34s execution plus per-shard setup.
+  # Target: lint and test shards each under 5 minutes warm.
+  rust-lint:
+    name: Rust lint gate
     needs: lockfile
     if: ${{ needs.lockfile.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
+    env:
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -77,15 +80,12 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
 
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
       - name: Normalize materialized dependency lock
         # The Atlas checkout action replaces git providers with path sources.
         # Regenerate the ephemeral lock before every later --locked gate.
         run: cargo metadata --format-version 1 --all-features > /dev/null
-
-      - name: Install nextest
-        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
-        with:
-          tool: cargo-nextest@0.9.140
 
       - name: Install native fontconfig headers
         run: |
@@ -102,6 +102,140 @@ jobs:
           done
           echo "apt-get did not complete after 3 attempts" >&2
           exit 1
+
+      # Root cause (was ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS, gap_audit.md):
+      # this job and check-figures shared one key ("cfdrs"). check-figures
+      # finishes ~14min earlier (its `cargo run -p xtask` only builds xtask +
+      # its own deps, not the workspace's full clippy/test dependency graph),
+      # so on a main push its post-step claimed the shared key's save first;
+      # GitHub's cache API is immutable per key, so this job's later save of
+      # the full dependency set silently no-op'd forever after - confirmed via
+      # the Swatinem/rust-cache log line `full match: true` on runs
+      # 36403691327 and 36472002537, restoring a ~4.1GB cache built from
+      # check-figures' shallow content, followed by 241 third-party crates
+      # recompiling from scratch every run regardless.
+      #
+      # Fixed by splitting the key so only this job writes "cfdrs-gate"
+      # (bumped from "cfdrs" so the first save starts clean). Each job keeps
+      # its own key; sccache carries the workspace-crate artifacts instead.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: .
+          shared-key: cfdrs-gate
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      # Clippy performs its own compilation and supplies the same type-check
+      # coverage as `cargo check`; keeping both workspace-wide builds here
+      # wastes runner time and duplicates peak memory pressure.
+      # `cargo check` remains available locally for focused crate debugging.
+      # The clippy component is installed above, so without this step the
+      # workspace's denied pedantic floor is declared and never enforced -
+      # which is the state CFDrs was already in when the floor was found to be
+      # inert (ten crates carried in-source `#![warn(clippy::pedantic)]`
+      # overriding the manifest allow-list).
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  rust-tests:
+    name: Rust tests (shard ${{ matrix.shard } of 3)
+    needs: lockfile
+    if: ${{ needs.lockfile.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Normalize materialized dependency lock
+        run: cargo metadata --format-version 1 --all-features > /dev/null
+
+      - name: Install nextest
+        uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
+        with:
+          tool: cargo-nextest@0.9.140
+
+      - name: Install native fontconfig headers
+        run: |
+          for attempt in 1 2 3; do
+            if sudo timeout 240 apt-get update               && sudo timeout 240 apt-get install --yes libfontconfig1-dev; then
+              exit 0
+            fi
+            echo "apt attempt ${attempt} failed or timed out; retrying" >&2
+            sleep 20
+          done
+          echo "apt-get did not complete after 3 attempts" >&2
+          exit 1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: .
+          shared-key: cfdrs-gate
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Tests
+        # .config/nextest.toml runs the numerical-fidelity group with no
+        # concurrent test, so one invocation covers the whole suite.
+        # Partitioned across three shards; sccache (shared GHA backend)
+        # supplies the workspace-crate artifacts so no serial archive
+        # compile is needed ahead of the split (see the job-group comment).
+        run: cargo nextest run --workspace --no-fail-fast --locked --partition count:${{ matrix.shard }}/3
+
+      - name: Doctests (shard 1 only)
+        if: ${{ matrix.shard == 1 }}
+        run: cargo test --doc --workspace --locked
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  # Aggregate gate preserving the required-check name. Branch protection
+  # requires exactly "Rust workspace gate"; the lint and test shards above
+  # report under their own names, so this job folds them back into the one
+  # required context (fails when any need is not success).
+  rust-workspace:
+    name: Rust workspace gate
+    needs: [lockfile, rust-lint, rust-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Aggregate gate
+        run: |
+          for need in lockfile rust-lint rust-tests; do
+            case "$need" in
+              lockfile) result="${{ needs.lockfile.result }}" ;;
+              rust-lint) result="${{ needs.rust-lint.result }}" ;;
+              rust-tests) result="${{ needs.rust-tests.result }}" ;;
+            esac
+            if [ "$result" != "success" ]; then
+              echo "gate red: $need result is $result" >&2
+              exit 1
+            fi
+          done
+          echo "gate green: lockfile, lint and all test shards succeeded"
 
       # Root cause (was ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS, gap_audit.md):
       # this job and check-figures shared one key ("cfdrs"). check-figures
