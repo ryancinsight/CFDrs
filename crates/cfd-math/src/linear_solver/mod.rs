@@ -29,5 +29,5 @@ pub use block_preconditioner::{
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
 pub use direct_solver::DirectSparseSolver;
+pub use preconditioners::AlgebraicMultigrid;
 pub use preconditioners::multigrid::AMGConfig;
-pub use preconditioners::{AlgebraicMultigrid, IncompleteLU};

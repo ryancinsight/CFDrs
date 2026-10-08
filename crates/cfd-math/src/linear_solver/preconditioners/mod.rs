@@ -6,14 +6,12 @@
 //! incomplete LU, successive over-relaxation - come from `athena-leto` and are
 //! used directly at their canonical paths rather than re-exported here.
 //!
-//! What lives in this module is CFD-domain-specific: algebraic multigrid and
-//! the level-k incomplete LU built on the CFD sparsity patterns.
+//! What lives in this module is CFD-domain-specific: algebraic multigrid on
+//! the CFD sparsity patterns.
 
-pub mod ilu;
 pub mod multigrid;
 
 #[cfg(test)]
 mod ssor_tests;
 
-pub use ilu::IncompleteLU;
 pub use multigrid::AlgebraicMultigrid;
