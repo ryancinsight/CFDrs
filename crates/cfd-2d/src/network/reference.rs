@@ -12,7 +12,7 @@ use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use petgraph::graph::NodeIndex;
 
 use crate::scalar;
@@ -90,7 +90,7 @@ pub fn solve_reference_trace<T>(
     target_total_flow_m3_s: f64,
 ) -> CfdResult<NetworkReferenceTrace<T>>
 where
-    T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+    T: CfdScalar + RealField + Copy + FloatElement + std::fmt::Debug,
 {
     let fluid = reference_fluid::<T>(density_kg_m3, viscosity_pa_s)?;
     let mut network = network_from_blueprint::<T, _>(blueprint, fluid).map_err(|e| {
@@ -170,7 +170,7 @@ pub(crate) fn build_reference_trace_from_solved_network<T>(
     target_total_flow_m3_s: f64,
 ) -> CfdResult<NetworkReferenceTrace<T>>
 where
-    T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+    T: CfdScalar + RealField + Copy + FloatElement + std::fmt::Debug,
 {
     let edge_flow_by_id: HashMap<String, T> = solved
         .edges_with_properties()
@@ -398,7 +398,7 @@ pub(crate) fn reference_fluid<T>(
     viscosity_pa_s: f64,
 ) -> CfdResult<ConstantPropertyFluid<T>>
 where
-    T: CfdScalar + EunomiaRealField + Copy + FloatElement,
+    T: CfdScalar + RealField + Copy + FloatElement,
 {
     let fluid = ConstantPropertyFluid::new(
         "Blood reference fluid".to_string(),

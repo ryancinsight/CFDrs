@@ -7,13 +7,12 @@ use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrix;
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 use leto::Array1;
 use std::collections::HashMap;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) algorithm
-pub struct SimpleAlgorithm<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug>
-{
+pub struct SimpleAlgorithm<T: CfdScalar + RealField + Copy + FloatElement + std::fmt::Debug> {
     pub(crate) pressure_relaxation: T,
     pub(crate) velocity_relaxation: T,
     pub(crate) max_iterations: usize,
@@ -26,7 +25,7 @@ pub struct SimpleAlgorithm<T: CfdScalar + EunomiaRealField + Copy + FloatElement
     pub(crate) d_v: Option<Field2D<T>>,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
     pub fn new() -> Self {
         Self {
@@ -166,7 +165,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Si
     }
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Default
+impl<T: CfdScalar + RealField + Copy + FloatElement + std::fmt::Debug> Default
     for SimpleAlgorithm<T>
 {
     fn default() -> Self {

@@ -12,10 +12,10 @@ use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use std::collections::HashMap;
 
-impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
+impl<T: CfdScalar + RealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
     pub(crate) fn assemble_pressure_correction(
         &mut self,
         fields: &SimulationFields<T>,

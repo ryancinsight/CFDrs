@@ -7,7 +7,7 @@
 
 use crate::scalar;
 use cfd_core::CfdScalar;
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 /// Linear solver choice for pressure Poisson equation
@@ -35,7 +35,7 @@ impl Default for PressureLinearSolver {
 
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureVelocityConfig<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct PressureVelocityConfig<T: CfdScalar + RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -55,7 +55,7 @@ pub struct PressureVelocityConfig<T: CfdScalar + EunomiaRealField + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PressureVelocityConfig<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {

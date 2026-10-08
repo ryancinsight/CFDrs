@@ -17,7 +17,7 @@
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use std::collections::HashMap;
 
@@ -27,12 +27,12 @@ use crate::grid::StructuredGrid2D;
 use crate::scalar;
 
 /// Advection-diffusion equation solver
-pub struct AdvectionDiffusionSolver<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct AdvectionDiffusionSolver<T: CfdScalar + RealField + Copy> {
     config: FdmConfig<T>,
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> AdvectionDiffusionSolver<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> AdvectionDiffusionSolver<T> {
     /// Create a new advection-diffusion solver.
     ///
     /// # Panics

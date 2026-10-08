@@ -6,13 +6,13 @@ use crate::physics::turbulence::traits::TurbulenceModel;
 use crate::physics::turbulence::{
     DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES,
 };
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 use leto::Array2;
 use leto::geometry::Vector2;
 
 use super::TurbulenceValidator;
 
-impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
+impl<T: RealField + Copy> TurbulenceValidator<T> {
     /// Validate Smagorinsky LES model SGS viscosity calculation
     pub fn validate_smagorinsky_sgs(&self) -> ValidationResult {
         let config = crate::physics::turbulence::les_smagorinsky::SmagorinskyConfig {

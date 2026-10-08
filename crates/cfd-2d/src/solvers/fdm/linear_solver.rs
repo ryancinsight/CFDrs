@@ -17,7 +17,7 @@
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::SparseMatrix;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 
 use super::config::FdmConfig;
@@ -33,7 +33,7 @@ use crate::scalar;
 /// This provides better convergence than Jacobi (which uses all old values).
 ///
 /// Returns an error if convergence is not achieved within `max_iterations`.
-pub fn solve_gauss_seidel<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
+pub fn solve_gauss_seidel<T: CfdScalar + RealField + Copy + FloatElement>(
     matrix: &SparseMatrix<T>,
     rhs: &Array1<T>,
     config: &FdmConfig<T>,

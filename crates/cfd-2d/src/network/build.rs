@@ -8,7 +8,7 @@ use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::domain::rules::BlueprintValidator;
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 
@@ -22,7 +22,7 @@ use super::validate_blueprint_for_2d_projection;
 
 /// A [`GraphSink`] that converts a validated [`NetworkBlueprint`] into a
 /// solver-ready [`Network2DSolver<T>`].
-pub struct Network2dBuilderSink<T: CfdScalar + EunomiaRealField + Copy + FloatElement> {
+pub struct Network2dBuilderSink<T: CfdScalar + RealField + Copy + FloatElement> {
     blood: BloodModel<T>,
     density: f64,
     /// Total inlet flow rate [m³/s] used to scale the cfd-1d reference trace.
@@ -32,7 +32,7 @@ pub struct Network2dBuilderSink<T: CfdScalar + EunomiaRealField + Copy + FloatEl
     separation_tracking_enabled: bool,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSink<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> Network2dBuilderSink<T> {
     /// Create a new sink.
     #[must_use]
     pub fn new(
@@ -62,7 +62,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSink
 
 impl<T> GraphSink for Network2dBuilderSink<T>
 where
-    T: CfdScalar + Copy + FloatElement + EunomiaRealField + std::fmt::Debug + 'static,
+    T: CfdScalar + Copy + FloatElement + RealField + std::fmt::Debug + 'static,
 {
     type Output = Network2DSolver<T>;
 
@@ -158,7 +158,7 @@ where
 }
 
 /// Extract a representative dynamic viscosity [Pa·s] from the blood model.
-fn blood_viscosity_f64<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
+fn blood_viscosity_f64<T: CfdScalar + RealField + Copy + FloatElement>(
     model: &BloodModel<T>,
 ) -> f64 {
     const REF_SHEAR: f64 = 100.0;
@@ -167,7 +167,7 @@ fn blood_viscosity_f64<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
 }
 
 /// Select a SIMPLE/PISO relaxation profile for the channel shape.
-fn solver_config_for_channel<T: CfdScalar + EunomiaRealField + Copy + FloatElement>(
+fn solver_config_for_channel<T: CfdScalar + RealField + Copy + FloatElement>(
     shape: &ChannelShape,
     mean_velocity_m_s: f64,
 ) -> SIMPLEConfig<T> {

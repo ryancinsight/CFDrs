@@ -1,7 +1,7 @@
 //! Multigrid smoothers for AMG preconditioning
 
 use super::{MultigridVector, SparseMatrix};
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto_ops::{Scalar as LetoScalar, spmv as leto_spmv};
 
 #[inline]
@@ -15,7 +15,7 @@ fn residual<T>(
     x: &MultigridVector<T>,
 ) -> MultigridVector<T>
 where
-    T: EunomiaRealField + Copy + LetoScalar,
+    T: RealField + Copy + LetoScalar,
 {
     let applied =
         leto_spmv(matrix, &x.view()).expect("invariant: smoother SpMV dimensions are valid");
@@ -28,18 +28,18 @@ where
 
 /// Gauss-Seidel smoother
 #[derive(Debug, Clone)]
-pub struct GaussSeidelSmoother<T: EunomiaRealField + Copy> {
+pub struct GaussSeidelSmoother<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: EunomiaRealField + Copy> GaussSeidelSmoother<T> {
+impl<T: RealField + Copy> GaussSeidelSmoother<T> {
     /// Create a new Gauss-Seidel smoother
     pub fn new(relaxation_factor: T) -> Self {
         Self { relaxation_factor }
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> GaussSeidelSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> GaussSeidelSmoother<T> {
     /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
     pub fn apply(
         &self,
@@ -78,18 +78,18 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> GaussSeidelSmoother
 
 /// Symmetric Gauss-Seidel smoother
 #[derive(Debug, Clone)]
-pub struct SymmetricGaussSeidelSmoother<T: EunomiaRealField + Copy> {
+pub struct SymmetricGaussSeidelSmoother<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: EunomiaRealField + Copy> SymmetricGaussSeidelSmoother<T> {
+impl<T: RealField + Copy> SymmetricGaussSeidelSmoother<T> {
     /// Create a new symmetric Gauss-Seidel smoother
     pub fn new(relaxation_factor: T) -> Self {
         Self { relaxation_factor }
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SymmetricGaussSeidelSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> SymmetricGaussSeidelSmoother<T> {
     /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
     pub fn apply(
         &self,
@@ -133,18 +133,18 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SymmetricGaussSeide
 
 /// Jacobi smoother
 #[derive(Debug, Clone)]
-pub struct JacobiSmoother<T: EunomiaRealField + Copy> {
+pub struct JacobiSmoother<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: EunomiaRealField + Copy> JacobiSmoother<T> {
+impl<T: RealField + Copy> JacobiSmoother<T> {
     /// Create a new Jacobi smoother
     pub fn new(relaxation_factor: T) -> Self {
         Self { relaxation_factor }
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> JacobiSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> JacobiSmoother<T> {
     /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
     pub fn apply(
         &self,
@@ -185,18 +185,18 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> JacobiSmoother<T> {
 
 /// SOR (Successive Over-Relaxation) smoother
 #[derive(Debug, Clone)]
-pub struct SORSmoother<T: EunomiaRealField + Copy> {
+pub struct SORSmoother<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: EunomiaRealField + Copy> SORSmoother<T> {
+impl<T: RealField + Copy> SORSmoother<T> {
     /// Create a new SOR smoother
     pub fn new(relaxation_factor: T) -> Self {
         Self { relaxation_factor }
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SORSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> SORSmoother<T> {
     /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
     pub fn apply(
         &self,
@@ -235,13 +235,13 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> SORSmoother<T> {
 
 /// Chebyshev polynomial smoother for high-frequency error components
 #[derive(Debug, Clone)]
-pub struct ChebyshevSmoother<T: EunomiaRealField + Copy> {
+pub struct ChebyshevSmoother<T: RealField + Copy> {
     eigenvalues_min: T,
     eigenvalues_max: T,
     degree: usize,
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T> {
     /// Create a new Chebyshev smoother
     pub fn new(eigenvalues_min: T, eigenvalues_max: T, degree: usize) -> Self {
         Self {
@@ -294,7 +294,7 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T
     }
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> ChebyshevSmoother<T> {
     /// Apply the smoother to the system `Ax = b` for `iterations` sweeps.
     pub fn apply(
         &self,

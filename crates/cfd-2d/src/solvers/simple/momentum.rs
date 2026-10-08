@@ -6,9 +6,9 @@ use crate::physics::momentum::{MomentumComponent, MomentumSolver};
 use crate::scalar;
 use cfd_core::CfdScalar;
 use cfd_core::error::Result;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 
-impl<T: CfdScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
+impl<T: CfdScalar + RealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
     pub(crate) fn predict_momentum(
         &mut self,
         momentum_solver: &mut MomentumSolver<T>,

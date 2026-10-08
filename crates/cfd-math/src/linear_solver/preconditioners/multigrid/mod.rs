@@ -180,14 +180,14 @@ pub use smoothers::*;
 // Re-export nonlinear operator trait for FAS
 pub use gmg::NonlinearOperator;
 
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 use leto::Array1;
 use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
 
 type MultigridVector<T> = Array1<T>;
 pub(crate) type SparseMatrix<T> = LetoCsrMatrix<T>;
 
-pub(crate) fn csr_from_parts<T: EunomiaRealField + Copy + LetoScalar>(
+pub(crate) fn csr_from_parts<T: RealField + Copy + LetoScalar>(
     nrows: usize,
     ncols: usize,
     row_ptr: Vec<usize>,
@@ -202,7 +202,7 @@ pub(crate) fn csr_from_parts<T: EunomiaRealField + Copy + LetoScalar>(
     })
 }
 
-pub(crate) fn csr_value<T: EunomiaRealField + Copy + LetoScalar>(
+pub(crate) fn csr_value<T: RealField + Copy + LetoScalar>(
     matrix: &SparseMatrix<T>,
     row: usize,
     col: usize,
@@ -313,7 +313,7 @@ pub enum SmootherType {
 /// post-smoothing sweep of every cycle. The variant carries its concrete
 /// smoother's parameters, so the level holds no vtable and clones by value.
 #[derive(Clone)]
-pub enum Smoother<T: EunomiaRealField + Copy> {
+pub enum Smoother<T: RealField + Copy> {
     /// Gauss-Seidel relaxation
     GaussSeidel(GaussSeidelSmoother<T>),
     /// Symmetric Gauss-Seidel relaxation
@@ -326,7 +326,7 @@ pub enum Smoother<T: EunomiaRealField + Copy> {
     Chebyshev(ChebyshevSmoother<T>),
 }
 
-impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> Smoother<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> Smoother<T> {
     /// Apply the carried smoother to the system `Ax = b` for `iterations`
     /// sweeps. The match is exhaustive over the closed smoother set: adding a
     /// variant is a compile error until this dispatch names it.
@@ -349,7 +349,7 @@ impl<T: EunomiaRealField + Copy + FloatElement + LetoScalar> Smoother<T> {
 
 /// Multigrid level representation
 #[derive(Clone)]
-pub struct MultigridLevel<T: EunomiaRealField + Copy + LetoScalar> {
+pub struct MultigridLevel<T: RealField + Copy + LetoScalar> {
     /// System matrix for this level
     pub matrix: SparseMatrix<T>,
     /// Restriction operator from fine to coarse
@@ -362,12 +362,12 @@ pub struct MultigridLevel<T: EunomiaRealField + Copy + LetoScalar> {
 
 /// A cached AMG hierarchy containing transfer operators
 #[derive(Clone)]
-pub struct AMGHierarchy<T: EunomiaRealField + Copy + LetoScalar> {
+pub struct AMGHierarchy<T: RealField + Copy + LetoScalar> {
     /// Transfer operators for each level: (Restriction, Interpolation)
     pub operators: Vec<(SparseMatrix<T>, SparseMatrix<T>)>,
 }
 
-impl<T: EunomiaRealField + Copy + LetoScalar> AMGHierarchy<T> {
+impl<T: RealField + Copy + LetoScalar> AMGHierarchy<T> {
     /// Create a new hierarchy from existing levels
     pub fn from_levels(levels: &[MultigridLevel<T>]) -> Self {
         let operators = levels

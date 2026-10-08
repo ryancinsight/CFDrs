@@ -16,18 +16,18 @@
 
 use cfd_core::CfdScalar;
 use cfd_core::compute::solver::SolverConfig;
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 /// Finite Difference Method solver configuration
 /// Uses unified `SolverConfig` as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FdmConfig<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct FdmConfig<T: CfdScalar + RealField + Copy> {
     /// Base solver configuration (SSOT)
     pub base: SolverConfig<T>,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for FdmConfig<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),
@@ -35,7 +35,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for FdmConfi
     }
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy> FdmConfig<T> {
+impl<T: CfdScalar + RealField + Copy> FdmConfig<T> {
     /// Get maximum iterations from base config
     pub fn max_iterations(&self) -> usize {
         self.base.convergence.max_iterations

@@ -17,7 +17,7 @@
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::sparse::SparseMatrixBuilder;
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
 use std::collections::HashMap;
 
@@ -27,19 +27,19 @@ use crate::grid::StructuredGrid2D;
 use crate::scalar;
 
 /// Poisson equation solver
-pub struct PoissonSolver<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct PoissonSolver<T: CfdScalar + RealField + Copy> {
     config: FdmConfig<T>,
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for PoissonSolver<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> Default for PoissonSolver<T> {
     /// Create with default configuration.
     fn default() -> Self {
         Self::new(FdmConfig::<T>::default())
     }
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> PoissonSolver<T> {
     /// Create new Poisson solver.
     ///
     /// # Panics

@@ -25,7 +25,7 @@ use crate::scalar::{one, zero};
 use cfd_core::CfdScalar;
 use cfd_core::compute::solver::SolverConfiguration;
 use cfd_core::error::{Error, Result};
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +55,7 @@ fn validate_finite_non_negative<T: NumericElement>(name: &str, value: T) -> Resu
 
 /// Vorticity-Stream function solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VorticityStreamConfig<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct VorticityStreamConfig<T: CfdScalar + RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step for transient simulation
@@ -68,7 +68,7 @@ pub struct VorticityStreamConfig<T: CfdScalar + EunomiaRealField + Copy> {
     pub sor_omega: T,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for VorticityStreamConfig<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::compute::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
@@ -104,7 +104,7 @@ impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement> Default for Vorticit
 /// ## References:
 /// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
-pub struct VorticityStreamSolver<T: CfdScalar + EunomiaRealField + Copy> {
+pub struct VorticityStreamSolver<T: CfdScalar + RealField + Copy> {
     config: VorticityStreamConfig<T>,
     /// Stream function field [nx, ny]
     psi: Array2D<T>,
@@ -124,7 +124,7 @@ pub struct VorticityStreamSolver<T: CfdScalar + EunomiaRealField + Copy> {
     reynolds: T,
 }
 
-impl<T: CfdScalar + EunomiaRealField + Copy + FloatElement + Send + Sync> VorticityStreamSolver<T> {
+impl<T: CfdScalar + RealField + Copy + FloatElement + Send + Sync> VorticityStreamSolver<T> {
     /// Create a new vorticity-stream solver
     ///
     /// Prefer [`VorticityStreamSolver::try_new`] for fallible construction;

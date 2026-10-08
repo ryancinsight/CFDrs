@@ -4,13 +4,13 @@ use super::ValidationResult;
 use crate::physics::turbulence::constants::{C2_EPSILON, EPSILON_MIN, SST_BETA_1};
 use crate::physics::turbulence::traits::TurbulenceModel;
 use crate::physics::turbulence::{KEpsilonModel, KOmegaSSTModel, SpalartAllmaras};
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::geometry::Vector2;
 use std::fmt::Write;
 
 use super::TurbulenceValidator;
 
-impl<T: EunomiaRealField> TurbulenceValidator<T> {
+impl<T: RealField> TurbulenceValidator<T> {
     #[inline]
     fn scalar(value: f64) -> T {
         <T as FloatElement>::from_f64(value)
