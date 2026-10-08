@@ -2,9 +2,11 @@
 //!
 //! Athena owns the Krylov recurrences (CG, BiCGSTAB, GMRES, LSQR), the
 //! operator and preconditioner seams, and the convergence policy they enforce
-//! (Atlas ADR 0033). [`krylov`] is this workspace's entry point onto them,
-//! bridging Athena's compile-time GMRES restart to the runtime width CFD
-//! callers select.
+//! (Atlas ADR 0033). [`krylov`] is this workspace's entry point onto them: it
+//! translates the CFD configuration vocabulary into a validated Athena policy
+//! and wraps a caller-owned CSR matrix in Athena's operator seam, while the
+//! one runtime restart bridge, [`athena_leto::KrylovWorkspace`], lives in
+//! Athena (Atlas ADR 0062).
 //!
 //! What lives here is CFD-domain-specific: multigrid, ILU, block
 //! preconditioners for saddle-point systems, the direct solver bridge, and the
@@ -27,6 +29,5 @@ pub use block_preconditioner::{
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
 pub use direct_solver::DirectSparseSolver;
-pub use krylov::KrylovWorkspace;
 pub use preconditioners::multigrid::AMGConfig;
 pub use preconditioners::{AlgebraicMultigrid, IncompleteLU};

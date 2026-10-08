@@ -1,9 +1,10 @@
 use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
+use athena_leto::KrylovWorkspace;
 use athena_leto::SuccessiveOverRelaxation;
 use cfd_core::CfdScalar;
-use cfd_math::linear_solver::{KrylovWorkspace, krylov};
+use cfd_math::linear_solver::krylov;
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::FloatElement;
 #[cfg(debug_assertions)]
