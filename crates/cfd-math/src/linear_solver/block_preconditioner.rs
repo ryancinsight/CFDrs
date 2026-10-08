@@ -738,7 +738,7 @@ where
             let symbol = cached_symbols
                 .and_then(|symbols| symbols.get(component))
                 .cloned()
-                .unwrap_or_else(|| factor_symbolic(&CscMatrix::from_csr(&block)));
+                .unwrap_or_else(|| factor_symbolic(&CscMatrix::from_csr(&block.as_view())));
             let factor = solver.factor_sparse_with_symbolic(&block, &symbol)?;
             symbols.push(symbol);
             momentum_blocks.push(factor);
