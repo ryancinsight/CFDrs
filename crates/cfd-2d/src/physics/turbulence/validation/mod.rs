@@ -20,15 +20,15 @@ mod benchmarks;
 mod les_des;
 mod rans;
 
-use eunomia::{FloatElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, RealField};
 
 /// Turbulence validation framework
-pub struct TurbulenceValidator<T: EunomiaRealField + Copy> {
+pub struct TurbulenceValidator<T: RealField + Copy> {
     /// Validation tolerance for comparisons
     tolerance: T,
 }
 
-impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
+impl<T: RealField + Copy> TurbulenceValidator<T> {
     /// Create a new turbulence validator
     pub fn new(tolerance: T) -> Self {
         Self { tolerance }
@@ -106,7 +106,7 @@ impl ValidationResult {
 }
 
 /// Run and display comprehensive turbulence validation against experimental benchmarks
-pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
+pub fn run_turbulence_validation<T: RealField + Copy>() {
     tracing::info!("🧪 Comprehensive Turbulence Model Validation Suite");
     tracing::info!("=================================================");
     tracing::info!("Validating against experimental benchmarks per ASME V&V 20-2009");
@@ -199,7 +199,7 @@ pub fn run_turbulence_validation<T: EunomiaRealField + Copy>() {
 }
 
 /// Run RANS model benchmark suite
-pub fn run_rans_benchmark_suite<T: EunomiaRealField + Copy>() {
+pub fn run_rans_benchmark_suite<T: RealField + Copy>() {
     tracing::info!("🏭 RANS Turbulence Model Benchmark Suite");
     tracing::info!("=======================================");
     tracing::info!("Validating k-ε, k-ω SST, and SA models against experimental data");
@@ -229,7 +229,7 @@ pub fn run_rans_benchmark_suite<T: EunomiaRealField + Copy>() {
 }
 
 /// Run LES/DES benchmark suite
-pub fn run_les_benchmark_suite<T: EunomiaRealField + Copy>() {
+pub fn run_les_benchmark_suite<T: RealField + Copy>() {
     tracing::info!("🌪️  LES/DES Turbulence Model Benchmark Suite");
     tracing::info!("===========================================");
     tracing::info!("Validating Smagorinsky LES and DES models");

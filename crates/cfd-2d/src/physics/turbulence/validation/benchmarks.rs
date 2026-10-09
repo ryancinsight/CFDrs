@@ -3,7 +3,7 @@
 use super::ValidationResult;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
 use crate::physics::turbulence::{DetachedEddySimulation, SmagorinskyLES};
-use eunomia::RealField as EunomiaRealField;
+use eunomia::RealField;
 use leto::Array2;
 
 use super::TurbulenceValidator;
@@ -45,7 +45,7 @@ impl BenchmarkModel {
     }
 }
 
-impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
+impl<T: RealField + Copy> TurbulenceValidator<T> {
     /// Validate turbulence model performance
     pub fn validate_model_performance(&self, model_name: &str) -> ValidationResult {
         let Some(model) = BenchmarkModel::parse(model_name) else {
