@@ -17,8 +17,6 @@
 pub mod block_preconditioner;
 pub mod chain;
 pub mod config;
-pub mod dense_bridge;
-pub mod direct_solver;
 pub mod krylov;
 pub mod preconditioners;
 
@@ -28,6 +26,5 @@ pub use block_preconditioner::{
 };
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
-pub use direct_solver::DirectSparseSolver;
 pub use preconditioners::AlgebraicMultigrid;
 pub use preconditioners::multigrid::AMGConfig;

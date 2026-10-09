@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
-use cfd_math::linear_solver::DirectSparseSolver;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
+use leto_ops::SparseLuSolver;
 use leto_ops::{CooMatrix, CsrMatrix as LetoCsrMatrix, lu_decompose, qr_decompose};
 
 fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
@@ -34,12 +34,12 @@ fn solve_dense_cutoff(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<
 }
 
 fn solve_sparse_spd_direct(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<f64> {
-    DirectSparseSolver {
+    SparseLuSolver {
         max_size: 256,
-        ordering: 0,
         pivot_tolerance: 1e-12,
+        ..Default::default()
     }
-    .solve(matrix, rhs)
+    .solve_view(matrix, &rhs.view())
     .expect("sparse direct SPD solver must solve benchmark matrix")
 }
 
