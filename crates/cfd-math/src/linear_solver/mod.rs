@@ -14,16 +14,11 @@
 //! [`athena_core::Preconditioner`] seam so a Krylov solve accepts them
 //! directly.
 
-pub mod block_preconditioner;
 pub mod chain;
 pub mod config;
 pub mod krylov;
 pub mod preconditioners;
 
-pub use block_preconditioner::{
-    BlockDiagonalPreconditioner, ComponentBlockPreconditioner, DiagonalPreconditioner,
-    SimplePreconditioner,
-};
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
 pub use preconditioners::AlgebraicMultigrid;
