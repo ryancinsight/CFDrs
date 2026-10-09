@@ -35,14 +35,13 @@
 //! - Benzi, M., Golub, G.H. & Liesen, J. (2005). "Numerical solution of
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
-use crate::linear_solver::block_preconditioner::ComponentBlockPattern;
 use crate::linear_solver::krylov;
 use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
-use crate::linear_solver::{
-    AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, ComponentBlockPreconditioner,
-    IterativeSolverConfig, SimplePreconditioner,
+use crate::linear_solver::{AMGConfig, AlgebraicMultigrid, IterativeSolverConfig};
+use athena_leto::{
+    BlockDiagonalPreconditioner, ComponentBlockPattern, ComponentBlockPreconditioner, IncompleteLu,
+    SimplePreconditioner, SuccessiveOverRelaxation,
 };
-use athena_leto::{IncompleteLu, SuccessiveOverRelaxation};
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;

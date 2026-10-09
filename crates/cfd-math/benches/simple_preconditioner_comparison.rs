@@ -22,7 +22,8 @@
     reason = "baseline mirrors the historical jagged implementation verbatim"
 )]
 
-use cfd_math::linear_solver::SimplePreconditioner;
+use athena_core::Preconditioner;
+use athena_leto::{LetoBackend, SimplePreconditioner};
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
 use leto_ops::CsrMatrix;
@@ -388,7 +389,10 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
 
             // Parity gate: the CSR store and the raw flat transcription must
             // reproduce the jagged outputs before any measurement is trusted.
-            let csr_output = csr.apply(&b_array).expect("expected value");
+            let backend = LetoBackend::<f64>::default();
+            let mut csr_output = Array1::zeros([n]);
+            Preconditioner::apply(&csr, &backend, b_array.view(), csr_output.view_mut())
+                .expect("expected value");
             let jagged_output = jagged.apply(&b_array);
             let flat_output = csr_flat_apply(
                 &flat.divergence_offsets,
@@ -443,7 +447,16 @@ fn bench_simple_preconditioner(c: &mut Criterion) {
         let label = format!("{nx}x{nx}");
         apply.bench_with_input(BenchmarkId::new("csr", &label), &(), |bencher, _| {
             bencher.iter(|| {
-                black_box(csr.apply(black_box(b_array)).expect("expected value"));
+                let backend = LetoBackend::<f64>::default();
+                let mut out = Array1::zeros([b_array.shape()[0]]);
+                Preconditioner::apply(
+                    black_box(csr),
+                    &backend,
+                    black_box(b_array.view()),
+                    out.view_mut(),
+                )
+                .expect("expected value");
+                black_box(out);
             });
         });
         apply.bench_with_input(BenchmarkId::new("csr_flat", &label), &(), |bencher, _| {

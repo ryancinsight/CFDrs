@@ -227,7 +227,7 @@ dependencies = [
 [[package]]
 name = "athena-core"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/athena#12d78d08a21b69d4206ec0e533f1aa2bc8d37ad2"
+source = "git+https://github.com/ryancinsight/athena#438856eaeb1c529ca35a2b538807b688aff78afe"
 dependencies = [
  "eunomia",
 ]
@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "athena-leto"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/athena#12d78d08a21b69d4206ec0e533f1aa2bc8d37ad2"
+source = "git+https://github.com/ryancinsight/athena#438856eaeb1c529ca35a2b538807b688aff78afe"
 dependencies = [
  "athena-core",
  "eunomia",
