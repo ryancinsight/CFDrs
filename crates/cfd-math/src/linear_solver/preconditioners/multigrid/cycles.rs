@@ -1,8 +1,8 @@
 //! Multigrid cycle algorithms for AMG
 
 use super::{MultigridLevel, MultigridVector, SparseMatrix};
-use crate::linear_solver::dense_bridge::solve_leto_csr_with_leto_dense_array;
 use cfd_core::error::{Error, Result};
+use leto_ops::solve_csr_via_dense_lu;
 use leto_ops::spmv as leto_spmv;
 use std::time::Instant;
 
@@ -383,7 +383,11 @@ fn solve_coarsest_level(
     let n = matrix.nrows();
 
     if n <= 100 {
-        let dense_solution = solve_leto_csr_with_leto_dense_array(matrix, rhs)?;
+        let dense_solution = solve_csr_via_dense_lu(matrix, rhs).map_err(|error| {
+            Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidValue {
+                value: format!("coarsest-level dense solve failed: {error}"),
+            })
+        })?;
         for i in 0..solution.shape()[0] {
             solution[i] = dense_solution[i];
         }

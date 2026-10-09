@@ -9,7 +9,7 @@
 //! ## Algorithm (Solve Priority Order)
 //!
 //! ```text
-//! 1. DirectSparseSolver (LU)             — exact, used when n < threshold
+//! 1. SparseLuSolver (LU)                — exact, used when n < threshold
 //! 2. GMRES + component blocks            — provider sparse-LU momentum solves
 //! 3. GMRES + SIMPLE                      — coupled saddle-point preconditioner
 //! 4. GMRES + Algebraic Multigrid         — elliptic fallback
@@ -40,13 +40,13 @@ use crate::linear_solver::krylov;
 use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
 use crate::linear_solver::{
     AMGConfig, AlgebraicMultigrid, BlockDiagonalPreconditioner, ComponentBlockPreconditioner,
-    DirectSparseSolver, IterativeSolverConfig, SimplePreconditioner,
+    IterativeSolverConfig, SimplePreconditioner,
 };
 use athena_leto::{IncompleteLu, SuccessiveOverRelaxation};
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::RealScalar as LetoRealScalar;
+use leto_ops::{RealScalar as LetoRealScalar, SparseLuSolver, solve_csr_via_dense_lu};
 use std::fmt::Debug;
 
 use crate::sparse::SparseMatrix;
@@ -173,11 +173,7 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 1: Direct sparse LU (exact, preferred for small systems) ─────
         if n_total_dof < self.direct_threshold {
-            let direct = DirectSparseSolver {
-                max_size: self.direct_threshold,
-                ..DirectSparseSolver::default()
-            };
-            match direct.solve(matrix, rhs) {
+            match solve_direct_with_dense_retry(matrix, rhs, self.direct_threshold) {
                 Ok(x_direct) => {
                     tracing::debug!("LinearSolverChain: direct LU succeeded (n={n_total_dof})");
                     return Ok(x_direct);
@@ -398,11 +394,7 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
 
         // ── Tier 1: Direct sparse LU ──────────────────────────────────────────
         if n_total_dof < self.direct_threshold {
-            let direct = DirectSparseSolver {
-                max_size: self.direct_threshold,
-                ..DirectSparseSolver::default()
-            };
-            match direct.solve(matrix, rhs) {
+            match solve_direct_with_dense_retry(matrix, rhs, self.direct_threshold) {
                 Ok(x_direct) => {
                     tracing::debug!("LinearSolverChain: direct LU succeeded (n={n_total_dof})");
                     return Ok(x_direct);
@@ -632,4 +624,70 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         tracing::debug!("LinearSolverChain(warm): BiCGSTAB (last resort) converged");
         Ok(x)
     }
+}
+
+/// Dense-LU retry ceiling for the direct tier.
+///
+/// The dense path costs `O(n³)` work; at 1024 unknowns that is ~10⁹ fused
+/// multiply-adds at `f64` — the order of a few failed sparse attempts — so
+/// a small system whose sparse factorisation failed still gets its preferred
+/// exact solve instead of falling to the iterative tiers.
+const DENSE_RETRY_CEILING: usize = 1024;
+
+/// Solve exactly with the atlas-native sparse LU, retrying small systems
+/// through the dense bridge.
+///
+/// The retry is the chain's user-intent safety net, not a duplicate of the
+/// sparse solver's internal dense dispatch (ADR 0031): it catches the
+/// orthogonal case where the sparse path refuses or fails and the system is
+/// small enough that the dense bridge's exact solve is still the cheapest
+/// correct answer. Both paths verify the returned solution is finite.
+fn solve_direct_with_dense_retry<T>(
+    matrix: &SparseMatrix<T>,
+    rhs: &Array1<T>,
+    max_size: usize,
+) -> Result<Array1<T>>
+where
+    T: RealField + Copy + FloatElement + LetoRealScalar + Debug,
+{
+    let direct = SparseLuSolver {
+        max_size,
+        ..Default::default()
+    };
+    match direct.solve_view(matrix, &rhs.view()) {
+        Ok(solution) => {
+            ensure_finite_solution(&solution)?;
+            Ok(solution)
+        }
+        Err(sparse_error) => {
+            if matrix.nrows() <= DENSE_RETRY_CEILING {
+                tracing::warn!(
+                    size = matrix.nrows(),
+                    "LinearSolverChain: sparse LU failed ({sparse_error}); retrying dense"
+                );
+                let dense = solve_csr_via_dense_lu(matrix, rhs).map_err(|dense_error| {
+                    Error::Solver(format!(
+                        "direct solve failed: sparse: {sparse_error}; dense: {dense_error}"
+                    ))
+                })?;
+                ensure_finite_solution(&dense)?;
+                return Ok(dense);
+            }
+            Err(Error::Solver(format!(
+                "direct solve failed: {sparse_error}"
+            )))
+        }
+    }
+}
+
+/// Reject a direct-solve result carrying a non-finite entry.
+fn ensure_finite_solution<T: RealField + Copy + FloatElement>(solution: &Array1<T>) -> Result<()> {
+    for (index, value) in solution.iter().enumerate() {
+        if !NumericElement::to_f64(*value).is_finite() {
+            return Err(Error::ConversionError(format!(
+                "direct solve entry {index} is not finite"
+            )));
+        }
+    }
+    Ok(())
 }
