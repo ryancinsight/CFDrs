@@ -163,7 +163,6 @@
 
 mod amg;
 mod coarsening;
-mod cycles;
 mod gmg;
 mod interpolation;
 mod restriction;
@@ -171,7 +170,6 @@ mod smoothers;
 
 pub use amg::*;
 pub use coarsening::*;
-pub use cycles::*;
 pub use gmg::*;
 pub use interpolation::*;
 pub use restriction::*;
@@ -180,6 +178,7 @@ pub use smoothers::*;
 // Re-export nonlinear operator trait for FAS
 pub use gmg::NonlinearOperator;
 
+use athena_leto::CycleType;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
 use leto::Array1;
 use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};

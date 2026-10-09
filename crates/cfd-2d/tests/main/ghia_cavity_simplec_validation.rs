@@ -805,6 +805,7 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
 /// Tests convergence behavior with different AMG configurations
 #[test]
 fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
+    use athena_leto::CycleType;
     use cfd_math::linear_solver::preconditioners::multigrid::*;
 
     println!("\nAMG Parameter Sensitivity Analysis:");
