@@ -163,20 +163,15 @@
 
 mod amg;
 mod coarsening;
-mod gmg;
 mod interpolation;
 mod restriction;
 mod smoothers;
 
 pub use amg::*;
 pub use coarsening::*;
-pub use gmg::*;
 pub use interpolation::*;
 pub use restriction::*;
 pub use smoothers::*;
-
-// Re-export nonlinear operator trait for FAS
-pub use gmg::NonlinearOperator;
 
 use athena_leto::CycleType;
 use eunomia::{FloatElement, RealField as EunomiaRealField};
