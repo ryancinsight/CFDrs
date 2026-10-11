@@ -12,8 +12,7 @@
 //! canonical SPD multigrid problem, sized to keep the bench inside the
 //! committed suite budget while exercising a real multi-level hierarchy.
 
-use cfd_math::linear_solver::preconditioners::multigrid::SmootherType;
-use cfd_math::linear_solver::{AMGConfig, AlgebraicMultigrid};
+use athena_leto::{AMGConfig, AlgebraicMultigrid, SmootherType};
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto::Array1;
 use leto_ops::CsrMatrix;

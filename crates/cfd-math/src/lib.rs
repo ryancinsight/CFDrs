@@ -107,11 +107,6 @@
 
 pub mod linear_solver;
 
-/// Re-export the CFD-specific AMG preconditioner through the canonical
-/// cfd_math::multigrid path (domain-specific, not part of the leto-ops seam).
-pub mod multigrid {
-    pub use crate::linear_solver::preconditioners::multigrid::*;
-}
 pub mod diagnostics;
 pub mod error;
 pub mod fd_extensions;
