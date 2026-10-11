@@ -23,6 +23,7 @@ cfd-io.workspace = true
 apollo-fft.workspace = true
 apollo-nufft.workspace = true
 aequitas.workspace = true
+athena-leto.workspace = true
 leto.workspace = true
 leto-ops.workspace = true
 eunomia.workspace = true

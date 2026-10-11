@@ -3,7 +3,7 @@
 //!
 //! Athena owns the preconditioner seam (Atlas ADR 0033), and
 //! [`athena_leto::SuccessiveOverRelaxation`] is the implementation
-//! [`LinearSolverChain`](crate::linear_solver::LinearSolverChain) reaches for.
+//! [`LinearSolverChain`](athena_leto::LinearSolverChain) reaches for.
 //! Its apply is one forward sweep of the lower splitting factor,
 //!
 //! ```text

@@ -149,7 +149,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 [[package]]
 name = "apollo-fft"
 version = "0.27.0"
-source = "git+https://github.com/ryancinsight/apollo#87932df4a761ff73f891836ebee7f716e4f14b65"
+source = "git+https://github.com/ryancinsight/apollo#f97fc7ae9cdfd7536ebfb1db2911ad5a3500a688"
 dependencies = [
  "apollo-fft-macros",
  "apollo-leto-interop",
@@ -169,7 +169,7 @@ dependencies = [
 [[package]]
 name = "apollo-fft-macros"
 version = "0.3.0"
-source = "git+https://github.com/ryancinsight/apollo#87932df4a761ff73f891836ebee7f716e4f14b65"
+source = "git+https://github.com/ryancinsight/apollo#f97fc7ae9cdfd7536ebfb1db2911ad5a3500a688"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -179,7 +179,7 @@ dependencies = [
 [[package]]
 name = "apollo-leto-interop"
 version = "0.19.0"
-source = "git+https://github.com/ryancinsight/apollo#87932df4a761ff73f891836ebee7f716e4f14b65"
+source = "git+https://github.com/ryancinsight/apollo#f97fc7ae9cdfd7536ebfb1db2911ad5a3500a688"
 dependencies = [
  "leto",
 ]
@@ -187,7 +187,7 @@ dependencies = [
 [[package]]
 name = "apollo-nufft"
 version = "0.8.0"
-source = "git+https://github.com/ryancinsight/apollo#87932df4a761ff73f891836ebee7f716e4f14b65"
+source = "git+https://github.com/ryancinsight/apollo#f97fc7ae9cdfd7536ebfb1db2911ad5a3500a688"
 dependencies = [
  "apollo-fft",
  "apollo-leto-interop",
@@ -227,7 +227,7 @@ dependencies = [
 [[package]]
 name = "athena-core"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/athena#ced71f59e9aa75a3cd226875c97e8427bd7e70c1"
+source = "git+https://github.com/ryancinsight/athena#c2882ef925ddf1860e1601e692d148794f6ef341"
 dependencies = [
  "eunomia",
 ]
@@ -235,12 +235,13 @@ dependencies = [
 [[package]]
 name = "athena-leto"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/athena#ced71f59e9aa75a3cd226875c97e8427bd7e70c1"
+source = "git+https://github.com/ryancinsight/athena#c2882ef925ddf1860e1601e692d148794f6ef341"
 dependencies = [
  "athena-core",
  "eunomia",
  "leto",
  "leto-ops",
+ "tracing",
 ]
 
 [[package]]
@@ -489,6 +490,7 @@ dependencies = [
  "anyhow",
  "apollo-fft",
  "apollo-nufft",
+ "athena-leto",
  "cfd-1d",
  "cfd-2d",
  "cfd-core",
@@ -1868,7 +1870,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 [[package]]
 name = "leto"
 version = "0.45.0"
-source = "git+https://github.com/ryancinsight/leto.git#9c9e779d03200840749a879933cf258db4edabe5"
+source = "git+https://github.com/ryancinsight/leto.git#36d69e9d113a0cb7eb85736d03171bd69675b5dc"
 dependencies = [
  "aequitas",
  "eunomia",
@@ -1880,7 +1882,7 @@ dependencies = [
 [[package]]
 name = "leto-ops"
 version = "0.45.0"
-source = "git+https://github.com/ryancinsight/leto.git#9c9e779d03200840749a879933cf258db4edabe5"
+source = "git+https://github.com/ryancinsight/leto.git#36d69e9d113a0cb7eb85736d03171bd69675b5dc"
 dependencies = [
  "eunomia",
  "hermes-simd",

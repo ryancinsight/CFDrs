@@ -22,9 +22,10 @@
 //! **Reference:** Brezzi, F., "On the existence, uniqueness and discretization of
 //! saddle-point problems arising from Lagrangian multipliers", RAIRO Anal. Numér. 8(R-2), 1974.
 
+use athena_leto::{LinearSolverChain, LinearSolverState};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState};
+use cfd_math::linear_solver::krylov::convergence_policy;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};
@@ -205,11 +206,13 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
 
         // ── Linear solve: tiered fallback chain (Direct LU → GMRES/block → BiCGSTAB) ──
         //
-        // # Algorithm — Tiered Linear Solver Fallback (see cfd_math::linear_solver::chain)
+        // # Algorithm — Tiered Linear Solver Fallback
+        // (see athena_leto::solver_chain, Atlas ADR 0062)
         //
-        // The LinearSolverChain encapsulates the 5-tier fallback strategy that
+        // The LinearSolverChain encapsulates the tiered fallback strategy that
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
-        // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
+        // Tier order: Direct LU → GMRES+ComponentBlock → GMRES+SIMPLE →
+        // GMRES+AMG → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
         let rel_tol = self.config.base.convergence.tolerance;
         let abs_tol =
             (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
@@ -224,7 +227,12 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
             n_corner_nodes,
             "FemSolver: starting linear solve"
         );
-        let chain = LinearSolverChain::new(solver_config)
+        let chain =
+            LinearSolverChain::new(convergence_policy(&solver_config).map_err(|error| {
+                Error::Solver(format!(
+                    "FemSolver: invalid linear solver configuration: {error}"
+                ))
+            })?)
             // Direct LU threshold lowered from 100_000 to 512: the upstream
             // `leto_ops::SparseLuSolver` is a misnamed dense partial-pivoting LU
             // (see crates/cfd-math/src/linear_solver/direct_solver.rs:3-7), which
@@ -319,7 +327,12 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
             relative_tolerance: rel_tol,
         };
 
-        let chain = LinearSolverChain::new(solver_config)
+        let chain =
+            LinearSolverChain::new(convergence_policy(&solver_config).map_err(|error| {
+                Error::Solver(format!(
+                    "FemSolver: invalid linear solver configuration: {error}"
+                ))
+            })?)
             // See `solve` above for the threshold rationale: dense-LU-as-sparse-LU
             // defeats O(n^3) cost above ~512 DOF, so route saddle-point Picard
             // iters to GMRES+AMG / GMRES+BlockDiag (Tier 2/3) instead.
@@ -481,13 +494,17 @@ impl<T: CfdScalar + cfd_mesh::domain::core::Scalar + FloatElement> FemSolver<T> 
             }
             reduced
         });
-        let reduced_solution = chain.solve_with_guess_state(
-            &reduced_matrix,
-            &reduced_rhs,
-            reduced_velocity_dof,
-            reduced_guess.as_ref(),
-            &mut self.linear_solver_state,
-        )?;
+        let reduced_solution = chain
+            .solve_with_guess_state(
+                &reduced_matrix,
+                &reduced_rhs,
+                reduced_velocity_dof,
+                reduced_guess.as_ref(),
+                &mut self.linear_solver_state,
+            )
+            .map_err(|error| {
+                Error::Solver(format!("FemSolver: linear solver chain failed: {error}"))
+            })?;
 
         let mut solution = Array1::zeros([n_total_dof]);
         for (dof, value) in solution.iter_mut().zip(prescribed) {
