@@ -1,9 +1,10 @@
 //! Athena Krylov entry points for CFD systems.
 //!
 //! Athena fixes the GMRES restart width at compile time through a const
-//! generic, while CFDrs selects it at runtime — `LinearSolverChain` exposes a
-//! builder, JFNK carries it in its config, and the FEM solvers clamp it to the
-//! degree-of-freedom count. The bridge between the two is
+//! generic, while CFDrs selects it at runtime —
+//! [`athena_leto::LinearSolverChain`] exposes a builder, JFNK carries it in
+//! its config, and the FEM solvers clamp it to the degree-of-freedom count.
+//! The bridge between the two is
 //! [`athena_leto::KrylovWorkspace`], the one runtime bridge the stack carries;
 //! the ladder of instantiations and its dispatch live there (Atlas ADR 0062).
 //! This module holds the CFD-facing surface on top of it: the configuration
