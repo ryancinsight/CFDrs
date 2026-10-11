@@ -18,7 +18,7 @@
 //!   components: every mapped F-point's coarse target lies in the same
 //!   connected component as the F-point.
 
-use cfd_math::multigrid::{CoarseningResult, ruge_stueben_coarsening};
+use athena_leto::{CoarseningResult, ruge_stueben_coarsening};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 
 /// 5×5 two-dimensional five-point Laplacian (25 strongly connected

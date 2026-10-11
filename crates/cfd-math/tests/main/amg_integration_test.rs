@@ -8,8 +8,8 @@
 //! factor `ρ < 1` (Ruge & Stüben 1987; theorem restated in `amg.rs`).
 
 use athena_leto::CycleType;
+use athena_leto::{AMGConfig, AlgebraicMultigrid};
 use cfd_math::linear_solver::{IterativeSolverConfig, krylov};
-use cfd_math::multigrid::{AMGConfig, AlgebraicMultigrid};
 use leto::Array1;
 use leto_ops::{CsrMatrix, spmv_into};
 

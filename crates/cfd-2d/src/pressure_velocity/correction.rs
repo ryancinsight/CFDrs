@@ -27,9 +27,9 @@ use super::config::PressureLinearSolver;
 use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
+use athena_leto::AlgebraicMultigrid;
 use cfd_core::CfdScalar;
 use cfd_math::linear_solver::krylov::{self, KrylovResult};
-use cfd_math::multigrid::AlgebraicMultigrid;
 use eunomia::FloatElement;
 use leto::Array1;
 use leto_ops::{Scalar as LetoScalar, norm_l2};
@@ -70,7 +70,7 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
         }
         if amg_setup_allowed && !matrix_values_unchanged {
             if amg_cache.is_none() {
-                let config = cfd_math::multigrid::AMGConfig::default();
+                let config = athena_leto::AMGConfig::default();
                 // Initialize the AMG preconditioner and cache it.
                 if let Ok(amg) = AlgebraicMultigrid::new(matrix, config) {
                     *amg_cache = Some(amg);
@@ -81,7 +81,10 @@ impl<T: CfdScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrection
                 amg_cache
                     .as_mut()
                     .expect("invariant: non-empty AMG cache checked above")
-                    .recompute(matrix)?;
+                    .recompute(matrix)
+                    .map_err(|error| {
+                        cfd_core::error::Error::Solver(format!("AMG recompute failed: {error}"))
+                    })?;
             }
             if amg_cache.is_some() {
                 *self._amg_matrix_values.borrow_mut() = Some(matrix.values().to_vec());

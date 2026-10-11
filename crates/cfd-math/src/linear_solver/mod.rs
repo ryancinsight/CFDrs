@@ -21,5 +21,3 @@ pub mod preconditioners;
 
 pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
-pub use preconditioners::AlgebraicMultigrid;
-pub use preconditioners::multigrid::AMGConfig;

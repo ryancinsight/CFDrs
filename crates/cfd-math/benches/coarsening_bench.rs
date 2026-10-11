@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use cfd_math::linear_solver::preconditioners::multigrid::falgout_coarsening;
+use athena_leto::falgout_coarsening;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use leto_ops::CsrMatrix;
 

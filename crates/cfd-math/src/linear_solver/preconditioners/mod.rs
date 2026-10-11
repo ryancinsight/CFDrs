@@ -1,17 +1,9 @@
-//! CFD-specific preconditioners.
+//! SOR conformance tests for the provider preconditioner.
 //!
-//! Athena owns the preconditioner seam (Atlas ADR 0033): a preconditioner is
-//! anything implementing [`athena_core::Preconditioner`] for the backend the
-//! solve runs on. The general-purpose implementations - identity, Jacobi,
-//! incomplete LU, successive over-relaxation - come from `athena-leto` and are
-//! used directly at their canonical paths rather than re-exported here.
-//!
-//! What lives in this module is CFD-domain-specific: algebraic multigrid on
-//! the CFD sparsity patterns.
-
-pub mod multigrid;
+//! The saddle-point and multigrid families live in `athena-leto` (Atlas ADR
+//! 0062); the consumer-facing re-exports retired with them. This module keeps
+//! only the SOR contract tests that pin the provider's relaxation behavior
+//! from the consumer side.
 
 #[cfg(test)]
 mod ssor_tests;
-
-pub use multigrid::AlgebraicMultigrid;
