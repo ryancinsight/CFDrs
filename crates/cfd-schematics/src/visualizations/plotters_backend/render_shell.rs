@@ -9,6 +9,7 @@ use std::path::Path;
 
 use super::convert_color;
 use super::render_core::PlottersRenderer;
+use super::typeface::register_embedded_typeface;
 
 impl PlottersRenderer {
     /// Render a shell-cuboid schematic to file.
@@ -73,6 +74,7 @@ impl PlottersRenderer {
         root: DrawingArea<DB, Shift>,
         output_path: &Path,
     ) -> VisualizationResult<()> {
+        register_embedded_typeface()?;
         let (w, h) = cuboid.outer_dims_mm();
         let x_buffer = w * config.margin_fraction;
         let y_buffer = h * config.margin_fraction;

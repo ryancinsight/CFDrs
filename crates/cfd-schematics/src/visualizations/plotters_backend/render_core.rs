@@ -16,6 +16,7 @@ use std::path::Path;
 use super::colorbar::draw_colorbar;
 use super::convert_color;
 use super::render_annotations::draw_annotation_overlay;
+use super::typeface::register_embedded_typeface;
 use crate::visualizations::schematic::channel_system_from_blueprint;
 
 /// Plotters-based implementation of the schematic renderer.
@@ -177,6 +178,7 @@ impl PlottersRenderer {
         annotations: Option<&SchematicAnnotations>,
     ) -> VisualizationResult<()> {
         const MAX_STROKE_MULT: u32 = 6;
+        register_embedded_typeface()?;
         let renderable =
             channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
         let box_outline = renderable.box_outline;

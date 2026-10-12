@@ -33,6 +33,8 @@ jobs:
     uses: ryancinsight/atlas/.github/workflows/semver-gate.yml@50802ef4c975bdb1e668b94a700d8310f0348e9c
     with:
       package: cfd-1d,cfd-2d,cfd-3d,cfd-core,cfd-io,cfd-math,cfd-optim,cfd-python,cfd-schematic-mesh,cfd-schematics,cfd-validation
+      # The base revision's plotters still links fontconfig; drop this once
+      # no compared baseline resolves yeslogic-fontconfig-sys.
       apt-packages: libfontconfig1-dev
       rust-toolchain: 1.97.0
     permissions:
@@ -86,22 +88,6 @@ jobs:
         # The Atlas checkout action replaces git providers with path sources.
         # Regenerate the ephemeral lock before every later --locked gate.
         run: cargo metadata --format-version 1 --all-features > /dev/null
-
-      - name: Install native fontconfig headers
-        run: |
-          # Each apt call is bounded and retried: an unbounded apt-get can stall
-          # on the dpkg lock held by unattended-upgrades early in a runner's
-          # life, and without a deadline that silently consumes the whole
-          # 60-minute job budget instead of failing fast.
-          for attempt in 1 2 3; do
-            if sudo timeout 240 apt-get update               && sudo timeout 240 apt-get install --yes libfontconfig1-dev; then
-              exit 0
-            fi
-            echo "apt attempt ${attempt} failed or timed out; retrying" >&2
-            sleep 20
-          done
-          echo "apt-get did not complete after 3 attempts" >&2
-          exit 1
 
       # Root cause (was ATLAS-CFDRS-TEST-PROFILE-CACHE-MISS, gap_audit.md):
       # this job and check-figures shared one key ("cfdrs"). check-figures
@@ -178,18 +164,6 @@ jobs:
         uses: taiki-e/install-action@f47c9687269207d6b374de4134cb8b1fa5b49649
         with:
           tool: cargo-nextest@0.9.140
-
-      - name: Install native fontconfig headers
-        run: |
-          for attempt in 1 2 3; do
-            if sudo timeout 240 apt-get update               && sudo timeout 240 apt-get install --yes libfontconfig1-dev; then
-              exit 0
-            fi
-            echo "apt attempt ${attempt} failed or timed out; retrying" >&2
-            sleep 20
-          done
-          echo "apt-get did not complete after 3 attempts" >&2
-          exit 1
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
