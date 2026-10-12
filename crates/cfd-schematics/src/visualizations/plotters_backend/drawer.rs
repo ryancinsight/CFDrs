@@ -10,6 +10,7 @@ use crate::visualizations::traits::{
 
 use super::convert_color;
 use super::render_core::PlottersRenderer;
+use super::typeface::register_embedded_typeface;
 
 /// Plotters-based implementation of geometric drawing.
 pub struct PlottersDrawer<'area, 'chart, DB: DrawingBackend> {
@@ -121,6 +122,7 @@ impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, '_, DB> {
         text: &str,
         style: &TextStyle,
     ) -> VisualizationResult<()> {
+        register_embedded_typeface()?;
         let font_size = style.font_size.max(1.0).round() as i32;
         self.chart_mut()?
             .draw_series(std::iter::once(Text::new(
@@ -188,6 +190,7 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
         _system: &NetworkBlueprint,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
+        register_embedded_typeface()?;
         let mut mesh = self.drawer.chart_mut()?.configure_mesh();
         mesh.x_desc("X (mm)").y_desc("Y (mm)");
         if !config.show_grid {
@@ -198,6 +201,7 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
     }
 
     fn add_title(&mut self, title: &str, style: &TextStyle) -> VisualizationResult<()> {
+        register_embedded_typeface()?;
         let font_size = style.font_size.max(1.0).round() as i32;
         let title_style = (style.font_family.as_str(), font_size)
             .into_font()

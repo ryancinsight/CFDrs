@@ -1,10 +1,12 @@
-//! Plotters backend split into core, annotation, colorbar, drawer, and shell renderers.
+//! Plotters backend split into core, annotation, colorbar, drawer, and shell
+//! renderers, with text laid out by an embedded pure-Rust typeface.
 
 mod colorbar;
 mod drawer;
 mod render_annotations;
 mod render_core;
 mod render_shell;
+mod typeface;
 
 use crate::visualizations::traits::Color;
 use plotters::prelude::RGBColor;

@@ -21,7 +21,7 @@ aequitas = { workspace = true, features = ["serde"] }
 cfd-core.workspace = true
 iris.workspace = true
 petgraph.workspace = true
-plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
+plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ab_glyph"] }
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

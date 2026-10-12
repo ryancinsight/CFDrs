@@ -308,6 +308,10 @@ pub struct TextStyle {
     /// Font size in points.
     pub font_size: f64,
     /// Font family name.
+    ///
+    /// The plotters backend embeds one face, registered as `sans-serif`;
+    /// another family renders only after the caller registers a face for it
+    /// with `plotters::style::register_font`.
     pub font_family: String,
 }
 

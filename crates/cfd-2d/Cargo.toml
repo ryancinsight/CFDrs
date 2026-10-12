@@ -42,7 +42,6 @@ cfd-core = { workspace = true, features = ["test-util"] }
 cfd-schematics = { path = "../cfd-schematics" }
 cfd-validation = { path = "../cfd-validation" }
 iris.workspace = true
-plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
 serde_json.workspace = true
 proptest.workspace = true
 criterion.workspace = true
