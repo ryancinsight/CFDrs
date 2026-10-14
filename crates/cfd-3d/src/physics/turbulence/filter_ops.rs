@@ -1,4 +1,4 @@
-use eunomia::{CastFrom, NumericElement};
+use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector3;
 
 use super::field_ops::SymmetricTensor6;
@@ -78,7 +78,7 @@ where
     });
 
     let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
-    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
+    let count_t = <T as FloatElement>::from_integer(i64::from(count_i32));
     sum / count_t
 }
 
@@ -110,7 +110,7 @@ where
     });
 
     let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
-    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
+    let count_t = <T as FloatElement>::from_integer(i64::from(count_i32));
     let inv = T::ONE / count_t;
     moments.uu *= inv;
     moments.vv *= inv;
