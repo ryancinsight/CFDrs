@@ -25,6 +25,16 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **build(deps)**: Advance the first-party providers to their current
+  cohort. Aequitas to 0.3.1, Apollo FFT to 0.29.3 and NUFFT to 0.10.1,
+  Athena to 0.3.2, CoeUs Optim to 0.12.0, the Consus edges to 0.4.0,
+  Eunomia to 0.10.0, Gaia's mesh to 0.6.10, Hephaestus to 0.27.0, Hermes
+  to 0.9.2, Leto to 0.46.4, Moirai to 0.10.0, Proteus to 0.1.1, RITK's
+  VTK model to 0.4.0, Themis to 0.11.3 and Tyche to 0.4.0. The
+  requirements and the lock are the whole change: the cohort's APIs are
+  compatible with the code as it stands, so no source edit accompanies the
+  bump.
+
 - **Breaking (`cfd-validation`)**: Remove the fabricated Ghia centerline
   constants and the obsolete `analytical_benchmarks` module. All consumers use
   the canonical Ghia Table I data, now including Re=400 and Re=1000 columns.
