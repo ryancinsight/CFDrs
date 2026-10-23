@@ -2537,15 +2537,80 @@ echo "pre-push: local gate passed" >&2
 
 select_meta_cargo_owners() {
   local changed_file="$1" base_manifests="$2" candidate_manifests="$3" output="$4"
-  "$python_bin" - "$changed_file" "$base_manifests" "$candidate_manifests" "$output" <<'PY'
+  "$python_bin" - "$changed_file" "$base_manifests" "$candidate_manifests" "$output" \
+    "$repo_root" "$gate_base" "$gate_sha" <<'PY'
 import pathlib
+import subprocess
 import sys
+import tomllib
 
 changed = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
 base = set(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8").splitlines())
 candidate = set(pathlib.Path(sys.argv[3]).read_text(encoding="utf-8").splitlines())
 all_manifests = base | candidate
 selected = {}
+repository = pathlib.Path(sys.argv[5])
+base_revision = sys.argv[6]
+candidate_revision = sys.argv[7]
+
+
+def git(*arguments):
+    return subprocess.run(
+        ["git", "-C", str(repository), *arguments],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    ).stdout
+
+
+def config_blob(revision, path):
+    if not revision:
+        return None
+    listing = git("ls-tree", "-z", revision, "--", path)
+    if not listing:
+        return None
+    records = [record for record in listing.split(b"\0") if record]
+    if len(records) != 1:
+        raise ValueError(f"Git listed more than one entry for {path} at {revision}")
+    header, separator, name = records[0].partition(b"\t")
+    fields = header.split()
+    if not separator or len(fields) != 3 or name.decode("utf-8") != path:
+        raise ValueError(f"Git returned an invalid tree entry for {path} at {revision}")
+    mode, kind, object_id = (field.decode("ascii") for field in fields)
+    if mode not in {"100644", "100755"} or kind != "blob":
+        raise ValueError(f"Cargo config {path} at {revision} is not a regular file")
+    return git("cat-file", "blob", object_id)
+
+
+def type_sensitive_equal(left, right):
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(
+            type_sensitive_equal(value, right[name]) for name, value in left.items()
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            type_sensitive_equal(a, b) for a, b in zip(left, right)
+        )
+    return left == right
+
+
+def differs_only_in_patch(path):
+    contents = [
+        config_blob(base_revision, path),
+        config_blob(candidate_revision, path),
+    ]
+    if any(content is None for content in contents):
+        return False
+    parsed = [tomllib.loads(content.decode("utf-8")) for content in contents]
+    if any("include" in data for data in parsed):
+        return False
+    without_patch = [
+        {name: value for name, value in data.items() if name != "patch"}
+        for data in parsed
+    ]
+    return type_sensitive_equal(*without_patch)
 
 def owner(path):
     directory = pathlib.PurePosixPath(path).parent
@@ -2561,11 +2626,14 @@ global_inputs = {
     "rust-toolchain.toml",
     ".config/nextest.toml",
 }
+root_configs = {".cargo/config", ".cargo/config.toml"}
 for path in changed:
     if not path:
         continue
     if path in {"Cargo.toml", "Cargo.lock"}:
         raise SystemExit(f"the Atlas meta root cannot own {path}; Cargo workspaces live below tools/")
+    if path in root_configs and differs_only_in_patch(path):
+        continue
     if path in global_inputs or path.startswith(".cargo/"):
         for manifest in candidate:
             selected.setdefault(manifest, set()).add("Cargo.toml")
