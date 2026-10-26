@@ -320,7 +320,9 @@ mod tests {
             aequitas::systems::si::quantities::DynamicViscosity::from_base(1e-3),
             aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4180.0),
             aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
-            aequitas::systems::si::quantities::Velocity::from_base(2.1e9),
+            aequitas::systems::si::quantities::Velocity::from_base(
+                cfd_core::physics::constants::physics::fluid::WATER_SPEED_OF_SOUND,
+            ),
         );
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, Pressure::from_base(p_a));
@@ -430,7 +432,9 @@ mod tests {
             aequitas::systems::si::quantities::DynamicViscosity::from_base(1e-3),
             aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(4180.0),
             aequitas::systems::si::quantities::ThermalConductivity::from_base(0.6),
-            aequitas::systems::si::quantities::Velocity::from_base(2.1e9),
+            aequitas::systems::si::quantities::Velocity::from_base(
+                cfd_core::physics::constants::physics::fluid::WATER_SPEED_OF_SOUND,
+            ),
         );
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, Pressure::from_base(100.0));
