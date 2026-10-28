@@ -1,13 +1,12 @@
 //! Flow-related value objects
 
+use super::dimensionless::DimensionlessNumber;
 use crate::error::Result;
+use crate::physics::constants::physics::dimensionless::reynolds::{
+    PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN, PLATE_CRITICAL,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
-
-// Physical constants
-const REYNOLDS_LAMINAR_LIMIT_PIPE: f64 = 2300.0;
-const REYNOLDS_TURBULENT_ONSET_PIPE: f64 = 4000.0;
-const REYNOLDS_LAMINAR_LIMIT_PLATE: f64 = 500_000.0;
 
 /// Flow geometry type for Reynolds number interpretation
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -78,12 +77,12 @@ impl<T: FloatElement + Copy> ReynoldsNumber<T> {
     pub fn is_laminar(&self) -> bool {
         match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
-                self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE)
+                self.value < <T as FloatElement>::from_f64(PIPE_LAMINAR_MAX)
             }
             FlowGeometry::FlatPlate | FlowGeometry::External => {
-                self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE)
+                self.value < <T as FloatElement>::from_f64(PLATE_CRITICAL)
             }
-            _ => self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE),
+            _ => self.value < <T as FloatElement>::from_f64(PIPE_LAMINAR_MAX),
         }
     }
 
@@ -91,12 +90,12 @@ impl<T: FloatElement + Copy> ReynoldsNumber<T> {
     pub fn is_turbulent(&self) -> bool {
         match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
-                self.value > <T as FloatElement>::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE)
+                self.value > <T as FloatElement>::from_f64(PIPE_TURBULENT_MIN)
             }
             FlowGeometry::FlatPlate | FlowGeometry::External => {
-                self.value > <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE)
+                self.value > <T as FloatElement>::from_f64(PLATE_CRITICAL)
             }
-            _ => self.value > <T as FloatElement>::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE),
+            _ => self.value > <T as FloatElement>::from_f64(PIPE_TURBULENT_MIN),
         }
     }
 
@@ -106,6 +105,10 @@ impl<T: FloatElement + Copy> ReynoldsNumber<T> {
     }
 
     /// Calculate from flow parameters
+    ///
+    /// The Reynolds value uses the single [`DimensionlessNumber::reynolds`]
+    /// formula; this constructor only adds the geometry-aware regime
+    /// interpretation on top.
     ///
     /// # Errors
     ///
@@ -117,12 +120,57 @@ impl<T: FloatElement + Copy> ReynoldsNumber<T> {
         viscosity: T,
         geometry: FlowGeometry,
     ) -> Result<Self> {
-        if viscosity <= <T as NumericElement>::ZERO {
-            return Err(crate::error::Error::InvalidConfiguration(
-                "Viscosity must be positive".into(),
-            ));
-        }
-        let re = density * velocity * length / viscosity;
-        Self::new(re, geometry)
+        let re = DimensionlessNumber::reynolds(density, velocity, length, viscosity)?;
+        Self::new(re.value(), geometry)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::dimensionless::DimensionlessType;
+    use super::*;
+
+    #[test]
+    fn from_flow_parameters_matches_taxonomy_reynolds() {
+        let density = 1_000.0_f64;
+        let velocity = 2.0_f64;
+        let length = 0.01_f64;
+        let viscosity = 0.001_f64;
+        let expected = density * velocity * length / viscosity;
+
+        let specialized = ReynoldsNumber::from_flow_parameters(
+            density,
+            velocity,
+            length,
+            viscosity,
+            FlowGeometry::Pipe,
+        )
+        .expect("positive viscosity produces a Reynolds number");
+        let taxonomy = DimensionlessNumber::reynolds(density, velocity, length, viscosity)
+            .expect("positive viscosity produces a Reynolds number");
+
+        assert_eq!(specialized.value().to_bits(), expected.to_bits());
+        assert_eq!(taxonomy.value().to_bits(), expected.to_bits());
+        assert_eq!(taxonomy.number_type(), DimensionlessType::Reynolds);
+        assert!(specialized.is_turbulent());
+        assert!(!specialized.is_laminar());
+        assert!(!specialized.is_transitional());
+    }
+
+    #[test]
+    fn pipe_regime_thresholds_follow_central_constants() {
+        let laminar = ReynoldsNumber::pipe(1_000.0_f64).expect("non-negative value is valid");
+        let transitional = ReynoldsNumber::pipe(3_000.0_f64).expect("non-negative value is valid");
+        assert!(laminar.is_laminar());
+        assert!(transitional.is_transitional());
+    }
+
+    #[test]
+    fn non_positive_viscosity_is_rejected_once() {
+        assert!(
+            ReynoldsNumber::from_flow_parameters(1_000.0, 2.0, 0.01, 0.0, FlowGeometry::Pipe)
+                .is_err()
+        );
+        assert!(DimensionlessNumber::reynolds(1_000.0, 2.0, 0.01, 0.0).is_err());
     }
 }
