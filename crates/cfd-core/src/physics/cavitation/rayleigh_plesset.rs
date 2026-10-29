@@ -42,14 +42,7 @@ use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, NumericalErrorKind, Result};
-
-/// Fixed far-field reference pressure used to seed the gas pressure state.
-///
-/// The Rayleigh-Plesset integrator needs a non-reconfiguring reference so the
-/// bubble does not remain pinned to the instantaneous ambient pressure at the
-/// initial radius. Standard atmospheric pressure is a physically meaningful
-/// default for the cavitation models in this workspace.
-const REFERENCE_FAR_FIELD_PRESSURE_PA: f64 = 101_325.0;
+use crate::physics::constants::physics::thermo::P_ATM;
 
 /// Rayleigh-Plesset bubble dynamics model
 ///
@@ -122,7 +115,9 @@ impl<T: FloatElement + Copy> RayleighPlesset<T> {
         //   p_v + p_g0 = p_ref + 2σ/R_0  →  p_g0 = p_ref − p_v + 2σ/R_0
         // A fixed far-field reference keeps the initial bubble state from
         // re-equilibrating itself to the instantaneous ambient pressure.
-        let reference_pressure = <T as FloatElement>::from_f64(REFERENCE_FAR_FIELD_PRESSURE_PA);
+        // Standard atmospheric pressure is the physically meaningful default;
+        // the value is owned by `thermo::P_ATM`, not repeated here.
+        let reference_pressure = <T as FloatElement>::from_f64(P_ATM);
         let p_g0 = (reference_pressure - vapor_pressure + two * surface_tension / initial_radius)
             .max_scalar(<T as NumericElement>::ZERO);
 
