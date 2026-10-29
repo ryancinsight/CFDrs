@@ -69,7 +69,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "aequitas"
 version = "0.3.1"
-source = "git+https://github.com/ryancinsight/aequitas#9dc2a9aaca1c57353bbf8cbddf662ece60f81117"
+source = "git+https://github.com/ryancinsight/aequitas#c636bb84efda17784b6b5ba0c03933292f37a8cf"
 dependencies = [
  "eunomia",
  "serde",
@@ -842,7 +842,7 @@ dependencies = [
 [[package]]
 name = "coeus-autograd"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "apollo-fft",
  "coeus-core",
@@ -858,7 +858,7 @@ dependencies = [
 [[package]]
 name = "coeus-core"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -873,7 +873,7 @@ dependencies = [
 [[package]]
 name = "coeus-cpu"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "coeus-core",
  "leto",
@@ -883,7 +883,7 @@ dependencies = [
 [[package]]
 name = "coeus-nn"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "coeus-autograd",
  "coeus-core",
@@ -898,7 +898,7 @@ dependencies = [
 [[package]]
 name = "coeus-ops"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "bytemuck",
  "coeus-core",
@@ -915,7 +915,7 @@ dependencies = [
 [[package]]
 name = "coeus-optim"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "coeus-autograd",
  "coeus-core",
@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "coeus-sparse"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "coeus-core",
  "coeus-tensor",
@@ -940,7 +940,7 @@ dependencies = [
 [[package]]
 name = "coeus-tensor"
 version = "0.12.0"
-source = "git+https://github.com/ryancinsight/Coeus.git#5d1f22d3556f02cf70b981b9e84f467cd31274a0"
+source = "git+https://github.com/ryancinsight/Coeus.git#fc3a7364b5dc70bdf074f1390dd47dd993a8b38b"
 dependencies = [
  "bytemuck",
  "coeus-core",
@@ -1492,7 +1492,7 @@ dependencies = [
 [[package]]
 name = "harmonia"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/harmonia#44f7f7085b3d49cd77a2e59cc40e6c42312820bc"
+source = "git+https://github.com/ryancinsight/harmonia#517721292732779767ba17e77ef85ae62f198ad0"
 dependencies = [
  "aequitas",
  "athena-core",
@@ -3013,7 +3013,7 @@ dependencies = [
 [[package]]
 name = "ritk-image"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/ritk#6ecd74968af656ae9668bdaa954583b59cd734e9"
+source = "git+https://github.com/ryancinsight/ritk#91ca0fd6dd0d4dc969dd98e5f0c66e8d66860833"
 dependencies = [
  "anyhow",
  "coeus-autograd",
@@ -3031,7 +3031,7 @@ dependencies = [
 [[package]]
 name = "ritk-spatial"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#6ecd74968af656ae9668bdaa954583b59cd734e9"
+source = "git+https://github.com/ryancinsight/ritk#91ca0fd6dd0d4dc969dd98e5f0c66e8d66860833"
 dependencies = [
  "leto",
  "serde",
@@ -3041,7 +3041,7 @@ dependencies = [
 [[package]]
 name = "ritk-vtk"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#6ecd74968af656ae9668bdaa954583b59cd734e9"
+source = "git+https://github.com/ryancinsight/ritk#91ca0fd6dd0d4dc969dd98e5f0c66e8d66860833"
 dependencies = [
  "anyhow",
  "coeus-core",
@@ -3059,7 +3059,7 @@ dependencies = [
 [[package]]
 name = "ritk-wgpu-compat"
 version = "0.2.1"
-source = "git+https://github.com/ryancinsight/ritk#6ecd74968af656ae9668bdaa954583b59cd734e9"
+source = "git+https://github.com/ryancinsight/ritk#91ca0fd6dd0d4dc969dd98e5f0c66e8d66860833"
 
 [[package]]
 name = "rkyv"
@@ -3394,7 +3394,7 @@ dependencies = [
 [[package]]
 name = "themis-topology"
 version = "0.11.3"
-source = "git+https://github.com/ryancinsight/themis#a6d0620b99d5d5518ed4e7225aa47eac66e5add2"
+source = "git+https://github.com/ryancinsight/themis#0c9af710691d18330d0b59a63d5dabaef1f475cd"
 dependencies = [
  "libc",
  "melinoe",
