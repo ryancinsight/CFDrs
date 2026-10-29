@@ -1697,8 +1697,8 @@ dependencies = [
 
 [[package]]
 name = "iris-viz"
-version = "0.1.1"
-source = "git+https://github.com/ryancinsight/iris#ef46aa3c5701eeddcec81cbbd1c4dcf8b1d7442f"
+version = "0.1.2"
+source = "git+https://github.com/ryancinsight/iris#345b91f0f5075909482b76972f371aa02f19de54"
 
 [[package]]
 name = "is-terminal"
