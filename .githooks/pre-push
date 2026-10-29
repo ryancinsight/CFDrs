@@ -470,18 +470,6 @@ if [ "${ATLAS_RESCUE_MIXED:-0}" != 1 ] && [ "${#push_lines[@]}" -gt 0 ]; then
   fi
 fi
 
-if [ "${#push_lines[@]}" -gt 0 ]; then
-  if [ "${#push_lines[@]}" -gt 1 ]; then
-    export ATLAS_RESCUE_MIXED=1
-    refs_status=0
-    for push_line in "${content_lines[@]}"; do
-      echo "pre-push: judging ${push_line%% *}" >&2
-      printf '%s\n' "$push_line" | bash "${BASH_SOURCE[0]}" "$@" || refs_status=1
-    done
-    exit "$refs_status"
-  fi
-fi
-
 touches_dependency_state=unknown
 pushed_tip=""
 # The range this push carries, for the local gate far below. Recorded here
@@ -814,6 +802,28 @@ raise SystemExit(result.returncode)
   bounded_status=$?
   set -e
   exit "$bounded_status"
+fi
+
+# A production multi-ref push enters the process-tree supervisor once with
+# every ref still present. The bounded re-entry then judges each ref
+# independently inside that one aggregate ten-minute lifetime. Supervising
+# each recursive ref instead gave an N * 600 second push budget. Preserve the
+# prepared-tools selection explicitly because the outer invocation replaces
+# command-scoped Git configuration before this dispatch.
+if [ "${#push_lines[@]}" -gt 1 ]; then
+  export ATLAS_RESCUE_MIXED=1
+  refs_status=0
+  for push_line in "${content_lines[@]}"; do
+    echo "pre-push: judging ${push_line%% *}" >&2
+    if [ "$gate_bounded" -eq 1 ]; then
+      printf '%s\n' "$push_line" | bash "${BASH_SOURCE[0]}" \
+        --bounded-phase "$gate_phase" "$prepared_tools_selected" "$prepared_tools" \
+        || refs_status=1
+    else
+      printf '%s\n' "$push_line" | bash "${BASH_SOURCE[0]}" "$@" || refs_status=1
+    fi
+  done
+  exit "$refs_status"
 fi
 prepared_stack_scripts=""
 if [ "$prepared_tools_selected" -eq 1 ]; then
@@ -1860,7 +1870,8 @@ if [ "$run_tests" = 1 ]; then
 fi
 if [ "$run_rustdoc" = 1 ]; then
   record_stage rustdoc
-  env RUSTDOCFLAGS="-D warnings" "$cargo_command" doc --no-deps --manifest-path "$manifest" --locked "$@" || exit $?
+  env -u CARGO_ENCODED_RUSTDOCFLAGS RUSTDOCFLAGS="-D warnings" \
+    "$cargo_command" doc --no-deps --manifest-path "$manifest" --locked "$@" || exit $?
   complete_stage rustdoc
 fi
 record_stage verification
@@ -2324,7 +2335,8 @@ fi
 if [ "$identity_enabled" -eq 0 ] \
   && { [ "$gate_phase" = "documentation" ] \
     || [ "$documentation_ownership" = "pre-push" ]; }; then
-  case "$(classify_gate_step "$gate_log" env RUSTDOCFLAGS="-D warnings" cargo doc --no-deps $gate_specs)" in
+  case "$(classify_gate_step "$gate_log" env -u CARGO_ENCODED_RUSTDOCFLAGS \
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps $gate_specs)" in
     ours)
       cat >&2 <<MESSAGE
 
