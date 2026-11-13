@@ -237,26 +237,6 @@ is a lock/overlay environment residual, not evidence of a missing Apollo
 `PlanScratch` export; the hosted exact-head package gate is the reproducible
 closure check.
 
-<a id="ATLAS-CFDRS-HEMOLYSIS-107"></a>
-## ATLAS-CFDRS-HEMOLYSIS-107 — Remove silent model-error fallback [fix]
-- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
-
-
-`crates/cfd-1d/src/physics/hemolysis/models.rs:25-35` now handles the
-documented negative-input behavior before calling the cfd-core model and uses
-an invariant-checked `expect` for the provider result. A provider invariant
-violation can no longer be silently converted into a zero hemolysis
-index. NaN inputs now propagate as NaN explicitly and signed zero is
-canonicalized to positive zero, with value-semantic regressions alongside the
-negative-input and reference-value tests. The existing behavioral oracle
-remains unchanged for valid and negative inputs.
-`cargo fmt --all -- --check` passes; the focused locked Nextest command is
-currently blocked before compilation by the shared Atlas overlay/lock mismatch
-recorded above. Hosted exact-head verification is required before closure.
-
-
-Remaining checklist steps (retired from checklist.md):
-- [ ] Run the focused locked Nextest and hosted exact-head provider gate; local compilation is currently blocked by the shared overlay/lock mismatch, not by a source diagnostic.
 <a id="ATLAS-CFDRS-JFNK-OPEN-033"></a>
 ## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix]
 - Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
