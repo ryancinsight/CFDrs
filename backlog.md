@@ -239,18 +239,33 @@ closure check.
 
 <a id="ATLAS-CFDRS-JFNK-RECOVERY-110"></a>
 ## ATLAS-CFDRS-JFNK-RECOVERY-110 — Converge the primary loop after JFNK recovery [fix]
-- Status: todo; priority: P1; integrator: unclaimed; last-update: 2026-11-13.
-
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+  last-update: 2026-11-14.
 **Outcome:** a Picard stall that engages the JFNK recovery ends in a converged
-solve or a typed failure, never a silent run to `max_iterations`. **Evidence
-(observed by probe):** two series pipes, `R = 1e-6`, `k = 1`, 100 Pa drop,
-tolerance `1e-8`: `fallback_used` is true and the solve returns
-`MaxIterationsExceeded` at `max_iterations` (300 and 1000). With the stall
-branch disabled the case ends with both change and residual norms exactly 0.0
-yet fails, so the unmet gate is the flow-rate change. Hypothesis (unverified):
-flows alternate because the linearization lags `|Q|`. **Acceptance oracle:**
-that case converges with `fallback_used` true, tolerance and budget unchanged.
-**scope:** `crates/cfd-1d/src/solver/core/network_solver.rs`.
+solve or a typed failure, never a run to `max_iterations`. **Evidence:** the
+chain in `crates/cfd-1d/tests/main/jfnk_recovery.rs` stalls at iteration 199,
+JFNK converges, and the solve still ends at `max_iterations`. **Derived:** the JFNK state is the pressure only, so the
+lagged flow `Q_{m+1} = dP / (R + k Q_m)` (multiplier -0.9704) is untouched
+and the alternation resumes. **Acceptance oracle:** that chain solves with
+`Ok` at tolerance `1e-8`, `max_iterations` 300, tolerance and budget
+unchanged; `fallback_used` may be either. **scope:**
+`crates/cfd-1d/src/solver/core/network_solver.rs`, `newton_fallback.rs`.
+**Next step:** carry the lagged flows in the recovery state or replace the
+lagged-`|Q|` linearization, then re-pin the three `jfnk_recovery.rs` tests.
+
+<a id="ATLAS-CFDRS-STALL-DETECTOR-111"></a>
+## ATLAS-CFDRS-STALL-DETECTOR-111 — Make `is_stalling` match its contract [fix]
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+  last-update: 2026-11-14.
+**Outcome:** `FallbackBudget::is_stalling` fires only on a window of
+`stall_window` non-trivial samples, as its doc says. **Evidence:** the code
+skips zero and non-finite samples and needs one positive sample, so 63 zeros
+and one rounding residue fire it. **Derived:** two identical series edges
+share one lagged `|Q|`, so the pressure change norm is 0 after iteration 0
+and rounding noise can engage JFNK. **Acceptance oracle:** a unit test with 63
+zeros and one positive sample returns `false`. **scope:** `newton_fallback.rs`
+and its `tests.rs`. **Next step:** count usable samples and require
+`stall_window` of them.
 
 ## Active lint-floor increment
 
