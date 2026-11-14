@@ -366,3 +366,67 @@ fn missing_venturi_geometry_is_rejected_before_solve() {
         "unexpected error when venturi geometry is missing: {err}"
     );
 }
+
+/// A series chain whose Picard map is nearly non-contractive stalls the
+/// primary path and engages the bounded JFNK recovery exactly as the
+/// stagnation contract requires.
+///
+/// Two identical pipes in series carry one flow `Q`; with `ΔP = 100 Pa`,
+/// linear resistance `R = 1e-6` and quadratic coefficient `k = 1`, the Picard
+/// step is `Q ← ΔP / (2 (R + k |Q|))`. Its fixed point solves
+/// `k Q² + R Q − ΔP/2 = 0`, so `Q* ≈ 7.07`, and the map's derivative there is
+/// `−k Q* / (R + k Q*) ≈ −(1 − 1.4e-7)`: the iterate alternates about `Q*` with
+/// a change norm that decays by a factor `1 − 1.4e-7` per step. Over the
+/// 64-sample stall window the max/min change-norm ratio is therefore
+/// `1 + O(1e-5)`, far below the stall ratio of 10, and the detector fires at
+/// the first admissible iteration after warm-up.
+#[test]
+fn bounded_amplitude_picard_stall_engages_jfnk_recovery() {
+    use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
+    use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
+    use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
+
+    let mut builder = NetworkBuilder::<f64>::new();
+    let inlet = builder.add_inlet("inlet".to_string());
+    let junction = builder.add_junction("junction".to_string());
+    let outlet = builder.add_outlet("outlet".to_string());
+    let first = builder.add_edge(
+        inlet,
+        junction,
+        Edge::new("first".to_string(), EdgeType::Pipe),
+    );
+    let second = builder.add_edge(
+        junction,
+        outlet,
+        Edge::new("second".to_string(), EdgeType::Pipe),
+    );
+    let graph = builder.build().expect("series graph is valid");
+    let fluid = ConstantPropertyFluid::<f64>::water_20c().expect("water properties are valid");
+    let mut network = Network::new(graph, fluid);
+    for edge in [first, second] {
+        let weight = network
+            .graph
+            .edge_weight_mut(edge)
+            .expect("series edge exists");
+        weight.resistance = HydraulicResistance::from_base(1.0e-6);
+        weight.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
+    }
+    network.set_pressure(inlet, Pressure::from_base(100.0));
+    network.set_pressure(outlet, Pressure::from_base(0.0));
+
+    let solver = NetworkSolver::<f64, ConstantPropertyFluid<f64>>::with_config(SolverConfig {
+        tolerance: 1.0e-8,
+        max_iterations: 300,
+        require_flow_convergence: true,
+    });
+    let diagnostics = match solver.solve_network_with_diagnostics(&NetworkProblem::new(network)) {
+        Ok((_, diagnostics)) => diagnostics,
+        Err(error) => error.diagnostics,
+    };
+
+    assert!(
+        diagnostics.fallback_used,
+        "stalled Picard trajectory must engage the JFNK recovery: {diagnostics:?}"
+    );
+    assert!(!diagnostics.matrix_treated_as_linear_static);
+}

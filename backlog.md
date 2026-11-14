@@ -237,27 +237,21 @@ is a lock/overlay environment residual, not evidence of a missing Apollo
 `PlanScratch` export; the hosted exact-head package gate is the reproducible
 closure check.
 
-<a id="ATLAS-CFDRS-JFNK-OPEN-033"></a>
-## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix]
-- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
+<a id="ATLAS-CFDRS-JFNK-RECOVERY-110"></a>
+## ATLAS-CFDRS-JFNK-RECOVERY-110 — Converge the primary loop after JFNK recovery [fix]
+- Status: todo; priority: P1; integrator: unclaimed; last-update: 2026-11-13.
 
+**Outcome:** a Picard stall that engages the JFNK recovery ends in a converged
+solve or a typed failure, never a silent run to `max_iterations`. **Evidence
+(observed by probe):** two series pipes, `R = 1e-6`, `k = 1`, 100 Pa drop,
+tolerance `1e-8`: `fallback_used` is true and the solve returns
+`MaxIterationsExceeded` at `max_iterations` (300 and 1000). With the stall
+branch disabled the case ends with both change and residual norms exactly 0.0
+yet fails, so the unmet gate is the flow-rate change. Hypothesis (unverified):
+flows alternate because the linearization lags `|Q|`. **Acceptance oracle:**
+that case converges with `fallback_used` true, tolerance and budget unchanged.
+**scope:** `crates/cfd-1d/src/solver/core/network_solver.rs`.
 
-**Owner:** Atlas session; scope is `cfd-1d` nonlinear network recovery and the
-provider-owned `cfd-math` JFNK callback seam. **Acceptance:** the retained
-`newton_fallback.rs` source is reachable from `NetworkSolver`; bounded-amplitude
-stagnation invokes one finite-budget JFNK trajectory; assembly and linear-solver
-failures remain typed; and the exact provider hosted gates pass at the final
-source head. No tolerance relaxation, compatibility shim, or test-workload
-change is permitted.
-
-The source integration and value-semantic unit coverage are implemented. Local
-format and diff checks pass. Locked Cargo verification is currently blocked
-before compilation by the shared Atlas overlay/lock mismatch; hosted exact-head
-verification is the remaining closure gate.
-
-
-Remaining checklist steps (retired from checklist.md):
-- [ ] Run the locked `cfd-1d`/`cfd-math` Nextest filters and the hosted exact-head Rust and book-figure gates; the local Atlas overlay currently blocks Cargo resolution before compilation.
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex session):** wire every workspace package and `xtask` to the canonical Atlas `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and centralize `xtask` CLI output through its checked writer. `cfd-core` library Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the explicit legacy-migration audit pass. Full closure remains open: workspace all-target Clippy still reports pre-existing cfd-math unwrap/output debt, cfd-schematics missing documentation, and test/bench lint debt; the existing all-target format baseline is also red outside this increment.
