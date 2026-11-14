@@ -1,6 +1,7 @@
 use super::*;
 use crate::domain::network::{Network, NetworkBuilder};
 use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
+use cfd_core::error::NumericalErrorKind;
 use cfd_core::physics::fluid::database::water_20c;
 use petgraph::graph::NodeIndex;
 
@@ -49,8 +50,8 @@ fn bounded_amplitude_cycle_is_stalling() {
 fn decaying_envelope_is_not_stalling() {
     let budget = FallbackBudget::default();
     // max/min = 1e0 / 1e-12 = 1e12 ≫ stall_ratio (10) → not stalled.
-    let decaying: Vec<f64> = (0..budget.stall_window)
-        .map(|i| 10f64.powi(-(i as i32)))
+    let decaying: Vec<f64> = std::iter::successors(Some(1.0_f64), |value| Some(value / 10.0))
+        .take(budget.stall_window)
         .collect();
     assert!(!budget.is_stalling(&decaying));
 }
@@ -88,6 +89,11 @@ fn nan_and_zero_samples_are_skipped() {
     // All NaN/0 sample → no usable history, not stalled.
     assert!(!budget.is_stalling(&cycle));
 }
+
+/// `atol` of the recovery. The pipe has constant conductance, so
+/// `F(x) = x* - x` and `‖F(x)‖` bounds `‖x - x*‖`; the warm start is exact to
+/// rounding, so `atol` binds in `max(atol, rtol ‖F(x0)‖)`.
+const SOLVER_TOLERANCE: f64 = 1.0e-10;
 
 /// Inlet held at 10 Pa and outlet at 0 Pa, joined by one pipe of the given
 /// linear resistance.
@@ -153,7 +159,7 @@ fn linear_network_fallback_recovers_pressure_solution() {
     let mut warm_solution = Array1::from_elem([n], 0.0);
     let initial_solution = LinearSystemSolver::new()
         .with_method(LinearSolverMethod::ConjugateGradient)
-        .with_tolerance(1.0e-10)
+        .with_tolerance(SOLVER_TOLERANCE)
         .with_max_iterations(20)
         .solve_with_initial_guess(&matrix, &workspace.rhs, &mut warm_solution)
         .expect("linear warm start is valid");
@@ -164,14 +170,14 @@ fn linear_network_fallback_recovers_pressure_solution() {
         workspace.dirichlet_values,
         workspace.neumann_sources,
         LinearSolverMethod::ConjugateGradient,
-        1.0e-10,
+        SOLVER_TOLERANCE,
         &budget(10),
         &initial_solution,
     )
     .expect("JFNK recovers the linear network root");
 
-    assert!((solution[inlet.index()] - 10.0).abs() < 1.0e-8);
-    assert!(solution[outlet.index()].abs() < 1.0e-8);
+    assert!((solution[inlet.index()] - 10.0).abs() < SOLVER_TOLERANCE);
+    assert!(solution[outlet.index()].abs() < SOLVER_TOLERANCE);
 }
 
 /// A warm start whose length differs from the node count is rejected as a
@@ -188,7 +194,7 @@ fn warm_start_length_mismatch_is_invalid_configuration() {
         workspace.dirichlet_values,
         workspace.neumann_sources,
         LinearSolverMethod::ConjugateGradient,
-        1.0e-10,
+        SOLVER_TOLERANCE,
         &budget(10),
         &warm_solution,
     )
@@ -218,7 +224,7 @@ fn invalid_edge_resistance_propagates_as_invalid_configuration() {
         workspace.dirichlet_values,
         workspace.neumann_sources,
         LinearSolverMethod::ConjugateGradient,
-        1.0e-10,
+        SOLVER_TOLERANCE,
         &budget(10),
         &warm_solution,
     )
@@ -247,7 +253,7 @@ fn exhausted_newton_budget_is_typed_non_convergence() {
         workspace.dirichlet_values,
         workspace.neumann_sources,
         LinearSolverMethod::ConjugateGradient,
-        1.0e-10,
+        SOLVER_TOLERANCE,
         &budget(0),
         &warm_solution,
     )
@@ -258,6 +264,66 @@ fn exhausted_newton_budget_is_typed_non_convergence() {
             err,
             Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max: 0 })
         ),
+        "unexpected error: {err:?}"
+    );
+}
+
+/// A NaN pressure passes the edge-coefficient update, but the conductance
+/// `1 / (R + k |Q|)` of the resulting NaN flow is not positive, so assembly
+/// rejects it and its typed error reaches the caller unchanged.
+#[test]
+fn non_finite_warm_start_surfaces_the_assembly_error() {
+    let (network, inlet, _) = pipe_network(2.0);
+    let workspace = classified_workspace(&network);
+    let mut warm_solution = Array1::from_elem([network.node_count()], 0.0);
+    warm_solution[inlet.index()] = f64::NAN;
+
+    let err = jfnk_fallback(
+        &MatrixAssembler::new(),
+        &network,
+        workspace.dirichlet_values,
+        workspace.neumann_sources,
+        LinearSolverMethod::ConjugateGradient,
+        SOLVER_TOLERANCE,
+        &budget(10),
+        &warm_solution,
+    )
+    .expect_err("a NaN pressure has no positive linearized conductance");
+
+    assert!(
+        matches!(
+            &err,
+            Error::InvalidConfiguration(message)
+                if message.contains("Non-positive conductance encountered in network assembly")
+        ),
+        "unexpected error: {err:?}"
+    );
+}
+
+/// Without a pressure anchor the Laplacian `g [[1, -1], [-1, 1]]` is singular:
+/// assembly succeeds, the dense factorization fails, and its division-by-zero
+/// error reaches the caller unchanged.
+#[test]
+fn singular_system_surfaces_the_linear_solve_error() {
+    let (network, _, _) = pipe_network(2.0);
+    let n = network.node_count();
+    let workspace = classified_workspace(&network);
+    let warm_solution = Array1::from_elem([n], 0.0);
+
+    let err = jfnk_fallback(
+        &MatrixAssembler::new(),
+        &network,
+        vec![None; n],
+        workspace.neumann_sources,
+        LinearSolverMethod::ConjugateGradient,
+        SOLVER_TOLERANCE,
+        &budget(10),
+        &warm_solution,
+    )
+    .expect_err("a Laplacian without a pressure anchor is singular");
+
+    assert!(
+        matches!(err, Error::Numerical(NumericalErrorKind::DivisionByZero)),
         "unexpected error: {err:?}"
     );
 }

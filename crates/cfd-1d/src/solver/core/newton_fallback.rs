@@ -1,4 +1,4 @@
-//! JFNK fallback for stalled Anderson-accelerated Picard iteration (OPEN-033).
+//! JFNK fallback for stalled Anderson-accelerated Picard iteration.
 //!
 //! # Theorem — Newton-Krylov globalization of non-contractive Picard maps
 //!
