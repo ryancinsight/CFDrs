@@ -237,27 +237,36 @@ is a lock/overlay environment residual, not evidence of a missing Apollo
 `PlanScratch` export; the hosted exact-head package gate is the reproducible
 closure check.
 
-<a id="ATLAS-CFDRS-JFNK-OPEN-033"></a>
-## ATLAS-CFDRS-JFNK-OPEN-033 — Integrate bounded Newton-Krylov recovery [fix]
-- Status: todo; priority: P0; integrator: Atlas session; last-update: 2026-09-23.
+<a id="ATLAS-CFDRS-JFNK-RECOVERY-110"></a>
+## ATLAS-CFDRS-JFNK-RECOVERY-110 — Converge the primary loop after JFNK recovery [fix]
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `cea8528ac067f04996ffc0a99b2195115acc1b96`;
+  last-update: 2026-11-14.
+**Outcome:** a Picard stall that engages the JFNK recovery ends in a converged
+solve or a typed failure, never a run to `max_iterations`. **Evidence:** the
+chain in `crates/cfd-1d/tests/main/jfnk_recovery.rs` stalls at iteration 199,
+JFNK converges, and the solve still ends at `max_iterations`. **Derived:** the JFNK state is the pressure only, so the
+lagged flow `Q_{m+1} = dP / (R + k Q_m)` (multiplier -0.9704) is untouched
+and the alternation resumes. **Acceptance oracle:** that chain solves with
+`Ok` at tolerance `1e-8`, `max_iterations` 300, tolerance and budget
+unchanged; `fallback_used` may be either. **scope:**
+`crates/cfd-1d/src/solver/core/network_solver.rs`, `newton_fallback.rs`.
+**Next step:** carry the lagged flows in the recovery state or replace the
+lagged-`|Q|` linearization, then re-pin the three `jfnk_recovery.rs` tests.
 
+<a id="ATLAS-CFDRS-STALL-DETECTOR-111"></a>
+## ATLAS-CFDRS-STALL-DETECTOR-111 — Make `is_stalling` match its contract [fix]
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `cea8528ac067f04996ffc0a99b2195115acc1b96`;
+  last-update: 2026-11-14.
+**Outcome:** `FallbackBudget::is_stalling` fires only on a window of
+`stall_window` non-trivial samples, as its doc says. **Evidence:** the code
+skips zero and non-finite samples and needs one positive sample, so 63 zeros
+and one rounding residue fire it. **Derived:** two identical series edges
+share one lagged `|Q|`, so the pressure change norm is 0 after iteration 0
+and rounding noise can engage JFNK. **Acceptance oracle:** a unit test with 63
+zeros and one positive sample returns `false`. **scope:** `newton_fallback.rs`
+and its `tests.rs`. **Next step:** count usable samples and require
+`stall_window` of them.
 
-**Owner:** Atlas session; scope is `cfd-1d` nonlinear network recovery and the
-provider-owned `cfd-math` JFNK callback seam. **Acceptance:** the retained
-`newton_fallback.rs` source is reachable from `NetworkSolver`; bounded-amplitude
-stagnation invokes one finite-budget JFNK trajectory; assembly and linear-solver
-failures remain typed; and the exact provider hosted gates pass at the final
-source head. No tolerance relaxation, compatibility shim, or test-workload
-change is permitted.
-
-The source integration and value-semantic unit coverage are implemented. Local
-format and diff checks pass. Locked Cargo verification is currently blocked
-before compilation by the shared Atlas overlay/lock mismatch; hosted exact-head
-verification is the remaining closure gate.
-
-
-Remaining checklist steps (retired from checklist.md):
-- [ ] Run the locked `cfd-1d`/`cfd-math` Nextest filters and the hosted exact-head Rust and book-figure gates; the local Atlas overlay currently blocks Cargo resolution before compilation.
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex session):** wire every workspace package and `xtask` to the canonical Atlas `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and centralize `xtask` CLI output through its checked writer. `cfd-core` library Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the explicit legacy-migration audit pass. Full closure remains open: workspace all-target Clippy still reports pre-existing cfd-math unwrap/output debt, cfd-schematics missing documentation, and test/bench lint debt; the existing all-target format baseline is also red outside this increment.
