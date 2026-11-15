@@ -28,12 +28,24 @@
 - **build(deps)**: Advance the first-party providers to their current
   cohort. Aequitas to 0.3.1, Apollo FFT to 0.29.3 and NUFFT to 0.10.1,
   Athena to 0.3.2, CoeUs Optim to 0.12.0, the Consus edges to 0.4.0,
-  Eunomia to 0.10.0, Gaia's mesh to 0.6.10, Hephaestus to 0.27.0, Hermes
-  to 0.9.2, Leto to 0.46.4, Moirai to 0.10.0, Proteus to 0.1.1, RITK's
+  Eunomia to 0.12.0, Gaia's mesh to 0.6.10, Hephaestus to 0.28.0, Hermes
+  to 0.9.2, Leto to 0.48.0, Moirai to 0.12.0, Proteus to 0.1.1, RITK's
   VTK model to 0.4.0, Themis to 0.11.3 and Tyche to 0.4.0. The
-  requirements and the lock are the whole change: the cohort's APIs are
-  compatible with the code as it stands, so no source edit accompanies the
-  bump.
+  requirements and the lock are the whole change; the lock is regenerated
+  outside the Atlas dependency overlay so every provider row names one
+  revision per provider repository, with every provider row at its
+  repository's current default head.
+
+  **This is a breaking public-contract change:** CFDrs binds its public
+  scalar contract to Eunomia's `RealField`, and Rust treats the trait of
+  Eunomia 0.11 and the same-named trait of Eunomia 0.12 as distinct nominal
+  contracts. Code generic over the Eunomia 0.11 `RealField` bound no longer
+  satisfies CFDrs's public bounds; update the bound and the imports to 0.12
+  and select the same provider cohort before using CFDrs's public generic
+  types. Consumers already using concrete scalar types keep the same CFDrs
+  API. Moirai 0.12.0 removes the required `StateWord::get_mut` method, which
+  CFDrs neither implements nor calls, so no CFDrs source changes with the
+  move. See [ADR 0001](docs/adr/0001-eunomia-moirai-provider-contract.md).
 
 - **Breaking (`cfd-validation`)**: Remove the fabricated Ghia centerline
   constants and the obsolete `analytical_benchmarks` module. All consumers use
