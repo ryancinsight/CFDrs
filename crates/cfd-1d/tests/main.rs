@@ -31,6 +31,8 @@ mod component_validation;
 mod components_tests;
 #[path = "main/integration_schematics.rs"]
 mod integration_schematics;
+#[path = "main/jfnk_recovery.rs"]
+mod jfnk_recovery;
 #[path = "main/manufactured_network.rs"]
 mod manufactured_network;
 #[path = "main/membrane_component_parity.rs"]
