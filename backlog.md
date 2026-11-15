@@ -11,7 +11,7 @@
 - exit: reopens when the provider export lands; outside the 1.0 blocking path.
 ## M-hygiene: gates and records are mechanized — needs: none
 - exit: lint counts strictly decrease, root examples compile under a gate, `expect("expected value")` count zero, figures verify content, one board/checklist/gap file each, chapters numbered and non-stub, `missing_docs` denied per crate, PR scope filter runs fewer jobs on source-only changes.
-## M-1.0: stable fluids release (authority-gated) — needs: M-newton, M-solver-perf, M-validation, M-python, M-hygiene
+## Milestone M-1.0: stable fluids release (authority-gated) — needs: M-newton, M-solver-perf, M-validation, M-python, M-hygiene
 - exit: `cargo semver-checks`, publish dry-run, `cargo doc`, full workspace nextest/doctest green, zero open correctness items. Veto: release authority sets the API-freeze contents; never forces `publish = true` without it.
 ## M-ecosystem: consumer-owned coupling (prometheus, kwavers) — needs: M-1.0
 - exit: consumer receipts on their own boards; does not gate 1.0.
