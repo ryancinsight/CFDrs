@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 
 pub use super::mutations::{generate_ga_crossover_children, generate_ga_mutations};
 
+mod candidate_batches;
+use candidate_batches::{CandidateBatches, append_round_robin_batch};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlueprintRankedCandidate {
     pub rank: usize,
@@ -398,20 +401,20 @@ impl BlueprintGeneticOptimizer {
                 .collect();
             let mut seen = population_keys(&next_population);
 
-            let mutation_batches: Vec<Vec<BlueprintCandidate>> = (0..elite_ranked.len())
-                .map(|i| generate_ga_mutations(&next_population[i]))
-                .collect::<Result<_, _>>()?;
-            let mut crossover_batches = Vec::new();
+            let mutation_batches = CandidateBatches::from_results(
+                (0..elite_ranked.len()).map(|i| generate_ga_mutations(&next_population[i])),
+            )?;
+            let mut crossover_batches = CandidateBatches::new();
             for left_index in 0..elite_ranked.len() {
                 for right_index in (left_index + 1)..elite_ranked.len() {
-                    crossover_batches.push(generate_ga_crossover_children(
+                    crossover_batches.push_batch(generate_ga_crossover_children(
                         &next_population[left_index],
                         &next_population[right_index],
                     )?);
                 }
             }
-            let mut mutation_offsets = vec![0_usize; mutation_batches.len()];
-            let mut crossover_offsets = vec![0_usize; crossover_batches.len()];
+            let mut mutation_offsets = mutation_batches.cursors();
+            let mut crossover_offsets = crossover_batches.cursors();
             while next_population.len() < self.population {
                 let mut advanced = false;
                 advanced |= append_round_robin_batch(
@@ -555,29 +558,17 @@ impl BlueprintGeneticOptimizer {
 
         // Generate seed mutations in round-robin order so one prolific seed
         // cannot monopolize the initial population.
-        let mutation_batches: Vec<Vec<BlueprintCandidate>> = population
-            .iter()
-            .map(generate_ga_mutations)
-            .collect::<Result<_, _>>()?;
-        let mut mutation_offsets = vec![0_usize; mutation_batches.len()];
+        let mutation_batches =
+            CandidateBatches::from_results(population.iter().map(generate_ga_mutations))?;
+        let mut mutation_offsets = mutation_batches.cursors();
         while population.len() < self.population {
-            let mut advanced = false;
-            for (batch_index, batch) in mutation_batches.iter().enumerate() {
-                while mutation_offsets[batch_index] < batch.len() {
-                    let mutation = batch[mutation_offsets[batch_index]].clone();
-                    mutation_offsets[batch_index] += 1;
-                    let key = candidate_key(&mutation)?;
-                    if seen.insert(key) {
-                        population.push(mutation);
-                        advanced = true;
-                        break;
-                    }
-                }
-                if population.len() >= self.population {
-                    break;
-                }
-            }
-            if !advanced {
+            if !append_round_robin_batch(
+                &mut population,
+                &mut seen,
+                &mutation_batches,
+                &mut mutation_offsets,
+                self.population,
+            )? {
                 break;
             }
         }
@@ -941,26 +932,27 @@ fn build_refine_population(
         }
     }
 
-    let local_batches: Vec<Vec<BlueprintCandidate>> = parents
-        .iter()
-        .map(|parent| focused_operating_point_perturbations(&parent.candidate, population_limit))
-        .collect::<Result<_, _>>()?;
-    let topology_batches: Vec<Vec<BlueprintCandidate>> = parents
-        .iter()
-        .map(|parent| generate_ga_mutations(&parent.candidate))
-        .collect::<Result<_, _>>()?;
-    let mut crossover_batches = Vec::new();
+    let local_batches =
+        CandidateBatches::from_results(parents.iter().map(|parent| {
+            focused_operating_point_perturbations(&parent.candidate, population_limit)
+        }))?;
+    let topology_batches = CandidateBatches::from_results(
+        parents
+            .iter()
+            .map(|parent| generate_ga_mutations(&parent.candidate)),
+    )?;
+    let mut crossover_batches = CandidateBatches::new();
     for left_index in 0..parents.len() {
         for right_index in (left_index + 1)..parents.len() {
-            crossover_batches.push(generate_ga_crossover_children(
+            crossover_batches.push_batch(generate_ga_crossover_children(
                 &parents[left_index].candidate,
                 &parents[right_index].candidate,
             )?);
         }
     }
-    let mut local_offsets = vec![0_usize; local_batches.len()];
-    let mut topology_offsets = vec![0_usize; topology_batches.len()];
-    let mut crossover_offsets = vec![0_usize; crossover_batches.len()];
+    let mut local_offsets = local_batches.cursors();
+    let mut topology_offsets = topology_batches.cursors();
+    let mut crossover_offsets = crossover_batches.cursors();
 
     while population.len() < population_limit {
         let mut advanced = false;
@@ -1037,32 +1029,6 @@ fn focused_operating_point_perturbations(
     }
 
     Ok(perturbations)
-}
-
-fn append_round_robin_batch(
-    population: &mut Vec<BlueprintCandidate>,
-    seen: &mut HashSet<CandidateFingerprint>,
-    batches: &[Vec<BlueprintCandidate>],
-    offsets: &mut [usize],
-    limit: usize,
-) -> Result<bool, OptimError> {
-    let mut advanced = false;
-    for (batch_index, batch) in batches.iter().enumerate() {
-        while offsets[batch_index] < batch.len() {
-            let candidate = batch[offsets[batch_index]].clone();
-            offsets[batch_index] += 1;
-            let key = candidate_key(&candidate)?;
-            if seen.insert(key) {
-                population.push(candidate);
-                advanced = true;
-                break;
-            }
-        }
-        if population.len() >= limit {
-            break;
-        }
-    }
-    Ok(advanced)
 }
 
 fn candidate_key(candidate: &BlueprintCandidate) -> Result<CandidateFingerprint, OptimError> {
