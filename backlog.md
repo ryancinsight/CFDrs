@@ -292,6 +292,22 @@ zeros and one positive sample returns `false`. **scope:** `newton_fallback.rs`
 and its `tests.rs`. **Next step:** count usable samples and require
 `stall_window` of them.
 
+<a id="ATLAS-CFDRS-STAGNATED-OUTCOME-112"></a>
+## ATLAS-CFDRS-STAGNATED-OUTCOME-112 — Map `Termination::Stagnated` to `BrokenDown` [fix]
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
+  last-update: 2026-11-16.
+- milestone: M-newton.
+**Outcome:** `krylov::interpret` returns `Ok(SolveOutcome::BrokenDown)` for `Termination::Stagnated`,
+as for `Breakdown`, not `Err`. The pressure correction then keeps the iterate, or with AMG zeroes it
+and re-solves unpreconditioned (`correction.rs:149-152`); `momentum/solve.rs:169` warns and keeps it.
+**Evidence:** `krylov.rs:286-288` returns `Err`; `correction.rs:145,152` propagate it. Athena's GMRES
+test asserts `Stagnated` at the locked 738d9554 (`gmres_contract.rs:314`); CG will (athena#167, open).
+**Acceptance oracle:** test `interpret_maps_stagnated_to_broken_down` in `core_solver_tests.rs`:
+`krylov::gmres`, restart 8 (narrowest ladder rung), on the order-16 cyclic down-shift, `b = e_1`, 32
+iterations. It asserts the raw report is `Termination::Stagnated`, then that `interpret` gives
+`Ok(BrokenDown)` carrying it; `Stalled` or `Err` fails. **scope:** `crates/cfd-math` `krylov.rs`,
+`core_solver_tests.rs`. **Next step:** add the arm and test. Rejected: `Stalled` (no retry); veto point.
+
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex session):** wire every workspace package and `xtask` to the canonical Atlas `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and centralize `xtask` CLI output through its checked writer. `cfd-core` library Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the explicit legacy-migration audit pass. Full closure remains open: workspace all-target Clippy still reports pre-existing cfd-math unwrap/output debt, cfd-schematics missing documentation, and test/bench lint debt; the existing all-target format baseline is also red outside this increment.
