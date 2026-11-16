@@ -11,6 +11,7 @@
 
 mod assembly;
 mod element;
+mod element_nodes;
 mod operators;
 
 pub use assembly::*;

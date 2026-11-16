@@ -4,6 +4,7 @@
 //! spectral elements, including node definitions, basis functions, and element-local
 //! operations.
 
+use super::element_nodes::ElementNodes;
 use super::{
     compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights, dot, mat_vec_mul,
     stiffness_matrix, vector_from_vec,
@@ -145,9 +146,8 @@ impl SpectralElement {
 #[derive(Debug, Clone)]
 pub struct SpectralMesh1D {
     elements: Vec<SpectralElement>,
-    num_elements: usize,
     global_nodes: Vec<f64>,
-    element_connectivity: Vec<Vec<usize>>,
+    element_connectivity: ElementNodes,
 }
 
 impl SpectralMesh1D {
@@ -167,7 +167,6 @@ impl SpectralMesh1D {
         let mut elements = Vec::with_capacity(num_elements);
         let mut global_nodes =
             Vec::with_capacity((num_elements * (element_order + 1)) - (num_elements - 1));
-        let mut element_connectivity = Vec::with_capacity(num_elements);
 
         // Generate global nodes and connectivity
         let dx = (x_max - x_min) / num_elements as f64;
@@ -183,27 +182,29 @@ impl SpectralMesh1D {
                 .map(|&xi| x0 + 0.5 * (xi + 1.0) * (x1 - x0))
                 .collect();
 
-            // Update global nodes and connectivity
-            let mut connectivity = Vec::with_capacity(num_nodes_per_element);
-
+            // Update global nodes. The last node of element `e` is the first
+            // node of element `e + 1`, which the connectivity layout below
+            // expresses directly.
             for (local_idx, &x) in local_nodes.iter().enumerate() {
                 if e == 0 || local_idx > 0 {
-                    // Skip duplicate nodes
-                    connectivity.push(global_nodes.len());
                     global_nodes.push(x);
-                } else {
-                    // Connect to previous element's last node
-                    connectivity.push(global_nodes.len() - 1);
                 }
             }
 
-            element_connectivity.push(connectivity);
             elements.push(element.clone());
         }
 
+        // Element connectivity: `element * (nodes_per_element - 1) + local_node`
+        // is the layout that shares the boundary node between neighbours, so
+        // the whole map is one index buffer instead of one `Vec` per element.
+        let element_connectivity = ElementNodes::from_uniform(
+            num_elements,
+            num_nodes_per_element,
+            |element, local_node| element * (num_nodes_per_element - 1) + local_node,
+        );
+
         Ok(Self {
             elements,
-            num_elements,
             global_nodes,
             element_connectivity,
         })
@@ -216,7 +217,9 @@ impl SpectralMesh1D {
 
     /// Get the number of elements
     pub fn num_elements(&self) -> usize {
-        self.num_elements
+        // `elements` and `element_connectivity` are built from one count in
+        // `new`, so the connectivity map is the single owner of that fact.
+        self.element_connectivity.element_count()
     }
 
     /// Get the global coordinates of a node
@@ -227,15 +230,16 @@ impl SpectralMesh1D {
     /// Get the element containing a point
     pub fn find_element(&self, x: f64) -> Option<usize> {
         for (e, _element) in self.elements.iter().enumerate() {
-            let x0 = self.node_coord(self.element_connectivity[e][0]);
+            let connectivity = self.element_connectivity.element(e);
+            let x0 = self.node_coord(connectivity[0]);
             let x1 = self.node_coord(
-                *self.element_connectivity[e]
+                *connectivity
                     .last()
                     .expect("invariant: spectral element connectivity is non-empty"),
             );
 
             // Use [x0, x1) for all but the last element, which is [x0, x1]
-            let is_last = e == self.num_elements - 1;
+            let is_last = e + 1 == self.elements.len();
             if x >= x0 && (x < x1 || (is_last && x <= x1 + 1e-14)) {
                 return Some(e);
             }
@@ -252,7 +256,7 @@ impl SpectralMesh1D {
         let mut u = Array1::zeros([self.num_global_nodes()]);
 
         for e in 0..self.num_elements() {
-            let conn = &self.element_connectivity[e];
+            let conn = self.element_connectivity.element(e);
 
             for &global in conn {
                 let x = self.node_coord(global);
@@ -271,7 +275,7 @@ impl SpectralMesh1D {
         let mut error = 0.0;
 
         for e in 0..self.num_elements() {
-            let conn = &self.element_connectivity[e];
+            let conn = self.element_connectivity.element(e);
             let element = &self.elements[e];
 
             // Extract local solution
