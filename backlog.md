@@ -292,6 +292,22 @@ zeros and one positive sample returns `false`. **scope:** `newton_fallback.rs`
 and its `tests.rs`. **Next step:** count usable samples and require
 `stall_window` of them.
 
+<a id="ATLAS-CFDRS-STAGNATED-OUTCOME-112"></a>
+## ATLAS-CFDRS-STAGNATED-OUTCOME-112 — Keep the iterate when a Krylov solve reports `Stagnated` [fix]
+- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
+  last-update: 2026-11-16.
+- milestone: M-solver-perf.
+**Outcome:** `krylov::interpret` maps `Termination::Stagnated` to an `Ok`
+outcome, so a stalled CG or GMRES solve keeps its last iterate in the pressure
+correction. **Evidence:** `krylov.rs:279-286` maps only `MaxIterations`,
+`Breakdown` and `NonPositiveCurvature` to `Ok`; `correction.rs:145,152`
+propagate the rest. Athena CG reports `Stagnated` where it reported
+`Breakdown` or `MaxIterations` (athena#167, `[major]`). **Acceptance oracle:**
+a `krylov.rs` unit test feeds `interpret` a `Stagnated` report and asserts
+`Ok` carrying it. **scope:** `crates/cfd-math/src/linear_solver/krylov.rs`.
+**Next step:** choose `Stalled` or `BrokenDown` for it, then adopt the Athena
+revision carrying athena#167.
+
 ## Active lint-floor increment
 
 - **CFDRS-LINT-FLOOR-001 [patch] — in progress (2026-08-06; current Codex session):** wire every workspace package and `xtask` to the canonical Atlas `[workspace.lints]` floor, remove the `cfd-core` plugin resolver unwrap, and centralize `xtask` CLI output through its checked writer. `cfd-core` library Clippy, 246 cfd-core unit tests through Nextest, three doctests, and the explicit legacy-migration audit pass. Full closure remains open: workspace all-target Clippy still reports pre-existing cfd-math unwrap/output debt, cfd-schematics missing documentation, and test/bench lint debt; the existing all-target format baseline is also red outside this increment.
