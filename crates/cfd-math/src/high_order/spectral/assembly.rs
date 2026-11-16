@@ -6,12 +6,14 @@
 use leto::{Array1, Array2};
 use leto_ops::{CooMatrix, CsrMatrix};
 
+use super::element_nodes::ElementNodes;
+
 /// Represents a global assembly for spectral element methods
 pub struct GlobalAssembly {
     /// Global number of degrees of freedom
     num_dofs: usize,
     /// Element-to-DOF mapping
-    element_dofs: Vec<Vec<usize>>,
+    element_dofs: ElementNodes,
     /// Global sparse matrix (stored in COO format during assembly)
     coo_rows: Vec<usize>,
     coo_cols: Vec<usize>,
@@ -23,6 +25,11 @@ pub struct GlobalAssembly {
 impl GlobalAssembly {
     /// Create a new global assembly
     pub fn new(num_dofs: usize, element_dofs: Vec<Vec<usize>>) -> Self {
+        Self::with_nodes(num_dofs, ElementNodes::from_elements(element_dofs))
+    }
+
+    /// Create an assembly over an already-flattened element map.
+    fn with_nodes(num_dofs: usize, element_dofs: ElementNodes) -> Self {
         Self {
             num_dofs,
             element_dofs,
@@ -40,7 +47,7 @@ impl GlobalAssembly {
         local_mat: &Array2<f64>,
         local_rhs: Option<&Array1<f64>>,
     ) {
-        let dofs = &self.element_dofs[elem_idx];
+        let dofs = self.element_dofs.element(elem_idx);
         let n = dofs.len();
 
         assert_eq!(local_mat.shape(), [n, n]);
@@ -132,12 +139,10 @@ impl GlobalAssembly {
 
 /// Represents a spectral element mesh for assembly
 pub struct SpectralMesh {
-    /// Number of elements
-    num_elements: usize,
     /// Number of nodes per element
     nodes_per_element: usize,
     /// Element connectivity (element -> node indices)
-    element_connectivity: Vec<Vec<usize>>,
+    element_connectivity: ElementNodes,
     /// Node coordinates
     node_coords: Vec<f64>,
     /// Boundary node flags
@@ -173,25 +178,15 @@ impl SpectralMesh {
         // Last node is a boundary
         is_boundary[num_nodes - 1] = true;
 
-        // Set up element connectivity
-        let mut element_connectivity = Vec::with_capacity(num_elements);
-
-        for e in 0..num_elements {
-            let mut conn = Vec::with_capacity(nodes_per_element);
-
-            // First node of the element
-            conn.push(e * (nodes_per_element - 1));
-
-            // Interior nodes
-            for k in 1..nodes_per_element {
-                conn.push(e * (nodes_per_element - 1) + k);
-            }
-
-            element_connectivity.push(conn);
-        }
+        // Set up element connectivity: both meshes share the node layout
+        // `element * (nodes_per_element - 1) + local_node`, which is what makes
+        // neighbouring elements share their boundary node.
+        let element_connectivity =
+            ElementNodes::from_uniform(num_elements, nodes_per_element, |element, local_node| {
+                element * (nodes_per_element - 1) + local_node
+            });
 
         Self {
-            num_elements,
             nodes_per_element,
             element_connectivity,
             node_coords,
@@ -201,7 +196,7 @@ impl SpectralMesh {
 
     /// Get the number of elements
     pub fn num_elements(&self) -> usize {
-        self.num_elements
+        self.element_connectivity.element_count()
     }
 
     /// Get the number of nodes per element
@@ -221,7 +216,7 @@ impl SpectralMesh {
 
     /// Get the element connectivity
     pub fn element_connectivity(&self, elem_idx: usize) -> &[usize] {
-        &self.element_connectivity[elem_idx]
+        self.element_connectivity.element(elem_idx)
     }
 
     /// Check if a node is on the boundary
@@ -231,7 +226,7 @@ impl SpectralMesh {
 
     /// Create a global assembly for this mesh
     pub fn create_assembly(&self) -> GlobalAssembly {
-        GlobalAssembly::new(self.num_nodes(), self.element_connectivity.clone())
+        GlobalAssembly::with_nodes(self.num_nodes(), self.element_connectivity.clone())
     }
 }
 
