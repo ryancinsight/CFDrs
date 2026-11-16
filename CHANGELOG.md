@@ -25,6 +25,16 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- **build(deps)**: Allow Leto 0.50.0 and lock it. The workspace `leto` and
+  `leto-ops` requirements widen from `>=0.46.4, <0.49.0` to
+  `>=0.46.4, <0.51.0`, and the lock moves Leto and Leto Ops from 0.48.0 to
+  0.50.0. Apollo, Athena, CoeUs, Gaia's mesh, Hephaestus and RITK move to
+  revisions whose Leto requirements admit 0.50.0; the lock holds one Leto
+  revision, so each of them is required for resolution. Every other provider
+  row stays at its previous revision. Leto 0.50.0 removes the unsafe
+  `VecStorage::uninit`; CFDrs sources are unchanged because nothing in them
+  calls it.
+
 - **build(deps)**: Advance the first-party providers to their current
   cohort. Aequitas to 0.3.1, Apollo FFT to 0.29.3 and NUFFT to 0.10.1,
   Athena to 0.3.2, CoeUs Optim to 0.12.0, the Consus edges to 0.4.0,
