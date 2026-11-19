@@ -176,6 +176,20 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking:** The three direct `chrono` edges leave the workspace.
+  `RUSTSEC-2026-0543` marks `chrono` unmaintained, and every version is
+  affected, so `cfd-core`, `cfd-optim` and `cfd-validation` now render their
+  timestamps with the maintained `time` crate. `SimulationMetadata`'s
+  `created_at` and `modified_at`, `PerformanceReport`'s `timestamp` and
+  `BenchmarkResult`'s `timestamp` change from `chrono::DateTime<chrono::Utc>`
+  to `time::OffsetDateTime`; the artifacts that carry them keep their RFC 3339
+  text, so a reader of a report sees the same shape as before. Consumers that
+  read those fields as calendar values read `OffsetDateTime`'s fields
+  (`year`, `month`, `day`, `hour`, `minute`, `second`) or format the instant
+  with `time`. The suite's two timestamp shapes — the RFC 3339 instant and the
+  `YYYY-MM-DD HH:MM:SS UTC` report header — are rendered once, in
+  `cfd-core::timestamps`, and every report surface uses them.
+
 - **Changed:** Unify the `cfd-schematics` configuration constants into a single
   table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module
   carried two overlapping constant tables — `primitives` and the five group

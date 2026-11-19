@@ -49,6 +49,11 @@ iris = { package = "iris-viz", version = "0.1.1", git = "https://github.com/ryan
 bytemuck = "1.14"
 rand = "0.8"
 
+# Calendar instants for the metadata and report surfaces. Maintained, and it
+# replaces the unmaintained chrono edge (RUSTSEC-2026-0543). The
+# well-known serde formats keep the artifacts' RFC 3339 timestamps.
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
+
 # Data structures
 indexmap = "2.0"
 petgraph = "0.6"

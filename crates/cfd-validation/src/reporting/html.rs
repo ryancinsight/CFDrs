@@ -632,10 +632,10 @@ impl Reporter for HtmlReporter {
 fn format_timestamp(timestamp: SystemTime) -> String {
     match timestamp.duration_since(std::time::UNIX_EPOCH) {
         Ok(duration) => {
-            let datetime = chrono::DateTime::from_timestamp(duration.as_secs() as i64, 0);
-            match datetime {
-                Some(dt) => dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                None => "Unknown timestamp".to_string(),
+            let seconds = i64::try_from(duration.as_secs()).unwrap_or(i64::MAX);
+            match time::OffsetDateTime::from_unix_timestamp(seconds) {
+                Ok(instant) => cfd_core::timestamps::display_utc(instant),
+                Err(_) => "Unknown timestamp".to_string(),
             }
         }
         Err(_) => "Invalid timestamp".to_string(),

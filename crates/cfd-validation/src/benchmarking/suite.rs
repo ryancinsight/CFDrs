@@ -35,7 +35,8 @@ pub struct BenchmarkResult {
     /// Execution duration
     pub duration: Duration,
     /// Timestamp of execution
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub timestamp: time::OffsetDateTime,
 }
 
 impl BenchmarkResult {
@@ -50,7 +51,7 @@ impl BenchmarkResult {
             status: BenchmarkStatus::Skipped,
             regression_detected: None,
             duration: Duration::ZERO,
-            timestamp: chrono::Utc::now(),
+            timestamp: time::OffsetDateTime::now_utc(),
         }
     }
 

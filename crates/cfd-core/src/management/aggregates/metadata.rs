@@ -1,7 +1,7 @@
 //! Simulation metadata
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 /// Simulation metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,9 +11,11 @@ pub struct SimulationMetadata {
     /// Simulation description
     pub description: String,
     /// Creation timestamp
-    pub created_at: DateTime<Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
     /// Last modification timestamp
-    pub modified_at: DateTime<Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub modified_at: OffsetDateTime,
     /// Version identifier
     pub version: String,
     /// Author information
@@ -24,7 +26,7 @@ pub struct SimulationMetadata {
 
 impl Default for SimulationMetadata {
     fn default() -> Self {
-        let now = Utc::now();
+        let now = OffsetDateTime::now_utc();
         Self {
             name: "Unnamed Simulation".to_string(),
             description: String::new(),
@@ -50,7 +52,7 @@ impl SimulationMetadata {
     #[must_use]
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
-        self.modified_at = Utc::now();
+        self.modified_at = OffsetDateTime::now_utc();
         self
     }
 
@@ -58,18 +60,18 @@ impl SimulationMetadata {
     #[must_use]
     pub fn with_author(mut self, author: impl Into<String>) -> Self {
         self.author = author.into();
-        self.modified_at = Utc::now();
+        self.modified_at = OffsetDateTime::now_utc();
         self
     }
 
     /// Add tag
     pub fn add_tag(&mut self, tag: impl Into<String>) {
         self.tags.push(tag.into());
-        self.modified_at = Utc::now();
+        self.modified_at = OffsetDateTime::now_utc();
     }
 
     /// Update modification timestamp
     pub fn touch(&mut self) {
-        self.modified_at = Utc::now();
+        self.modified_at = OffsetDateTime::now_utc();
     }
 }

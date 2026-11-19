@@ -28,6 +28,8 @@ pub mod physics;
 pub mod scalar;
 #[cfg(any(test, feature = "test-util"))]
 pub mod test_support;
+/// UTC timestamp rendering for metadata and report surfaces
+pub mod timestamps;
 
 pub use crate::scalar::CfdScalar;
 

@@ -123,7 +123,7 @@ impl<T: RealField + Copy> Mesh<T> {
             metadata: MeshMetadata {
                 name,
                 dimension,
-                created: chrono::Utc::now().to_rfc3339(),
+                created: crate::timestamps::rfc3339_utc(time::OffsetDateTime::now_utc()),
                 properties: HashMap::new(),
             },
         }

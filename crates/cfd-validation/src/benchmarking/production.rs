@@ -40,7 +40,7 @@ impl PerformanceProfiler {
         let summary = Self::generate_summary(&profiles);
         let recommendations = Self::generate_system_recommendations(&profiles);
         let report = PerformanceReport {
-            timestamp: chrono::Utc::now(),
+            timestamp: time::OffsetDateTime::now_utc(),
             profiles,
             summary,
             recommendations,
@@ -180,7 +180,7 @@ impl PerformanceProfiler {
         tracing::info!("===============================");
         tracing::info!(
             "Timestamp: {}",
-            report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+            cfd_core::timestamps::display_utc(report.timestamp)
         );
         tracing::info!(
             "Total Algorithms Profiled: {}",
@@ -236,7 +236,8 @@ impl PerformanceProfiler {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PerformanceReport {
     /// Report timestamp
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub timestamp: time::OffsetDateTime,
     /// Individual performance profiles
     pub profiles: Vec<PerformanceProfile>,
     /// Summary statistics

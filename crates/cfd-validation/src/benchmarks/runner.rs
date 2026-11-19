@@ -33,7 +33,7 @@ impl BenchmarkRunner {
         ValidationReport {
             benchmarks: results.to_vec(),
             summary: Self::generate_summary(results),
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: cfd_core::timestamps::rfc3339_utc(time::OffsetDateTime::now_utc()),
         }
     }
 

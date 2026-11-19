@@ -632,7 +632,7 @@ impl HtmlReportGenerator {
         </div>"#,
             self.config.title,
             self.config.title,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+            cfd_core::timestamps::display_utc(time::OffsetDateTime::now_utc())
         )
     }
 
@@ -1253,7 +1253,7 @@ impl PerformanceDashboard {
         writeln!(
             &mut report,
             "Report Generated: {}\n",
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+            cfd_core::timestamps::display_utc(time::OffsetDateTime::now_utc())
         )
         .expect("writing to String cannot fail");
 
