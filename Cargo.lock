@@ -477,10 +477,10 @@ dependencies = [
  "leto-ops",
  "petgraph",
  "proptest",
- "rand 0.8.8",
+ "rand 0.9.5",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
 ]
@@ -509,10 +509,10 @@ dependencies = [
  "moirai-runtime",
  "petgraph",
  "proptest",
- "rand 0.8.8",
+ "rand 0.9.5",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
@@ -541,7 +541,7 @@ dependencies = [
  "moirai-runtime",
  "proptest",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
@@ -568,7 +568,7 @@ dependencies = [
  "serde",
  "serde_json",
  "themis-topology",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
 ]
@@ -589,7 +589,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "zstd",
 ]
@@ -611,9 +611,9 @@ dependencies = [
  "leto-ops",
  "moirai-runtime",
  "proptest",
- "rand 0.8.8",
+ "rand 0.9.5",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
@@ -641,7 +641,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
  "tyche-core",
@@ -677,7 +677,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -691,7 +691,7 @@ dependencies = [
  "plotters",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
@@ -722,7 +722,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tracing",
 ]
 
