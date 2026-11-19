@@ -3014,7 +3014,7 @@ dependencies = [
 [[package]]
 name = "ritk-image"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/ritk#ee97dd733b9d9aa80ee47bee0cced7d746dd097c"
+source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
 dependencies = [
  "anyhow",
  "coeus-autograd",
@@ -3032,7 +3032,7 @@ dependencies = [
 [[package]]
 name = "ritk-spatial"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#ee97dd733b9d9aa80ee47bee0cced7d746dd097c"
+source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
 dependencies = [
  "leto",
  "serde",
@@ -3042,7 +3042,7 @@ dependencies = [
 [[package]]
 name = "ritk-vtk"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#ee97dd733b9d9aa80ee47bee0cced7d746dd097c"
+source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
 dependencies = [
  "anyhow",
  "coeus-core",
@@ -3060,7 +3060,7 @@ dependencies = [
 [[package]]
 name = "ritk-wgpu-compat"
 version = "0.2.1"
-source = "git+https://github.com/ryancinsight/ritk#ee97dd733b9d9aa80ee47bee0cced7d746dd097c"
+source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
 
 [[package]]
 name = "rkyv"
