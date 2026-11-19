@@ -406,12 +406,12 @@ fn test_production_dissipation_bounds() {
 fn test_stochastic_robustness_extreme_conditions() {
     use rand::prelude::*;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let model = KEpsilonModel::<f64>::new(10, 10);
 
     for _ in 0..100 {
-        let k_val = rng.gen_range(1e-6..1e3);
-        let eps_val = rng.gen_range(1e-6..1e3);
+        let k_val = rng.random_range(1e-6..1e3);
+        let eps_val = rng.random_range(1e-6..1e3);
 
         let nu_t = model.turbulent_viscosity(k_val, eps_val, 1.0);
         assert!(
@@ -420,7 +420,7 @@ fn test_stochastic_robustness_extreme_conditions() {
         );
         assert!(nu_t >= 0.0, "Negative viscosity: {nu_t}");
 
-        let strain_rate_magnitude = rng.gen_range(1e-3..1e3);
+        let strain_rate_magnitude = rng.random_range(1e-3..1e3);
         let grad = [[0.0, strain_rate_magnitude], [0.0, 0.0]];
 
         let production = model.production_term(&grad, 1e-3, k_val, 0.0, 1e-5);
