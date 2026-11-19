@@ -965,7 +965,7 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 [[package]]
 name = "consus-compression"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/consus.git#25d40197d231a4ddae604bfa2d85f439322fd0fc"
+source = "git+https://github.com/ryancinsight/consus.git#2193675bd5e1fbb726cb9f6b324feb91167311b4"
 dependencies = [
  "byteorder",
  "consus-core",
@@ -975,7 +975,7 @@ dependencies = [
 [[package]]
 name = "consus-core"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/consus.git#25d40197d231a4ddae604bfa2d85f439322fd0fc"
+source = "git+https://github.com/ryancinsight/consus.git#2193675bd5e1fbb726cb9f6b324feb91167311b4"
 dependencies = [
  "byteorder",
  "smallvec",
@@ -985,7 +985,7 @@ dependencies = [
 [[package]]
 name = "consus-hdf5"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/consus.git#25d40197d231a4ddae604bfa2d85f439322fd0fc"
+source = "git+https://github.com/ryancinsight/consus.git#2193675bd5e1fbb726cb9f6b324feb91167311b4"
 dependencies = [
  "byteorder",
  "consus-compression",
@@ -996,7 +996,7 @@ dependencies = [
 [[package]]
 name = "consus-io"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/consus.git#25d40197d231a4ddae604bfa2d85f439322fd0fc"
+source = "git+https://github.com/ryancinsight/consus.git#2193675bd5e1fbb726cb9f6b324feb91167311b4"
 dependencies = [
  "consus-core",
 ]
@@ -1004,7 +1004,7 @@ dependencies = [
 [[package]]
 name = "consus-zip"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/consus.git#25d40197d231a4ddae604bfa2d85f439322fd0fc"
+source = "git+https://github.com/ryancinsight/consus.git#2193675bd5e1fbb726cb9f6b324feb91167311b4"
 dependencies = [
  "consus-compression",
  "consus-core",
@@ -1368,7 +1368,7 @@ dependencies = [
 [[package]]
 name = "gaia-mesh"
 version = "0.6.10"
-source = "git+https://github.com/ryancinsight/gaia#1dd95568936b603a77f221ba8d24d0d6e59e2799"
+source = "git+https://github.com/ryancinsight/gaia#c35981b5ebe90461dae232e78776f5eae3d35bdb"
 dependencies = [
  "aequitas",
  "consus-zip",
@@ -3014,7 +3014,7 @@ dependencies = [
 [[package]]
 name = "ritk-image"
 version = "0.5.0"
-source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
+source = "git+https://github.com/ryancinsight/ritk#d0fde2ebf5a84a8a81b5975d33fea057e63bf095"
 dependencies = [
  "anyhow",
  "coeus-autograd",
@@ -3032,7 +3032,7 @@ dependencies = [
 [[package]]
 name = "ritk-spatial"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
+source = "git+https://github.com/ryancinsight/ritk#d0fde2ebf5a84a8a81b5975d33fea057e63bf095"
 dependencies = [
  "leto",
  "serde",
@@ -3042,7 +3042,7 @@ dependencies = [
 [[package]]
 name = "ritk-vtk"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
+source = "git+https://github.com/ryancinsight/ritk#d0fde2ebf5a84a8a81b5975d33fea057e63bf095"
 dependencies = [
  "anyhow",
  "coeus-core",
@@ -3060,7 +3060,7 @@ dependencies = [
 [[package]]
 name = "ritk-wgpu-compat"
 version = "0.2.1"
-source = "git+https://github.com/ryancinsight/ritk#7007bc7882b497edd715f68bd076890a34a59e82"
+source = "git+https://github.com/ryancinsight/ritk#d0fde2ebf5a84a8a81b5975d33fea057e63bf095"
 
 [[package]]
 name = "rkyv"
