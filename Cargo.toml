@@ -84,9 +84,9 @@ leto = { version = ">=0.46.4, <0.51.0", git = "https://github.com/ryancinsight/l
 leto-ops = { version = ">=0.46.4, <0.51.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
 # consus: pure-Rust scientific storage formats (HDF5 etc.). Consumed by cfd-io
 # behind the `hdf5` feature for real HDF5 output.
-consus-core = { version = "0.4.0", git = "https://github.com/ryancinsight/consus.git", default-features = false }
-consus-hdf5 = { version = "0.4.0", git = "https://github.com/ryancinsight/consus.git" }
-consus-io = { version = "0.4.0", git = "https://github.com/ryancinsight/consus.git" }
+consus-core = { version = "0.5.0", git = "https://github.com/ryancinsight/consus.git", default-features = false }
+consus-hdf5 = { version = "0.5.0", git = "https://github.com/ryancinsight/consus.git" }
+consus-io = { version = "0.5.0", git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
 ritk-vtk = { version = "0.4.0", git = "https://github.com/ryancinsight/ritk" }
