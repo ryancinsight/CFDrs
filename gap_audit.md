@@ -1,4 +1,14 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
+
+## Aequitas 0.5 and RITK VTK 0.5
+
+The standalone CFDrs cohort uses one registry Aequitas 0.5, Eunomia
+0.12.1, Leto 0.52, and Coeus 0.14 provider set. Athena and Harmonia retain
+one Athena Core Git source. The Athena adapter previously selected a
+different Git revision through its lock. Resolving both at `2be05424`
+removes the duplicate Leto source. The all-feature workspace compiles
+against RITK VTK 0.5.0 and the other released providers.
+
 ## Finding 2026-08-20: CFDrs scope-vs-delivery audit
 
 ### Measured baseline

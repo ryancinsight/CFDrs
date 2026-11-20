@@ -1,4 +1,12 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
+
+## Published provider migration [major]
+
+- The CFDrs source graph shares Aequitas 0.5, Leto 0.52, and their
+  matching mesh, FFT, optimizer, and VTK providers.
+- Acceptance requires one provider identity in a standalone lock and the
+  locked Metal and format tests against the published RITK cohort.
+
 ## M-newton: bounded Newton-Krylov recovery lands — needs: none
 - exit: the JFNK acceptance oracle passes at head; no open P0 solver item.
 ## M-solver-perf: problem-scaled SIMPLEC targets hold — needs: none
