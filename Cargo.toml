@@ -40,7 +40,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Math and numerical
-aequitas = { version = "0.4.0", default-features = false, features = ["std"] }
+aequitas = { version = "0.5.0", default-features = false, features = ["std"] }
 proteus = { package = "proteus-mat", version = "0.1.1", git = "https://github.com/ryancinsight/proteus" }
 hyperion = { version = "0.1.1", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
 tyche-core = { version = "0.4.0", git = "https://github.com/ryancinsight/tyche" }
@@ -77,11 +77,11 @@ cfd-core = { path = "crates/cfd-core", default-features = false }
 cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
 # Editable working copies live at the atlas root under repos/{gaia,apollo,consus};
-cfd-mesh = { version = "0.7.0", git = "https://github.com/ryancinsight/gaia", package = "gaia-mesh" }
-apollo-fft = { version = "0.30.0", git = "https://github.com/ryancinsight/apollo" }
-apollo-nufft = { version = "0.11.0", git = "https://github.com/ryancinsight/apollo" }
-leto = { version = "0.51.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
-leto-ops = { version = "0.51.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
+cfd-mesh = { version = "0.8.0", git = "https://github.com/ryancinsight/gaia", package = "gaia-mesh" }
+apollo-fft = { version = "0.31.0", git = "https://github.com/ryancinsight/apollo" }
+apollo-nufft = { version = "0.12.0", git = "https://github.com/ryancinsight/apollo" }
+leto = { version = "0.52.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
+leto-ops = { version = "0.52.0", git = "https://github.com/ryancinsight/leto.git", default-features = false, features = ["std"] }
 # consus: pure-Rust scientific storage formats (HDF5 etc.). Consumed by cfd-io
 # behind the `hdf5` feature for real HDF5 output.
 consus-core = { version = "0.5.0", git = "https://github.com/ryancinsight/consus.git", default-features = false }
@@ -103,18 +103,18 @@ themis = { version = "0.11.3", git = "https://github.com/ryancinsight/themis", p
 melinoe = { version = "0.10.0", git = "https://github.com/ryancinsight/melinoe.git", default-features = false }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
-hephaestus-wgpu = { version = "0.29.0", git = "https://github.com/ryancinsight/hephaestus" }
+hephaestus-wgpu = { version = "0.30.0", git = "https://github.com/ryancinsight/hephaestus" }
 # athena: backend-neutral Krylov solver suite (athena-core = contracts,
 # athena-leto = Leto CPU backend). Used by cfd-math/linear_solver/krylov.rs.
-athena-core = { version = "0.3.2", git = "https://github.com/ryancinsight/athena" }
-athena-leto = { version = "0.3.2", git = "https://github.com/ryancinsight/athena" }
+athena-core = { version = "0.4.0", git = "https://github.com/ryancinsight/athena" }
+athena-leto = { version = "0.5.0", git = "https://github.com/ryancinsight/athena" }
 # harmonia: provider-owned transactional relaxation policies used by the
 # coupled resistance iteration in cfd-2d.
 harmonia = { version = "0.1.0", git = "https://github.com/ryancinsight/harmonia", default-features = false, features = ["std"] }
 # coeus: Atlas tensor/autodiff/NN/optimizer stack. coeus-optim's least-squares
 # (Levenberg-Marquardt) solver calibrates turbulence model constants against
 # DNS reference profiles in cfd-2d/physics/turbulence/constants_validation.
-coeus-optim = { version = "0.13.0", git = "https://github.com/ryancinsight/Coeus.git" }
+coeus-optim = { version = "0.14.0", git = "https://github.com/ryancinsight/Coeus.git" }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-schematic-mesh = { path = "crates/cfd-schematic-mesh" }
 cfd-1d = { path = "crates/cfd-1d" }

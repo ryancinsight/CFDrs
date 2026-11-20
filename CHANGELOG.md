@@ -176,6 +176,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Use crates.io Aequitas 0.5.0 and Eunomia 0.12.1 throughout the
+  CFDrs workspace, with compatible Atlas providers locked together.
+
 - **Changed:** Unify the `cfd-schematics` configuration constants into a single
   table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module
   carried two overlapping constant tables — `primitives` and the five group
