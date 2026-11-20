@@ -178,6 +178,8 @@ All notable changes to this project will be documented in this file.
 
 - Use crates.io Aequitas 0.5.0 and Eunomia 0.12.1 throughout the
   CFDrs workspace, with compatible Atlas providers locked together.
+- Share the published Leto 0.52, RITK VTK 0.5, and Consus 0.5
+  crates across the solver, mesh, and I/O boundaries.
 
 - **Changed:** Unify the `cfd-schematics` configuration constants into a single
   table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module
