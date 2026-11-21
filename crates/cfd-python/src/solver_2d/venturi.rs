@@ -1,7 +1,7 @@
 //! 2D and 1D Venturi solver `PyO3` wrappers.
 
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -117,11 +117,11 @@ impl PyVenturiSolver2D {
             "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
             "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
             _ => BloodModel::Newtonian(
-                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
+                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY.into_base(),
             ),
         };
 
-        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
+        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base();
         let mut solver = VSolver::new(geom, blood, density, self.nx, self.ny);
 
         let sol = solver
@@ -229,7 +229,7 @@ impl PyVenturiSolver1D {
             self.total_length,
         );
 
-        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
+        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base();
         let dh = self.inlet_diameter;
 
         let mu = match blood_type {
@@ -241,7 +241,7 @@ impl PyVenturiSolver1D {
                 let blood = CarreauYasudaBlood::<f64>::normal_blood();
                 blood.apparent_viscosity(velocity / dh * 8.0)
             }
-            _ => cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
+            _ => cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY.into_base(),
         };
 
         let re = density * velocity * dh / mu;
@@ -254,7 +254,7 @@ impl PyVenturiSolver1D {
             DynamicViscosity::from_base(mu),
             SpecificHeatCapacity::from_base(3617.0),
             ThermalConductivity::from_base(0.52),
-            Velocity::from_base(cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND),
+            cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND,
         );
 
         let resistance = model

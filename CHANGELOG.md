@@ -25,6 +25,16 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+
+## Unreleased
+
+### Breaking
+
+- [major] Blood reference constants return Aequitas quantities. Replace
+  `BODY_TEMPERATURE_K` with `BODY_TEMPERATURE`. Use `.cast()` at generic
+  model entry points and `.into_base()` at scalar SI boundaries. Derive
+  the Casson square root from `INFINITE_SHEAR_VISCOSITY`.
+
 - **build(deps)**: Allow Leto 0.50.0 and lock it. The workspace `leto` and
   `leto-ops` requirements widen from `>=0.46.4, <0.49.0` to
   `>=0.46.4, <0.51.0`, and the lock moves Leto and Leto Ops from 0.48.0 to

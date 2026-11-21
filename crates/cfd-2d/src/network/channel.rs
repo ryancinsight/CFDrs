@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Time, Velocity};
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, Time, Velocity};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::hemolysis::HemolysisModel;
@@ -118,9 +118,7 @@ where
         {
             let cnf = CellTrackerConfig {
                 viscosity: DynamicViscosity::from_base(entry.viscosity_pa_s),
-                fluid_density: MassDensity::from_base(
-                    cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
-                ),
+                fluid_density: cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
                 hydraulic_diameter: entry.cross_section.hydraulic_diameter(),
                 u_max: Velocity::from_base(u_mean.abs()),
                 ..Default::default()

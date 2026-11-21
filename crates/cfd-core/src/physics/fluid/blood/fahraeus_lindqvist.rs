@@ -38,9 +38,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
         Self {
             diameter,
             hematocrit,
-            plasma_viscosity: DynamicViscosity::from_base(scalar::<T>(
-                constants::PLASMA_VISCOSITY_37C,
-            )),
+            plasma_viscosity: constants::PLASMA_VISCOSITY_37C.cast(),
         }
     }
 
@@ -48,7 +46,7 @@ impl<T: RealField + FloatElement + Copy> FahraeuasLindqvist<T> {
     ///
     /// Effect is significant for D < 300 μm
     pub fn is_significant(&self) -> bool {
-        self.diameter.into_base() < scalar::<T>(constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER)
+        self.diameter < constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER.cast()
     }
 
     /// Calculate relative apparent viscosity using exact Pries et al. (1992) formulation
@@ -205,6 +203,27 @@ mod tests {
             Dimensionless::from_base(0.45),
         ); // 50 μm
         assert!(small.is_significant());
+    }
+
+    #[test]
+    fn critical_diameter_switches_at_the_exact_boundary() {
+        use tracing_subscriber::fmt::format::FmtSpan;
+        let _trace = tracing::subscriber::set_default(
+            tracing_subscriber::fmt()
+                .with_span_events(FmtSpan::FULL)
+                .with_test_writer()
+                .finish(),
+        );
+        let specimens = tracing::info_span!("arrange").in_scope(|| {
+            let boundary = constants::FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER.into_base();
+            [boundary.next_down(), boundary, boundary.next_up()].map(|diameter| {
+                FahraeuasLindqvist::new(Length::from_base(diameter), constants::NORMAL_HEMATOCRIT)
+            })
+        });
+        let significant = tracing::info_span!("act")
+            .in_scope(|| specimens.map(|specimen| specimen.is_significant()));
+        let _assert = tracing::info_span!("assert").entered();
+        assert_eq!(significant, [true, false, false]);
     }
 
     #[test]

@@ -18,9 +18,18 @@ fn test_fluid_trait_implementations() {
         .properties_at(310.0, 101325.0)
         .expect("expected value");
 
-    assert_eq!(casson_state.density.into_base(), constants::BLOOD_DENSITY);
-    assert_eq!(carreau_state.density.into_base(), constants::BLOOD_DENSITY);
-    assert_eq!(cross_state.density.into_base(), constants::BLOOD_DENSITY);
+    assert_eq!(
+        casson_state.density.into_base(),
+        constants::BLOOD_DENSITY.into_base()
+    );
+    assert_eq!(
+        carreau_state.density.into_base(),
+        constants::BLOOD_DENSITY.into_base()
+    );
+    assert_eq!(
+        cross_state.density.into_base(),
+        constants::BLOOD_DENSITY.into_base()
+    );
 
     // All have positive viscosity
     assert!(casson_state.dynamic_viscosity.into_base() > 0.0);

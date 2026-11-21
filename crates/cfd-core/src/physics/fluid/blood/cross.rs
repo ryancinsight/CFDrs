@@ -48,29 +48,15 @@ impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
     pub fn normal_blood() -> Self {
         Self {
             name: "Normal Human Blood (Cross)".to_string(),
-            density: MassDensity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_DENSITY,
-            )),
-            zero_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                constants::ZERO_SHEAR_VISCOSITY,
-            )),
-            infinite_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                constants::INFINITE_SHEAR_VISCOSITY,
-            )),
+            density: constants::BLOOD_DENSITY.cast(),
+            zero_shear_viscosity: constants::ZERO_SHEAR_VISCOSITY.cast(),
+            infinite_shear_viscosity: constants::INFINITE_SHEAR_VISCOSITY.cast(),
             time_constant: Time::from_base(<T as FloatElement>::from_f64(1.007)),
             rate_index: Dimensionless::from_base(<T as FloatElement>::from_f64(1.028)),
-            hematocrit: Dimensionless::from_base(<T as FloatElement>::from_f64(
-                constants::NORMAL_HEMATOCRIT,
-            )),
-            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPECIFIC_HEAT,
-            )),
-            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_THERMAL_CONDUCTIVITY,
-            )),
-            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPEED_OF_SOUND,
-            )),
+            hematocrit: constants::NORMAL_HEMATOCRIT.cast(),
+            specific_heat: constants::BLOOD_SPECIFIC_HEAT.cast(),
+            thermal_conductivity: constants::BLOOD_THERMAL_CONDUCTIVITY.cast(),
+            speed_of_sound: constants::BLOOD_SPEED_OF_SOUND.cast(),
             reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
@@ -140,12 +126,16 @@ mod tests {
 
         // Zero shear → μ_0
         let mu_zero = blood.apparent_viscosity(0.0);
-        assert_relative_eq!(mu_zero, constants::ZERO_SHEAR_VISCOSITY, epsilon = 1e-10);
+        assert_relative_eq!(
+            mu_zero,
+            constants::ZERO_SHEAR_VISCOSITY.into_base(),
+            epsilon = 1e-10
+        );
 
         // High shear → μ_∞
         let mu_high = blood.apparent_viscosity(10000.0);
         assert!(
-            mu_high < constants::ZERO_SHEAR_VISCOSITY / 2.0,
+            mu_high < constants::ZERO_SHEAR_VISCOSITY.into_base() / 2.0,
             "High shear viscosity should be significantly reduced"
         );
     }
@@ -154,13 +144,19 @@ mod tests {
     fn normal_blood_preserves_typed_fixed_metrics() {
         let blood = CrossBlood::<f64>::normal_blood();
 
-        assert_eq!(blood.density.into_base(), constants::BLOOD_DENSITY);
+        assert_eq!(
+            blood.density.into_base(),
+            constants::BLOOD_DENSITY.into_base()
+        );
         assert_eq!(
             blood.zero_shear_viscosity.into_base(),
-            constants::ZERO_SHEAR_VISCOSITY
+            constants::ZERO_SHEAR_VISCOSITY.into_base()
         );
         assert_eq!(blood.time_constant.into_base(), 1.007);
         assert_eq!(blood.rate_index.into_base(), 1.028);
-        assert_eq!(blood.hematocrit.into_base(), constants::NORMAL_HEMATOCRIT);
+        assert_eq!(
+            blood.hematocrit.into_base(),
+            constants::NORMAL_HEMATOCRIT.into_base()
+        );
     }
 }

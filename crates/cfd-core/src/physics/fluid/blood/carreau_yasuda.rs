@@ -67,36 +67,16 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
     /// - a = 2.0
     pub fn normal_blood() -> Self {
         Self {
-            density: MassDensity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_DENSITY,
-            )),
-            zero_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                constants::ZERO_SHEAR_VISCOSITY,
-            )),
-            infinite_shear_viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                constants::INFINITE_SHEAR_VISCOSITY,
-            )),
-            relaxation_time: Time::from_base(<T as FloatElement>::from_f64(
-                constants::CARREAU_LAMBDA,
-            )),
-            power_law_index: Dimensionless::from_base(<T as FloatElement>::from_f64(
-                constants::CARREAU_N,
-            )),
-            transition_parameter: Dimensionless::from_base(<T as FloatElement>::from_f64(
-                constants::CARREAU_A,
-            )),
-            hematocrit: Dimensionless::from_base(<T as FloatElement>::from_f64(
-                constants::NORMAL_HEMATOCRIT,
-            )),
-            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPECIFIC_HEAT,
-            )),
-            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_THERMAL_CONDUCTIVITY,
-            )),
-            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPEED_OF_SOUND,
-            )),
+            density: constants::BLOOD_DENSITY.cast(),
+            zero_shear_viscosity: constants::ZERO_SHEAR_VISCOSITY.cast(),
+            infinite_shear_viscosity: constants::INFINITE_SHEAR_VISCOSITY.cast(),
+            relaxation_time: constants::CARREAU_LAMBDA.cast(),
+            power_law_index: constants::CARREAU_N.cast(),
+            transition_parameter: constants::CARREAU_A.cast(),
+            hematocrit: constants::NORMAL_HEMATOCRIT.cast(),
+            specific_heat: constants::BLOOD_SPECIFIC_HEAT.cast(),
+            thermal_conductivity: constants::BLOOD_THERMAL_CONDUCTIVITY.cast(),
+            speed_of_sound: constants::BLOOD_SPEED_OF_SOUND.cast(),
             reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
@@ -120,15 +100,9 @@ impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
             power_law_index,
             transition_parameter,
             hematocrit,
-            specific_heat: SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPECIFIC_HEAT,
-            )),
-            thermal_conductivity: ThermalConductivity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_THERMAL_CONDUCTIVITY,
-            )),
-            speed_of_sound: Velocity::from_base(<T as FloatElement>::from_f64(
-                constants::BLOOD_SPEED_OF_SOUND,
-            )),
+            specific_heat: constants::BLOOD_SPECIFIC_HEAT.cast(),
+            thermal_conductivity: constants::BLOOD_THERMAL_CONDUCTIVITY.cast(),
+            speed_of_sound: constants::BLOOD_SPEED_OF_SOUND.cast(),
             reference_shear_rate: ReciprocalTime::from_base(<T as FloatElement>::from_f64(100.0)),
         }
     }
@@ -263,14 +237,20 @@ mod tests {
         let blood = CarreauYasudaBlood::<f64>::normal_blood();
         assert_eq!(
             blood.zero_shear_viscosity.into_base(),
-            constants::ZERO_SHEAR_VISCOSITY
+            constants::ZERO_SHEAR_VISCOSITY.into_base()
         );
         assert_eq!(
             blood.infinite_shear_viscosity.into_base(),
-            constants::INFINITE_SHEAR_VISCOSITY
+            constants::INFINITE_SHEAR_VISCOSITY.into_base()
         );
-        assert_eq!(blood.relaxation_time.into_base(), constants::CARREAU_LAMBDA);
-        assert_eq!(blood.power_law_index.into_base(), constants::CARREAU_N);
+        assert_eq!(
+            blood.relaxation_time.into_base(),
+            constants::CARREAU_LAMBDA.into_base()
+        );
+        assert_eq!(
+            blood.power_law_index.into_base(),
+            constants::CARREAU_N.into_base()
+        );
     }
 
     #[test]
@@ -279,15 +259,19 @@ mod tests {
 
         // Zero shear rate → μ_0
         let mu_zero = blood.apparent_viscosity(0.0);
-        assert_relative_eq!(mu_zero, constants::ZERO_SHEAR_VISCOSITY, epsilon = 1e-10);
+        assert_relative_eq!(
+            mu_zero,
+            constants::ZERO_SHEAR_VISCOSITY.into_base(),
+            epsilon = 1e-10
+        );
 
         // Very high shear rate → μ_∞
         let mu_high = blood.apparent_viscosity(100000.0);
         assert!(
-            (mu_high - constants::INFINITE_SHEAR_VISCOSITY).abs() < 0.0001,
+            (mu_high - constants::INFINITE_SHEAR_VISCOSITY.into_base()).abs() < 0.0001,
             "High shear viscosity {} should approach μ_∞ = {}",
             mu_high,
-            constants::INFINITE_SHEAR_VISCOSITY
+            constants::INFINITE_SHEAR_VISCOSITY.into_base()
         );
     }
 

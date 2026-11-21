@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, Pressure, SpecificHeatCapacity, ThermalConductivity, Velocity,
-};
+use aequitas::systems::si::quantities::{DynamicViscosity, MassDensity, Pressure};
 use cfd_1d::BoundaryCondition;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{
@@ -404,15 +402,9 @@ where
         "Blood reference fluid".to_string(),
         MassDensity::from_base(<T as FloatElement>::from_f64(density_kg_m3)),
         DynamicViscosity::from_base(<T as FloatElement>::from_f64(viscosity_pa_s)),
-        SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(
-            cfd_core::physics::fluid::blood::constants::BLOOD_SPECIFIC_HEAT,
-        )),
-        ThermalConductivity::from_base(<T as FloatElement>::from_f64(
-            cfd_core::physics::fluid::blood::constants::BLOOD_THERMAL_CONDUCTIVITY,
-        )),
-        Velocity::from_base(<T as FloatElement>::from_f64(
-            cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND,
-        )),
+        cfd_core::physics::fluid::blood::constants::BLOOD_SPECIFIC_HEAT.cast(),
+        cfd_core::physics::fluid::blood::constants::BLOOD_THERMAL_CONDUCTIVITY.cast(),
+        cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND.cast(),
     );
     fluid.validate()?;
     Ok(fluid)
