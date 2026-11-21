@@ -51,8 +51,6 @@ pub const TREATMENT_AREA_MM2: f64 = TREATMENT_WIDTH_MM * TREATMENT_HEIGHT_MM; //
 
 // ── Blood physical properties (37 °C) ─────────────────────────────────────
 
-/// Blood density [kg / m³]   (Fung 1993)
-pub const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Blood dynamic viscosity, high-shear Newtonian approximation [Pa · s]
 /// Used for wall-shear quick-estimates; the non-Newtonian Casson model is used
 /// for full physics analysis via `CassonBlood::normal_blood()`.

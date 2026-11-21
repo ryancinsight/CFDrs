@@ -88,7 +88,8 @@ pub use application::search::mutations::{
     seed_option2_candidates,
 };
 pub use application::search::pool::EvaluatedPool;
-pub use constraints::{BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, P_ATM_PA};
+pub use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
+pub use constraints::{BLOOD_VAPOR_PRESSURE_PA, P_ATM_PA};
 pub use delivery::{
     load_top5_report_json, save_blueprint_schematic_svg, save_json_pretty, save_top5_report_json,
 };

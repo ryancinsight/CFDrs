@@ -30,6 +30,10 @@
 
 ### Breaking
 
+- [major] Import `cfd_optim::BLOOD_DENSITY` for the typed whole-blood
+  reference. It replaces the duplicate scalar export
+  `cfd_optim::BLOOD_DENSITY_KG_M3`. Use `.into_base()` at scalar SI boundaries.
+
 - [major] Blood reference constants return Aequitas quantities. Replace
   `BODY_TEMPERATURE_K` with `BODY_TEMPERATURE`. Use `.cast()` at generic
   model entry points and `.into_base()` at scalar SI boundaries. Derive

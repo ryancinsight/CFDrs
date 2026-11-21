@@ -10,11 +10,12 @@ use cfd_validation::numerical::venturi_cross_fidelity::{
     VenturiCrossFidelityResult, VenturiValidationInput, validate_venturi,
 };
 
-use crate::constraints::BLOOD_DENSITY_KG_M3;
+use crate::BLOOD_DENSITY;
 use crate::reporting::{Milestone12ReportDesign, ValidationRow};
 
 fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
-    let dynamic_pressure_pa = 0.5 * BLOOD_DENSITY_KG_M3 * inlet_velocity_m_s * inlet_velocity_m_s;
+    let dynamic_pressure_pa =
+        0.5 * BLOOD_DENSITY.into_base() * inlet_velocity_m_s * inlet_velocity_m_s;
     if dynamic_pressure_pa > 1.0e-18 {
         dp_pa / dynamic_pressure_pa
     } else {
@@ -203,7 +204,7 @@ mod tests {
 
         let row = validation_row_from_result("track", "id", "topo", 0.7, 0.5, &result);
         let dynamic_pressure_pa =
-            0.5 * crate::constraints::BLOOD_DENSITY_KG_M3 * input.inlet_velocity_1d().powi(2);
+            0.5 * crate::BLOOD_DENSITY.into_base() * input.inlet_velocity_1d().powi(2);
 
         assert!((row.k_loss_1d - 1200.0 / dynamic_pressure_pa).abs() < 1.0e-12);
         assert!((row.k_loss_2d - 1000.0 / dynamic_pressure_pa).abs() < 1.0e-12);

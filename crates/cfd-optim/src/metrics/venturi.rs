@@ -1,3 +1,4 @@
+use crate::BLOOD_DENSITY;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, Velocity,
 };
@@ -11,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::constraints::{
-    BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, DIFFUSER_DISCHARGE_COEFF,
-    VENTURI_CC,
+    BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, DIFFUSER_DISCHARGE_COEFF, VENTURI_CC,
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
@@ -26,8 +26,9 @@ fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
     strength / (1.0 + strength)
 }
 
-fn dynamic_pressure_pa(density_kg_m3: f64, velocity_m_s: f64) -> f64 {
-    0.5 * density_kg_m3 * velocity_m_s * velocity_m_s
+fn dynamic_pressure_pa(density: MassDensity, velocity_m_s: f64) -> f64 {
+    let velocity = Velocity::from_base(velocity_m_s);
+    (density * 0.5 * velocity * velocity).into_base()
 }
 
 fn venturi_selectivity_geometric_synergy(
@@ -53,7 +54,7 @@ fn selective_cavitation_input(
     SelectiveCavitationInput {
         base_vapor_pressure_pa: Pressure::from_base(vapor_pressure_pa),
         ambient_pressure_pa: Pressure::from_base(ambient_pressure_pa),
-        density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
+        density_kg_m3: BLOOD_DENSITY,
         populations: vec![
             SelectiveCavitationPopulation {
                 identity: CellPopulationIdentity::CirculatingTumorCell,
@@ -263,7 +264,7 @@ pub fn compute_blueprint_venturi_metrics(
             let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_inlet_m2;
             let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_throat_m2;
             let upstream_dynamic_pressure_pa =
-                dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
+                dynamic_pressure_pa(BLOOD_DENSITY, upstream_velocity_m_s).max(1.0e-18);
             let screening = evaluate_venturi_screening(VenturiScreeningInput {
                 upstream_pressure_pa: Pressure::from_base(
                     candidate
@@ -282,7 +283,7 @@ pub fn compute_blueprint_venturi_metrics(
                         .max(1.0e-18),
                 ),
                 throat_length_m: placement.throat_geometry.throat_length_m,
-                density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
+                density_kg_m3: BLOOD_DENSITY,
                 viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
                 vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),
                 vena_contracta_coeff: VENTURI_CC,
@@ -312,7 +313,7 @@ pub fn compute_blueprint_venturi_metrics(
                 &candidate.blueprint,
                 &resolved_placement,
                 sample.flow_m3_s.into_base().abs(),
-                BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
+                BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY.into_base(),
             )
             .unwrap_or_default();
 
@@ -421,15 +422,37 @@ mod tests {
     use cfd_1d::{VenturiScreeningInput, evaluate_venturi_screening};
     use cfd_schematics::VenturiPlacementMode;
 
+    use crate::BLOOD_DENSITY;
     use crate::constraints::{
-        BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S,
-        DIFFUSER_DISCHARGE_COEFF, VENTURI_CC,
+        BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, DIFFUSER_DISCHARGE_COEFF, VENTURI_CC,
     };
     use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
     use crate::metrics::BlueprintSeparationMetrics;
     use crate::metrics::{compute_blueprint_separation_metrics, solve_blueprint_candidate};
 
     use super::compute_blueprint_venturi_metrics;
+
+    #[test]
+    fn dynamic_pressure_scales_with_density_and_squared_velocity() {
+        let subscriber = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_span_events(tracing_subscriber::fmt::format::FmtSpan::FULL)
+            .finish();
+        tracing::subscriber::with_default(subscriber, || {
+            let densities = tracing::info_span!("arrange")
+                .in_scope(|| [BLOOD_DENSITY, MassDensity::from_base(530.0)]);
+            let pressures = tracing::info_span!("act").in_scope(|| {
+                [
+                    super::dynamic_pressure_pa(densities[0], 2.0),
+                    super::dynamic_pressure_pa(densities[0], -2.0),
+                    super::dynamic_pressure_pa(densities[1], 2.0),
+                ]
+            });
+            tracing::info_span!("assert").in_scope(|| {
+                assert_eq!(pressures, [2120.0, 2120.0, 1060.0]);
+            });
+        });
+    }
 
     #[test]
     fn saturating_cavitation_strength_discriminates_negative_sigma() {
@@ -593,7 +616,7 @@ mod tests {
                     .max(1.0e-18),
             ),
             throat_length_m: placement_spec.throat_geometry.throat_length_m,
-            density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
+            density_kg_m3: BLOOD_DENSITY,
             viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
             vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),
             vena_contracta_coeff: VENTURI_CC,
@@ -615,7 +638,7 @@ mod tests {
             - screening.diffuser_recovery_pa.into_base())
         .max(0.0);
         let expected_total_loss_coefficient = expected_total_loss_pa
-            / super::dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
+            / super::dynamic_pressure_pa(BLOOD_DENSITY, upstream_velocity_m_s).max(1.0e-18);
 
         assert!(
             placement_metrics.total_loss_coefficient.is_finite()
