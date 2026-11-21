@@ -1,5 +1,11 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
 
+## Junction minor loss
+
+The standalone and blueprint junction paths share the typed coefficient
+of signed quadratic flow. The standalone geometry check rejects
+nonfinite input, and existing serialized configurations keep their SI keys.
+
 ## Whole-blood density
 
 Cavitation, optimization, and Venturi cross-fidelity validation use the

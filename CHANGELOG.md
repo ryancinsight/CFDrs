@@ -30,6 +30,11 @@
 
 ### Breaking
 
+- [major] Use length and area quantities for `JunctionLossModel` geometry,
+  `MassDensity` for reference density, and `VolumetricFlowRate` for the
+  linearisation input. The model returns typed loss coefficient and
+  resistance values. Existing serialized SI fields retain their names.
+
 - [major] Import `cfd_optim::BLOOD_DENSITY` for the typed whole-blood
   reference. It replaces the duplicate scalar export
   `cfd_optim::BLOOD_DENSITY_KG_M3`. Use `.into_base()` at scalar SI boundaries.
