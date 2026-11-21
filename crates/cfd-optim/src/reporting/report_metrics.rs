@@ -867,8 +867,8 @@ pub fn compute_sdt_acoustic_metrics(
     let p_acoustic = (pressure_drop_pa + 101_325.0).max(50_000.0);
     let e_acoustic = acoustic_energy_density(
         p_acoustic, // consistent with RP pressure reference
-        cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY, // [kg/m³]
-        cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX, // [m/s]
+        cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base(), // [kg/m³]
+        cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX.into_base(), // [m/s]
     );
 
     // Acoustic contrast factors for differential radiation force

@@ -504,7 +504,7 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             eight: T::from_f64_or_one(8.0),
             microchannel_limit: T::from_f64_or_one(300.0e-6),
             default_hematocrit: T::from_f64_or_zero(
-                cfd_core::physics::fluid::blood::constants::NORMAL_HEMATOCRIT,
+                cfd_core::physics::fluid::blood::constants::NORMAL_HEMATOCRIT.into_base(),
             ),
             default_plasma_viscosity: state.dynamic_viscosity.into_base() / T::from_f64_or_one(3.2),
             tiny: T::from_f64_or(epsilon.to_f64().max(1.0e-7), epsilon),

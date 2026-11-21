@@ -462,3 +462,10 @@ that WIP produces unresolved imports before cfd-1d lint can complete. The
 - **Hypothesis (unverified)**: migration regression from the Leto-CSR assembly push (`d58d1fe3`/`1d768895`) subtly altering the assembled matrix, or a genuine conditioning/stiffness limit the current Picard+Anderson path cannot crack (cf. recent peer work `0d101352` "enhance Anderson QR collapse detection" — actively-evolving convergence path).
 - **DoR to resolve**: (1) differential-test the assembled cfd-1d matrix + rhs for this network against the pre-migration commit (parent of `d58d1fe3`) to classify regression vs. genuine stiffness; (2) capture the Picard residual trajectory (diverge / plateau / slow-decay) via a bounded-iteration diagnostic; (3) if genuine stiffness, verify the Newton fallback engages on Picard stagnation. Blocked from immediate fix: convergence path is under active concurrent peer edit (`0d101352`); coordinate before touching `solver/core`.
 - **Evidence tier**: empirical (reproduced deterministically, gpu-independent). Not test-gaming: the test asserts real mass-conservation physics; the fix must be in the solver/assembly, never a weakened tolerance or raised iteration cap.
+
+## 2026-11-21 · Blood reference quantities
+
+The blood reference module owns the typed constants. Model construction and the
+Andrade correction preserve dimensions. Existing solver and Python scalar
+interfaces receive canonical SI values. The boundary and dimension checks
+exercise the reference contract. [ADR 0003](docs/adr/0003-type-blood-reference-constants.md)

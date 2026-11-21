@@ -99,7 +99,7 @@ where
         let start_time = std::time::Instant::now();
         let mut convergence = Vec::new();
         let rho = <T as FloatElement>::from_f64(
-            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base(),
         );
 
         for _ in 0..config.max_iterations {

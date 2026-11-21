@@ -40,12 +40,8 @@ impl Default for Blueprint3dProcessingConfig {
     fn default() -> Self {
         Self {
             mesh: PipelineConfig::default(),
-            density: MassDensity::from_base(
-                cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
-            ),
-            viscosity: DynamicViscosity::from_base(
-                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
-            ),
+            density: cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+            viscosity: cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
             total_flow_rate: VolumetricFlowRate::from_base(1.0e-9),
             two_d_grid_nx: 32,
             two_d_grid_ny: 12,

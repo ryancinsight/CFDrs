@@ -6,6 +6,8 @@
   matching mesh, FFT, optimizer, and VTK providers.
 - Acceptance requires one provider identity in a standalone lock and the
   locked Metal and format tests against the published RITK cohort.
+- [major] Blood rheology consumes Aequitas reference constants. Verify the
+  cutoff at the adjacent representable vessel diameters and the Metal suite.
 
 ## M-newton: bounded Newton-Krylov recovery lands — needs: none
 - exit: the JFNK acceptance oracle passes at head; no open P0 solver item.

@@ -161,11 +161,11 @@ impl PyBifurcationSolver2D {
             "casson" => BloodModel::Casson(CassonBlood::normal_blood()),
             "carreau_yasuda" => BloodModel::CarreauYasuda(CarreauYasudaBlood::normal_blood()),
             _ => BloodModel::Newtonian(
-                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
+                cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY.into_base(),
             ),
         };
 
-        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
+        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base();
         let mut config = SIMPLEConfig::default();
         config.max_iterations = 5000;
         config.tolerance = 1e-5;

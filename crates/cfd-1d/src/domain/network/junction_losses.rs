@@ -47,13 +47,20 @@ where
     // Derive fluid density from the network's fluid model at reference conditions
     // (body temperature 310.15 K, atmospheric pressure 101 325 Pa).
     // Falls back to 1060 kg/m³ (whole-blood reference) if the fluid query fails.
-    let rho_ref_t =
-        T::from_f64_or_zero(cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE_K);
-    let p_ref_t = T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM);
-    let rho_blood: T = network.fluid.properties_at(rho_ref_t, p_ref_t).map_or_else(
-        |_| T::from_f64_or_zero(cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY),
-        |state| state.density.into_base(),
-    );
+    let body_temperature = cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE.cast::<T>();
+    let atmospheric_pressure =
+        T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM);
+    let rho_blood: T = network
+        .fluid
+        .properties_at(body_temperature.into_base(), atmospheric_pressure)
+        .map_or_else(
+            |_| {
+                cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY
+                    .cast::<T>()
+                    .into_base()
+            },
+            |state| state.density.into_base(),
+        );
     let two: T = T::ONE + T::ONE;
 
     let blueprint_node_meta: HashMap<

@@ -87,29 +87,15 @@ impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
     pub fn blood() -> Self {
         Self::new(
             "Blood".to_string(),
-            MassDensity::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::BLOOD_DENSITY,
-            )),
-            DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::ZERO_SHEAR_VISCOSITY,
-            )),
-            DynamicViscosity::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY,
-            )),
-            Time::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::CARREAU_LAMBDA,
-            )),
-            Dimensionless::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::CARREAU_N,
-            )),
-            Dimensionless::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::CARREAU_A,
-            )),
+            crate::physics::fluid::blood::constants::BLOOD_DENSITY.cast(),
+            crate::physics::fluid::blood::constants::ZERO_SHEAR_VISCOSITY.cast(),
+            crate::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY.cast(),
+            crate::physics::fluid::blood::constants::CARREAU_LAMBDA.cast(),
+            crate::physics::fluid::blood::constants::CARREAU_N.cast(),
+            crate::physics::fluid::blood::constants::CARREAU_A.cast(),
             SpecificHeatCapacity::from_base(<T as FloatElement>::from_f64(3600.0)),
             ThermalConductivity::from_base(<T as FloatElement>::from_f64(0.5)),
-            Velocity::from_base(<T as FloatElement>::from_f64(
-                crate::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX,
-            )),
+            crate::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX.cast(),
         )
     }
 }
