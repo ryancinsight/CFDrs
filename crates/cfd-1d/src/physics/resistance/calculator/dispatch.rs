@@ -10,6 +10,7 @@ use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
     RectangularChannelModel, ResistanceModel, VenturiModel,
 };
+use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -19,7 +20,7 @@ pub fn calculate_auto<T, F>(
     geometry: &ChannelGeometry<T>,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -80,7 +81,7 @@ pub fn calculate_hagen_poiseuille<T, F>(
     length: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -103,7 +104,7 @@ pub fn calculate_rectangular<T, F>(
     length: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -130,7 +131,7 @@ pub fn calculate_darcy_weisbach<T, F>(
     roughness: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -153,7 +154,7 @@ pub fn calculate_serpentine_circular<T, F>(
     bend_radius: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -182,7 +183,7 @@ pub fn calculate_serpentine_rectangular<T, F>(
     bend_radius: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -212,7 +213,7 @@ pub fn calculate_venturi<T, F>(
     total_length: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -238,7 +239,7 @@ pub fn calculate_membrane_porous<T, F>(
     porosity: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<T>
+) -> Result<HydraulicResistance<T>>
 where
     T: CfdScalar,
     F: FluidTrait<T>,

@@ -3,19 +3,32 @@
 use aequitas::systems::si::quantities::{
     Dimensionless, Pressure, ReciprocalTime, ThermodynamicTemperature, Velocity, VolumetricFlowRate,
 };
+use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
 use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::FloatElement;
 
-/// Trait for hydraulic resistance models
+/// Trait for hydraulic resistance models.
+///
+/// The two coefficients occupy different dimensions. Adding them directly
+/// without multiplying the quadratic coefficient by flow is invalid.
+///
+/// ```compile_fail,E0308
+/// use aequitas::systems::si::quantities::{
+///     HydraulicResistance, QuadraticHydraulicResistance,
+/// };
+/// let r = HydraulicResistance::from_base(2.0);
+/// let k = QuadraticHydraulicResistance::from_base(3.0);
+/// let _ = r + k;
+/// ```
 pub trait ResistanceModel<T: CfdScalar> {
     /// Calculate hydraulic resistance [Pa·s/m³]
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T>;
+    ) -> Result<HydraulicResistance<T>>;
 
     /// Calculate linear and quadratic resistance coefficients
     ///
@@ -26,9 +39,12 @@ pub trait ResistanceModel<T: CfdScalar> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         // Default implementation: assume model is purely linear
-        Ok((self.calculate_resistance(fluid, conditions)?, T::ZERO))
+        Ok((
+            self.calculate_resistance(fluid, conditions)?,
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     /// Get model name
@@ -48,13 +64,13 @@ pub trait ResistanceModel<T: CfdScalar> {
         self.validate_mach_number(fluid, conditions)
     }
 
-    /// Validate Mach number for incompressibility assumption (Ma < 0.3)
+    /// Validate Mach number for incompressibility assumption (Ma ≤ 0.3)
     fn validate_mach_number<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<()> {
-        // Mach number validation: Ma < 0.3 for incompressibility
+        // Mach number validation: Ma ≤ 0.3 for incompressibility
         if let Some(velocity) = conditions.velocity {
             if !velocity.as_base().is_finite() {
                 return Err(cfd_core::error::Error::PhysicsViolation(

@@ -111,6 +111,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T> {
 
         model
             .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
             .unwrap_or_else(|_| {
                 // Fallback for safety, though model should be valid
                 real_from_f64(1e12)
@@ -200,6 +201,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
             crate::physics::resistance::models::FlowConditions::new(Velocity::from_base(T::ZERO));
         model
             .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
             .unwrap_or_else(|_| real_from_f64(1e12))
     }
 

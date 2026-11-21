@@ -22,7 +22,8 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
 
     let r = model
         .calculate_resistance(&fluid, &cond)
-        .expect("expected value");
+        .expect("expected value")
+        .into_base();
     // R = 128 μ L / (π D^4)
     let expected =
         128.0f64 * fluid.viscosity.into_base() * 1.0f64 / (std::f64::consts::PI * 0.01f64.powi(4));
@@ -50,7 +51,8 @@ fn test_darcy_weisbach_laminar_limit_friction_factor() {
 
     let r = model
         .calculate_resistance(&fluid, &cond)
-        .expect("expected value");
+        .expect("expected value")
+        .into_base();
     let area = std::f64::consts::PI * (0.01f64.powi(2)) / 4.0f64;
     // Darcy-Weisbach with f=64/Re and Re=rho*V*D/mu reduces to
     // R = 32*mu*L/(A*D^2), the linear laminar resistance.

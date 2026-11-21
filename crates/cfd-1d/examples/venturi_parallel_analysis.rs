@@ -273,7 +273,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let venturi_r = calc
                 .calculate_venturi_coefficients(&venturi_model, &water, &conditions)
-                .map(|(r, _k)| r)
+                .map(|(r, _k)| r.into_base())
                 .unwrap_or(0.0);
 
             println!("    {} | Q={:.3e} m³/s | ΔP={:.0} Pa", e.id, q, dp);

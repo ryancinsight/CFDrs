@@ -158,6 +158,7 @@ mod tests {
         let (r_model, _) = model
             .calculate_coefficients(&fluid, &conditions)
             .expect("rectangular model should evaluate successfully");
+        let r_model = r_model.into_base();
 
         assert_relative_eq!(r_rect, r_model, epsilon = 1e-12);
     }

@@ -198,6 +198,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+- [major] Resistance models and the calculator return Aequitas hydraulic
+  resistance and quadratic hydraulic resistance. Use the two coefficients
+  with volumetric flow to compute signed pressure drop. Extract SI scalar
+  values with `into_base()` when calling a numerical or reporting boundary.
+
 ### Changed
 
 - Use crates.io Aequitas 0.5.0 and Eunomia 0.12.1 throughout the

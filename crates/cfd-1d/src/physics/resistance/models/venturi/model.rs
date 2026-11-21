@@ -9,6 +9,9 @@ use super::{
     DURST_ENTRANCE_BLEND_L_OVER_DH, ExpansionType, LAMINAR_FRICTION_COEFF, LAMINAR_LIMIT_RE,
     VenturiGeometry,
 };
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -293,7 +296,7 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         // Effective resistance: R_eff = R + k|Q|
@@ -306,14 +309,14 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
             T::ZERO
         };
 
-        Ok(r + k * q_mag)
+        Ok(r + k * VolumetricFlowRate::from_base(q_mag))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let state = fluid.properties_at(
             conditions.temperature.into_base(),
             conditions.pressure.into_base(),
@@ -412,7 +415,10 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
             } else {
                 T::ZERO
             };
-            Ok((r, k_coeff))
+            Ok((
+                HydraulicResistance::from_base(r),
+                QuadraticHydraulicResistance::from_base(k_coeff),
+            ))
         } else {
             // Zero flow: return linear estimate from viscous part only
             // R = 128 μ L_throat / (π D_throat⁴) (Hagen-Poiseuille in throat)
@@ -421,7 +427,10 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
             let d2 = self.throat_diameter * self.throat_diameter;
             let d4 = d2 * d2;
             let r = coeff * viscosity * self.throat_length / (pi * d4);
-            Ok((r, T::ZERO))
+            Ok((
+                HydraulicResistance::from_base(r),
+                QuadraticHydraulicResistance::from_base(T::ZERO),
+            ))
         }
     }
 

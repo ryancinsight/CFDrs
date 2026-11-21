@@ -44,6 +44,7 @@
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -83,7 +84,7 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, _) = self.calculate_coefficients(fluid, conditions)?;
         Ok(r)
     }
@@ -92,7 +93,7 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let state = fluid.properties_at(
             conditions.temperature.into_base(),
             conditions.pressure.into_base(),
@@ -146,7 +147,10 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         // Effective total resistance
         let r_slug = r_linear * multiplier;
 
-        Ok((r_slug, T::ZERO))
+        Ok((
+            HydraulicResistance::from_base(r_slug),
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -230,9 +234,11 @@ mod tests {
         let (r1, k1) = model
             .calculate_coefficients(&fluid, &cond1)
             .expect("expected value");
+        let (r1, k1) = (r1.into_base(), k1.into_base());
         let (r2, k2) = model
             .calculate_coefficients(&fluid, &cond2)
             .expect("expected value");
+        let (r2, k2) = (r2.into_base(), k2.into_base());
 
         // Exact mathematical proof validation: The multiplier is velocity independent
         assert_relative_eq!(r1, r2, epsilon = 1e-12);

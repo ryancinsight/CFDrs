@@ -1,6 +1,6 @@
 //! 1D Serpentine resistance solver `PyO3` wrapper.
 
-use aequitas::systems::si::quantities::{Dimensionless, Velocity};
+use aequitas::systems::si::quantities::{Dimensionless, Velocity, VolumetricFlowRate};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
@@ -116,12 +116,12 @@ impl PySerpentineSolver1D {
 
         let area = self.width * self.height;
         let flow_rate = velocity * area;
-        let pressure_drop = resistance * flow_rate;
+        let pressure_drop = (resistance * VolumetricFlowRate::from_base(flow_rate)).into_base();
         let dean_number = re * (dh / (2.0 * self.bend_radius)).sqrt();
 
         Ok(PySerpentineResult1D {
             pressure_drop,
-            resistance,
+            resistance: resistance.into_base(),
             dean_number,
             reynolds_number: re,
             apparent_viscosity: mu,

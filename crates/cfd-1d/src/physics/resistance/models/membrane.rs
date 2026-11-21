@@ -63,6 +63,7 @@
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -102,7 +103,7 @@ impl<T: CfdScalar> ResistanceModel<T> for MembranePoreModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         self.validate_invariants(fluid, conditions)?;
 
         let state = fluid.properties_at(
@@ -114,7 +115,9 @@ impl<T: CfdScalar> ResistanceModel<T> for MembranePoreModel<T> {
         let area = self.width * self.height;
         let denom = self.porosity * area * self.pore_radius * self.pore_radius;
         let eight = <T as FloatElement>::from_f64(8.0);
-        Ok(eight * mu * self.thickness / denom)
+        Ok(HydraulicResistance::from_base(
+            eight * mu * self.thickness / denom,
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -186,7 +189,8 @@ mod tests {
 
         let r = model
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
 
         // Analytical: mu = 1.002e-3, L=10e-6, phi=0.2, A=1e-6, r=0.5e-6
         // R = 8 * mu * L / (phi * A * r^2)
@@ -203,7 +207,8 @@ mod tests {
         let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r = model
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         assert!(r > 0.0, "Membrane resistance must be positive, got {r}");
         assert!(r.is_finite(), "Membrane resistance must be finite, got {r}");
     }
@@ -219,10 +224,12 @@ mod tests {
         let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r_base = base
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         let r_double = double
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         // R ∝ L: doubling thickness should double resistance
         assert_relative_eq!(r_double / r_base, 2.0, epsilon = 1e-9);
     }
@@ -236,10 +243,12 @@ mod tests {
         let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r_phi20 = phi20
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         let r_phi40 = phi40
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         // R ∝ 1/φ: doubling porosity should halve resistance
         assert_relative_eq!(r_phi20 / r_phi40, 2.0, epsilon = 1e-9);
     }
@@ -253,10 +262,12 @@ mod tests {
         let cond = FlowConditions::new(Velocity::from_base(0.0));
         let res1 = r1
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         let res2 = r2
             .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         // R ∝ 1/r² ⇒ R(r1) / R(r2) = (r2/r1)² = 4
         // R ∝ 1/r²: doubling pore radius should quarter resistance → ratio = 4
         assert_relative_eq!(res1 / res2, 4.0, epsilon = 1e-9);

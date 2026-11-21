@@ -177,6 +177,7 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
         net.fluid(),
         &conditions,
     )?;
+    let base_resistance = base_resistance.into_base();
 
     let fluid_state = net.fluid().properties_at(
         conditions.temperature.into_base(),
@@ -256,6 +257,7 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
         net.fluid(),
         &conditions,
     )?;
+    let base_resistance = base_resistance.into_base();
 
     let fluid_state = net.fluid().properties_at(
         conditions.temperature.into_base(),
@@ -533,6 +535,8 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
         net.fluid(),
         &conditions,
     )?;
+    let (expected_resistance, expected_k) =
+        (expected_resistance.into_base(), expected_k.into_base());
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
     assert!((edge_ref.resistance.into_base() - expected_resistance).abs() < 1.0e-9);

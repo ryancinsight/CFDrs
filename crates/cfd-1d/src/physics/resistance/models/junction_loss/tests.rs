@@ -44,7 +44,8 @@ fn resistance_model_trait_works() {
     let cond = FlowConditions::new(Velocity::from_base(0.01));
     let r = m
         .calculate_resistance(&fluid, &cond)
-        .expect("expected value");
+        .expect("expected value")
+        .into_base();
     assert!(r > 0.0, "resistance must be positive: got {r}");
 }
 
@@ -56,6 +57,7 @@ fn coefficients_have_quadratic_term() {
     let (r, k) = m
         .calculate_coefficients(&fluid, &cond)
         .expect("expected value");
+    let (r, k) = (r.into_base(), k.into_base());
     assert!(r > 0.0, "linear resistance must be positive");
     assert!(k > 0.0, "quadratic loss coefficient must be positive");
 }
@@ -72,9 +74,11 @@ fn non_newtonian_resistance_uses_explicit_shear_rate() {
     let (low_r, low_k) = m
         .calculate_coefficients(&blood, &low_shear)
         .expect("positive explicit shear rate must compute junction loss");
+    let (low_r, low_k) = (low_r.into_base(), low_k.into_base());
     let (high_r, high_k) = m
         .calculate_coefficients(&blood, &high_shear)
         .expect("positive explicit shear rate must compute junction loss");
+    let (high_r, high_k) = (high_r.into_base(), high_k.into_base());
 
     assert!(
         low_r > high_r,
@@ -110,9 +114,11 @@ fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
     let (forward_r, forward_k) = m
         .calculate_coefficients(&blood, &forward)
         .expect("forward non-Newtonian junction loss must compute");
+    let (forward_r, forward_k) = (forward_r.into_base(), forward_k.into_base());
     let (reverse_r, reverse_k) = m
         .calculate_coefficients(&blood, &reverse)
         .expect("reverse non-Newtonian junction loss must compute");
+    let (reverse_r, reverse_k) = (reverse_r.into_base(), reverse_k.into_base());
 
     assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
     assert_relative_eq!(forward_k, reverse_k, max_relative = 1e-12);

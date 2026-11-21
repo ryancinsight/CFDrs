@@ -1,6 +1,6 @@
 //! 2D and 1D Venturi solver `PyO3` wrappers.
 
-use aequitas::systems::si::quantities::{Dimensionless, Velocity};
+use aequitas::systems::si::quantities::{Dimensionless, Velocity, VolumetricFlowRate};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
@@ -264,14 +264,14 @@ impl PyVenturiSolver1D {
 
         let area = std::f64::consts::PI / 4.0 * self.inlet_diameter.powi(2);
         let flow_rate = velocity * area;
-        let pressure_drop = resistance * flow_rate;
+        let pressure_drop = (resistance * VolumetricFlowRate::from_base(flow_rate)).into_base();
 
         let beta = self.beta();
         let dp_bernoulli = 0.5 * density * velocity.powi(2) * (1.0 / beta.powi(4) - 1.0);
 
         Ok(PyVenturiResult1D {
             pressure_drop,
-            resistance,
+            resistance: resistance.into_base(),
             dp_bernoulli,
             reynolds_number: re,
             beta,

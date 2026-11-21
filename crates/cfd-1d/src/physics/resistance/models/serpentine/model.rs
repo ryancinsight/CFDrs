@@ -6,6 +6,9 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use super::{BendType, SerpentineCrossSection};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -196,7 +199,7 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         let q_mag = if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
@@ -209,14 +212,14 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
             T::ZERO
         };
 
-        Ok(r + k * q_mag)
+        Ok(r + k * VolumetricFlowRate::from_base(q_mag))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let state = fluid.properties_at(
             conditions.temperature.into_base(),
             conditions.pressure.into_base(),
@@ -320,7 +323,10 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
             n_bends * k_bend_static * half * density / (area * area)
         };
 
-        Ok((r, k_coeff))
+        Ok((
+            HydraulicResistance::from_base(r),
+            QuadraticHydraulicResistance::from_base(k_coeff),
+        ))
     }
 
     fn model_name(&self) -> &'static str {

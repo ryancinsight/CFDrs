@@ -84,6 +84,9 @@
 //!   *Journal of Fluids Engineering*, 105(1), 89-90.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -138,7 +141,7 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         // For automatic model selection and basic analyzers that expect a single R value,
@@ -152,14 +155,14 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
             T::ZERO
         };
 
-        Ok(r + k * q_mag)
+        Ok(r + k * VolumetricFlowRate::from_base(q_mag))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let state = fluid.properties_at(
             conditions.temperature.into_base(),
             conditions.pressure.into_base(),
@@ -240,14 +243,20 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
             //    ⟹  R_linear = 32 μ L / (A D_h²)
             let r = (<T as FloatElement>::from_f64(32.0) * viscosity * self.length)
                 / (area * self.hydraulic_diameter * self.hydraulic_diameter);
-            Ok((r, T::ZERO))
+            Ok((
+                HydraulicResistance::from_base(r),
+                QuadraticHydraulicResistance::from_base(T::ZERO),
+            ))
         } else {
             // Turbulent regime: ΔP ∝ Q² → k-coefficient (quadratic)
             // ΔP = f·(L/D_h)·(ρV²/2) = f·ρ·L·Q²/(2·A²·D_h)
             //    ⟹  k = f·ρ·L / (2·A²·D_h)
             let k = (friction_factor * density * self.length)
                 / ((T::ONE + T::ONE) * area * area * self.hydraulic_diameter);
-            Ok((T::ZERO, k))
+            Ok((
+                HydraulicResistance::from_base(T::ZERO),
+                QuadraticHydraulicResistance::from_base(k),
+            ))
         }
     }
 
@@ -526,6 +535,7 @@ mod tests {
         let (r, k) = model
             .calculate_coefficients(&fluid, &cond)
             .expect("expected value");
+        let (r, k) = (r.into_base(), k.into_base());
         assert!(r > 0.0, "Laminar R should be positive, got {r}");
         assert!((k - 0.0).abs() < 1e-12, "Laminar K should be zero, got {k}");
 
@@ -534,6 +544,7 @@ mod tests {
         let (r2, k2) = model
             .calculate_coefficients(&fluid, &cond_turb)
             .expect("expected value");
+        let (r2, k2) = (r2.into_base(), k2.into_base());
         assert!(
             (r2 - 0.0).abs() < 1e-12,
             "Turbulent R should be zero, got {r2}"
@@ -553,9 +564,11 @@ mod tests {
         let (low_r, low_k) = model
             .calculate_coefficients(&blood, &low_shear)
             .expect("positive explicit shear rate must compute Darcy-Weisbach resistance");
+        let (low_r, low_k) = (low_r.into_base(), low_k.into_base());
         let (high_r, high_k) = model
             .calculate_coefficients(&blood, &high_shear)
             .expect("positive explicit shear rate must compute Darcy-Weisbach resistance");
+        let (high_r, high_k) = (high_r.into_base(), high_k.into_base());
 
         assert_eq!(low_k, 0.0);
         assert_eq!(high_k, 0.0);
@@ -596,9 +609,11 @@ mod tests {
         let (forward_r, forward_k) = model
             .calculate_coefficients(&blood, &forward)
             .expect("forward non-Newtonian Darcy-Weisbach resistance must compute");
+        let (forward_r, forward_k) = (forward_r.into_base(), forward_k.into_base());
         let (reverse_r, reverse_k) = model
             .calculate_coefficients(&blood, &reverse)
             .expect("reverse non-Newtonian Darcy-Weisbach resistance must compute");
+        let (reverse_r, reverse_k) = (reverse_r.into_base(), reverse_k.into_base());
 
         assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
         assert_eq!(forward_k, 0.0);

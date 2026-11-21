@@ -221,7 +221,7 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r_lin, _k_quad) = self.calculate_coefficients(fluid, conditions)?;
         Ok(r_lin)
     }
@@ -236,7 +236,7 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         self.validate_geometry()?;
         let state = fluid.properties_at(
             conditions.temperature.into_base(),
@@ -271,7 +271,7 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel<T> {
             viscosity * self.junction_length * <T as FloatElement>::from_f64(128.0)
                 / (diameter_squared * diameter_squared * T::pi());
         let quadratic = minor_loss_coefficient(self.loss_coefficient(), state.density, area);
-        Ok((resistance.into_base(), quadratic.into_base()))
+        Ok((resistance, quadratic))
     }
 
     fn model_name(&self) -> &str {

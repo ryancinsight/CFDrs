@@ -14,3 +14,4 @@
 | [0003](0003-type-blood-reference-constants.md) | Type blood reference constants | Proposed |
 | [0004](0004-type-junction-loss-geometry.md) | Type junction geometry and minor loss | Proposed |
 | [0005](0005-type-resistance-flow-conditions.md) | Type resistance model flow conditions | Proposed |
+| [0006](0006-type-resistance-outputs.md) | Type hydraulic resistance model outputs | Proposed |

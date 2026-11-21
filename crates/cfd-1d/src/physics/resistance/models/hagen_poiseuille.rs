@@ -63,6 +63,9 @@
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -93,21 +96,21 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q = conditions
             .flow_rate
             .map(aequitas::Quantity::into_base)
             .unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
-        Ok(r + k * q_abs)
+        Ok(r + k * VolumetricFlowRate::from_base(q_abs))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         // Calculate shear rate if not provided
         let shear_rate = if let Some(sr) = conditions.shear_rate.map(aequitas::Quantity::into_base)
         {
@@ -148,7 +151,10 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         let d4 = d2 * d2;
         let r = coefficient * viscosity * self.length / (pi * d4);
 
-        Ok((r, T::ZERO))
+        Ok((
+            HydraulicResistance::from_base(r),
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -230,6 +236,7 @@ mod tests {
         let (r, _k) = model
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let (r, _k) = (r.into_base(), _k.into_base());
         let expected = 128.0 * 0.001 * 0.01 / (std::f64::consts::PI * 1e-12);
         assert_relative_eq!(r, expected, max_relative = 1e-10);
         assert_relative_eq!(expected, 4.074e8, max_relative = 1e-3);
@@ -243,6 +250,7 @@ mod tests {
         let (_r, k) = model
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let (_r, k) = (_r.into_base(), k.into_base());
         assert_relative_eq!(k, 0.0, epsilon = 1e-15);
     }
 
@@ -254,9 +262,11 @@ mod tests {
         let (r_large, _) = large
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_large = r_large.into_base();
         let (r_small, _) = small
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_small = r_small.into_base();
         // D halved by 10x → R increases by 10^4 = 10000x (D^4 in denominator)
         assert!(
             r_small > r_large * 9000.0,
@@ -275,9 +285,11 @@ mod tests {
         let (r_forward, k_forward) = model
             .calculate_coefficients(&blood, &forward)
             .expect("expected value");
+        let (r_forward, k_forward) = (r_forward.into_base(), k_forward.into_base());
         let (r_reverse, k_reverse) = model
             .calculate_coefficients(&blood, &reverse)
             .expect("expected value");
+        let (r_reverse, k_reverse) = (r_reverse.into_base(), k_reverse.into_base());
 
         assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
         assert_relative_eq!(k_forward, 0.0, epsilon = 1e-15);

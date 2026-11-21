@@ -40,7 +40,7 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
     let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
     conditions.reynolds_number = Some(Dimensionless::from_base(100.0)); // Laminar regime
 
-    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+    let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
     // Analytical solution: R = 128*μ*L/(π*D^4)
     let expected_resistance =
@@ -50,12 +50,16 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
 
     // Verify resistance increases with length (proportionality test)
     let model_2x = HagenPoiseuilleModel::new(diameter, 2.0 * length);
-    let resistance_2x = model_2x.calculate_resistance(&fluid, &conditions)?;
+    let resistance_2x = model_2x
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
     assert_relative_eq!(resistance_2x, 2.0 * resistance, epsilon = 1e-10);
 
     // Verify resistance decreases with diameter^4 (scaling test)
     let model_2d = HagenPoiseuilleModel::new(2.0 * diameter, length);
-    let resistance_2d = model_2d.calculate_resistance(&fluid, &conditions)?;
+    let resistance_2d = model_2d
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
     assert_relative_eq!(resistance_2d, resistance / 16.0, epsilon = 1e-9);
 
     Ok(())
@@ -94,7 +98,9 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     let mut conditions_laminar = FlowConditions::new(Velocity::from_base(0.02));
     conditions_laminar.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
-    let resistance_laminar = model.calculate_resistance(&fluid, &conditions_laminar)?;
+    let resistance_laminar = model
+        .calculate_resistance(&fluid, &conditions_laminar)?
+        .into_base();
 
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
     // Laminar regime yields a linear hydraulic resistance independent of velocity:
@@ -112,7 +118,9 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     let mut conditions_turbulent = FlowConditions::new(Velocity::from_base(0.2));
     conditions_turbulent.reynolds_number = Some(Dimensionless::from_base(10_000.0));
 
-    let resistance_turbulent = model.calculate_resistance(&fluid, &conditions_turbulent)?;
+    let resistance_turbulent = model
+        .calculate_resistance(&fluid, &conditions_turbulent)?
+        .into_base();
 
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
@@ -155,7 +163,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let mut conditions = FlowConditions::new(Velocity::from_base(10.0));
     conditions.reynolds_number = Some(Dimensionless::from_base(1e6));
 
-    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+    let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
     // From Moody chart, for ε/D = 0.0005 at Re = 10^6, f ≈ 0.0168
     // (fully rough asymptote) - Colebrook-White gives slightly different value
@@ -170,7 +178,9 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
 
     // Verify friction factor increases with roughness
     let model_smooth = DarcyWeisbachModel::circular(diameter, length, 0.0);
-    let resistance_smooth = model_smooth.calculate_resistance(&fluid, &conditions)?;
+    let resistance_smooth = model_smooth
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
 
     assert!(
         resistance > resistance_smooth,
@@ -255,7 +265,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
     conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
-    let resistance_square = model.calculate_resistance(&fluid, &conditions)?;
+    let resistance_square = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
     // For square channel, hydraulic diameter D_h = a
     let d_h_square: f64 = width;
@@ -274,7 +284,9 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 
     // Aspect ratio α = 0.5: Po = 62.19
     let model_05 = RectangularChannelModel::new(1e-3, 0.5e-3, length);
-    let resistance_05 = model_05.calculate_resistance(&fluid, &conditions)?;
+    let resistance_05 = model_05
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
     // Dh = 2*w*h/(w+h) = 2*1*0.5/1.5 = 0.666 mm
     let d_h_05: f64 = (2.0 * 1e-3 * 0.5e-3) / (1e-3 + 0.5e-3);
     let area_05 = 1e-3 * 0.5e-3;
@@ -285,7 +297,9 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 
     // High aspect ratio (approaches parallel plates): Po = 96.0
     let model_inf = RectangularChannelModel::new(10e-3, 0.1e-3, length);
-    let resistance_inf = model_inf.calculate_resistance(&fluid, &conditions)?;
+    let resistance_inf = model_inf
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
     let d_h_inf: f64 = (2.0 * 10e-3 * 0.1e-3) / (10e-3 + 0.1e-3);
     let area_inf = 10e-3 * 0.1e-3;
     let po_inf = 96.0;
@@ -320,7 +334,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
     let mut conditions = FlowConditions::new(Velocity::from_base(2.0));
     conditions.reynolds_number = Some(Dimensionless::from_base(reynolds));
 
-    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+    let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
     // Haaland (1983), Eq. 2 — correct explicit form:
     // 1/√f = −1.8 · log₁₀[ (ε/(3.7·D))^1.11  +  (6.9/Re) ]
@@ -359,7 +373,7 @@ fn test_resistance_positivity() -> Result<()> {
                 let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
                 conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
-                let resistance: f64 = model.calculate_resistance(&fluid, &conditions)?;
+                let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
                 // Physical constraint: resistance must be positive
                 assert!(resistance > 0.0, "Resistance must be positive");
@@ -386,9 +400,15 @@ fn test_resistance_scaling_laws() -> Result<()> {
     let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
     conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
-    let r_base = model_base.calculate_resistance(&fluid, &conditions)?;
-    let r_scaled_length = model_scaled_length.calculate_resistance(&fluid, &conditions)?;
-    let r_scaled_diameter = model_scaled_diameter.calculate_resistance(&fluid, &conditions)?;
+    let r_base = model_base
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
+    let r_scaled_length = model_scaled_length
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
+    let r_scaled_diameter = model_scaled_diameter
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
 
     // Verify R ∝ L (linear scaling with length)
     assert_relative_eq!(r_scaled_length / r_base, scale_factor, epsilon = 1e-6);
@@ -429,6 +449,7 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
 
         // Use calculate_coefficients which returns the correct (0, k) pair
         let (r_coeff, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
+        let (r_coeff, k_coeff) = (r_coeff.into_base(), k_coeff.into_base());
         assert_relative_eq!(r_coeff, 0.0, epsilon = 1e-30); // linear term must be zero
 
         // Idelchik (1994), §5: K = 0.5·(1 − A₂/A₁)·(1 + C/Re)
@@ -467,6 +488,7 @@ fn test_entrance_effects_smooth_contraction() -> Result<()> {
     conditions.reynolds_number = Some(Dimensionless::from_base(50000.0)); // Turbulent
 
     let (_, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
+    let k_coeff = k_coeff.into_base();
 
     // Expected from Blevins (1984): K = 0.05 + 0.19 * 2.0 = 0.43
     // k = K · ρ / (2 · A₂²)
@@ -500,8 +522,12 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
     let mut conditions_high = FlowConditions::new(Velocity::from_base(0.1));
     conditions_high.reynolds_number = Some(Dimensionless::from_base(re_high));
 
-    let resistance_low = model.calculate_resistance(&fluid, &conditions_low)?;
-    let resistance_high = model.calculate_resistance(&fluid, &conditions_high)?;
+    let resistance_low = model
+        .calculate_resistance(&fluid, &conditions_low)?
+        .into_base();
+    let resistance_high = model
+        .calculate_resistance(&fluid, &conditions_high)?
+        .into_base();
 
     // Higher Reynolds number should give lower resistance (less entrance effects)
     assert!(
@@ -548,7 +574,7 @@ fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
         let upstream_area = ratio * downstream_area;
         let model = EntranceEffectsModel::sudden_contraction(upstream_area, downstream_area);
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
         // Larger area ratio should give higher resistance
         if previous_resistance > 0.0 {
@@ -588,7 +614,9 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
     conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
     let (_, k_base) = model_base.calculate_coefficients(&fluid, &conditions)?;
+    let k_base = k_base.into_base();
     let (_, k_scaled) = model_scaled.calculate_coefficients(&fluid, &conditions)?;
+    let k_scaled = k_scaled.into_base();
 
     // k = K·ρ/(2·A₂²) and area ratio is preserved (K unchanged)
     // k_scaled / k_base = (A₂_base / A₂_scaled)² = (1/s²)² = 1/s⁴
@@ -614,6 +642,7 @@ fn test_venturi_energy_conservation() -> Result<()> {
     conditions.reynolds_number = Some(Dimensionless::from_base(20000.0));
 
     let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
+    let k = k.into_base();
     assert!(
         k > 0.0,
         "Net pressure drop must be positive (energy dissipated)"
@@ -652,15 +681,19 @@ fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
     let re_low = 50.0;
     let mut cond_low = FlowConditions::new(Velocity::from_base(0.01));
     cond_low.reynolds_number = Some(Dimensionless::from_base(re_low));
-    let r_serp_low = model.calculate_resistance(&fluid, &cond_low)?;
-    let r_str_low = straight_model.calculate_resistance(&fluid, &cond_low)?;
+    let r_serp_low = model.calculate_resistance(&fluid, &cond_low)?.into_base();
+    let r_str_low = straight_model
+        .calculate_resistance(&fluid, &cond_low)?
+        .into_base();
     let enhancement_low = r_serp_low / r_str_low;
 
     let re_high = 150.0;
     let mut cond_high = FlowConditions::new(Velocity::from_base(0.03));
     cond_high.reynolds_number = Some(Dimensionless::from_base(re_high));
-    let r_serp_high = model.calculate_resistance(&fluid, &cond_high)?;
-    let r_str_high = straight_model.calculate_resistance(&fluid, &cond_high)?;
+    let r_serp_high = model.calculate_resistance(&fluid, &cond_high)?.into_base();
+    let r_str_high = straight_model
+        .calculate_resistance(&fluid, &cond_high)?
+        .into_base();
     let enhancement_high = r_serp_high / r_str_high;
 
     assert!(

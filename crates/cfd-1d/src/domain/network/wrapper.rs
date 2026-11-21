@@ -4,7 +4,7 @@ use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
-    QuadraticHydraulicResistance, VolumetricFlowRate,
+    VolumetricFlowRate,
 };
 use aequitas::systems::si::quantities::{Dimensionless, ReciprocalTime, ThermodynamicTemperature};
 use cfd_core::CfdScalar;
@@ -625,8 +625,8 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         };
 
         if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
-            edge.resistance = HydraulicResistance::from_base(resistance);
-            edge.quad_coeff = QuadraticHydraulicResistance::from_base(quad_coeff);
+            edge.resistance = resistance;
+            edge.quad_coeff = quad_coeff;
         }
         Ok(())
     }
@@ -1048,7 +1048,7 @@ fn channel_to_res_geometry<T: cfd_core::CfdScalar + Copy>(
 /// generate the first pressure-driven iterate.
 #[allow(clippy::too_many_arguments)]
 fn apply_resistance_corrections<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
-    r: &mut T,
+    r: &mut HydraulicResistance<T>,
     d_h: T,
     area: T,
     length: T,
@@ -1187,7 +1187,7 @@ mod tests {
 
     #[test]
     fn short_channel_correction_uses_exact_low_reynolds_durst_multiplier() {
-        let mut resistance = 1.0_f64;
+        let mut resistance = HydraulicResistance::from_base(1.0_f64);
         let d_h: f64 = 100.0e-6;
         let area = std::f64::consts::PI * (d_h * 0.5_f64).powi(2);
         let length = 5.0_f64 * d_h;
@@ -1224,6 +1224,10 @@ mod tests {
             viscosity / 3.2,
         );
 
-        assert_relative_eq!(resistance, expected_multiplier, max_relative = 1e-12);
+        assert_relative_eq!(
+            resistance.into_base(),
+            expected_multiplier,
+            max_relative = 1e-12
+        );
     }
 }

@@ -361,10 +361,11 @@ mod tests {
         let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
         conditions.reynolds_number = Some(Dimensionless::from_base(500.0));
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
         assert!(resistance > 0.0);
 
         let (r, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let (r, k) = (r.into_base(), k.into_base());
         assert!(r >= 0.0 || k >= 0.0); // At least one should be positive
 
         Ok(())
@@ -380,15 +381,17 @@ mod tests {
         let reverse = FlowConditions::new(Velocity::from_base(-0.35));
 
         let (r_forward, k_forward) = model.calculate_coefficients(&fluid, &forward)?;
+        let (r_forward, k_forward) = (r_forward.into_base(), k_forward.into_base());
         let (r_reverse, k_reverse) = model.calculate_coefficients(&fluid, &reverse)?;
+        let (r_reverse, k_reverse) = (r_reverse.into_base(), k_reverse.into_base());
 
         assert!(r_forward > 0.0);
         assert!(k_forward.abs() > 0.0);
         assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
         assert_relative_eq!(k_forward, k_reverse, max_relative = 1e-12);
 
-        let resistance_forward = model.calculate_resistance(&fluid, &forward)?;
-        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?;
+        let resistance_forward = model.calculate_resistance(&fluid, &forward)?.into_base();
+        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?.into_base();
         assert_relative_eq!(resistance_forward, resistance_reverse, max_relative = 1e-12);
 
         Ok(())
