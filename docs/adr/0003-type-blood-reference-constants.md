@@ -27,5 +27,6 @@ Cavitation loading, Venturi optimization, and cross-fidelity validation
 read the same `MassDensity` constant from the blood reference module.
 The optimizer exports that constant directly and computes dynamic pressure
 as `ρv²/2` using dimensional arithmetic. Lower-level scalar protocols read
-the canonical SI value at their boundaries. Cell-specific reference
+the canonical SI value at their boundaries. The book demonstrations and
+network benchmark use the same density. Cell-specific reference
 densities and independent numerical fixtures retain their own values.

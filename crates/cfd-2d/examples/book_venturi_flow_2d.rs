@@ -3,6 +3,7 @@
 
 use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, VenturiSolver2D};
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use std::fs;
 use std::path::PathBuf;
 
@@ -14,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let geometry = VenturiGeometry::<f64>::iso_5167_standard();
     let inlet_velocity = 0.1_f64;
-    let density = 1060.0_f64;
+    let density = BLOOD_DENSITY.into_base();
 
     let mut solver = VenturiSolver2D::new(
         geometry.clone(),

@@ -5,6 +5,7 @@ use cfd_2d::{
     solvers::lbm::{LbmConfig, LbmSolver},
 };
 use cfd_core::physics::fluid::BloodModel;
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::geometry::generator::PrimitiveSelectiveSplitKind;
 use cfd_schematics::interface::presets::{primitive_selective_split_tree_rect, venturi_rect};
@@ -74,6 +75,7 @@ fn with_provenance(
 }
 
 fn benchmark_network_pipeline(c: &mut Criterion) {
+    let density = BLOOD_DENSITY.into_base();
     let mut group = c.benchmark_group("network_pipeline");
 
     let cases = [
@@ -120,7 +122,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
             |b, blueprint| {
                 b.iter(|| {
                     black_box(
-                        solve_reference_trace::<f64>(blueprint, 1060.0, 3.5e-3, q_total)
+                        solve_reference_trace::<f64>(blueprint, density, 3.5e-3, q_total)
                             .expect("reference trace"),
                     )
                 })
@@ -133,7 +135,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
             |b, blueprint| {
                 b.iter(|| {
                     let blood = BloodModel::Newtonian(3.5e-3_f64);
-                    let sink = Network2dBuilderSink::new(blood, 1060.0, q_total, grid_nx, grid_ny);
+                    let sink = Network2dBuilderSink::new(blood, density, q_total, grid_nx, grid_ny);
                     black_box(sink.build(blueprint).expect("network build"))
                 })
             },
@@ -147,7 +149,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                     || {
                         let blood = BloodModel::Newtonian(3.5e-3_f64);
                         let sink =
-                            Network2dBuilderSink::new(blood, 1060.0, q_total, grid_nx, grid_ny);
+                            Network2dBuilderSink::new(blood, density, q_total, grid_nx, grid_ny);
                         sink.build(blueprint).expect("network build")
                     },
                     |mut network| black_box(network.solve_all(1e-6).expect("solve all")),
@@ -164,7 +166,7 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                     || {
                         let blood = BloodModel::Newtonian(3.5e-3_f64);
                         let sink =
-                            Network2dBuilderSink::new(blood, 1060.0, q_total, grid_nx, grid_ny);
+                            Network2dBuilderSink::new(blood, density, q_total, grid_nx, grid_ny);
                         sink.build(blueprint).expect("network build")
                     },
                     |mut network| {
