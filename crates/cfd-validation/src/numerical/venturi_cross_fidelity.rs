@@ -21,7 +21,7 @@
 //! [`FidelityBreakdown1D`] of the 1D model so discrepancies are
 //! self-documenting rather than requiring post-hoc explanation.
 
-use aequitas::systems::si::quantities::{ReciprocalTime, VolumetricFlowRate};
+use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
