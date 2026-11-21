@@ -1,4 +1,4 @@
-# ADR 0003 · Type blood reference constants
+# ADR 0003: Type blood reference constants
 
 - Status: Proposed
 - Class: [major]
