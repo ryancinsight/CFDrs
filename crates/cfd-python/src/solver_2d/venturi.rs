@@ -1,5 +1,6 @@
 //! 2D and 1D Venturi solver `PyO3` wrappers.
 
+use aequitas::systems::si::quantities::{Dimensionless, Velocity};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
@@ -245,8 +246,8 @@ impl PyVenturiSolver1D {
         };
 
         let re = density * velocity * dh / mu;
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "blood".to_string(),

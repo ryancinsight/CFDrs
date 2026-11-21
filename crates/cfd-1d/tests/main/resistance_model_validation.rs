@@ -13,6 +13,7 @@
 //! - Colebrook, C. F. (1939). "Turbulent flow in pipes". *Journal of the Institution
 //!   of Civil Engineers*, 11(4), 133-156.
 
+use aequitas::systems::si::quantities::{Dimensionless, Velocity};
 use cfd_1d::physics::resistance::{
     DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
     RectangularChannelModel, ResistanceModel,
@@ -36,8 +37,8 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
     let viscosity = fluid.viscosity.into_base();
 
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(100.0); // Laminar regime
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(100.0)); // Laminar regime
 
     let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -90,8 +91,8 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test 1: Laminar flow (Re = 1000)
-    let mut conditions_laminar = FlowConditions::new(0.02);
-    conditions_laminar.reynolds_number = Some(1000.0);
+    let mut conditions_laminar = FlowConditions::new(Velocity::from_base(0.02));
+    conditions_laminar.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
     let resistance_laminar = model.calculate_resistance(&fluid, &conditions_laminar)?;
 
@@ -108,8 +109,8 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     );
 
     // Test 2: Turbulent flow (Re = 10,000)
-    let mut conditions_turbulent = FlowConditions::new(0.2);
-    conditions_turbulent.reynolds_number = Some(10_000.0);
+    let mut conditions_turbulent = FlowConditions::new(Velocity::from_base(0.2));
+    conditions_turbulent.reynolds_number = Some(Dimensionless::from_base(10_000.0));
 
     let resistance_turbulent = model.calculate_resistance(&fluid, &conditions_turbulent)?;
 
@@ -119,7 +120,10 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
     // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
     // R_eff = f ρ L V / (2 A D)
-    let v: f64 = conditions_turbulent.velocity.expect("test invariant");
+    let v: f64 = conditions_turbulent
+        .velocity
+        .expect("test invariant")
+        .into_base();
     let expected_resistance_turbulent: f64 =
         f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
 
@@ -148,8 +152,8 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test at high Reynolds number (Re = 10^6, fully rough regime)
-    let mut conditions = FlowConditions::new(10.0);
-    conditions.reynolds_number = Some(1e6);
+    let mut conditions = FlowConditions::new(Velocity::from_base(10.0));
+    conditions.reynolds_number = Some(Dimensionless::from_base(1e6));
 
     let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -157,7 +161,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     // (fully rough asymptote) - Colebrook-White gives slightly different value
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let v: f64 = conditions.velocity.expect("test invariant");
+    let v: f64 = conditions.velocity.expect("test invariant").into_base();
     let expected_resistance: f64 =
         f_expected * fluid.density.into_base() * length * v / (2.0 * area * diameter);
 
@@ -188,8 +192,8 @@ fn test_mach_number_violation() -> Result<()> {
     // Mach number Ma = V / c. For water, c ≈ 1480 m/s.
     // To get Ma > 0.3, V > 0.3 * 1480 ≈ 444 m/s.
     let high_velocity = 500.0;
-    let mut conditions = FlowConditions::new(high_velocity);
-    conditions.reynolds_number = Some(1e6); // High Re for turbulent
+    let mut conditions = FlowConditions::new(Velocity::from_base(high_velocity));
+    conditions.reynolds_number = Some(Dimensionless::from_base(1e6)); // High Re for turbulent
 
     let result = model.validate_invariants(&fluid, &conditions);
 
@@ -216,8 +220,8 @@ fn test_entrance_length_violation() -> Result<()> {
     let model = RectangularChannelModel::new(width, height, short_length);
 
     let fluid = fluid::database::water_20c::<f64>()?;
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(100.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
     let result = model.validate_invariants(&fluid, &conditions);
 
@@ -248,8 +252,8 @@ fn test_rectangular_channel_analytical() -> Result<()> {
     let model = RectangularChannelModel::new(width, height, length);
     let fluid = fluid::database::water_20c::<f64>()?;
 
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(100.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
     let resistance_square = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -313,8 +317,8 @@ fn test_colebrook_white_convergence() -> Result<()> {
 
     // Test at Re = 10^5 (turbulent, not fully rough)
     let reynolds: f64 = 1e5;
-    let mut conditions = FlowConditions::new(2.0);
-    conditions.reynolds_number = Some(reynolds);
+    let mut conditions = FlowConditions::new(Velocity::from_base(2.0));
+    conditions.reynolds_number = Some(Dimensionless::from_base(reynolds));
 
     let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -327,7 +331,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
     let f_haaland = 1.0 / (inv_sqrt_f * inv_sqrt_f);
 
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let v: f64 = conditions.velocity.expect("test invariant");
+    let v: f64 = conditions.velocity.expect("test invariant").into_base();
     // Expected turbulent resistance: k·Q at given velocity
     // k = f·ρ·L/(2·A²·D), R_eff = k·V·A = f·ρ·L·V/(2·A·D)
     let expected_resistance_haaland: f64 =
@@ -352,8 +356,8 @@ fn test_resistance_positivity() -> Result<()> {
         for &l in &lengths {
             let model = HagenPoiseuilleModel::new(d, l);
             for &re in &reynolds {
-                let mut conditions = FlowConditions::new(0.1);
-                conditions.reynolds_number = Some(re);
+                let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+                conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
                 let resistance: f64 = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -379,8 +383,8 @@ fn test_resistance_scaling_laws() -> Result<()> {
     let model_scaled_diameter = HagenPoiseuilleModel::new(diameter * scale_factor, length);
 
     let fluid = fluid::database::water_20c::<f64>()?;
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(100.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
     let r_base = model_base.calculate_resistance(&fluid, &conditions)?;
     let r_scaled_length = model_scaled_length.calculate_resistance(&fluid, &conditions)?;
@@ -420,8 +424,8 @@ fn test_entrance_effects_sudden_contraction() -> Result<()> {
     let reynolds_values = [100.0, 1000.0, 10000.0];
 
     for &re in &reynolds_values {
-        let mut conditions = FlowConditions::new(0.1);
-        conditions.reynolds_number = Some(re);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         // Use calculate_coefficients which returns the correct (0, k) pair
         let (r_coeff, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
@@ -459,8 +463,8 @@ fn test_entrance_effects_smooth_contraction() -> Result<()> {
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test in turbulent regime (Re > 10^4)
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(50000.0); // Turbulent
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(50000.0)); // Turbulent
 
     let (_, k_coeff) = model.calculate_coefficients(&fluid, &conditions)?;
 
@@ -490,11 +494,11 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
     let re_low = 100.0;
     let re_high = 1000.0;
 
-    let mut conditions_low = FlowConditions::new(0.1);
-    conditions_low.reynolds_number = Some(re_low);
+    let mut conditions_low = FlowConditions::new(Velocity::from_base(0.1));
+    conditions_low.reynolds_number = Some(Dimensionless::from_base(re_low));
 
-    let mut conditions_high = FlowConditions::new(0.1);
-    conditions_high.reynolds_number = Some(re_high);
+    let mut conditions_high = FlowConditions::new(Velocity::from_base(0.1));
+    conditions_high.reynolds_number = Some(Dimensionless::from_base(re_high));
 
     let resistance_low = model.calculate_resistance(&fluid, &conditions_low)?;
     let resistance_high = model.calculate_resistance(&fluid, &conditions_high)?;
@@ -532,8 +536,8 @@ fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
     let downstream_area: f64 = 1e-6;
     let fluid = fluid::database::water_20c::<f64>()?;
 
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(1000.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
     // Test different area ratios
     let area_ratios = [1.5, 2.0, 4.0];
@@ -580,8 +584,8 @@ fn test_entrance_effects_dimensional_analysis() -> Result<()> {
     );
 
     let fluid = fluid::database::water_20c::<f64>()?;
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(1000.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
     let (_, k_base) = model_base.calculate_coefficients(&fluid, &conditions)?;
     let (_, k_scaled) = model_scaled.calculate_coefficients(&fluid, &conditions)?;
@@ -606,8 +610,8 @@ fn test_venturi_energy_conservation() -> Result<()> {
     let model =
         cfd_1d::physics::resistance::models::VenturiModel::symmetric(0.01, 0.005, 0.05, 0.15);
     let fluid = fluid::database::water_20c::<f64>()?;
-    let mut conditions = FlowConditions::new(1.0);
-    conditions.reynolds_number = Some(20000.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(1.0));
+    conditions.reynolds_number = Some(Dimensionless::from_base(20000.0));
 
     let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
     assert!(
@@ -646,15 +650,15 @@ fn test_serpentine_dean_number_monotone_in_re() -> Result<()> {
 
     // Laminar test (De <= 370 validity limit of the White correlation)
     let re_low = 50.0;
-    let mut cond_low = FlowConditions::new(0.01);
-    cond_low.reynolds_number = Some(re_low);
+    let mut cond_low = FlowConditions::new(Velocity::from_base(0.01));
+    cond_low.reynolds_number = Some(Dimensionless::from_base(re_low));
     let r_serp_low = model.calculate_resistance(&fluid, &cond_low)?;
     let r_str_low = straight_model.calculate_resistance(&fluid, &cond_low)?;
     let enhancement_low = r_serp_low / r_str_low;
 
     let re_high = 150.0;
-    let mut cond_high = FlowConditions::new(0.03);
-    cond_high.reynolds_number = Some(re_high);
+    let mut cond_high = FlowConditions::new(Velocity::from_base(0.03));
+    cond_high.reynolds_number = Some(Dimensionless::from_base(re_high));
     let r_serp_high = model.calculate_resistance(&fluid, &cond_high)?;
     let r_str_high = straight_model.calculate_resistance(&fluid, &cond_high)?;
     let enhancement_high = r_serp_high / r_str_high;

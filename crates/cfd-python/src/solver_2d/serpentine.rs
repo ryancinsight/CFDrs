@@ -1,5 +1,6 @@
 //! 1D Serpentine resistance solver `PyO3` wrapper.
 
+use aequitas::systems::si::quantities::{Dimensionless, Velocity};
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
@@ -97,8 +98,8 @@ impl PySerpentineSolver1D {
             }
         };
 
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "blood".to_string(),

@@ -154,7 +154,7 @@ mod tests {
         let r_rect = resistance_rectangular(w, h, L, MU);
         let model = RectangularChannelModel::new(w, h, L);
         let fluid = water();
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (r_model, _) = model
             .calculate_coefficients(&fluid, &conditions)
             .expect("rectangular model should evaluate successfully");

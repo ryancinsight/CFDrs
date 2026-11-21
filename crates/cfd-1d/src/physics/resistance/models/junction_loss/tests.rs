@@ -1,5 +1,6 @@
 use super::*;
 use crate::physics::resistance::models::FlowConditions;
+use aequitas::systems::si::quantities::{ReciprocalTime, Velocity, VolumetricFlowRate};
 use cfd_core::physics::fluid::CassonBlood;
 use eunomia::assert_relative_eq;
 
@@ -40,7 +41,7 @@ fn linearised_resistance_positive() {
 fn resistance_model_trait_works() {
     let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-    let cond = FlowConditions::new(0.01);
+    let cond = FlowConditions::new(Velocity::from_base(0.01));
     let r = m
         .calculate_resistance(&fluid, &cond)
         .expect("expected value");
@@ -51,7 +52,7 @@ fn resistance_model_trait_works() {
 fn coefficients_have_quadratic_term() {
     let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-    let cond = FlowConditions::new(0.01);
+    let cond = FlowConditions::new(Velocity::from_base(0.01));
     let (r, k) = m
         .calculate_coefficients(&fluid, &cond)
         .expect("expected value");
@@ -63,10 +64,10 @@ fn coefficients_have_quadratic_term() {
 fn non_newtonian_resistance_uses_explicit_shear_rate() {
     let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
     let blood = CassonBlood::<f64>::normal_blood();
-    let mut low_shear = FlowConditions::new(0.01);
-    low_shear.shear_rate = Some(10.0);
-    let mut high_shear = FlowConditions::new(0.01);
-    high_shear.shear_rate = Some(1000.0);
+    let mut low_shear = FlowConditions::new(Velocity::from_base(0.01));
+    low_shear.shear_rate = Some(ReciprocalTime::from_base(10.0));
+    let mut high_shear = FlowConditions::new(Velocity::from_base(0.01));
+    high_shear.shear_rate = Some(ReciprocalTime::from_base(1000.0));
 
     let (low_r, low_k) = m
         .calculate_coefficients(&blood, &low_shear)
@@ -87,8 +88,8 @@ fn non_newtonian_resistance_uses_explicit_shear_rate() {
 fn negative_explicit_shear_rate_rejected() {
     let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-    let mut cond = FlowConditions::new(0.01);
-    cond.shear_rate = Some(-1.0);
+    let mut cond = FlowConditions::new(Velocity::from_base(0.01));
+    cond.shear_rate = Some(ReciprocalTime::from_base(-1.0));
 
     let err = m
         .calculate_coefficients(&fluid, &cond)
@@ -103,8 +104,8 @@ fn negative_explicit_shear_rate_rejected() {
 fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
     let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
     let blood = CassonBlood::<f64>::normal_blood();
-    let forward = FlowConditions::new(0.01);
-    let reverse = FlowConditions::new(-0.01);
+    let forward = FlowConditions::new(Velocity::from_base(0.01));
+    let reverse = FlowConditions::new(Velocity::from_base(-0.01));
 
     let (forward_r, forward_k) = m
         .calculate_coefficients(&blood, &forward)
@@ -163,7 +164,7 @@ fn nonfinite_geometry_is_rejected() {
             (
                 make_model(JunctionType::Tee, JunctionFlowDirection::Dividing),
                 cfd_core::physics::fluid::database::water_20c::<f64>().expect("water"),
-                FlowConditions::new(0.01),
+                FlowConditions::new(Velocity::from_base(0.01)),
             )
         });
         let result = tracing::info_span!("act").in_scope(|| {
@@ -184,7 +185,7 @@ fn nonfinite_geometry_is_rejected() {
 #[test]
 fn invalid_geometry_rejected() {
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-    let cond = FlowConditions::new(0.01);
+    let cond = FlowConditions::new(Velocity::from_base(0.01));
 
     let mut m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
     m.branch_area = Area::from_base(-1e-6);

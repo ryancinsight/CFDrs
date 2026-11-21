@@ -72,16 +72,19 @@ impl<T: CfdScalar> VenturiModel<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<VenturiAnalysis<T>> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
 
         let a_inlet = self.inlet_area();
         let a_throat = self.throat_area();
         let a_outlet = self.outlet_area();
 
-        let v_inlet = if let Some(v) = conditions.velocity {
+        let v_inlet = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / a_inlet
         } else {
             return Err(Error::InvalidConfiguration(
@@ -102,8 +105,8 @@ impl<T: CfdScalar> VenturiModel<T> {
         let viscosity = fluid
             .viscosity_at_shear(
                 shear_rate_throat,
-                conditions.temperature,
-                conditions.pressure,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
             )?
             .into_base();
 
@@ -112,8 +115,8 @@ impl<T: CfdScalar> VenturiModel<T> {
         let viscosity_inlet = fluid
             .viscosity_at_shear(
                 eight * v_inlet_abs / self.inlet_diameter,
-                conditions.temperature,
-                conditions.pressure,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
             )?
             .into_base();
         let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;
@@ -159,6 +162,7 @@ impl<T: CfdScalar> VenturiModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{Velocity, VolumetricFlowRate};
     use cfd_core::physics::fluid::database::water_20c;
     use eunomia::assert_relative_eq;
     use proptest::prelude::*;
@@ -167,7 +171,7 @@ mod tests {
     fn analyze_rejects_missing_velocity_and_flow_rate() -> cfd_core::error::Result<()> {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = water_20c::<f64>()?;
-        let mut conditions = FlowConditions::new(0.1);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
         conditions.velocity = None;
         conditions.flow_rate = None;
 
@@ -179,7 +183,7 @@ mod tests {
     fn analyze_pressure_drop_matches_reported_components() -> cfd_core::error::Result<()> {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = water_20c::<f64>()?;
-        let conditions = FlowConditions::new(0.2);
+        let conditions = FlowConditions::new(Velocity::from_base(0.2));
 
         let analysis = model.analyze(&fluid, &conditions)?;
         let expected_total =
@@ -199,8 +203,8 @@ mod tests {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = water_20c::<f64>()?;
 
-        let forward = model.analyze(&fluid, &FlowConditions::new(0.35))?;
-        let reverse = model.analyze(&fluid, &FlowConditions::new(-0.35))?;
+        let forward = model.analyze(&fluid, &FlowConditions::new(Velocity::from_base(0.35)))?;
+        let reverse = model.analyze(&fluid, &FlowConditions::new(Velocity::from_base(-0.35)))?;
 
         assert_relative_eq!(
             forward.throat_velocity,
@@ -250,9 +254,9 @@ mod tests {
             let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
             let fluid = water_20c::<f64>().expect("water properties should load");
 
-            let velocity_conditions = FlowConditions::new(inlet_velocity_m_s);
+            let velocity_conditions = FlowConditions::new(Velocity::from_base(inlet_velocity_m_s));
             let flow_rate_conditions =
-                FlowConditions::from_flow_rate(inlet_velocity_m_s * model.inlet_area());
+                FlowConditions::from_flow_rate(VolumetricFlowRate::from_base(inlet_velocity_m_s * model.inlet_area()));
 
             let velocity_analysis = model
                 .analyze(&fluid, &velocity_conditions)

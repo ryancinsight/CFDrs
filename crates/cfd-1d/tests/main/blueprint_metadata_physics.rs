@@ -1,5 +1,6 @@
 #![allow(missing_docs)]
 #![allow(clippy::unwrap_used)]
+use aequitas::systems::si::quantities::Velocity;
 use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
@@ -116,7 +117,7 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
         bend_radius_m,
     );
     let analysis = model
-        .analyze(&fluid, &FlowConditions::new(0.25))
+        .analyze(&fluid, &FlowConditions::new(Velocity::from_base(0.25)))
         .expect("serpentine analysis must succeed");
     (
         segments,

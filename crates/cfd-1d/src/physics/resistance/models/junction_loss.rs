@@ -49,7 +49,7 @@
 use super::traits::{FlowConditions, ResistanceModel};
 use aequitas::systems::si::quantities::{
     Area, Dimensionless, HydraulicResistance, Length, MassDensity, QuadraticHydraulicResistance,
-    ReciprocalTime, Velocity, VolumetricFlowRate,
+    Velocity, VolumetricFlowRate,
 };
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
@@ -238,35 +238,33 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         self.validate_geometry()?;
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let area = self.branch_area;
         let velocity = conditions
             .velocity
-            .map(Velocity::from_base)
-            .or_else(|| {
-                conditions
-                    .flow_rate
-                    .map(|flow| VolumetricFlowRate::from_base(flow) / area)
-            })
+            .or_else(|| conditions.flow_rate.map(|flow| flow / area))
             .unwrap_or(Velocity::from_base(T::ZERO));
 
         let diameter = self.branch_diameter;
         let eight = <T as FloatElement>::from_f64(8.0);
         let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::ZERO {
+            if shear_rate.into_base() < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Junction wall shear rate must be nonnegative".to_string(),
                 ));
             }
-            ReciprocalTime::from_base(shear_rate)
+            shear_rate
         } else {
             velocity.abs() * eight / diameter
         };
 
         let viscosity = fluid.viscosity_at_shear(
             shear_rate.into_base(),
-            conditions.temperature,
-            conditions.pressure,
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
         )?;
         let diameter_squared = diameter * diameter;
         let resistance: HydraulicResistance<T> =

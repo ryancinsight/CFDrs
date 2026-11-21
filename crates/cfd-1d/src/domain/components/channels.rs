@@ -31,6 +31,7 @@
 
 use super::{Component, real_from_f64};
 use crate::physics::resistance::models::ResistanceModel;
+use aequitas::systems::si::quantities::Velocity;
 use aequitas::systems::si::quantities::{Area, Length, Volume};
 use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
@@ -105,7 +106,8 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T> {
         };
 
         // FlowConditions with zero flow rate to get purely laminar R
-        let conditions = crate::physics::resistance::models::FlowConditions::new(T::ZERO);
+        let conditions =
+            crate::physics::resistance::models::FlowConditions::new(Velocity::from_base(T::ZERO));
 
         model
             .calculate_resistance(fluid, &conditions)
@@ -194,7 +196,8 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
             diameter: self.diameter.into_base(),
             length: self.length.into_base(),
         };
-        let conditions = crate::physics::resistance::models::FlowConditions::new(T::ZERO);
+        let conditions =
+            crate::physics::resistance::models::FlowConditions::new(Velocity::from_base(T::ZERO));
         model
             .calculate_resistance(fluid, &conditions)
             .unwrap_or_else(|_| real_from_f64(1e12))

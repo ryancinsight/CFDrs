@@ -62,15 +62,18 @@ impl<T: CfdScalar> SerpentineModel<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<SerpentineAnalysis<T>> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
 
         let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
         let area = <T as FloatElement>::from_f64(self.cross_section.area());
 
-        let velocity = if let Some(v) = conditions.velocity {
+        let velocity = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / area
         } else {
             return Err(Error::InvalidConfiguration(
@@ -85,7 +88,11 @@ impl<T: CfdScalar> SerpentineModel<T> {
         let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         let reynolds = density * velocity_magnitude * dh / viscosity;

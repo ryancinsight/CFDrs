@@ -297,9 +297,9 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
         // Effective resistance: R_eff = R + k|Q|
-        let q_mag = if let Some(q) = conditions.flow_rate {
+        let q_mag = if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             if q >= T::ZERO { q } else { -q }
-        } else if let Some(v) = conditions.velocity {
+        } else if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.inlet_area()
         } else {
@@ -314,7 +314,10 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
 
         // --- Compute throat velocity and Reynolds number ---
@@ -322,9 +325,9 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         let a_throat = self.throat_area();
         let a_outlet = self.outlet_area();
 
-        let v_inlet = if let Some(v) = conditions.velocity {
+        let v_inlet = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / a_inlet
         } else {
             T::ZERO
@@ -344,8 +347,8 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         let viscosity = fluid
             .viscosity_at_shear(
                 shear_rate_throat,
-                conditions.temperature,
-                conditions.pressure,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
             )?
             .into_base();
 
@@ -356,8 +359,8 @@ impl<T: CfdScalar> ResistanceModel<T> for VenturiModel<T> {
         let viscosity_inlet = fluid
             .viscosity_at_shear(
                 eight * v_inlet_abs / self.inlet_diameter,
-                conditions.temperature,
-                conditions.pressure,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
             )?
             .into_base();
         let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;

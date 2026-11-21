@@ -105,7 +105,10 @@ impl<T: CfdScalar> ResistanceModel<T> for MembranePoreModel<T> {
     ) -> Result<T> {
         self.validate_invariants(fluid, conditions)?;
 
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let mu = state.dynamic_viscosity.into_base();
 
         let area = self.width * self.height;
@@ -158,6 +161,7 @@ impl<T: CfdScalar> ResistanceModel<T> for MembranePoreModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::Velocity;
     use cfd_core::physics::fluid::database::water_20c;
     use eunomia::assert_relative_eq;
 
@@ -178,7 +182,7 @@ mod tests {
             0.2,    // 20% porosity
         );
         let fluid = water();
-        let cond = FlowConditions::new(0.0_f64);
+        let cond = FlowConditions::new(Velocity::from_base(0.0_f64));
 
         let r = model
             .calculate_resistance(&fluid, &cond)
@@ -196,7 +200,7 @@ mod tests {
     fn test_membrane_resistance_positive() {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r = model
             .calculate_resistance(&fluid, &cond)
             .expect("expected value");
@@ -212,7 +216,7 @@ mod tests {
         let base = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
         let double = MembranePoreModel::<f64>::new(20e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r_base = base
             .calculate_resistance(&fluid, &cond)
             .expect("expected value");
@@ -229,7 +233,7 @@ mod tests {
         let phi20 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
         let phi40 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.4);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         let r_phi20 = phi20
             .calculate_resistance(&fluid, &cond)
             .expect("expected value");
@@ -246,7 +250,7 @@ mod tests {
         let r1 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
         let r2 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 1.0e-6, 0.2); // 2x radius
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         let res1 = r1
             .calculate_resistance(&fluid, &cond)
             .expect("expected value");
@@ -263,7 +267,7 @@ mod tests {
     fn test_membrane_zero_porosity_error() {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.0);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         assert!(
             model.validate_invariants(&fluid, &cond).is_err(),
             "Zero porosity should return error"
@@ -275,7 +279,7 @@ mod tests {
     fn test_membrane_porosity_exceeds_one_error() {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.5e-6, 1.5);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         assert!(
             model.validate_invariants(&fluid, &cond).is_err(),
             "Porosity > 1 should return error"
@@ -287,7 +291,7 @@ mod tests {
     fn test_membrane_zero_pore_radius_error() {
         let model = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, 0.0, 0.2);
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
         assert!(
             model.validate_invariants(&fluid, &cond).is_err(),
             "Zero pore radius should return error"
@@ -298,7 +302,7 @@ mod tests {
     #[test]
     fn test_membrane_zero_dimensions_error() {
         let fluid = water();
-        let cond = FlowConditions::new(0.0);
+        let cond = FlowConditions::new(Velocity::from_base(0.0));
 
         // Zero thickness
         let m1 = MembranePoreModel::<f64>::new(0.0, 1e-3, 1e-3, 0.5e-6, 0.2);

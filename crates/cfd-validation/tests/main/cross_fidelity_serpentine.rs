@@ -27,6 +27,7 @@
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
+use aequitas::systems::si::quantities::{Pressure, ThermodynamicTemperature, VolumetricFlowRate};
 use cfd_1d::physics::resistance::calculator::dispatch::{
     calculate_rectangular, calculate_serpentine_rectangular,
 };
@@ -67,10 +68,10 @@ fn cross_fidelity_dean_flow_resistance() {
     let fluid_2d = BloodModel2D::Newtonian(viscosity);
 
     let conditions = FlowConditions {
-        flow_rate: Some(flow_rate),
-        velocity: Some(u_inlet_2d),
-        temperature: 310.0,
-        pressure: 101325.0, // Base ambient [Pa]
+        flow_rate: Some(VolumetricFlowRate::from_base(flow_rate)),
+        velocity: Some(Velocity::from_base(u_inlet_2d)),
+        temperature: ThermodynamicTemperature::from_base(310.0),
+        pressure: Pressure::from_base(101325.0), // Base ambient [Pa]
         reynolds_number: None,
         shear_rate: None,
     };
