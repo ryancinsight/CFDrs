@@ -88,13 +88,10 @@ impl<T: CfdScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                     ))
                 })?;
 
-            analysis.add_resistance(edge.id.clone(), HydraulicResistance::from_base(resistance));
+            analysis.add_resistance(edge.id.clone(), resistance);
 
             let component_type = edge.properties.component_type;
-            analysis.add_resistance_by_type(
-                component_type.as_str().to_string(),
-                HydraulicResistance::from_base(resistance),
-            );
+            analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
         }
 
         Ok(())
@@ -237,7 +234,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         properties: &crate::domain::network::EdgeProperties<T>,
         fluid: &cfd_core::physics::fluid::ConstantPropertyFluid<T>,
         flow_rate: Option<T>,
-    ) -> std::result::Result<T, ResistanceCalculationError> {
+    ) -> std::result::Result<HydraulicResistance<T>, ResistanceCalculationError> {
         use crate::physics::resistance::{FlowConditions, HagenPoiseuilleModel, ResistanceModel};
 
         // Require hydraulic diameter - no silent fallbacks

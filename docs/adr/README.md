@@ -12,3 +12,5 @@
 | [0001](0001-eunomia-moirai-provider-contract.md) | Advance the Eunomia and Moirai provider contracts | Accepted |
 | [0002](0002-release-scope-1-0.md) | CFDrs release scope for 1.0 | Accepted |
 | [0003](0003-type-blood-reference-constants.md) | Type blood reference constants | Proposed |
+
+- [ADR 0006 — Type hydraulic resistance model outputs](0006-type-resistance-outputs.md)

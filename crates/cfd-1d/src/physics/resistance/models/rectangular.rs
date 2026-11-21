@@ -48,6 +48,9 @@
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -85,21 +88,21 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
         let q = conditions
             .flow_rate
             .map(aequitas::Quantity::into_base)
             .unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
-        Ok(r + k * q_abs)
+        Ok(r + k * VolumetricFlowRate::from_base(q_abs))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let area = self.width * self.height;
         let dh = self.hydraulic_diameter();
 
@@ -159,7 +162,10 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         let r =
             (poiseuille_number * viscosity * self.length) / ((T::ONE + T::ONE) * area * dh * dh);
 
-        Ok((r, T::ZERO))
+        Ok((
+            HydraulicResistance::from_base(r),
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -290,9 +296,11 @@ mod tests {
         let (r_wh, _) = model_wh
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_wh = r_wh.into_base();
         let (r_hw, _) = model_hw
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_hw = r_hw.into_base();
         assert_relative_eq!(r_wh, r_hw, max_relative = 1e-10);
     }
 
@@ -334,9 +342,11 @@ mod tests {
         let (low_r, low_k) = model
             .calculate_coefficients(&blood, &low_shear)
             .expect("positive explicit shear rate must compute rectangular resistance");
+        let (low_r, low_k) = (low_r.into_base(), low_k.into_base());
         let (high_r, high_k) = model
             .calculate_coefficients(&blood, &high_shear)
             .expect("positive explicit shear rate must compute rectangular resistance");
+        let (high_r, high_k) = (high_r.into_base(), high_k.into_base());
 
         assert_eq!(low_k, 0.0);
         assert_eq!(high_k, 0.0);
@@ -372,9 +382,11 @@ mod tests {
         let (forward_r, forward_k) = model
             .calculate_coefficients(&blood, &forward)
             .expect("forward non-Newtonian rectangular resistance must compute");
+        let (forward_r, forward_k) = (forward_r.into_base(), forward_k.into_base());
         let (reverse_r, reverse_k) = model
             .calculate_coefficients(&blood, &reverse)
             .expect("reverse non-Newtonian rectangular resistance must compute");
+        let (reverse_r, reverse_k) = (reverse_r.into_base(), reverse_k.into_base());
 
         assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
         assert_eq!(forward_k, 0.0);

@@ -80,7 +80,8 @@ fn cross_fidelity_dean_flow_resistance() {
     let length_straight = l_straight * 8.0 + (std::f64::consts::PI * turn_radius) * 4.0;
     let r_straight_1d =
         calculate_rectangular(width, height, length_straight, &fluid_1d, &conditions)
-            .expect("1D straight calculation failed");
+            .expect("1D straight calculation failed")
+            .into_base();
     let dp_straight_1d = r_straight_1d * flow_rate;
 
     // 3. [1D] Analytical Dean Flow Perturbation (Ito/Dean Corrected)

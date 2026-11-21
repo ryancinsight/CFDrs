@@ -206,7 +206,9 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
         );
         let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
         conditions.reynolds_number = Some(Dimensionless::from_base(re));
-        model.calculate_resistance(fluid, &conditions)
+        model
+            .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
     }
 
     /// Slip flow resistance (Beskok-Karniadakis 1999).
@@ -279,7 +281,8 @@ mod tests {
 
         let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length.into_base(), 1e-6)
             .calculate_resistance(&fluid, &conditions)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         let actual = chan.turbulent_resistance(&fluid).expect("expected value");
 
         assert_relative_eq!(actual, expected, max_relative = 1e-12, epsilon = 1e-12);

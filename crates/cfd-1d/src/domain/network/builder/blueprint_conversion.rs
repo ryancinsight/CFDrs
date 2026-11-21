@@ -13,7 +13,7 @@ use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use aequitas::systems::si::quantities::Velocity;
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
+    Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };
 use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
@@ -396,8 +396,8 @@ where
             }
 
             if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
-                edge.resistance = HydraulicResistance::from_base(r * resistance_scale);
-                edge.quad_coeff = QuadraticHydraulicResistance::from_base(k);
+                edge.resistance = r * resistance_scale;
+                edge.quad_coeff = k;
             }
         }
     }
@@ -493,8 +493,8 @@ where
                 let k_seg = k_total / n_segs;
 
                 if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
-                    edge.resistance = HydraulicResistance::from_base(r_seg);
-                    edge.quad_coeff = QuadraticHydraulicResistance::from_base(k_seg);
+                    edge.resistance = r_seg;
+                    edge.quad_coeff = k_seg;
                 }
             }
         }

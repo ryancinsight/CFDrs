@@ -65,6 +65,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
         let conditions = FlowConditions::new(Velocity::from_base(T::ZERO));
         model
             .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
             .unwrap_or_else(|_| real_from_f64(1e12))
     }
 

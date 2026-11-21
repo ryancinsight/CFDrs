@@ -28,7 +28,8 @@ fn resistance_calculator_supports_membrane_model() {
 
     let r = calc
         .calculate_membrane_porous(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2, &fluid, &conditions)
-        .expect("membrane resistance");
+        .expect("membrane resistance")
+        .into_base();
 
     assert!(r > 0.0);
 }
