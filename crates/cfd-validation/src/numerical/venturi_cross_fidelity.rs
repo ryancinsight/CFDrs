@@ -21,11 +21,12 @@
 //! [`FidelityBreakdown1D`] of the 1D model so discrepancies are
 //! self-documenting rather than requiring post-hoc explanation.
 
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
 use cfd_1d::{FlowConditions, VenturiModel};
 use cfd_2d::fields::SimulationFields;
@@ -45,8 +46,6 @@ use leto::geometry::Vector3;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-/// Blood density [kg/m³].
-const RHO: f64 = 1060.0;
 /// Blood dynamic viscosity (Newtonian approximation) [Pa·s].
 const MU: f64 = 3.45e-3;
 /// Atmospheric pressure \[Pa].
@@ -110,7 +109,7 @@ impl VenturiValidationInput {
     /// Reynolds number at the throat (Newtonian, based on pipe diameter).
     #[must_use]
     pub fn throat_reynolds(&self) -> f64 {
-        RHO * self.throat_velocity_1d() * self.throat_diameter_m / MU
+        BLOOD_DENSITY.into_base() * self.throat_velocity_1d() * self.throat_diameter_m / MU
     }
 }
 
@@ -290,7 +289,7 @@ fn run_1d(input: &VenturiValidationInput) -> FidelityBreakdown1D {
 
     let blood = ConstantPropertyFluid::new(
         "blood_newtonian_37c".to_string(),
-        MassDensity::from_base(RHO),
+        BLOOD_DENSITY,
         DynamicViscosity::from_base(MU),
         SpecificHeatCapacity::from_base(3617.0),
         ThermalConductivity::from_base(0.52),
@@ -380,8 +379,15 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
             ..SIMPLEConfig::default()
         }
     };
-    let mut solver =
-        VenturiSolver2D::new_stretched_with_config(geom, blood, RHO, 48, ny, beta, config);
+    let mut solver = VenturiSolver2D::new_stretched_with_config(
+        geom,
+        blood,
+        BLOOD_DENSITY.into_base(),
+        48,
+        ny,
+        beta,
+        config,
+    );
 
     let sol = match solver.solve(u_inlet) {
         Ok(sol) => sol,
@@ -397,7 +403,7 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     let u_throat_expected = u_inlet * input.inlet_diameter_m / input.throat_diameter_m.max(1e-12);
     let p_abs_inlet = P_ATM + input.inlet_gauge_pa;
     let p_abs_throat = p_abs_inlet + sol.dp_throat; // dp_throat is negative
-    let dyn_p = 0.5 * RHO * sol.u_throat * sol.u_throat;
+    let dyn_p = 0.5 * BLOOD_DENSITY.into_base() * sol.u_throat * sol.u_throat;
     let sigma = if dyn_p > 1e-12 {
         (p_abs_throat - P_VAPOR) / dyn_p
     } else {
@@ -518,7 +524,9 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     let mut fields = SimulationFields::<f64>::new(nx, ny);
 
     // Set density and viscosity for blood.
-    fields.density.map_inplace(|d| *d = RHO);
+    fields
+        .density
+        .map_inplace(|d| *d = BLOOD_DENSITY.into_base());
     fields.viscosity.map_inplace(|v| *v = MU);
 
     let dp_seed = run_1d(input)
@@ -591,7 +599,7 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     // solves plateaued near 2e-4 relative while burning the full step budget.
     // 1e-3 relative is the engineering convergence the downstream
     // `physically_informative` acceptance is calibrated to.
-    let nu = MU / RHO;
+    let nu = MU / BLOOD_DENSITY.into_base();
     let max_steps = 150;
     let dx_cell = l_total / ((nx - 1) as f64);
     let dy_cell = h_half / ((ny - 1) as f64);
@@ -600,11 +608,17 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     let target_residual = 1e-3 * divergence_scale;
     let dt_initial = 1e-6;
 
-    let _ =
-        match solver.solve_adaptive(&mut fields, dt_initial, nu, RHO, max_steps, target_residual) {
-            Ok((_dt_final, residual)) => residual < target_residual,
-            Err(_) => false,
-        };
+    let _ = match solver.solve_adaptive(
+        &mut fields,
+        dt_initial,
+        nu,
+        BLOOD_DENSITY.into_base(),
+        max_steps,
+        target_residual,
+    ) {
+        Ok((_dt_final, residual)) => residual < target_residual,
+        Err(_) => false,
+    };
 
     // Extract pressure drop: average p at inlet column vs throat column.
     let i_inlet = 1; // second column (avoid boundary)
@@ -660,7 +674,7 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     // Cavitation number.
     let p_abs_inlet = P_ATM + input.inlet_gauge_pa;
     let p_abs_throat = p_abs_inlet - dp_2d;
-    let dyn_p = 0.5 * RHO * u_throat * u_throat;
+    let dyn_p = 0.5 * BLOOD_DENSITY.into_base() * u_throat * u_throat;
     let sigma = if dyn_p > 1e-12 {
         (p_abs_throat - P_VAPOR) / dyn_p
     } else {

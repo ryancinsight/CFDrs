@@ -58,6 +58,7 @@ use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use super::rayleigh_plesset::RayleighPlesset;
+use crate::physics::fluid::blood::constants::BLOOD_DENSITY;
 
 /// Reference loading duration for membrane injury thresholds \[s].
 ///
@@ -65,8 +66,6 @@ use super::rayleigh_plesset::RayleighPlesset;
 /// timescale and scaled for faster/slower impulses by the Rayleigh collapse
 /// duration proxy.
 const REFERENCE_LOADING_DURATION_S: f64 = 0.1;
-/// Blood density proxy used for the Rayleigh collapse-time estimate [kg/m^3].
-const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Defined structural mechanics for cellular membranes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellularMembraneMechanics<T: FloatElement + Copy> {
@@ -123,7 +122,7 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
         let zero = <T as NumericElement>::ZERO;
         let one = <T as NumericElement>::ONE;
         let reference_duration = <T as FloatElement>::from_f64(REFERENCE_LOADING_DURATION_S);
-        let blood_density = <T as FloatElement>::from_f64(BLOOD_DENSITY_KG_M3);
+        let blood_density = BLOOD_DENSITY.cast();
 
         let collapse_pressure_pa = collapse_pressure.into_base();
         let bubble_radius_m = bubble_radius.into_base();
@@ -208,7 +207,7 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
         &self,
         bubble_radius_m: T,
         pressure_difference_pa: T,
-        blood_density: T,
+        blood_density: MassDensity<T>,
     ) -> T {
         if bubble_radius_m <= <T as NumericElement>::ZERO
             || pressure_difference_pa <= <T as NumericElement>::ZERO
@@ -218,7 +217,7 @@ impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
 
         let bubble = RayleighPlesset {
             initial_radius: Length::from_base(bubble_radius_m),
-            liquid_density: MassDensity::from_base(blood_density),
+            liquid_density: blood_density,
             liquid_viscosity: DynamicViscosity::from_base(<T as NumericElement>::ZERO),
             surface_tension: SurfaceTension::from_base(<T as NumericElement>::ZERO),
             vapor_pressure: Pressure::from_base(<T as NumericElement>::ZERO),

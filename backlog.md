@@ -2,6 +2,8 @@
 
 ## Published provider migration [major]
 
+- [major] Share the typed whole-blood density across cavitation,
+  Venturi optimization, and cross-fidelity validation.
 - The CFDrs source graph shares Aequitas 0.5, Leto 0.52, and their
   matching mesh, FFT, optimizer, and VTK providers.
 - Acceptance requires one provider identity in a standalone lock and the

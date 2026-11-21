@@ -50,6 +50,7 @@ use cfd_2d::solvers::ns_fvm::BloodModel;
 
 // ── cfd-core ────────────────────────────────────────────────────────────────
 use cfd_core::physics::fluid::CassonBlood;
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 
 // ── petgraph ────────────────────────────────────────────────────────────────
 use petgraph::visit::EdgeRef;
@@ -58,8 +59,6 @@ use petgraph::visit::EdgeRef;
 // Physical constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Blood density [kg/m³]
-const BLOOD_DENSITY: f64 = 1_060.0;
 /// Blood effective viscosity [Pa·s] (Newtonian approximation for 2D SIMPLE)
 const BLOOD_VISCOSITY: f64 = 3.5e-3;
 /// Inlet volumetric flow rate [m³/s] — 10 mL/min (millifluidic regime)
@@ -100,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let n_venturis = blueprint.venturi_channels().len();
     let d_h = 2.0 * width_m * height_m / (width_m + height_m);
     let u_mean = INLET_FLOW_M3_S / (width_m * height_m);
-    let re = BLOOD_DENSITY * u_mean * d_h / BLOOD_VISCOSITY;
+    let re = BLOOD_DENSITY.into_base() * u_mean * d_h / BLOOD_VISCOSITY;
     let de = re * (d_h / (2.0 * bend_radius_m)).sqrt();
 
     println!("Blueprint: {segments} segments, {n_venturis} venturi throats");
@@ -261,7 +260,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nx = 20_usize;
     let ny = 10_usize;
     let blood_2d = BloodModel::Newtonian(BLOOD_VISCOSITY);
-    let sink = Network2dBuilderSink::new(blood_2d, BLOOD_DENSITY, INLET_FLOW_M3_S, nx, ny);
+    let sink =
+        Network2dBuilderSink::new(blood_2d, BLOOD_DENSITY.into_base(), INLET_FLOW_M3_S, nx, ny);
     let mut net2d: Network2DSolver<f64> = sink.build(&blueprint)?;
     let result_2d = net2d.solve_all(1e-6)?;
 

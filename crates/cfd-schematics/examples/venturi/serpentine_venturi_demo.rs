@@ -28,6 +28,7 @@
 //! throat.  Placing the throat at the Dean apex maximises both cell
 //! concentration and wall shear — ideal for CTC cavitation in SDT.
 
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::interface::presets::serpentine_venturi_rect;
 #[path = "../shared/mod.rs"]
 mod shared;
@@ -118,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let d_h = 2.0 * configuration.channel_width_m * configuration.channel_height_m
             / (configuration.channel_width_m + configuration.channel_height_m);
         // Re at throat (blood: ρ=1060 kg/m³, μ=3.5e-3 Pa·s)
-        let rho = 1060.0_f64;
+        let rho = BLOOD_DENSITY.into_base();
         let mu = 3.5e-3_f64;
         // Approximate mean velocity for Re ~ 100 (typical millifluidic)
         let re_channel = 100.0_f64;

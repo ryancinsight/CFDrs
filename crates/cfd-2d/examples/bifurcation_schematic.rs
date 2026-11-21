@@ -20,6 +20,7 @@
 use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
 use cfd_core::physics::fluid::blood::CassonBlood;
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer, create_plotters_renderer,
@@ -141,7 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Casson blood model
     let casson = CassonBlood::<f64>::normal_blood();
-    let density = 1060.0_f64;
+    let density = BLOOD_DENSITY.into_base();
     let blood = BloodModel::Casson(casson);
     let u_inlet = 0.1_f64; // 100 mm/s
 

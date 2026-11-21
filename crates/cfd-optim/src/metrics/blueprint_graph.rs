@@ -14,7 +14,7 @@ use cfd_schematics::geometry::metadata::{
 };
 use petgraph::visit::EdgeRef;
 
-use crate::constraints::BLOOD_DENSITY_KG_M3;
+use crate::BLOOD_DENSITY;
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 
@@ -400,7 +400,7 @@ fn compute_blueprint_remerge_loss(
             })
             .max(1.0e-18);
         let velocity_m_s = q_combined / a_out;
-        total_loss_pa += k_merge * 0.5 * BLOOD_DENSITY_KG_M3 * velocity_m_s * velocity_m_s;
+        total_loss_pa += k_merge * 0.5 * BLOOD_DENSITY.into_base() * velocity_m_s * velocity_m_s;
     }
     total_loss_pa
 }

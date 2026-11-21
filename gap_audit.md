@@ -1,5 +1,11 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
 
+## Whole-blood density
+
+Cavitation, optimization, and Venturi cross-fidelity validation use the
+canonical typed density. The Venturi pressure test exercises density scaling
+and the invariance under reversing velocity.
+
 ## Aequitas 0.5 and RITK VTK 0.5
 
 The standalone CFDrs cohort uses one registry Aequitas 0.5, Eunomia

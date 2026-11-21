@@ -17,6 +17,7 @@ use std::io;
 
 use cfd_2d::solvers::bifurcation_flow::{BifurcationGeometry, BifurcationSolver2D};
 use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 
 /// Relative mass-balance limit for the converged symmetric grid.
@@ -25,8 +26,6 @@ const SYMMETRIC_MASS_BALANCE_LIMIT: f64 = 0.05;
 const SYMMETRY_FLOW_LIMIT: f64 = 0.05;
 /// Relative mass-balance limit for the asymmetric cross-fidelity grid.
 const ASYMMETRIC_MASS_BALANCE_LIMIT: f64 = 0.10;
-/// Blood density for both solved cases, in kg/m³.
-const BLOOD_DENSITY: f64 = 1060.0;
 /// Prescribed inlet velocity for both solved cases, in m/s.
 ///
 /// This is the operating point exercised by the canonical `cfd-2d`
@@ -70,7 +69,8 @@ fn solve(
     ny: usize,
     config: SIMPLEConfig<f64>,
 ) -> Result<ValidationResult, Box<dyn Error>> {
-    let mut solver = BifurcationSolver2D::new(geometry, blood, BLOOD_DENSITY, nx, ny, config);
+    let mut solver =
+        BifurcationSolver2D::new(geometry, blood, BLOOD_DENSITY.into_base(), nx, ny, config);
     let solution = solver.solve(INLET_VELOCITY)?;
 
     Ok(ValidationResult {

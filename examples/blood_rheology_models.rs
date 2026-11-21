@@ -50,6 +50,8 @@ use std::io::Write;
 use plotters::prelude::*;
 
 // cfd-core blood models
+use aequitas::systems::si::quantities::Dimensionless;
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood, CrossBlood};
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,8 +64,6 @@ const D: f64 = 1.0e-3;
 const L: f64 = 30.0e-3;
 /// Flow rate [m³/s]  (1 mL min⁻¹)
 const Q: f64 = 1.0e-6 / 60.0;
-/// Blood density [kg/m³]
-const RHO: f64 = 1_060.0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hematocrit levels to sweep in the sensitivity study
@@ -92,7 +92,7 @@ fn hagen_poiseuille_dp(mu: f64) -> f64 {
 
 /// Reynolds number Re = ρ V D / μ
 fn reynolds(mu_app: f64) -> f64 {
-    RHO * mean_velocity() * D / mu_app
+    BLOOD_DENSITY.into_base() * mean_velocity() * D / mu_app
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -324,15 +324,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("{}", "─".repeat(65));
     for &ht in &HEMATOCRIT_LEVELS {
-        let blood_ht = CassonBlood::<f64>::with_hematocrit(ht);
+        let blood_ht = CassonBlood::<f64>::with_hematocrit(Dimensionless::from_base(ht));
         let mu_ht = blood_ht.apparent_viscosity(gamma_w);
         let dp_ht = hagen_poiseuille_dp(mu_ht);
         let re_ht = reynolds(mu_ht);
         println!(
             "{:>8.2}  {:>16.3}  {:>16.4}  {:>10.2}  {:>10.1}",
             ht,
-            blood_ht.yield_stress * 1e3,
-            blood_ht.infinite_shear_viscosity * 1e3,
+            blood_ht.yield_stress.into_base() * 1e3,
+            blood_ht.infinite_shear_viscosity.into_base() * 1e3,
             dp_ht,
             re_ht
         );
@@ -550,7 +550,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let dp_sweep: Vec<f64> = ht_sweep
             .iter()
             .map(|&ht| {
-                let b = CassonBlood::<f64>::with_hematocrit(ht);
+                let b = CassonBlood::<f64>::with_hematocrit(Dimensionless::from_base(ht));
                 let mu = b.apparent_viscosity(gamma_w);
                 hagen_poiseuille_dp(mu)
             })

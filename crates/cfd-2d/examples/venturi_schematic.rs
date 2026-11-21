@@ -18,6 +18,7 @@
 
 use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, VenturiSolver2D};
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
     AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer, create_plotters_renderer,
@@ -103,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let geom = VenturiGeometry::<f64>::iso_5167_standard();
     let u_inlet = 0.1_f64; // 100 mm/s
-    let density = 1060.0_f64; // kg/m³ (blood)
+    let density = BLOOD_DENSITY.into_base();
 
     println!("  Inlet width:  {:.1} mm", geom.w_inlet * 1000.0);
     println!("  Throat width: {:.2} mm", geom.w_throat * 1000.0);
