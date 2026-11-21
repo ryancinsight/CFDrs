@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 #![allow(clippy::unwrap_used)]
 use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::Velocity;
 use cfd_1d::domain::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator};
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ fn porous_membrane_component_returns_positive_resistance() {
 fn resistance_calculator_supports_membrane_model() {
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let calc = ResistanceCalculator::<f64>::new();
-    let conditions = FlowConditions::new(0.0);
+    let conditions = FlowConditions::new(Velocity::from_base(0.0));
 
     let r = calc
         .calculate_membrane_porous(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2, &fluid, &conditions)

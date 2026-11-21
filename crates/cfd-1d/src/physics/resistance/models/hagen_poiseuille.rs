@@ -95,7 +95,10 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or(T::ZERO);
+        let q = conditions
+            .flow_rate
+            .map(aequitas::Quantity::into_base)
+            .unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
         Ok(r + k * q_abs)
     }
@@ -106,7 +109,8 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
         // Calculate shear rate if not provided
-        let shear_rate = if let Some(sr) = conditions.shear_rate {
+        let shear_rate = if let Some(sr) = conditions.shear_rate.map(aequitas::Quantity::into_base)
+        {
             if sr < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Hagen-Poiseuille wall shear rate must be nonnegative".to_string(),
@@ -114,9 +118,9 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
             }
             sr
         } else {
-            let v = if let Some(vel) = conditions.velocity {
+            let v = if let Some(vel) = conditions.velocity.map(aequitas::Quantity::into_base) {
                 vel
-            } else if let Some(q) = conditions.flow_rate {
+            } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
                 let pi = T::pi();
                 let area = pi * self.diameter * self.diameter / (T::ONE + T::ONE + T::ONE + T::ONE);
                 q / area
@@ -128,7 +132,11 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
         };
 
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         let pi = T::pi();
@@ -193,6 +201,7 @@ impl<T: CfdScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::ReciprocalTime;
     use aequitas::systems::si::quantities::{
         DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
     };
@@ -217,7 +226,7 @@ mod tests {
         // mu=0.001, L=0.01, D=0.001
         // R = 128 * 0.001 * 0.01 / (pi * 1e-12) = 1.28e-3 / (pi * 1e-12)
         let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (r, _k) = model
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
@@ -230,7 +239,7 @@ mod tests {
     fn coefficients_zero_quadratic_term() {
         // Hagen-Poiseuille is purely linear: k = 0
         let model = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (_r, k) = model
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
@@ -241,7 +250,7 @@ mod tests {
     fn very_small_diameter_produces_large_resistance() {
         let large = HagenPoiseuilleModel::new(0.001_f64, 0.01_f64);
         let small = HagenPoiseuilleModel::new(0.0001_f64, 0.01_f64);
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (r_large, _) = large
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
@@ -260,8 +269,8 @@ mod tests {
     fn non_newtonian_resistance_is_reverse_flow_invariant() {
         let model = HagenPoiseuilleModel::new(0.0005_f64, 0.02_f64);
         let blood = CassonBlood::<f64>::normal_blood();
-        let forward = FlowConditions::new(0.04);
-        let reverse = FlowConditions::new(-0.04);
+        let forward = FlowConditions::new(Velocity::from_base(0.04));
+        let reverse = FlowConditions::new(Velocity::from_base(-0.04));
 
         let (r_forward, k_forward) = model
             .calculate_coefficients(&blood, &forward)
@@ -278,8 +287,8 @@ mod tests {
     #[test]
     fn negative_explicit_shear_rate_is_rejected() {
         let model = HagenPoiseuilleModel::new(0.001_f64, 0.02_f64);
-        let mut conditions = FlowConditions::new(0.04);
-        conditions.shear_rate = Some(-1.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.04));
+        conditions.shear_rate = Some(ReciprocalTime::from_base(-1.0));
 
         let err = model
             .calculate_coefficients(&water(), &conditions)
@@ -290,7 +299,7 @@ mod tests {
 
     #[test]
     fn negative_dimensions_rejected() {
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
 
         let neg_diam = HagenPoiseuilleModel::new(-0.001_f64, 0.01_f64);
         assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());

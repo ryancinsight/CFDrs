@@ -143,9 +143,9 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
 
         // For automatic model selection and basic analyzers that expect a single R value,
         // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
-        let q_mag = if let Some(q) = conditions.flow_rate {
+        let q_mag = if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             if q >= T::ZERO { q } else { -q }
-        } else if let Some(v) = conditions.velocity {
+        } else if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.area
         } else {
@@ -160,13 +160,16 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
         let area = self.area;
 
-        let velocity = if let Some(v) = conditions.velocity {
+        let velocity = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / area
         } else {
             T::ZERO
@@ -179,28 +182,36 @@ impl<T: CfdScalar> ResistanceModel<T> for DarcyWeisbachModel<T> {
 
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
-        let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::ZERO {
-                return Err(Error::PhysicsViolation(
-                    "Darcy-Weisbach wall shear rate must be nonnegative".to_string(),
-                ));
-            }
-            shear_rate
-        } else {
-            <T as FloatElement>::from_f64(8.0) * v_abs / self.hydraulic_diameter
-        };
+        let shear_rate =
+            if let Some(shear_rate) = conditions.shear_rate.map(aequitas::Quantity::into_base) {
+                if shear_rate < T::ZERO {
+                    return Err(Error::PhysicsViolation(
+                        "Darcy-Weisbach wall shear rate must be nonnegative".to_string(),
+                    ));
+                }
+                shear_rate
+            } else {
+                <T as FloatElement>::from_f64(8.0) * v_abs / self.hydraulic_diameter
+            };
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         // Auto-compute Reynolds number when not explicitly provided.
         // Re = ρ·V·D_h / μ   (derived from velocity or flow_rate)
-        let reynolds = if let Some(re) = conditions.reynolds_number {
+        let reynolds = if let Some(re) = conditions
+            .reynolds_number
+            .map(aequitas::Quantity::into_base)
+        {
             re
         } else {
-            let velocity = if let Some(v) = conditions.velocity {
+            let velocity = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
                 v
-            } else if let Some(q) = conditions.flow_rate {
+            } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
                 q / area
             } else {
                 T::ZERO
@@ -447,6 +458,9 @@ impl<T: CfdScalar> DarcyWeisbachModel<T> {
 mod tests {
     use super::*;
     use aequitas::systems::si::quantities::{
+        Dimensionless, ReciprocalTime, ThermodynamicTemperature,
+    };
+    use aequitas::systems::si::quantities::{
         DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
     };
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
@@ -455,12 +469,12 @@ mod tests {
     /// Helper: water at 20C, circular pipe, with given Re passed directly.
     fn conditions_with_re(re: f64) -> FlowConditions<f64> {
         FlowConditions {
-            reynolds_number: Some(re),
-            velocity: Some(1.0),
+            reynolds_number: Some(Dimensionless::from_base(re)),
+            velocity: Some(Velocity::from_base(1.0)),
             flow_rate: None,
             shear_rate: None,
-            temperature: 293.15,
-            pressure: 101325.0,
+            temperature: ThermodynamicTemperature::from_base(293.15),
+            pressure: aequitas::systems::si::quantities::Pressure::from_base(101325.0),
         }
     }
 
@@ -532,9 +546,9 @@ mod tests {
         let model = DarcyWeisbachModel::circular(0.001, 0.1, 0.0);
         let blood = CassonBlood::<f64>::normal_blood();
         let mut low_shear = conditions_with_re(500.0);
-        low_shear.shear_rate = Some(10.0);
+        low_shear.shear_rate = Some(ReciprocalTime::from_base(10.0));
         let mut high_shear = conditions_with_re(500.0);
-        high_shear.shear_rate = Some(1000.0);
+        high_shear.shear_rate = Some(ReciprocalTime::from_base(1000.0));
 
         let (low_r, low_k) = model
             .calculate_coefficients(&blood, &low_shear)
@@ -556,7 +570,7 @@ mod tests {
         let model = DarcyWeisbachModel::circular(0.001, 0.1, 0.0);
         let fluid = water();
         let mut conditions = conditions_with_re(500.0);
-        conditions.shear_rate = Some(-1.0);
+        conditions.shear_rate = Some(ReciprocalTime::from_base(-1.0));
 
         let err = model
             .calculate_coefficients(&fluid, &conditions)
@@ -574,10 +588,10 @@ mod tests {
         let blood = CassonBlood::<f64>::normal_blood();
         let mut forward = conditions_with_re(500.0);
         forward.reynolds_number = None;
-        forward.velocity = Some(0.04);
+        forward.velocity = Some(Velocity::from_base(0.04));
         let mut reverse = conditions_with_re(500.0);
         reverse.reynolds_number = None;
-        reverse.velocity = Some(-0.04);
+        reverse.velocity = Some(Velocity::from_base(-0.04));
 
         let (forward_r, forward_k) = model
             .calculate_coefficients(&blood, &forward)

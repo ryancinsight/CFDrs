@@ -11,6 +11,7 @@ use super::super::{
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
+use aequitas::systems::si::quantities::Velocity;
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
@@ -333,8 +334,8 @@ where
             refined = venturi_coefficients::<T, F>(venturi, network.fluid()).ok();
         }
 
-        let mut conds = FlowConditions::new(T::ZERO);
-        conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
+        let mut conds = FlowConditions::new(Velocity::from_base(T::ZERO));
+        conds.flow_rate = Some(VolumetricFlowRate::from_base(T::from_f64_or_zero(1e-12)));
         if refined.is_none() {
             refined = calculator
                 .calculate_coefficients_auto(&res_geom, network.fluid(), &conds)
@@ -360,7 +361,10 @@ where
                 }
 
                 if is_blood_like && dh_f64 < 300.0e-6 {
-                    let q_seed_t = conds.flow_rate.unwrap_or(T::ZERO);
+                    let q_seed_t = conds
+                        .flow_rate
+                        .map(aequitas::Quantity::into_base)
+                        .unwrap_or(T::ZERO);
                     let q_seed = <T as NumericElement>::to_f64(q_seed_t);
                     let area = area.into_base();
                     let area_f64 = <T as NumericElement>::to_f64(area);
@@ -380,8 +384,8 @@ where
                             .fluid()
                             .viscosity_at_shear(
                                 T::from_f64_or_zero(local_shear_rate),
-                                conds.temperature,
-                                conds.pressure,
+                                conds.temperature.into_base(),
+                                conds.pressure.into_base(),
                             )
                             .map_or(default_plasma_viscosity, |value| value.into_base());
                         if local_mu > T::default_epsilon() {
@@ -478,8 +482,8 @@ where
                 }
             };
 
-            let mut conds: FC<T> = FC::new(T::ZERO);
-            conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
+            let mut conds: FC<T> = FC::new(Velocity::from_base(T::ZERO));
+            conds.flow_rate = Some(VolumetricFlowRate::from_base(T::from_f64_or_zero(1e-12)));
 
             if let Ok((r_total, k_total)) =
                 serp_model.calculate_coefficients(network.fluid(), &conds)

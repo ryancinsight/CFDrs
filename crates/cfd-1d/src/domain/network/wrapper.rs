@@ -6,6 +6,7 @@ use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
     QuadraticHydraulicResistance, VolumetricFlowRate,
 };
+use aequitas::systems::si::quantities::{Dimensionless, ReciprocalTime, ThermodynamicTemperature};
 use cfd_core::CfdScalar;
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
@@ -456,9 +457,9 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         T: NumericElement + FloatElement,
     {
         let mut conditions = crate::physics::resistance::FlowConditions::from_flow_rate(
-            <T as NumericElement>::abs(flow_rate),
+            VolumetricFlowRate::from_base(<T as NumericElement>::abs(flow_rate)),
         );
-        conditions.temperature = t_std;
+        conditions.temperature = ThermodynamicTemperature::from_base(t_std);
         let mut apparent_viscosity = None;
         if let Some(d_h) = props.hydraulic_diameter {
             let d_h = d_h.into_base();
@@ -468,15 +469,16 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 let shear_rate = eight * velocity / d_h;
                 let apparent_viscosity_local = self.fluid.viscosity_at_shear(
                     shear_rate,
-                    conditions.temperature,
-                    conditions.pressure,
+                    conditions.temperature.into_base(),
+                    conditions.pressure.into_base(),
                 )?;
-                conditions.shear_rate = Some(shear_rate);
+                conditions.shear_rate = Some(ReciprocalTime::from_base(shear_rate));
                 let apparent_viscosity_local = apparent_viscosity_local.into_base();
                 apparent_viscosity = Some(apparent_viscosity_local);
                 if apparent_viscosity_local > epsilon {
-                    conditions.reynolds_number =
-                        Some(density * velocity * d_h / apparent_viscosity_local);
+                    conditions.reynolds_number = Some(Dimensionless::from_base(
+                        density * velocity * d_h / apparent_viscosity_local,
+                    ));
                 }
             }
         }
@@ -553,7 +555,7 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             let use_rectangular_darcy_surrogate = is_rectangular
                 && conditions
                     .reynolds_number
-                    .is_some_and(|re| re >= rectangular_laminar_max);
+                    .is_some_and(|re| re.into_base() >= rectangular_laminar_max);
 
             let (mut resistance, quad_coeff) = if use_rectangular_darcy_surrogate {
                 use crate::physics::resistance::models::ResistanceModel;

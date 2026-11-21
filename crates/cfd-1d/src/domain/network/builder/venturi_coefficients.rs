@@ -8,6 +8,7 @@
 //! model into its zero-flow fallback and suppresses the angle-dependent inertial
 //! loss coefficient.
 
+use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -91,7 +92,9 @@ where
         });
     model.throat_roughness = T::from_f64_or_zero(1e-7);
 
-    let conds = ModelFlowConditions::from_flow_rate(T::from_f64_or_zero(1e-12));
+    let conds = ModelFlowConditions::from_flow_rate(VolumetricFlowRate::from_base(
+        T::from_f64_or_zero(1e-12),
+    ));
     model.calculate_coefficients(fluid, &conds)
 }
 
@@ -99,6 +102,7 @@ where
 mod tests {
     use super::venturi_coefficients;
     use aequitas::systems::si::quantities::{Angle, Dimensionless, Length};
+    use aequitas::systems::si::quantities::{Velocity, VolumetricFlowRate};
     use cfd_core::physics::fluid::database::water_20c;
     use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
     use eunomia::assert_relative_eq;
@@ -158,7 +162,8 @@ mod tests {
                     half_angle_deg: divergent_angle,
                 });
 
-        let conditions = ModelFlowConditions::from_flow_rate(1.0e-12);
+        let conditions =
+            ModelFlowConditions::from_flow_rate(VolumetricFlowRate::from_base(1.0e-12));
         let (manual_r, manual_k) = manual.calculate_coefficients(&fluid, &conditions)?;
 
         assert_relative_eq!(r, manual_r, epsilon = manual_r.abs().max(1.0) * 1e-12);
@@ -215,11 +220,12 @@ mod tests {
                 half_angle_deg: divergent_angle,
             });
 
-        let flow_probe = ModelFlowConditions::from_flow_rate(1.0e-12);
+        let flow_probe =
+            ModelFlowConditions::from_flow_rate(VolumetricFlowRate::from_base(1.0e-12));
         let (_, flow_probe_k) = manual.calculate_coefficients(&fluid, &flow_probe)?;
 
-        let mut zero_velocity = ModelFlowConditions::new(0.0);
-        zero_velocity.flow_rate = Some(1.0e-12);
+        let mut zero_velocity = ModelFlowConditions::new(Velocity::from_base(0.0));
+        zero_velocity.flow_rate = Some(VolumetricFlowRate::from_base(1.0e-12));
         let (_, zero_velocity_k) = manual.calculate_coefficients(&fluid, &zero_velocity)?;
 
         assert_relative_eq!(

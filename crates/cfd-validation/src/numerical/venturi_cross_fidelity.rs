@@ -21,6 +21,7 @@
 //! [`FidelityBreakdown1D`] of the 1D model so discrepancies are
 //! self-documenting rather than requiring post-hoc explanation.
 
+use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -284,8 +285,8 @@ fn run_1d(input: &VenturiValidationInput) -> FidelityBreakdown1D {
     );
 
     let v_inlet = input.inlet_velocity_1d();
-    let mut cond = FlowConditions::new(v_inlet);
-    cond.flow_rate = Some(input.flow_rate_m3_s);
+    let mut cond = FlowConditions::new(Velocity::from_base(v_inlet));
+    cond.flow_rate = Some(VolumetricFlowRate::from_base(input.flow_rate_m3_s));
 
     let blood = ConstantPropertyFluid::new(
         "blood_newtonian_37c".to_string(),

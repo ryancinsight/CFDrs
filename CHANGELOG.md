@@ -30,6 +30,11 @@
 
 ### Breaking
 
+- [major] Construct resistance-model `FlowConditions` with Aequitas
+  velocity or volumetric flow. Its Reynolds number, shear rate,
+  absolute pressure, and thermodynamic temperature are quantity fields.
+  Existing Python numeric arguments continue to enter through SI adapters.
+
 - [major] Use length and area quantities for `JunctionLossModel` geometry,
   `MassDensity` for reference density, and `VolumetricFlowRate` for the
   linearisation input. The model returns typed loss coefficient and

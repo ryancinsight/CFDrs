@@ -199,9 +199,9 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
     ) -> Result<T> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
 
-        let q_mag = if let Some(q) = conditions.flow_rate {
+        let q_mag = if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             if q >= T::ZERO { q } else { -q }
-        } else if let Some(v) = conditions.velocity {
+        } else if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             let area = <T as FloatElement>::from_f64(self.cross_section.area());
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * area
@@ -217,16 +217,19 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<(T, T)> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
 
         let dh = <T as FloatElement>::from_f64(self.cross_section.hydraulic_diameter());
         let area = <T as FloatElement>::from_f64(self.cross_section.area());
 
         // Get velocity orientation, then use its magnitude for scalar losses.
-        let velocity = if let Some(v) = conditions.velocity {
+        let velocity = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / area
         } else {
             T::ZERO
@@ -244,7 +247,11 @@ impl<T: CfdScalar> ResistanceModel<T> for SerpentineModel<T> {
 
         // Get viscosity (supports non-Newtonian)
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         // Reynolds number

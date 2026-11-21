@@ -3,6 +3,9 @@
 use aequitas::systems::si::quantities::{
     Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
 };
+use aequitas::systems::si::quantities::{
+    Dimensionless, ReciprocalTime, ThermodynamicTemperature, Velocity,
+};
 use cfd_1d::domain::network::{
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
     EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
@@ -161,10 +164,12 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
 
     net.update_resistances()?;
 
-    let mut conditions = FlowConditions::new(0.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.0));
     conditions.velocity = None;
-    conditions.flow_rate = Some(flow_rate);
-    conditions.temperature = cfd_core::physics::constants::physics::thermo::T_STANDARD;
+    conditions.flow_rate = Some(VolumetricFlowRate::from_base(flow_rate));
+    conditions.temperature = ThermodynamicTemperature::from_base(
+        cfd_core::physics::constants::physics::thermo::T_STANDARD,
+    );
 
     let calculator = ResistanceCalculator::<F>::new();
     let (base_resistance, _) = calculator.calculate_coefficients_auto(
@@ -173,9 +178,10 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
         &conditions,
     )?;
 
-    let fluid_state = net
-        .fluid()
-        .properties_at(conditions.temperature, conditions.pressure)?;
+    let fluid_state = net.fluid().properties_at(
+        conditions.temperature.into_base(),
+        conditions.pressure.into_base(),
+    )?;
     let velocity = flow_rate / area;
     let reynolds =
         (fluid_state.density * velocity * diameter / fluid_state.dynamic_viscosity).into_base();
@@ -237,10 +243,12 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
 
     net.update_resistances()?;
 
-    let mut conditions = FlowConditions::new(0.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.0));
     conditions.velocity = None;
-    conditions.flow_rate = Some(flow_rate);
-    conditions.temperature = cfd_core::physics::constants::physics::thermo::T_STANDARD;
+    conditions.flow_rate = Some(VolumetricFlowRate::from_base(flow_rate));
+    conditions.temperature = ThermodynamicTemperature::from_base(
+        cfd_core::physics::constants::physics::thermo::T_STANDARD,
+    );
 
     let calculator = ResistanceCalculator::<F>::new();
     let (base_resistance, _) = calculator.calculate_coefficients_auto(
@@ -249,9 +257,10 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
         &conditions,
     )?;
 
-    let fluid_state = net
-        .fluid()
-        .properties_at(conditions.temperature, conditions.pressure)?;
+    let fluid_state = net.fluid().properties_at(
+        conditions.temperature.into_base(),
+        conditions.pressure.into_base(),
+    )?;
     let target_mu = blood_microchannel_apparent_viscosity(
         diameter,
         flow_rate,
@@ -263,7 +272,11 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
     let shear_rate = 8.0 * (flow_rate / area) / diameter;
     let base_mu = net
         .fluid()
-        .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+        .viscosity_at_shear(
+            shear_rate,
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?
         .into_base();
     let expected_factor = target_mu / base_mu;
 
@@ -504,12 +517,14 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
 
     net.update_resistances()?;
 
-    let mut conditions = FlowConditions::new(0.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.0));
     conditions.velocity = None;
-    conditions.flow_rate = Some(flow_rate);
-    conditions.temperature = cfd_core::physics::constants::physics::thermo::T_STANDARD;
-    conditions.shear_rate = Some(shear_rate);
-    conditions.reynolds_number = Some(shear_aware_re);
+    conditions.flow_rate = Some(VolumetricFlowRate::from_base(flow_rate));
+    conditions.temperature = ThermodynamicTemperature::from_base(
+        cfd_core::physics::constants::physics::thermo::T_STANDARD,
+    );
+    conditions.shear_rate = Some(ReciprocalTime::from_base(shear_rate));
+    conditions.reynolds_number = Some(Dimensionless::from_base(shear_aware_re));
 
     let calculator = ResistanceCalculator::<F>::new();
     let (expected_resistance, expected_k) = calculator.calculate_hagen_poiseuille_coefficients(
