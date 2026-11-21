@@ -1076,7 +1076,7 @@ fn apply_resistance_corrections<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
             let reynolds = density * velocity * d_h / viscosity;
             let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
             let multiplier = T::ONE + k_entrance / (sixty_four * l_over_dh).max(T::ONE);
-            *r = *r * multiplier;
+            *r *= multiplier;
         }
 
         if is_blood_like && d_h < microchannel_limit {
@@ -1094,7 +1094,7 @@ fn apply_resistance_corrections<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
                 if let Some(target_mu) = target_mu {
                     let ratio = target_mu / local_mu;
                     if ratio.is_finite() && ratio > epsilon {
-                        *r = *r * ratio;
+                        *r *= ratio;
                     }
                 }
             }

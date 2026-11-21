@@ -1,4 +1,8 @@
-# ADR 0006 — Type hydraulic resistance model outputs
+# ADR 0006: Type hydraulic resistance model outputs
+
+- Status: Proposed
+- Class: [major]
+- Date: 2026-11-21
 
 ## Decision
 

@@ -97,7 +97,7 @@ fn cross_fidelity_dean_flow_resistance() {
         &conditions,
     )
     .expect("1D serpentine calculation failed");
-    let dp_serp_1d = r_serp_1d * flow_rate;
+    let dp_serp_1d = (r_serp_1d * VolumetricFlowRate::from_base(flow_rate)).into_base();
 
     // 4. [2D] Planar Serpentine 2D Navier-Stokes Solver
     let geom_2d = SerpentineGeometry2D::new(width, height, l_straight, turn_radius, n_cycles);
