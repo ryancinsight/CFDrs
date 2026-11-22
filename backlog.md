@@ -1,3 +1,13 @@
+<a id="cfdrs-stable-qualification"></a>
+## CFDRS-STABLE-QUALIFICATION — CFDrs stable-release qualification [patch] — todo
+- priority: verification; milestone: M-newton; basis: `40021147e365`.
+- Outcome: Close solver recovery and the unpublished coupling edge on separate tracks. Follow the [release scope](docs/adr/0002-release-scope-1-0.md) and `M-newton`.
+- Representative manifest `cfd-core 0.3.0`. Target 1.0.0. Index coverage at review: 0/11 publish-enabled workspace versions.
+- [ ] [patch] Run the bounded Newton–Krylov recovery and problem-scaled SIMPLEC cases on the current source. Record converged values, residual histories and the specified failure when recovery is exhausted.
+- [ ] [minor] Validate typed transfer in the real Harmonia consumer and mesh/time/pressure identities across the provider graph. Track the cfd-2d registry blocker until Harmonia has an admitted distribution.
+- [ ] [major] Complete M-validation, M-python and M-hygiene. Verify an end-to-end analytical flow case and a clean Rust or wheel consumer for each declared distribution before freezing the fluids API.
+- [ ] [patch] Attach exact-revision evidence for the local exits and this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
+
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
 
 ## Published provider migration [major]
