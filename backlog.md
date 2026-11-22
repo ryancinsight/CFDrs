@@ -109,7 +109,7 @@ anything there is unverified -- do not assume it matches.
 
 <a id="CFDRS-GA-014A"></a>
 ## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch]
-- Status: todo; priority: P1; integrator: Codex; last-update: 2026-09-23.
+- Status: todo; priority: verification; urgency: P1; integrator: Codex; last-update: 2026-09-23.
 - milestone: M-python.
 
 
@@ -121,7 +121,7 @@ anything there is unverified -- do not assume it matches.
 
 <a id="ATLAS-PUBLISH-001-CFDRS-PYPI"></a>
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch]
-- Status: todo; priority: P1; integrator: Atlas coordinator; last-update: 2026-09-23.
+- Status: todo; priority: feature; urgency: P1; integrator: Atlas coordinator; last-update: 2026-09-23.
 - milestone: M-python.
 
 
@@ -144,7 +144,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Run the focused provider checks and hosted release dry-run at the exact source head; do not change registry-side trusted-publisher settings.
 <a id="ATLAS-CFDRS-RUNTIME-109"></a>
 ## ATLAS-CFDRS-RUNTIME-109 — Honor problem-scaled SIMPLEC targets [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: correctness; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -177,7 +177,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Push the final source head and pass the exact hosted Rust and Pages gates without changing the committed budget or workloads.
 <a id="ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108"></a>
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 — Reuse SIMPLEC pressure-solid workspaces [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: tightening; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -200,7 +200,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Publish the exact source head and pass the provider hosted Rust and Pages gates. Keep the 30-second test budget and workloads unchanged.
 <a id="ATLAS-CFDRS-PRESSURE-CACHE-102"></a>
 ## ATLAS-CFDRS-PRESSURE-CACHE-102 — Remove repeated pressure-matrix clones [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: tightening; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -261,7 +261,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Verify the Cargo example gate against Apollo's merged default `ed6d6905afda394a9e12570543159ab1b262589e`, which contains provider fix `81583aab8b3eb48c96d138e3980e2c554d9d83fa`; the peer-dirty local overlay remains at `c87a1abe` and is not modified. The current local `cargo check --locked --examples` stops before compilation on the shared overlay/lock mismatch; hosted exact-head package verification remains the reproducible closure gate.
 <a id="ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104"></a>
 ## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 — Verify the example gate against Apollo's merged PlanScratch export [arch]
-- Status: blocked; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: blocked; priority: verification; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-blocked-external.
 
 
@@ -285,7 +285,7 @@ closure check.
 
 <a id="ATLAS-CFDRS-JFNK-RECOVERY-110"></a>
 ## ATLAS-CFDRS-JFNK-RECOVERY-110 — Converge the primary loop after JFNK recovery [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
   last-update: 2026-11-14.
 - milestone: M-newton.
 **Outcome:** a Picard stall that engages the JFNK recovery ends in a converged
@@ -302,7 +302,7 @@ lagged-`|Q|` linearization, then re-pin the three `jfnk_recovery.rs` tests.
 
 <a id="ATLAS-CFDRS-STALL-DETECTOR-111"></a>
 ## ATLAS-CFDRS-STALL-DETECTOR-111 — Make `is_stalling` match its contract [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
   last-update: 2026-11-14.
 **Outcome:** `FallbackBudget::is_stalling` fires only on a window of
 `stall_window` non-trivial samples, as its doc says. **Evidence:** the code
@@ -316,7 +316,7 @@ and its `tests.rs`. **Next step:** count usable samples and require
 
 <a id="ATLAS-CFDRS-STAGNATED-OUTCOME-112"></a>
 ## ATLAS-CFDRS-STAGNATED-OUTCOME-112 — Map `Termination::Stagnated` to `BrokenDown` [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
   last-update: 2026-11-16.
 - milestone: M-newton.
 **Outcome:** `krylov::interpret` returns `Ok(SolveOutcome::BrokenDown)` for `Termination::Stagnated`,
