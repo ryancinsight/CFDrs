@@ -110,7 +110,7 @@ athena-core = { version = "0.4.0", git = "https://github.com/ryancinsight/athena
 athena-leto = { version = "0.5.0", git = "https://github.com/ryancinsight/athena" }
 # harmonia: provider-owned transactional relaxation policies used by the
 # coupled resistance iteration in cfd-2d.
-harmonia = { version = "0.1.0", git = "https://github.com/ryancinsight/harmonia", default-features = false, features = ["std"] }
+harmonia = { package = "harmonia-coupling", version = "0.1.4", git = "https://github.com/ryancinsight/harmonia", rev = "228279dfb8a623ffe7cabaa5f7cc4c8e4140290b", default-features = false, features = ["std"] }
 # coeus: Atlas tensor/autodiff/NN/optimizer stack. coeus-optim's least-squares
 # (Levenberg-Marquardt) solver calibrates turbulence model constants against
 # DNS reference profiles in cfd-2d/physics/turbulence/constants_validation.

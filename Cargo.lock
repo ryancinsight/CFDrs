@@ -507,7 +507,7 @@ dependencies = [
  "criterion",
  "eunomia",
  "gaia-mesh",
- "harmonia",
+ "harmonia-coupling",
  "iris-viz",
  "leto",
  "leto-ops",
@@ -1511,9 +1511,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "harmonia"
+name = "harmonia-coupling"
 version = "0.1.4"
-source = "git+https://github.com/ryancinsight/harmonia#3b16405022ba99ed00fdbd675bd1c186bf7ddad3"
+source = "git+https://github.com/ryancinsight/harmonia?rev=228279dfb8a623ffe7cabaa5f7cc4c8e4140290b#228279dfb8a623ffe7cabaa5f7cc4c8e4140290b"
 dependencies = [
  "aequitas",
  "athena-core",
