@@ -1,3 +1,10 @@
+
+## Incremental release baseline
+
+Reviewed [cfd-core 0.3.0](crates/cfd-core/Cargo.toml) at [7dc44c5bee2c](https://github.com/ryancinsight/CFDrs/tree/7dc44c5bee2c311fd1309f647abbcb62976e8d84). The registry has no entry for this package and version. First publication requires a verified package graph and a clean consumer.
+
+The next [patch] checkpoint uses [jfnk recovery](crates/cfd-1d/tests/main/jfnk_recovery.rs). [Target version and acceptance criteria](backlog.md#cfdrs-stable-qualification).
+
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
 
 ## Junction minor loss
