@@ -179,10 +179,7 @@ impl PerformanceProfiler {
     fn display_report(report: &PerformanceReport) {
         tracing::info!("\n📊 Performance Profiling Summary");
         tracing::info!("===============================");
-        tracing::info!(
-            "Timestamp: {}",
-            format_args!("{:#}", report.timestamp)
-        );
+        tracing::info!("Timestamp: {:#}", report.timestamp);
         tracing::info!(
             "Total Algorithms Profiled: {}",
             report.summary.total_profiles
