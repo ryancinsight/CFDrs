@@ -30,6 +30,7 @@ use aequitas::systems::si::quantities::{
     Angle, DynamicViscosity, Length, MassDensity, Pressure, SpecificHeatCapacity,
     ThermalConductivity, Velocity,
 };
+use aequitas::systems::si::quantities::{ThermodynamicTemperature, VolumetricFlowRate};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator, VenturiModel};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
@@ -265,14 +266,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let conditions = FlowConditions {
                 reynolds_number: None,
                 velocity: None,
-                flow_rate: Some(q),
+                flow_rate: Some(VolumetricFlowRate::from_base(q)),
                 shear_rate: None,
-                temperature: 298.15,
-                pressure: p_up,
+                temperature: ThermodynamicTemperature::from_base(298.15),
+                pressure: Pressure::from_base(p_up),
             };
             let venturi_r = calc
                 .calculate_venturi_coefficients(&venturi_model, &water, &conditions)
-                .map(|(r, _k)| r)
+                .map(|(r, _k)| r.into_base())
                 .unwrap_or(0.0);
 
             println!("    {} | Q={:.3e} m³/s | ΔP={:.0} Pa", e.id, q, dp);

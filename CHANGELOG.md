@@ -25,6 +25,30 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+
+## Unreleased
+
+### Breaking
+
+- [major] Construct resistance-model `FlowConditions` with Aequitas
+  velocity or volumetric flow. Its Reynolds number, shear rate,
+  absolute pressure, and thermodynamic temperature are quantity fields.
+  Existing Python numeric arguments continue to enter through SI adapters.
+
+- [major] Use length and area quantities for `JunctionLossModel` geometry,
+  `MassDensity` for reference density, and `VolumetricFlowRate` for the
+  linearisation input. The model returns typed loss coefficient and
+  resistance values. Existing serialized SI fields retain their names.
+
+- [major] Import `cfd_optim::BLOOD_DENSITY` for the typed whole-blood
+  reference. It replaces the duplicate scalar export
+  `cfd_optim::BLOOD_DENSITY_KG_M3`. Use `.into_base()` at scalar SI boundaries.
+
+- [major] Blood reference constants return Aequitas quantities. Replace
+  `BODY_TEMPERATURE_K` with `BODY_TEMPERATURE`. Use `.cast()` at generic
+  model entry points and `.into_base()` at scalar SI boundaries. Derive
+  the Casson square root from `INFINITE_SHEAR_VISCOSITY`.
+
 - **build(deps)**: Allow Leto 0.50.0 and lock it. The workspace `leto` and
   `leto-ops` requirements widen from `>=0.46.4, <0.49.0` to
   `>=0.46.4, <0.51.0`, and the lock moves Leto and Leto Ops from 0.48.0 to
@@ -176,6 +200,11 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking
 
+- [major] Resistance models and the calculator return Aequitas hydraulic
+  resistance and quadratic hydraulic resistance. Use the two coefficients
+  with volumetric flow to compute signed pressure drop. Extract SI scalar
+  values with `into_base()` when calling a numerical or reporting boundary.
+
 - [major] Use Horae UTC timestamps in simulation metadata and benchmark
   records. Serialized dates remain RFC 3339 strings. Rust callers can
   construct the new type from Unix seconds and nanoseconds or parse an
@@ -183,6 +212,11 @@ All notable changes to this project will be documented in this file.
   formatter.
 
 ### Changed
+
+- Use crates.io Aequitas 0.5.0 and Eunomia 0.12.1 throughout the
+  CFDrs workspace, with compatible Atlas providers locked together.
+- Share the published Leto 0.52, RITK VTK 0.5, and Consus 0.5
+  crates across the solver, mesh, and I/O boundaries.
 
 - **Changed:** Unify the `cfd-schematics` configuration constants into a single
   table (CFDRS-SSOT-001, `cfd-schematics/src/config/constants`). The module

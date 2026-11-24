@@ -4,8 +4,9 @@ use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
-    QuadraticHydraulicResistance, VolumetricFlowRate,
+    VolumetricFlowRate,
 };
+use aequitas::systems::si::quantities::{Dimensionless, ReciprocalTime, ThermodynamicTemperature};
 use cfd_core::CfdScalar;
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
@@ -456,9 +457,9 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         T: NumericElement + FloatElement,
     {
         let mut conditions = crate::physics::resistance::FlowConditions::from_flow_rate(
-            <T as NumericElement>::abs(flow_rate),
+            VolumetricFlowRate::from_base(<T as NumericElement>::abs(flow_rate)),
         );
-        conditions.temperature = t_std;
+        conditions.temperature = ThermodynamicTemperature::from_base(t_std);
         let mut apparent_viscosity = None;
         if let Some(d_h) = props.hydraulic_diameter {
             let d_h = d_h.into_base();
@@ -468,15 +469,16 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 let shear_rate = eight * velocity / d_h;
                 let apparent_viscosity_local = self.fluid.viscosity_at_shear(
                     shear_rate,
-                    conditions.temperature,
-                    conditions.pressure,
+                    conditions.temperature.into_base(),
+                    conditions.pressure.into_base(),
                 )?;
-                conditions.shear_rate = Some(shear_rate);
+                conditions.shear_rate = Some(ReciprocalTime::from_base(shear_rate));
                 let apparent_viscosity_local = apparent_viscosity_local.into_base();
                 apparent_viscosity = Some(apparent_viscosity_local);
                 if apparent_viscosity_local > epsilon {
-                    conditions.reynolds_number =
-                        Some(density * velocity * d_h / apparent_viscosity_local);
+                    conditions.reynolds_number = Some(Dimensionless::from_base(
+                        density * velocity * d_h / apparent_viscosity_local,
+                    ));
                 }
             }
         }
@@ -504,7 +506,7 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             eight: T::from_f64_or_one(8.0),
             microchannel_limit: T::from_f64_or_one(300.0e-6),
             default_hematocrit: T::from_f64_or_zero(
-                cfd_core::physics::fluid::blood::constants::NORMAL_HEMATOCRIT,
+                cfd_core::physics::fluid::blood::constants::NORMAL_HEMATOCRIT.into_base(),
             ),
             default_plasma_viscosity: state.dynamic_viscosity.into_base() / T::from_f64_or_one(3.2),
             tiny: T::from_f64_or(epsilon.to_f64().max(1.0e-7), epsilon),
@@ -553,7 +555,7 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             let use_rectangular_darcy_surrogate = is_rectangular
                 && conditions
                     .reynolds_number
-                    .is_some_and(|re| re >= rectangular_laminar_max);
+                    .is_some_and(|re| re.into_base() >= rectangular_laminar_max);
 
             let (mut resistance, quad_coeff) = if use_rectangular_darcy_surrogate {
                 use crate::physics::resistance::models::ResistanceModel;
@@ -623,8 +625,8 @@ impl<T: CfdScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         };
 
         if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
-            edge.resistance = HydraulicResistance::from_base(resistance);
-            edge.quad_coeff = QuadraticHydraulicResistance::from_base(quad_coeff);
+            edge.resistance = resistance;
+            edge.quad_coeff = quad_coeff;
         }
         Ok(())
     }
@@ -1046,7 +1048,7 @@ fn channel_to_res_geometry<T: cfd_core::CfdScalar + Copy>(
 /// generate the first pressure-driven iterate.
 #[allow(clippy::too_many_arguments)]
 fn apply_resistance_corrections<T: cfd_core::CfdScalar + Copy + SafeFromF64>(
-    r: &mut T,
+    r: &mut HydraulicResistance<T>,
     d_h: T,
     area: T,
     length: T,
@@ -1185,7 +1187,7 @@ mod tests {
 
     #[test]
     fn short_channel_correction_uses_exact_low_reynolds_durst_multiplier() {
-        let mut resistance = 1.0_f64;
+        let mut resistance = HydraulicResistance::from_base(1.0_f64);
         let d_h: f64 = 100.0e-6;
         let area = std::f64::consts::PI * (d_h * 0.5_f64).powi(2);
         let length = 5.0_f64 * d_h;
@@ -1222,6 +1224,10 @@ mod tests {
             viscosity / 3.2,
         );
 
-        assert_relative_eq!(resistance, expected_multiplier, max_relative = 1e-12);
+        assert_relative_eq!(
+            resistance.into_base(),
+            expected_multiplier,
+            max_relative = 1e-12
+        );
     }
 }

@@ -17,7 +17,7 @@
 //! | `JunctionLoss` | `JunctionLossModel` (K-factor minor losses) |
 //!
 //! Each model implements the `ResistanceModel` trait, returning a (R, k) tuple
-//! where the total pressure drop is ΔP = R·Q + k·Q² (linear + quadratic terms).
+//! where the total pressure drop is ΔP = R·Q + k·Q|Q| (linear + quadratic terms).
 //! The quadratic term is non-zero only for turbulent or geometry-dependent models
 //! (Darcy-Weisbach, Venturi expansion losses).
 
@@ -27,6 +27,8 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
+use aequitas::systems::si::quantities::{Dimensionless, ReciprocalTime, Velocity};
+use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -41,18 +43,28 @@ where
     T: CfdScalar,
     F: FluidTrait<T>,
 {
-    if local_conditions.reynolds_number.is_some() {
+    if local_conditions
+        .reynolds_number
+        .map(aequitas::Quantity::into_base)
+        .is_some()
+    {
         return Ok(());
     }
 
     let density = fluid
-        .properties_at(local_conditions.temperature, local_conditions.pressure)?
+        .properties_at(
+            local_conditions.temperature.into_base(),
+            local_conditions.pressure.into_base(),
+        )?
         .density
         .into_base();
 
-    let velocity = if let Some(v) = local_conditions.velocity {
+    let velocity = if let Some(v) = local_conditions.velocity.map(aequitas::Quantity::into_base) {
         v
-    } else if let Some(q) = local_conditions.flow_rate {
+    } else if let Some(q) = local_conditions
+        .flow_rate
+        .map(aequitas::Quantity::into_base)
+    {
         let area = geometry.cross_sectional_area()?;
         if area <= T::ZERO {
             return Err(Error::InvalidConfiguration(
@@ -78,7 +90,10 @@ where
         ));
     }
 
-    let shear_rate = if let Some(sr) = local_conditions.shear_rate {
+    let shear_rate = if let Some(sr) = local_conditions
+        .shear_rate
+        .map(aequitas::Quantity::into_base)
+    {
         sr
     } else {
         <T as FloatElement>::from_f64(8.0) * velocity_abs / dh
@@ -86,8 +101,8 @@ where
     let apparent_viscosity = fluid
         .viscosity_at_shear(
             shear_rate,
-            local_conditions.temperature,
-            local_conditions.pressure,
+            local_conditions.temperature.into_base(),
+            local_conditions.pressure.into_base(),
         )?
         .into_base();
     if apparent_viscosity <= T::ZERO {
@@ -96,16 +111,18 @@ where
         ));
     }
 
-    local_conditions.velocity = Some(velocity);
-    local_conditions.shear_rate = Some(shear_rate);
-    local_conditions.reynolds_number = Some(density * velocity_abs * dh / apparent_viscosity);
+    local_conditions.velocity = Some(Velocity::from_base(velocity));
+    local_conditions.shear_rate = Some(ReciprocalTime::from_base(shear_rate));
+    local_conditions.reynolds_number = Some(Dimensionless::from_base(
+        density * velocity_abs * dh / apparent_viscosity,
+    ));
     Ok(())
 }
 
 pub(crate) fn rectangular_auto_selection_error<T: CfdScalar>(
     conditions: &FlowConditions<T>,
 ) -> Error {
-    match conditions.reynolds_number {
+    match conditions.reynolds_number.map(aequitas::Quantity::into_base) {
         Some(reynolds) => Error::InvalidConfiguration(format!(
             "Automatic rectangular resistance selection is only validated for the laminar rectangular-channel model (Re < 2300). Got Re = {reynolds}. Select RectangularChannelModel explicitly for validated laminar use, or select Darcy-Weisbach explicitly if you intend a hydraulic-diameter surrogate."
         )),
@@ -135,7 +152,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         geometry: &ChannelGeometry<T>,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_auto(geometry, fluid, conditions)
     }
 
@@ -145,7 +162,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         geometry: &ChannelGeometry<T>,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_coefficients_auto(geometry, fluid, conditions)
     }
 
@@ -156,7 +173,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         length: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_hagen_poiseuille_coefficients(diameter, length, fluid, conditions)
     }
 
@@ -167,7 +184,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         length: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_hagen_poiseuille(diameter, length, fluid, conditions)
     }
 
@@ -179,7 +196,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         length: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_rectangular_coefficients(width, height, length, fluid, conditions)
     }
 
@@ -191,7 +208,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         length: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_rectangular(width, height, length, fluid, conditions)
     }
 
@@ -203,7 +220,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         roughness: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_darcy_weisbach_coefficients(
             hydraulic_diameter,
             length,
@@ -221,7 +238,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         roughness: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_darcy_weisbach(hydraulic_diameter, length, roughness, fluid, conditions)
     }
 
@@ -246,7 +263,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         bend_radius: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_serpentine_circular(
             diameter,
             straight_length,
@@ -270,7 +287,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         bend_radius: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_serpentine_rectangular(
             width,
             height,
@@ -291,7 +308,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         model: &SerpentineModel<T>,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_serpentine_coefficients(model, fluid, conditions)
     }
 
@@ -315,7 +332,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         total_length: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_venturi(
             inlet_diameter,
             throat_diameter,
@@ -335,7 +352,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         model: &VenturiModel<T>,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         coefficients::calculate_venturi_coefficients(model, fluid, conditions)
     }
 
@@ -351,7 +368,7 @@ impl<T: CfdScalar> ResistanceCalculator<T> {
         porosity: T,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         dispatch::calculate_membrane_porous(
             thickness,
             width,
@@ -376,6 +393,9 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
+    use aequitas::systems::si::quantities::{
+        Pressure, ThermodynamicTemperature, VolumetricFlowRate,
+    };
     use cfd_core::physics::fluid::ConstantFluid;
     use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use eunomia::assert_relative_eq;
@@ -387,9 +407,9 @@ mod tests {
         let length = 0.001; // 1 mm
         let model = HagenPoiseuilleModel::new(diameter, length);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
-        let conditions = FlowConditions::new(0.001);
+        let conditions = FlowConditions::new(Velocity::from_base(0.001));
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
         // Calculate expected resistance: R = 128μL/(πD⁴)
         // For water at 20°C: μ ≈ 1.002e-3 Pa·s
@@ -416,16 +436,19 @@ mod tests {
     fn test_rectangular_channel() -> Result<()> {
         let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
-        let mut conditions = FlowConditions::new(0.001);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.001));
         // Compute Reynolds number based on hydraulic diameter and set it
         let dh = 2.0 * model.width * model.height / (model.width + model.height);
         let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
-        let velocity = conditions.velocity.expect("expected value");
+        let velocity = conditions
+            .velocity
+            .map(aequitas::Quantity::into_base)
+            .expect("expected value");
         let re = density * velocity * dh / viscosity;
-        conditions.reynolds_number = Some(re);
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
 
         // Verify resistance is positive
         assert!(resistance > 0.0);
@@ -458,14 +481,14 @@ mod tests {
         let re = density * velocity * diameter / viscosity;
 
         // Create flow conditions with Reynolds number
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         assert!(
             re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN
         );
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
         assert!(resistance > 0.0);
 
         Ok(())
@@ -474,21 +497,21 @@ mod tests {
     #[test]
     fn test_model_applicability() {
         let conditions_laminar = FlowConditions {
-            reynolds_number: Some(1000.0),
-            velocity: Some(0.001),
+            reynolds_number: Some(Dimensionless::from_base(1000.0)),
+            velocity: Some(Velocity::from_base(0.001)),
             flow_rate: None,
             shear_rate: None,
-            temperature: 293.15,
-            pressure: 101_325.0,
+            temperature: ThermodynamicTemperature::from_base(293.15),
+            pressure: Pressure::from_base(101_325.0),
         };
 
         let conditions_turbulent = FlowConditions {
-            reynolds_number: Some(10_000.0),
-            velocity: Some(1.0),
+            reynolds_number: Some(Dimensionless::from_base(10_000.0)),
+            velocity: Some(Velocity::from_base(1.0)),
             flow_rate: None,
             shear_rate: None,
-            temperature: 293.15,
-            pressure: 101_325.0,
+            temperature: ThermodynamicTemperature::from_base(293.15),
+            pressure: Pressure::from_base(101_325.0),
         };
 
         let hp_model = HagenPoiseuilleModel::new(0.001f64, 0.01);
@@ -504,14 +527,16 @@ mod tests {
     fn test_calculator_auto_selection() -> Result<()> {
         let calculator = ResistanceCalculator::<f64>::new();
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
-        let mut conditions = FlowConditions::new(0.001);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.001));
 
         // Test circular geometry
         let circular = ChannelGeometry::Circular {
             diameter: 100e-6,
             length: 0.001,
         };
-        let resistance_circular = calculator.calculate_auto(&circular, &fluid, &conditions)?;
+        let resistance_circular = calculator
+            .calculate_auto(&circular, &fluid, &conditions)?
+            .into_base();
         assert!(resistance_circular > 0.0);
 
         // Test rectangular geometry
@@ -524,12 +549,16 @@ mod tests {
         let dh = 2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6);
         let density = fluid.density().into_base();
         let viscosity = fluid.dynamic_viscosity().into_base();
-        let velocity = conditions.velocity.expect("expected value");
+        let velocity = conditions
+            .velocity
+            .map(aequitas::Quantity::into_base)
+            .expect("expected value");
         let re = density * velocity * dh / viscosity;
-        conditions.reynolds_number = Some(re);
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
-        let resistance_rectangular =
-            calculator.calculate_auto(&rectangular, &fluid, &conditions)?;
+        let resistance_rectangular = calculator
+            .calculate_auto(&rectangular, &fluid, &conditions)?
+            .into_base();
         assert!(resistance_rectangular > 0.0);
 
         Ok(())
@@ -565,26 +594,31 @@ mod tests {
             "expected laminar shear-aware Reynolds, got {shear_aware_re}"
         );
 
-        let mut conditions = FlowConditions::new(0.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.0));
         conditions.velocity = None;
-        conditions.flow_rate = Some(flow_rate);
+        conditions.flow_rate = Some(VolumetricFlowRate::from_base(flow_rate));
 
-        let resistance = calculator.calculate_auto(&circular, &fluid, &conditions)?;
+        let resistance = calculator
+            .calculate_auto(&circular, &fluid, &conditions)?
+            .into_base();
         let (coeff_resistance, coeff_k) =
             calculator.calculate_coefficients_auto(&circular, &fluid, &conditions)?;
+        let (coeff_resistance, coeff_k) = (coeff_resistance.into_base(), coeff_k.into_base());
 
         let mut expected_conditions = conditions.clone();
-        expected_conditions.shear_rate = Some(shear_rate);
-        expected_conditions.reynolds_number = Some(shear_aware_re);
+        expected_conditions.shear_rate = Some(ReciprocalTime::from_base(shear_rate));
+        expected_conditions.reynolds_number = Some(Dimensionless::from_base(shear_aware_re));
 
-        let expected =
-            calculator.calculate_hagen_poiseuille(0.04, 2.5, &fluid, &expected_conditions)?;
+        let expected = calculator
+            .calculate_hagen_poiseuille(0.04, 2.5, &fluid, &expected_conditions)?
+            .into_base();
         let (expected_r, expected_k) = calculator.calculate_hagen_poiseuille_coefficients(
             0.04,
             2.5,
             &fluid,
             &expected_conditions,
         )?;
+        let (expected_r, expected_k) = (expected_r.into_base(), expected_k.into_base());
 
         assert_relative_eq!(resistance, expected, max_relative = 1e-12);
         assert_relative_eq!(coeff_resistance, expected_r, max_relative = 1e-12);
@@ -603,7 +637,7 @@ mod tests {
             height: 5.0e-4,
             length: 2.0e-2,
         };
-        let conditions = FlowConditions::new(5.0);
+        let conditions = FlowConditions::new(Velocity::from_base(5.0));
 
         let auto_error = calculator
             .calculate_auto(&rectangular, &fluid, &conditions)
@@ -628,7 +662,9 @@ mod tests {
         );
 
         let dh = 2.0 * 1.0e-3 * 5.0e-4 / (1.0e-3 + 5.0e-4);
-        let explicit = calculator.calculate_darcy_weisbach(dh, 2.0e-2, 0.0, &fluid, &conditions)?;
+        let explicit = calculator
+            .calculate_darcy_weisbach(dh, 2.0e-2, 0.0, &fluid, &conditions)?
+            .into_base();
         assert!(explicit > 0.0);
 
         Ok(())

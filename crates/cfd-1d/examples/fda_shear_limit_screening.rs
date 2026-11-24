@@ -18,13 +18,14 @@ use cfd_1d::{
     BloodShearLimits, EdgeProperties, Network, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
     NetworkBuilder,
 };
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::domain::model::ChannelSpec;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Approximate whole-blood Newtonianized properties for this screening demo.
     let blood_like = cfd_core::physics::fluid::ConstantPropertyFluid::<f64>::new(
         "Blood-like (screening)".to_string(),
-        aequitas::systems::si::quantities::MassDensity::from_base(1060.0),
+        BLOOD_DENSITY,
         aequitas::systems::si::quantities::DynamicViscosity::from_base(0.0035),
         aequitas::systems::si::quantities::SpecificHeatCapacity::from_base(3770.0),
         aequitas::systems::si::quantities::ThermalConductivity::from_base(0.52),

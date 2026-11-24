@@ -44,6 +44,7 @@
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -83,7 +84,7 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, _) = self.calculate_coefficients(fluid, conditions)?;
         Ok(r)
     }
@@ -92,16 +93,20 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let density = state.density.into_base();
 
-        let shear_rate = if let Some(sr) = conditions.shear_rate {
+        let shear_rate = if let Some(sr) = conditions.shear_rate.map(aequitas::Quantity::into_base)
+        {
             sr
         } else {
-            let v = if let Some(vel) = conditions.velocity {
+            let v = if let Some(vel) = conditions.velocity.map(aequitas::Quantity::into_base) {
                 vel
-            } else if let Some(q) = conditions.flow_rate {
+            } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
                 let pi = T::pi();
                 let area = pi * self.diameter * self.diameter / (T::ONE + T::ONE + T::ONE + T::ONE);
                 q / area
@@ -112,7 +117,11 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         };
 
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         // Proof: Re/Ca = (ρ D σ) / (μ²)
@@ -138,7 +147,10 @@ impl<T: CfdScalar> ResistanceModel<T> for SlugFlowModel<T> {
         // Effective total resistance
         let r_slug = r_linear * multiplier;
 
-        Ok((r_slug, T::ZERO))
+        Ok((
+            HydraulicResistance::from_base(r_slug),
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -216,15 +228,17 @@ mod tests {
 
         let fluid = test_fluid();
 
-        let cond1 = FlowConditions::new(0.01); // v = 0.01 m/s
-        let cond2 = FlowConditions::new(10.0); // v = 10.0 m/s
+        let cond1 = FlowConditions::new(Velocity::from_base(0.01)); // v = 0.01 m/s
+        let cond2 = FlowConditions::new(Velocity::from_base(10.0)); // v = 10.0 m/s
 
         let (r1, k1) = model
             .calculate_coefficients(&fluid, &cond1)
             .expect("expected value");
+        let (r1, k1) = (r1.into_base(), k1.into_base());
         let (r2, k2) = model
             .calculate_coefficients(&fluid, &cond2)
             .expect("expected value");
+        let (r2, k2) = (r2.into_base(), k2.into_base());
 
         // Exact mathematical proof validation: The multiplier is velocity independent
         assert_relative_eq!(r1, r2, epsilon = 1e-12);
@@ -251,14 +265,17 @@ mod tests {
     fn invariant_validation_rejects_unphysical_slugs() {
         // L_s = 0.0005 < D = 0.001 -> Dispersed bubbly, not Taylor flow
         let model = SlugFlowModel::new(0.001_f64, 0.01_f64, 0.0005_f64, 0.072_f64);
-        let result = model.validate_invariants(&test_fluid(), &FlowConditions::new(0.1));
+        let result = model.validate_invariants(
+            &test_fluid(),
+            &FlowConditions::new(Velocity::from_base(0.1)),
+        );
         assert!(matches!(result, Err(Error::PhysicsViolation(_))));
     }
 
     #[test]
     fn negative_dimensions_rejected() {
         let fluid = test_fluid();
-        let cond = FlowConditions::new(0.1);
+        let cond = FlowConditions::new(Velocity::from_base(0.1));
 
         // Zero diameter
         let m1 = SlugFlowModel::new(0.0, 0.01, 0.002, 0.072);

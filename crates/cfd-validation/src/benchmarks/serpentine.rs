@@ -13,7 +13,7 @@ use cfd_core::CfdScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::P_ATM;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
-use cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE_K;
+use cfd_core::physics::fluid::blood::constants::BODY_TEMPERATURE;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use eunomia::NumericElement;
 use eunomia::{FloatElement, RealField};
@@ -93,7 +93,7 @@ where
         let start_time = std::time::Instant::now();
         let mut convergence = Vec::new();
         let rho = <T as FloatElement>::from_f64(
-            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY,
+            cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base(),
         );
 
         for _ in 0..config.max_iterations {
@@ -119,7 +119,7 @@ where
         // Calculate metrics
         let props = FluidTrait::properties_at(
             &blood,
-            <T as FloatElement>::from_f64(BODY_TEMPERATURE_K),
+            BODY_TEMPERATURE.cast::<T>().into_base(),
             <T as FloatElement>::from_f64(P_ATM),
         )?;
         // dynamic_viscosity available via props if needed downstream

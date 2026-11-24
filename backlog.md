@@ -1,4 +1,28 @@
+<a id="cfdrs-stable-qualification"></a>
+## CFDRS-STABLE-QUALIFICATION — CFDrs stable-release qualification [patch] — todo
+- priority: verification; milestone: M-newton; basis: `7dc44c5bee2c`.
+- Outcome: Close solver recovery and the unpublished coupling edge on separate tracks. Follow the [release scope](docs/adr/0002-release-scope-1-0.md) and `M-newton`. Planning targets for `cfd-core` are 0.3.1 proposed for compatible solver repairs, then 0.4.0 proposed for additive solver or binding work, then 1.0.0. Verification alone can advance the current version.
+- Representative manifest `cfd-core 0.3.0`. Target 1.0.0. Index coverage at review: 0/11 publish-enabled workspace versions.
+- [ ] [patch] Run the bounded Newton–Krylov recovery and problem-scaled SIMPLEC cases on the current source. Record converged values, residual histories and the specified failure when recovery is exhausted.
+- [ ] [minor] Validate typed transfer in the real Harmonia consumer and mesh/time/pressure identities across the provider graph. Track the cfd-2d registry blocker until Harmonia has an admitted distribution.
+- [ ] [major] Complete M-validation, M-python and M-hygiene. Verify an end-to-end analytical flow case and a clean Rust or wheel consumer for each declared distribution before freezing the fluids API.
+- [ ] [patch] **0.3.1 proposed for compatible solver repairs.** Run the bounded Newton recovery case and retain its residual history. Exercise exhausted recovery on the same public solver and check the specific failure returned to the caller. [Source and baseline](gap_audit.md#incremental-release-baseline).
+- [ ] [minor] **0.4.0 proposed for additive solver or binding work.** Qualify problem-scaled SIMPLEC convergence and the validation tier. Record the problem scale, reference answer and convergence criterion. Assign versions to the affected crates and exercise the Python boundary where admitted.
+- [ ] [major] **1.0.0-beta.1 → 1.0.0-rc.1 → 1.0.0.** Freeze the supported surface at beta. A clean fluids consumer reproduces the scientific validation case. Keep cfd-2d registry packaging conditional on the Harmonia distribution decision. Repeat the applicable exits on the exact RC before stable promotion. Attach exact-revision evidence for the local exits and this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
+
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
+
+## Published provider migration [major]
+
+- [major] Share the typed whole-blood density across cavitation,
+  Venturi optimization, and cross-fidelity validation.
+- The CFDrs source graph shares Aequitas 0.5, Leto 0.52, and their
+  matching mesh, FFT, optimizer, and VTK providers.
+- Acceptance requires one provider identity in a standalone lock and the
+  locked Metal and format tests against the published RITK cohort.
+- [major] Blood rheology consumes Aequitas reference constants. Verify the
+  cutoff at the adjacent representable vessel diameters and the Metal suite.
+
 ## CFDRS-CIVIL-TIME — Use shared UTC timestamps [major] — in progress
 
 - Migrate the three direct Chrono consumers in core metadata, benchmarks,
@@ -96,7 +120,7 @@ anything there is unverified -- do not assume it matches.
 
 <a id="CFDRS-GA-014A"></a>
 ## CFDRS-GA-014A — Complete cfd-python boundary safety and typing [patch]
-- Status: todo; priority: P1; integrator: Codex; last-update: 2026-09-23.
+- Status: todo; priority: verification; urgency: P1; integrator: Codex; last-update: 2026-09-23.
 - milestone: M-python.
 
 
@@ -108,7 +132,7 @@ anything there is unverified -- do not assume it matches.
 
 <a id="ATLAS-PUBLISH-001-CFDRS-PYPI"></a>
 ## ATLAS-PUBLISH-001-CFDRS-PYPI — Add abi3 PyPI trusted-publishing caller [patch]
-- Status: todo; priority: P1; integrator: Atlas coordinator; last-update: 2026-09-23.
+- Status: todo; priority: feature; urgency: P1; integrator: Atlas coordinator; last-update: 2026-09-23.
 - milestone: M-python.
 
 
@@ -131,7 +155,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Run the focused provider checks and hosted release dry-run at the exact source head; do not change registry-side trusted-publisher settings.
 <a id="ATLAS-CFDRS-RUNTIME-109"></a>
 ## ATLAS-CFDRS-RUNTIME-109 — Honor problem-scaled SIMPLEC targets [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: correctness; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -164,7 +188,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Push the final source head and pass the exact hosted Rust and Pages gates without changing the committed budget or workloads.
 <a id="ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108"></a>
 ## ATLAS-CFDRS-SOLID-PRESSURE-CACHE-108 — Reuse SIMPLEC pressure-solid workspaces [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: tightening; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -187,7 +211,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Publish the exact source head and pass the provider hosted Rust and Pages gates. Keep the 30-second test budget and workloads unchanged.
 <a id="ATLAS-CFDRS-PRESSURE-CACHE-102"></a>
 ## ATLAS-CFDRS-PRESSURE-CACHE-102 — Remove repeated pressure-matrix clones [perf]
-- Status: todo; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: todo; priority: tightening; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-solver-perf.
 
 
@@ -248,7 +272,7 @@ Remaining checklist steps (retired from checklist.md):
 - [ ] Verify the Cargo example gate against Apollo's merged default `ed6d6905afda394a9e12570543159ab1b262589e`, which contains provider fix `81583aab8b3eb48c96d138e3980e2c554d9d83fa`; the peer-dirty local overlay remains at `c87a1abe` and is not modified. The current local `cargo check --locked --examples` stops before compilation on the shared overlay/lock mismatch; hosted exact-head package verification remains the reproducible closure gate.
 <a id="ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104"></a>
 ## ATLAS-CFDRS-APOLLO-PLAN-SCRATCH-104 — Verify the example gate against Apollo's merged PlanScratch export [arch]
-- Status: blocked; priority: P1; integrator: Atlas session; last-update: 2026-09-23.
+- Status: blocked; priority: verification; urgency: P1; integrator: Atlas session; last-update: 2026-09-23.
 - milestone: M-blocked-external.
 
 
@@ -272,7 +296,7 @@ closure check.
 
 <a id="ATLAS-CFDRS-JFNK-RECOVERY-110"></a>
 ## ATLAS-CFDRS-JFNK-RECOVERY-110 — Converge the primary loop after JFNK recovery [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
   last-update: 2026-11-14.
 - milestone: M-newton.
 **Outcome:** a Picard stall that engages the JFNK recovery ends in a converged
@@ -289,7 +313,7 @@ lagged-`|Q|` linearization, then re-pin the three `jfnk_recovery.rs` tests.
 
 <a id="ATLAS-CFDRS-STALL-DETECTOR-111"></a>
 ## ATLAS-CFDRS-STALL-DETECTOR-111 — Make `is_stalling` match its contract [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `e4001eeec4f4123b5e62d65e359939e32024d50b`;
   last-update: 2026-11-14.
 **Outcome:** `FallbackBudget::is_stalling` fires only on a window of
 `stall_window` non-trivial samples, as its doc says. **Evidence:** the code
@@ -303,7 +327,7 @@ and its `tests.rs`. **Next step:** count usable samples and require
 
 <a id="ATLAS-CFDRS-STAGNATED-OUTCOME-112"></a>
 ## ATLAS-CFDRS-STAGNATED-OUTCOME-112 — Map `Termination::Stagnated` to `BrokenDown` [fix]
-- Status: todo; priority: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
+- Status: todo; priority: correctness; urgency: P0; integrator: unclaimed; needs: none; basis: `d888664e9e110089a7f54ce1faae8885efee55da`;
   last-update: 2026-11-16.
 - milestone: M-newton.
 **Outcome:** `krylov::interpret` returns `Ok(SolveOutcome::BrokenDown)` for `Termination::Stagnated`,

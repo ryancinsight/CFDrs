@@ -22,6 +22,7 @@
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
+use aequitas::systems::si::quantities::Pressure;
 use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
     CellProperties, CellSeparationModel,
@@ -453,8 +454,8 @@ fn test_venturi_cavitation_onset_100um_throat() {
     // Inlet pressure: 3 bar gauge = 300 kPa gauge → 401.325 kPa absolute
     let p_inlet_abs = 101_325.0 + 300_000.0;
 
-    let mut cond = FlowConditions::<f64>::new(v_inlet);
-    cond.pressure = p_inlet_abs;
+    let mut cond = FlowConditions::<f64>::new(Velocity::from_base(v_inlet));
+    cond.pressure = Pressure::from_base(p_inlet_abs);
 
     let analysis = model
         .analyze(&blood, &cond)
@@ -500,8 +501,8 @@ fn test_no_cavitation_large_throat() {
     let v_inlet = q / a_inlet;
 
     let p_inlet_abs = 101_325.0 + 300_000.0;
-    let mut cond = FlowConditions::<f64>::new(v_inlet);
-    cond.pressure = p_inlet_abs;
+    let mut cond = FlowConditions::<f64>::new(Velocity::from_base(v_inlet));
+    cond.pressure = Pressure::from_base(p_inlet_abs);
 
     let analysis = model
         .analyze(&blood, &cond)

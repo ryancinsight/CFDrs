@@ -22,6 +22,7 @@ pub use entrance::{
     durst_resistance_multiplier,
 };
 pub use hagen_poiseuille::HagenPoiseuilleModel;
+pub(crate) use junction_loss::minor_loss_coefficient;
 pub use junction_loss::{JunctionFlowDirection, JunctionLossModel, JunctionType};
 pub use membrane::MembranePoreModel;
 pub use rectangular::RectangularChannelModel;

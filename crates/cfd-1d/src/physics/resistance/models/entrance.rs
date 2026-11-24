@@ -78,6 +78,9 @@
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -153,17 +156,17 @@ impl<T: CfdScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q_mag = if let Some(q) = conditions.flow_rate {
+        let q_mag = if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             if q >= T::ZERO { q } else { -q }
-        } else if let Some(v) = conditions.velocity {
+        } else if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             let v_abs = if v >= T::ZERO { v } else { -v };
             v_abs * self.downstream_area
         } else {
             T::ZERO
         };
-        Ok(r + k * q_mag)
+        Ok(r + k * VolumetricFlowRate::from_base(q_mag))
     }
 
     /// Calculate quadratic entrance loss coefficient.
@@ -179,14 +182,20 @@ impl<T: CfdScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
-        let reynolds = conditions.reynolds_number.ok_or_else(|| {
-            Error::InvalidConfiguration(
-                "Reynolds number required for entrance effects model".to_string(),
-            )
-        })?;
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
+        let reynolds = conditions
+            .reynolds_number
+            .map(aequitas::Quantity::into_base)
+            .ok_or_else(|| {
+                Error::InvalidConfiguration(
+                    "Reynolds number required for entrance effects model".to_string(),
+                )
+            })?;
 
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
         let rho = state.density.into_base();
 
         let area_ratio = self.upstream_area / self.downstream_area;
@@ -207,7 +216,10 @@ impl<T: CfdScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
         let two = T::ONE + T::ONE;
         let k_coeff = k_entry * rho / (two * self.downstream_area * self.downstream_area);
 
-        Ok((T::ZERO, k_coeff))
+        Ok((
+            HydraulicResistance::from_base(T::ZERO),
+            QuadraticHydraulicResistance::from_base(k_coeff),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -376,6 +388,7 @@ pub fn durst_resistance_multiplier(re: f64, l_over_dh: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{Dimensionless, Velocity};
     use cfd_core::error::Result;
     use eunomia::assert_relative_eq;
 
@@ -396,10 +409,11 @@ mod tests {
     fn test_sudden_contraction_coefficient_dimensional() -> Result<()> {
         let model = EntranceEffectsModel::sudden_contraction(4e-6_f64, 1e-6_f64);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
         let (r, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let (r, k) = (r.into_base(), k.into_base());
         assert_eq!(
             r, 0.0,
             "Linear coefficient should be zero for entrance effects"
@@ -422,10 +436,11 @@ mod tests {
         // Very large upstream area (≈ reservoir)
         let model = EntranceEffectsModel::sudden_contraction(1.0_f64, 1e-6_f64);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1e6); // High Re → correction ≈ 1
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1e6)); // High Re → correction ≈ 1
 
         let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let k = k.into_base();
         // K_entry ≈ 0.5 at high Re and large area_ratio
         // k = 0.5 × ρ / (2 A₂²)
         let rho = 998.2_f64;
@@ -441,10 +456,11 @@ mod tests {
         let a = 1e-6_f64;
         let model = EntranceEffectsModel::sudden_contraction(a, a);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
         let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let k = k.into_base();
         // contraction_ratio = 1 − 1/1 = 0 → K = 0 → k = 0
         assert_relative_eq!(k, 0.0, epsilon = 1e-20);
         Ok(())
@@ -457,13 +473,15 @@ mod tests {
         let fluid = water();
 
         let make_cond = |re: f64| {
-            let mut c = FlowConditions::new(0.1_f64);
-            c.reynolds_number = Some(re);
+            let mut c = FlowConditions::new(Velocity::from_base(0.1_f64));
+            c.reynolds_number = Some(Dimensionless::from_base(re));
             c
         };
 
         let (_, k_low) = model.calculate_coefficients(&fluid, &make_cond(100.0))?;
+        let k_low = k_low.into_base();
         let (_, k_high) = model.calculate_coefficients(&fluid, &make_cond(1000.0))?;
+        let k_high = k_high.into_base();
 
         // Higher Re → smaller 1/Re correction → smaller K → smaller k
         assert!(
@@ -485,11 +503,13 @@ mod tests {
         let model_scaled =
             EntranceEffectsModel::sudden_contraction(4.0 * base_down * s * s, base_down * s * s);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
 
         let (_, k_base) = model_base.calculate_coefficients(&fluid, &conditions)?;
+        let k_base = k_base.into_base();
         let (_, k_scaled) = model_scaled.calculate_coefficients(&fluid, &conditions)?;
+        let k_scaled = k_scaled.into_base();
 
         // k_scaled / k_base = (A₂_base / A₂_scaled)² = 1/s⁴
         let expected_ratio = 1.0 / (s * s * s * s);
@@ -504,10 +524,11 @@ mod tests {
         let downstream = 1e-6_f64;
         let model = EntranceEffectsModel::smooth_contraction(upstream, downstream);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(50_000.0); // Turbulent
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(50_000.0)); // Turbulent
 
         let (_, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let k = k.into_base();
         let area_ratio = 2.0_f64;
         let k_expected = (0.05 + 0.19 * area_ratio) * 998.2 / (2.0 * downstream * downstream);
         assert_relative_eq!(k, k_expected, epsilon = 1e-6);
@@ -519,8 +540,8 @@ mod tests {
     fn test_invariant_downstream_larger_than_upstream() {
         let model = EntranceEffectsModel::<f64>::sudden_contraction(1e-6, 4e-6); // reversed
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
         assert!(model.validate_invariants(&fluid, &conditions).is_err());
     }
 
@@ -529,8 +550,8 @@ mod tests {
     fn test_invariant_zero_downstream_area() {
         let model = EntranceEffectsModel::<f64>::sudden_contraction(1e-6, 0.0);
         let fluid = water();
-        let mut conditions = FlowConditions::new(0.1_f64);
-        conditions.reynolds_number = Some(1000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1_f64));
+        conditions.reynolds_number = Some(Dimensionless::from_base(1000.0));
         assert!(model.validate_invariants(&fluid, &conditions).is_err());
     }
 

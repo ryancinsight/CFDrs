@@ -47,6 +47,10 @@
 //!   T-junction microchannels." *Int. J. Heat Mass Transfer*, 154, 119689.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    Area, Dimensionless, HydraulicResistance, Length, MassDensity, QuadraticHydraulicResistance,
+    Velocity, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -79,7 +83,7 @@ pub enum JunctionFlowDirection {
 /// # Theorem
 ///
 /// The junction resistance is expressed as an equivalent hydraulic
-/// resistance: $R_J = K \rho V / (2 A^2)$, which adds to the
+/// resistance derived from $\Delta P = K \rho Q |Q| / (2 A^2)$, which adds to the
 /// Hagen-Poiseuille resistance of the connecting channels.
 ///
 /// **Proof sketch**: Starting from $\Delta P = K \rho V^2 / 2$ and
@@ -97,69 +101,117 @@ pub enum JunctionFlowDirection {
 /// A narrow branch meeting a wide run (ratio < 1) reduces K (less
 /// recirculation); a wide branch into a narrow run increases K.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JunctionLossModel {
+pub struct JunctionLossModel<T = f64> {
     /// Type of junction (T or cross).
     pub junction_type: JunctionType,
     /// Flow direction (dividing or combining).
     pub flow_direction: JunctionFlowDirection,
     /// Hydraulic diameter of the branch channel \[m].
-    pub branch_diameter_m: f64,
+    #[serde(rename = "branch_diameter_m")]
+    pub branch_diameter: Length<T>,
     /// Cross-sectional area of the branch channel \[m²].
-    pub branch_area_m2: f64,
+    #[serde(rename = "branch_area_m2")]
+    pub branch_area: Area<T>,
     /// Length attributed to the junction (typically ≈ D_h) \[m].
-    pub junction_length_m: f64,
+    #[serde(rename = "junction_length_m")]
+    pub junction_length: Length<T>,
     /// Fluid density [kg/m³].
-    pub density_kg_m3: f64,
+    #[serde(rename = "density_kg_m3")]
+    pub density: MassDensity<T>,
     /// Optional cross-sectional area of the run (main) channel \[m²].
     ///
     /// When provided, the K-factor is corrected for diameter mismatch
     /// using the Idelchik area-ratio correlation.  When `None`, the
     /// equal-area K-factor is used (backward-compatible).
     #[serde(default)]
-    pub run_area_m2: Option<f64>,
+    #[serde(rename = "run_area_m2")]
+    pub run_area: Option<Area<T>>,
 }
 
-impl JunctionLossModel {
+impl<T: CfdScalar> JunctionLossModel<T> {
     /// Retrieve the K-factor for this junction configuration.
     ///
-    /// When `run_area_m2` is set, the equal-area K is corrected by the
+    /// When `run_area` is set, the equal-area K is corrected by the
     /// area ratio `(A_branch / A_run)^0.5` (Idelchik 2007, §7.12).
     /// This captures the additional recirculation loss when a narrow
     /// branch intersects a wide run channel, or the reduced loss when
     /// a wide branch meets a narrow run.
     #[must_use]
-    pub fn loss_coefficient(&self) -> f64 {
-        let k_equal = match (self.junction_type, self.flow_direction) {
-            (JunctionType::Tee, JunctionFlowDirection::Dividing) => 1.0,
-            (JunctionType::Tee, JunctionFlowDirection::Combining) => 1.5,
-            (JunctionType::Cross, JunctionFlowDirection::Dividing) => 1.3,
-            (JunctionType::Cross, JunctionFlowDirection::Combining) => 1.2,
-        };
+    pub fn loss_coefficient(&self) -> Dimensionless<T> {
+        let k_equal =
+            <T as FloatElement>::from_f64(match (self.junction_type, self.flow_direction) {
+                (JunctionType::Tee, JunctionFlowDirection::Dividing) => 1.0,
+                (JunctionType::Tee, JunctionFlowDirection::Combining) => 1.5,
+                (JunctionType::Cross, JunctionFlowDirection::Dividing) => 1.3,
+                (JunctionType::Cross, JunctionFlowDirection::Combining) => 1.2,
+            });
 
-        if let Some(run_area) = self.run_area_m2
-            && run_area > 1e-30
-        {
-            let ratio = (self.branch_area_m2 / run_area).sqrt();
-            return k_equal * ratio;
-        }
-        k_equal
+        let minimum_area = Area::from_base(<T as FloatElement>::from_f64(1e-30));
+        let coefficient = self
+            .run_area
+            .filter(|area| *area > minimum_area)
+            .map_or(k_equal, |area| {
+                k_equal * (self.branch_area / area).into_base().sqrt()
+            });
+        Dimensionless::from_base(coefficient)
     }
 
-    /// Compute the linearised junction resistance about a reference flow.
-    ///
-    /// Returns $R_J = K \rho Q_{\text{ref}} / A^2$ [Pa·s/m³].
+    /// Compute the linearised resistance `K ρ |Q_ref| / A²` about a reference flow.
     #[must_use]
-    pub fn linearised_resistance(&self, reference_flow_m3_s: f64) -> f64 {
-        let k = self.loss_coefficient();
-        let a2 = self.branch_area_m2 * self.branch_area_m2;
-        if a2 < 1e-30 {
-            return 0.0;
+    pub fn linearised_resistance(
+        &self,
+        reference_flow: VolumetricFlowRate<T>,
+    ) -> HydraulicResistance<T> {
+        let area_squared = self.branch_area * self.branch_area;
+        if area_squared.into_base() < <T as FloatElement>::from_f64(1e-30) {
+            return HydraulicResistance::from_base(T::ZERO);
         }
-        k * self.density_kg_m3 * reference_flow_m3_s.abs() / a2
+        let gradient =
+            minor_loss_coefficient(self.loss_coefficient(), self.density, self.branch_area);
+        gradient * reference_flow.abs() * (T::ONE + T::ONE)
+    }
+
+    fn validate_geometry(&self) -> Result<()> {
+        let required_positive = [
+            ("branch diameter", self.branch_diameter.into_base()),
+            ("branch area", self.branch_area.into_base()),
+            ("reference density", self.density.into_base()),
+        ];
+        for (name, value) in required_positive {
+            if !value.is_finite() || value <= T::ZERO {
+                return Err(Error::PhysicsViolation(format!(
+                    "Junction {name} must be finite and positive"
+                )));
+            }
+        }
+        let length = self.junction_length.into_base();
+        if !length.is_finite() || length < T::ZERO {
+            return Err(Error::PhysicsViolation(
+                "Junction length must be finite and nonnegative".into(),
+            ));
+        }
+        if let Some(area) = self.run_area
+            && (!area.as_base().is_finite() || area.into_base() <= T::ZERO)
+        {
+            return Err(Error::PhysicsViolation(
+                "Junction run area must be finite and positive".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
-impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
+/// The coefficient of `Q |Q|` in the signed pressure-drop law.
+pub(crate) fn minor_loss_coefficient<T: CfdScalar>(
+    loss: Dimensionless<T>,
+    density: MassDensity<T>,
+    area: Area<T>,
+) -> QuadraticHydraulicResistance<T> {
+    let two = T::ONE + T::ONE;
+    loss * density / (area * two * area)
+}
+
+impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel<T> {
     /// Calculate hydraulic resistance [Pa·s/m³].
     ///
     /// Uses the linear + quadratic coefficient model; the linear part
@@ -169,7 +221,7 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r_lin, _k_quad) = self.calculate_coefficients(fluid, conditions)?;
         Ok(r_lin)
     }
@@ -184,54 +236,42 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
-        let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
-        let density = state.density.into_base();
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
+        self.validate_geometry()?;
+        let state = fluid.properties_at(
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
+        let area = self.branch_area;
+        let velocity = conditions
+            .velocity
+            .or_else(|| conditions.flow_rate.map(|flow| flow / area))
+            .unwrap_or(Velocity::from_base(T::ZERO));
 
-        // Estimate velocity from flow conditions for shear rate.
-        let area = <T as FloatElement>::from_f64(self.branch_area_m2);
-        let v = if let Some(v) = conditions.velocity {
-            v
-        } else if let Some(q) = conditions.flow_rate {
-            q / area
-        } else {
-            T::ZERO
-        };
-
-        // Shear rate is a scalar wall-rate magnitude. If a coupled model supplies
-        // it explicitly, that value is authoritative for non-Newtonian rheology.
-        let d = <T as FloatElement>::from_f64(self.branch_diameter_m);
+        let diameter = self.branch_diameter;
         let eight = <T as FloatElement>::from_f64(8.0);
-        let v_abs = if v >= T::ZERO { v } else { -v };
         let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::ZERO {
+            if shear_rate.into_base() < T::ZERO {
                 return Err(Error::PhysicsViolation(
                     "Junction wall shear rate must be nonnegative".to_string(),
                 ));
             }
             shear_rate
         } else {
-            eight * v_abs / d
+            velocity.abs() * eight / diameter
         };
 
-        let mu = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
-            .into_base();
-
-        let l = <T as FloatElement>::from_f64(self.junction_length_m);
-
-        // Linear component: Hagen-Poiseuille through the junction length.
-        // R_lin = 128 μ L / (π D⁴)  [circular], or 12 μ L / (w h³) [rect]
-        let pi = T::pi();
-        let r_lin =
-            <T as FloatElement>::from_f64(128.0) * mu * l / (pi * <T as FloatElement>::powi(d, 4));
-
-        // Quadratic component: K ρ / (2 A²).
-        let k_factor = <T as FloatElement>::from_f64(self.loss_coefficient());
-        let two = T::ONE + T::ONE;
-        let k_quad = k_factor * density / (two * area * area);
-
-        Ok((r_lin, k_quad))
+        let viscosity = fluid.viscosity_at_shear(
+            shear_rate.into_base(),
+            conditions.temperature.into_base(),
+            conditions.pressure.into_base(),
+        )?;
+        let diameter_squared = diameter * diameter;
+        let resistance: HydraulicResistance<T> =
+            viscosity * self.junction_length * <T as FloatElement>::from_f64(128.0)
+                / (diameter_squared * diameter_squared * T::pi());
+        let quadratic = minor_loss_coefficient(self.loss_coefficient(), state.density, area);
+        Ok((resistance, quadratic))
     }
 
     fn model_name(&self) -> &str {
@@ -251,198 +291,10 @@ impl<T: CfdScalar> ResistanceModel<T> for JunctionLossModel {
         fluid: &F,
         conditions: &FlowConditions<T>,
     ) -> Result<()> {
-        self.validate_mach_number(fluid, conditions)?;
-        if self.branch_diameter_m <= 0.0 {
-            return Err(Error::PhysicsViolation(
-                "branch_diameter_m must be positive".into(),
-            ));
-        }
-        if self.branch_area_m2 <= 0.0 {
-            return Err(Error::PhysicsViolation(
-                "branch_area_m2 must be positive".into(),
-            ));
-        }
-        if self.junction_length_m < 0.0 {
-            return Err(Error::PhysicsViolation(
-                "junction_length_m must be non-negative".into(),
-            ));
-        }
-        if let Some(run_area) = self.run_area_m2
-            && run_area <= 0.0
-        {
-            return Err(Error::PhysicsViolation(
-                "run_area_m2 must be positive if specified".into(),
-            ));
-        }
-        Ok(())
+        self.validate_geometry()?;
+        self.validate_mach_number(fluid, conditions)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::physics::resistance::models::FlowConditions;
-    use cfd_core::physics::fluid::CassonBlood;
-    use eunomia::assert_relative_eq;
-
-    fn make_model(jtype: JunctionType, direction: JunctionFlowDirection) -> JunctionLossModel {
-        JunctionLossModel {
-            junction_type: jtype,
-            flow_direction: direction,
-            branch_diameter_m: 500e-6,
-            branch_area_m2: std::f64::consts::PI * (250e-6_f64).powi(2),
-            junction_length_m: 500e-6,
-            density_kg_m3: 1000.0,
-            run_area_m2: None,
-        }
-    }
-
-    #[test]
-    fn tee_dividing_k_factor() {
-        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Dividing);
-        assert!((m.loss_coefficient() - 1.0).abs() < 1e-10);
-    }
-
-    #[test]
-    fn cross_combining_k_factor() {
-        let m = make_model(JunctionType::Cross, JunctionFlowDirection::Combining);
-        assert!((m.loss_coefficient() - 1.2).abs() < 1e-10);
-    }
-
-    #[test]
-    fn linearised_resistance_positive() {
-        let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let r = m.linearised_resistance(1e-6);
-        assert!(r > 0.0, "linearised resistance must be positive");
-    }
-
-    #[test]
-    fn resistance_model_trait_works() {
-        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-        let cond = FlowConditions::new(0.01);
-        let r = m
-            .calculate_resistance(&fluid, &cond)
-            .expect("expected value");
-        assert!(r > 0.0, "resistance must be positive: got {r}");
-    }
-
-    #[test]
-    fn coefficients_have_quadratic_term() {
-        let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-        let cond = FlowConditions::new(0.01);
-        let (r, k) = m
-            .calculate_coefficients(&fluid, &cond)
-            .expect("expected value");
-        assert!(r > 0.0, "linear resistance must be positive");
-        assert!(k > 0.0, "quadratic loss coefficient must be positive");
-    }
-
-    #[test]
-    fn non_newtonian_resistance_uses_explicit_shear_rate() {
-        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        let blood = CassonBlood::<f64>::normal_blood();
-        let mut low_shear = FlowConditions::new(0.01);
-        low_shear.shear_rate = Some(10.0);
-        let mut high_shear = FlowConditions::new(0.01);
-        high_shear.shear_rate = Some(1000.0);
-
-        let (low_r, low_k) = m
-            .calculate_coefficients(&blood, &low_shear)
-            .expect("positive explicit shear rate must compute junction loss");
-        let (high_r, high_k) = m
-            .calculate_coefficients(&blood, &high_shear)
-            .expect("positive explicit shear rate must compute junction loss");
-
-        assert!(
-            low_r > high_r,
-            "Casson shear-thinning requires higher junction viscous resistance at 10 1/s than at 1000 1/s: {low_r} <= {high_r}"
-        );
-        assert_relative_eq!(low_k, high_k, max_relative = 1e-12);
-        assert!(low_k > 0.0);
-    }
-
-    #[test]
-    fn negative_explicit_shear_rate_rejected() {
-        let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-        let mut cond = FlowConditions::new(0.01);
-        cond.shear_rate = Some(-1.0);
-
-        let err = m
-            .calculate_coefficients(&fluid, &cond)
-            .expect_err("negative explicit wall shear rate violates junction rheology");
-        assert!(
-            err.to_string().contains("shear rate"),
-            "error must identify the rejected physical invariant: {err}"
-        );
-    }
-
-    #[test]
-    fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
-        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        let blood = CassonBlood::<f64>::normal_blood();
-        let forward = FlowConditions::new(0.01);
-        let reverse = FlowConditions::new(-0.01);
-
-        let (forward_r, forward_k) = m
-            .calculate_coefficients(&blood, &forward)
-            .expect("forward non-Newtonian junction loss must compute");
-        let (reverse_r, reverse_k) = m
-            .calculate_coefficients(&blood, &reverse)
-            .expect("reverse non-Newtonian junction loss must compute");
-
-        assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
-        assert_relative_eq!(forward_k, reverse_k, max_relative = 1e-12);
-        assert!(forward_k > 0.0);
-    }
-
-    #[test]
-    fn combining_higher_loss_than_dividing_for_tee() {
-        let div = make_model(JunctionType::Tee, JunctionFlowDirection::Dividing);
-        let comb = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        assert!(
-            comb.loss_coefficient() > div.loss_coefficient(),
-            "combining flow typically has higher losses than dividing"
-        );
-    }
-
-    #[test]
-    fn diameter_ratio_correction_narrows_branch_reduces_k() {
-        let equal = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
-        let k_equal = equal.loss_coefficient();
-        let narrow_branch = JunctionLossModel {
-            run_area_m2: Some(equal.branch_area_m2 * 4.0), // run 4× larger than branch
-            ..equal
-        };
-        let k_narrow = narrow_branch.loss_coefficient();
-        assert!(
-            k_narrow < k_equal,
-            "narrow branch into wide run should reduce K: {k_narrow} vs {k_equal}"
-        );
-        // area ratio = 0.25, sqrt = 0.5 → K_narrow = K_equal × 0.5
-        assert!((k_narrow - k_equal * 0.5).abs() < 1e-10);
-    }
-
-    #[test]
-    fn diameter_ratio_none_gives_equal_area_k() {
-        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Dividing);
-        assert!(m.run_area_m2.is_none());
-        assert!((m.loss_coefficient() - 1.0).abs() < 1e-10);
-    }
-
-    #[test]
-    fn invalid_geometry_rejected() {
-        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-        let cond = FlowConditions::new(0.01);
-
-        let mut m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        m.branch_area_m2 = -1e-6;
-        assert!(m.validate_invariants(&fluid, &cond).is_err());
-
-        let mut m2 = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
-        m2.run_area_m2 = Some(-1e-6);
-        assert!(m2.validate_invariants(&fluid, &cond).is_err());
-    }
-}
+mod tests;

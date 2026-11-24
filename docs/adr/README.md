@@ -11,3 +11,7 @@
 | --- | ----- | ------ |
 | [0001](0001-eunomia-moirai-provider-contract.md) | Advance the Eunomia and Moirai provider contracts | Accepted |
 | [0002](0002-release-scope-1-0.md) | CFDrs release scope for 1.0 | Accepted |
+| [0003](0003-type-blood-reference-constants.md) | Type blood reference constants | Proposed |
+| [0004](0004-type-junction-loss-geometry.md) | Type junction geometry and minor loss | Proposed |
+| [0005](0005-type-resistance-flow-conditions.md) | Type resistance model flow conditions | Proposed |
+| [0006](0006-type-resistance-outputs.md) | Type hydraulic resistance model outputs | Proposed |

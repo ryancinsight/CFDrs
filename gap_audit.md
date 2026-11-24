@@ -1,4 +1,33 @@
+
+## Incremental release baseline
+
+Reviewed [cfd-core 0.3.0](crates/cfd-core/Cargo.toml) at [7dc44c5bee2c](https://github.com/ryancinsight/CFDrs/tree/7dc44c5bee2c311fd1309f647abbcb62976e8d84). The registry has no entry for this package and version. First publication requires a verified package graph and a clean consumer.
+
+The next [patch] checkpoint uses [jfnk recovery](crates/cfd-1d/tests/main/jfnk_recovery.rs). [Target version and acceptance criteria](backlog.md#cfdrs-stable-qualification).
+
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
+
+## Junction minor loss
+
+The standalone and blueprint junction paths share the typed coefficient
+of signed quadratic flow. The standalone geometry check rejects
+nonfinite input, and existing serialized configurations keep their SI keys.
+
+## Whole-blood density
+
+Cavitation, optimization, and Venturi cross-fidelity validation use the
+canonical typed density. The Venturi pressure test exercises density scaling
+and the invariance under reversing velocity.
+
+## Aequitas 0.5 and RITK VTK 0.5
+
+The standalone CFDrs cohort uses one registry Aequitas 0.5, Eunomia
+0.12.1, Leto 0.52, and Coeus 0.14 provider set. Athena and Harmonia retain
+one Athena Core Git source. The Athena adapter previously selected a
+different Git revision through its lock. Resolving both at `2be05424`
+removes the duplicate Leto source. The all-feature workspace compiles
+against RITK VTK 0.5.0 and the other released providers.
+
 ## Finding 2026-08-20: CFDrs scope-vs-delivery audit
 
 ### Measured baseline
@@ -452,3 +481,10 @@ that WIP produces unresolved imports before cfd-1d lint can complete. The
 - **Hypothesis (unverified)**: migration regression from the Leto-CSR assembly push (`d58d1fe3`/`1d768895`) subtly altering the assembled matrix, or a genuine conditioning/stiffness limit the current Picard+Anderson path cannot crack (cf. recent peer work `0d101352` "enhance Anderson QR collapse detection" — actively-evolving convergence path).
 - **DoR to resolve**: (1) differential-test the assembled cfd-1d matrix + rhs for this network against the pre-migration commit (parent of `d58d1fe3`) to classify regression vs. genuine stiffness; (2) capture the Picard residual trajectory (diverge / plateau / slow-decay) via a bounded-iteration diagnostic; (3) if genuine stiffness, verify the Newton fallback engages on Picard stagnation. Blocked from immediate fix: convergence path is under active concurrent peer edit (`0d101352`); coordinate before touching `solver/core`.
 - **Evidence tier**: empirical (reproduced deterministically, gpu-independent). Not test-gaming: the test asserts real mass-conservation physics; the fix must be in the solver/assembly, never a weakened tolerance or raised iteration cap.
+
+## 2026-11-21 · Blood reference quantities
+
+The blood reference module owns the typed constants. Model construction and the
+Andrade correction preserve dimensions. Existing solver and Python scalar
+interfaces receive canonical SI values. The boundary and dimension checks
+exercise the reference contract. [ADR 0003](docs/adr/0003-type-blood-reference-constants.md)

@@ -42,6 +42,7 @@ use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{Dimensionless, Velocity};
 use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
@@ -203,9 +204,11 @@ impl<T: CfdScalar + Copy + SafeFromF64> Channel<T> {
             self.geometry.length.into_base(),
             self.geometry.surface.roughness.into_base(),
         );
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
-        model.calculate_resistance(fluid, &conditions)
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
+        model
+            .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
     }
 
     /// Slip flow resistance (Beskok-Karniadakis 1999).
@@ -273,12 +276,13 @@ mod tests {
         let viscosity = fluid.dynamic_viscosity().into_base();
         let density = fluid.density().into_base();
         let velocity = (10_000.0 * viscosity) / (density * d);
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(10_000.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(10_000.0));
 
         let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length.into_base(), 1e-6)
             .calculate_resistance(&fluid, &conditions)
-            .expect("expected value");
+            .expect("expected value")
+            .into_base();
         let actual = chan.turbulent_resistance(&fluid).expect("expected value");
 
         assert_relative_eq!(actual, expected, max_relative = 1e-12, epsilon = 1e-12);

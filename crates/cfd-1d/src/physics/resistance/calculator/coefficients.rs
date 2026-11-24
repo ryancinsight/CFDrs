@@ -3,6 +3,7 @@ use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
     ResistanceModel, SerpentineModel, VenturiModel,
 };
+use aequitas::systems::si::quantities::{HydraulicResistance, QuadraticHydraulicResistance};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -12,7 +13,7 @@ pub fn calculate_coefficients_auto<T, F>(
     geometry: &ChannelGeometry<T>,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -70,7 +71,7 @@ pub fn calculate_hagen_poiseuille_coefficients<T, F>(
     length: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -87,7 +88,7 @@ pub fn calculate_rectangular_coefficients<T, F>(
     length: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -108,7 +109,7 @@ pub fn calculate_darcy_weisbach_coefficients<T, F>(
     roughness: T,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -123,7 +124,7 @@ pub fn calculate_serpentine_coefficients<T, F>(
     model: &SerpentineModel<T>,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,
@@ -137,7 +138,7 @@ pub fn calculate_venturi_coefficients<T, F>(
     model: &VenturiModel<T>,
     fluid: &F,
     conditions: &FlowConditions<T>,
-) -> Result<(T, T)>
+) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)>
 where
     T: CfdScalar,
     F: FluidTrait<T>,

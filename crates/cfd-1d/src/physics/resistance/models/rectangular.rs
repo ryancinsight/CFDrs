@@ -48,6 +48,9 @@
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
 use super::traits::{FlowConditions, ResistanceModel};
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -85,24 +88,27 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<T> {
+    ) -> Result<HydraulicResistance<T>> {
         let (r, k) = self.calculate_coefficients(fluid, conditions)?;
-        let q = conditions.flow_rate.unwrap_or(T::ZERO);
+        let q = conditions
+            .flow_rate
+            .map(aequitas::Quantity::into_base)
+            .unwrap_or(T::ZERO);
         let q_abs = if q >= T::ZERO { q } else { -q };
-        Ok(r + k * q_abs)
+        Ok(r + k * VolumetricFlowRate::from_base(q_abs))
     }
 
     fn calculate_coefficients<F: FluidTrait<T>>(
         &self,
         fluid: &F,
         conditions: &FlowConditions<T>,
-    ) -> Result<(T, T)> {
+    ) -> Result<(HydraulicResistance<T>, QuadraticHydraulicResistance<T>)> {
         let area = self.width * self.height;
         let dh = self.hydraulic_diameter();
 
-        let velocity = if let Some(v) = conditions.velocity {
+        let velocity = if let Some(v) = conditions.velocity.map(aequitas::Quantity::into_base) {
             v
-        } else if let Some(q) = conditions.flow_rate {
+        } else if let Some(q) = conditions.flow_rate.map(aequitas::Quantity::into_base) {
             q / area
         } else {
             T::ZERO
@@ -115,18 +121,23 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
 
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
-        let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
-            if shear_rate < T::ZERO {
-                return Err(Error::PhysicsViolation(
-                    "Rectangular channel wall shear rate must be nonnegative".to_string(),
-                ));
-            }
-            shear_rate
-        } else {
-            <T as FloatElement>::from_f64(8.0) * v_abs / dh
-        };
+        let shear_rate =
+            if let Some(shear_rate) = conditions.shear_rate.map(aequitas::Quantity::into_base) {
+                if shear_rate < T::ZERO {
+                    return Err(Error::PhysicsViolation(
+                        "Rectangular channel wall shear rate must be nonnegative".to_string(),
+                    ));
+                }
+                shear_rate
+            } else {
+                <T as FloatElement>::from_f64(8.0) * v_abs / dh
+            };
         let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?
+            .viscosity_at_shear(
+                shear_rate,
+                conditions.temperature.into_base(),
+                conditions.pressure.into_base(),
+            )?
             .into_base();
 
         // Calculate aspect ratio epsilon (always <= 1 for consistency in Bahrami)
@@ -151,7 +162,10 @@ impl<T: CfdScalar> ResistanceModel<T> for RectangularChannelModel<T> {
         let r =
             (poiseuille_number * viscosity * self.length) / ((T::ONE + T::ONE) * area * dh * dh);
 
-        Ok((r, T::ZERO))
+        Ok((
+            HydraulicResistance::from_base(r),
+            QuadraticHydraulicResistance::from_base(T::ZERO),
+        ))
     }
 
     fn model_name(&self) -> &'static str {
@@ -250,6 +264,7 @@ mod tests {
     use aequitas::systems::si::quantities::{
         DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
     };
+    use aequitas::systems::si::quantities::{ReciprocalTime, VolumetricFlowRate};
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
     use eunomia::assert_relative_eq;
 
@@ -277,13 +292,15 @@ mod tests {
         // width/height = height/width should give same resistance
         let model_wh = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.01_f64);
         let model_hw = RectangularChannelModel::new(0.0005_f64, 0.001_f64, 0.01_f64);
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (r_wh, _) = model_wh
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_wh = r_wh.into_base();
         let (r_hw, _) = model_hw
             .calculate_coefficients(&water(), &conditions)
             .expect("expected value");
+        let r_hw = r_hw.into_base();
         assert_relative_eq!(r_wh, r_hw, max_relative = 1e-10);
     }
 
@@ -300,7 +317,7 @@ mod tests {
 
     #[test]
     fn negative_dimensions_rejected() {
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
 
         let neg_w = RectangularChannelModel::new(-0.001_f64, 0.001_f64, 0.01_f64);
         assert!(neg_w.validate_invariants(&water(), &conditions).is_err());
@@ -317,17 +334,19 @@ mod tests {
         let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
         let blood = CassonBlood::<f64>::normal_blood();
 
-        let mut low_shear = FlowConditions::from_flow_rate(2.0e-8);
-        low_shear.shear_rate = Some(10.0);
-        let mut high_shear = FlowConditions::from_flow_rate(2.0e-8);
-        high_shear.shear_rate = Some(1000.0);
+        let mut low_shear = FlowConditions::from_flow_rate(VolumetricFlowRate::from_base(2.0e-8));
+        low_shear.shear_rate = Some(ReciprocalTime::from_base(10.0));
+        let mut high_shear = FlowConditions::from_flow_rate(VolumetricFlowRate::from_base(2.0e-8));
+        high_shear.shear_rate = Some(ReciprocalTime::from_base(1000.0));
 
         let (low_r, low_k) = model
             .calculate_coefficients(&blood, &low_shear)
             .expect("positive explicit shear rate must compute rectangular resistance");
+        let (low_r, low_k) = (low_r.into_base(), low_k.into_base());
         let (high_r, high_k) = model
             .calculate_coefficients(&blood, &high_shear)
             .expect("positive explicit shear rate must compute rectangular resistance");
+        let (high_r, high_k) = (high_r.into_base(), high_k.into_base());
 
         assert_eq!(low_k, 0.0);
         assert_eq!(high_k, 0.0);
@@ -341,8 +360,8 @@ mod tests {
     fn negative_explicit_shear_rate_rejected() {
         let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
         let blood = CassonBlood::<f64>::normal_blood();
-        let mut conditions = FlowConditions::from_flow_rate(2.0e-8);
-        conditions.shear_rate = Some(-1.0);
+        let mut conditions = FlowConditions::from_flow_rate(VolumetricFlowRate::from_base(2.0e-8));
+        conditions.shear_rate = Some(ReciprocalTime::from_base(-1.0));
 
         let err = model
             .calculate_coefficients(&blood, &conditions)
@@ -357,15 +376,17 @@ mod tests {
     fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
         let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
         let blood = CassonBlood::<f64>::normal_blood();
-        let forward = FlowConditions::new(0.04);
-        let reverse = FlowConditions::new(-0.04);
+        let forward = FlowConditions::new(Velocity::from_base(0.04));
+        let reverse = FlowConditions::new(Velocity::from_base(-0.04));
 
         let (forward_r, forward_k) = model
             .calculate_coefficients(&blood, &forward)
             .expect("forward non-Newtonian rectangular resistance must compute");
+        let (forward_r, forward_k) = (forward_r.into_base(), forward_k.into_base());
         let (reverse_r, reverse_k) = model
             .calculate_coefficients(&blood, &reverse)
             .expect("reverse non-Newtonian rectangular resistance must compute");
+        let (reverse_r, reverse_k) = (reverse_r.into_base(), reverse_k.into_base());
 
         assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
         assert_eq!(forward_k, 0.0);

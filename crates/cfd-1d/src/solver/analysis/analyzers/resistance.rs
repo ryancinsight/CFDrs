@@ -4,6 +4,9 @@ use super::traits::NetworkAnalyzer;
 use crate::domain::network::{Network, NetworkGraphExt};
 use crate::solver::analysis::ResistanceAnalysis;
 use aequitas::systems::si::quantities::HydraulicResistance;
+use aequitas::systems::si::quantities::{
+    Dimensionless, Pressure, ThermodynamicTemperature, Velocity, VolumetricFlowRate,
+};
 use cfd_core::CfdScalar;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
@@ -85,13 +88,10 @@ impl<T: CfdScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                     ))
                 })?;
 
-            analysis.add_resistance(edge.id.clone(), HydraulicResistance::from_base(resistance));
+            analysis.add_resistance(edge.id.clone(), resistance);
 
             let component_type = edge.properties.component_type;
-            analysis.add_resistance_by_type(
-                component_type.as_str().to_string(),
-                HydraulicResistance::from_base(resistance),
-            );
+            analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
         }
 
         Ok(())
@@ -234,7 +234,7 @@ impl<T: CfdScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         properties: &crate::domain::network::EdgeProperties<T>,
         fluid: &cfd_core::physics::fluid::ConstantPropertyFluid<T>,
         flow_rate: Option<T>,
-    ) -> std::result::Result<T, ResistanceCalculationError> {
+    ) -> std::result::Result<HydraulicResistance<T>, ResistanceCalculationError> {
         use crate::physics::resistance::{FlowConditions, HagenPoiseuilleModel, ResistanceModel};
 
         // Require hydraulic diameter - no silent fallbacks
@@ -263,14 +263,16 @@ impl<T: CfdScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {
                 let velocity = q / properties.area.into_base();
-                fluid.density.into_base() * velocity * hydraulic_diameter
-                    / fluid.viscosity.into_base()
+                Dimensionless::from_base(
+                    fluid.density.into_base() * velocity * hydraulic_diameter
+                        / fluid.viscosity.into_base(),
+                )
             }),
-            velocity: flow_rate.map(|q| q / properties.area.into_base()),
-            flow_rate,
+            velocity: flow_rate.map(|q| Velocity::from_base(q / properties.area.into_base())),
+            flow_rate: flow_rate.map(VolumetricFlowRate::from_base),
             shear_rate: None,
-            temperature,
-            pressure,
+            temperature: ThermodynamicTemperature::from_base(temperature),
+            pressure: Pressure::from_base(pressure),
         };
 
         // Calculate resistance and propagate any errors

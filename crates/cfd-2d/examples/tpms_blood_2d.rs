@@ -30,6 +30,7 @@
 
 use cfd_2d::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("╔══════════════════════════════════════════════════════════╗");
@@ -54,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 2. Blood Rheology ────────────────────────────────────────────────────
     let blood_params = CarreauYasudaBlood::<f64>::normal_blood();
-    let rho = 1060.0_f64; // blood density [kg/m³]
+    let rho = BLOOD_DENSITY.into_base();
 
     println!("Fluid : Carreau-Yasuda blood (ρ = {} kg/m³)", rho);
     println!(

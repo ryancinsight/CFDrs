@@ -1,5 +1,6 @@
 use super::traits::{FlowConditions, ResistanceModel};
 use super::*;
+use aequitas::systems::si::quantities::{Dimensionless, Velocity};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::assert_relative_eq;
 
@@ -116,12 +117,13 @@ fn test_serpentine_resistance_positive() -> cfd_core::error::Result<()> {
     };
 
     let fluid = water();
-    let conditions = FlowConditions::new(0.1);
+    let conditions = FlowConditions::new(Velocity::from_base(0.1));
 
-    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+    let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
     assert!(resistance > 0.0, "Resistance must be positive");
 
     let (r, k) = model.calculate_coefficients(&fluid, &conditions)?;
+    let (r, k) = (r.into_base(), k.into_base());
     assert!(r >= 0.0, "Linear coefficient must be non-negative");
     assert!(k >= 0.0, "Quadratic coefficient must be non-negative");
 
@@ -141,8 +143,8 @@ fn test_serpentine_analysis() -> cfd_core::error::Result<()> {
     };
 
     let fluid = water();
-    let mut conditions = FlowConditions::new(0.1);
-    conditions.reynolds_number = Some(100.0);
+    let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+    conditions.reynolds_number = Some(Dimensionless::from_base(100.0));
 
     let analysis = model.analyze(&fluid, &conditions)?;
 
@@ -158,7 +160,7 @@ fn test_serpentine_analysis() -> cfd_core::error::Result<()> {
 #[test]
 fn test_serpentine_more_bends_more_resistance() -> cfd_core::error::Result<()> {
     let fluid = water();
-    let conditions = FlowConditions::new(0.1);
+    let conditions = FlowConditions::new(Velocity::from_base(0.1));
 
     let model_3 = SerpentineModel {
         straight_length: 0.02_f64,
@@ -180,8 +182,12 @@ fn test_serpentine_more_bends_more_resistance() -> cfd_core::error::Result<()> {
         },
     };
 
-    let r3 = model_3.calculate_resistance(&fluid, &conditions)?;
-    let r10 = model_10.calculate_resistance(&fluid, &conditions)?;
+    let r3 = model_3
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
+    let r10 = model_10
+        .calculate_resistance(&fluid, &conditions)?
+        .into_base();
 
     assert!(r10 > r3, "More bends should increase resistance");
 
@@ -204,12 +210,14 @@ fn serpentine_coefficients_are_invariant_under_reverse_flow() -> cfd_core::error
         },
     };
 
-    let forward = FlowConditions::new(0.08);
-    let reverse = FlowConditions::new(-0.08);
+    let forward = FlowConditions::new(Velocity::from_base(0.08));
+    let reverse = FlowConditions::new(Velocity::from_base(-0.08));
     let (r_forward, k_forward) = model.calculate_coefficients(&fluid, &forward)?;
+    let (r_forward, k_forward) = (r_forward.into_base(), k_forward.into_base());
     let (r_reverse, k_reverse) = model.calculate_coefficients(&fluid, &reverse)?;
-    let resistance_forward = model.calculate_resistance(&fluid, &forward)?;
-    let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?;
+    let (r_reverse, k_reverse) = (r_reverse.into_base(), k_reverse.into_base());
+    let resistance_forward = model.calculate_resistance(&fluid, &forward)?.into_base();
+    let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?.into_base();
 
     assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
     assert_relative_eq!(k_forward, k_reverse, max_relative = 1e-12);
@@ -231,8 +239,8 @@ fn serpentine_analysis_uses_flow_magnitude_for_scalar_losses() -> cfd_core::erro
         },
     };
 
-    let forward = model.analyze(&fluid, &FlowConditions::new(0.12))?;
-    let reverse = model.analyze(&fluid, &FlowConditions::new(-0.12))?;
+    let forward = model.analyze(&fluid, &FlowConditions::new(Velocity::from_base(0.12)))?;
+    let reverse = model.analyze(&fluid, &FlowConditions::new(Velocity::from_base(-0.12)))?;
 
     assert_relative_eq!(forward.reynolds, reverse.reynolds, max_relative = 1e-12);
     assert_relative_eq!(
@@ -256,7 +264,7 @@ fn serpentine_analysis_uses_flow_magnitude_for_scalar_losses() -> cfd_core::erro
 #[test]
 fn test_serpentine_validate_invariants() {
     let fluid = water();
-    let conditions = FlowConditions::new(0.1);
+    let conditions = FlowConditions::new(Velocity::from_base(0.1));
 
     let good_model = SerpentineModel {
         straight_length: 0.02_f64,

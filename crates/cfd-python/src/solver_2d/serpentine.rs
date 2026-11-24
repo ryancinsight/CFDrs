@@ -1,7 +1,8 @@
 //! 1D Serpentine resistance solver `PyO3` wrapper.
 
+use aequitas::systems::si::quantities::{Dimensionless, Velocity, VolumetricFlowRate};
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
+    DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity,
 };
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -74,7 +75,7 @@ impl PySerpentineSolver1D {
         );
 
         let dh = cross_section.hydraulic_diameter();
-        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
+        let density = cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base();
 
         let (mu, re) = match blood_type {
             "casson" => {
@@ -90,14 +91,15 @@ impl PySerpentineSolver1D {
                 (mu, re)
             }
             _ => {
-                let mu = cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY;
+                let mu = cfd_core::physics::fluid::blood::constants::INFINITE_SHEAR_VISCOSITY
+                    .into_base();
                 let re = density * velocity * dh / mu;
                 (mu, re)
             }
         };
 
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(re);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         let fluid = cfd_core::physics::fluid::ConstantPropertyFluid::new(
             "blood".to_string(),
@@ -105,7 +107,7 @@ impl PySerpentineSolver1D {
             DynamicViscosity::from_base(mu),
             SpecificHeatCapacity::from_base(3617.0),
             ThermalConductivity::from_base(0.52),
-            Velocity::from_base(cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND),
+            cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND,
         );
 
         let resistance = model
@@ -114,12 +116,12 @@ impl PySerpentineSolver1D {
 
         let area = self.width * self.height;
         let flow_rate = velocity * area;
-        let pressure_drop = resistance * flow_rate;
+        let pressure_drop = (resistance * VolumetricFlowRate::from_base(flow_rate)).into_base();
         let dean_number = re * (dh / (2.0 * self.bend_radius)).sqrt();
 
         Ok(PySerpentineResult1D {
             pressure_drop,
-            resistance,
+            resistance: resistance.into_base(),
             dean_number,
             reynolds_number: re,
             apparent_viscosity: mu,

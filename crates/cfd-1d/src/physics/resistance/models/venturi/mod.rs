@@ -147,6 +147,7 @@ pub use model::VenturiModel;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{Dimensionless, Velocity};
     use eunomia::assert_relative_eq;
     use proptest::prelude::*;
     use traits::{FlowConditions, ResistanceModel};
@@ -215,8 +216,9 @@ mod tests {
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
         let velocity = 2.0; // m/s
-        let mut conditions = FlowConditions::new(velocity);
-        conditions.reynolds_number = Some(998.2 * velocity * 0.01 / 1.002e-3);
+        let mut conditions = FlowConditions::new(Velocity::from_base(velocity));
+        conditions.reynolds_number =
+            Some(Dimensionless::from_base(998.2 * velocity * 0.01 / 1.002e-3));
 
         let analysis = model.analyze(&fluid, &conditions)?;
 
@@ -241,11 +243,11 @@ mod tests {
 
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
-        let mut conditions = FlowConditions::new(0.01); // 10 mm/s
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.01)); // 10 mm/s
         let density = 998.2;
         let viscosity = 1.002e-3;
         let re = density * 0.01 * 0.001 / viscosity;
-        conditions.reynolds_number = Some(re);
+        conditions.reynolds_number = Some(Dimensionless::from_base(re));
 
         let analysis = model.analyze(&fluid, &conditions)?;
 
@@ -342,7 +344,7 @@ mod tests {
     fn test_venturi_validate_invariants() {
         let model = VenturiModel::<f64>::symmetric(0.01, 0.005, 0.01, 0.05);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("expected value");
-        let conditions = FlowConditions::new(0.1);
+        let conditions = FlowConditions::new(Velocity::from_base(0.1));
 
         assert!(model.validate_invariants(&fluid, &conditions).is_ok());
 
@@ -356,13 +358,14 @@ mod tests {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
-        let mut conditions = FlowConditions::new(0.1);
-        conditions.reynolds_number = Some(500.0);
+        let mut conditions = FlowConditions::new(Velocity::from_base(0.1));
+        conditions.reynolds_number = Some(Dimensionless::from_base(500.0));
 
-        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        let resistance = model.calculate_resistance(&fluid, &conditions)?.into_base();
         assert!(resistance > 0.0);
 
         let (r, k) = model.calculate_coefficients(&fluid, &conditions)?;
+        let (r, k) = (r.into_base(), k.into_base());
         assert!(r >= 0.0 || k >= 0.0); // At least one should be positive
 
         Ok(())
@@ -374,19 +377,21 @@ mod tests {
         let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
         let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
-        let forward = FlowConditions::new(0.35);
-        let reverse = FlowConditions::new(-0.35);
+        let forward = FlowConditions::new(Velocity::from_base(0.35));
+        let reverse = FlowConditions::new(Velocity::from_base(-0.35));
 
         let (r_forward, k_forward) = model.calculate_coefficients(&fluid, &forward)?;
+        let (r_forward, k_forward) = (r_forward.into_base(), k_forward.into_base());
         let (r_reverse, k_reverse) = model.calculate_coefficients(&fluid, &reverse)?;
+        let (r_reverse, k_reverse) = (r_reverse.into_base(), k_reverse.into_base());
 
         assert!(r_forward > 0.0);
         assert!(k_forward.abs() > 0.0);
         assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
         assert_relative_eq!(k_forward, k_reverse, max_relative = 1e-12);
 
-        let resistance_forward = model.calculate_resistance(&fluid, &forward)?;
-        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?;
+        let resistance_forward = model.calculate_resistance(&fluid, &forward)?.into_base();
+        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?.into_base();
         assert_relative_eq!(resistance_forward, resistance_reverse, max_relative = 1e-12);
 
         Ok(())

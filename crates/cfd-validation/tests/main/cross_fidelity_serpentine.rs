@@ -27,6 +27,7 @@
 use aequitas::systems::si::quantities::{
     DynamicViscosity, MassDensity, SpecificHeatCapacity, ThermalConductivity, Velocity,
 };
+use aequitas::systems::si::quantities::{Pressure, ThermodynamicTemperature, VolumetricFlowRate};
 use cfd_1d::physics::resistance::calculator::dispatch::{
     calculate_rectangular, calculate_serpentine_rectangular,
 };
@@ -67,10 +68,10 @@ fn cross_fidelity_dean_flow_resistance() {
     let fluid_2d = BloodModel2D::Newtonian(viscosity);
 
     let conditions = FlowConditions {
-        flow_rate: Some(flow_rate),
-        velocity: Some(u_inlet_2d),
-        temperature: 310.0,
-        pressure: 101325.0, // Base ambient [Pa]
+        flow_rate: Some(VolumetricFlowRate::from_base(flow_rate)),
+        velocity: Some(Velocity::from_base(u_inlet_2d)),
+        temperature: ThermodynamicTemperature::from_base(310.0),
+        pressure: Pressure::from_base(101325.0), // Base ambient [Pa]
         reynolds_number: None,
         shear_rate: None,
     };
@@ -79,7 +80,8 @@ fn cross_fidelity_dean_flow_resistance() {
     let length_straight = l_straight * 8.0 + (std::f64::consts::PI * turn_radius) * 4.0;
     let r_straight_1d =
         calculate_rectangular(width, height, length_straight, &fluid_1d, &conditions)
-            .expect("1D straight calculation failed");
+            .expect("1D straight calculation failed")
+            .into_base();
     let dp_straight_1d = r_straight_1d * flow_rate;
 
     // 3. [1D] Analytical Dean Flow Perturbation (Ito/Dean Corrected)
@@ -95,7 +97,7 @@ fn cross_fidelity_dean_flow_resistance() {
         &conditions,
     )
     .expect("1D serpentine calculation failed");
-    let dp_serp_1d = r_serp_1d * flow_rate;
+    let dp_serp_1d = (r_serp_1d * VolumetricFlowRate::from_base(flow_rate)).into_base();
 
     // 4. [2D] Planar Serpentine 2D Navier-Stokes Solver
     let geom_2d = SerpentineGeometry2D::new(width, height, l_straight, turn_radius, n_cycles);

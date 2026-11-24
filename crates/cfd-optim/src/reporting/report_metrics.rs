@@ -1,3 +1,4 @@
+use crate::BLOOD_DENSITY;
 use aequitas::systems::si::quantities::{
     DynamicViscosity, EnergyPerVolume, Length, Power, Pressure, ReciprocalLength, ReciprocalTime,
     TemperatureDifference, Time, Velocity, Volume, VolumetricFlowRate,
@@ -20,8 +21,8 @@ use super::report_math::{
     log_risk, mean, percentile, resonance_match, split_stage_flow_fractions,
 };
 use crate::constraints::{
-    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
-    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    BLOOD_ATTENUATION_405NM_INV_M, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S,
+    BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
     CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
     CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
     CLOTTING_SHEAR_LOW_RISK_INV_S, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
@@ -403,7 +404,7 @@ pub fn compute_blueprint_report_metrics(
         .fold(0.0_f64, f64::max);
     let throat_temperature_rise_k = if max_venturi_shear_rate_inv_s > 0.0 {
         max_venturi_shear_pa * max_venturi_shear_rate_inv_s * max_venturi_transit_time_s
-            / (BLOOD_DENSITY_KG_M3 * C_P_BLOOD_J_KG_K)
+            / (BLOOD_DENSITY.into_base() * C_P_BLOOD_J_KG_K)
     } else {
         0.0
     };
@@ -867,8 +868,8 @@ pub fn compute_sdt_acoustic_metrics(
     let p_acoustic = (pressure_drop_pa + 101_325.0).max(50_000.0);
     let e_acoustic = acoustic_energy_density(
         p_acoustic, // consistent with RP pressure reference
-        cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY, // [kg/m³]
-        cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX, // [m/s]
+        cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY.into_base(), // [kg/m³]
+        cfd_core::physics::fluid::blood::constants::BLOOD_SPEED_OF_SOUND_APPROX.into_base(), // [m/s]
     );
 
     // Acoustic contrast factors for differential radiation force

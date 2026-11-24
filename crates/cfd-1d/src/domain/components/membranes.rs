@@ -2,6 +2,7 @@
 
 use super::{Component, real_from_f64};
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
+use aequitas::systems::si::quantities::Velocity;
 use aequitas::systems::si::quantities::{Area, Length, Volume};
 use cfd_core::CfdScalar;
 use cfd_core::conversion::SafeFromF64;
@@ -61,9 +62,10 @@ impl<T: CfdScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
             self.pore_radius.into_base(),
             self.porosity,
         );
-        let conditions = FlowConditions::new(T::ZERO);
+        let conditions = FlowConditions::new(Velocity::from_base(T::ZERO));
         model
             .calculate_resistance(fluid, &conditions)
+            .map(aequitas::Quantity::into_base)
             .unwrap_or_else(|_| real_from_f64(1e12))
     }
 

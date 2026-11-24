@@ -154,10 +154,11 @@ mod tests {
         let r_rect = resistance_rectangular(w, h, L, MU);
         let model = RectangularChannelModel::new(w, h, L);
         let fluid = water();
-        let conditions = FlowConditions::new(0.0);
+        let conditions = FlowConditions::new(Velocity::from_base(0.0));
         let (r_model, _) = model
             .calculate_coefficients(&fluid, &conditions)
             .expect("rectangular model should evaluate successfully");
+        let r_model = r_model.into_base();
 
         assert_relative_eq!(r_rect, r_model, epsilon = 1e-12);
     }

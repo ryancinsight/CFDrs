@@ -14,16 +14,17 @@
 //! # Execution
 //! `cargo run --example cross_fidelity_branching --release`
 
-use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
+use aequitas::systems::si::quantities::{DynamicViscosity, VolumetricFlowRate};
 use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
 use cfd_3d::blueprint_integration::{
-    process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
+    Blueprint3dProcessingConfig, process_blueprint_with_reference_trace,
 };
+use cfd_core::physics::fluid::blood::constants::BLOOD_DENSITY;
 use cfd_schematics::interface::presets::{
     bifurcation_rect, pentafurcation_rect, quadfurcation_rect, trifurcation_rect,
 };
 use cfd_schematics::visualizations::{
-    create_plotters_renderer, AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer,
+    AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer, create_plotters_renderer,
 };
 use iris::color::NamedColorMap;
 use std::fs;
@@ -41,9 +42,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Shared Fluid & Flow Parameters
     // Blood-like properties for physiological relevance
-    let density_kg_m3 = 1060.0;
-    let viscosity_pa_s = 3.5e-3;
-    let total_flow_rate_m3_s = 1.0e-7; // 100 µL/s or 0.1 mL/s
+    let viscosity = DynamicViscosity::from_base(3.5e-3);
+    let total_flow_rate = VolumetricFlowRate::from_base(1.0e-7); // 100 µL/s or 0.1 mL/s
 
     // We will evaluate two cases:
     // 1. Symmetric Bifurcation
@@ -96,9 +96,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // ── 1. Process Blueprint (1D + 2D) ──────────────────────────────────
         let config = Blueprint3dProcessingConfig {
-            density_kg_m3,
-            viscosity_pa_s,
-            total_flow_rate_m3_s,
+            density: BLOOD_DENSITY,
+            viscosity,
+            total_flow_rate,
             // 2D grid resolution — kept moderate for example execution time
             two_d_grid_nx: 64,
             two_d_grid_ny: 16,
@@ -132,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut node_flow_map = HashMap::new();
 
         for trace in &result.channel_traces {
-            let flow_1d = trace.reference_flow_rate_m3_s;
-            let dp_1d = trace.reference_pressure_drop_pa;
+            let flow_1d = trace.reference_flow_rate.into_base();
+            let dp_1d = trace.reference_pressure_drop.into_base();
 
             // Optional 2D results
             let flow_2d_str = trace
@@ -150,7 +150,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|| "N/A".to_string());
 
             let shear_2d_str = trace
-                .two_d_field_wall_shear_mean_pa
+                .two_d_field_wall_shear_mean
+                .map(|pressure| pressure.into_base())
                 .map(|s| format!("{:>6.2}", s))
                 .unwrap_or_else(|| "N/A".to_string());
 
@@ -166,21 +167,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     height_m,
                 } = geom.cross_section
                 {
-                    let width_m = width_m.into_base();
-                    let height_m = height_m.into_base();
-                    if geom.length_m.into_base() > 0.0 && width_m > 0.0 && height_m > 0.0 {
-                        let sep_model = CellSeparationModel::new(
-                            Length::from_base(width_m),
-                            Length::from_base(height_m),
-                            Length::from_base(geom.length_m),
-                            None,
-                        );
+                    if geom.length_m.into_base() > 0.0
+                        && width_m.into_base() > 0.0
+                        && height_m.into_base() > 0.0
+                    {
+                        let sep_model =
+                            CellSeparationModel::new(width_m, height_m, geom.length_m, None);
                         if let Some(analysis) = sep_model.analyze(
                             &cell_cancer,
                             &cell_rbc,
-                            MassDensity::from_base(density_kg_m3),
-                            DynamicViscosity::from_base(viscosity_pa_s),
-                            Velocity::from_base(trace.reference_mean_velocity_m_s),
+                            BLOOD_DENSITY,
+                            viscosity,
+                            trace.reference_mean_velocity,
                         ) {
                             sep_eff_str =
                                 format!("{:>6.2}%", analysis.separation_efficiency * 100.0);
@@ -217,7 +215,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .find(|t| t.channel_id == ch.id.as_str())
             {
-                edge_flow_map.insert(i, trace.reference_flow_rate_m3_s);
+                edge_flow_map.insert(i, trace.reference_flow_rate.into_base());
 
                 // Hacky node mapping: from/to node IDs to indices
                 let mut from_idx = 0;
@@ -230,8 +228,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         to_idx = j;
                     }
                 }
-                node_flow_map.insert(from_idx, trace.reference_flow_rate_m3_s);
-                node_flow_map.insert(to_idx, trace.reference_flow_rate_m3_s);
+                node_flow_map.insert(from_idx, trace.reference_flow_rate.into_base());
+                node_flow_map.insert(to_idx, trace.reference_flow_rate.into_base());
             }
         }
 
