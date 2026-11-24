@@ -205,6 +205,12 @@ All notable changes to this project will be documented in this file.
   with volumetric flow to compute signed pressure drop. Extract SI scalar
   values with `into_base()` when calling a numerical or reporting boundary.
 
+- [major] Use Horae UTC timestamps in simulation metadata and benchmark
+  records. Serialized dates remain RFC 3339 strings. Rust callers can
+  construct the new type from Unix seconds and nanoseconds or parse an
+  RFC 3339 timestamp. Other reports emit UTC strings through the same
+  formatter.
+
 ### Changed
 
 - Use crates.io Aequitas 0.5.0 and Eunomia 0.12.1 throughout the

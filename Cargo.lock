@@ -557,11 +557,11 @@ dependencies = [
  "aequitas",
  "anyhow",
  "bytemuck",
- "chrono",
  "criterion",
  "eunomia",
  "futures",
  "hephaestus-wgpu",
+ "horae-civil-time",
  "indexmap",
  "leto",
  "leto-ops",
@@ -636,9 +636,9 @@ dependencies = [
  "cfd-math",
  "cfd-schematics",
  "cfd-validation",
- "chrono",
  "eunomia",
  "gaia-mesh",
+ "horae-civil-time",
  "hyperion-transport",
  "moirai-runtime",
  "petgraph",
@@ -715,10 +715,10 @@ dependencies = [
  "cfd-math",
  "cfd-schematic-mesh",
  "cfd-schematics",
- "chrono",
  "criterion",
  "eunomia",
  "gaia-mesh",
+ "horae-civil-time",
  "leto",
  "leto-ops",
  "moirai-runtime",
@@ -752,20 +752,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
  "rand_core 0.10.1",
-]
-
-[[package]]
-name = "chrono"
-version = "0.4.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
-dependencies = [
- "iana-time-zone",
- "js-sys",
- "num-traits",
- "serde",
- "wasm-bindgen",
- "windows-link",
 ]
 
 [[package]]
@@ -1028,12 +1014,6 @@ dependencies = [
  "consus-core",
  "thiserror 2.0.21",
 ]
-
-[[package]]
-name = "core-foundation-sys"
-version = "0.8.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "core_detect"
@@ -1657,6 +1637,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
+name = "horae-civil-time"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/horae?rev=fd117ce2b2b92d11a4e8bc92322e7fb40aa61aae#fd117ce2b2b92d11a4e8bc92322e7fb40aa61aae"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "horae-time"
 version = "0.2.2"
 source = "git+https://github.com/ryancinsight/horae#40196ff641c4366d5762b898ebf9fa109f99e863"
@@ -1674,30 +1662,6 @@ dependencies = [
  "aequitas",
  "eunomia",
  "proteus-mat",
-]
-
-[[package]]
-name = "iana-time-zone"
-version = "0.1.65"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
-dependencies = [
- "android_system_properties",
- "core-foundation-sys",
- "iana-time-zone-haiku",
- "js-sys",
- "log",
- "wasm-bindgen",
- "windows-core",
-]
-
-[[package]]
-name = "iana-time-zone-haiku"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
-dependencies = [
- "cc",
 ]
 
 [[package]]

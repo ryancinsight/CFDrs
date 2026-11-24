@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
+use horae_civil_time::UtcTimestamp;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -167,7 +167,7 @@ pub(crate) fn write_asset_review_manifest(
     }
 
     let manifest = AssetReviewManifest {
-        generated_at: Utc::now().to_rfc3339(),
+        generated_at: UtcTimestamp::now()?.to_string(),
         generator: AssetReviewGenerator {
             path: "crates/cfd-optim/examples/milestone12_report.rs".to_string(),
             kind: "report".to_string(),

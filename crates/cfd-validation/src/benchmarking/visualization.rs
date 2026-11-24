@@ -632,7 +632,11 @@ impl HtmlReportGenerator {
         </div>"#,
             self.config.title,
             self.config.title,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+            format_args!(
+                "{:#}",
+                horae_civil_time::UtcTimestamp::now()
+                    .expect("system clock within the supported civil date range")
+            )
         )
     }
 
@@ -1253,7 +1257,11 @@ impl PerformanceDashboard {
         writeln!(
             &mut report,
             "Report Generated: {}\n",
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+            format_args!(
+                "{:#}",
+                horae_civil_time::UtcTimestamp::now()
+                    .expect("system clock within the supported civil date range")
+            )
         )
         .expect("writing to String cannot fail");
 

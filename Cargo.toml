@@ -32,6 +32,7 @@ keywords = ["cfd", "simulation", "fluid-dynamics", "computational", "physics"]
 categories = ["science", "simulation"]
 
 [workspace.dependencies]
+horae-civil-time = { version = "0.1.0", git = "https://github.com/ryancinsight/horae", rev = "fd117ce2b2b92d11a4e8bc92322e7fb40aa61aae", features = ["serde"] }
 # Core dependencies
 thiserror = "1.0"
 hashbrown = "0.15"

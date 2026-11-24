@@ -40,7 +40,8 @@ impl PerformanceProfiler {
         let summary = Self::generate_summary(&profiles);
         let recommendations = Self::generate_system_recommendations(&profiles);
         let report = PerformanceReport {
-            timestamp: chrono::Utc::now(),
+            timestamp: horae_civil_time::UtcTimestamp::now()
+                .expect("system clock within the supported civil date range"),
             profiles,
             summary,
             recommendations,
@@ -178,10 +179,7 @@ impl PerformanceProfiler {
     fn display_report(report: &PerformanceReport) {
         tracing::info!("\n📊 Performance Profiling Summary");
         tracing::info!("===============================");
-        tracing::info!(
-            "Timestamp: {}",
-            report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
-        );
+        tracing::info!("Timestamp: {:#}", report.timestamp);
         tracing::info!(
             "Total Algorithms Profiled: {}",
             report.summary.total_profiles
@@ -236,7 +234,7 @@ impl PerformanceProfiler {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PerformanceReport {
     /// Report timestamp
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: horae_civil_time::UtcTimestamp,
     /// Individual performance profiles
     pub profiles: Vec<PerformanceProfile>,
     /// Summary statistics

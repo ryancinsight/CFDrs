@@ -23,6 +23,15 @@
 - [major] Blood rheology consumes Aequitas reference constants. Verify the
   cutoff at the adjacent representable vessel diameters and the Metal suite.
 
+## CFDRS-CIVIL-TIME — Use shared UTC timestamps [major] — in progress
+
+- Migrate the three direct Chrono consumers in core metadata, benchmarks,
+  and report generation to Horae. Persisted metadata remains RFC 3339 JSON.
+- Three focused tests pass across the locked build of core, validation, and
+  optimization crates. The metadata fixture retains the leap day and
+  normalizes an existing offset without changing the instant.
+- Closure requires fresh-provider resolution and the public API compatibility gate.
+
 ## M-newton: bounded Newton-Krylov recovery lands — needs: none
 - exit: the JFNK acceptance oracle passes at head; no open P0 solver item.
 ## M-solver-perf: problem-scaled SIMPLEC targets hold — needs: none

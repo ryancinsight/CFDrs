@@ -35,7 +35,7 @@ pub struct BenchmarkResult {
     /// Execution duration
     pub duration: Duration,
     /// Timestamp of execution
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: horae_civil_time::UtcTimestamp,
 }
 
 impl BenchmarkResult {
@@ -50,7 +50,8 @@ impl BenchmarkResult {
             status: BenchmarkStatus::Skipped,
             regression_detected: None,
             duration: Duration::ZERO,
-            timestamp: chrono::Utc::now(),
+            timestamp: horae_civil_time::UtcTimestamp::now()
+                .expect("system clock within the supported civil date range"),
         }
     }
 
