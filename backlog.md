@@ -1,4 +1,13 @@
 <!-- Compacted 2026-09-21 under the 1,000-line board budget: a board is a queue, not a ledger, so closed sections and closed item bodies are gone -- their record is the PR that closed them and its `Item:` trailer. Open items, anchors and live-marked residuals are kept. Recover any removed narrative with `git log -p -- <this file>`. -->
+## CFDRS-CIVIL-TIME — Use shared UTC timestamps [major] — in progress
+
+- Migrate the three direct Chrono consumers in core metadata, benchmarks,
+  and report generation to Horae. Persisted metadata remains RFC 3339 JSON.
+- Three focused tests pass across the locked build of core, validation, and
+  optimization crates. The metadata fixture retains the leap day and
+  normalizes an existing offset without changing the instant.
+- Closure requires fresh-provider resolution and the public API compatibility gate.
+
 ## M-newton: bounded Newton-Krylov recovery lands — needs: none
 - exit: the JFNK acceptance oracle passes at head; no open P0 solver item.
 ## M-solver-perf: problem-scaled SIMPLEC targets hold — needs: none

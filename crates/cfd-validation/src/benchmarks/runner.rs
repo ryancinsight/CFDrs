@@ -33,7 +33,9 @@ impl BenchmarkRunner {
         ValidationReport {
             benchmarks: results.to_vec(),
             summary: Self::generate_summary(results),
-            timestamp: chrono::Utc::now().to_rfc3339(),
+            timestamp: horae_civil_time::UtcTimestamp::now()
+                .expect("system clock within the supported civil date range")
+                .to_string(),
         }
     }
 

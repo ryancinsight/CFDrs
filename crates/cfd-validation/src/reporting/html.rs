@@ -3,8 +3,8 @@
 use super::{Reporter, ValidationReport};
 use crate::reporting::TestStatus;
 use cfd_core::error::Result;
+use horae_civil_time::UtcTimestamp;
 use std::fmt::Write as _;
-use std::time::SystemTime;
 
 /// HTML reporter for validation results
 pub struct HtmlReporter;
@@ -16,7 +16,7 @@ impl HtmlReporter {
     }
 
     /// Generate HTML header with CSS styling
-    fn generate_header(report: &ValidationReport) -> String {
+    fn generate_header(report: &ValidationReport, timestamp: UtcTimestamp) -> String {
         format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -265,7 +265,7 @@ impl HtmlReporter {
             <div class="timestamp">Generated on {timestamp}</div>
         </div>"#,
             title = report.title,
-            timestamp = format_timestamp(report.timestamp)
+            timestamp = format_args!("{timestamp:#}")
         )
     }
 
@@ -613,9 +613,10 @@ impl HtmlReporter {
 
 impl Reporter for HtmlReporter {
     fn generate_report(&self, report: &ValidationReport) -> Result<String> {
+        let timestamp = UtcTimestamp::try_from(report.timestamp).map_err(std::io::Error::other)?;
         let html = format!(
             "{}{}{}{}{}{}{}",
-            Self::generate_header(report),
+            Self::generate_header(report, timestamp),
             Self::generate_summary(report),
             Self::generate_test_results(report),
             Self::generate_performance(report),
@@ -625,20 +626,6 @@ impl Reporter for HtmlReporter {
         );
 
         Ok(html)
-    }
-}
-
-/// Format timestamp for display
-fn format_timestamp(timestamp: SystemTime) -> String {
-    match timestamp.duration_since(std::time::UNIX_EPOCH) {
-        Ok(duration) => {
-            let datetime = chrono::DateTime::from_timestamp(duration.as_secs() as i64, 0);
-            match datetime {
-                Some(dt) => dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-                None => "Unknown timestamp".to_string(),
-            }
-        }
-        Err(_) => "Invalid timestamp".to_string(),
     }
 }
 

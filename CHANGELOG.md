@@ -174,6 +174,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Breaking
+
+- [major] Use Horae UTC timestamps in simulation metadata and benchmark
+  records. Serialized dates remain RFC 3339 strings. Rust callers can
+  construct the new type from Unix seconds and nanoseconds or parse an
+  RFC 3339 timestamp. Other reports emit UTC strings through the same
+  formatter.
+
 ### Changed
 
 - **Changed:** Unify the `cfd-schematics` configuration constants into a single

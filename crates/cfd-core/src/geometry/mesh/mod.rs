@@ -123,7 +123,9 @@ impl<T: RealField + Copy> Mesh<T> {
             metadata: MeshMetadata {
                 name,
                 dimension,
-                created: chrono::Utc::now().to_rfc3339(),
+                created: horae_civil_time::UtcTimestamp::now()
+                    .expect("system clock within the supported civil date range")
+                    .to_string(),
                 properties: HashMap::new(),
             },
         }

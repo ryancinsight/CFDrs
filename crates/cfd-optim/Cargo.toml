@@ -17,7 +17,7 @@ default = []
 
 [dependencies]
 bincode.workspace = true
-chrono = { version = "0.4", features = ["serde"] }
+horae-civil-time.workspace = true
 sha2 = "0.10"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
