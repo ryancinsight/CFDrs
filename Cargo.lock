@@ -239,7 +239,7 @@ dependencies = [
 [[package]]
 name = "athena-core"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/athena#475a8afc0ae7a8c0ecd8a8f333455d26cb84d36a"
+source = "git+https://github.com/ryancinsight/athena#2be05424476101edba5ea29e1a4ec22b2a21c929"
 dependencies = [
  "eunomia",
 ]
