@@ -239,7 +239,7 @@ dependencies = [
 [[package]]
 name = "athena-core"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/athena#2be05424476101edba5ea29e1a4ec22b2a21c929"
+source = "git+https://github.com/ryancinsight/athena#475a8afc0ae7a8c0ecd8a8f333455d26cb84d36a"
 dependencies = [
  "eunomia",
 ]
@@ -1493,7 +1493,7 @@ dependencies = [
 [[package]]
 name = "harmonia-coupling"
 version = "0.1.4"
-source = "git+https://github.com/ryancinsight/harmonia?rev=228279dfb8a623ffe7cabaa5f7cc4c8e4140290b#228279dfb8a623ffe7cabaa5f7cc4c8e4140290b"
+source = "git+https://github.com/ryancinsight/harmonia?rev=68e25081c33361becaf3c4835982df4fa3edd9e9#68e25081c33361becaf3c4835982df4fa3edd9e9"
 dependencies = [
  "aequitas",
  "athena-core",
@@ -1639,15 +1639,16 @@ checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 [[package]]
 name = "horae-civil-time"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/horae?rev=fd117ce2b2b92d11a4e8bc92322e7fb40aa61aae#fd117ce2b2b92d11a4e8bc92322e7fb40aa61aae"
+source = "git+https://github.com/ryancinsight/horae?rev=e3494065235f908fdcec667976e1938ce2c795a3#e3494065235f908fdcec667976e1938ce2c795a3"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "horae-time"
-version = "0.2.2"
-source = "git+https://github.com/ryancinsight/horae#40196ff641c4366d5762b898ebf9fa109f99e863"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbe6cf53dba3b6524581c792ef625e83960986af6a532cee2242da2764e8e32f"
 dependencies = [
  "aequitas",
  "eunomia",
