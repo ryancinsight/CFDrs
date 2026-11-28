@@ -23,7 +23,9 @@
 - [major] Blood rheology consumes Aequitas reference constants. Verify the
   cutoff at the adjacent representable vessel diameters and the Metal suite.
 
-## CFDRS-CIVIL-TIME — Use shared UTC timestamps [major] — in progress
+<a id="cfdrs-civil-time"></a>
+## CFDRS-CIVIL-TIME — Use shared UTC timestamps [major] — todo
+- priority: verification; milestone: M-1.0; basis: `b76f00a72132`.
 
 - Migrate the three direct Chrono consumers in core metadata, benchmarks,
   and report generation to Horae. Persisted metadata remains RFC 3339 JSON.
