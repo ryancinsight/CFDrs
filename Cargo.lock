@@ -1877,9 +1877,9 @@ dependencies = [
 
 [[package]]
 name = "melinoe"
-version = "0.10.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aea7e15b946fc4131a113942783184c9a645f7a26e4418b118fc9bb39af33ae4"
+checksum = "a822d2dbfdeb5ccfeee9e7ee96eee706d9228721804355557c4b7f8e0b29a788"
 
 [[package]]
 name = "memchr"
